@@ -137,6 +137,59 @@ class WarrantManager
     }
 
     /**
+     * Classify one ability's reachability for a schema (by class or schema key).
+     */
+    public function abilityReachability(
+        string $schemaClassOrKey,
+        string $ability,
+        ?Authenticatable $user = null,
+    ): \Warrant\Reachability {
+        return $this->resolveSchemaClass($schemaClassOrKey)::abilityReachability($ability, $user);
+    }
+
+    /**
+     * Whether the user could ever hold the ability (or abilities) on a schema.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function userCouldEverHave(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userCouldEverHave($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user is guaranteed the ability (or abilities) on a schema.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function userAlwaysHas(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userAlwaysHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user can never hold the ability (or abilities) on a schema.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function userNeverHas(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userNeverHas($abilities, $user, $matchMode);
+    }
+
+    /**
      * The schema classes registered with Warrant.
      *
      * @return array<int, class-string<WarrantSchema>>

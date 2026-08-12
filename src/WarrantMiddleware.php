@@ -81,24 +81,118 @@ class WarrantMiddleware
     }
 
     /**
-     * Apply an access control middleware group using the generated middleware string.
+     * The generic row/capability guard. One method, two modes: with no closure it
+     * returns the middleware string; given a closure it wraps the grouped routes.
      *
-     * Example:
-     * `WarrantMiddleware::guard('course_sections', 'view', fn () => Route::get(...));`
+     * Examples:
+     * `WarrantMiddleware::guard('course_sections', 'view')` returns `warrant:course_sections,view`.
+     * `WarrantMiddleware::guard('course_section', 'view', fn () => Route::get(...));` groups the routes.
      *
      * @param  string|array<int, string>  $abilities
      */
     public static function guard(
         string $target,
         string|array $abilities,
-        Closure $routes,
+        ?Closure $routes = null,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL
-    ): void {
-        Route::middleware(self::string(
-            $target,
-            $abilities,
-            $matchMode,
-        ))->group($routes);
+    ): ?string {
+        $middleware = self::string($target, $abilities, $matchMode);
+
+        if (! $routes instanceof Closure) {
+            return $middleware;
+        }
+
+        Route::middleware($middleware)->group($routes);
+
+        return null;
+    }
+
+    /**
+     * Guard a route by reachability: passes when the user *could ever* hold the
+     * ability (or abilities). Target-free — the first argument is a schema key or
+     * schema/model class, never a route parameter. One method, two modes: returns
+     * the middleware string, or wraps grouped routes when given a closure.
+     *
+     * Examples:
+     * `WarrantMiddleware::couldEver('timesheets', 'view')` returns `warrant.could-ever:timesheets,view`.
+     * `WarrantMiddleware::couldEver('timesheets', 'view', fn () => Route::get(...));` groups the routes.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function couldEver(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.could-ever', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Guard a route by reachability: passes only when the user is *guaranteed* the
+     * ability (or abilities) regardless of the row. See {@see couldEver} for the
+     * two modes and the target rule.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function always(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.always', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Guard a route by reachability: passes only when the user can *never* hold the
+     * ability (or abilities) under any circumstance — e.g. an upsell page shown to
+     * users with no path to the feature. See {@see couldEver} for the two modes.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function never(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.never', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Build a reachability middleware string — `<alias>[.any]:<schemaKey>,<abilities>`
+     * — or, when a closure is given, wrap the grouped routes in it. The mode and
+     * match mode live entirely in the alias, so every token after the colon is an
+     * ability and no ability name can collide with a keyword.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    private static function reachabilityHelper(
+        string $alias,
+        string $target,
+        string|array $abilities,
+        ?Closure $routes,
+        AbilityMatchMode $matchMode,
+    ): ?string {
+        if ($matchMode === AbilityMatchMode::ANY) {
+            $alias .= '.any';
+        }
+
+        $normalizedAbilities = is_array($abilities) ? array_values($abilities) : [$abilities];
+
+        $middleware = implode(',', [
+            $alias.':'.self::normalizeTarget($target),
+            ...$normalizedAbilities,
+        ]);
+
+        if (! $routes instanceof Closure) {
+            return $middleware;
+        }
+
+        Route::middleware($middleware)->group($routes);
+
+        return null;
     }
 
     /**

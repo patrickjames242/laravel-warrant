@@ -37,6 +37,16 @@ final class WarrantServiceProvider extends ServiceProvider
     {
         $router->aliasMiddleware('warrant', WarrantMiddleware::class);
 
+        /* Reachability guards. Mode and match mode live in the alias, so the
+           route string after the colon is only the schema key and abilities —
+           an ability may safely be named "any" or "all". */
+        $router->aliasMiddleware('warrant.could-ever', Middleware\CouldEverMiddleware::class);
+        $router->aliasMiddleware('warrant.could-ever.any', Middleware\CouldEverAnyMiddleware::class);
+        $router->aliasMiddleware('warrant.always', Middleware\AlwaysMiddleware::class);
+        $router->aliasMiddleware('warrant.always.any', Middleware\AlwaysAnyMiddleware::class);
+        $router->aliasMiddleware('warrant.never', Middleware\NeverMiddleware::class);
+        $router->aliasMiddleware('warrant.never.any', Middleware\NeverAnyMiddleware::class);
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/warrant.php' => $this->app->configPath('warrant.php'),

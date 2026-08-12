@@ -130,3 +130,105 @@ it('guards a route group with a standard ability helper', function () {
         ->get('/__warrant/can-view/teacher:teacher-role')
         ->assertOk();
 });
+
+it('guard returns the middleware string when no closure is given', function () {
+    expect(WarrantMiddleware::guard('course_sections', 'publish'))
+        ->toBe('warrant:course_sections,publish');
+});
+
+it('builds reachability middleware strings with mode and match mode in the alias', function () {
+    expect(WarrantMiddleware::couldEver('course_sections', 'view'))
+        ->toBe('warrant.could-ever:course_sections,view');
+    expect(WarrantMiddleware::always('course_sections', 'view'))
+        ->toBe('warrant.always:course_sections,view');
+    expect(WarrantMiddleware::never('course_sections', 'view'))
+        ->toBe('warrant.never:course_sections,view');
+
+    expect(WarrantMiddleware::couldEver('course_sections', ['view', 'publish'], matchMode: AbilityMatchMode::ANY))
+        ->toBe('warrant.could-ever.any:course_sections,view,publish');
+
+    // Normalizes schema/model classes to the schema key, same as ::string.
+    expect(WarrantMiddleware::couldEver(WarrantScopedModelSchema::class, 'view'))
+        ->toBe('warrant.could-ever:course_sections,view');
+});
+
+it('leaves an ability named like a match mode untouched after the colon', function () {
+    // The whole point of the alias-prefix grammar: no reserved tokens in params.
+    expect(WarrantMiddleware::couldEver('course_sections', 'any'))
+        ->toBe('warrant.could-ever:course_sections,any');
+});
+
+it('passes a could-ever guard when the ability is reachable', function () {
+    bindWarrantRules('if is_teacher they can view');
+
+    registerWarrantTestRoute('/__warrant/could-ever', 'warrant.could-ever:course_sections,view');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/could-ever')
+        ->assertOk();
+});
+
+it('forbids a could-ever guard when no rule grants the ability', function () {
+    bindWarrantRules('');
+
+    registerWarrantTestRoute('/__warrant/could-ever-forbidden', 'warrant.could-ever:course_sections,publish');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/could-ever-forbidden')
+        ->assertForbidden();
+});
+
+it('forbids an always guard when the grant is only conditional', function () {
+    bindWarrantRules('if is_teacher they can view');
+
+    registerWarrantTestRoute('/__warrant/always', 'warrant.always:course_sections,view');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/always')
+        ->assertForbidden();
+});
+
+it('passes an always guard for an unconditional grant', function () {
+    bindWarrantRules('they can publish');
+
+    registerWarrantTestRoute('/__warrant/always-ok', 'warrant.always:course_sections,publish');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/always-ok')
+        ->assertOk();
+});
+
+it('passes a never guard exactly when the ability is unreachable', function () {
+    bindWarrantRules('');
+
+    registerWarrantTestRoute('/__warrant/never-ok', 'warrant.never:course_sections,publish');
+    registerWarrantTestRoute('/__warrant/never-any', 'warrant.never.any:course_sections,publish');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/never-ok')
+        ->assertOk();
+});
+
+it('forbids a never guard once a rule can grant the ability', function () {
+    bindWarrantRules('they can publish');
+
+    registerWarrantTestRoute('/__warrant/never-forbidden', 'warrant.never:course_sections,publish');
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/never-forbidden')
+        ->assertForbidden();
+});
+
+it('guards a reachability route group with a closure', function () {
+    bindWarrantRules('if is_teacher they can view');
+
+    Route::middleware(SubstituteBindings::class)->group(function () {
+        WarrantMiddleware::couldEver('course_sections', 'view', function () {
+            Route::get('/__warrant/could-ever-group', fn () => response('ok'));
+        });
+    });
+
+    $this->actingAs(makeWarrantTestUser('teacher-role'))
+        ->get('/__warrant/could-ever-group')
+        ->assertOk();
+});
