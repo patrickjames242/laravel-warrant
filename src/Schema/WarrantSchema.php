@@ -1,37 +1,41 @@
 <?php
 
-namespace Warden\Schema;
+namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use Warden\AbilityMatchMode;
-use Warden\RuleSyntaxTree\ConditionResolver;
-use Warden\RuleSyntaxTree\WardenRule;
-use Warden\Schema\Concerns\BuildsAccessQueries;
-use Warden\Schema\Concerns\ReflectsSchemaDefinition;
-use Warden\Schema\Concerns\ResolvesConditions;
+use Warrant\AbilityMatchMode;
+use Warrant\Reachability;
+use Warrant\RuleSyntaxTree\ConditionResolver;
+use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Schema\Concerns\AnalyzesReachability;
+use Warrant\Schema\Concerns\BuildsAccessQueries;
+use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
+use Warrant\Schema\Concerns\ResolvesConditions;
 
 /**
- * A Warden schema declares the vocabulary a rule string may reference for one
+ * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
  * (`#[TargetedCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
  * rules live — those come from the {@see RuleResolver} as a
- * {@see \Warden\RuleSyntaxTree\WardenRuleSet}, compiled against this schema.
+ * {@see \Warrant\RuleSyntaxTree\WarrantRuleSet}, compiled against this schema.
  *
- * The implementation is split across three concerns:
+ * The implementation is split across four concerns:
  *  - {@see ReflectsSchemaDefinition} — discovering abilities/conditions via reflection;
  *  - {@see ResolvesConditions}       — the ConditionResolver seam + ability validation;
- *  - {@see BuildsAccessQueries}      — turning a rule set into SQL access predicates.
+ *  - {@see BuildsAccessQueries}      — turning a rule set into SQL access predicates;
+ *  - {@see AnalyzesReachability}     — the structural "could they ever?" analysis.
  *
  * This class itself carries the configuration constants, the instance lifecycle,
  * and the static entry points callers reach for.
  */
-abstract class WardenSchema implements ConditionResolver
+abstract class WarrantSchema implements ConditionResolver
 {
     use ReflectsSchemaDefinition;
     use ResolvesConditions;
     use BuildsAccessQueries;
+    use AnalyzesReachability;
 
     /**
      * @var class-string<Model>
@@ -67,13 +71,13 @@ abstract class WardenSchema implements ConditionResolver
      * protected function implicitRules(): array
      * {
      *     return [
-     *         WardenRule::fromSyntax('if is_super_admin they can *'),
-     *         WardenRule::fromSyntax('if is_suspended they cannot *'),
+     *         WarrantRule::fromSyntax('if is_super_admin they can *'),
+     *         WarrantRule::fromSyntax('if is_suspended they cannot *'),
      *     ];
      * }
      * ```
      *
-     * @return array<int, WardenRule>
+     * @return array<int, WarrantRule>
      */
     protected function implicitRules(): array
     {
@@ -209,5 +213,134 @@ abstract class WardenSchema implements ConditionResolver
             'abilities' => static::getUserAbilities(null, $user),
             'target' => null,
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reachability — "could this user ever hold the ability?"
+    |--------------------------------------------------------------------------
+    |
+    | A structural question answered from the shape of the resolved rules alone:
+    | no conditions are evaluated and no query is run. It asks whether a grant is
+    | even conceivable, so it is ideal for hiding UI, gating sections, and short-
+    | circuiting per-row checks — never a substitute for the real row check.
+    */
+
+    /**
+     * Classify one ability as NEVER / MAYBE / ALWAYS for the user.
+     */
+    public static function abilityReachability(string $ability, ?Authenticatable $user = null): Reachability
+    {
+        return (new static)->reachabilityOf(static::resolveReachabilityUser($user), $ability);
+    }
+
+    /**
+     * Whether the user could ever hold the ability under some circumstance
+     * (reachability is not NEVER). With several abilities, the match mode decides:
+     * ALL requires every ability to be reachable, ANY requires at least one.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userCouldEverHave(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->reachabilitySatisfies(
+            static::resolveReachabilityUser($user),
+            $abilities,
+            fn (Reachability $r): bool => $r !== Reachability::NEVER,
+            $matchMode,
+        );
+    }
+
+    /**
+     * Whether the user is guaranteed the ability regardless of the row
+     * (reachability is ALWAYS). See {@see userCouldEverHave} for match-mode rules.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userAlwaysHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->reachabilitySatisfies(
+            static::resolveReachabilityUser($user),
+            $abilities,
+            fn (Reachability $r): bool => $r === Reachability::ALWAYS,
+            $matchMode,
+        );
+    }
+
+    /**
+     * Whether the user can never hold the ability under any circumstance
+     * (reachability is NEVER). See {@see userCouldEverHave} for match-mode rules.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userNeverHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->reachabilitySatisfies(
+            static::resolveReachabilityUser($user),
+            $abilities,
+            fn (Reachability $r): bool => $r === Reachability::NEVER,
+            $matchMode,
+        );
+    }
+
+    /**
+     * Every declared ability the user could ever hold (reachability not NEVER).
+     *
+     * @return array<int, string>
+     */
+    public static function getUserPossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->abilitiesWhereReachability(
+            static::resolveReachabilityUser($user),
+            fn (Reachability $r): bool => $r !== Reachability::NEVER,
+        );
+    }
+
+    /**
+     * Every declared ability the user is guaranteed (reachability ALWAYS).
+     *
+     * @return array<int, string>
+     */
+    public static function getUserGuaranteedAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->abilitiesWhereReachability(
+            static::resolveReachabilityUser($user),
+            fn (Reachability $r): bool => $r === Reachability::ALWAYS,
+        );
+    }
+
+    /**
+     * Every declared ability the user can never hold (reachability NEVER).
+     *
+     * @return array<int, string>
+     */
+    public static function getUserImpossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->abilitiesWhereReachability(
+            static::resolveReachabilityUser($user),
+            fn (Reachability $r): bool => $r === Reachability::NEVER,
+        );
+    }
+
+    private static function resolveReachabilityUser(?Authenticatable $user): Authenticatable
+    {
+        $user ??= auth()->user();
+
+        if (! $user instanceof Authenticatable) {
+            throw new InvalidArgumentException(
+                sprintf('Schema [%s] requires an authenticated user or an explicit user instance.', static::class)
+            );
+        }
+
+        return $user;
     }
 }

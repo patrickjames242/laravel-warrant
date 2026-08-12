@@ -1,18 +1,18 @@
 <?php
 
-namespace Warden\RuleSyntaxTree\Parsing;
+namespace Warrant\RuleSyntaxTree\Parsing;
 
-use Warden\RuleSyntaxTree\AndNode;
-use Warden\RuleSyntaxTree\ConditionNode;
-use Warden\RuleSyntaxTree\ContextRef;
-use Warden\RuleSyntaxTree\IBooleanExpressionNode;
-use Warden\RuleSyntaxTree\NotNode;
-use Warden\RuleSyntaxTree\OrNode;
-use Warden\RuleSyntaxTree\WardenRule;
-use Warden\RuleSyntaxTree\WardenSyntaxException;
+use Warrant\RuleSyntaxTree\AndNode;
+use Warrant\RuleSyntaxTree\ConditionNode;
+use Warrant\RuleSyntaxTree\ContextRef;
+use Warrant\RuleSyntaxTree\IBooleanExpressionNode;
+use Warrant\RuleSyntaxTree\NotNode;
+use Warrant\RuleSyntaxTree\OrNode;
+use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\RuleSyntaxTree\WarrantSyntaxException;
 
 /**
- * Recursive-descent parser for Warden rule syntax. Bindings are resolved inline
+ * Recursive-descent parser for Warrant rule syntax. Bindings are resolved inline
  * as the tree is built, so the resulting nodes hold only concrete values.
  *
  * Grammar:
@@ -28,7 +28,7 @@ use Warden\RuleSyntaxTree\WardenSyntaxException;
  *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref
  *   context_ref := '@context' IDENTIFIER
  */
-final class WardenParser
+final class WarrantParser
 {
     /** @var list<Token> */
     private readonly array $tokens;
@@ -49,10 +49,10 @@ final class WardenParser
     }
 
     /**
-     * Parse Warden syntax into a flat list of rules, resolving $bindings inline.
+     * Parse Warrant syntax into a flat list of rules, resolving $bindings inline.
      *
      * @param array<int|string, mixed> $bindings
-     * @return list<WardenRule>
+     * @return list<WarrantRule>
      */
     public static function parse(string $source, array $bindings = []): array
     {
@@ -64,7 +64,7 @@ final class WardenParser
      *
      * @param array<int|string, mixed> $bindings
      */
-    public static function parseSingleRule(string $source, array $bindings = []): WardenRule
+    public static function parseSingleRule(string $source, array $bindings = []): WarrantRule
     {
         $parser = new self($source, $bindings);
         $rules = $parser->parseComplete();
@@ -100,7 +100,7 @@ final class WardenParser
      * Parse the full input to rules, asserting a clean end and that every
      * binding was consumed.
      *
-     * @return list<WardenRule>
+     * @return list<WarrantRule>
      */
     private function parseComplete(): array
     {
@@ -112,7 +112,7 @@ final class WardenParser
     }
 
     /**
-     * @return list<WardenRule>
+     * @return list<WarrantRule>
      */
     private function parseRules(): array
     {
@@ -133,7 +133,7 @@ final class WardenParser
         return $rules;
     }
 
-    private function parseClausesInto(?IBooleanExpressionNode $conditions): WardenRule
+    private function parseClausesInto(?IBooleanExpressionNode $conditions): WarrantRule
     {
         $can = [];
         $cannot = [];
@@ -158,7 +158,7 @@ final class WardenParser
             throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause.");
         }
 
-        return new WardenRule($conditions, $can, $cannot);
+        return new WarrantRule($conditions, $can, $cannot);
     }
 
     /**
@@ -337,28 +337,28 @@ final class WardenParser
         throw $this->errorAtCurrent($message);
     }
 
-    private function errorAtCurrent(string $message): WardenSyntaxException
+    private function errorAtCurrent(string $message): WarrantSyntaxException
     {
-        return WardenSyntaxException::at($message, $this->source, $this->peek());
+        return WarrantSyntaxException::at($message, $this->source, $this->peek());
     }
 
     /**
      * Error for a spot expecting a name, with a clearer hint when the offending
      * token is a reserved word (which cannot be used as a name).
      */
-    private function nameError(string $expected): WardenSyntaxException
+    private function nameError(string $expected): WarrantSyntaxException
     {
         $token = $this->peek();
 
         if ($this->isReservedWord($token)) {
-            return WardenSyntaxException::at(
+            return WarrantSyntaxException::at(
                 sprintf("Reserved word '%s' cannot be used as a name; expected %s.", $token->lexeme, $expected),
                 $this->source,
                 $token,
             );
         }
 
-        return WardenSyntaxException::at(sprintf('Expected %s.', $expected), $this->source, $token);
+        return WarrantSyntaxException::at(sprintf('Expected %s.', $expected), $this->source, $token);
     }
 
     private function isReservedWord(Token $token): bool

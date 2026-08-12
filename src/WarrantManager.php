@@ -1,38 +1,38 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use OutOfBoundsException;
-use Warden\Schema\WardenSchema;
+use Warrant\Schema\WarrantSchema;
 
 /**
- * Central registry and validation entry point for Warden.
+ * Central registry and validation entry point for Warrant.
  *
  * Responsible for:
  * - mapping model classes to schema classes
  * - mapping schema keys to schema classes
  * - validating persisted rule sets against registered schemas
  *
- * Bound as a singleton and reached through the Warden facade. The registry is
- * built from the `warden.schemas` config.
+ * Bound as a singleton and reached through the Warrant facade. The registry is
+ * built from the `warrant.schemas` config.
  */
-class WardenManager
+class WarrantManager
 {
     /**
-     * @var array<class-string<Model>, class-string<WardenSchema>>
+     * @var array<class-string<Model>, class-string<WarrantSchema>>
      */
     private array $modelsToSchemas = [];
 
     /**
-     * @var array<string, class-string<WardenSchema>>
+     * @var array<string, class-string<WarrantSchema>>
      */
     private array $schemaKeysToSchemas = [];
 
     /**
-     * @param  array<int, class-string<WardenSchema>>  $schemaClasses
+     * @param  array<int, class-string<WarrantSchema>>  $schemaClasses
      */
     public function __construct(array $schemaClasses)
     {
@@ -61,24 +61,24 @@ class WardenManager
 
     /**
      * @param  class-string<Model>  $modelClass
-     * @return class-string<WardenSchema>
+     * @return class-string<WarrantSchema>
      */
     public function getSchemaForModelClass(string $modelClass): string
     {
         if (!isset($this->modelsToSchemas[$modelClass])) {
-            throw new OutOfBoundsException(sprintf('No Warden schema registered for model [%s].', $modelClass));
+            throw new OutOfBoundsException(sprintf('No Warrant schema registered for model [%s].', $modelClass));
         }
 
         return $this->modelsToSchemas[$modelClass];
     }
 
     /**
-     * @return class-string<WardenSchema>
+     * @return class-string<WarrantSchema>
      */
     public function getSchemaForKey(string $schemaKey): string
     {
         if (!isset($this->schemaKeysToSchemas[$schemaKey])) {
-            throw new OutOfBoundsException(sprintf('No Warden schema registered for schema key [%s].', $schemaKey));
+            throw new OutOfBoundsException(sprintf('No Warrant schema registered for schema key [%s].', $schemaKey));
         }
 
         return $this->schemaKeysToSchemas[$schemaKey];
@@ -87,13 +87,13 @@ class WardenManager
     /**
      * Normalize any of the accepted schema references to a schema key.
      *
-     * Accepts a schema key string, a {@see WardenSchema} instance or class-string,
+     * Accepts a schema key string, a {@see WarrantSchema} instance or class-string,
      * or a {@see Model} instance or class-string. A plain string that matches
      * neither a schema class nor a model class is treated as a literal schema key.
      */
-    public function resolveSchemaKey(Model|WardenSchema|string $schema): string
+    public function resolveSchemaKey(Model|WarrantSchema|string $schema): string
     {
-        if ($schema instanceof WardenSchema) {
+        if ($schema instanceof WarrantSchema) {
             return $schema::schemaKey();
         }
 
@@ -101,7 +101,7 @@ class WardenManager
             return $this->getSchemaForModelClass($schema::class)::schemaKey();
         }
 
-        if (is_a($schema, WardenSchema::class, true)) {
+        if (is_a($schema, WarrantSchema::class, true)) {
             return $schema::schemaKey();
         }
 
@@ -114,7 +114,7 @@ class WardenManager
 
     /**
      * Combined no-target ability bag for multiple schemas. Each argument may be
-     * a WardenSchema class string or a schema key.
+     * a WarrantSchema class string or a schema key.
      *
      * @return array<string, array{schema_key: string, abilities: array<int, string>, target: null}>
      */
@@ -137,9 +137,62 @@ class WardenManager
     }
 
     /**
-     * The schema classes registered with Warden.
+     * Classify one ability's reachability for a schema (by class or schema key).
+     */
+    public function abilityReachability(
+        string $schemaClassOrKey,
+        string $ability,
+        ?Authenticatable $user = null,
+    ): \Warrant\Reachability {
+        return $this->resolveSchemaClass($schemaClassOrKey)::abilityReachability($ability, $user);
+    }
+
+    /**
+     * Whether the user could ever hold the ability (or abilities) on a schema.
      *
-     * @return array<int, class-string<WardenSchema>>
+     * @param string|array<int, string> $abilities
+     */
+    public function userCouldEverHave(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userCouldEverHave($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user is guaranteed the ability (or abilities) on a schema.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function userAlwaysHas(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userAlwaysHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user can never hold the ability (or abilities) on a schema.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function userNeverHas(
+        string $schemaClassOrKey,
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
+    ): bool {
+        return $this->resolveSchemaClass($schemaClassOrKey)::userNeverHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * The schema classes registered with Warrant.
+     *
+     * @return array<int, class-string<WarrantSchema>>
      */
     public function registeredSchemas(): array
     {
@@ -147,11 +200,11 @@ class WardenManager
     }
 
     /**
-     * @return class-string<WardenSchema>
+     * @return class-string<WarrantSchema>
      */
     private function resolveSchemaClass(string $schemaClassOrSchemaKey): string
     {
-        if (is_a($schemaClassOrSchemaKey, WardenSchema::class, true)) {
+        if (is_a($schemaClassOrSchemaKey, WarrantSchema::class, true)) {
             return $schemaClassOrSchemaKey;
         }
 

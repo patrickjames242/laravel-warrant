@@ -1,21 +1,21 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use LogicException;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole
- * {@see WardenRule} in PHP instead of the string DSL.
+ * {@see WarrantRule} in PHP instead of the string DSL.
  *
- * It extends {@see WardenConditionBuilder} with the clause half of a rule
+ * It extends {@see WarrantConditionBuilder} with the clause half of a rule
  * (`theyCan` / `theyCannot`) and finalization via `toRule()`. The condition
  * methods it inherits return `static`, so a top-level chain keeps the rule
  * builder — `->if(...)->theyCan(...)` works — while a group closure only ever
  * receives a bare condition builder.
  *
  * ```php
- * WardenRule::build()
+ * WarrantRule::build()
  *     ->if('is_self')
  *     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
  *     ->theyCan('view', 'update')
@@ -23,7 +23,7 @@ use LogicException;
  *     ->toRule();
  * ```
  */
-final class WardenRuleBuilder extends WardenConditionBuilder
+final class WarrantRuleBuilder extends WarrantConditionBuilder
 {
     /** @var list<string> */
     private array $can = [];
@@ -49,7 +49,7 @@ final class WardenRuleBuilder extends WardenConditionBuilder
 
     // -- materialization ------------------------------------------------------
 
-    public function toRule(): WardenRule
+    public function toRule(): WarrantRule
     {
         if ($this->can === [] && $this->cannot === []) {
             throw new LogicException(
@@ -57,6 +57,6 @@ final class WardenRuleBuilder extends WardenConditionBuilder
             );
         }
 
-        return new WardenRule($this->buildConditions(), $this->can, $this->cannot);
+        return new WarrantRule($this->buildConditions(), $this->can, $this->cannot);
     }
 }

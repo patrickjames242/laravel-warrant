@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 /**
  * A schema's declared vocabulary: the ability names and condition keys a rule

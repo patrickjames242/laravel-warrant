@@ -1,20 +1,20 @@
 <?php
 
-namespace Warden\Schema\Concerns;
+namespace Warrant\Schema\Concerns;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
 use RuntimeException;
-use Warden\AbilityMatchMode;
-use Warden\RuleResolutionContext;
-use Warden\RuleResolver;
-use Warden\RuleSyntaxTree\RuleSetCompiler;
-use Warden\RuleSyntaxTree\RuleSetValidator;
-use Warden\RuleSyntaxTree\WardenRuleSet;
+use Warrant\AbilityMatchMode;
+use Warrant\RuleResolutionContext;
+use Warrant\RuleResolver;
+use Warrant\RuleSyntaxTree\RuleSetCompiler;
+use Warrant\RuleSyntaxTree\RuleSetValidator;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 /**
- * The SQL runtime: turns the resolved {@see WardenRuleSet} into access-control
+ * The SQL runtime: turns the resolved {@see WarrantRuleSet} into access-control
  * predicates and attaches them to entity queries (row filtering and per-row
  * ability selection). All condition SQL is produced by the {@see RuleSetCompiler}.
  */
@@ -126,7 +126,7 @@ trait BuildsAccessQueries
             'mysql', 'mariadb' => "coalesce(json_arrayagg({$wrappedAbility}), json_array())",
             'sqlite' => "coalesce(json_group_array({$wrappedAbility}), json_array())",
             default => throw new RuntimeException(
-                sprintf('Warden ability selection does not support the [%s] database driver.', $driver)
+                sprintf('Warrant ability selection does not support the [%s] database driver.', $driver)
             ),
         };
 
@@ -203,7 +203,7 @@ trait BuildsAccessQueries
      * Resolve and validate the rule set that governs this user's access to the
      * managed entity.
      */
-    protected function resolveRuleSet(Authenticatable $currentUser): WardenRuleSet
+    protected function resolveRuleSet(Authenticatable $currentUser): WarrantRuleSet
     {
         $resolver = app(RuleResolver::class);
 
@@ -217,7 +217,7 @@ trait BuildsAccessQueries
         $implicitRules = $this->implicitRules();
 
         if ($implicitRules !== []) {
-            $ruleSet = new WardenRuleSet($ruleSet->schemaKey, [
+            $ruleSet = new WarrantRuleSet($ruleSet->schemaKey, [
                 ...$implicitRules,
                 ...$ruleSet->rules,
             ]);
@@ -279,7 +279,7 @@ trait BuildsAccessQueries
         Authenticatable $currentUser,
         Builder $query,
         string $ability,
-        WardenRuleSet $ruleSet,
+        WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
         array $context = []
     ): Builder

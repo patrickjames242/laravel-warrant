@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Warden\Tests;
+namespace Warrant\Tests;
 
 use Orchestra\Testbench\TestCase as Orchestra;
-use Warden\WardenServiceProvider;
+use Warrant\WarrantServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
@@ -15,7 +15,7 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
-            WardenServiceProvider::class,
+            WarrantServiceProvider::class,
         ];
     }
 

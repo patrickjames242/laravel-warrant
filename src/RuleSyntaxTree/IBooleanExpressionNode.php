@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 interface IBooleanExpressionNode extends INode
 {

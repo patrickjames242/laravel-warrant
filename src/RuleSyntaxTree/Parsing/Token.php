@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree\Parsing;
+namespace Warrant\RuleSyntaxTree\Parsing;
 
 readonly class Token
 {

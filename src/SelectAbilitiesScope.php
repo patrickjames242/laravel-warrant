@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,7 +17,7 @@ class SelectAbilitiesScope implements Scope
             return;
         }
 
-        if (! method_exists($model, 'wardenSchema')) {
+        if (! method_exists($model, 'warrantSchema')) {
             return;
         }
 

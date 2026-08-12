@@ -1,12 +1,12 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use LogicException;
 
 /**
- * Renders {@see WardenRule} ASTs back to the string DSL — the inverse of
- * {@see \Warden\RuleSyntaxTree\Parsing\WardenParser}.
+ * Renders {@see WarrantRule} ASTs back to the string DSL — the inverse of
+ * {@see \Warrant\RuleSyntaxTree\Parsing\WarrantParser}.
  *
  * Two forms:
  *
@@ -40,7 +40,7 @@ final class RuleSyntaxWriter
     /**
      * Render rules to a self-contained string with inline literals.
      */
-    public static function toSyntax(WardenRule ...$rules): string
+    public static function toSyntax(WarrantRule ...$rules): string
     {
         return (new self(bound: false))->writeRules($rules);
     }
@@ -48,7 +48,7 @@ final class RuleSyntaxWriter
     /**
      * Render rules to `?`-parameterized syntax plus the matching bindings.
      */
-    public static function toBoundSyntax(WardenRule ...$rules): BoundSyntax
+    public static function toBoundSyntax(WarrantRule ...$rules): BoundSyntax
     {
         $writer = new self(bound: true);
 
@@ -56,14 +56,14 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<WardenRule> $rules
+     * @param list<WarrantRule> $rules
      */
     private function writeRules(array $rules): string
     {
         return implode("\n\n", array_map($this->writeRule(...), $rules));
     }
 
-    private function writeRule(WardenRule $rule): string
+    private function writeRule(WarrantRule $rule): string
     {
         $lines = [];
 

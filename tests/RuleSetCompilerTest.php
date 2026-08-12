@@ -4,10 +4,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warden\RuleSyntaxTree\ConditionResolver;
-use Warden\RuleSyntaxTree\RuleSetCompiler;
-use Warden\RuleSyntaxTree\RuleSetValidator;
-use Warden\RuleSyntaxTree\WardenRuleSet;
+use Warrant\RuleSyntaxTree\ConditionResolver;
+use Warrant\RuleSyntaxTree\RuleSetCompiler;
+use Warrant\RuleSyntaxTree\RuleSetValidator;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 /**
  * A tiny user carrying just a role, enough for the fake conditions below.
@@ -74,7 +74,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WardenRuleSet::fromSyntax('docs', $syntax, $bindings);
+    $ruleSet = WarrantRuleSet::fromSyntax('docs', $syntax, $bindings);
 
     $query = DB::table('docs');
     $predicate = $compiler->compileAbility(new CompilerTestUser($role), $query, $ability, $ruleSet, 'docs.id', $context);
@@ -159,13 +159,13 @@ it('forces a targeted condition to false with no target, true under not', functi
     $user = new CompilerTestUser('role-1');
 
     // No targetSqlId: is_teacher is forced false.
-    $granted = WardenRuleSet::fromSyntax('docs', 'if is_teacher they can view');
+    $granted = WarrantRuleSet::fromSyntax('docs', 'if is_teacher they can view');
     $q = DB::table('docs');
     $q->addNestedWhereQuery($compiler->compileAbility($user, $q, 'view', $granted, null));
     expect($q->count())->toBe(0);
 
     // not is_teacher => true, so every row.
-    $negated = WardenRuleSet::fromSyntax('docs', 'if not is_teacher they can view');
+    $negated = WarrantRuleSet::fromSyntax('docs', 'if not is_teacher they can view');
     $q2 = DB::table('docs');
     $q2->addNestedWhereQuery($compiler->compileAbility($user, $q2, 'view', $negated, null));
     expect($q2->count())->toBe(3);
@@ -213,24 +213,24 @@ it('treats a negated absent context condition as true (De Morgan-safe)', functio
 it('rejects a rule referencing an undeclared context key', function () {
     $validator = new RuleSetValidator(new FakeConditionResolver);
 
-    expect(fn () => $validator->validate(WardenRuleSet::fromSyntax('docs', 'if id_is(@context nope) they can view')))
+    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context nope) they can view')))
         ->toThrow(InvalidArgumentException::class, 'Context key [nope]');
 
     // A declared key passes silently.
-    $validator->validate(WardenRuleSet::fromSyntax('docs', 'if id_is(@context doc_id) they can view'));
+    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context doc_id) they can view'));
     expect(true)->toBeTrue();
 });
 
 it('validates unknown ability and condition names', function () {
     $validator = new RuleSetValidator(new FakeConditionResolver);
 
-    expect(fn () => $validator->validate(WardenRuleSet::fromSyntax('docs', 'they can fly')))
+    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'they can fly')))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 
-    expect(fn () => $validator->validate(WardenRuleSet::fromSyntax('docs', 'if is_wizard they can view')))
+    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if is_wizard they can view')))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard]');
 
     // A valid set passes silently.
-    $validator->validate(WardenRuleSet::fromSyntax('docs', 'if is_teacher they can view, edit'));
+    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if is_teacher they can view, edit'));
     expect(true)->toBeTrue();
 });

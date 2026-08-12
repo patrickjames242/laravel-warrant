@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 /**
  * A rule (or rule set) rendered back to the string DSL with every condition
@@ -8,8 +8,8 @@ namespace Warden\RuleSyntaxTree;
  * left-to-right list of values that fill them.
  *
  * Round-trips through the parser: for a rule set,
- * `WardenRuleSet::fromSyntax($schemaKey, $syntax, $bindings)` reconstructs an
- * equivalent set; for a single rule, `WardenRule::fromSyntax($syntax, $bindings)`.
+ * `WarrantRuleSet::fromSyntax($schemaKey, $syntax, $bindings)` reconstructs an
+ * equivalent set; for a single rule, `WarrantRule::fromSyntax($syntax, $bindings)`.
  */
 readonly class BoundSyntax
 {

@@ -1,11 +1,11 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use InvalidArgumentException;
 
 /**
- * Validates every condition and ability name in a {@see WardenRuleSet} against
+ * Validates every condition and ability name in a {@see WarrantRuleSet} against
  * the schema it targets. Runs before compilation so unknown names fail loudly
  * rather than silently producing an empty predicate.
  *
@@ -21,7 +21,7 @@ final class RuleSetValidator
      * Validate every condition and ability name in the rule set against the
      * schema. Throws {@see InvalidArgumentException} on the first unknown name.
      */
-    public function validate(WardenRuleSet $ruleSet): void
+    public function validate(WarrantRuleSet $ruleSet): void
     {
         $declaredAbilities = $this->schema->declaredAbilities();
 

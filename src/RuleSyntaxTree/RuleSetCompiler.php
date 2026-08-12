@@ -1,13 +1,13 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
 
 /**
- * Compiles a {@see WardenRuleSet} into SQL predicates.
+ * Compiles a {@see WarrantRuleSet} into SQL predicates.
  *
  * The unit of output is one nested {@see Builder} predicate per ability, ready
  * to be attached to a host query (directly for row filtering, or inside a
@@ -40,7 +40,7 @@ final class RuleSetCompiler
         Authenticatable $user,
         Builder $query,
         string $ability,
-        WardenRuleSet $ruleSet,
+        WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
         array $context = [],
     ): Builder {
@@ -196,7 +196,7 @@ final class RuleSetCompiler
         $existsQuery = $parent->newQuery();
         $existsQuery->selectRaw('1')->fromSub(
             fn (Builder $one) => $one->selectRaw('1'),
-            'warden_exists'
+            'warrant_exists'
         );
 
         $result = $this->conditions->applyCondition(

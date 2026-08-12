@@ -1,19 +1,19 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 /**
- * Living reference for Warden rule syntax.
+ * Living reference for Warrant rule syntax.
  *
  * Every method below is illustrative and never executed — each demonstrates one
- * facet of the language accepted by WardenRuleSet::fromSyntax() /
- * WardenRule::fromSyntax(), or the resolved-rule composition accepted by
- * WardenRuleSet::fromRules().
+ * facet of the language accepted by WarrantRuleSet::fromSyntax() /
+ * WarrantRule::fromSyntax(), or the resolved-rule composition accepted by
+ * WarrantRuleSet::fromRules().
  *
  * Core model:
  *  - A rule set compiles DIRECTLY to SQL. There is no in-memory evaluator; even a
  *    single-instance check runs as a scoped SQL query.
- *  - Conditions (is_self, is_manager, is_specific_user, ...) are Warden conditions
+ *  - Conditions (is_self, is_manager, is_specific_user, ...) are Warrant conditions
  *    that emit SQL. Conditions may take parameters, e.g. is_specific_user('id').
  *  - `cannot` is deny-overrides: each `cannot` rule contributes
  *    `AND NOT (its if-expression)` to every ability it lists. An unconditional
@@ -24,7 +24,7 @@ namespace Warden\RuleSyntaxTree;
  *    line. `if` (as a standalone keyword) is the sole rule delimiter.
  *  - Bindings are resolved inline at parse time; the resulting tree holds only
  *    concrete values (no placeholder nodes, no separate resolve phase).
- *  - Malformed syntax throws WardenSyntaxException eagerly at build time, with
+ *  - Malformed syntax throws WarrantSyntaxException eagerly at build time, with
  *    position information (line:col / offset) and a snippet.
  *
  * Lexical rules:
@@ -47,7 +47,7 @@ class RuleSyntaxExamples
     /** A single rule: one `if`, a `can` line, and a `cannot` line. */
     public function basicRule(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_self
             they can edit, view, delete
             they cannot approve, deny
@@ -61,7 +61,7 @@ class RuleSyntaxExamples
     /** Several rules in one string. Each `if` starts a new rule. */
     public function multipleRules(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_self or (not is_manager and is_specific_user('some-user-id'))
             they can edit, view, delete
             they cannot approve, deny
@@ -78,7 +78,7 @@ class RuleSyntaxExamples
     /** No `if` → the rule always applies (compiles to `WHERE true` on the grant side). */
     public function unconditionalRule(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             they can view
             they cannot delete
             DSL);
@@ -94,7 +94,7 @@ class RuleSyntaxExamples
     /** An entire rule set — multiple `if`s, multiple rules — on a single line. */
     public function singleLine(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax(
+        $ruleSet = WarrantRuleSet::fromSyntax(
             'timesheets',
             'if is_self they can edit if is_manager they can approve they cannot delete'
         );
@@ -113,7 +113,7 @@ class RuleSyntaxExamples
     public function booleanPrecedence(): void
     {
         // Parses as: is_self OR ((NOT is_manager) AND is_owner)
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_self or not is_manager and is_owner
             they can view
             DSL);
@@ -122,7 +122,7 @@ class RuleSyntaxExamples
     /** `!` is an accepted synonym for `not`; parentheses group freely. */
     public function negationSynonymAndGrouping(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if !(is_self or (!is_manager and is_specific_user('some-user-id')))
             they cannot edit
             DSL);
@@ -141,7 +141,7 @@ class RuleSyntaxExamples
      */
     public function inlineLiterals(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_thing('a-string', 42, 3.14, true, null)
             they can view
             DSL);
@@ -156,10 +156,10 @@ class RuleSyntaxExamples
      * interpolating it into SQL. The arguments arrive on the condition's context
      * object as `$c->arguments`:
      *
-     *   use Warden\TargetedCondition;
-     *   use Warden\GlobalCondition;
-     *   use Warden\Schema\Conditions\TargetedConditionContext;
-     *   use Warden\Schema\Conditions\GlobalConditionContext;
+     *   use Warrant\TargetedCondition;
+     *   use Warrant\GlobalCondition;
+     *   use Warrant\Schema\Conditions\TargetedConditionContext;
+     *   use Warrant\Schema\Conditions\GlobalConditionContext;
      *
      *   // Targeted: the context carries the target SQL id and the DSL arguments.
      *   #[TargetedCondition]
@@ -200,7 +200,7 @@ class RuleSyntaxExamples
      */
     public function namedBindings(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if not (is_self or (not is_manager and is_specific_user(:specific_user_id, :specific_user_id, :some_list)))
             they cannot edit
             DSL, [
@@ -215,7 +215,7 @@ class RuleSyntaxExamples
      */
     public function positionalBindings(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_department(?, ?, ?)
             they can view
             DSL, [
@@ -235,7 +235,7 @@ class RuleSyntaxExamples
      */
     public function wildcards(): void
     {
-        $ruleSet = WardenRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
             if is_admin
             they can *
 
@@ -253,33 +253,33 @@ class RuleSyntaxExamples
     // -------------------------------------------------------------------------
 
     /**
-     * A single WardenRule can be built on its own (with its own bindings) and later
+     * A single WarrantRule can be built on its own (with its own bindings) and later
      * composed into a set. `fromRules` accepts either a variadic list or a single
      * array. It takes NO bindings, and does NOT allow mixing raw syntax with
      * already-resolved rules.
      */
     public function composeResolvedRules(): void
     {
-        $cannotPublish = WardenRule::fromSyntax('they cannot publish');
-        $cannotEdit    = WardenRule::fromSyntax('they cannot edit');
-        $canEdit       = WardenRule::fromSyntax(
+        $cannotPublish = WarrantRule::fromSyntax('they cannot publish');
+        $cannotEdit    = WarrantRule::fromSyntax('they cannot edit');
+        $canEdit       = WarrantRule::fromSyntax(
             'if some_condition(:some_param) they can edit',
             ['some_param' => 'some-value']
         );
 
         // Variadic:
-        $ruleSet = WardenRuleSet::fromRules('timesheets', $cannotPublish, $cannotEdit, $canEdit);
+        $ruleSet = WarrantRuleSet::fromRules('timesheets', $cannotPublish, $cannotEdit, $canEdit);
 
         // Or a single array:
-        $ruleSet = WardenRuleSet::fromRules('timesheets', [$cannotPublish, $cannotEdit, $canEdit]);
+        $ruleSet = WarrantRuleSet::fromRules('timesheets', [$cannotPublish, $cannotEdit, $canEdit]);
     }
 
     // -------------------------------------------------------------------------
-    // 8. Invalid input — each throws WardenSyntaxException at build time
+    // 8. Invalid input — each throws WarrantSyntaxException at build time
     // -------------------------------------------------------------------------
 
     /**
-     * The following are all INVALID and throw WardenSyntaxException (eagerly, with
+     * The following are all INVALID and throw WarrantSyntaxException (eagerly, with
      * position info) at build time. Shown as comments so this file stays loadable.
      */
     public function invalidExamples(): void
@@ -306,6 +306,6 @@ class RuleSyntaxExamples
         //    `canonical`, `cannot_publish`, `ifield`.)
 
         // fromRules mixing resolved rules with raw syntax, or being handed bindings:
-        //   WardenRuleSet::fromRules('timesheets', $resolvedRule, 'they can view');
+        //   WarrantRuleSet::fromRules('timesheets', $resolvedRule, 'they can view');
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 readonly class OrNode implements IBooleanExpressionNode
 {

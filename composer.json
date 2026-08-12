@@ -1,5 +1,5 @@
 {
-    "name": "patrickhanna/laravel-warden",
+    "name": "patrickhanna/laravel-warrant",
     "description": "Schema-based authorization and permissions for Laravel, with database-scoped ability checks.",
     "keywords": ["laravel", "authorization", "permissions", "schemas", "access-control"],
     "license": "MIT",
@@ -22,18 +22,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Warden\\": "src/"
+            "Warrant\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Warden\\Tests\\": "tests/"
+            "Warrant\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Warden\\WardenServiceProvider"
+                "Warrant\\WarrantServiceProvider"
             ]
         }
     },

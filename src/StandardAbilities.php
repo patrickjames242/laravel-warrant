@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 class StandardAbilities
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -9,20 +9,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
-use Warden\Facades\Warden;
-use Warden\Schema\WardenSchema;
+use Warrant\Facades\Warrant;
+use Warrant\Schema\WarrantSchema;
 
-class WardenMiddleware
+class WarrantMiddleware
 {
     /**
      * Build the route middleware string for an access control check.
      *
      * Example:
-     * `WardenMiddleware::string('course_sections', abilities: ['view', 'update'])`
-     * returns `warden:course_sections,view,update`.
+     * `WarrantMiddleware::string('course_sections', abilities: ['view', 'update'])`
+     * returns `warrant:course_sections,view,update`.
      *
-     * `WardenMiddleware::string('course_sections', AbilityMatchMode::ANY, ['view', 'update'])`
-     * returns `warden:course_sections,any,view,update`.
+     * `WarrantMiddleware::string('course_sections', AbilityMatchMode::ANY, ['view', 'update'])`
+     * returns `warrant:course_sections,any,view,update`.
      *
      * @param  string|array<int, string>  $abilities
      */
@@ -32,7 +32,7 @@ class WardenMiddleware
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL
     ): string {
         $normalizedAbilities = is_array($abilities) ? array_values($abilities) : [$abilities];
-        $segments = ['warden:'.self::normalizeTarget(
+        $segments = ['warrant:'.self::normalizeTarget(
             $target,
         )];
 
@@ -49,13 +49,13 @@ class WardenMiddleware
     private static function normalizeTarget(
         string $target
     ): string {
-        if (is_subclass_of($target, WardenSchema::class)) {
+        if (is_subclass_of($target, WarrantSchema::class)) {
             return $target::schemaKey();
         }
 
         if (is_subclass_of($target, Model::class)) {
             try {
-                return Warden::getSchemaForModelClass($target)::schemaKey();
+                return Warrant::getSchemaForModelClass($target)::schemaKey();
             } catch (\OutOfBoundsException) {
             }
 
@@ -63,10 +63,10 @@ class WardenMiddleware
             $model = new $target;
 
             if (
-                method_exists($model, 'wardenSchema')
-                && is_a($model->wardenSchema(), WardenSchema::class, true)
+                method_exists($model, 'warrantSchema')
+                && is_a($model->warrantSchema(), WarrantSchema::class, true)
             ) {
-                return $model->wardenSchema()::schemaKey();
+                return $model->warrantSchema()::schemaKey();
             }
 
             throw new InvalidArgumentException(
@@ -81,24 +81,118 @@ class WardenMiddleware
     }
 
     /**
-     * Apply an access control middleware group using the generated middleware string.
+     * The generic row/capability guard. One method, two modes: with no closure it
+     * returns the middleware string; given a closure it wraps the grouped routes.
      *
-     * Example:
-     * `WardenMiddleware::guard('course_sections', 'view', fn () => Route::get(...));`
+     * Examples:
+     * `WarrantMiddleware::guard('course_sections', 'view')` returns `warrant:course_sections,view`.
+     * `WarrantMiddleware::guard('course_section', 'view', fn () => Route::get(...));` groups the routes.
      *
      * @param  string|array<int, string>  $abilities
      */
     public static function guard(
         string $target,
         string|array $abilities,
-        Closure $routes,
+        ?Closure $routes = null,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL
-    ): void {
-        Route::middleware(self::string(
-            $target,
-            $abilities,
-            $matchMode,
-        ))->group($routes);
+    ): ?string {
+        $middleware = self::string($target, $abilities, $matchMode);
+
+        if (! $routes instanceof Closure) {
+            return $middleware;
+        }
+
+        Route::middleware($middleware)->group($routes);
+
+        return null;
+    }
+
+    /**
+     * Guard a route by reachability: passes when the user *could ever* hold the
+     * ability (or abilities). Target-free — the first argument is a schema key or
+     * schema/model class, never a route parameter. One method, two modes: returns
+     * the middleware string, or wraps grouped routes when given a closure.
+     *
+     * Examples:
+     * `WarrantMiddleware::couldEver('timesheets', 'view')` returns `warrant.could-ever:timesheets,view`.
+     * `WarrantMiddleware::couldEver('timesheets', 'view', fn () => Route::get(...));` groups the routes.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function couldEver(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.could-ever', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Guard a route by reachability: passes only when the user is *guaranteed* the
+     * ability (or abilities) regardless of the row. See {@see couldEver} for the
+     * two modes and the target rule.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function always(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.always', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Guard a route by reachability: passes only when the user can *never* hold the
+     * ability (or abilities) under any circumstance — e.g. an upsell page shown to
+     * users with no path to the feature. See {@see couldEver} for the two modes.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    public static function never(
+        string $target,
+        string|array $abilities,
+        ?Closure $routes = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL
+    ): ?string {
+        return self::reachabilityHelper('warrant.never', $target, $abilities, $routes, $matchMode);
+    }
+
+    /**
+     * Build a reachability middleware string — `<alias>[.any]:<schemaKey>,<abilities>`
+     * — or, when a closure is given, wrap the grouped routes in it. The mode and
+     * match mode live entirely in the alias, so every token after the colon is an
+     * ability and no ability name can collide with a keyword.
+     *
+     * @param  string|array<int, string>  $abilities
+     */
+    private static function reachabilityHelper(
+        string $alias,
+        string $target,
+        string|array $abilities,
+        ?Closure $routes,
+        AbilityMatchMode $matchMode,
+    ): ?string {
+        if ($matchMode === AbilityMatchMode::ANY) {
+            $alias .= '.any';
+        }
+
+        $normalizedAbilities = is_array($abilities) ? array_values($abilities) : [$abilities];
+
+        $middleware = implode(',', [
+            $alias.':'.self::normalizeTarget($target),
+            ...$normalizedAbilities,
+        ]);
+
+        if (! $routes instanceof Closure) {
+            return $middleware;
+        }
+
+        Route::middleware($middleware)->group($routes);
+
+        return null;
     }
 
     /**
@@ -109,14 +203,14 @@ class WardenMiddleware
      * - If a closure is provided, it wraps the routes in a middleware group for you.
      *
      * Examples:
-     * `WardenMiddleware::canView('course_sections')`
-     * returns `warden:course_sections,view`.
+     * `WarrantMiddleware::canView('course_sections')`
+     * returns `warrant:course_sections,view`.
      *
-     * `WardenMiddleware::canView('course_section', fn () => Route::get('/sections/{course_section}', ...));`
+     * `WarrantMiddleware::canView('course_section', fn () => Route::get('/sections/{course_section}', ...));`
      * applies the targeted `view` middleware to the grouped route.
      *
-     * `WardenMiddleware::canView(CourseSectionSchema::class)`
-     * returns `warden:course_sections,view`.
+     * `WarrantMiddleware::canView(CourseSectionSchema::class)`
+     * returns `warrant:course_sections,view`.
      */
     public static function canView(
         string $target,
@@ -133,14 +227,14 @@ class WardenMiddleware
      * - If a closure is provided, it wraps the routes in a middleware group for you.
      *
      * Examples:
-     * `WardenMiddleware::canCreate('course_sections')`
-     * returns `warden:course_sections,create`.
+     * `WarrantMiddleware::canCreate('course_sections')`
+     * returns `warrant:course_sections,create`.
      *
-     * `WardenMiddleware::canCreate('course_sections', fn () => Route::post('/sections', ...));`
+     * `WarrantMiddleware::canCreate('course_sections', fn () => Route::post('/sections', ...));`
      * applies the no-target `create` middleware to the grouped route.
      *
-     * `WardenMiddleware::canCreate(CourseSectionSchema::class)`
-     * returns `warden:course_sections,create`.
+     * `WarrantMiddleware::canCreate(CourseSectionSchema::class)`
+     * returns `warrant:course_sections,create`.
      */
     public static function canCreate(
         string $target,
@@ -157,14 +251,14 @@ class WardenMiddleware
      * - If a closure is provided, it wraps the routes in a middleware group for you.
      *
      * Examples:
-     * `WardenMiddleware::canUpdate('course_sections')`
-     * returns `warden:course_sections,update`.
+     * `WarrantMiddleware::canUpdate('course_sections')`
+     * returns `warrant:course_sections,update`.
      *
-     * `WardenMiddleware::canUpdate('course_section', fn () => Route::put('/sections/{course_section}', ...));`
+     * `WarrantMiddleware::canUpdate('course_section', fn () => Route::put('/sections/{course_section}', ...));`
      * applies the targeted `update` middleware to the grouped route.
      *
-     * `WardenMiddleware::canUpdate(CourseSectionSchema::class)`
-     * returns `warden:course_sections,update`.
+     * `WarrantMiddleware::canUpdate(CourseSectionSchema::class)`
+     * returns `warrant:course_sections,update`.
      */
     public static function canUpdate(
         string $target,
@@ -181,14 +275,14 @@ class WardenMiddleware
      * - If a closure is provided, it wraps the routes in a middleware group for you.
      *
      * Examples:
-     * `WardenMiddleware::canDelete('course_sections')`
-     * returns `warden:course_sections,delete`.
+     * `WarrantMiddleware::canDelete('course_sections')`
+     * returns `warrant:course_sections,delete`.
      *
-     * `WardenMiddleware::canDelete('course_section', fn () => Route::delete('/sections/{course_section}', ...));`
+     * `WarrantMiddleware::canDelete('course_section', fn () => Route::delete('/sections/{course_section}', ...));`
      * applies the targeted `delete` middleware to the grouped route.
      *
-     * `WardenMiddleware::canDelete(CourseSectionSchema::class)`
-     * returns `warden:course_sections,delete`.
+     * `WarrantMiddleware::canDelete(CourseSectionSchema::class)`
+     * returns `warrant:course_sections,delete`.
      */
     public static function canDelete(
         string $target,
@@ -205,14 +299,14 @@ class WardenMiddleware
      * - If a closure is provided, it wraps the routes in a middleware group for you.
      *
      * Examples:
-     * `WardenMiddleware::canArchive('course_sections')`
-     * returns `warden:course_sections,archive`.
+     * `WarrantMiddleware::canArchive('course_sections')`
+     * returns `warrant:course_sections,archive`.
      *
-     * `WardenMiddleware::canArchive('course_section', fn () => Route::post('/sections/{course_section}/archive', ...));`
+     * `WarrantMiddleware::canArchive('course_section', fn () => Route::post('/sections/{course_section}/archive', ...));`
      * applies the targeted `archive` middleware to the grouped route.
      *
-     * `WardenMiddleware::canArchive(CourseSectionSchema::class)`
-     * returns `warden:course_sections,archive`.
+     * `WarrantMiddleware::canArchive(CourseSectionSchema::class)`
+     * returns `warrant:course_sections,archive`.
      */
     public static function canArchive(
         string $target,
@@ -229,10 +323,10 @@ class WardenMiddleware
      * grouped routes when given a closure.
      *
      * Examples:
-     * `WardenMiddleware::canManage('settings')`
-     * returns `warden:settings,manage`.
+     * `WarrantMiddleware::canManage('settings')`
+     * returns `warrant:settings,manage`.
      *
-     * `WardenMiddleware::canManage('settings', fn () => Route::get('/settings/...', ...));`
+     * `WarrantMiddleware::canManage('settings', fn () => Route::get('/settings/...', ...));`
      * wraps the grouped routes in the settings guard.
      */
     public static function canManage(
@@ -283,7 +377,7 @@ class WardenMiddleware
         }
 
         try {
-            $schemaClass = Warden::getSchemaForKey($target);
+            $schemaClass = Warrant::getSchemaForKey($target);
         } catch (\OutOfBoundsException) {
             $schemaClass = null;
         }
@@ -302,7 +396,7 @@ class WardenMiddleware
             }
 
             try {
-                $schemaClass = Warden::getSchemaForModelClass($resolvedTarget::class);
+                $schemaClass = Warrant::getSchemaForModelClass($resolvedTarget::class);
             } catch (\OutOfBoundsException) {
                 $schemaClass = null;
             }

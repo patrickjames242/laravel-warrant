@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 use Attribute;
 

@@ -6,30 +6,30 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warden\Ability;
-use Warden\AbilityMatchMode;
-use Warden\ContextKey;
-use Warden\HasWardenSchema;
-use Warden\RuleSyntaxTree\WardenRuleSet;
-use Warden\Schema\Conditions\TargetedConditionContext;
-use Warden\Schema\WardenSchema;
-use Warden\TargetedCondition;
+use Warrant\Ability;
+use Warrant\AbilityMatchMode;
+use Warrant\ContextKey;
+use Warrant\HasWarrantSchema;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\WarrantSchema;
+use Warrant\TargetedCondition;
 
 class ContextDoc extends Model
 {
-    use HasWardenSchema;
+    use HasWarrantSchema;
 
     protected $table = 'context_docs';
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function wardenSchema(): string
+    public function warrantSchema(): string
     {
         return ContextDocSchema::class;
     }
 }
 
-class ContextDocSchema extends WardenSchema
+class ContextDocSchema extends WarrantSchema
 {
     public const model = ContextDoc::class;
 
@@ -75,7 +75,7 @@ beforeEach(function () {
         ['id' => 'd2', 'workspace_id' => 'w-2'],
     ]);
 
-    bindWardenRuleSet(WardenRuleSet::fromSyntax(
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax(
         'context_docs',
         'if in_workspace(@context workspace_id) they can view',
     ));
@@ -91,14 +91,14 @@ it('discovers declared and required context keys via #[ContextKey]', function ()
 // -- filtering by context -----------------------------------------------------
 
 it('filters a targeted check by the supplied context value', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-1']))->toBeTrue();
     expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-2']))->toBeFalse();
 });
 
 it('filters a query scope by the supplied context value', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     $ids = ContextDoc::query()
         ->hasAbility('view', $user, AbilityMatchMode::ALL, ['workspace_id' => 'w-1'])
@@ -110,11 +110,11 @@ it('filters a query scope by the supplied context value', function () {
 });
 
 it('lets a condition read the context bag directly, without @context in the rule', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     // The rule names current_workspace with no arguments; the condition reaches
     // into $c->context itself.
-    bindWardenRuleSet(WardenRuleSet::fromSyntax('context_docs', 'if current_workspace they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'if current_workspace they can view'));
 
     expect(ContextDoc::userHasAbilities('view', 'd2', $user, context: ['workspace_id' => 'w-2']))->toBeTrue();
     expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-2']))->toBeFalse();
@@ -123,21 +123,21 @@ it('lets a condition read the context bag directly, without @context in the rule
 // -- required-key enforcement -------------------------------------------------
 
 it('throws when a required context key is missing', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     expect(fn () => ContextDoc::userHasAbilities('view', 'd1', $user))
         ->toThrow(InvalidArgumentException::class, 'requires context key(s) [workspace_id]');
 });
 
 it('lets defaultContext() satisfy a required key', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     // No explicit context: the schema default (w-1) supplies workspace_id.
     expect(ContextDocWithDefaults::userHasAbilities('view', 'd1', $user))->toBeTrue();
 });
 
 it('lets explicit context win over defaults (partial merge)', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     // Explicit w-2 overrides the default w-1, so d1 (in w-1) no longer matches.
     expect(ContextDocWithDefaults::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-2']))
@@ -147,7 +147,7 @@ it('lets explicit context win over defaults (partial merge)', function () {
 // -- per-row selection stays flat --------------------------------------------
 
 it('computes a flat per-row ability list under a fixed context', function () {
-    $user = makeWardenTestUser();
+    $user = makeWarrantTestUser();
 
     $rows = ContextDoc::query()
         ->selectAbilities($user, 'abilities', null, ['workspace_id' => 'w-1'])

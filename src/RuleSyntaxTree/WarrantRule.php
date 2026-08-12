@@ -1,10 +1,10 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
-use Warden\RuleSyntaxTree\Parsing\WardenParser;
+use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 
-readonly class WardenRule
+readonly class WarrantRule
 {
 
     public function __construct(
@@ -16,22 +16,22 @@ readonly class WardenRule
     }
 
     /**
-     * Build a single rule by parsing raw Warden syntax, resolving any
+     * Build a single rule by parsing raw Warrant syntax, resolving any
      * named (:name) or positional (?) placeholders against $bindings.
      */
     public static function fromSyntax(
         string $syntax,
         array $bindings = [],
     ): self {
-        return WardenParser::parseSingleRule($syntax, $bindings);
+        return WarrantParser::parseSingleRule($syntax, $bindings);
     }
 
     /**
      * Start a fluent, query-builder-style rule construction.
      */
-    public static function build(): WardenRuleBuilder
+    public static function build(): WarrantRuleBuilder
     {
-        return new WardenRuleBuilder;
+        return new WarrantRuleBuilder;
     }
 
     /**
@@ -47,7 +47,7 @@ readonly class WardenRule
     /**
      * Render this rule to `?`-parameterized syntax plus the positional bindings
      * that fill it. Lossless for any parameter value. Round-trips via
-     * `WardenRule::fromSyntax($result->syntax, $result->bindings)`.
+     * `WarrantRule::fromSyntax($result->syntax, $result->bindings)`.
      */
     public function toBoundSyntax(): BoundSyntax
     {

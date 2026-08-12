@@ -1,13 +1,13 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use Closure;
-use Warden\RuleSyntaxTree\Parsing\WardenParser;
+use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for composing the boolean
- * condition tree of a {@see WardenRule} — the `if`/`and`/`or` half of a rule.
+ * condition tree of a {@see WarrantRule} — the `if`/`and`/`or` half of a rule.
  *
  * It produces AST nodes directly — the same tree the parser builds — so a built
  * condition flows through the identical validation and compilation. Nothing is
@@ -19,10 +19,10 @@ use Warden\RuleSyntaxTree\Parsing\WardenParser;
  * receives a bare condition builder — a group has no `they can`/`they cannot`
  * clauses, only conditions.
  *
- * {@see WardenRuleBuilder} extends this with the clause half (`theyCan` /
+ * {@see WarrantRuleBuilder} extends this with the clause half (`theyCan` /
  * `theyCannot`) and `toRule()`.
  */
-class WardenConditionBuilder
+class WarrantConditionBuilder
 {
     /** @var list<array{boolean: string, node: IBooleanExpressionNode}> */
     private array $terms = [];
@@ -32,7 +32,7 @@ class WardenConditionBuilder
     /**
      * Add a condition, AND-joined to what precedes it (the default connective).
      *
-     * @param string|Closure(WardenConditionBuilder):void $condition A condition
+     * @param string|Closure(WarrantConditionBuilder):void $condition A condition
      *   name, or a closure that receives a fresh condition builder to compose a
      *   parenthesized group.
      * @param array<int, mixed> $parameters
@@ -42,31 +42,31 @@ class WardenConditionBuilder
         return $this->addTerm('and', false, $condition, $parameters);
     }
 
-    /** @param string|Closure(WardenConditionBuilder):void $condition */
+    /** @param string|Closure(WarrantConditionBuilder):void $condition */
     public function andIf(string|Closure $condition, array $parameters = []): static
     {
         return $this->addTerm('and', false, $condition, $parameters);
     }
 
-    /** @param string|Closure(WardenConditionBuilder):void $condition */
+    /** @param string|Closure(WarrantConditionBuilder):void $condition */
     public function orIf(string|Closure $condition, array $parameters = []): static
     {
         return $this->addTerm('or', false, $condition, $parameters);
     }
 
-    /** @param string|Closure(WardenConditionBuilder):void $condition */
+    /** @param string|Closure(WarrantConditionBuilder):void $condition */
     public function ifNot(string|Closure $condition, array $parameters = []): static
     {
         return $this->addTerm('and', true, $condition, $parameters);
     }
 
-    /** @param string|Closure(WardenConditionBuilder):void $condition */
+    /** @param string|Closure(WarrantConditionBuilder):void $condition */
     public function andIfNot(string|Closure $condition, array $parameters = []): static
     {
         return $this->addTerm('and', true, $condition, $parameters);
     }
 
-    /** @param string|Closure(WardenConditionBuilder):void $condition */
+    /** @param string|Closure(WarrantConditionBuilder):void $condition */
     public function orIfNot(string|Closure $condition, array $parameters = []): static
     {
         return $this->addTerm('or', true, $condition, $parameters);
@@ -91,7 +91,7 @@ class WardenConditionBuilder
 
     /**
      * Conditionally apply builder calls, Laravel-style, for runtime branches.
-     * The callback receives this same builder, so on a {@see WardenRuleBuilder}
+     * The callback receives this same builder, so on a {@see WarrantRuleBuilder}
      * it may also add clauses.
      *
      * @param Closure(static, mixed):void $callback
@@ -136,7 +136,7 @@ class WardenConditionBuilder
     }
 
     /**
-     * @param string|Closure(WardenConditionBuilder):void $condition
+     * @param string|Closure(WarrantConditionBuilder):void $condition
      * @param array<int, mixed> $parameters
      */
     private function addTerm(string $boolean, bool $negate, string|Closure $condition, array $parameters): static
@@ -161,7 +161,7 @@ class WardenConditionBuilder
     {
         $this->terms[] = [
             'boolean' => $boolean,
-            'node' => WardenParser::parseConditionExpression($expression, $bindings),
+            'node' => WarrantParser::parseConditionExpression($expression, $bindings),
         ];
 
         return $this;
@@ -171,7 +171,7 @@ class WardenConditionBuilder
      * Resolve a group closure to a single operand. The closure receives a bare
      * condition builder (no clauses); an empty group is `false`.
      *
-     * @param Closure(WardenConditionBuilder):void $callback
+     * @param Closure(WarrantConditionBuilder):void $callback
      */
     private function group(Closure $callback): IBooleanExpressionNode
     {

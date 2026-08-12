@@ -4,21 +4,21 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Warden\Ability;
-use Warden\Facades\Warden;
-use Warden\GlobalCondition;
-use Warden\HasWardenSchema;
-use Warden\RuleResolutionContext;
-use Warden\RuleResolver;
-use Warden\RuleSyntaxTree\WardenRule;
-use Warden\RuleSyntaxTree\WardenRuleSet;
-use Warden\Schema\Conditions\GlobalConditionContext;
-use Warden\Schema\Conditions\TargetedConditionContext;
-use Warden\TargetedCondition;
-use Warden\Schema\WardenSchema;
-use Warden\WardenManager;
+use Warrant\Ability;
+use Warrant\Facades\Warrant;
+use Warrant\GlobalCondition;
+use Warrant\HasWarrantSchema;
+use Warrant\RuleResolutionContext;
+use Warrant\RuleResolver;
+use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\TargetedCondition;
+use Warrant\Schema\WarrantSchema;
+use Warrant\WarrantManager;
 
-class WardenTestUser implements Authenticatable
+class WarrantTestUser implements Authenticatable
 {
     public function __construct(public ?string $role_id = null) {}
 
@@ -55,7 +55,7 @@ class WardenTestUser implements Authenticatable
     }
 }
 
-class WardenTestModel extends Model
+class WarrantTestModel extends Model
 {
     protected $table = 'course_sections';
 
@@ -64,9 +64,9 @@ class WardenTestModel extends Model
     protected $keyType = 'string';
 }
 
-class WardenTestSchema extends WardenSchema
+class WarrantTestSchema extends WarrantSchema
 {
-    public const model = WardenTestModel::class;
+    public const model = WarrantTestModel::class;
 
     #[Ability]
     public const ABILITY_CREATE = 'create';
@@ -96,9 +96,9 @@ class WardenTestSchema extends WardenSchema
     }
 }
 
-class WardenBooleanConditionSchema extends WardenSchema
+class WarrantBooleanConditionSchema extends WarrantSchema
 {
-    public const model = WardenTestModel::class;
+    public const model = WarrantTestModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -110,9 +110,9 @@ class WardenBooleanConditionSchema extends WardenSchema
     }
 }
 
-class MistypedConditionSchema extends WardenSchema
+class MistypedConditionSchema extends WarrantSchema
 {
-    public const model = WardenTestModel::class;
+    public const model = WarrantTestModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -125,9 +125,9 @@ class MistypedConditionSchema extends WardenSchema
     }
 }
 
-class ExtraParamConditionSchema extends WardenSchema
+class ExtraParamConditionSchema extends WarrantSchema
 {
-    public const model = WardenTestModel::class;
+    public const model = WarrantTestModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -140,9 +140,9 @@ class ExtraParamConditionSchema extends WardenSchema
     }
 }
 
-class WardenScopedModel extends Model
+class WarrantScopedModel extends Model
 {
-    use HasWardenSchema;
+    use HasWarrantSchema;
 
     protected $table = 'course_sections';
 
@@ -150,15 +150,15 @@ class WardenScopedModel extends Model
 
     protected $keyType = 'string';
 
-    public function wardenSchema(): string
+    public function warrantSchema(): string
     {
-        return WardenScopedModelSchema::class;
+        return WarrantScopedModelSchema::class;
     }
 }
 
-class WardenMismatchedScopedModel extends Model
+class WarrantMismatchedScopedModel extends Model
 {
-    use HasWardenSchema;
+    use HasWarrantSchema;
 
     protected $table = 'course_sections';
 
@@ -166,81 +166,81 @@ class WardenMismatchedScopedModel extends Model
 
     protected $keyType = 'string';
 
-    public function wardenSchema(): string
+    public function warrantSchema(): string
     {
-        return WardenTestSchema::class;
+        return WarrantTestSchema::class;
     }
 }
 
-class WardenScopedModelSchema extends WardenTestSchema
+class WarrantScopedModelSchema extends WarrantTestSchema
 {
-    public const model = WardenScopedModel::class;
+    public const model = WarrantScopedModel::class;
 }
 
-class WardenImplicitRulesSchema extends WardenTestSchema
+class WarrantImplicitRulesSchema extends WarrantTestSchema
 {
     protected function implicitRules(): array
     {
         return [
             // Always grant publish, and never allow archive, regardless of the resolver.
-            WardenRule::fromSyntax('they can publish'),
-            WardenRule::fromSyntax('they cannot archive'),
+            WarrantRule::fromSyntax('they can publish'),
+            WarrantRule::fromSyntax('they cannot archive'),
         ];
     }
 }
 
-class FakeWardenRuleResolver implements RuleResolver
+class FakeWarrantRuleResolver implements RuleResolver
 {
-    public function __construct(private WardenRuleSet $ruleSet) {}
+    public function __construct(private WarrantRuleSet $ruleSet) {}
 
-    public function resolve(RuleResolutionContext $context): WardenRuleSet
+    public function resolve(RuleResolutionContext $context): WarrantRuleSet
     {
         return $this->ruleSet;
     }
 }
 
 /**
- * @param  array<int, class-string<WardenSchema>>  $schemas
+ * @param  array<int, class-string<WarrantSchema>>  $schemas
  */
-function useWardenSchemas(array $schemas): void
+function useWarrantSchemas(array $schemas): void
 {
-    config()->set('warden.schemas', $schemas);
-    app()->forgetInstance(WardenManager::class);
-    Warden::clearResolvedInstances();
+    config()->set('warrant.schemas', $schemas);
+    app()->forgetInstance(WarrantManager::class);
+    Warrant::clearResolvedInstances();
 }
 
 /**
- * Bind the resolver to a rule set built from Warden syntax. The schema key is
+ * Bind the resolver to a rule set built from Warrant syntax. The schema key is
  * irrelevant to the fake (the schema asks for its own rules), so it defaults to
  * the course_sections fixture schema key.
  */
-function bindWardenRules(string $syntax, array $bindings = [], string $schemaKey = 'course_sections'): void
+function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKey = 'course_sections'): void
 {
     app()->instance(
         RuleResolver::class,
-        new FakeWardenRuleResolver(WardenRuleSet::fromSyntax($schemaKey, $syntax, $bindings))
+        new FakeWarrantRuleResolver(WarrantRuleSet::fromSyntax($schemaKey, $syntax, $bindings))
     );
 }
 
 /**
  * Bind the resolver to an explicit rule set.
  */
-function bindWardenRuleSet(WardenRuleSet $ruleSet): void
+function bindWarrantRuleSet(WarrantRuleSet $ruleSet): void
 {
-    app()->instance(RuleResolver::class, new FakeWardenRuleResolver($ruleSet));
+    app()->instance(RuleResolver::class, new FakeWarrantRuleResolver($ruleSet));
 }
 
-function makeWardenTestUser(?string $roleId = 'role-1'): Authenticatable
+function makeWarrantTestUser(?string $roleId = 'role-1'): Authenticatable
 {
-    return new WardenTestUser($roleId);
+    return new WarrantTestUser($roleId);
 }
 
-function wardenTestQuery(string $table = 'course_sections'): BuilderContract
+function warrantTestQuery(string $table = 'course_sections'): BuilderContract
 {
     return DB::connection()->table($table);
 }
 
-function normalizeWardenSql(string $sql): string
+function normalizeWarrantSql(string $sql): string
 {
     $sql = preg_replace('/\s+/', ' ', trim($sql));
     $sql = preg_replace('/\s*\(\s*/', '(', $sql);

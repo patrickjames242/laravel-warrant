@@ -1,11 +1,11 @@
 <?php
 
-namespace Warden\RuleSyntaxTree\Parsing;
+namespace Warrant\RuleSyntaxTree\Parsing;
 
-use Warden\RuleSyntaxTree\WardenSyntaxException;
+use Warrant\RuleSyntaxTree\WarrantSyntaxException;
 
 /**
- * Turns raw Warden syntax into a flat list of {@see Token}s.
+ * Turns raw Warrant syntax into a flat list of {@see Token}s.
  *
  * Whitespace (including newlines) is insignificant and simply separates tokens.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
@@ -289,13 +289,13 @@ final class Lexer
         return $this->isIdentifierStart($char) || $this->isDigit($char) || $char === '-';
     }
 
-    private function error(string $message): WardenSyntaxException
+    private function error(string $message): WarrantSyntaxException
     {
         return $this->errorAt($message, $this->pos, $this->line, $this->col);
     }
 
-    private function errorAt(string $message, int $offset, int $line, int $col): WardenSyntaxException
+    private function errorAt(string $message, int $offset, int $line, int $col): WarrantSyntaxException
     {
-        return WardenSyntaxException::atOffset($message, $this->source, $offset, $line, $col);
+        return WarrantSyntaxException::atOffset($message, $this->source, $offset, $line, $col);
     }
 }

@@ -2,17 +2,17 @@
 
 return [
     /*
-     * The rule resolver: a class implementing Warden\RuleResolver.
+     * The rule resolver: a class implementing Warrant\RuleResolver.
      *
-     * Warden ships no default — you must provide one. It maps the current user
-     * to the WardenRuleSet that governs their access to an entity, built from
+     * Warrant ships no default — you must provide one. It maps the current user
+     * to the WarrantRuleSet that governs their access to an entity, built from
      * wherever your access rules live: role/permission tables, JWT claims, a
      * remote service, config, etc.
      */
     'rule_resolver' => null,
 
     /*
-     * The Warden schemas registered with the application. Registration is
+     * The Warrant schemas registered with the application. Registration is
      * explicit: every schema that governs a resource must be listed here. A
      * schema that is not listed is unknown to access checks and lookups.
      */

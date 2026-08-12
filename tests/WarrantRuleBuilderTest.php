@@ -4,16 +4,16 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warden\RuleSyntaxTree\AndNode;
-use Warden\RuleSyntaxTree\BooleanNode;
-use Warden\RuleSyntaxTree\ConditionNode;
-use Warden\RuleSyntaxTree\ConditionResolver;
-use Warden\RuleSyntaxTree\NotNode;
-use Warden\RuleSyntaxTree\OrNode;
-use Warden\RuleSyntaxTree\Parsing\WardenParser;
-use Warden\RuleSyntaxTree\RuleSetCompiler;
-use Warden\RuleSyntaxTree\WardenRule;
-use Warden\RuleSyntaxTree\WardenRuleSet;
+use Warrant\RuleSyntaxTree\AndNode;
+use Warrant\RuleSyntaxTree\BooleanNode;
+use Warrant\RuleSyntaxTree\ConditionNode;
+use Warrant\RuleSyntaxTree\ConditionResolver;
+use Warrant\RuleSyntaxTree\NotNode;
+use Warrant\RuleSyntaxTree\OrNode;
+use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\RuleSyntaxTree\RuleSetCompiler;
+use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 final class BuilderTestUser implements Authenticatable
 {
@@ -63,7 +63,7 @@ function treeToString(?object $node): string
 // -- structure ----------------------------------------------------------------
 
 it('builds an unconditional rule (no if) with null conditions', function () {
-    $rule = WardenRule::build()->theyCan('view', 'update')->theyCannot('delete')->toRule();
+    $rule = WarrantRule::build()->theyCan('view', 'update')->theyCannot('delete')->toRule();
 
     expect($rule->conditions)->toBeNull();
     expect($rule->canAbilities)->toBe(['view', 'update']);
@@ -71,7 +71,7 @@ it('builds an unconditional rule (no if) with null conditions', function () {
 });
 
 it('carries condition parameters onto the node', function () {
-    $rule = WardenRule::build()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
+    $rule = WarrantRule::build()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
     expect($rule->conditions->conditionKey)->toBe('in_department');
@@ -79,21 +79,21 @@ it('carries condition parameters onto the node', function () {
 });
 
 it('wraps negated terms in a NotNode', function () {
-    $rule = WardenRule::build()->ifNot('is_locked')->theyCan('view')->toRule();
+    $rule = WarrantRule::build()->ifNot('is_locked')->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(NotNode::class);
     expect($rule->conditions->operand->conditionKey)->toBe('is_locked');
 });
 
 it('rejects a rule with no they-can/they-cannot clause, matching the DSL', function () {
-    expect(fn () => WardenRule::build()->if('is_self')->toRule())
+    expect(fn () => WarrantRule::build()->if('is_self')->toRule())
         ->toThrow(LogicException::class);
 });
 
 it('hands a group closure a bare condition builder with no clause methods', function () {
     $received = null;
 
-    WardenRule::build()
+    WarrantRule::build()
         ->if(function ($c) use (&$received) {
             $received = $c;
             $c->if('a');
@@ -101,8 +101,8 @@ it('hands a group closure a bare condition builder with no clause methods', func
         ->theyCan('view')
         ->toRule();
 
-    expect($received)->toBeInstanceOf(\Warden\RuleSyntaxTree\WardenConditionBuilder::class);
-    expect($received)->not->toBeInstanceOf(\Warden\RuleSyntaxTree\WardenRuleBuilder::class);
+    expect($received)->toBeInstanceOf(\Warrant\RuleSyntaxTree\WarrantConditionBuilder::class);
+    expect($received)->not->toBeInstanceOf(\Warrant\RuleSyntaxTree\WarrantRuleBuilder::class);
     expect(method_exists($received, 'theyCan'))->toBeFalse();
 });
 
@@ -110,17 +110,17 @@ it('hands a group closure a bare condition builder with no clause methods', func
 
 it('applies and > or precedence when materializing the chain', function () {
     // a and b or c  ->  (a and b) or c
-    $tree = WardenRule::build()->if('a')->andIf('b')->orIf('c')->buildConditions();
+    $tree = WarrantRule::build()->if('a')->andIf('b')->orIf('c')->buildConditions();
     expect(treeToString($tree))->toBe('((a and b) or c)');
 
     // a or b and c  ->  a or (b and c)
-    $tree = WardenRule::build()->if('a')->orIf('b')->andIf('c')->buildConditions();
+    $tree = WarrantRule::build()->if('a')->orIf('b')->andIf('c')->buildConditions();
     expect(treeToString($tree))->toBe('(a or (b and c))');
 });
 
 it('treats a closure as a parenthesized group', function () {
     // (a or b) and c
-    $tree = WardenRule::build()
+    $tree = WarrantRule::build()
         ->if(fn ($c) => $c->if('a')->orIf('b'))
         ->andIf('c')
         ->buildConditions();
@@ -130,7 +130,7 @@ it('treats a closure as a parenthesized group', function () {
 
 it('negates a whole group', function () {
     // not (a and b)
-    $tree = WardenRule::build()
+    $tree = WarrantRule::build()
         ->ifNot(fn ($c) => $c->if('a')->andIf('b'))
         ->buildConditions();
 
@@ -140,22 +140,22 @@ it('negates a whole group', function () {
 // -- parity with the string DSL -----------------------------------------------
 
 it('produces the identical tree to the equivalent DSL expression', function (string $dsl, Closure $rule) {
-    $fromDsl = WardenParser::parseConditionExpression($dsl);
+    $fromDsl = WarrantParser::parseConditionExpression($dsl);
     $fromBuilder = $rule()->toRule()->conditions;
 
     expect(treeToString($fromBuilder))->toBe(treeToString($fromDsl));
 })->with([
-    'and/or precedence' => ['a and b or c', fn () => WardenRule::build()->if('a')->andIf('b')->orIf('c')->theyCan('x')],
-    'or/and precedence' => ['a or b and c', fn () => WardenRule::build()->if('a')->orIf('b')->andIf('c')->theyCan('x')],
-    'explicit grouping'  => ['(a or b) and c', fn () => WardenRule::build()->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->theyCan('x')],
-    'leading not'        => ['not a and b', fn () => WardenRule::build()->ifNot('a')->andIf('b')->theyCan('x')],
-    'or not group'       => ['a or not (b and c)', fn () => WardenRule::build()->if('a')->orIfNot(fn ($g) => $g->if('b')->andIf('c'))->theyCan('x')],
+    'and/or precedence' => ['a and b or c', fn () => WarrantRule::build()->if('a')->andIf('b')->orIf('c')->theyCan('x')],
+    'or/and precedence' => ['a or b and c', fn () => WarrantRule::build()->if('a')->orIf('b')->andIf('c')->theyCan('x')],
+    'explicit grouping'  => ['(a or b) and c', fn () => WarrantRule::build()->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->theyCan('x')],
+    'leading not'        => ['not a and b', fn () => WarrantRule::build()->ifNot('a')->andIf('b')->theyCan('x')],
+    'or not group'       => ['a or not (b and c)', fn () => WarrantRule::build()->if('a')->orIfNot(fn ($g) => $g->if('b')->andIf('c'))->theyCan('x')],
 ]);
 
 // -- when() -------------------------------------------------------------------
 
 it('applies when() branches only when the condition is truthy', function () {
-    $make = fn (bool $flag) => WardenRule::build()
+    $make = fn (bool $flag) => WarrantRule::build()
         ->if('a')
         ->when($flag, fn ($c) => $c->orIf('b'))
         ->buildConditions();
@@ -169,7 +169,7 @@ it('applies when() branches only when the condition is truthy', function () {
 it('folds a list of conditions inside a group', function () {
     $ids = ['d1', 'd2', 'd3'];
 
-    $tree = WardenRule::build()
+    $tree = WarrantRule::build()
         ->if('is_self')
         ->orIf(function ($c) use ($ids) {
             foreach ($ids as $id) {
@@ -183,7 +183,7 @@ it('folds a list of conditions inside a group', function () {
 });
 
 it('treats an empty group as false', function () {
-    $tree = WardenRule::build()
+    $tree = WarrantRule::build()
         ->if('is_self')
         ->orIf(function ($c) {
             foreach ([] as $id) {
@@ -199,7 +199,7 @@ it('treats an empty group as false', function () {
 // -- ifRaw bridge -------------------------------------------------------------
 
 it('splices a parsed DSL fragment in as one group', function () {
-    $tree = WardenRule::build()
+    $tree = WarrantRule::build()
         ->ifRaw('a or b')
         ->andIf('c')
         ->buildConditions();
@@ -210,10 +210,10 @@ it('splices a parsed DSL fragment in as one group', function () {
 // -- fromRules accepts builders -----------------------------------------------
 
 it('accepts builders directly in fromRules', function () {
-    $set = WardenRuleSet::fromRules(
+    $set = WarrantRuleSet::fromRules(
         'timesheets',
-        WardenRule::build()->if('is_self')->theyCan('view'),
-        WardenRule::build()->theyCannot('delete'),
+        WarrantRule::build()->if('is_self')->theyCan('view'),
+        WarrantRule::build()->theyCannot('delete'),
     );
 
     expect($set->rules)->toHaveCount(2);
@@ -221,10 +221,10 @@ it('accepts builders directly in fromRules', function () {
     expect($set->rules[1]->conditions)->toBeNull();
 });
 
-// -- WardenRuleSet::build (callback, one rule per $rule() call) ----------------
+// -- WarrantRuleSet::build (callback, one rule per $rule() call) ----------------
 
 it('builds a rule set with one rule per $rule() call, no toRule() needed', function () {
-    $set = WardenRuleSet::build('timesheets', function ($rule) {
+    $set = WarrantRuleSet::build('timesheets', function ($rule) {
         $rule()->if('is_self')->theyCan('edit', 'view');
         $rule()->theyCan('list');
     });
@@ -238,13 +238,13 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
 });
 
 it('produces an empty rule set when the callback adds nothing', function () {
-    $set = WardenRuleSet::build('timesheets', function ($rule) {});
+    $set = WarrantRuleSet::build('timesheets', function ($rule) {});
 
     expect($set->rules)->toBe([]);
 });
 
 it('rejects a $rule() with no they-can/they-cannot clause', function () {
-    expect(fn () => WardenRuleSet::build('timesheets', function ($rule) {
+    expect(fn () => WarrantRuleSet::build('timesheets', function ($rule) {
         $rule()->if('is_self');
     }))->toThrow(LogicException::class);
 });
@@ -255,7 +255,7 @@ it('compiles a built rule to SQL that filters rows', function () {
     Schema::create('docs', fn ($t) => $t->string('id'));
     DB::table('docs')->insert([['id' => 'teacher:role-1'], ['id' => 'other']]);
 
-    $ruleSet = WardenRuleSet::fromRules('docs', WardenRule::build()->if('is_teacher')->theyCan('view'));
+    $ruleSet = WarrantRuleSet::fromRules('docs', WarrantRule::build()->if('is_teacher')->theyCan('view'));
 
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $query = DB::table('docs');

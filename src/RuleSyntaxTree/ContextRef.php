@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 /**
  * A symbolic reference to a check-time context value, written `@context <key>`

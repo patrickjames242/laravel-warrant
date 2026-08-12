@@ -1,18 +1,18 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use RuntimeException;
 
 /**
- * Thrown eagerly when raw Warden syntax (or its bindings) is malformed. Carries
+ * Thrown eagerly when raw Warrant syntax (or its bindings) is malformed. Carries
  * the position of the offending token so the error is debuggable even when an
  * entire rule set sits on a single line.
  *
  * Note: the position lives in {@see $sourceLine} / {@see $sourceColumn} rather
  * than the base Exception's own $line, which refers to the PHP file location.
  */
-class WardenSyntaxException extends RuntimeException
+class WarrantSyntaxException extends RuntimeException
 {
     public function __construct(
         string $message,

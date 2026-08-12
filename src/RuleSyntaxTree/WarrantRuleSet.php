@@ -1,71 +1,71 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use Warden\Facades\Warden;
-use Warden\RuleSyntaxTree\Parsing\WardenParser;
-use Warden\Schema\WardenSchema;
+use Warrant\Facades\Warrant;
+use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\Schema\WarrantSchema;
 
-readonly class WardenRuleSet
+readonly class WarrantRuleSet
 {
     public string $schemaKey;
 
     /**
      * The schema this rule set targets may be given as a schema key string, a
-     * {@see WardenSchema} instance or class-string, or a {@see Model} instance or
+     * {@see WarrantSchema} instance or class-string, or a {@see Model} instance or
      * class-string; it is normalized to the schema key.
      *
-     * @param Model|WardenSchema|string $schema
-     * @param array<int, WardenRule> $rules
+     * @param Model|WarrantSchema|string $schema
+     * @param array<int, WarrantRule> $rules
      */
     public function __construct(
-        Model|WardenSchema|string $schema,
+        Model|WarrantSchema|string $schema,
         public array $rules,
     ){
-        $this->schemaKey = Warden::resolveSchemaKey($schema);
+        $this->schemaKey = Warrant::resolveSchemaKey($schema);
     }
 
     /**
-     * Build a rule set by parsing raw Warden syntax, resolving any
+     * Build a rule set by parsing raw Warrant syntax, resolving any
      * named (:name) or positional (?) placeholders against $bindings.
      *
-     * @param Model|WardenSchema|string $schema
+     * @param Model|WarrantSchema|string $schema
      */
     public static function fromSyntax(
-        Model|WardenSchema|string $schema,
+        Model|WarrantSchema|string $schema,
         string $syntax,
         array $bindings = [],
     ): self {
-        return new self($schema, WardenParser::parse($syntax, $bindings));
+        return new self($schema, WarrantParser::parse($syntax, $bindings));
     }
 
     /**
      * Build a rule set from already-resolved rules. Accepts a variadic list or a
-     * single array, and each element may be a WardenRule or a WardenRuleBuilder
+     * single array, and each element may be a WarrantRule or a WarrantRuleBuilder
      * (which is finalized via toRule()). Does not accept bindings, and does not
      * allow mixing raw syntax with resolved rules.
      *
-     * @param Model|WardenSchema|string $schema
-     * @param WardenRule|WardenRuleBuilder|array<int, WardenRule|WardenRuleBuilder> ...$rules
+     * @param Model|WarrantSchema|string $schema
+     * @param WarrantRule|WarrantRuleBuilder|array<int, WarrantRule|WarrantRuleBuilder> ...$rules
      */
     public static function fromRules(
-        Model|WardenSchema|string $schema,
-        WardenRule|WardenRuleBuilder|array ...$rules,
+        Model|WarrantSchema|string $schema,
+        WarrantRule|WarrantRuleBuilder|array ...$rules,
     ): self {
         $flattened = [];
 
         foreach ($rules as $rule) {
             foreach (is_array($rule) ? $rule : [$rule] as $one) {
-                if ($one instanceof WardenRuleBuilder) {
+                if ($one instanceof WarrantRuleBuilder) {
                     $one = $one->toRule();
                 }
 
-                if (! $one instanceof WardenRule) {
+                if (! $one instanceof WarrantRule) {
                     throw new InvalidArgumentException(
-                        sprintf('fromRules expects WardenRule or WardenRuleBuilder instances, got %s.', get_debug_type($one))
+                        sprintf('fromRules expects WarrantRule or WarrantRuleBuilder instances, got %s.', get_debug_type($one))
                     );
                 }
 
@@ -80,25 +80,25 @@ readonly class WardenRuleSet
      * Build a rule set with a callback, one rule per `$rule()` call.
      *
      * The callback receives a factory; each invocation of it appends a fresh
-     * {@see WardenRuleBuilder} to the set and returns it for chaining. Rules are
+     * {@see WarrantRuleBuilder} to the set and returns it for chaining. Rules are
      * finalized automatically — there is no need to call toRule().
      *
      * ```php
-     * WardenRuleSet::build('timesheets', function ($rule) {
+     * WarrantRuleSet::build('timesheets', function ($rule) {
      *     $rule()->if('is_self')->theyCan('edit', 'view');
      *     $rule()->theyCan('list');
      * });
      * ```
      *
-     * @param Model|WardenSchema|string $schema
-     * @param Closure(callable():WardenRuleBuilder):void $callback
+     * @param Model|WarrantSchema|string $schema
+     * @param Closure(callable():WarrantRuleBuilder):void $callback
      */
-    public static function build(Model|WardenSchema|string $schema, Closure $callback): self
+    public static function build(Model|WarrantSchema|string $schema, Closure $callback): self
     {
         $builders = [];
 
-        $make = function () use (&$builders): WardenRuleBuilder {
-            return $builders[] = new WardenRuleBuilder;
+        $make = function () use (&$builders): WarrantRuleBuilder {
+            return $builders[] = new WarrantRuleBuilder;
         };
 
         $callback($make);
@@ -110,7 +110,7 @@ readonly class WardenRuleSet
      * Render every rule back to the string DSL with scalar condition parameters
      * inlined as literals, one blank line between rules. Throws if a parameter
      * has no inline representation — use {@see toBoundSyntax()} for those.
-     * Round-trips via `WardenRuleSet::fromSyntax($this->schemaKey, $syntax)`.
+     * Round-trips via `WarrantRuleSet::fromSyntax($this->schemaKey, $syntax)`.
      */
     public function toSyntax(): string
     {
@@ -121,7 +121,7 @@ readonly class WardenRuleSet
      * Render every rule to `?`-parameterized syntax plus one flat, left-to-right
      * positional bindings list spanning the whole set. Lossless for any value.
      * Round-trips via
-     * `WardenRuleSet::fromSyntax($this->schemaKey, $result->syntax, $result->bindings)`.
+     * `WarrantRuleSet::fromSyntax($this->schemaKey, $result->syntax, $result->bindings)`.
      */
     public function toBoundSyntax(): BoundSyntax
     {
@@ -139,7 +139,7 @@ readonly class WardenRuleSet
      */
     public function validate(): void
     {
-        $schemaClass = Warden::getSchemaForKey($this->schemaKey);
+        $schemaClass = Warrant::getSchemaForKey($this->schemaKey);
 
         (new RuleSetValidator(new $schemaClass))->validate($this);
     }
@@ -150,15 +150,15 @@ readonly class WardenRuleSet
      *
      * Accepts a variadic list or arrays of rule sets.
      *
-     * @param WardenRuleSet|array<int, WardenRuleSet> ...$ruleSets
+     * @param WarrantRuleSet|array<int, WarrantRuleSet> ...$ruleSets
      */
-    public static function validateAll(WardenRuleSet|array ...$ruleSets): void
+    public static function validateAll(WarrantRuleSet|array ...$ruleSets): void
     {
         foreach ($ruleSets as $ruleSet) {
             foreach (is_array($ruleSet) ? $ruleSet : [$ruleSet] as $one) {
                 if (! $one instanceof self) {
                     throw new InvalidArgumentException(
-                        sprintf('validateAll expects WardenRuleSet instances, got %s.', get_debug_type($one))
+                        sprintf('validateAll expects WarrantRuleSet instances, got %s.', get_debug_type($one))
                     );
                 }
 

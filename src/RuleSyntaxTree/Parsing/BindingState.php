@@ -1,8 +1,8 @@
 <?php
 
-namespace Warden\RuleSyntaxTree\Parsing;
+namespace Warrant\RuleSyntaxTree\Parsing;
 
-use Warden\RuleSyntaxTree\WardenSyntaxException;
+use Warrant\RuleSyntaxTree\WarrantSyntaxException;
 
 /**
  * Resolves placeholder arguments (`:name` and `?`) to concrete values as the
@@ -41,7 +41,7 @@ final class BindingState
     public function resolveNamed(Token $token): mixed
     {
         if ($this->mode === self::MODE_POSITIONAL) {
-            throw WardenSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
+            throw WarrantSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
         }
 
         $this->mode = self::MODE_NAMED;
@@ -49,7 +49,7 @@ final class BindingState
         $name = $token->value;
 
         if (! array_key_exists($name, $this->bindings)) {
-            throw WardenSyntaxException::at(sprintf('No binding provided for ":%s".', $name), $this->source, $token);
+            throw WarrantSyntaxException::at(sprintf('No binding provided for ":%s".', $name), $this->source, $token);
         }
 
         $this->usedNamed[$name] = true;
@@ -60,13 +60,13 @@ final class BindingState
     public function resolvePositional(Token $token): mixed
     {
         if ($this->mode === self::MODE_NAMED) {
-            throw WardenSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
+            throw WarrantSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
         }
 
         $this->mode = self::MODE_POSITIONAL;
 
         if ($this->positionalCursor >= count($this->positional)) {
-            throw WardenSyntaxException::at('More positional placeholders (?) than bindings provided.', $this->source, $token);
+            throw WarrantSyntaxException::at('More positional placeholders (?) than bindings provided.', $this->source, $token);
         }
 
         return $this->positional[$this->positionalCursor++];
@@ -81,7 +81,7 @@ final class BindingState
             $remaining = count($this->positional) - $this->positionalCursor;
 
             if ($remaining > 0) {
-                throw WardenSyntaxException::at(
+                throw WarrantSyntaxException::at(
                     sprintf('%d positional binding(s) were provided but never used.', $remaining),
                     $this->source,
                     $eof,
@@ -96,7 +96,7 @@ final class BindingState
         $unused = array_diff(array_keys($this->bindings), array_keys($this->usedNamed));
 
         if ($unused !== []) {
-            throw WardenSyntaxException::at(
+            throw WarrantSyntaxException::at(
                 sprintf('Binding(s) provided but never used: %s.', implode(', ', $unused)),
                 $this->source,
                 $eof,

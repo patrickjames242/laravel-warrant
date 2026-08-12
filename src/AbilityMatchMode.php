@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 enum AbilityMatchMode: string
 {

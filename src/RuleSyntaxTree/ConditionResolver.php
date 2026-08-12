@@ -1,12 +1,12 @@
 <?php
 
-namespace Warden\RuleSyntaxTree;
+namespace Warrant\RuleSyntaxTree;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Query\Builder;
 
 /**
- * The seam between a compiled {@see WardenRuleSet} and the host schema. The
+ * The seam between a compiled {@see WarrantRuleSet} and the host schema. The
  * compiler only knows how to assemble boolean structure and the deny-overrides
  * formula; everything condition-specific (whether a condition is row-targeted,
  * and the SQL it emits) is delegated here.

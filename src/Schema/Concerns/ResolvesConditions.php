@@ -1,16 +1,16 @@
 <?php
 
-namespace Warden\Schema\Concerns;
+namespace Warrant\Schema\Concerns;
 
 use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
-use Warden\Schema\Conditions\GlobalConditionContext;
-use Warden\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\Conditions\TargetedConditionContext;
 
 /**
- * The vocabulary seam the compiler dispatches into (the {@see \Warden\RuleSyntaxTree\ConditionResolver}
+ * The vocabulary seam the compiler dispatches into (the {@see \Warrant\RuleSyntaxTree\ConditionResolver}
  * implementation): validating ability names and applying a named condition's SQL
  * predicate to a builder.
  */

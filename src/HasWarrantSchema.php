@@ -1,19 +1,20 @@
 <?php
 
-namespace Warden;
+namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
-use Warden\Schema\WardenSchema;
+use Warrant\Reachability;
+use Warrant\Schema\WarrantSchema;
 
-trait HasWardenSchema
+trait HasWarrantSchema
 {
     /**
-     * @return class-string<WardenSchema>
+     * @return class-string<WarrantSchema>
      */
-    abstract public function wardenSchema(): string;
+    abstract public function warrantSchema(): string;
 
     public static function userHasAbilities(
         string|array $abilities,
@@ -25,7 +26,7 @@ trait HasWardenSchema
     {
         /** @var Model&self $model */
         $model = new static;
-        $schemaClass = $model->wardenSchema();
+        $schemaClass = $model->warrantSchema();
 
         return $schemaClass::userHasAbilities($abilities, $target, $user, $matchMode, $context);
     }
@@ -44,7 +45,7 @@ trait HasWardenSchema
         array $context = []
     ): bool
     {
-        return $this->wardenSchema()::userHasAbilities($abilities, $this, $user, $matchMode, $context);
+        return $this->warrantSchema()::userHasAbilities($abilities, $this, $user, $matchMode, $context);
     }
 
     /**
@@ -58,9 +59,84 @@ trait HasWardenSchema
     {
         /** @var Model&self $model */
         $model = new static;
-        $schemaClass = $model->wardenSchema();
+        $schemaClass = $model->warrantSchema();
 
         return $schemaClass::getUserAbilities($target, $user, $context);
+    }
+
+    /**
+     * Classify one ability as NEVER / MAYBE / ALWAYS for the user, from the
+     * structure of the rules alone (no conditions evaluated, no query run).
+     */
+    public static function abilityReachability(string $ability, ?Authenticatable $user = null): Reachability
+    {
+        return (new static)->warrantSchema()::abilityReachability($ability, $user);
+    }
+
+    /**
+     * Whether the user could ever hold the ability (or abilities) under some
+     * circumstance. See {@see WarrantSchema::userCouldEverHave}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userCouldEverHave(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->warrantSchema()::userCouldEverHave($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user is guaranteed the ability (or abilities) regardless of the
+     * row. See {@see WarrantSchema::userAlwaysHas}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userAlwaysHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->warrantSchema()::userAlwaysHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user can never hold the ability (or abilities) under any
+     * circumstance. See {@see WarrantSchema::userNeverHas}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userNeverHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->warrantSchema()::userNeverHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserPossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->warrantSchema()::getUserPossibleAbilities($user);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserGuaranteedAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->warrantSchema()::getUserGuaranteedAbilities($user);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserImpossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->warrantSchema()::getUserImpossibleAbilities($user);
     }
 
     public function scopeHasAbility(
@@ -72,7 +148,7 @@ trait HasWardenSchema
     ): EloquentBuilder
     {
         $model = $query->getModel();
-        $schema = $this->newWardenSchemaInstance($model);
+        $schema = $this->newWarrantSchemaInstance($model);
 
         $user ??= auth()->user();
 
@@ -105,7 +181,7 @@ trait HasWardenSchema
     ): EloquentBuilder
     {
         $model = $query->getModel();
-        $schema = $this->newWardenSchemaInstance($model);
+        $schema = $this->newWarrantSchemaInstance($model);
 
         $user ??= auth()->user();
 
@@ -134,7 +210,7 @@ trait HasWardenSchema
         array $context = []
     ): array
     {
-        $schemaClass = $this->wardenSchema();
+        $schemaClass = $this->warrantSchema();
 
         $user ??= auth()->user();
 
@@ -149,13 +225,13 @@ trait HasWardenSchema
         return $abilities;
     }
 
-    protected function newWardenSchemaInstance(Model $model): WardenSchema
+    protected function newWarrantSchemaInstance(Model $model): WarrantSchema
     {
-        $schemaClass = $model->wardenSchema();
+        $schemaClass = $model->warrantSchema();
 
-        if (!is_a($schemaClass, WardenSchema::class, true)) {
+        if (!is_a($schemaClass, WarrantSchema::class, true)) {
             throw new LogicException(
-                sprintf('Model [%s] must return a WardenSchema class string, got [%s].', $model::class, $schemaClass)
+                sprintf('Model [%s] must return a WarrantSchema class string, got [%s].', $model::class, $schemaClass)
             );
         }
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warden\Schema\Concerns;
+namespace Warrant\Schema\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -9,12 +9,12 @@ use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
-use Warden\Ability;
-use Warden\ContextKey;
-use Warden\GlobalCondition;
-use Warden\Schema\Conditions\GlobalConditionContext;
-use Warden\Schema\Conditions\TargetedConditionContext;
-use Warden\TargetedCondition;
+use Warrant\Ability;
+use Warrant\ContextKey;
+use Warrant\GlobalCondition;
+use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\TargetedCondition;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`
