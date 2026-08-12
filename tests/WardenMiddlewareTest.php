@@ -130,3 +130,105 @@ it('guards a route group with a standard ability helper', function () {
         ->get('/__warden/can-view/teacher:teacher-role')
         ->assertOk();
 });
+
+it('guard returns the middleware string when no closure is given', function () {
+    expect(WardenMiddleware::guard('course_sections', 'publish'))
+        ->toBe('warden:course_sections,publish');
+});
+
+it('builds reachability middleware strings with mode and match mode in the alias', function () {
+    expect(WardenMiddleware::couldEver('course_sections', 'view'))
+        ->toBe('warden.could-ever:course_sections,view');
+    expect(WardenMiddleware::always('course_sections', 'view'))
+        ->toBe('warden.always:course_sections,view');
+    expect(WardenMiddleware::never('course_sections', 'view'))
+        ->toBe('warden.never:course_sections,view');
+
+    expect(WardenMiddleware::couldEver('course_sections', ['view', 'publish'], matchMode: AbilityMatchMode::ANY))
+        ->toBe('warden.could-ever.any:course_sections,view,publish');
+
+    // Normalizes schema/model classes to the schema key, same as ::string.
+    expect(WardenMiddleware::couldEver(WardenScopedModelSchema::class, 'view'))
+        ->toBe('warden.could-ever:course_sections,view');
+});
+
+it('leaves an ability named like a match mode untouched after the colon', function () {
+    // The whole point of the alias-prefix grammar: no reserved tokens in params.
+    expect(WardenMiddleware::couldEver('course_sections', 'any'))
+        ->toBe('warden.could-ever:course_sections,any');
+});
+
+it('passes a could-ever guard when the ability is reachable', function () {
+    bindWardenRules('if is_teacher they can view');
+
+    registerWardenTestRoute('/__warden/could-ever', 'warden.could-ever:course_sections,view');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/could-ever')
+        ->assertOk();
+});
+
+it('forbids a could-ever guard when no rule grants the ability', function () {
+    bindWardenRules('');
+
+    registerWardenTestRoute('/__warden/could-ever-forbidden', 'warden.could-ever:course_sections,publish');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/could-ever-forbidden')
+        ->assertForbidden();
+});
+
+it('forbids an always guard when the grant is only conditional', function () {
+    bindWardenRules('if is_teacher they can view');
+
+    registerWardenTestRoute('/__warden/always', 'warden.always:course_sections,view');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/always')
+        ->assertForbidden();
+});
+
+it('passes an always guard for an unconditional grant', function () {
+    bindWardenRules('they can publish');
+
+    registerWardenTestRoute('/__warden/always-ok', 'warden.always:course_sections,publish');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/always-ok')
+        ->assertOk();
+});
+
+it('passes a never guard exactly when the ability is unreachable', function () {
+    bindWardenRules('');
+
+    registerWardenTestRoute('/__warden/never-ok', 'warden.never:course_sections,publish');
+    registerWardenTestRoute('/__warden/never-any', 'warden.never.any:course_sections,publish');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/never-ok')
+        ->assertOk();
+});
+
+it('forbids a never guard once a rule can grant the ability', function () {
+    bindWardenRules('they can publish');
+
+    registerWardenTestRoute('/__warden/never-forbidden', 'warden.never:course_sections,publish');
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/never-forbidden')
+        ->assertForbidden();
+});
+
+it('guards a reachability route group with a closure', function () {
+    bindWardenRules('if is_teacher they can view');
+
+    Route::middleware(SubstituteBindings::class)->group(function () {
+        WardenMiddleware::couldEver('course_sections', 'view', function () {
+            Route::get('/__warden/could-ever-group', fn () => response('ok'));
+        });
+    });
+
+    $this->actingAs(makeWardenTestUser('teacher-role'))
+        ->get('/__warden/could-ever-group')
+        ->assertOk();
+});

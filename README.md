@@ -53,6 +53,7 @@ full detail, and exactly how you hand rules to the library.
   - [Passing context to a check](#passing-context-to-a-check)
   - [Capability (no-target) checks](#capability-no-target-checks)
   - [Match modes](#match-modes)
+  - [Could a user ever…? (reachability)](#could-a-user-ever-reachability)
   - [Route middleware](#route-middleware)
 - [How it compiles to SQL](#how-it-compiles-to-sql)
 - [Testing](#testing)
@@ -1231,6 +1232,79 @@ use Warden\AbilityMatchMode;
 Timesheet::query()->hasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ANY)->get();
 ```
 
+### Could a user ever…? (reachability)
+
+Every check so far asks about a concrete row (or the global capability frame).
+A different, cheaper question is *"could this user **ever** update a timesheet —
+is it even worth showing the button, or building the section?"* That's
+**reachability**: a purely **structural** look at the rules the resolver hands
+this user. It evaluates **no conditions** and runs **no SQL** — it only asks
+whether a grant is *conceivable*.
+
+The rule of thumb is *unconditionality*. A rule with an `if` is a "maybe" (whether
+it fires depends on a condition we don't evaluate here); only unconditional rules
+make us certain. Each ability lands in one of three states:
+
+| `Warden\Reachability` | meaning | typical UI use |
+|---|---|---|
+| `NEVER` | no rule grants it, or an unconditional `cannot` forbids it | hide the control entirely |
+| `MAYBE` | a condition decides — they might or might not | show it, but check per row |
+| `ALWAYS` | unconditionally granted, no unconditional deny | show it enabled |
+
+The decision table, resolved top to bottom for one ability:
+
+1. an unconditional `cannot` → `NEVER` (an undodgeable deny wins);
+2. no `can` rule lists it → `NEVER` (no grant path at all);
+3. an unconditional `can` and no *conditional* `cannot` → `ALWAYS`;
+4. otherwise → `MAYBE`.
+
+A *conditional* `cannot` is intentionally ignored: a different row/state can dodge
+it, so it never lowers certainty. (This mirrors the compiler's own hard edges —
+see [How it compiles to SQL](#how-it-compiles-to-sql).) Because `ALWAYS` ignores
+conditional denies, it means "granted by the rules' shape," **not** a guarantee
+every row passes — the per-row check is still the source of truth.
+
+```php
+use Warden\Reachability;
+
+// One ability, three-valued:
+Timesheet::abilityReachability('update');            // Reachability::NEVER | MAYBE | ALWAYS
+
+// The boolean questions:
+Timesheet::userCouldEverHave('update');              // reachability !== NEVER
+Timesheet::userAlwaysHas('view');                    // reachability === ALWAYS
+Timesheet::userNeverHas('delete');                   // reachability === NEVER
+
+// Whole-schema lists (over every declared ability):
+Timesheet::getUserPossibleAbilities();               // ['view', 'update', 'approve']
+Timesheet::getUserGuaranteedAbilities();             // ['view']
+Timesheet::getUserImpossibleAbilities();             // ['delete']
+```
+
+Every method takes an optional `$user` (defaults to `auth()->user()`), and the
+boolean forms take an `AbilityMatchMode` — `ALL` (default) needs every listed
+ability to qualify, `ANY` needs one. There is **no** `context:` argument:
+`@context` only ever feeds condition evaluation, which reachability never does.
+The user is still needed, because the resolver may hand a different rule set to
+each user, role, or tenant.
+
+The same three booleans and the classifier are on the schema and the `Warden`
+facade too:
+
+```php
+TimesheetSchema::userCouldEverHave('update', $user);
+Warden::userCouldEverHave('timesheets', 'update', $user);   // by schema key or class
+```
+
+```php
+// Rendering a nav without a query per link:
+match (Timesheet::abilityReachability('update')) {
+    Reachability::NEVER  => /* omit the Edit link */,
+    Reachability::ALWAYS => /* show it, enabled */,
+    Reachability::MAYBE  => /* show it; the row check decides per timesheet */,
+};
+```
+
 ### Route middleware
 
 Warden registers a `warden` route middleware. Build the middleware string with
@@ -1256,6 +1330,47 @@ There are `canView`, `canCreate`, `canUpdate`, `canDelete`, `canArchive`, and
 `canManage` shortcuts. Under the hood the middleware resolves the target to a
 schema (by schema key or by the route-bound model's class) and calls
 `userHasAbilities`, aborting `403` on failure.
+
+Every builder is **dual-mode**: call it with no closure to get the middleware
+string, or hand it a closure to wrap a route group — one method, no `*Guard`
+twin. `guard` is the generic form of `string`:
+
+```php
+WardenMiddleware::guard('timesheet', 'view');                       // returns the string
+WardenMiddleware::guard('timesheet', 'view', fn () => Route::get(...));  // groups the routes
+```
+
+#### Reachability guards
+
+The reachability questions have matching guards — gate a section by whether the
+user *could ever* act, or short-circuit a route to those who provably never can:
+
+```php
+// Only reachable if the user could ever view a timesheet — otherwise 403:
+Route::get('/timesheets', ...)->middleware(WardenMiddleware::couldEver('timesheets', 'view'));
+
+// Only when the ability is guaranteed:
+WardenMiddleware::always('timesheets', 'create', fn () => Route::post('/timesheets', ...));
+
+// Only when the user provably can never (e.g. an upsell page):
+Route::get('/upgrade', ...)->middleware(WardenMiddleware::never('timesheets', 'approve'));
+```
+
+These are target-free, so the first argument is always a schema key (or a
+schema/model class), never a route parameter. They're dual-mode like the rest.
+
+Under the hood the mode and match mode live in the **alias**, not in the
+parameters — so everything after the colon is just the schema key and abilities,
+and an ability may safely be named `any` or `all`:
+
+```
+warden.could-ever:timesheets,view          warden.could-ever.any:timesheets,view,approve
+warden.always:timesheets,view              warden.always.any:timesheets,view,approve
+warden.never:timesheets,view               warden.never.any:timesheets,view,approve
+```
+
+(The row-check `warden:` alias keeps its own grammar, where an `any`/`all` token
+after the schema key selects the match mode.)
 
 ---
 
@@ -1353,10 +1468,19 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `context:` — values for the rules' `@context` keys, merged over `defaultContext()`
 - `Warden\AbilityMatchMode::ALL | ANY`
 
-**Middleware** — `Warden\WardenMiddleware`
+**Reachability** — structural "could they ever?", no conditions evaluated, no SQL, no `context:`
+- `Model::abilityReachability($ability, $user = null): Warden\Reachability` — `NEVER | MAYBE | ALWAYS`
+- `Model::userCouldEverHave($abilities, $user = null, $matchMode = ALL): bool` — `!== NEVER`
+- `Model::userAlwaysHas($abilities, $user = null, $matchMode = ALL): bool` — `=== ALWAYS`
+- `Model::userNeverHas($abilities, $user = null, $matchMode = ALL): bool` — `=== NEVER`
+- `Model::getUserPossibleAbilities / getUserGuaranteedAbilities / getUserImpossibleAbilities($user = null): array`
+- also on the schema and the `Warden` facade (`Warden::userCouldEverHave($schemaKeyOrClass, …)`)
+
+**Middleware** — `Warden\WardenMiddleware` (all builders are dual-mode: string, or group when given a closure)
 - `::string($target, $abilities, $matchMode = ALL)`
-- `::guard($target, $abilities, Closure $routes, $matchMode = ALL)`
+- `::guard($target, $abilities, ?Closure $routes = null, $matchMode = ALL)`
 - `::canView / canCreate / canUpdate / canDelete / canArchive / canManage($target, ?Closure)`
+- `::couldEver / always / never($target, $abilities, ?Closure $routes = null, $matchMode = ALL)` — reachability guards
 
 ## License
 

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Warden\Reachability;
 use Warden\Schema\WardenSchema;
 
 trait HasWardenSchema
@@ -61,6 +62,81 @@ trait HasWardenSchema
         $schemaClass = $model->wardenSchema();
 
         return $schemaClass::getUserAbilities($target, $user, $context);
+    }
+
+    /**
+     * Classify one ability as NEVER / MAYBE / ALWAYS for the user, from the
+     * structure of the rules alone (no conditions evaluated, no query run).
+     */
+    public static function abilityReachability(string $ability, ?Authenticatable $user = null): Reachability
+    {
+        return (new static)->wardenSchema()::abilityReachability($ability, $user);
+    }
+
+    /**
+     * Whether the user could ever hold the ability (or abilities) under some
+     * circumstance. See {@see WardenSchema::userCouldEverHave}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userCouldEverHave(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->wardenSchema()::userCouldEverHave($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user is guaranteed the ability (or abilities) regardless of the
+     * row. See {@see WardenSchema::userAlwaysHas}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userAlwaysHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->wardenSchema()::userAlwaysHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * Whether the user can never hold the ability (or abilities) under any
+     * circumstance. See {@see WardenSchema::userNeverHas}.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public static function userNeverHas(
+        string|array $abilities,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    ): bool {
+        return (new static)->wardenSchema()::userNeverHas($abilities, $user, $matchMode);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserPossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->wardenSchema()::getUserPossibleAbilities($user);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserGuaranteedAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->wardenSchema()::getUserGuaranteedAbilities($user);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getUserImpossibleAbilities(?Authenticatable $user = null): array
+    {
+        return (new static)->wardenSchema()::getUserImpossibleAbilities($user);
     }
 
     public function scopeHasAbility(

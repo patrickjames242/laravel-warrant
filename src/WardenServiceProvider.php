@@ -37,6 +37,16 @@ final class WardenServiceProvider extends ServiceProvider
     {
         $router->aliasMiddleware('warden', WardenMiddleware::class);
 
+        /* Reachability guards. Mode and match mode live in the alias, so the
+           route string after the colon is only the schema key and abilities —
+           an ability may safely be named "any" or "all". */
+        $router->aliasMiddleware('warden.could-ever', Middleware\CouldEverMiddleware::class);
+        $router->aliasMiddleware('warden.could-ever.any', Middleware\CouldEverAnyMiddleware::class);
+        $router->aliasMiddleware('warden.always', Middleware\AlwaysMiddleware::class);
+        $router->aliasMiddleware('warden.always.any', Middleware\AlwaysAnyMiddleware::class);
+        $router->aliasMiddleware('warden.never', Middleware\NeverMiddleware::class);
+        $router->aliasMiddleware('warden.never.any', Middleware\NeverAnyMiddleware::class);
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/warden.php' => $this->app->configPath('warden.php'),
