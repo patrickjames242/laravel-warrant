@@ -29,6 +29,18 @@ final readonly class GlobalConditionContext
         public Builder $query,
         public array $arguments = [],
         public array $context = [],
+        private AliasFactory $aliases = new AliasFactory(),
     ) {
+    }
+
+    /**
+     * A deterministic, collision-safe table alias for a table this condition joins.
+     *
+     * Call once per join in a stable order; the returned {@see Alias} exposes both
+     * the join target (`->table()`) and qualified columns (`->col('id')`).
+     */
+    public function alias(string $base): Alias
+    {
+        return $this->aliases->next($base);
     }
 }
