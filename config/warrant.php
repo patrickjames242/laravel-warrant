@@ -19,14 +19,4 @@ return [
     'schemas' => [
         // App\Schemas\PostSchema::class,
     ],
-
-    /*
-     * Reserved identifier namespace for the table aliases Warrant generates when a
-     * condition joins additional tables (see Warrant\Schema\Conditions\AliasFactory).
-     * Every generated alias starts with this prefix, which keeps them from colliding
-     * with your own tables and aliases. Your application must not name tables or
-     * aliases beginning with this string. Override it only if the default is not
-     * distinctive enough for your schema.
-     */
-    'alias_prefix' => '__warrant_',
 ];

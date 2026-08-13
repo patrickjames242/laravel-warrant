@@ -6,7 +6,6 @@ use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
-use Warrant\Schema\Conditions\AliasFactory;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\TargetedConditionContext;
 
@@ -49,8 +48,6 @@ trait ResolvesConditions
 
         $methodName = $conditionDefinition['method']->getName();
 
-        $aliases = new AliasFactory(config('warrant.alias_prefix') ?? AliasFactory::DEFAULT_PREFIX);
-
         if ($conditionDefinition['has_target']) {
             if ($targetSqlId === null) {
                 throw new InvalidArgumentException(
@@ -58,9 +55,9 @@ trait ResolvesConditions
                 );
             }
 
-            $conditionContext = new TargetedConditionContext($currentUser, $whereClause, $targetSqlId, $arguments, $context, $aliases);
+            $conditionContext = new TargetedConditionContext($currentUser, $whereClause, $targetSqlId, $arguments, $context);
         } else {
-            $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context, $aliases);
+            $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context);
         }
 
         return $this->{$methodName}($conditionContext);
