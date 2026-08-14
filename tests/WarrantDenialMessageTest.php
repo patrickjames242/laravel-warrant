@@ -91,6 +91,38 @@ class DenialUngrantedThrowSchema extends WarrantTestSchema
     }
 }
 
+/** A schema that catches message-less forbids with a string. */
+class DenialForbiddenSchema extends WarrantTestSchema
+{
+    protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+    {
+        return 'Forbidden: '.implode(',', $c->deniedAbilities);
+    }
+}
+
+/** A schema whose forbidden hook throws a custom exception. */
+class DenialForbiddenThrowSchema extends WarrantTestSchema
+{
+    protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+    {
+        return new DenialCustomException('forbidden '.$c->deniedAbilities[0]);
+    }
+}
+
+/** A schema that catches both forbidden and ungranted denials. */
+class DenialBothSchema extends WarrantTestSchema
+{
+    protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+    {
+        return 'forbidden:'.implode(',', $c->deniedAbilities);
+    }
+
+    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    {
+        return 'ungranted:'.implode(',', $c->ungrantedAbilities);
+    }
+}
+
 // -- helpers ------------------------------------------------------------------
 
 function seedDenialSections(): void
@@ -539,6 +571,79 @@ it('resolves a wildcard cannot to the concrete gate abilities in deniedAbilities
 
     expect($captured->gate->abilities)->toBe(['update', 'view']);
     expect($captured->deniedAbilities)->toBe(['update', 'view']); // '*' resolved against the gate
+});
+
+// -- forbidden (schema fallback for message-less cannots) ---------------------
+
+it('catches a message-less cannot with the schema forbidden hook', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update')->toRule(),
+        WarrantRule::build()->theyCannot('update')->toRule(),   // forbids, no message
+    ], DenialForbiddenSchema::class);
+
+    expect(fn () => DenialForbiddenSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'Forbidden: update');
+});
+
+it('prefers a rule message over the schema forbidden hook', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update')->toRule(),
+        WarrantRule::build()->theyCannot('update')->withDenialMessage('rule says no')->toRule(),
+    ], DenialForbiddenSchema::class);
+
+    expect(fn () => DenialForbiddenSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'rule says no');
+});
+
+it('gives the forbidden hook the concrete blocked abilities of a wildcard cannot', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update', 'view')->toRule(),
+        WarrantRule::build()->if('is_teacher')->theyCannot('*')->toRule(),   // wildcard forbid, no message
+    ], DenialForbiddenSchema::class);
+
+    expect(fn () => DenialForbiddenSchema::authorize(['update', 'view'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL))
+        ->toThrow(WarrantAuthorizationException::class, 'Forbidden: update,view');
+});
+
+it('throws a Throwable returned from the forbidden hook', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update')->toRule(),
+        WarrantRule::build()->theyCannot('update')->toRule(),
+    ], DenialForbiddenThrowSchema::class);
+
+    expect(fn () => DenialForbiddenThrowSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(DenialCustomException::class, 'forbidden update');
+});
+
+it('prefers the forbidden hook over the ungranted hook on a mixed denial', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('view')->toRule(),
+        WarrantRule::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
+    ], DenialBothSchema::class);
+
+    // ALL [view, update]: view forbidden, update ungranted -> forbid wins.
+    expect(fn () => DenialBothSchema::authorize(['view', 'update'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL))
+        ->toThrow(WarrantAuthorizationException::class, 'forbidden:view');
+});
+
+it('falls through from a declining forbidden hook to the ungranted hook', function () {
+    seedDenialSections();
+    // DenialUngrantedSchema overrides only the ungranted hook; its forbidden hook
+    // declines (null), so a mixed denial falls through to the ungranted message.
+    bindDenialRules([
+        WarrantRule::build()->theyCan('view')->toRule(),
+        WarrantRule::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
+    ], DenialUngrantedSchema::class);
+
+    // ALL [view, update]: view forbidden but the forbidden hook declines; update
+    // is ungranted, so the ungranted hook answers.
+    expect(fn () => DenialUngrantedSchema::authorize(['view', 'update'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL))
+        ->toThrow(WarrantAuthorizationException::class, 'Not permitted: update (ALL)');
 });
 
 // -- validator guard ----------------------------------------------------------

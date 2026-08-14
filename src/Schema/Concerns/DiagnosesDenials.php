@@ -130,8 +130,10 @@ trait DiagnosesDenials
 
         // Sort each failing ability into "forbidden by a cannot" vs "ungranted",
         // surfacing a message-bearing forbid the moment we find one (it outranks
-        // any ungranted message).
+        // every other source). A message-less forbid is remembered as the fallback
+        // for the schema's forbiddenDenialMessage hook.
         $ungrantedAbilities = [];
+        $forbiddenRule = null;
         foreach ($failedAbilities as $ability) {
             $anyCannotFired = false;
 
@@ -163,10 +165,22 @@ trait DiagnosesDenials
                 }
 
                 $anyCannotFired = true;
+                $forbiddenRule ??= $rule;
             }
 
             if (! $anyCannotFired) {
                 $ungrantedAbilities[] = $ability;
+            }
+        }
+
+        // A forbid (even message-less) is a more specific answer than "ungranted",
+        // so the schema forbidden hook is consulted first; only if it declines does
+        // an ungranted ability fall to the ungranted hook.
+        if ($forbiddenRule !== null) {
+            $forbidden = $this->buildForbiddenException($forbiddenRule, $currentUser, $targetModel, $gate, $context);
+
+            if ($forbidden !== null) {
+                return $forbidden;
             }
         }
 
@@ -246,6 +260,41 @@ trait DiagnosesDenials
         }
 
         return null;
+    }
+
+    /**
+     * Consult the schema's forbidden-denial hook for a message-less `cannot` and
+     * resolve its return into the Throwable to throw: a string is wrapped in a
+     * {@see WarrantAuthorizationException}, a Throwable is thrown as-is, and null
+     * falls through (the caller then tries the ungranted hook, else generic).
+     *
+     * @param array<string, mixed> $context
+     */
+    private function buildForbiddenException(
+        WarrantRule $rule,
+        Authenticatable $currentUser,
+        ?Model $targetModel,
+        WarrantGate $gate,
+        array $context,
+    ): ?Throwable
+    {
+        $denialContext = new WarrantDenialContext(
+            user: $currentUser,
+            target: $targetModel,
+            schema: static::class,
+            context: $context,
+            gate: $gate,
+            rule: $rule,
+            deniedAbilities: $this->abilitiesBlockedByRule($rule, $gate->abilities),
+        );
+
+        $result = $this->forbiddenDenialMessage($denialContext);
+
+        if ($result instanceof Throwable) {
+            return $result;
+        }
+
+        return is_string($result) ? new WarrantAuthorizationException($result, $denialContext) : null;
     }
 
     /**

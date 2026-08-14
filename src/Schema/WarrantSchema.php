@@ -15,6 +15,7 @@ use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesRuleSets;
 use Warrant\WarrantAuthorizationException;
+use Warrant\WarrantDenialContext;
 use Warrant\WarrantUngrantedContext;
 
 /**
@@ -155,13 +156,14 @@ abstract class WarrantSchema implements ConditionResolver
      * Assert the user holds the abilities, throwing on denial instead of
      * returning a bool. The throwing sibling of {@see userHasAbilities}.
      *
-     * The rule responsible for the denial is diagnosed: if a matching `cannot`
-     * rule carried a denial message, that message (or the custom Throwable its
-     * closure returns) is surfaced; otherwise a generic
-     * {@see WarrantAuthorizationException} (403) is thrown. Diagnosis works for a
-     * singular target (a `Model` or key) and for a no-target check — in the
-     * latter only global/unconditional `cannot` rules can be the cause, since a
-     * targeted condition cannot fire without a row.
+     * The denial is diagnosed and the first message source that speaks wins: the
+     * responsible `cannot` rule's own message, then the schema's
+     * {@see forbiddenDenialMessage} (a forbid with no rule message), then
+     * {@see ungrantedDenialMessage} (no grant), then a generic
+     * {@see WarrantAuthorizationException} (403). Diagnosis works for a singular
+     * target (a `Model` or key) and for a no-target check — in the latter only
+     * global/unconditional `cannot` rules can be the cause, since a targeted
+     * condition cannot fire without a row.
      *
      * @param string|array<int, string> $abilities
      * @throws \Throwable
@@ -191,11 +193,27 @@ abstract class WarrantSchema implements ConditionResolver
     }
 
     /**
+     * The schema-level fallback message for a *forbidden* denial — a matching
+     * `cannot` rule blocked the check but carried no {@see \Warrant\RuleSyntaxTree\WarrantRule::$message}
+     * of its own. Consulted after a rule's own message and before the generic 403,
+     * so it catches every message-less `cannot`.
+     *
+     * The {@see WarrantDenialContext} carries the responsible `rule` and the gate
+     * abilities it blocked. Return a string (wrapped in a
+     * {@see WarrantAuthorizationException} → 403), a `Throwable` (thrown as-is), or
+     * null to fall through (to {@see ungrantedDenialMessage} if some ability was
+     * also ungranted, otherwise the generic 403).
+     */
+    protected function forbiddenDenialMessage(WarrantDenialContext $context): string|\Throwable|null
+    {
+        return null;
+    }
+
+    /**
      * The message for a denial caused by the *absence of a grant* — the user was
      * neither forbidden by a `cannot` nor allowed by a `can`. This is distinct
-     * from a rule's own denial message ({@see \Warrant\RuleSyntaxTree\WarrantRule::$message}):
-     * a `cannot` that forbids without a message does **not** reach here — it stays
-     * a generic 403. Only a "nothing granted this" denial does.
+     * from being forbidden: a `cannot` that blocks the check is handled by a
+     * rule's own message or {@see forbiddenDenialMessage}, never here.
      *
      * Return a string (wrapped in a {@see WarrantAuthorizationException} → 403), a
      * `Throwable` (thrown as-is), or null to keep the generic default. The
