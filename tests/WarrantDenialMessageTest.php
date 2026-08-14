@@ -18,6 +18,7 @@ use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantAuthorizationException;
 use Warrant\WarrantDenialContext;
+use Warrant\WarrantUngrantedContext;
 
 // -- fixtures -----------------------------------------------------------------
 
@@ -72,6 +73,24 @@ class DenialContextSchema extends WarrantSchema
     }
 }
 
+/** A schema whose ungranted hook returns a string echoing the gate + subset. */
+class DenialUngrantedSchema extends WarrantTestSchema
+{
+    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    {
+        return 'Not permitted: '.implode(',', $c->ungrantedAbilities).' ('.$c->gate->matchMode->name.')';
+    }
+}
+
+/** A schema whose ungranted hook throws a custom exception. */
+class DenialUngrantedThrowSchema extends WarrantTestSchema
+{
+    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    {
+        return new DenialCustomException('no grant for '.$c->ungrantedAbilities[0]);
+    }
+}
+
 // -- helpers ------------------------------------------------------------------
 
 function seedDenialSections(): void
@@ -114,7 +133,7 @@ it('surfaces a string returned from a closure message', function () {
     bindDenialRules([
         WarrantRule::build()->theyCan('update')->toRule(),
         WarrantRule::build()->if('is_teacher')->theyCannot('update')
-            ->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot {$c->ability} {$c->target->getKey()}.")
+            ->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot {$c->deniedAbilities[0]} {$c->target->getKey()}.")
             ->toRule(),
     ]);
 
@@ -158,7 +177,10 @@ it('passes the resolved target model and ability into the closure context', func
     expect($captured)->toBeInstanceOf(WarrantDenialContext::class);
     expect($captured->target)->toBeInstanceOf(WarrantTestModel::class);
     expect($captured->target->getKey())->toBe('teacher:teacher-role');
-    expect($captured->ability)->toBe('update');
+    expect($captured->gate->abilities)->toBe(['update']);
+    expect($captured->gate->matchMode)->toBe(AbilityMatchMode::ALL);
+    expect($captured->deniedAbilities)->toBe(['update']);
+    expect($captured->rule)->toBeInstanceOf(WarrantRule::class);
     expect($captured->schema)->toBe(WarrantTestSchema::class);
 });
 
@@ -432,6 +454,91 @@ it('accepts a closure message on a fromSyntax rule', function () {
 
     expect(fn () => WarrantTestSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
         ->toThrow(WarrantAuthorizationException::class, 'No editing teacher:teacher-role.');
+});
+
+// -- ungranted (no rule grants access) ----------------------------------------
+
+it('surfaces the schema ungranted message when no rule grants access', function () {
+    seedDenialSections();
+    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+
+    // Nothing grants update, nothing forbids it -> ungranted hook fires.
+    expect(fn () => DenialUngrantedSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'Not permitted: update (ALL)');
+});
+
+it('throws a Throwable returned from the ungranted hook', function () {
+    seedDenialSections();
+    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedThrowSchema::class);
+
+    expect(fn () => DenialUngrantedThrowSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(DenialCustomException::class, 'no grant for update');
+});
+
+it('gives the ungranted hook the whole gate under ANY', function () {
+    seedDenialSections();
+    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+
+    // ANY [update, archive]: both ungranted -> the whole gate is the subset.
+    expect(fn () => DenialUngrantedSchema::authorize(['update', 'archive'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ANY))
+        ->toThrow(WarrantAuthorizationException::class, 'Not permitted: update,archive (ANY)');
+});
+
+it('gives the ungranted hook only the missing abilities under ALL', function () {
+    seedDenialSections();
+    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+
+    // ALL [view, update]: view granted, update ungranted -> subset is just update.
+    expect(fn () => DenialUngrantedSchema::authorize(['view', 'update'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL))
+        ->toThrow(WarrantAuthorizationException::class, 'Not permitted: update (ALL)');
+});
+
+it('does not treat a message-less cannot as ungranted', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update')->toRule(),
+        WarrantRule::build()->theyCannot('update')->toRule(),   // forbids, no message
+    ], DenialUngrantedSchema::class);
+
+    // Forbidden by a message-less cannot -> generic 403, NOT the ungranted message.
+    expect(fn () => DenialUngrantedSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'This action is unauthorized.');
+});
+
+it('prefers a message-bearing cannot over the ungranted hook', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::build()->theyCan('view')->toRule(),
+        WarrantRule::build()->theyCannot('view')->withDenialMessage('view forbidden')->toRule(),
+    ], DenialUngrantedSchema::class);
+
+    // ALL [view, update]: view forbidden (with message), update ungranted -> forbid wins.
+    expect(fn () => DenialUngrantedSchema::authorize(['view', 'update'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL))
+        ->toThrow(WarrantAuthorizationException::class, 'view forbidden');
+});
+
+it('resolves a wildcard cannot to the concrete gate abilities in deniedAbilities', function () {
+    seedDenialSections();
+
+    $captured = null;
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update', 'view')->toRule(),
+        WarrantRule::build()->if('is_teacher')->theyCannot('*')
+            ->withDenialMessage(function (WarrantDenialContext $c) use (&$captured) {
+                $captured = $c;
+
+                return 'blocked';
+            })->toRule(),
+    ]);
+
+    try {
+        WarrantTestSchema::authorize(['update', 'view'], 'teacher:teacher-role', makeWarrantTestUser('teacher-role'), AbilityMatchMode::ALL);
+    } catch (WarrantAuthorizationException) {
+        // expected
+    }
+
+    expect($captured->gate->abilities)->toBe(['update', 'view']);
+    expect($captured->deniedAbilities)->toBe(['update', 'view']); // '*' resolved against the gate
 });
 
 // -- validator guard ----------------------------------------------------------

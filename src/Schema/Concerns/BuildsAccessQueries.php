@@ -4,24 +4,19 @@ namespace Warrant\Schema\Concerns;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
-use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use RuntimeException;
-use Throwable;
 use Warrant\AbilityMatchMode;
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
-use Warrant\RuleSyntaxTree\RuleSetValidator;
-use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\WarrantAuthorizationException;
-use Warrant\WarrantDenialContext;
 
 /**
  * The SQL runtime: turns the resolved {@see WarrantRuleSet} into access-control
  * predicates and attaches them to entity queries (row filtering and per-row
  * ability selection). All condition SQL is produced by the {@see RuleSetCompiler}.
+ *
+ * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
+ * denial into a message lives in {@see DiagnosesDenials}.
  */
 trait BuildsAccessQueries
 {
@@ -202,214 +197,6 @@ trait BuildsAccessQueries
         }
 
         return $allowedAbilities;
-    }
-
-    /**
-     * Diagnose which rule denied a check and build the exception to throw. Runs
-     * only on the denial path (after a normal check already returned false), so
-     * its extra queries never touch the grant path.
-     *
-     * For each individually-denied ability (requested order) we surface the
-     * earliest message-bearing `cannot` rule (resolver order — implicit rules
-     * first) whose condition matches. Only a `cannot` can be the cause: under
-     * deny-overrides a matching `cannot` is the sufficient, unique reason for a
-     * denial, whereas "no `can` granted" is the absence of a grant and names no
-     * rule.
-     *
-     * With a singular target the query is rebuilt with global scopes removed —
-     * matching how the singular check itself reads the row (`getQuery()` returns
-     * the base query before Eloquent applies scopes), so diagnosis never
-     * disagrees with the decision it explains. With no target only global /
-     * unconditional `cannot` rules can match; a targeted condition is forced
-     * false without a row, exactly as in the check.
-     *
-     * Returns null when no rule is attributable (missing row, or a "no `can`
-     * granted" denial with no matching message-bearing `cannot`), in which case
-     * the caller throws a generic exception.
-     *
-     * @param string|array<int, string> $abilities
-     * @param array<string, mixed> $context
-     */
-    protected function diagnoseDenial(
-        Authenticatable $currentUser,
-        string|array $abilities,
-        Model|string|null $target,
-        array $context = []
-    ): ?Throwable
-    {
-        $abilities = $this->normalizeAbilities($abilities);
-
-        if ($abilities === []) {
-            return null;
-        }
-
-        $context = $this->resolveEffectiveContext($context);
-        $ruleSet = $this->resolveRuleSet($currentUser);
-        $compiler = $this->compiler();
-
-        if ($target !== null) {
-            /** @var Model $model */
-            $model = new (static::model);
-            $targetId = $target instanceof Model ? $target->getKey() : $target;
-            $targetSqlId = $model->getQualifiedKeyName();
-            $baseQuery = fn (): Builder => $model->newQueryWithoutScopes()->whereKey($targetId)->getQuery();
-
-            // Nothing to blame if the row does not exist even without scopes.
-            if (! $baseQuery()->exists()) {
-                return null;
-            }
-
-            $targetModel = $target instanceof Model
-                ? $target
-                : $model->newQueryWithoutScopes()->whereKey($targetId)->first();
-        } else {
-            // No target: evaluate the ability/condition predicates against a bare
-            // one-row query on the entity's connection, exactly like the no-target
-            // check does. targetSqlId is null, so targeted conditions force false.
-            $connection = static::model !== ''
-                ? (new (static::model))->getConnection()
-                : app('db')->connection();
-            $targetSqlId = null;
-            $baseQuery = fn (): Builder => $connection->query();
-            $targetModel = null;
-        }
-
-        // Which requested abilities are individually denied?
-        $deniedAbilities = [];
-        foreach ($abilities as $ability) {
-            $query = $baseQuery();
-            $predicate = $this->buildAbilityConditionQuery(
-                currentUser: $currentUser,
-                query: $query,
-                targetSqlId: $targetSqlId,
-                ability: $ability,
-                ruleSet: $ruleSet,
-                context: $context,
-            );
-
-            $granted = $query
-                ->selectRaw('1')
-                ->where(fn (Builder $where) => $where->addNestedWhereQuery($predicate))
-                ->exists();
-
-            if (! $granted) {
-                $deniedAbilities[] = $ability;
-            }
-        }
-
-        if ($deniedAbilities === []) {
-            return null;
-        }
-
-        foreach ($deniedAbilities as $ability) {
-            foreach ($ruleSet->rules as $rule) {
-                if ($rule->message === null || ! $this->ruleDeniesAbility($rule, $ability)) {
-                    continue;
-                }
-
-                $query = $baseQuery();
-                $predicate = $compiler->matchesCondition(
-                    $currentUser,
-                    $query,
-                    $rule->conditions,
-                    $targetSqlId,
-                    $context,
-                );
-
-                $matches = $query
-                    ->selectRaw('1')
-                    ->where(fn (Builder $where) => $where->addNestedWhereQuery($predicate))
-                    ->exists();
-
-                if ($matches) {
-                    return $this->buildDenialException($rule, $currentUser, $targetModel, $ability, $context);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Whether $rule's `cannot` clause lists $ability (exact match or `*`).
-     */
-    private function ruleDeniesAbility(WarrantRule $rule, string $ability): bool
-    {
-        return in_array($ability, $rule->cannotAbilities, true)
-            || in_array('*', $rule->cannotAbilities, true);
-    }
-
-    /**
-     * Resolve a rule's message into the Throwable to throw. A string is wrapped in
-     * a {@see WarrantAuthorizationException}; a closure receives the denial context
-     * and returns either a string (wrapped) or a Throwable (thrown as-is). Any
-     * other closure return falls back to a generic denial (null).
-     *
-     * @param array<string, mixed> $context
-     */
-    private function buildDenialException(
-        WarrantRule $rule,
-        Authenticatable $currentUser,
-        ?Model $targetModel,
-        string $ability,
-        array $context,
-    ): ?Throwable
-    {
-        $denialContext = new WarrantDenialContext(
-            user: $currentUser,
-            target: $targetModel,
-            ability: $ability,
-            schema: static::class,
-            context: $context,
-            rule: $rule,
-        );
-
-        $message = $rule->message;
-
-        if (is_string($message)) {
-            return new WarrantAuthorizationException($message, $denialContext);
-        }
-
-        $result = $message($denialContext);
-
-        if ($result instanceof Throwable) {
-            return $result;
-        }
-
-        if (is_string($result)) {
-            return new WarrantAuthorizationException($result, $denialContext);
-        }
-
-        return null;
-    }
-
-    /**
-     * Resolve and validate the rule set that governs this user's access to the
-     * managed entity.
-     */
-    protected function resolveRuleSet(Authenticatable $currentUser): WarrantRuleSet
-    {
-        $resolver = app(RuleResolver::class);
-
-        $ruleSet = $resolver->resolve(new RuleResolutionContext(
-            schemaKey: static::schemaKey(),
-            schema: static::class,
-            user: $currentUser,
-            model: static::model !== '' ? static::model : null,
-        ));
-
-        $implicitRules = $this->implicitRules();
-
-        if ($implicitRules !== []) {
-            $ruleSet = new WarrantRuleSet($ruleSet->schemaKey, [
-                ...$implicitRules,
-                ...$ruleSet->rules,
-            ]);
-        }
-
-        (new RuleSetValidator($this))->validate($ruleSet);
-
-        return $ruleSet;
     }
 
     protected function compiler(): RuleSetCompiler

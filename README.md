@@ -1341,30 +1341,70 @@ WarrantRule::build()
 
 `WarrantRule` is immutable, so `withDenialMessage` returns a *copy* carrying the
 message. The message may also be a **closure**, receiving a `WarrantDenialContext`
-— the user, the target model, the specific denied ability, the schema, and the
-context bag — and returning either a string, or a `Throwable` to throw as-is:
+and returning either a string, or a `Throwable` to throw as-is:
 
 ```php
 ->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
 ->withDenialMessage(fn (WarrantDenialContext $c) => new TimesheetLockedException($c->target))
 ```
 
-Returning your own exception opts out of the automatic 403 — its own rendering
-applies.
+The context carries the subject and object (`$c->user`, `$c->target`), the schema
+and effective `context` bag, the `$c->gate` that was checked (`$c->gate->abilities`
++ `$c->gate->matchMode`), the responsible `$c->rule`, and `$c->deniedAbilities` —
+the concrete gate abilities this rule blocked, with any `*` already resolved so
+you never expand a wildcard yourself. Returning your own exception opts out of the
+automatic 403 — its own rendering applies.
 
 **How the rule is chosen.** After a denial, Warrant walks the rules in resolver
 order (implicit rules first) and surfaces the **first message-bearing `cannot`
-whose condition actually matched** the target. If several forbid, the earliest
-one carrying a message wins; if the denial was only "no `can` granted," no rule
-is named and a generic 403 is thrown. Diagnosis runs the same condition SQL as
-the check, so it can never blame a rule that didn't fire. It also works for
-**no-target** checks — there only global or unconditional `cannot` rules can be
-the cause, since a targeted condition can't fire without a row.
+whose condition actually matched**. If several forbid, the earliest one carrying a
+message wins. Diagnosis runs the same condition SQL as the check, so it can never
+blame a rule that didn't fire. It also works for **no-target** checks — there only
+global or unconditional `cannot` rules can be the cause, since a targeted condition
+can't fire without a row.
 
 Messages are attached in PHP via `withDenialMessage`, never written *inside* DSL
 text — the language has no syntax for them (a closure couldn't be expressed
 anyway), and `toSyntax()` drops any attached message. A `withDenialMessage` on a
 rule with no `theyCannot` clause is rejected at validation — it could never fire.
+
+**When no rule grants access.** A `cannot` message explains being *forbidden*.
+The other way a check fails is that nothing granted it — no `cannot` forbade the
+user, but no `can` allowed them either. There's no rule to point at, so that
+message lives on the schema, in `ungrantedDenialMessage`:
+
+```php
+class TimesheetSchema extends WarrantSchema
+{
+    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    {
+        return match (true) {
+            in_array('approve', $c->ungrantedAbilities, true) => 'You need an approver role.',
+            default => null, // keep the generic 403
+        };
+    }
+}
+```
+
+It receives a `WarrantUngrantedContext` — like the denial context but with **no
+rule** (there is none) and an `$c->ungrantedAbilities` list instead of
+`deniedAbilities`: the concrete gate abilities that had no grant. Under `ANY` that
+is the whole gate (so you can say "you need at least one of …"); under `ALL` it is
+just the missing subset. Return a string (wrapped in a 403), a `Throwable`, or
+null to keep the generic default.
+
+The two are kept deliberately distinct: a `cannot` that forbids **without** a
+message is still a deliberate forbid, so it goes to the generic 403 — it does
+*not* fall through to `ungrantedDenialMessage`. The full resolution order:
+
+| Cause of the denial | Message used |
+| --- | --- |
+| a matching `cannot` **with** a message | that rule's `withDenialMessage` |
+| a matching `cannot` **without** a message | generic 403 |
+| nothing granted the ability | `ungrantedDenialMessage()` → else generic 403 |
+
+When abilities fail for mixed reasons (one forbidden, one merely ungranted), the
+forbid wins — being actively blocked, and by what, is the more specific answer.
 
 ### Route middleware
 
@@ -1507,6 +1547,7 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `#[TargetedCondition]` / `#[GlobalCondition]` methods — declare conditions
 - `protected function implicitRules(): array` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
+- `protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when a check fails for lack of a grant (no `cannot` forbade, no `can` allowed)
 
 **Build rules**
 - `WarrantRuleSet::fromSyntax(string $entity, string $syntax, array $bindings = [])`
@@ -1524,7 +1565,8 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 
 **Check access** — `use Warrant\HasWarrantSchema` on the model
 - `Model::userHasAbilities($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): bool`
-- `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; throws `Warrant\WarrantAuthorizationException` (403) surfacing a `cannot` rule's denial message
+- `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; throws `Warrant\WarrantAuthorizationException` (403), surfacing a `cannot` rule's denial message or the schema's `ungrantedDenialMessage`
+  - denial-message closures receive `WarrantDenialContext` (`user, target, schema, context, gate, rule, deniedAbilities`); the ungranted hook receives `WarrantUngrantedContext` (`… gate, ungrantedAbilities`, no rule); `gate` is a `WarrantGate` (`abilities`, `matchMode`)
 - `Model::getUserAbilities($target = null, $user = null, $context = []): array`
 - `->hasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
 - `->selectAbilities($user = null, $key = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope
