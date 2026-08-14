@@ -1323,18 +1323,26 @@ framework renders it as a **403** carrying the message, with no handler wiring.
 
 **Attaching a message.** Only a `cannot` rule can carry one, because only a
 `cannot` actively forbids — a missing `can` is the *absence* of a grant, which
-names no single rule. Use the builder's `withDenialMessage`:
+names no single rule. `withDenialMessage` lives on `WarrantRule` itself, so you
+can attach one to any rule regardless of how it was authored — including a rule
+parsed from the string DSL:
 
 ```php
+// On a rule parsed from syntax:
+WarrantRule::fromSyntax('if is_locked they cannot update')
+    ->withDenialMessage('This timesheet is locked and can no longer be edited.');
+
+// Or mid-chain on the fluent builder:
 WarrantRule::build()
     ->if('is_locked')->theyCannot('update')
     ->withDenialMessage('This timesheet is locked and can no longer be edited.')
     ->toRule();
 ```
 
-The message may also be a **closure**, receiving a `WarrantDenialContext` — the
-user, the target model, the specific denied ability, the schema, and the context
-bag — and returning either a string, or a `Throwable` to throw as-is:
+`WarrantRule` is immutable, so `withDenialMessage` returns a *copy* carrying the
+message. The message may also be a **closure**, receiving a `WarrantDenialContext`
+— the user, the target model, the specific denied ability, the schema, and the
+context bag — and returning either a string, or a `Throwable` to throw as-is:
 
 ```php
 ->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
@@ -1353,10 +1361,10 @@ the check, so it can never blame a rule that didn't fire. It also works for
 **no-target** checks — there only global or unconditional `cannot` rules can be
 the cause, since a targeted condition can't fire without a row.
 
-Messages live on rules built in PHP: the string DSL can't express a closure, so
-messages aren't part of the language and `toSyntax()` drops them. A `withDenialMessage`
-on a rule with no `theyCannot` clause is rejected at validation — it could never
-fire.
+Messages are attached in PHP via `withDenialMessage`, never written *inside* DSL
+text — the language has no syntax for them (a closure couldn't be expressed
+anyway), and `toSyntax()` drops any attached message. A `withDenialMessage` on a
+rule with no `theyCannot` clause is rejected at validation — it could never fire.
 
 ### Route middleware
 
@@ -1507,7 +1515,7 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
 - `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
 - `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->theyCan/theyCannot`, `->toRule()`
-- `->withDenialMessage(string|Closure $message)` — denial message on a `cannot` rule (string, or `fn (WarrantDenialContext) => string|Throwable`)
+- `->withDenialMessage(string|Closure $message)` — denial message on a `cannot` rule (string, or `fn (WarrantDenialContext) => string|Throwable`); available on the builder mid-chain **and** on any `WarrantRule` (e.g. `WarrantRule::fromSyntax(...)->withDenialMessage(...)`)
 
 **Provide rules** — implement `Warrant\RuleResolver`
 - `resolve(RuleResolutionContext $context): WarrantRuleSet`

@@ -48,6 +48,22 @@ readonly class WarrantRule
     }
 
     /**
+     * Return a copy of this rule carrying a denial message. Works for any rule,
+     * however it was constructed — notably a {@see fromSyntax()} rule, which the
+     * string DSL cannot give a message. See {@see $message}.
+     *
+     * Only surfaced for a matching `cannot` clause; attaching a message to a rule
+     * with no `cannot` is rejected at validation time, whatever the construction
+     * path.
+     *
+     * @param string|Closure(WarrantDenialContext):(string|\Throwable) $message
+     */
+    public function withDenialMessage(string|Closure $message): self
+    {
+        return new self($this->conditions, $this->canAbilities, $this->cannotAbilities, $message);
+    }
+
+    /**
      * Render this rule back to the string DSL with scalar condition parameters
      * inlined as literals. Throws if a parameter has no inline representation —
      * use {@see toBoundSyntax()} for those. Round-trips via {@see fromSyntax()}.

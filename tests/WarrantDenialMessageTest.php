@@ -399,12 +399,57 @@ it('cannot attribute a no-target denial to a targeted-only cannot', function () 
         ->toThrow(WarrantAuthorizationException::class, 'This action is unauthorized.');
 });
 
+// -- attaching a message to any rule (withDenialMessage wither) ---------------
+
+it('attaches a message to a fromSyntax rule', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::fromSyntax('they can update'),
+        WarrantRule::fromSyntax('if is_teacher they cannot update')
+            ->withDenialMessage('This section is locked.'),
+    ]);
+
+    expect(fn () => WarrantTestSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'This section is locked.');
+});
+
+it('leaves the original rule untouched (immutable wither)', function () {
+    $original = WarrantRule::fromSyntax('if is_teacher they cannot update');
+    $withMessage = $original->withDenialMessage('locked');
+
+    expect($original->message)->toBeNull();
+    expect($withMessage->message)->toBe('locked');
+    expect($withMessage)->not->toBe($original);
+});
+
+it('accepts a closure message on a fromSyntax rule', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::fromSyntax('they can update'),
+        WarrantRule::fromSyntax('if is_teacher they cannot update')
+            ->withDenialMessage(fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}."),
+    ]);
+
+    expect(fn () => WarrantTestSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'No editing teacher:teacher-role.');
+});
+
 // -- validator guard ----------------------------------------------------------
 
 it('rejects a message on a rule with no cannot clause', function () {
     seedDenialSections();
     bindDenialRules([
         WarrantRule::build()->theyCan('view')->withDenialMessage('pointless')->toRule(),
+    ]);
+
+    expect(fn () => WarrantTestSchema::authorize('view', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(InvalidArgumentException::class, 'requires a `they cannot ...` clause');
+});
+
+it('rejects a message on a grant-only fromSyntax rule', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::fromSyntax('they can view')->withDenialMessage('pointless'),
     ]);
 
     expect(fn () => WarrantTestSchema::authorize('view', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
