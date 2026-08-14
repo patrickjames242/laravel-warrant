@@ -54,6 +54,7 @@ full detail, and exactly how you hand rules to the library.
   - [Capability (no-target) checks](#capability-no-target-checks)
   - [Match modes](#match-modes)
   - [Could a user ever…? (reachability)](#could-a-user-ever-reachability)
+  - [Explaining a denial](#explaining-a-denial)
   - [Route middleware](#route-middleware)
 - [How it compiles to SQL](#how-it-compiles-to-sql)
 - [Testing](#testing)
@@ -1011,7 +1012,8 @@ is only ever a condition, never a whole rule.
 **Clauses.** `theyCan(...$abilities)` and `theyCannot(...$abilities)` are
 variadic and additive. A rule needs at least one clause: `toRule()` throws if
 you call neither, exactly as the DSL rejects a bare `if` with no `they can` /
-`they cannot` line.
+`they cannot` line. A rule with a `theyCannot` clause can also carry a denial
+message via `->withDenialMessage(...)` — see [Explaining a denial](#explaining-a-denial).
 
 **Precedence is identical to the DSL** — `not` > `and` > `or` — so the two
 front-ends produce byte-for-byte identical trees. `->if('a')->andIf('b')->orIf('c')`
@@ -1305,6 +1307,57 @@ match (Timesheet::abilityReachability('update')) {
 };
 ```
 
+### Explaining a denial
+
+`userHasAbilities` answers yes/no. When a denial should **say why**, reach for
+`authorize` — its throwing sibling — and attach a message to the rule that does
+the forbidding.
+
+```php
+Timesheet::authorize('update', $timesheet); // returns void, or throws on denial
+```
+
+On success it returns; on failure it throws a `WarrantAuthorizationException`,
+which extends Laravel's `Illuminate\Auth\Access\AuthorizationException` — so the
+framework renders it as a **403** carrying the message, with no handler wiring.
+
+**Attaching a message.** Only a `cannot` rule can carry one, because only a
+`cannot` actively forbids — a missing `can` is the *absence* of a grant, which
+names no single rule. Use the builder's `withDenialMessage`:
+
+```php
+WarrantRule::build()
+    ->if('is_locked')->theyCannot('update')
+    ->withDenialMessage('This timesheet is locked and can no longer be edited.')
+    ->toRule();
+```
+
+The message may also be a **closure**, receiving a `WarrantDenialContext` — the
+user, the target model, the specific denied ability, the schema, and the context
+bag — and returning either a string, or a `Throwable` to throw as-is:
+
+```php
+->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
+->withDenialMessage(fn (WarrantDenialContext $c) => new TimesheetLockedException($c->target))
+```
+
+Returning your own exception opts out of the automatic 403 — its own rendering
+applies.
+
+**How the rule is chosen.** After a denial, Warrant walks the rules in resolver
+order (implicit rules first) and surfaces the **first message-bearing `cannot`
+whose condition actually matched** the target. If several forbid, the earliest
+one carrying a message wins; if the denial was only "no `can` granted," no rule
+is named and a generic 403 is thrown. Diagnosis runs the same condition SQL as
+the check, so it can never blame a rule that didn't fire. It also works for
+**no-target** checks — there only global or unconditional `cannot` rules can be
+the cause, since a targeted condition can't fire without a row.
+
+Messages live on rules built in PHP: the string DSL can't express a closure, so
+messages aren't part of the language and `toSyntax()` drops them. A `withDenialMessage`
+on a rule with no `theyCannot` clause is rejected at validation — it could never
+fire.
+
 ### Route middleware
 
 Warrant registers a `warrant` route middleware. Build the middleware string with
@@ -1328,8 +1381,9 @@ WarrantMiddleware::guard('timesheets', 'view', function () {
 
 There are `canView`, `canCreate`, `canUpdate`, `canDelete`, `canArchive`, and
 `canManage` shortcuts. Under the hood the middleware resolves the target to a
-schema (by schema key or by the route-bound model's class) and calls
-`userHasAbilities`, aborting `403` on failure.
+schema (by schema key or by the route-bound model's class) and calls `authorize`,
+so a `403` on a model-bound route surfaces the responsible rule's denial message
+(see [Explaining a denial](#explaining-a-denial)) instead of a bare status.
 
 Every builder is **dual-mode**: call it with no closure to get the middleware
 string, or hand it a closure to wrap a route group — one method, no `*Guard`
@@ -1453,6 +1507,7 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
 - `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
 - `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->theyCan/theyCannot`, `->toRule()`
+- `->withDenialMessage(string|Closure $message)` — denial message on a `cannot` rule (string, or `fn (WarrantDenialContext) => string|Throwable`)
 
 **Provide rules** — implement `Warrant\RuleResolver`
 - `resolve(RuleResolutionContext $context): WarrantRuleSet`
@@ -1461,6 +1516,7 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 
 **Check access** — `use Warrant\HasWarrantSchema` on the model
 - `Model::userHasAbilities($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): bool`
+- `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; throws `Warrant\WarrantAuthorizationException` (403) surfacing a `cannot` rule's denial message
 - `Model::getUserAbilities($target = null, $user = null, $context = []): array`
 - `->hasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
 - `->selectAbilities($user = null, $key = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope

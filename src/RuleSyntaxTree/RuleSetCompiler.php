@@ -99,6 +99,34 @@ final class RuleSetCompiler
     }
 
     /**
+     * Build a predicate that is true for the target row iff $condition matches —
+     * a single condition tree in isolation, without the deny-overrides formula.
+     *
+     * Used by the singular-target denial diagnostic to test whether one `cannot`
+     * rule's condition fired for the target. A null condition (an unconditional
+     * `cannot`) always matches. Reuses the same leaf/EXISTS, targeted-vs-global,
+     * and `@context` semantics as {@see compileAbility}, so a diagnostic re-run
+     * agrees exactly with the live check.
+     */
+    public function matchesCondition(
+        Authenticatable $user,
+        Builder $query,
+        ?IBooleanExpressionNode $condition,
+        ?string $targetSqlId = null,
+        array $context = [],
+    ): Builder {
+        $predicate = $query->newQuery();
+
+        if ($condition === null) {
+            return $predicate->whereRaw('1 = 1');
+        }
+
+        $this->applyExpression($predicate, $condition, $user, $targetSqlId, $context, 'and', false);
+
+        return $predicate;
+    }
+
+    /**
      * @param array<int, string> $abilities
      */
     private function listsAbility(array $abilities, string $ability): bool

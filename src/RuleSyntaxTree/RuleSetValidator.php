@@ -34,6 +34,15 @@ final class RuleSetValidator
                 }
             }
 
+            // A denial message is only ever surfaced for a matching `cannot`; on a
+            // rule with no `cannot` clause it can never fire, so reject it loudly
+            // rather than silently doing nothing.
+            if ($rule->message !== null && $rule->cannotAbilities === []) {
+                throw new InvalidArgumentException(
+                    'A denial message requires a `they cannot ...` clause; it can never be surfaced by a rule that only grants.'
+                );
+            }
+
             if ($rule->conditions !== null) {
                 $this->validateConditionNames($rule->conditions);
             }

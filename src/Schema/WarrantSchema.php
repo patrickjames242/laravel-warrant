@@ -13,6 +13,7 @@ use Warrant\Schema\Concerns\AnalyzesReachability;
 use Warrant\Schema\Concerns\BuildsAccessQueries;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
+use Warrant\WarrantAuthorizationException;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
@@ -142,6 +143,45 @@ abstract class WarrantSchema implements ConditionResolver
             matchMode: $matchMode,
             context: $context,
         )->exists();
+    }
+
+    /**
+     * Assert the user holds the abilities, throwing on denial instead of
+     * returning a bool. The throwing sibling of {@see userHasAbilities}.
+     *
+     * The rule responsible for the denial is diagnosed: if a matching `cannot`
+     * rule carried a denial message, that message (or the custom Throwable its
+     * closure returns) is surfaced; otherwise a generic
+     * {@see WarrantAuthorizationException} (403) is thrown. Diagnosis works for a
+     * singular target (a `Model` or key) and for a no-target check — in the
+     * latter only global/unconditional `cannot` rules can be the cause, since a
+     * targeted condition cannot fire without a row.
+     *
+     * @param string|array<int, string> $abilities
+     * @throws \Throwable
+     */
+    public static function authorize(
+        string|array $abilities,
+        Model|string|null $target = null,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+        array $context = []
+    ): void
+    {
+        $user ??= auth()->user();
+
+        if (!$user instanceof Authenticatable) {
+            throw new InvalidArgumentException(
+                sprintf('Schema [%s] requires an authenticated user or an explicit user instance.', static::class)
+            );
+        }
+
+        if (static::userHasAbilities($abilities, $target, $user, $matchMode, $context)) {
+            return;
+        }
+
+        throw (new static)->diagnoseDenial($user, $abilities, $target, $context)
+            ?? new WarrantAuthorizationException;
     }
 
     /**
