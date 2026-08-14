@@ -1,4 +1,25 @@
-# Laravel Warrant
+<p align="center">
+  <img src="art/logo.png" alt="Laravel Warrant" width="140">
+</p>
+
+<h1 align="center">Laravel Warrant</h1>
+
+<p align="center">
+  Row-level permissions &amp; authorization for Laravel — one rule, compiled straight to SQL.
+</p>
+
+<p align="center">
+  <a href="https://laravel-warrant.dev"><img src="https://img.shields.io/badge/docs-laravel--warrant.dev-ff8c2f?style=flat-square" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/Laravel-11%20%26%2012-FF2D20?style=flat-square&logo=laravel" alt="Laravel 11 & 12">
+  <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/license-MIT-3da639?style=flat-square" alt="MIT License">
+</p>
+
+<p align="center">
+  <strong><a href="https://laravel-warrant.dev">Read the documentation → laravel-warrant.dev</a></strong>
+</p>
+
+---
 
 Schema-based authorization for Laravel that compiles a small, human-readable
 rule language **directly into SQL** — so "what can this user do?" and
