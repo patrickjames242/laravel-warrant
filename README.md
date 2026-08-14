@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-beta-ff8c2f?style=flat-square" alt="Beta">
   <a href="https://laravel-warrant.dev"><img src="https://img.shields.io/badge/docs-laravel--warrant.dev-ff8c2f?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Laravel-11%20%26%2012-FF2D20?style=flat-square&logo=laravel" alt="Laravel 11 & 12">
   <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php" alt="PHP 8.2+">
@@ -18,6 +19,13 @@
 <p align="center">
   <strong><a href="https://laravel-warrant.dev">Read the documentation → laravel-warrant.dev</a></strong>
 </p>
+
+> [!WARNING]
+> **Laravel Warrant is in beta and still being tested.** It's usable, but the API
+> may change between releases — pin your version and check the changelog before
+> upgrading. Please
+> [report any issues](https://github.com/patrickjames242/laravel-warrant/issues)
+> you run into.
 
 ---
 
