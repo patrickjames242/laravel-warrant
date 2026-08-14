@@ -55,6 +55,7 @@ full detail, and exactly how you hand rules to the library.
   - [Match modes](#match-modes)
   - [Could a user ever…? (reachability)](#could-a-user-ever-reachability)
   - [Route middleware](#route-middleware)
+- [Exceptions](#exceptions)
 - [How it compiles to SQL](#how-it-compiles-to-sql)
 - [Testing](#testing)
 - [API cheat sheet](#api-cheat-sheet)
@@ -1011,7 +1012,8 @@ is only ever a condition, never a whole rule.
 **Clauses.** `theyCan(...$abilities)` and `theyCannot(...$abilities)` are
 variadic and additive. A rule needs at least one clause: `toRule()` throws if
 you call neither, exactly as the DSL rejects a bare `if` with no `they can` /
-`they cannot` line.
+`they cannot` line. A rule with a `theyCannot` clause can also carry a denial
+message via `->withDenialMessage(...)` — see [Exceptions](#exceptions).
 
 **Precedence is identical to the DSL** — `not` > `and` > `or` — so the two
 front-ends produce byte-for-byte identical trees. `->if('a')->andIf('b')->orIf('c')`
@@ -1328,8 +1330,9 @@ WarrantMiddleware::guard('timesheets', 'view', function () {
 
 There are `canView`, `canCreate`, `canUpdate`, `canDelete`, `canArchive`, and
 `canManage` shortcuts. Under the hood the middleware resolves the target to a
-schema (by schema key or by the route-bound model's class) and calls
-`userHasAbilities`, aborting `403` on failure.
+schema (by schema key or by the route-bound model's class) and calls `authorize`,
+so a `403` on a model-bound route surfaces the responsible rule's denial message
+(see [Exceptions](#exceptions)) instead of a bare status.
 
 Every builder is **dual-mode**: call it with no closure to get the middleware
 string, or hand it a closure to wrap a route group — one method, no `*Guard`
@@ -1374,6 +1377,124 @@ after the schema key selects the match mode.)
 
 ---
 
+## Exceptions
+
+`userHasAbilities` answers yes/no. When a denial should **say why**, reach for
+`authorize` — its throwing sibling — and attach a message to the rule that does
+the forbidding.
+
+```php
+Timesheet::authorize('update', $timesheet); // returns void, or throws on denial
+```
+
+On success it returns; on failure it throws a `WarrantAuthorizationException`,
+which extends Laravel's `Illuminate\Auth\Access\AuthorizationException` — so the
+framework renders it as a **403** carrying the message, with no handler wiring.
+
+**Attaching a message.** Only a `cannot` rule can carry one, because only a
+`cannot` actively forbids — a missing `can` is the *absence* of a grant, which
+names no single rule. `withDenialMessage` lives on `WarrantRule` itself, so you
+can attach one to any rule regardless of how it was authored — including a rule
+parsed from the string DSL:
+
+```php
+// On a rule parsed from syntax:
+WarrantRule::fromSyntax('if is_locked they cannot update')
+    ->withDenialMessage('This timesheet is locked and can no longer be edited.');
+
+// Or mid-chain on the fluent builder:
+WarrantRule::build()
+    ->if('is_locked')->theyCannot('update')
+    ->withDenialMessage('This timesheet is locked and can no longer be edited.')
+    ->toRule();
+```
+
+`WarrantRule` is immutable, so `withDenialMessage` returns a *copy* carrying the
+message. The message may also be a **closure**, receiving a `WarrantDenialContext`
+and returning either a string, or a `Throwable` to throw as-is:
+
+```php
+->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
+->withDenialMessage(fn (WarrantDenialContext $c) => new TimesheetLockedException($c->target))
+```
+
+The context carries the subject and object (`$c->user`, `$c->target`), the schema
+and effective `context` bag, the `$c->gate` that was checked (`$c->gate->abilities`
++ `$c->gate->matchMode`), the responsible `$c->rule`, and `$c->deniedAbilities` —
+the concrete gate abilities this rule blocked, with any `*` already resolved so
+you never expand a wildcard yourself. Returning your own exception opts out of the
+automatic 403 — its own rendering applies.
+
+**How the rule is chosen.** After a denial, Warrant walks the rules in resolver
+order (implicit rules first) and surfaces the **first message-bearing `cannot`
+whose condition actually matched**. If several forbid, the earliest one carrying a
+message wins. Diagnosis runs the same condition SQL as the check, so it can never
+blame a rule that didn't fire. It also works for **no-target** checks — there only
+global or unconditional `cannot` rules can be the cause, since a targeted condition
+can't fire without a row.
+
+Messages are attached in PHP via `withDenialMessage`, never written *inside* DSL
+text — the language has no syntax for them (a closure couldn't be expressed
+anyway), and `toSyntax()` drops any attached message. A `withDenialMessage` on a
+rule with no `theyCannot` clause is rejected at validation — it could never fire.
+
+**When no rule grants access.** A `cannot` message explains being *forbidden*.
+The other way a check fails is that nothing granted it — no `cannot` forbade the
+user, but no `can` allowed them either. There's no rule to point at, so that
+message lives on the schema, in `ungrantedDenialMessage`:
+
+```php
+class TimesheetSchema extends WarrantSchema
+{
+    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    {
+        return match (true) {
+            in_array('approve', $c->ungrantedAbilities, true) => 'You need an approver role.',
+            default => null, // keep the generic 403
+        };
+    }
+}
+```
+
+It receives a `WarrantUngrantedContext` — like the denial context but with **no
+rule** (there is none) and an `$c->ungrantedAbilities` list instead of
+`deniedAbilities`: the concrete gate abilities that had no grant. Under `ANY` that
+is the whole gate (so you can say "you need at least one of …"); under `ALL` it is
+just the missing subset. Return a string (wrapped in a 403), a `Throwable`, or
+null to keep the generic default.
+
+A message-less `cannot` is still a deliberate forbid, not a lack of grant — so
+rather than fall through to `ungrantedDenialMessage`, it has its own schema-level
+catch, `forbiddenDenialMessage`, for when you want one default message across many
+message-less `cannot` rules:
+
+```php
+protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+{
+    return "You cannot {$c->deniedAbilities[0]} this timesheet.";
+}
+```
+
+It receives the full `WarrantDenialContext` — the responsible `$c->rule` and the
+`$c->deniedAbilities` it blocked — since there *is* a rule, it just carried no
+message of its own. Warrant tries the message sources in priority order and takes
+the first that returns non-null:
+
+| Cause of the denial | Message used |
+| --- | --- |
+| a matching `cannot` **with** a message | that rule's `withDenialMessage` |
+| a matching `cannot` **without** a message | schema `forbiddenDenialMessage()` |
+| nothing granted the ability | schema `ungrantedDenialMessage()` |
+| none of the above returned a message | generic 403 |
+
+Forbid sources are tried before the ungranted source, so when abilities fail for
+mixed reasons (one forbidden, one merely ungranted) the forbid wins — being
+actively blocked, and by what, is the more specific answer. The ungranted hook is
+reached only if no forbid is present, or the forbidden hook declines (returns
+null).
+
+---
+
 ## How it compiles to SQL
 
 You don't need this section to use Warrant, but it explains *why* the semantics
@@ -1403,10 +1524,131 @@ behave predictably — no three-valued-logic surprises leak into your
 authorization results. Boolean structure (`and`/`or`/`not`) becomes nested
 `WHERE` groups, with negation pushed to the leaves via De Morgan.
 
-Row filtering applies these predicates to your query's `WHERE`; per-row ability
-selection runs them as correlated subqueries producing the JSON column. Because
-everything is one compiler, the "which rows?", "what can they do?", and "can
-they?" questions can never disagree.
+### Worked examples
+
+The examples below use a `timesheets` schema whose conditions emit this SQL (the
+body of each `#[Condition]` method — see [Conditions](#conditions)):
+
+| Condition | SQL it adds |
+| --- | --- |
+| `is_self` (targeted) | `timesheets.user_id = ?` |
+| `manages_department(:dept)` (targeted) | `timesheets.department_id = ?` |
+| `is_locked` (targeted) | `timesheets.locked = 1` |
+| `is_admin` (global) | `? = ?`  (the string `admin` vs the user's role) |
+
+Each ability compiles to one predicate that Warrant drops into your query's
+`WHERE`. The SQL below is real compiler output with the redundant nested
+parentheses trimmed and `?` placeholders annotated with their bound values.
+
+**An unconditional grant** — `they can view` — is an always-true term:
+
+```sql
+select * from timesheets where (1 = 1)
+```
+
+**A single targeted condition** — `if is_self they can view` — becomes one
+`EXISTS`. The condition's `timesheets.user_id` correlates to the outer row, so the
+subquery is true exactly for the rows the user owns:
+
+```sql
+select * from timesheets
+where exists (
+    select 1 from (select 1) as warrant_exists
+    where timesheets.user_id = ?          -- ? → the current user's id
+)
+```
+
+**A global condition** — `if is_admin they can delete` — compiles the same way,
+but its `EXISTS` doesn't reference the row (it's true or false for the whole
+request):
+
+```sql
+select * from timesheets
+where exists (
+    select 1 from (select 1) as warrant_exists
+    where ? = ?                            -- 'admin' = the user's role
+)
+```
+
+**No `can` rule** for the requested ability is a hard `1 = 0` — denied to everyone
+by default, so the query returns no rows:
+
+```sql
+select * from timesheets where (1 = 0)
+```
+
+**An unconditional `cannot`** collapses to `1 = 0` too, even alongside a grant —
+`they can view` + `they cannot view` — because deny always wins:
+
+```sql
+select * from timesheets where (1 = 0)
+```
+
+**The full opener from the top of this README** — three rules for `update`:
+
+```text
+if is_self or manages_department('sales') they can update
+if is_locked and not is_admin they cannot update
+if is_admin they can *
+```
+
+compiles to one predicate: an OR of every `can` source, `AND`ed with the negated
+`cannot`:
+
+```sql
+select * from timesheets where
+  (
+    -- grant side: the two-part first rule, OR the wildcard `is_admin` rule
+    exists (select 1 from (select 1) as warrant_exists where timesheets.user_id = ?)        -- is_self
+    or exists (select 1 from (select 1) as warrant_exists where timesheets.department_id = ?) -- manages_department('sales')
+    or exists (select 1 from (select 1) as warrant_exists where ? = ?)                         -- is_admin (from `they can *`)
+  )
+  and (
+    -- deny side: NOT(is_locked and not is_admin), De-Morgan'd onto the leaves
+    not exists (select 1 from (select 1) as warrant_exists where timesheets.locked = 1)      -- not is_locked
+    or exists (select 1 from (select 1) as warrant_exists where ? = ?)                         -- or is_admin
+  )
+-- bindings: [user_id, 'sales', 'admin', role, 'admin', role]
+```
+
+Note the deny clause: `cannot update` when `is_locked and not is_admin` becomes
+`NOT(is_locked AND NOT is_admin)`, which De Morgan turns into
+`(NOT is_locked OR is_admin)` — negation always lands on the `EXISTS` leaves, never
+on a group, so it stays a strict two-valued boolean.
+
+**Several abilities** combine per the match mode. `hasAbility(['view', 'update'],
+matchMode: ALL)` `AND`s the two per-ability predicates (ANY would `OR` them):
+
+```sql
+select * from timesheets where
+      exists (select 1 from (select 1) as warrant_exists where timesheets.user_id = ?)  -- view: is_self
+  and exists (select 1 from (select 1) as warrant_exists where ? = ?)                     -- update: is_admin
+```
+
+**Per-row abilities** (`selectAbilities`) run the same per-ability predicates as a
+correlated subquery per row, one `SELECT ? as ability WHERE <predicate>` UNION-ALL
+branch per requested ability, aggregated into a JSON array:
+
+```sql
+select *, (
+    select coalesce(json_group_array(ability), json_array())
+    from (
+              select ? as ability where exists (select 1 from (select 1) as warrant_exists where timesheets.user_id = ?)  -- view
+        union all
+              select ? as ability where exists (select 1 from (select 1) as warrant_exists where ? = ?)                     -- delete
+    ) as available_abilities
+) as abilities
+from timesheets
+```
+
+Each row's `abilities` column ends up holding just the abilities whose predicate
+held for that row — e.g. `["view"]` for a timesheet the user owns but can't delete.
+(The JSON aggregate differs by driver: `json_group_array` on SQLite, `json_agg` on
+Postgres, `json_arrayagg` on MySQL/MariaDB.)
+
+Because it's all one compiler, row filtering applies these predicates to your
+query's `WHERE`, per-row selection runs them as correlated subqueries, and the
+"which rows?", "what can they do?", and "can they?" questions can never disagree.
 
 Compilation validates every ability and condition name against the schema; an
 unknown name is a hard error, so a typo in a stored rule fails loudly rather than
@@ -1445,6 +1687,8 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `#[TargetedCondition]` / `#[GlobalCondition]` methods — declare conditions
 - `protected function implicitRules(): array` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
+- `protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — schema fallback for a message-less `cannot` forbid
+- `protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when a check fails for lack of a grant (no `cannot` forbade, no `can` allowed)
 
 **Build rules**
 - `WarrantRuleSet::fromSyntax(string $entity, string $syntax, array $bindings = [])`
@@ -1453,6 +1697,7 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
 - `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
 - `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->theyCan/theyCannot`, `->toRule()`
+- `->withDenialMessage(string|Closure $message)` — denial message on a `cannot` rule (string, or `fn (WarrantDenialContext) => string|Throwable`); available on the builder mid-chain **and** on any `WarrantRule` (e.g. `WarrantRule::fromSyntax(...)->withDenialMessage(...)`)
 
 **Provide rules** — implement `Warrant\RuleResolver`
 - `resolve(RuleResolutionContext $context): WarrantRuleSet`
@@ -1461,6 +1706,8 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 
 **Check access** — `use Warrant\HasWarrantSchema` on the model
 - `Model::userHasAbilities($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): bool`
+- `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; throws `Warrant\WarrantAuthorizationException` (403). Message priority: rule `withDenialMessage` → schema `forbiddenDenialMessage` → schema `ungrantedDenialMessage` → generic
+  - denial-message closures receive `WarrantDenialContext` (`user, target, schema, context, gate, rule, deniedAbilities`); the ungranted hook receives `WarrantUngrantedContext` (`… gate, ungrantedAbilities`, no rule); `gate` is a `WarrantGate` (`abilities`, `matchMode`)
 - `Model::getUserAbilities($target = null, $user = null, $context = []): array`
 - `->hasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
 - `->selectAbilities($user = null, $key = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope

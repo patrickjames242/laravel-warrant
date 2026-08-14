@@ -7,16 +7,16 @@ use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
-use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 /**
  * The SQL runtime: turns the resolved {@see WarrantRuleSet} into access-control
  * predicates and attaches them to entity queries (row filtering and per-row
  * ability selection). All condition SQL is produced by the {@see RuleSetCompiler}.
+ *
+ * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
+ * denial into a message lives in {@see DiagnosesDenials}.
  */
 trait BuildsAccessQueries
 {
@@ -197,35 +197,6 @@ trait BuildsAccessQueries
         }
 
         return $allowedAbilities;
-    }
-
-    /**
-     * Resolve and validate the rule set that governs this user's access to the
-     * managed entity.
-     */
-    protected function resolveRuleSet(Authenticatable $currentUser): WarrantRuleSet
-    {
-        $resolver = app(RuleResolver::class);
-
-        $ruleSet = $resolver->resolve(new RuleResolutionContext(
-            schemaKey: static::schemaKey(),
-            schema: static::class,
-            user: $currentUser,
-            model: static::model !== '' ? static::model : null,
-        ));
-
-        $implicitRules = $this->implicitRules();
-
-        if ($implicitRules !== []) {
-            $ruleSet = new WarrantRuleSet($ruleSet->schemaKey, [
-                ...$implicitRules,
-                ...$ruleSet->rules,
-            ]);
-        }
-
-        (new RuleSetValidator($this))->validate($ruleSet);
-
-        return $ruleSet;
     }
 
     protected function compiler(): RuleSetCompiler

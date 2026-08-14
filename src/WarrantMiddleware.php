@@ -411,9 +411,9 @@ class WarrantMiddleware
             );
         }
 
-        if (! $schemaClass::userHasAbilities($abilities, $resolvedTarget, $user, $abilityMatchMode)) {
-            abort(403);
-        }
+        // Throws on denial — a message-bearing `cannot` rule surfaces its message
+        // (or custom exception); otherwise a generic 403.
+        $schemaClass::authorize($abilities, $resolvedTarget, $user, $abilityMatchMode);
 
         return $next($request);
     }

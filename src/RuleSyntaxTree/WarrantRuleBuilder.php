@@ -2,7 +2,9 @@
 
 namespace Warrant\RuleSyntaxTree;
 
+use Closure;
 use LogicException;
+use Warrant\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole
@@ -31,6 +33,8 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     /** @var list<string> */
     private array $cannot = [];
 
+    private string|Closure|null $message = null;
+
     // -- clauses --------------------------------------------------------------
 
     public function theyCan(string ...$abilities): static
@@ -47,6 +51,21 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
         return $this;
     }
 
+    /**
+     * Attach a denial message surfaced when this rule's `cannot` clause blocks
+     * access to a singular target (see {@see WarrantRule::$message}). A message
+     * on a rule with no `theyCannot` clause can never fire and is rejected at
+     * validation time.
+     *
+     * @param string|Closure(WarrantDenialContext):(string|\Throwable) $message
+     */
+    public function withDenialMessage(string|Closure $message): static
+    {
+        $this->message = $message;
+
+        return $this;
+    }
+
     // -- materialization ------------------------------------------------------
 
     public function toRule(): WarrantRule
@@ -57,6 +76,6 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
             );
         }
 
-        return new WarrantRule($this->buildConditions(), $this->can, $this->cannot);
+        return new WarrantRule($this->buildConditions(), $this->can, $this->cannot, $this->message);
     }
 }
