@@ -27,6 +27,11 @@
 > [report any issues](https://github.com/patrickjames242/laravel-warrant/issues)
 > you run into.
 
+> [!NOTE]
+> **Not an official Laravel package.** Laravel Warrant is an independent,
+> open-source project. It is not affiliated with, maintained by, or endorsed by
+> the Laravel team.
+
 ---
 
 Schema-based authorization for Laravel that compiles a small, human-readable
