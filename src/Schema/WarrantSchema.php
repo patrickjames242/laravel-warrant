@@ -96,9 +96,9 @@ abstract class WarrantSchema implements ConditionResolver
      * Default check-time context for this schema, merged *under* any context
      * passed explicitly to a check (explicit values win; partial explicit context
      * is allowed). Override to source the frame from the request/tenant/container
-     * so that param-less entry points — route middleware and the auto-applied
-     * `SelectAbilities` global scope — receive context without a `context:`
-     * argument:
+     * so that param-less entry points — route middleware and the
+     * `userHasAbility` / `selectUserAbilities` query scopes — receive context
+     * without a `context:` argument:
      *
      * ```php
      * protected function defaultContext(): array
@@ -255,13 +255,13 @@ abstract class WarrantSchema implements ConditionResolver
         $model = new (static::model);
         $targetId = $target instanceof Model ? $target->getKey() : $target;
 
-        // selectAbilitiesInQuery adds the abilities list via selectSub aliased
+        // selectUserAbilitiesInQuery adds the abilities list via selectSub aliased
         // AS abilities — NOT a real column on the underlying table. Using
         // ->value('abilities') here would call Laravel's first(['abilities']),
         // whose onceWithColumns mechanism replaces the SELECT clause with
         // ['abilities'], wiping the selectSub and yielding null. Read the
         // hydrated row instead so the alias survives.
-        $row = (array)$schema->selectAbilitiesInQuery(
+        $row = (array)$schema->selectUserAbilitiesInQuery(
             currentUser: $user,
             query: $model->newQuery()->whereKey($targetId)->getQuery(),
             targetSqlId: $model->getQualifiedKeyName(),

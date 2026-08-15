@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 
-class SelectAbilitiesScope implements Scope
+class SelectUserAbilitiesScope implements Scope
 {
     public function apply(Builder $builder, Model $model): void
     {
@@ -21,6 +21,6 @@ class SelectAbilitiesScope implements Scope
             return;
         }
 
-        $builder->selectAbilities($currentUser);
+        $builder->selectUserAbilities($currentUser);
     }
 }

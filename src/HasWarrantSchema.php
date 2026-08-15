@@ -34,11 +34,11 @@ trait HasWarrantSchema
     /**
      * Check whether the user has the given ability (or abilities) against this
      * model instance. Runs one targeted EXISTS query — avoid calling it per row
-     * in a loop; use the selectAbilities/loadAbilities scopes for collections.
+     * in a loop; use the selectUserAbilities/loadUserAbilities scopes for collections.
      *
      * @param  string|array<int, string>  $abilities
      */
-    public function hasAbility(
+    public function userHasAbility(
         string|array $abilities,
         ?Authenticatable $user = null,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
@@ -139,7 +139,7 @@ trait HasWarrantSchema
         return (new static)->warrantSchema()::getUserImpossibleAbilities($user);
     }
 
-    public function scopeHasAbility(
+    public function scopeUserHasAbility(
         EloquentBuilder $query,
         string|array $abilities,
         ?Authenticatable $user = null,
@@ -153,7 +153,7 @@ trait HasWarrantSchema
         $user ??= auth()->user();
 
         if (!$user instanceof Authenticatable) {
-            throw new LogicException('scopeHasAbility requires an authenticated user or an explicit user instance.');
+            throw new LogicException('scopeUserHasAbility requires an authenticated user or an explicit user instance.');
         }
 
         $schema->filterQuery(
@@ -170,9 +170,9 @@ trait HasWarrantSchema
 
     /**
      * @param  array<int, string>|null  $onlyAbilities  Compute only these per-row
-     *   abilities instead of the full set (see selectAbilitiesInQuery).
+     *   abilities instead of the full set (see selectUserAbilitiesInQuery).
      */
-    public function scopeSelectAbilities(
+    public function scopeSelectUserAbilities(
         EloquentBuilder $query,
         ?Authenticatable $user = null,
         string $selectedAbilitiesKey = 'abilities',
@@ -186,10 +186,10 @@ trait HasWarrantSchema
         $user ??= auth()->user();
 
         if (!$user instanceof Authenticatable) {
-            throw new LogicException('scopeSelectAbilities requires an authenticated user or an explicit user instance.');
+            throw new LogicException('scopeSelectUserAbilities requires an authenticated user or an explicit user instance.');
         }
 
-        $schema->selectAbilitiesInQuery(
+        $schema->selectUserAbilitiesInQuery(
             currentUser: $user,
             query: $query->getQuery(),
             targetSqlId: $model->getQualifiedKeyName(),
@@ -204,7 +204,7 @@ trait HasWarrantSchema
     /**
      * @return array<int, string>
      */
-    public function loadAbilities(
+    public function loadUserAbilities(
         ?Authenticatable $user = null,
         string $selectedAbilitiesKey = 'abilities',
         array $context = []
@@ -215,7 +215,7 @@ trait HasWarrantSchema
         $user ??= auth()->user();
 
         if (!$user instanceof Authenticatable) {
-            throw new LogicException('loadAbilities requires an authenticated user or an explicit user instance.');
+            throw new LogicException('loadUserAbilities requires an authenticated user or an explicit user instance.');
         }
 
         $abilities = $schemaClass::getUserAbilities($this, $user, $context);

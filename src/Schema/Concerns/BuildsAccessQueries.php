@@ -86,7 +86,7 @@ trait BuildsAccessQueries
      *   attached subquery grows one UNION branch per ability, so narrowing it from
      *   all abilities to one is a large per-row cost reduction on list endpoints.
      */
-    public function selectAbilitiesInQuery(
+    public function selectUserAbilitiesInQuery(
         Authenticatable $currentUser,
         Builder $query,
         string $targetSqlId,

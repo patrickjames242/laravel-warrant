@@ -257,13 +257,13 @@ consistently, because there's only one source of truth:
 
 ```php
 // "Which can they update?"  -> a WHERE clause, paginates fine
-Timesheet::query()->hasAbility('update')->paginate();
+Timesheet::query()->userHasAbility('update')->paginate();
 
 // "What can they do to each row?"  -> one computed column, one query
-Timesheet::query()->selectAbilities()->get();   // each row ->abilities = ['view','update']
+Timesheet::query()->selectUserAbilities()->get();   // each row ->abilities = ['view','update']
 
 // "Can they update this one?"  -> a scoped EXISTS
-$timesheet->hasAbility('update');
+$timesheet->userHasAbility('update');
 ```
 
 And notice what's *missing*: Warrant never told you where those rules live.
@@ -454,13 +454,13 @@ class DatabaseRuleResolver implements RuleResolver
 
 ```php
 // Which timesheets can the current user update? (one SQL query)
-$editable = Timesheet::query()->hasAbility('update')->get();
+$editable = Timesheet::query()->userHasAbility('update')->get();
 
 // Can this user approve this specific timesheet?
 if (Timesheet::userHasAbilities('approve', $timesheet)) { /* ... */ }
 
 // Render buttons: attach the per-row ability list.
-$rows = Timesheet::query()->selectAbilities()->get();
+$rows = Timesheet::query()->selectUserAbilities()->get();
 $rows->first()->abilities; // e.g. ['view', 'update']
 ```
 
@@ -639,8 +639,8 @@ is present in the effective context. Opt out with
 forecloses that. When in doubt, leave it required.
 
 **`defaultContext()`** supplies defaults so callers may omit a key — and so
-param-less paths (route middleware, the `selectAbilities` global scope) get a
-frame with no `context:` argument. Explicit context passed at the check wins over
+param-less paths (route middleware, the `userHasAbility` / `selectUserAbilities`
+query scopes) get a frame with no `context:` argument. Explicit context passed at the check wins over
 defaults:
 
 ```php
@@ -831,7 +831,7 @@ if scoped_to('projects', @context project_id, :region) they can view
 ```
 
 Because the value is pinned once per check, it behaves as an ordinary bound SQL
-parameter — per-row `selectAbilities` stays a flat list and deny-overrides is
+parameter — per-row `selectUserAbilities` stays a flat list and deny-overrides is
 unaffected.
 
 **When the key is absent at check time:**
@@ -1169,7 +1169,7 @@ Timesheet::userHasAbilities('create');                       // no-target / capa
 Timesheet::getUserAbilities($timesheet);                     // ['view', 'update']
 
 // Attach abilities onto a loaded model:
-$timesheet->loadAbilities();                                 // sets $timesheet->abilities
+$timesheet->loadUserAbilities();                                 // sets $timesheet->abilities
 ```
 
 Each accepts an optional `$user` (defaults to `auth()->user()`) and, for
@@ -1177,28 +1177,28 @@ Each accepts an optional `$user` (defaults to `auth()->user()`) and, for
 
 ### Filtering queries
 
-The `hasAbility` scope restricts a query to the rows the user may act on — the
+The `userHasAbility` scope restricts a query to the rows the user may act on — the
 "which records?" question, answered in SQL:
 
 ```php
 // Timesheets the current user can update:
-Timesheet::query()->hasAbility('update')->paginate();
+Timesheet::query()->userHasAbility('update')->paginate();
 
 // Rows they can BOTH view and approve (see match modes):
-Timesheet::query()->hasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ALL)->get();
+Timesheet::query()->userHasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ALL)->get();
 
 // For a specific user:
-Timesheet::query()->hasAbility('delete', $user)->get();
+Timesheet::query()->userHasAbility('delete', $user)->get();
 ```
 
 ### Per-row abilities
 
-The `selectAbilities` scope attaches a computed `abilities` column — a JSON array
+The `selectUserAbilities` scope attaches a computed `abilities` column — a JSON array
 of what the user can do to *that* row — so your UI can render controls without
 N extra checks:
 
 ```php
-$rows = Timesheet::query()->selectAbilities()->get();
+$rows = Timesheet::query()->selectUserAbilities()->get();
 
 $rows->first()->abilities; // ['view', 'update']
 ```
@@ -1208,7 +1208,7 @@ an Edit button). Narrowing it is a real cost saving — the attached subquery gr
 one branch per ability:
 
 ```php
-Timesheet::query()->selectAbilities(onlyAbilities: ['update'])->get();
+Timesheet::query()->selectUserAbilities(onlyAbilities: ['update'])->get();
 ```
 
 ### Passing context to a check
@@ -1222,10 +1222,10 @@ through the model helpers, the query scopes, and the capability checks alike:
 Timesheet::userHasAbilities('update', $timesheet, context: ['workspace_id' => $id]);
 
 // Row filtering:
-Timesheet::query()->hasAbility('update', context: ['workspace_id' => $id])->paginate();
+Timesheet::query()->userHasAbility('update', context: ['workspace_id' => $id])->paginate();
 
 // Per-row abilities, evaluated in one fixed frame:
-Timesheet::query()->selectAbilities(context: ['workspace_id' => $id])->get();
+Timesheet::query()->selectUserAbilities(context: ['workspace_id' => $id])->get();
 ```
 
 Whatever you pass is merged *over* the schema's
@@ -1260,7 +1260,7 @@ combine:
 ```php
 use Warrant\AbilityMatchMode;
 
-Timesheet::query()->hasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ANY)->get();
+Timesheet::query()->userHasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ANY)->get();
 ```
 
 ### Could a user ever…? (reachability)
@@ -1645,7 +1645,7 @@ Note the deny clause: `cannot update` when `is_locked and not is_admin` becomes
 `(NOT is_locked OR is_admin)` — negation always lands on the `EXISTS` leaves, never
 on a group, so it stays a strict two-valued boolean.
 
-**Several abilities** combine per the match mode. `hasAbility(['view', 'update'],
+**Several abilities** combine per the match mode. `userHasAbility(['view', 'update'],
 matchMode: ALL)` `AND`s the two per-ability predicates (ANY would `OR` them):
 
 ```sql
@@ -1654,7 +1654,7 @@ select * from timesheets where
   and exists (select 1 from (select 1) as warrant_exists where ? = ?)                     -- update: is_admin
 ```
 
-**Per-row abilities** (`selectAbilities`) run the same per-ability predicates as a
+**Per-row abilities** (`selectUserAbilities`) run the same per-ability predicates as a
 correlated subquery per row, one `SELECT ? as ability WHERE <predicate>` UNION-ALL
 branch per requested ability, aggregated into a JSON array:
 
@@ -1700,7 +1700,7 @@ app()->instance(RuleResolver::class, new class implements RuleResolver {
     }
 });
 
-$visible = Timesheet::query()->hasAbility('view', $user)->pluck('id');
+$visible = Timesheet::query()->userHasAbility('view', $user)->pluck('id');
 expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet->id);
 ```
 
@@ -1738,9 +1738,9 @@ expect($visible)->toContain($ownTimesheet->id)->not->toContain($othersTimesheet-
 - `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; throws `Warrant\WarrantAuthorizationException` (403). Message priority: rule `withDenialMessage` → schema `forbiddenDenialMessage` → schema `ungrantedDenialMessage` → generic
   - denial-message closures receive `WarrantDenialContext` (`user, target, schema, context, gate, rule, deniedAbilities`); the ungranted hook receives `WarrantUngrantedContext` (`… gate, ungrantedAbilities`, no rule); `gate` is a `WarrantGate` (`abilities`, `matchMode`)
 - `Model::getUserAbilities($target = null, $user = null, $context = []): array`
-- `->hasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
-- `->selectAbilities($user = null, $key = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope
-- `$model->loadAbilities($user = null, $key = 'abilities', $context = [])` — attach the ability list to an instance
+- `->userHasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
+- `->selectUserAbilities($user = null, $key = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope
+- `$model->loadUserAbilities($user = null, $key = 'abilities', $context = [])` — attach the ability list to an instance
 - `context:` — values for the rules' `@context` keys, merged over `defaultContext()`
 - `Warrant\AbilityMatchMode::ALL | ANY`
 

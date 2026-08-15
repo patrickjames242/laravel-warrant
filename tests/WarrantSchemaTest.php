@@ -208,14 +208,14 @@ it('requires a target sql id for targeted conditions', function () {
     ))->toThrow(InvalidArgumentException::class, 'requires a target SQL id');
 });
 
-// -- selectAbilitiesInQuery (behavioral) --------------------------------------
+// -- selectUserAbilitiesInQuery (behavioral) --------------------------------------
 
 it('computes per-row abilities as a json column', function () {
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
     $rows = (new WarrantTestSchema)
-        ->selectAbilitiesInQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id')
+        ->selectUserAbilitiesInQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id')
         ->orderBy('id')
         ->get();
 
@@ -286,13 +286,13 @@ it('checks abilities against a model instance through the trait', function () {
     $granted = WarrantScopedModel::query()->find('teacher:teacher-role');
     $denied = WarrantScopedModel::query()->find('other-section');
 
-    expect($granted->hasAbility('view', $user))->toBeTrue();
-    expect($denied->hasAbility('view', $user))->toBeFalse();
-    expect($granted->hasAbility(['view', 'create'], $user))->toBeFalse();
-    expect($granted->hasAbility(['view', 'create'], $user, AbilityMatchMode::ANY))->toBeTrue();
+    expect($granted->userHasAbility('view', $user))->toBeTrue();
+    expect($denied->userHasAbility('view', $user))->toBeFalse();
+    expect($granted->userHasAbility(['view', 'create'], $user))->toBeFalse();
+    expect($granted->userHasAbility(['view', 'create'], $user, AbilityMatchMode::ANY))->toBeTrue();
 });
 
 it('throws when the model returns a schema for a different host model', function () {
-    expect(fn () => WarrantMismatchedScopedModel::query()->hasAbility('view', makeWarrantTestUser('teacher-role'))->toRawSql())
+    expect(fn () => WarrantMismatchedScopedModel::query()->userHasAbility('view', makeWarrantTestUser('teacher-role'))->toRawSql())
         ->toThrow(LogicException::class, 'must manage model');
 });

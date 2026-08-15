@@ -101,7 +101,7 @@ it('filters a query scope by the supplied context value', function () {
     $user = makeWarrantTestUser();
 
     $ids = ContextDoc::query()
-        ->hasAbility('view', $user, AbilityMatchMode::ALL, ['workspace_id' => 'w-1'])
+        ->userHasAbility('view', $user, AbilityMatchMode::ALL, ['workspace_id' => 'w-1'])
         ->orderBy('id')
         ->pluck('id')
         ->all();
@@ -150,7 +150,7 @@ it('computes a flat per-row ability list under a fixed context', function () {
     $user = makeWarrantTestUser();
 
     $rows = ContextDoc::query()
-        ->selectAbilities($user, 'abilities', null, ['workspace_id' => 'w-1'])
+        ->selectUserAbilities($user, 'abilities', null, ['workspace_id' => 'w-1'])
         ->orderBy('id')
         ->get();
 
