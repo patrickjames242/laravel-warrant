@@ -32,6 +32,29 @@ trait HasWarrantSchema
     }
 
     /**
+     * The throwing sibling of {@see userHasAbilities}: assert the user holds the
+     * abilities, or throw a {@see WarrantAuthorizationException} (403) carrying the
+     * responsible rule's denial message. Same arguments as userHasAbilities.
+     *
+     * @param  string|array<int, string>  $abilities
+     * @throws \Throwable
+     */
+    public static function authorize(
+        string|array $abilities,
+        Model|string|null $target = null,
+        ?Authenticatable $user = null,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+        array $context = []
+    ): void
+    {
+        /** @var Model&self $model */
+        $model = new static;
+        $schemaClass = $model->warrantSchema();
+
+        $schemaClass::authorize($abilities, $target, $user, $matchMode, $context);
+    }
+
+    /**
      * Check whether the user has the given ability (or abilities) against this
      * model instance. Runs one targeted EXISTS query — avoid calling it per row
      * in a loop; use the selectUserAbilities/loadUserAbilities scopes for collections.

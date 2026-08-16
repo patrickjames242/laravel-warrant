@@ -109,6 +109,17 @@ it('filters a query scope by the supplied context value', function () {
     expect($ids)->toBe(['d1']);
 });
 
+it('proxies authorize() from the model to the schema', function () {
+    $user = makeWarrantTestUser();
+
+    // Authorized → returns void, does not throw.
+    ContextDoc::authorize('view', 'd1', $user, context: ['workspace_id' => 'w-1']);
+
+    // Unauthorized → throws, exactly like the schema-level authorize().
+    expect(fn () => ContextDoc::authorize('view', 'd1', $user, context: ['workspace_id' => 'w-2']))
+        ->toThrow(\Warrant\WarrantAuthorizationException::class);
+});
+
 it('lets a condition read the context bag directly, without @context in the rule', function () {
     $user = makeWarrantTestUser();
 
