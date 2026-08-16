@@ -37,7 +37,7 @@
 Schema-based authorization for Laravel that compiles a small, human-readable
 rule language **directly into SQL** — so "what can this user do?" and
 "which rows can this user touch?" are answered by the database in a single query,
-not by loading records and looping in PHP.
+not by loading records into memory.
 
 ```text
 if is_self or (is_manager and same_department)
