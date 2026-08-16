@@ -48,22 +48,6 @@ they cannot delete
 That block is a real, complete Warrant rule. Warrant turns it into a `WHERE`
 clause.
 
-## Why Warrant
-
-- **One source of truth.** The same rule set answers a single check, filters a
-  list, and reports the per-row ability list — no permission logic duplicated
-  between a policy and a query.
-- **Compiles to SQL.** Rules never run in PHP or pull your models into memory;
-  they become a `WHERE` clause the database evaluates.
-- **Rules are data.** Store them in the database, generate them from a GUI, or
-  hard-code them — you decide where they come from and change them without
-  touching app code.
-- **Readable language.** Rules are written in a small `if … they can/cannot …`
-  language that non-authors can follow.
-
-See [Why Warrant](https://laravel-warrant.dev/getting-started/why-warrant/) for
-the full rationale and a comparison with the policy/query approach.
-
 ## Installation
 
 ```bash
@@ -89,6 +73,22 @@ Full docs live at **[laravel-warrant.dev](https://laravel-warrant.dev)**:
 - [Checking access](https://laravel-warrant.dev/guides/checking-access/) · [Reachability](https://laravel-warrant.dev/guides/reachability/) · [Route middleware](https://laravel-warrant.dev/guides/middleware/) · [Denial messages](https://laravel-warrant.dev/guides/denial-messages/)
 - [How it compiles to SQL](https://laravel-warrant.dev/guides/how-it-compiles/) · [Testing](https://laravel-warrant.dev/guides/testing/)
 - API reference: [Checking](https://laravel-warrant.dev/reference/checking-api/) · [Schema](https://laravel-warrant.dev/reference/schema-api/) · [Rule building](https://laravel-warrant.dev/reference/rule-building-api/) · [Middleware](https://laravel-warrant.dev/reference/middleware-api/) · [Errors](https://laravel-warrant.dev/reference/errors/) · [Cheat sheet](https://laravel-warrant.dev/reference/api-cheat-sheet/)
+
+## Why Warrant
+
+- **One source of truth.** The same rule set answers a single check, filters a
+  list, and reports the per-row ability list — no permission logic duplicated
+  between a policy and a query.
+- **Compiles to SQL.** Rules never run in PHP or pull your models into memory;
+  they become a `WHERE` clause the database evaluates.
+- **Rules are data.** Store them in the database, generate them from a GUI, or
+  hard-code them — you decide where they come from and change them without
+  touching app code.
+- **Readable language.** Rules are written in a small `if … they can/cannot …`
+  language that non-authors can follow.
+
+See [Why Warrant](https://laravel-warrant.dev/getting-started/why-warrant/) for
+the full rationale and a comparison with the policy/query approach.
 
 ## A quick example
 
