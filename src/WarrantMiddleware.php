@@ -315,27 +315,6 @@ class WarrantMiddleware
         return self::abilityHelper($target, StandardAbilities::ARCHIVE, $routes);
     }
 
-    /**
-     * Guard the `manage` capability of a section (a capability schema such as
-     * `settings`). Unlike the standard abilities, `manage` gates a whole section
-     * rather than a model action, so it takes a schema key, never a
-     * route-bound model. Two modes: returns the middleware string, or wraps the
-     * grouped routes when given a closure.
-     *
-     * Examples:
-     * `WarrantMiddleware::canManage('settings')`
-     * returns `warrant:settings,manage`.
-     *
-     * `WarrantMiddleware::canManage('settings', fn () => Route::get('/settings/...', ...));`
-     * wraps the grouped routes in the settings guard.
-     */
-    public static function canManage(
-        string $target,
-        ?Closure $routes = null,
-    ): ?string {
-        return self::abilityHelper($target, 'manage', $routes);
-    }
-
     private static function abilityHelper(
         string $target,
         string $ability,
