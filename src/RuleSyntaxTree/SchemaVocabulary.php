@@ -19,14 +19,6 @@ interface SchemaVocabulary
     public static function declaredAbilities(): array;
 
     /**
-     * Every check-time context key declared by the schema. Used to validate that
-     * a rule's `@context <key>` reference names a declared key.
-     *
-     * @return array<int, string>
-     */
-    public static function declaredContextKeys(): array;
-
-    /**
      * Whether a condition with this key is declared by the schema.
      */
     public function conditionExists(string $conditionKey): bool;

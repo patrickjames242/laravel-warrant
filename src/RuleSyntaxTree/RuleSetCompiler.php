@@ -200,20 +200,16 @@ final class RuleSetCompiler
             return;
         }
 
-        // Resolve any @context placeholder against the check-time context. A key
-        // that is absent (only ever a non-required key — required keys are enforced
-        // before compilation) makes the condition unevaluable → false, mirroring
-        // the targeted-no-target guard above (and De Morgan-safe under negation).
+        // Resolve any @context placeholder against the check-time context. An
+        // absent key (only ever a non-required one — required keys are enforced
+        // before compilation) resolves to null and is passed to the condition as
+        // that argument's value, leaving the condition to decide what null means
+        // (rather than the compiler forcing the whole leaf false). Conditions that
+        // read a possibly-absent @context arg must therefore tolerate null.
         $parameters = [];
         foreach ($node->parameters as $parameter) {
             if ($parameter instanceof ContextRef) {
-                if (! array_key_exists($parameter->key, $context)) {
-                    $parent->whereRaw($negate ? '1 = 1' : '1 = 0', [], $boolean);
-
-                    return;
-                }
-
-                $parameters[] = $context[$parameter->key];
+                $parameters[] = $context[$parameter->key] ?? null;
 
                 continue;
             }

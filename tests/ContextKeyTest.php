@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\Ability;
 use Warrant\AbilityMatchMode;
-use Warrant\ContextKey;
 use Warrant\HasWarrantSchema;
+use Warrant\RequiredContext;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\TargetedConditionContext;
 use Warrant\Schema\WarrantSchema;
@@ -34,9 +34,10 @@ class ContextDocSchema extends WarrantSchema
     public const model = ContextDoc::class;
 
     #[Ability] public const VIEW = 'view';
+    #[Ability(requires: [self::AS_OF])] public const AUDIT = 'audit';     // needs as_of_date when checked
 
-    #[ContextKey] public const WORKSPACE = 'workspace_id';                // required by default
-    #[ContextKey(required: false)] public const AS_OF = 'as_of_date';     // opt-out
+    #[RequiredContext] public const WORKSPACE = 'workspace_id';           // required schema-wide
+    public const AS_OF = 'as_of_date';                                    // usable without any declaration
 
     #[TargetedCondition]
     public function inWorkspace(TargetedConditionContext $c): BuilderContract
@@ -83,8 +84,7 @@ beforeEach(function () {
 
 // -- reflection ---------------------------------------------------------------
 
-it('discovers declared and required context keys via #[ContextKey]', function () {
-    expect(ContextDocSchema::declaredContextKeys())->toBe(['workspace_id', 'as_of_date']);
+it('reports the schema-wide required context keys via #[RequiredContext]', function () {
     expect(ContextDocSchema::requiredContextKeys())->toBe(['workspace_id']);
 });
 
@@ -167,4 +167,59 @@ it('computes a flat per-row ability list under a fixed context', function () {
 
     expect(json_decode($rows[0]->abilities, true))->toBe(['view']); // d1, in w-1
     expect(json_decode($rows[1]->abilities, true))->toBe([]);       // d2, not in w-1
+});
+
+// -- undeclared keys need no declaration to be used (goal a) ------------------
+
+it('references an undeclared @context key without a validation error', function () {
+    $user = makeWarrantTestUser();
+
+    // `region` is never declared on the schema; before, this threw at validation.
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'if in_workspace(@context region) they can view'));
+
+    // Supplying the key drives the condition (its value is used as the filter).
+    expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-1', 'region' => 'w-1']))->toBeTrue();
+    // Omitting it → the condition is simply false → denied, still no throw.
+    expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-1']))->toBeFalse();
+});
+
+// -- per-ability required context: throw when named, skip when enumerated -----
+
+it('throws when a named ability is missing its per-ability required context', function () {
+    $user = makeWarrantTestUser();
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+
+    // `audit` requires as_of_date; naming it without that key throws...
+    expect(fn () => ContextDoc::userHasAbilities('audit', 'd1', $user, context: ['workspace_id' => 'w-1']))
+        ->toThrow(InvalidArgumentException::class, 'Ability [audit] requires context key(s) [as_of_date]');
+
+    // ...while a sibling ability with no per-ability requirement is unaffected.
+    expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-1']))->toBeTrue();
+
+    // Supplying the key lets the named check run.
+    expect(ContextDoc::userHasAbilities('audit', 'd1', $user, context: ['workspace_id' => 'w-1', 'as_of_date' => '2026-01-01']))->toBeTrue();
+});
+
+it('skips an ability missing its required context when enumerating no-target abilities', function () {
+    $user = makeWarrantTestUser();
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+
+    // No as_of_date → audit is skipped (not thrown); view is targeted-only so absent no-target anyway.
+    expect(ContextDoc::getUserAbilities(null, $user, ['workspace_id' => 'w-1']))->toBe([]);
+
+    // Supplying it brings audit into the list.
+    expect(ContextDoc::getUserAbilities(null, $user, ['workspace_id' => 'w-1', 'as_of_date' => '2026-01-01']))->toBe(['audit']);
+});
+
+it('skips an ability missing its required context in a per-row selection', function () {
+    $user = makeWarrantTestUser();
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+
+    // audit (needs as_of_date, absent) is omitted; only view is computed per row.
+    $rows = ContextDoc::query()
+        ->selectUserAbilities($user, 'abilities', null, ['workspace_id' => 'w-1'])
+        ->orderBy('id')
+        ->get();
+
+    expect(json_decode($rows[0]->abilities, true))->toBe(['view']); // d1: audit skipped
 });

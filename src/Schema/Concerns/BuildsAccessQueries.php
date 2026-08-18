@@ -42,6 +42,7 @@ trait BuildsAccessQueries
         }
 
         $context = $this->resolveEffectiveContext($context);
+        static::assertAbilitiesHaveRequiredContext($abilities, $context);
         $ruleSet = $this->resolveRuleSet($currentUser);
 
         return $query->where(function (Builder $outerWhereClause) use (
@@ -109,6 +110,14 @@ trait BuildsAccessQueries
 
         $context = $this->resolveEffectiveContext($context);
 
+        /* A per-row list enumerates abilities, so any whose per-ability required
+           context wasn't supplied is skipped rather than throwing. */
+        $abilities = static::partitionAbilitiesByContext($abilities, $context)['satisfied'];
+
+        if ($abilities === []) {
+            return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
+        }
+
         $abilitySelectQuery = $this->buildAvailableAbilitiesQuery(
             currentUser: $currentUser,
             query: $query,
@@ -159,7 +168,8 @@ trait BuildsAccessQueries
         array $context = []
     ): array
     {
-        $requestedAbilities = $abilities === null
+        $isEnumeration = $abilities === null;
+        $requestedAbilities = $isEnumeration
             ? static::declaredAbilities()
             : $this->normalizeAbilities($abilities);
 
@@ -168,6 +178,19 @@ trait BuildsAccessQueries
         }
 
         $context = $this->resolveEffectiveContext($context);
+
+        if ($isEnumeration) {
+            /* Enumerating all declared abilities: skip any whose per-ability
+               required context wasn't supplied. */
+            $requestedAbilities = static::partitionAbilitiesByContext($requestedAbilities, $context)['satisfied'];
+
+            if ($requestedAbilities === []) {
+                return [];
+            }
+        } else {
+            /* Abilities were named explicitly: a missing requirement throws. */
+            static::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
+        }
 
         /* A connection to evaluate the ability predicates on (rule-set lookup
            itself is the resolver's job, on its own connection). No-target
@@ -267,11 +290,12 @@ trait BuildsAccessQueries
 
     /**
      * Merge the explicitly-passed context over the schema's {@see defaultContext},
-     * then enforce that every required context key is present. Explicit values win
-     * over defaults; partial explicit context is allowed. Throws when a
-     * `#[ContextKey(required: true)]` key is missing from the effective context —
-     * for every check on the schema, so a required frame can never be silently
-     * skipped (which would lift a context-gated `cannot`).
+     * then enforce that every schema-wide required context key is present. Explicit
+     * values win over defaults; partial explicit context is allowed. Throws when a
+     * `#[RequiredContext]` key is missing from the effective context — for every
+     * check on the schema, so a required frame can never be silently skipped (which
+     * would lift a context-gated `cannot`). Per-ability requirements are enforced
+     * separately by {@see assertAbilitiesHaveRequiredContext}.
      *
      * @param array<string, mixed> $context
      * @return array<string, mixed>
@@ -291,5 +315,32 @@ trait BuildsAccessQueries
         }
 
         return $effective;
+    }
+
+    /**
+     * Throw when a *named* ability's per-ability required context (declared via
+     * `#[Ability(requires: [...])]`) is missing from the effective context. Used
+     * by the assertion paths (a targeted check / an explicit no-target check);
+     * enumeration paths skip such abilities instead via
+     * {@see \Warrant\Schema\Concerns\ReflectsSchemaDefinition::partitionAbilitiesByContext}.
+     *
+     * @param array<int, string> $abilities
+     * @param array<string, mixed> $context
+     */
+    protected static function assertAbilitiesHaveRequiredContext(array $abilities, array $context): void
+    {
+        $missing = static::partitionAbilitiesByContext($abilities, $context)['missing'];
+
+        if ($missing === []) {
+            return;
+        }
+
+        $ability = array_key_first($missing);
+
+        throw new InvalidArgumentException(sprintf(
+            'Ability [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().',
+            $ability,
+            implode(', ', $missing[$ability]),
+        ));
     }
 }

@@ -31,7 +31,6 @@ final class BuilderTestUser implements Authenticatable
 final class BuilderFakeResolver implements ConditionResolver
 {
     public static function declaredAbilities(): array { return ['view']; }
-    public static function declaredContextKeys(): array { return []; }
     public function conditionExists(string $name): bool { return $name === 'is_teacher'; }
     public function conditionIsTargeted(string $name): bool { return true; }
 

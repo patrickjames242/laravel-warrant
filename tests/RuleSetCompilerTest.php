@@ -34,16 +34,11 @@ final class CompilerTestUser implements Authenticatable
  */
 final class FakeConditionResolver implements ConditionResolver
 {
-    private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true];
+    private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true];
 
     public static function declaredAbilities(): array
     {
         return ['view', 'edit', 'delete', 'publish'];
-    }
-
-    public static function declaredContextKeys(): array
-    {
-        return ['doc_id'];
     }
 
     public function conditionExists(string $name): bool
@@ -63,6 +58,11 @@ final class FakeConditionResolver implements ConditionResolver
             'is_owner' => $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
             // Matches a row whose id equals the (context- or literal-supplied) argument.
             'id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
+            // Like id_is, but a null argument means "match every row" — proves the
+            // condition (not the compiler) decides what an absent @context key means.
+            'id_is_optional' => $parameters[0] === null
+                ? $whereClause
+                : $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
             // Reads the ambient context bag directly (no @context arg in the rule).
             'ctx_id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$context['doc_id'] ?? '__missing__']),
             'is_admin' => $user->role === 'admin',
@@ -188,14 +188,13 @@ it('exposes the whole context bag to every condition automatically', function ()
 });
 
 it('soft-falses a grant when a referenced context key is absent', function () {
-    // No context provided: id_is(@context doc_id) is unevaluable → false → no grant.
+    // No context: id_is receives null → `id = NULL` matches nothing → no grant.
     expect(compileDocIds('if id_is(@context doc_id) they can view', 'view'))->toBe([]);
 });
 
 it('lifts a context-gated cannot when the key is absent (fail-open)', function () {
-    // The deny is unevaluable without doc_id, so the veto does not apply and the
-    // unconditional grant stands — the documented reason a deny-gating key should
-    // be declared required.
+    // id_is gets null → the veto's condition matches nothing, so the unconditional
+    // grant stands — the documented reason a deny-gating key should be required.
     expect(compileDocIds('they can view if id_is(@context doc_id) they cannot view', 'view'))
         ->toBe(['doc-9', 'other', 'teacher:role-1']);
 
@@ -205,19 +204,28 @@ it('lifts a context-gated cannot when the key is absent (fail-open)', function (
 });
 
 it('treats a negated absent context condition as true (De Morgan-safe)', function () {
-    // not id_is(@context doc_id) with doc_id absent → not(false) → true → all rows.
+    // not id_is(@context doc_id): id_is(null) matches nothing → NOT EXISTS → all rows.
     expect(compileDocIds('if not id_is(@context doc_id) they can view', 'view'))
         ->toBe(['doc-9', 'other', 'teacher:role-1']);
 });
 
-it('rejects a rule referencing an undeclared context key', function () {
+it('passes an absent context key to the condition as null, letting it decide', function () {
+    // id_is_optional treats a null arg as "match every row" — impossible under the
+    // old force-false fold, which never called the condition.
+    expect(compileDocIds('if id_is_optional(@context doc_id) they can view', 'view'))
+        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+
+    // A supplied value still narrows to the matching row.
+    expect(compileDocIds('if id_is_optional(@context doc_id) they can view', 'view', 'role-1', [], ['doc_id' => 'doc-9']))
+        ->toBe(['doc-9']);
+});
+
+it('accepts a rule referencing any context key without declaration', function () {
     $validator = new RuleSetValidator(new FakeConditionResolver);
 
-    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context nope) they can view')))
-        ->toThrow(InvalidArgumentException::class, 'Context key [nope]');
-
-    // A declared key passes silently.
-    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context doc_id) they can view'));
+    // Context keys need no declaration; an absent one just makes its condition
+    // false at compile time. Required-ness is enforced at check time, not here.
+    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context nope) they can view'));
     expect(true)->toBeTrue();
 });
 

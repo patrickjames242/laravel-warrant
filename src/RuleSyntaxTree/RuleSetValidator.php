@@ -70,15 +70,9 @@ final class RuleSetValidator
             );
         }
 
-        $declaredContextKeys = $this->schema::declaredContextKeys();
-
-        foreach ($node->parameters as $parameter) {
-            if ($parameter instanceof ContextRef
-                && ! in_array($parameter->key, $declaredContextKeys, true)) {
-                throw new InvalidArgumentException(
-                    sprintf('Context key [%s] is not declared by the schema.', $parameter->key)
-                );
-            }
-        }
+        /* Context keys need no declaration: a rule may reference any `@context`
+           key. An absent key simply makes its condition false at compile time
+           (see RuleSetCompiler); required keys are enforced separately, at check
+           time, via #[RequiredContext] and per-ability requires. */
     }
 }

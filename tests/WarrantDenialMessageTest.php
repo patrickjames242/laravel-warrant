@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Warrant\Ability;
 use Warrant\AbilityMatchMode;
-use Warrant\ContextKey;
 use Warrant\GlobalCondition;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
@@ -63,7 +62,6 @@ class DenialContextSchema extends WarrantSchema
     #[Ability]
     public const UPDATE = 'update';
 
-    #[ContextKey(required: false)]
     public const REGION = 'region';
 
     #[GlobalCondition]

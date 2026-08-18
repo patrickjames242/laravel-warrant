@@ -10,8 +10,8 @@ use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Ability;
-use Warrant\ContextKey;
 use Warrant\GlobalCondition;
+use Warrant\RequiredContext;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\TargetedConditionContext;
 use Warrant\TargetedCondition;
@@ -124,6 +124,43 @@ trait ReflectsSchemaDefinition
             ->pluck('value')
             ->values()
             ->all();
+    }
+
+    /**
+     * Split the given abilities by whether their per-ability required context
+     * (declared via `#[Ability(requires: [...])]`) is satisfied by the keys
+     * present in the effective context. `satisfied` keeps its input order;
+     * `missing` maps each unsatisfied ability to the context keys it lacks.
+     *
+     * Callers that *named* an ability throw on `missing`; callers that merely
+     * *enumerate* abilities keep only `satisfied`.
+     *
+     * @param  array<int, string>  $abilities
+     * @param  array<string, mixed>  $context
+     * @return array{satisfied: array<int, string>, missing: array<string, array<int, string>>}
+     */
+    public static function partitionAbilitiesByContext(array $abilities, array $context): array
+    {
+        $requiresByAbility = collect(static::abilityDefinitions())->pluck('requires', 'value');
+        $present = array_keys($context);
+
+        $satisfied = [];
+        $missing = [];
+
+        foreach ($abilities as $ability) {
+            $needed = array_values(array_diff(
+                $requiresByAbility->get($ability, []),
+                $present,
+            ));
+
+            if ($needed === []) {
+                $satisfied[] = $ability;
+            } else {
+                $missing[$ability] = $needed;
+            }
+        }
+
+        return ['satisfied' => $satisfied, 'missing' => $missing];
     }
 
     /**
@@ -247,64 +284,27 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns every check-time context key declared by the schema (from
-     * `#[ContextKey]` constants). These are the keys a rule may reference with
-     * `@context <key>` and that callers supply in the `context:` bag.
+     * Returns the context keys marked `#[RequiredContext]` — keys that must be
+     * present in the effective context of *every* check against the schema. A
+     * check whose context omits any of these is rejected up front.
      *
-     * @return array<int, string>
-     */
-    public static function declaredContextKeys(): array
-    {
-        return array_map(
-            fn(array $definition): string => $definition['key'],
-            static::contextKeyDefinitions(),
-        );
-    }
-
-    /**
-     * Returns the subset of context keys marked `#[ContextKey(required: true)]`.
-     * A check whose effective context omits any of these is rejected up front.
+     * Context keys need no declaration to be *used*; this list is only the
+     * schema-wide mandatory ones. (Per-ability requirements live on
+     * `#[Ability(requires: [...])]`.)
      *
      * @return array<int, string>
      */
     public static function requiredContextKeys(): array
     {
-        return array_values(array_map(
-            fn(array $definition): string => $definition['key'],
-            array_filter(
-                static::contextKeyDefinitions(),
-                fn(array $definition): bool => $definition['required'],
-            ),
-        ));
-    }
-
-    /**
-     * @return array<int, array{key: string, required: bool}>
-     */
-    protected static function contextKeyDefinitions(): array
-    {
-        $reflection = new ReflectionClass(static::class);
-
-        return collect($reflection->getReflectionConstants())
-            ->map(function (ReflectionClassConstant $constant): ?array {
-                $attributes = $constant->getAttributes(ContextKey::class);
-
-                if ($attributes === []) {
-                    return null;
-                }
-
-                return [
-                    'key' => $constant->getValue(),
-                    'required' => $attributes[0]->newInstance()->required,
-                ];
-            })
-            ->filter()
+        return collect((new ReflectionClass(static::class))->getReflectionConstants())
+            ->filter(fn(ReflectionClassConstant $constant): bool => $constant->getAttributes(RequiredContext::class) !== [])
+            ->map(fn(ReflectionClassConstant $constant): string => $constant->getValue())
             ->values()
             ->all();
     }
 
     /**
-     * @return array<int, array{value: string}>
+     * @return array<int, array{value: string, requires: array<int, string>}>
      */
     protected static function abilityDefinitions(): array
     {
@@ -320,6 +320,7 @@ trait ReflectsSchemaDefinition
 
                 return [
                     'value' => $constant->getValue(),
+                    'requires' => $attributes[0]->newInstance()->requires,
                 ];
             })
             ->filter()
