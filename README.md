@@ -86,6 +86,9 @@ Full docs live at **[laravel-warrant.dev](https://laravel-warrant.dev)**:
   touching app code.
 - **Readable language.** Rules are written in a small `if … they can/cannot …`
   language that non-authors can follow.
+- **Integrates with Laravel's Gate.** `$user->can()`, `@can`, `Gate::authorize`,
+  and the `can:` route middleware resolve Warrant abilities, while abilities no
+  schema declares fall through to your existing policies.
 
 See [Why Warrant](https://laravel-warrant.dev/getting-started/why-warrant/) for
 the full rationale and a comparison with the policy/query approach.
@@ -205,6 +208,9 @@ if (Timesheet::userHasAbilities('approve', $timesheet)) { /* ... */ }
 // Attach the per-row ability list, e.g. for rendering buttons.
 $rows = Timesheet::query()->selectUserAbilities()->get();
 $rows->first()->abilities; // e.g. ['view', 'update']
+
+// Or go through Laravel's Gate — Warrant resolves these too:
+$user->can('approve', $timesheet);
 ```
 
 The [Quick start](https://laravel-warrant.dev/getting-started/quick-start/) walks
