@@ -73,6 +73,19 @@ class WarrantManager
     }
 
     /**
+     * Like {@see getSchemaForModelClass} but returns null instead of throwing
+     * when the model class has no registered schema. Used by callers that probe
+     * whether a class is Warrant-managed (e.g. the Gate bridge).
+     *
+     * @param  class-string<Model>  $modelClass
+     * @return class-string<WarrantSchema>|null
+     */
+    public function schemaForModelClassOrNull(string $modelClass): ?string
+    {
+        return $this->modelsToSchemas[$modelClass] ?? null;
+    }
+
+    /**
      * @return class-string<WarrantSchema>
      */
     public function getSchemaForKey(string $schemaKey): string

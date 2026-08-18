@@ -19,4 +19,12 @@ return [
     'schemas' => [
         // App\Schemas\PostSchema::class,
     ],
+
+    /*
+     * When true, Warrant registers a Gate::before hook so its abilities resolve
+     * through Laravel's Gate — $user->can(), @can, Gate::authorize, and the
+     * `can:` route middleware. Abilities that no registered schema declares fall
+     * through untouched to your own policies. Set false to opt out entirely.
+     */
+    'register_gate' => true,
 ];

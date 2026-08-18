@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Warrant;
 
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
+use Warrant\Gate\WarrantGateBridge;
 
 final class WarrantServiceProvider extends ServiceProvider
 {
@@ -46,6 +48,14 @@ final class WarrantServiceProvider extends ServiceProvider
         $router->aliasMiddleware('warrant.always.any', Middleware\AlwaysAnyMiddleware::class);
         $router->aliasMiddleware('warrant.never', Middleware\NeverMiddleware::class);
         $router->aliasMiddleware('warrant.never.any', Middleware\NeverAnyMiddleware::class);
+
+        /* Resolve Warrant abilities through Laravel's Gate. Registered lazily so
+           the config toggle is read once the Gate (and container config) exist. */
+        $this->callAfterResolving(Gate::class, function (Gate $gate) {
+            if ((bool) $this->app['config']->get('warrant.register_gate', true)) {
+                (new WarrantGateBridge($this->app->make(WarrantManager::class)))->register($gate);
+            }
+        });
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
