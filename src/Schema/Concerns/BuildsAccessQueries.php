@@ -319,7 +319,7 @@ trait BuildsAccessQueries
 
     /**
      * Throw when a *named* ability's per-ability required context (declared via
-     * `#[Ability(requires: [...])]`) is missing from the effective context. Used
+     * `#[Ability(requiredContextKeys: [...])]`) is missing from the effective context. Used
      * by the assertion paths (a targeted check / an explicit no-target check);
      * enumeration paths skip such abilities instead via
      * {@see \Warrant\Schema\Concerns\ReflectsSchemaDefinition::partitionAbilitiesByContext}.
