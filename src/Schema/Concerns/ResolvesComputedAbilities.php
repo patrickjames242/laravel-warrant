@@ -47,7 +47,18 @@ trait ResolvesComputedAbilities
         $definition = collect(static::abilityDefinitions())
             ->first(fn (AbilityDefinition $a): bool => $a->computed && $a->name === $ability);
 
-        $result = $this->{$definition->method}(new ComputedAbilityContext($user, $effectiveContext));
+        $arguments = array_map(
+            fn (array $binding): mixed => match ($binding['kind']) {
+                'user' => $user,
+                'context_object' => new ComputedAbilityContext($user, $effectiveContext),
+                'context' => array_key_exists($binding['key'], $effectiveContext)
+                    ? $effectiveContext[$binding['key']]
+                    : $binding['default'],
+            },
+            $definition->parameterBindings,
+        );
+
+        $result = $this->{$definition->method}(...$arguments);
 
         return $result instanceof Response
             ? $result

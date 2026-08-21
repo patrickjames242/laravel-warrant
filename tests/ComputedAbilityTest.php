@@ -65,9 +65,29 @@ class BadComputedSchema extends WarrantSchema
     public const model = ComputedModel::class;
 
     #[ComputedAbility]
-    public function bad(string $notTheContext): bool
+    public function bad(): bool
     {
         return true;
+    }
+}
+
+class InjectedContextSchema extends WarrantSchema
+{
+    public const model = ComputedModel::class;
+
+    // first param is the user; trailing params are injected context by snake_case name
+    #[ComputedAbility]
+    public function audit($user, string $asOf): bool
+    {
+        return $asOf >= '2026-01-01';
+    }
+
+    // context object first param, then a required nullable-without-default param
+    // ($since) and an optional param with a default ($until)
+    #[ComputedAbility]
+    public function window(ComputedAbilityContext $c, ?string $since, string $until = '2030-01-01'): bool
+    {
+        return $c->user->role_id === 'admin' && $since !== null && $since <= $until;
     }
 }
 
@@ -263,9 +283,41 @@ it('defaults a computed ability name to the snake-cased method name', function (
     expect(NameDefaultComputedSchema::isComputedAbility('create_timesheet'))->toBeTrue();
 });
 
-it('rejects a computed method with the wrong parameter type', function () {
+it('rejects a computed method that takes no parameters', function () {
     expect(fn () => BadComputedSchema::nonComputedAbilityNames())
-        ->toThrow(InvalidArgumentException::class, 'must accept exactly one');
+        ->toThrow(InvalidArgumentException::class, 'must accept at least one');
+});
+
+// -- signature-driven context discovery ---------------------------------------
+
+it('injects a required context value by the snake-cased parameter name', function () {
+    expect(InjectedContextSchema::userHasAbilities('audit', user: admin(), context: ['as_of' => '2026-06-01']))
+        ->toBeTrue();
+    expect(InjectedContextSchema::userHasAbilities('audit', user: admin(), context: ['as_of' => '2020-01-01']))
+        ->toBeFalse();
+});
+
+it('auto-requires a discovered context key and throws when it is missing', function () {
+    expect(fn () => InjectedContextSchema::userHasAbilities('audit', user: admin()))
+        ->toThrow(InvalidArgumentException::class, 'Ability [audit] requires context key(s) [as_of]');
+});
+
+it('treats a parameter with a default as optional context, using its default when absent', function () {
+    // $until omitted → default '2030-01-01'; $since present and <= default → allowed
+    expect(InjectedContextSchema::userHasAbilities('window', user: admin(), context: ['since' => '2026-01-01']))
+        ->toBeTrue();
+
+    // $until injected below $since → denied
+    expect(InjectedContextSchema::userHasAbilities(
+        'window',
+        user: admin(),
+        context: ['since' => '2026-01-01', 'until' => '2025-01-01'],
+    ))->toBeFalse();
+});
+
+it('keeps a nullable-without-default parameter required', function () {
+    expect(fn () => InjectedContextSchema::userHasAbilities('window', user: admin()))
+        ->toThrow(InvalidArgumentException::class, 'Ability [window] requires context key(s) [since]');
 });
 
 it('rejects a computed name that collides with a declared ability', function () {

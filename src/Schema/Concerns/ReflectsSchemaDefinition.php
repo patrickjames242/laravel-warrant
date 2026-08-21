@@ -401,27 +401,76 @@ trait ReflectsSchemaDefinition
             ));
         }
 
-        $parameters = $method->getParameters();
-        $parameterType = ($parameters[0] ?? null)?->getType();
+        $bindings = static::computedAbilityParameters($method);
 
-        if (
-            count($parameters) !== 1
-            || !$parameterType instanceof ReflectionNamedType
-            || $parameterType->getName() !== ComputedAbilityContext::class
-        ) {
+        $autoRequired = collect($bindings)
+            ->filter(fn (array $binding): bool => $binding['kind'] === 'context' && !$binding['optional'])
+            ->pluck('key')
+            ->all();
+
+        $requiredContext = array_values(array_unique([
+            ...$attribute->requiredContext,
+            ...$autoRequired,
+        ]));
+
+        return new AbilityDefinition(
+            name: $name,
+            requiredContext: $requiredContext,
+            computed: true,
+            method: $method->getName(),
+            parameterBindings: $bindings,
+        );
+    }
+
+    /**
+     * Reflect a computed ability method's signature into an ordered call plan.
+     *
+     * The first parameter is the subject: a `ComputedAbilityContext` (when typed
+     * as such, or untyped and named `$context`) receives the full bag + user,
+     * otherwise the parameter receives the user. Every parameter after the first
+     * is a context value injected by the snake_case of its name; a parameter with
+     * a default value is optional context (its default stands in when the key is
+     * absent), everything else is required.
+     *
+     * @return array<int, array{kind: string, key?: string, optional?: bool, default?: mixed}>
+     */
+    private static function computedAbilityParameters(ReflectionMethod $method): array
+    {
+        $parameters = $method->getParameters();
+
+        if ($parameters === []) {
             throw new InvalidArgumentException(sprintf(
-                'Computed ability method [%s::%s] must accept exactly one [%s] parameter.',
+                'Computed ability method [%s::%s] must accept at least one parameter (the user or a %s).',
                 static::class,
                 $method->getName(),
                 ComputedAbilityContext::class,
             ));
         }
 
-        return new AbilityDefinition(
-            name: $name,
-            requiredContext: $attribute->requiredContext,
-            computed: true,
-            method: $method->getName(),
-        );
+        $bindings = [];
+
+        foreach ($parameters as $index => $parameter) {
+            if ($index === 0) {
+                $type = $parameter->getType();
+                $isContextObject =
+                    ($type instanceof ReflectionNamedType && $type->getName() === ComputedAbilityContext::class)
+                    || ($type === null && $parameter->getName() === 'context');
+
+                $bindings[] = ['kind' => $isContextObject ? 'context_object' : 'user'];
+
+                continue;
+            }
+
+            $optional = $parameter->isDefaultValueAvailable();
+
+            $bindings[] = [
+                'kind' => 'context',
+                'key' => Str::snake($parameter->getName()),
+                'optional' => $optional,
+                'default' => $optional ? $parameter->getDefaultValue() : null,
+            ];
+        }
+
+        return $bindings;
     }
 }
