@@ -240,11 +240,114 @@ function warrantTestQuery(string $table = 'course_sections'): BuilderContract
     return DB::connection()->table($table);
 }
 
+/**
+ * Normalize an SQL string to a canonical form so two queries that differ only in
+ * formatting compare equal, while staying valid SQLite.
+ *
+ * It tokenizes the SQL (so string literals and quoted identifiers are preserved
+ * verbatim — their inner spaces, commas and parentheses are never touched), then:
+ *
+ * - collapses all insignificant whitespace and newlines (re-joined with a single
+ *   canonical spacing rule, so `a , b`, `a ,b` and `a,b` all converge);
+ * - strips SQL comments (`-- ...`, block comments) and any trailing semicolons;
+ * - lower-cases unquoted words (keywords and unquoted identifiers — case-insensitive
+ *   in SQLite), leaving quoted identifiers and string literals as-is;
+ * - removes *redundant doubled* parentheses: `((E))` → `(E)` (always safe, since
+ *   `(( E ))` is exactly `( E )`).
+ *
+ * It deliberately does NOT attempt precedence-aware paren removal, operand/clause
+ * reordering, or identifier-quoting unification — those need a real SQL parser and
+ * can change meaning. Two strings that are only *semantically* (not syntactically)
+ * equal are not guaranteed to converge.
+ */
 function normalizeWarrantSql(string $sql): string
 {
-    $sql = preg_replace('/\s+/', ' ', trim($sql));
-    $sql = preg_replace('/\s*\(\s*/', '(', $sql);
-    $sql = preg_replace('/\s*\)\s*/', ')', $sql);
+    // Ordered token patterns. Whitespace and comments are dropped; quoted forms
+    // (string, "id", [id], `id`) are captured whole so their contents survive intact.
+    $patterns = [
+        'ws' => '\s+',
+        'comment' => '--[^\n]*|/\*.*?\*/',
+        'str' => "'(?:[^']|'')*'",
+        'qid' => '"(?:[^"]|"")*"',
+        'bid' => '\[[^\]]*\]',
+        'tid' => '`(?:[^`]|``)*`',
+        'num' => '0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?',
+        'param' => '[:@$][A-Za-z_][A-Za-z0-9_]*|\?\d*',
+        'word' => '[A-Za-z_][A-Za-z0-9_]*',
+        'op' => '<=|>=|<>|!=|\|\||<<|>>',
+        'char' => '.',
+    ];
 
-    return preg_replace('/\s*,\s*/', ', ', $sql);
+    $named = [];
+    foreach ($patterns as $name => $pattern) {
+        $named[] = "(?<$name>$pattern)";
+    }
+    $regex = '~\G(?:'.implode('|', $named).')~s';
+
+    $values = [];
+    $pos = 0;
+    $len = strlen($sql);
+
+    while ($pos < $len && preg_match($regex, $sql, $m, PREG_UNMATCHED_AS_NULL, $pos)) {
+        $pos += strlen($m[0]);
+
+        if (($m['ws'] ?? null) !== null || ($m['comment'] ?? null) !== null) {
+            continue;
+        }
+
+        // Fold only unquoted words; everything quoted is kept verbatim.
+        $values[] = ($m['word'] ?? null) !== null ? strtolower($m[0]) : $m[0];
+    }
+
+    // Drop trailing statement terminators.
+    while ($values !== [] && end($values) === ';') {
+        array_pop($values);
+    }
+
+    $values = array_values($values);
+
+    // Match parentheses, then remove any outer pair that wraps a single group with
+    // nothing else between the two opens or the two closes: ((E)) -> (E).
+    $stack = [];
+    $match = [];
+    foreach ($values as $i => $value) {
+        if ($value === '(') {
+            $stack[] = $i;
+        } elseif ($value === ')' && $stack !== []) {
+            $open = array_pop($stack);
+            $match[$open] = $i;
+        }
+    }
+
+    $remove = [];
+    foreach ($match as $open => $close) {
+        if (($values[$open + 1] ?? null) === '(' && ($match[$open + 1] ?? -1) === $close - 1) {
+            $remove[$open] = true;
+            $remove[$close] = true;
+        }
+    }
+
+    if ($remove !== []) {
+        $values = array_values(array_filter(
+            $values,
+            fn (int $i): bool => ! isset($remove[$i]),
+            ARRAY_FILTER_USE_KEY,
+        ));
+    }
+
+    // Re-join with canonical spacing (single space, except tight around these).
+    $noSpaceBefore = [')', ',', '.', ';'];
+    $noSpaceAfter = ['(', '.'];
+
+    $out = '';
+    $prev = null;
+    foreach ($values as $value) {
+        if ($prev !== null && ! in_array($value, $noSpaceBefore, true) && ! in_array($prev, $noSpaceAfter, true)) {
+            $out .= ' ';
+        }
+        $out .= $value;
+        $prev = $value;
+    }
+
+    return $out;
 }
