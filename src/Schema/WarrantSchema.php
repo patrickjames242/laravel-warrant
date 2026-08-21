@@ -139,6 +139,7 @@ abstract class WarrantSchema implements ConditionResolver
         }
 
         $schema = new static;
+        $target = $schema->resolveCheckTarget($target);
         $split = $schema->splitRequestedAbilities($abilities, $target);
 
         if ($target !== null) {
@@ -201,6 +202,7 @@ abstract class WarrantSchema implements ConditionResolver
         }
 
         $schema = new static;
+        $target = $schema->resolveCheckTarget($target);
         $split = $schema->splitRequestedAbilities($abilities, $target);
 
         if (static::userHasAbilities($abilities, $target, $user, $matchMode, $context)) {
@@ -221,12 +223,48 @@ abstract class WarrantSchema implements ConditionResolver
     }
 
     /**
+     * Normalize the `$target` argument of a check into either a concrete row
+     * (a `Model` instance or a key string) or `null` (a no-target check).
+     *
+     * A **class-string** is not a row: naming this schema's own model class — or the
+     * schema class itself — is how a no-target check is expressed positionally
+     * (mirroring the Gate bridge, so `Schema::userHasAbilities('create', Model::class)`
+     * reads the same as `can('create', Model::class)`); it resolves to `null`. A
+     * class-string for a *different* `Model`/`WarrantSchema` is a mistake — the ability
+     * belongs to another schema — and throws. Any other string is a target key and is
+     * left untouched for the row path.
+     *
+     * `null` and a `Model` instance pass straight through.
+     */
+    private function resolveCheckTarget(Model|string|null $target): Model|string|null
+    {
+        if ($target === null || $target instanceof Model) {
+            return $target;
+        }
+
+        if ((static::model !== '' && is_a($target, static::model, true)) || is_a($target, static::class, true)) {
+            return null;
+        }
+
+        if (is_a($target, Model::class, true) || is_a($target, self::class, true)) {
+            throw new InvalidArgumentException(sprintf(
+                'Target [%s] does not belong to schema [%s]%s; pass this schema\'s model or schema class for a no-target check, or an instance/key for a row check.',
+                $target,
+                static::class,
+                static::model !== '' ? sprintf(' (model [%s])', static::model) : '',
+            ));
+        }
+
+        return $target;
+    }
+
+    /**
      * Split a requested ability list into its computed and compiled (SQL) halves,
      * validating every name is declared and keeping the original request order in
      * `all`. Computed abilities are no-target, so naming one against a concrete
-     * target (a `Model` instance or a bare key) is rejected here — a model/schema
-     * class-string is not a target and reaches this method as `$target === null`
-     * (the Gate bridge resolves it to the schema before calling in).
+     * target (a `Model` instance or a bare key) is rejected here. `$target` has
+     * already passed through {@see resolveCheckTarget}, so a model/schema
+     * class-string standing in for a no-target check arrives here as `null`.
      *
      * @param string|array<int, string> $abilities
      * @return array{all: array<int, string>, computed: array<int, string>, sql: array<int, string>}
@@ -386,6 +424,7 @@ abstract class WarrantSchema implements ConditionResolver
         }
 
         $schema = new static;
+        $target = $schema->resolveCheckTarget($target);
 
         if ($target === null) {
             return $schema->getAbilitiesWithoutTarget($user, context: $context);

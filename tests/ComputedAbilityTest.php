@@ -55,6 +55,11 @@ class ComputedSchema extends WarrantSchema
     }
 }
 
+class UnrelatedModel extends Model
+{
+    protected $table = 'unrelated';
+}
+
 class BadComputedSchema extends WarrantSchema
 {
     public const model = ComputedModel::class;
@@ -126,6 +131,31 @@ it('throws when a named computed ability is missing its required context', funct
 it('rejects a computed ability named against a concrete target', function () {
     expect(fn () => ComputedSchema::userHasAbilities('audit', 'some-id', admin(), context: ['as_of' => '2026-06-01']))
         ->toThrow(InvalidArgumentException::class, 'cannot be checked against a target');
+});
+
+// -- class-string target means no-target --------------------------------------
+
+it('accepts the schema model or schema class as a no-target check', function () {
+    useWarrantSchemas([ComputedSchema::class]);
+    bindWarrantRules('they can view');
+
+    // computed ability resolved via the model / schema class (no row target)
+    expect(ComputedSchema::userHasAbilities('publish_report', ComputedModel::class, admin()))->toBeTrue();
+    expect(ComputedSchema::userHasAbilities('publish_report', ComputedSchema::class, admin()))->toBeTrue();
+
+    // compiled ability, no-target, via the model class
+    expect(ComputedSchema::userHasAbilities('view', ComputedModel::class, admin()))->toBeTrue();
+
+    // enumeration via the model class returns the no-target list
+    expect(ComputedSchema::getUserAbilities(ComputedModel::class, admin()))->toBe(['view']);
+});
+
+it('throws when a target class-string belongs to a different schema or model', function () {
+    expect(fn () => ComputedSchema::userHasAbilities('publish_report', UnrelatedModel::class, admin()))
+        ->toThrow(InvalidArgumentException::class, 'does not belong to schema');
+
+    expect(fn () => ComputedSchema::userHasAbilities('publish_report', NameDefaultComputedSchema::class, admin()))
+        ->toThrow(InvalidArgumentException::class, 'does not belong to schema');
 });
 
 // -- mixed computed + compiled checks -----------------------------------------
