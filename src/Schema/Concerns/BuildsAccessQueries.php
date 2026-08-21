@@ -36,6 +36,7 @@ trait BuildsAccessQueries
     ): Builder
     {
         $abilities = $this->normalizeAbilities($abilities);
+        static::assertNoComputedAbilitiesInQuery($abilities);
 
         if ($abilities === []) {
             return $query;
@@ -100,9 +101,12 @@ trait BuildsAccessQueries
             $query->select('*');
         }
 
-        $abilities = $onlyAbilities === null
-            ? static::declaredAbilities()
-            : static::normalizeAbilities($onlyAbilities);
+        if ($onlyAbilities === null) {
+            $abilities = static::nonComputedAbilityNames();
+        } else {
+            $abilities = static::normalizeAbilities($onlyAbilities);
+            static::assertNoComputedAbilitiesInQuery($abilities);
+        }
 
         if ($abilities === []) {
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
@@ -168,30 +172,51 @@ trait BuildsAccessQueries
         array $context = []
     ): array
     {
-        $isEnumeration = $abilities === null;
-        $requestedAbilities = $isEnumeration
-            ? static::declaredAbilities()
-            : $this->normalizeAbilities($abilities);
+        /* Enumeration ($abilities === null): every compiled ability the user holds,
+           skipping (never throwing) any whose per-ability required context is absent.
+           Computed abilities are excluded from every enumeration — a list of "what
+           the user can do" is the compiled vocabulary only. */
+        if ($abilities === null) {
+            $context = $this->resolveEffectiveContext($context);
+
+            $declared = static::partitionAbilitiesByContext(static::nonComputedAbilityNames(), $context)['satisfied'];
+
+            return $declared === []
+                ? []
+                : $this->runNoTargetAbilityQuery($currentUser, $declared, $context);
+        }
+
+        /* Explicit named abilities: a missing per-ability requirement throws. */
+        $requestedAbilities = $this->normalizeAbilities($abilities);
 
         if ($requestedAbilities === []) {
             return [];
         }
 
         $context = $this->resolveEffectiveContext($context);
+        static::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
 
-        if ($isEnumeration) {
-            /* Enumerating all declared abilities: skip any whose per-ability
-               required context wasn't supplied. */
-            $requestedAbilities = static::partitionAbilitiesByContext($requestedAbilities, $context)['satisfied'];
+        $allowedAbilities = $this->runNoTargetAbilityQuery($currentUser, $requestedAbilities, $context);
 
-            if ($requestedAbilities === []) {
-                return [];
-            }
-        } else {
-            /* Abilities were named explicitly: a missing requirement throws. */
-            static::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
+        if (
+            $matchMode === AbilityMatchMode::ALL
+            && count($allowedAbilities) !== count($requestedAbilities)
+        ) {
+            return [];
         }
 
+        return $allowedAbilities;
+    }
+
+    /**
+     * Run the no-target ability predicate for the given (already context-resolved)
+     * abilities and return the ones the user holds.
+     *
+     * @param array<int, string> $abilities
+     * @return array<int, string>
+     */
+    private function runNoTargetAbilityQuery(Authenticatable $currentUser, array $abilities, array $context): array
+    {
         /* A connection to evaluate the ability predicates on (rule-set lookup
            itself is the resolver's job, on its own connection). No-target
            conditions may reference tenant tables, so a capability schema uses
@@ -203,23 +228,14 @@ trait BuildsAccessQueries
         $allowedAbilityQuery = $this->buildAvailableAbilitiesQuery(
             currentUser: $currentUser,
             query: $baseQuery,
-            abilities: $requestedAbilities,
+            abilities: $abilities,
             context: $context
         );
 
-        $allowedAbilities = $baseQuery->newQuery()
+        return $baseQuery->newQuery()
             ->fromSub($allowedAbilityQuery, 'available_abilities')
             ->pluck('ability')
             ->all();
-
-        if (
-            $matchMode === AbilityMatchMode::ALL
-            && count($allowedAbilities) !== count($requestedAbilities)
-        ) {
-            return [];
-        }
-
-        return $allowedAbilities;
     }
 
     protected function compiler(): RuleSetCompiler
@@ -318,8 +334,29 @@ trait BuildsAccessQueries
     }
 
     /**
+     * Reject computed abilities named in a query scope. Query scopes are the one
+     * place a computed ability is never resolved — it has no SQL form to filter or
+     * select per row — so naming one is a programming error surfaced clearly here
+     * rather than silently never matching.
+     *
+     * @param array<int, string> $abilities
+     */
+    protected static function assertNoComputedAbilitiesInQuery(array $abilities): void
+    {
+        foreach ($abilities as $ability) {
+            if (static::isComputedAbility($ability)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Computed ability [%s] cannot be used in a query scope on schema [%s]; computed abilities have no SQL form.',
+                    $ability,
+                    static::class,
+                ));
+            }
+        }
+    }
+
+    /**
      * Throw when a *named* ability's per-ability required context (declared via
-     * `#[Ability(requiredContextKeys: [...])]`) is missing from the effective context. Used
+     * `#[Ability(requiredContext: [...])]`) is missing from the effective context. Used
      * by the assertion paths (a targeted check / an explicit no-target check);
      * enumeration paths skip such abilities instead via
      * {@see \Warrant\Schema\Concerns\ReflectsSchemaDefinition::partitionAbilitiesByContext}.

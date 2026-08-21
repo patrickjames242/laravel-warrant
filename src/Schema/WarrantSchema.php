@@ -12,6 +12,7 @@ use Warrant\Schema\Concerns\AnalyzesReachability;
 use Warrant\Schema\Concerns\BuildsAccessQueries;
 use Warrant\Schema\Concerns\DiagnosesDenials;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
+use Warrant\Schema\Concerns\ResolvesComputedAbilities;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesRuleSets;
 use Warrant\WarrantAuthorizationException;
@@ -42,6 +43,7 @@ abstract class WarrantSchema implements ConditionResolver
     use ResolvesConditions;
     use ResolvesRuleSets;
     use BuildsAccessQueries;
+    use ResolvesComputedAbilities;
     use DiagnosesDenials;
     use AnalyzesReachability;
 
@@ -63,7 +65,13 @@ abstract class WarrantSchema implements ConditionResolver
 
     public function __construct()
     {
-        $this->abilityLookup = array_fill_keys(static::declaredAbilities(), true);
+        /* Every declared ability — computed and compiled alike — is a valid name to
+           *reference* in a check or reachability query; the SQL-only paths (query
+           scopes) reject computed names explicitly with a clearer message. */
+        $this->abilityLookup = array_fill_keys(
+            collect(static::abilityDefinitions())->map(fn ($a): string => $a->name)->all(),
+            true,
+        );
     }
 
     /**
@@ -131,25 +139,33 @@ abstract class WarrantSchema implements ConditionResolver
         }
 
         $schema = new static;
+        $split = $schema->splitRequestedAbilities($abilities, $target);
 
-        if ($target === null) {
-            return $schema->getAbilitiesWithoutTarget($user, $abilities, $matchMode, $context) !== [];
+        if ($target !== null) {
+            /* A concrete target makes this a row check: computed abilities are
+               excluded by splitRequestedAbilities, so only compiled abilities remain. */
+            static::assertSupportsTargetedChecks();
+
+            /** @var Model $model */
+            $model = new (static::model);
+            $targetId = $target instanceof Model ? $target->getKey() : $target;
+
+            return $schema->filterQuery(
+                currentUser: $user,
+                query: $model->newQuery()->whereKey($targetId)->getQuery(),
+                targetSqlId: $model->getQualifiedKeyName(),
+                abilities: $split['sql'],
+                matchMode: $matchMode,
+                context: $context,
+            )->exists();
         }
 
-        static::assertSupportsTargetedChecks();
+        /* No target: compiled and computed abilities may be combined. Each side is
+           evaluated to the subset the user holds, then the match mode is applied
+           across the whole requested set. */
+        $held = $schema->evaluateNoTarget($user, $split['sql'], $split['computed'], $context);
 
-        /** @var Model $model */
-        $model = new (static::model);
-        $targetId = $target instanceof Model ? $target->getKey() : $target;
-
-        return $schema->filterQuery(
-            currentUser: $user,
-            query: $model->newQuery()->whereKey($targetId)->getQuery(),
-            targetSqlId: $model->getQualifiedKeyName(),
-            abilities: $abilities,
-            matchMode: $matchMode,
-            context: $context,
-        )->exists();
+        return static::noTargetCheckPasses($split['sql'], $split['computed'], $held, $matchMode);
     }
 
     /**
@@ -184,11 +200,137 @@ abstract class WarrantSchema implements ConditionResolver
             );
         }
 
+        $schema = new static;
+        $split = $schema->splitRequestedAbilities($abilities, $target);
+
         if (static::userHasAbilities($abilities, $target, $user, $matchMode, $context)) {
             return;
         }
 
-        throw (new static)->diagnoseDenial($user, $abilities, $target, $matchMode, $context)
+        /* A targeted denial is diagnosed from the rules against the row. A no-target
+           denial may be caused by a compiled ability (diagnosed from the rules) or a
+           computed ability (whose own Response message is surfaced instead). */
+        if ($target === null) {
+            $held = $schema->evaluateNoTarget($user, $split['sql'], $split['computed'], $context);
+
+            throw $schema->diagnoseNoTargetDenial($user, $split, $held, $matchMode, $context);
+        }
+
+        throw $schema->diagnoseDenial($user, $split['sql'], $target, $matchMode, $context)
+            ?? new WarrantAuthorizationException;
+    }
+
+    /**
+     * Split a requested ability list into its computed and compiled (SQL) halves,
+     * validating every name is declared and keeping the original request order in
+     * `all`. Computed abilities are no-target, so naming one against a concrete
+     * target (a `Model` instance or a bare key) is rejected here — a model/schema
+     * class-string is not a target and reaches this method as `$target === null`
+     * (the Gate bridge resolves it to the schema before calling in).
+     *
+     * @param string|array<int, string> $abilities
+     * @return array{all: array<int, string>, computed: array<int, string>, sql: array<int, string>}
+     */
+    private function splitRequestedAbilities(string|array $abilities, Model|string|null $target): array
+    {
+        $list = $this->normalizeAbilities($abilities);
+
+        $computed = array_values(array_filter($list, fn (string $ability): bool => static::isComputedAbility($ability)));
+        $sql = array_values(array_filter($list, fn (string $ability): bool => !static::isComputedAbility($ability)));
+
+        if ($computed !== [] && $target !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'Computed ability [%s] cannot be checked against a target on schema [%s]; computed abilities are no-target.',
+                $computed[0],
+                static::class,
+            ));
+        }
+
+        return ['all' => $list, 'computed' => $computed, 'sql' => $sql];
+    }
+
+    /**
+     * Evaluate a no-target check's compiled and computed halves independently,
+     * returning the subset of each the user holds. The compiled side runs under
+     * `ANY` so it yields the held subset rather than an all-or-nothing result; the
+     * match mode is applied across the full set by {@see noTargetCheckPasses}.
+     *
+     * @param array<int, string> $sql
+     * @param array<int, string> $computed
+     * @return array{sql: array<int, string>, computed: array<int, string>}
+     */
+    private function evaluateNoTarget(Authenticatable $user, array $sql, array $computed, array $context): array
+    {
+        return [
+            'sql' => $sql === []
+                ? []
+                : $this->getAbilitiesWithoutTarget($user, $sql, AbilityMatchMode::ANY, $context),
+            'computed' => $computed === []
+                ? []
+                : $this->heldComputedAbilities($user, $computed, $context),
+        ];
+    }
+
+    /**
+     * Whether a no-target check passes given the held subset of each half. An empty
+     * request never passes. `ALL` requires every requested ability held; `ANY`
+     * requires at least one, across the compiled and computed sets together.
+     *
+     * @param array<int, string> $sql
+     * @param array<int, string> $computed
+     * @param array{sql: array<int, string>, computed: array<int, string>} $held
+     */
+    private static function noTargetCheckPasses(array $sql, array $computed, array $held, AbilityMatchMode $matchMode): bool
+    {
+        if ($sql === [] && $computed === []) {
+            return false;
+        }
+
+        if ($matchMode === AbilityMatchMode::ALL) {
+            return count($held['sql']) === count($sql) && count($held['computed']) === count($computed);
+        }
+
+        return $held['sql'] !== [] || $held['computed'] !== [];
+    }
+
+    /**
+     * Build the exception for a denied no-target check. Picks the responsible
+     * ability — under `ALL` the first failing one in request order; under `ANY`
+     * (where all failed) a compiled ability if any was requested, else the first
+     * failing computed one — and surfaces the matching message: a computed
+     * ability's own denial `Response`, or the rule-based diagnosis for compiled
+     * abilities.
+     *
+     * @param array{all: array<int, string>, computed: array<int, string>, sql: array<int, string>} $split
+     * @param array{sql: array<int, string>, computed: array<int, string>} $held
+     */
+    private function diagnoseNoTargetDenial(
+        Authenticatable $user,
+        array $split,
+        array $held,
+        AbilityMatchMode $matchMode,
+        array $context,
+    ): \Throwable {
+        $failing = fn (string $ability): bool => in_array($ability, $split['computed'], true)
+            ? !in_array($ability, $held['computed'], true)
+            : !in_array($ability, $held['sql'], true);
+
+        if ($matchMode === AbilityMatchMode::ALL) {
+            $culprit = collect($split['all'])->first($failing);
+        } else {
+            /* Every ability failed; prefer a compiled ability so the rule-based
+               diagnosis (forbidden vs ungranted) can speak. */
+            $culprit = collect($split['all'])->first(fn (string $a): bool => in_array($a, $split['sql'], true))
+                ?? collect($split['all'])->first($failing);
+        }
+
+        if ($culprit !== null && in_array($culprit, $split['computed'], true)) {
+            $response = $this->evaluateComputedAbility($culprit, $user, $this->resolveEffectiveContext($context));
+
+            return new WarrantAuthorizationException($response->message() ?? 'This action is unauthorized.');
+        }
+
+        return $this->diagnoseDenial($user, $split['sql'], null, $matchMode, $context)
             ?? new WarrantAuthorizationException;
     }
 

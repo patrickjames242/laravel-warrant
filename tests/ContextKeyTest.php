@@ -34,7 +34,7 @@ class ContextDocSchema extends WarrantSchema
     public const model = ContextDoc::class;
 
     #[Ability] public const VIEW = 'view';
-    #[Ability(requiredContextKeys: [self::AS_OF])] public const AUDIT = 'audit';     // needs as_of_date when checked
+    #[Ability(requiredContext: [self::AS_OF])] public const AUDIT = 'audit';     // needs as_of_date when checked
 
     #[RequiredContext] public const WORKSPACE = 'workspace_id';           // required schema-wide
     public const AS_OF = 'as_of_date';                                    // usable without any declaration

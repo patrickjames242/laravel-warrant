@@ -10,9 +10,11 @@ use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Ability;
+use Warrant\ComputedAbility;
 use Warrant\GlobalCondition;
 use Warrant\RequiredContext;
 use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ComputedAbilityContext;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\TargetedConditionContext;
 use Warrant\TargetedCondition;
@@ -112,24 +114,38 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns the complete list of abilities declared by the schema.
+     * The names of the schema's non-computed (`#[Ability]`, rule/SQL-backed)
+     * abilities, as a plain string list — the compiled subset of
+     * {@see abilityDefinitions} (the full catalog of both kinds, as objects),
+     * projected to names.
      *
-     * Abilities are discovered from class constants marked with `#[Ability]`.
-     * Constant naming is not used for discovery.
+     * The whole rule/SQL world speaks these names: the rule-set validator, the rule
+     * compiler, the `$abilityLookup` that {@see normalizeAbilities} checks, per-row
+     * `selectUserAbilities`, and reachability analysis. A computed ability has no
+     * rule, no SQL predicate, and no per-row value, so it is excluded here — which is
+     * why this projection exists next to the catalog rather than every caller
+     * re-deriving `reject(computed)->map(name)` itself.
      *
      * @return array<int, string>
      */
-    public static function declaredAbilities(): array
+    public static function nonComputedAbilityNames(): array
     {
         return collect(static::abilityDefinitions())
+            ->reject(fn (AbilityDefinition $ability): bool => $ability->computed)
             ->map(fn (AbilityDefinition $ability): string => $ability->name)
             ->values()
             ->all();
     }
 
+    public static function isComputedAbility(string $ability): bool
+    {
+        return collect(static::abilityDefinitions())
+            ->contains(fn (AbilityDefinition $definition): bool => $definition->computed && $definition->name === $ability);
+    }
+
     /**
      * Split the given abilities by whether their per-ability required context
-     * (declared via `#[Ability(requiredContextKeys: [...])]`) is satisfied by the keys
+     * (declared via `#[Ability(requiredContext: [...])]`) is satisfied by the keys
      * present in the effective context. `satisfied` keeps its input order;
      * `missing` maps each unsatisfied ability to the context keys it lacks.
      *
@@ -150,7 +166,7 @@ trait ReflectsSchemaDefinition
 
         foreach ($abilities as $ability) {
             $needed = array_values(array_diff(
-                $definitionsByName->get($ability)?->requiredContextKeys ?? [],
+                $definitionsByName->get($ability)?->requiredContext ?? [],
                 $present,
             ));
 
@@ -291,7 +307,7 @@ trait ReflectsSchemaDefinition
      *
      * Context keys need no declaration to be *used*; this list is only the
      * schema-wide mandatory ones. (Per-ability requirements live on
-     * `#[Ability(requiredContextKeys: [...])]`.)
+     * `#[Ability(requiredContext: [...])]`.)
      *
      * @return array<int, string>
      */
@@ -306,8 +322,9 @@ trait ReflectsSchemaDefinition
 
     /**
      * The abilities declared by the schema, resolved to {@see AbilityDefinition}
-     * objects (from `#[Ability]` constants). The single source of truth every
-     * other ability accessor projects from.
+     * objects — from `#[Ability]` constants (compiled/SQL) and `#[ComputedAbility]`
+     * methods (imperative). The single source of truth every other ability
+     * accessor projects from. Throws if a name is declared more than once.
      *
      * @return array<int, AbilityDefinition>
      */
@@ -315,7 +332,7 @@ trait ReflectsSchemaDefinition
     {
         $reflection = new ReflectionClass(static::class);
 
-        return collect($reflection->getReflectionConstants())
+        $fromConstants = collect($reflection->getReflectionConstants())
             ->map(function (ReflectionClassConstant $constant): ?AbilityDefinition {
                 $attributes = $constant->getAttributes(Ability::class);
 
@@ -325,11 +342,86 @@ trait ReflectsSchemaDefinition
 
                 return new AbilityDefinition(
                     name: $constant->getValue(),
-                    requiredContextKeys: $attributes[0]->newInstance()->requiredContextKeys,
+                    requiredContext: $attributes[0]->newInstance()->requiredContext,
                 );
-            })
-            ->filter()
-            ->values()
-            ->all();
+            });
+
+        $fromMethods = collect($reflection->getMethods(ReflectionMethod::IS_PUBLIC))
+            ->map(fn (ReflectionMethod $method): ?AbilityDefinition => static::computedAbilityDefinition($method));
+
+        $definitions = $fromConstants->concat($fromMethods)->filter()->values();
+
+        $duplicate = $definitions->pluck('name')->duplicates()->first();
+
+        if ($duplicate !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares ability [%s] more than once.',
+                static::class,
+                $duplicate,
+            ));
+        }
+
+        return $definitions->all();
+    }
+
+    /**
+     * Reflect a single method into a computed {@see AbilityDefinition}, or null
+     * when it carries no `#[ComputedAbility]`. Mirrors the condition-method
+     * validation: exactly one `ComputedAbilityContext` parameter, throwing at
+     * reflection time on any mismatch.
+     */
+    private static function computedAbilityDefinition(ReflectionMethod $method): ?AbilityDefinition
+    {
+        if ($method->isStatic()) {
+            return null;
+        }
+
+        $attributes = $method->getAttributes(ComputedAbility::class);
+
+        if ($attributes === []) {
+            return null;
+        }
+
+        if (count($attributes) > 1) {
+            throw new InvalidArgumentException(sprintf(
+                'Method [%s::%s] must not declare duplicate #[ComputedAbility] attributes.',
+                static::class,
+                $method->getName(),
+            ));
+        }
+
+        $attribute = $attributes[0]->newInstance();
+        $name = $attribute->name ?? static::conditionKeyFromMethodName($method->getName());
+
+        if (!is_string($name) || $name === '') {
+            throw new InvalidArgumentException(sprintf(
+                'Computed ability method [%s::%s] must resolve to a non-empty name.',
+                static::class,
+                $method->getName(),
+            ));
+        }
+
+        $parameters = $method->getParameters();
+        $parameterType = ($parameters[0] ?? null)?->getType();
+
+        if (
+            count($parameters) !== 1
+            || !$parameterType instanceof ReflectionNamedType
+            || $parameterType->getName() !== ComputedAbilityContext::class
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'Computed ability method [%s::%s] must accept exactly one [%s] parameter.',
+                static::class,
+                $method->getName(),
+                ComputedAbilityContext::class,
+            ));
+        }
+
+        return new AbilityDefinition(
+            name: $name,
+            requiredContext: $attribute->requiredContext,
+            computed: true,
+            method: $method->getName(),
+        );
     }
 }

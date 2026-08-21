@@ -176,7 +176,7 @@ it('lets an implicit unconditional cannot override a resolver grant (deny-overri
 // -- reflection helpers -------------------------------------------------------
 
 it('returns the full reflected list of abilities', function () {
-    expect(WarrantTestSchema::declaredAbilities())->toBe(['create', 'publish', 'archive', 'view', 'update']);
+    expect(WarrantTestSchema::nonComputedAbilityNames())->toBe(['create', 'publish', 'archive', 'view', 'update']);
 });
 
 it('returns targeted, no-target, and all condition keys', function () {

@@ -15,7 +15,7 @@ use Attribute;
  * `@context <key>` and a condition may read `$c->context['<key>']` freely. This
  * attribute is only about making a key mandatory schema-wide. For a key that is
  * mandatory only when a particular ability is checked, use
- * `#[Ability(requiredContextKeys: [...])]` instead.
+ * `#[Ability(requiredContext: [...])]` instead.
  */
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
 class RequiredContext {}

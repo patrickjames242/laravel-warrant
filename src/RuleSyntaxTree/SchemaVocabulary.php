@@ -11,12 +11,13 @@ namespace Warrant\RuleSyntaxTree;
 interface SchemaVocabulary
 {
     /**
-     * Every ability declared by the schema. Used to expand `*` and to validate
-     * ability names.
+     * The names of the schema's non-computed (rule/SQL-backed) abilities. Used to
+     * expand `*` and to validate the ability names a rule string may reference —
+     * computed abilities are excluded because they have no rule to validate against.
      *
      * @return array<int, string>
      */
-    public static function declaredAbilities(): array;
+    public static function nonComputedAbilityNames(): array;
 
     /**
      * Whether a condition with this key is declared by the schema.
