@@ -24,8 +24,9 @@ use Warrant\AbilityMatchMode;
 |     `(not <cannot condition>)` group per conditional `cannot` rule.
 |   - an unconditional `can` contributes `1 = 1`; an unconditional `cannot`, or
 |     an ability with no `can` rule at all, collapses the predicate to `1 = 0`.
-|   - a condition leaf becomes an EXISTS subquery so it stays a strict boolean;
-|     `not` lands on the leaf as `not exists (...)`.
+|   - a plain positive `can` condition leaf is applied inline (correlated, no
+|     subquery); a negated leaf or any `cannot` leaf stays an EXISTS subquery so
+|     it is a strict boolean — `not` lands on the leaf as `not exists (...)`.
 |   - the target id is injected raw by the fixture conditions (isTeacher writes
 |     `course_sections.id = ?`), while the base table is grammar-quoted.
 |
@@ -89,37 +90,44 @@ it('emits 1 = 0 when no rule grants the ability', function () {
 
 // -- condition leaves ---------------------------------------------------------
 
-it('compiles a targeted condition into an EXISTS leaf', function () {
+it('inlines a positive targeted condition as a correlated predicate', function () {
     bindWarrantRules('if is_teacher they can view');
 
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
-            exists (
-                select 1
-                from (select 1) as "warrant_exists"
-                where course_sections.id = 'teacher:teacher-role'
-            )
+            course_sections.id = 'teacher:teacher-role'
         )
     SQL);
 });
 
-it('ORs two condition leaves for an or-expression', function () {
+it('ORs two inlined condition leaves for an or-expression', function () {
     bindWarrantRules('if is_advisor or is_teacher they can view');
 
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            ('advisor' = 'teacher-role')
+            or
+            (course_sections.id = 'teacher:teacher-role')
+        )
+    SQL);
+});
+
+it('keeps the EXISTS wrapper for a positive condition that adds a join', function () {
+    bindWarrantRules('if via_join they can view');
+
+    // via_join emits a join, not a plain where-clause: inlining would silently
+    // drop the join (addNestedWhereQuery merges only wheres), so it must stay
+    // wrapped in EXISTS even though it is a positive grant leaf.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
             exists (
                 select 1
                 from (select 1) as "warrant_exists"
-                where 'advisor' = 'teacher-role'
-            )
-            or
-            exists (
-                select 1
-                from (select 1) as "warrant_exists"
-                where course_sections.id = 'teacher:teacher-role'
+                inner join "enrollments" on "enrollments"."section_id" = "course_sections"."id"
+                where enrollments.user_id = 'teacher-role'
             )
         )
     SQL);
@@ -163,21 +171,9 @@ it('ANDs every ability predicate under ALL match mode', function () {
     assertWarrantFilterSql(['view', 'update'], <<<SQL
         select * from "course_sections"
         where (
-            (
-                exists (
-                    select 1
-                    from (select 1) as "warrant_exists"
-                    where course_sections.id = 'teacher:teacher-role'
-                )
-            )
+            (course_sections.id = 'teacher:teacher-role')
             and
-            (
-                exists (
-                    select 1
-                    from (select 1) as "warrant_exists"
-                    where course_sections.id = 'teacher:teacher-role'
-                )
-            )
+            (course_sections.id = 'teacher:teacher-role')
         )
     SQL, AbilityMatchMode::ALL);
 });
@@ -190,13 +186,7 @@ it('ORs every ability predicate under ANY match mode', function () {
         where (
             (1 = 1)
             or
-            (
-                exists (
-                    select 1
-                    from (select 1) as "warrant_exists"
-                    where course_sections.id = 'teacher:teacher-role'
-                )
-            )
+            (course_sections.id = 'teacher:teacher-role')
         )
     SQL, AbilityMatchMode::ANY);
 });
