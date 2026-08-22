@@ -107,9 +107,9 @@ it('forces a negated targeted condition true without a target', function () {
     SQL);
 });
 
-// -- no-target (global) conditions still compile to EXISTS --------------------
+// -- no-target (global) positive conditions are inlined -----------------------
 
-it('compiles a no-target condition into an EXISTS leaf', function () {
+it('inlines a positive no-target condition as a correlated predicate', function () {
     bindWarrantRules('if is_advisor they can view');
 
     assertNoTargetSql('view', <<<SQL
@@ -117,11 +117,7 @@ it('compiles a no-target condition into an EXISTS leaf', function () {
         from (
             select 'view' as "ability"
             where (
-                exists (
-                    select 1
-                    from (select 1) as "warrant_exists"
-                    where 'advisor' = 'teacher-role'
-                )
+                'advisor' = 'teacher-role'
             )
         ) as "available_abilities"
     SQL);

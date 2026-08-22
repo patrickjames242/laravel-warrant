@@ -94,6 +94,19 @@ class WarrantTestSchema extends WarrantSchema
     {
         return $c->query->whereRaw('? = ?', ['advisor', $c->user->role_id]);
     }
+
+    /**
+     * A condition that emits more than a where-clause (a join). It must never be
+     * inlined — the join needs the EXISTS subquery's isolation — so the compiler
+     * keeps the EXISTS wrapper for it even on the positive grant side.
+     */
+    #[TargetedCondition]
+    public function viaJoin(TargetedConditionContext $c): BuilderContract
+    {
+        return $c->query
+            ->join('enrollments', 'enrollments.section_id', '=', $c->targetSqlId)
+            ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]);
+    }
 }
 
 class WarrantBooleanConditionSchema extends WarrantSchema

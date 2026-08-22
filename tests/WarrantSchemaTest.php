@@ -180,14 +180,15 @@ it('returns the full reflected list of abilities', function () {
 });
 
 it('returns targeted, no-target, and all condition keys', function () {
-    expect(WarrantTestSchema::targetedConditionKeys())->toBe(['is_teacher']);
+    expect(WarrantTestSchema::targetedConditionKeys())->toBe(['is_teacher', 'via_join']);
     expect(WarrantTestSchema::noTargetConditionKeys())->toBe(['is_advisor']);
-    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher']);
+    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher', 'via_join']);
 });
 
 it('derives condition keys by snake-casing the method name, no prefix', function () {
-    // isTeacher -> is_teacher, isAdvisor -> is_advisor (no `condition` prefix).
-    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher']);
+    // isTeacher -> is_teacher, isAdvisor -> is_advisor, viaJoin -> via_join
+    // (no `condition` prefix).
+    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher', 'via_join']);
 });
 
 it('rejects a condition method typed with the wrong context', function () {

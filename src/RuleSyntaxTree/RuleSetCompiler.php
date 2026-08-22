@@ -23,9 +23,13 @@ use InvalidArgumentException;
  *   - an ability with no `can` rule is never granted → 1 = 0;
  *   - an unconditional `can` contributes an always-true term → 1 = 1.
  *
- * Condition leaves are wrapped as EXISTS subqueries so each is a strict boolean
- * (NULL → false) and negation via NOT EXISTS is exact — no three-valued-logic
- * surprises leak into authorization results.
+ * A condition leaf is wrapped as an EXISTS subquery only when it needs to be a
+ * strict boolean: when it is negated (so NOT EXISTS is exact — NULL → false),
+ * when it comes from a `cannot` rule (a deny is a subtraction; an unknown there
+ * must fail safe), or when the condition emits more than a where-clause (e.g. a
+ * join), which needs the subquery's isolation. A plain positive `can`
+ * where-clause is applied inline instead: NULL already means "row excluded,"
+ * which is the correct, safe outcome, and the correlated subquery buys nothing.
  */
 final class RuleSetCompiler
 {
@@ -73,8 +77,10 @@ final class RuleSetCompiler
             return $predicate->whereRaw('1 = 0');
         }
 
+        $grantCtx = new CompilationContext($user, $targetSqlId, $context);
+
         // Grant side: OR of every can-expression (null => always-true term).
-        $predicate->where(function (Builder $grantGroup) use ($grants, $user, $targetSqlId, $context): void {
+        $predicate->where(function (Builder $grantGroup) use ($grants, $grantCtx): void {
             foreach ($grants as $index => $grantExpression) {
                 $boolean = $index === 0 ? 'and' : 'or';
 
@@ -84,14 +90,16 @@ final class RuleSetCompiler
                     continue;
                 }
 
-                $this->applyExpression($grantGroup, $grantExpression, $user, $targetSqlId, $context, $boolean, false);
+                $this->applyExpression($grantGroup, $grantExpression, $grantCtx->withBoolean($boolean));
             }
         });
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
+        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, fromCannot: true);
+
         foreach ($denies as $denyExpression) {
-            $predicate->where(function (Builder $denyGroup) use ($denyExpression, $user, $targetSqlId, $context): void {
-                $this->applyExpression($denyGroup, $denyExpression, $user, $targetSqlId, $context, 'and', true);
+            $predicate->where(function (Builder $denyGroup) use ($denyExpression, $denyCtx): void {
+                $this->applyExpression($denyGroup, $denyExpression, $denyCtx);
             });
         }
 
@@ -121,7 +129,14 @@ final class RuleSetCompiler
             return $predicate->whereRaw('1 = 1');
         }
 
-        $this->applyExpression($predicate, $condition, $user, $targetSqlId, $context, 'and', false);
+        // This diagnoses a `cannot` rule's condition, so treat its leaves as
+        // deny-side (fromCannot) — keeping them EXISTS-wrapped exactly as the
+        // live check does, so a re-run agrees.
+        $this->applyExpression(
+            $predicate,
+            $condition,
+            new CompilationContext($user, $targetSqlId, $context, fromCannot: true),
+        );
 
         return $predicate;
     }
@@ -135,21 +150,17 @@ final class RuleSetCompiler
     }
 
     /**
-     * Add $node's predicate to $parent under the given boolean connector,
+     * Add $node's predicate to $parent under the context's boolean connector,
      * negating via De Morgan so that negation always lands on the leaves (where
-     * EXISTS / NOT EXISTS keeps it a strict boolean).
+     * a negated leaf is EXISTS-wrapped to keep it a strict boolean). The context's
+     * `fromCannot` marks a leaf as originating from a `cannot` rule; it rides down
+     * unchanged (De Morgan flips only `negate`) and forces EXISTS-wrapping at the
+     * leaf even when a double negation leaves the leaf positive.
      */
-    private function applyExpression(
-        Builder $parent,
-        IBooleanExpressionNode $node,
-        Authenticatable $user,
-        ?string $targetSqlId,
-        array $context,
-        string $boolean,
-        bool $negate,
-    ): void {
+    private function applyExpression(Builder $parent, IBooleanExpressionNode $node, CompilationContext $ctx): void
+    {
         if ($node instanceof NotNode) {
-            $this->applyExpression($parent, $node->operand, $user, $targetSqlId, $context, $boolean, ! $negate);
+            $this->applyExpression($parent, $node->operand, $ctx->negated());
 
             return;
         }
@@ -157,25 +168,25 @@ final class RuleSetCompiler
         if ($node instanceof AndNode || $node instanceof OrNode) {
             // NOT(a AND b) = NOT a OR NOT b ; NOT(a OR b) = NOT a AND NOT b.
             $childrenAreOr = $node instanceof OrNode;
-            $innerSecondBoolean = ($childrenAreOr xor $negate) ? 'or' : 'and';
+            $innerSecondBoolean = ($childrenAreOr xor $ctx->negate) ? 'or' : 'and';
 
-            $parent->where(function (Builder $group) use ($node, $user, $targetSqlId, $context, $negate, $innerSecondBoolean): void {
-                $this->applyExpression($group, $node->leftSide, $user, $targetSqlId, $context, 'and', $negate);
-                $this->applyExpression($group, $node->rightSide, $user, $targetSqlId, $context, $innerSecondBoolean, $negate);
-            }, null, null, $boolean);
+            $parent->where(function (Builder $group) use ($node, $ctx, $innerSecondBoolean): void {
+                $this->applyExpression($group, $node->leftSide, $ctx->withBoolean('and'));
+                $this->applyExpression($group, $node->rightSide, $ctx->withBoolean($innerSecondBoolean));
+            }, null, null, $ctx->boolean);
 
             return;
         }
 
         if ($node instanceof ConditionNode) {
-            $this->applyCondition($parent, $node, $user, $targetSqlId, $context, $boolean, $negate);
+            $this->applyCondition($parent, $node, $ctx);
 
             return;
         }
 
         if ($node instanceof BooleanNode) {
-            $value = $negate ? ! $node->value : $node->value;
-            $parent->whereRaw($value ? '1 = 1' : '1 = 0', [], $boolean);
+            $value = $ctx->negate ? ! $node->value : $node->value;
+            $parent->whereRaw($value ? '1 = 1' : '1 = 0', [], $ctx->boolean);
 
             return;
         }
@@ -183,19 +194,12 @@ final class RuleSetCompiler
         throw new InvalidArgumentException(sprintf('Unsupported expression node [%s].', $node::class));
     }
 
-    private function applyCondition(
-        Builder $parent,
-        ConditionNode $node,
-        Authenticatable $user,
-        ?string $targetSqlId,
-        array $context,
-        string $boolean,
-        bool $negate,
-    ): void {
+    private function applyCondition(Builder $parent, ConditionNode $node, CompilationContext $ctx): void
+    {
         // A targeted condition cannot be evaluated without a row; force it false
         // (so `not <targeted>` becomes true) in a no-target compile.
-        if ($targetSqlId === null && $this->conditions->conditionIsTargeted($node->conditionKey)) {
-            $parent->whereRaw($negate ? '1 = 1' : '1 = 0', [], $boolean);
+        if ($ctx->targetSqlId === null && $this->conditions->conditionIsTargeted($node->conditionKey)) {
+            $parent->whereRaw($ctx->negate ? '1 = 1' : '1 = 0', [], $ctx->boolean);
 
             return;
         }
@@ -209,7 +213,7 @@ final class RuleSetCompiler
         $parameters = [];
         foreach ($node->parameters as $parameter) {
             if ($parameter instanceof ContextRef) {
-                $parameters[] = $context[$parameter->key] ?? null;
+                $parameters[] = $ctx->checkContext[$parameter->key] ?? null;
 
                 continue;
             }
@@ -225,21 +229,43 @@ final class RuleSetCompiler
 
         $result = $this->conditions->applyCondition(
             $node->conditionKey,
-            $user,
+            $ctx->user,
             $existsQuery,
-            $targetSqlId,
+            $ctx->targetSqlId,
             $parameters,
-            $context,
+            $ctx->checkContext,
         );
 
         // A no-target condition may decide the outcome outright.
         if (is_bool($result)) {
-            $value = $negate ? ! $result : $result;
-            $parent->whereRaw($value ? '1 = 1' : '1 = 0', [], $boolean);
+            $value = $ctx->negate ? ! $result : $result;
+            $parent->whereRaw($value ? '1 = 1' : '1 = 0', [], $ctx->boolean);
 
             return;
         }
 
-        $parent->addWhereExistsQuery($existsQuery, $boolean, $negate);
+        // A plain positive `can` where-clause is applied inline (correlated,
+        // no subquery): NULL already means "row excluded," the safe outcome.
+        // The EXISTS wrapper is kept when a leaf is negated, comes from a
+        // `cannot`, or the condition emitted more than a plain, non-empty
+        // where-clause:
+        //   - a join/group/having/aggregate needs the subquery's isolation —
+        //     addNestedWhereQuery merges only `wheres`, silently dropping them;
+        //   - a condition that added no where at all means "match every row",
+        //     which EXISTS renders as an always-true term — inlining it would
+        //     contribute nothing and wrongly vanish from an OR.
+        $isPlainNonEmptyWhereClause = ! empty($existsQuery->wheres)
+            && empty($existsQuery->joins)
+            && empty($existsQuery->groups)
+            && empty($existsQuery->havings)
+            && $existsQuery->aggregate === null;
+
+        if (! $ctx->negate && ! $ctx->fromCannot && $isPlainNonEmptyWhereClause) {
+            $parent->addNestedWhereQuery($existsQuery, $ctx->boolean);
+
+            return;
+        }
+
+        $parent->addWhereExistsQuery($existsQuery, $ctx->boolean, $ctx->negate);
     }
 }
