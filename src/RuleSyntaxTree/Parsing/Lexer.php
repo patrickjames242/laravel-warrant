@@ -8,6 +8,9 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  * Turns raw Warrant syntax into a flat list of {@see Token}s.
  *
  * Whitespace (including newlines) is insignificant and simply separates tokens.
+ * A `#` begins a line comment that runs to the end of the line (or the end of
+ * the source); comments are trivia and never reach the parser. A `#` inside a
+ * string literal is literal, since comments are only recognised between tokens.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
  * `cannot`, `and`, `or`, `not`. `true` / `false` / `null` are always lexed as
  * literals, so they cannot double as condition or ability names.
@@ -42,7 +45,7 @@ final class Lexer
         $tokens = [];
 
         while (true) {
-            $this->skipWhitespace();
+            $this->skipTrivia();
 
             if ($this->pos >= $this->length) {
                 $tokens[] = $this->makeToken(TokenType::EOF, '');
@@ -253,10 +256,27 @@ final class Lexer
         return new Token($type, $lexeme, $this->pos, $this->line, $this->col);
     }
 
-    private function skipWhitespace(): void
+    /**
+     * Skip anything the parser never sees: whitespace and `#` line comments.
+     */
+    private function skipTrivia(): void
     {
-        while ($this->pos < $this->length && ctype_space($this->source[$this->pos])) {
-            $this->advance();
+        while ($this->pos < $this->length) {
+            $char = $this->source[$this->pos];
+
+            if (ctype_space($char)) {
+                $this->advance();
+                continue;
+            }
+
+            if ($char === '#') {
+                while ($this->pos < $this->length && $this->source[$this->pos] !== "\n") {
+                    $this->advance();
+                }
+                continue;
+            }
+
+            break;
         }
     }
 

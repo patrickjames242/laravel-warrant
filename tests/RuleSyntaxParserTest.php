@@ -320,3 +320,48 @@ it('reports the position of a syntax error', function () {
         expect($e->getMessage())->toContain('line 1, column 21');
     }
 });
+
+// -- Comments -----------------------------------------------------------------
+
+it('ignores a full-line comment', function () {
+    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        # only the owner may touch their own timesheet
+        if is_self
+        they can edit
+        DSL);
+
+    expect($set->rules)->toHaveCount(1);
+    expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->rules[0]->canAbilities)->toBe(['edit']);
+});
+
+it('ignores a trailing comment on a line', function () {
+    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        if is_self   # the author
+        they can edit   # but see the cannot below
+        they cannot approve
+        DSL);
+
+    expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->rules[0]->canAbilities)->toBe(['edit']);
+    expect($set->rules[0]->cannotAbilities)->toBe(['approve']);
+});
+
+it('ignores a comment with no trailing newline at end of source', function () {
+    $rules = WarrantParser::parse('if is_self they can edit # trailing');
+
+    expect($rules)->toHaveCount(1);
+    expect($rules[0]->canAbilities)->toBe(['edit']);
+});
+
+it('does not let a comment merge the tokens on either side of it', function () {
+    $rules = WarrantParser::parse("if is_self they can # comment\n edit");
+
+    expect($rules[0]->canAbilities)->toBe(['edit']);
+});
+
+it('keeps a "#" inside a string literal as a literal character', function () {
+    $rules = WarrantParser::parse("if is_thing('a#b') they can view");
+
+    expect($rules[0]->conditions->parameters)->toBe(['a#b']);
+});
