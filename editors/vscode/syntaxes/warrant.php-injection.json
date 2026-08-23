@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "warrant.php.injection",
+  "injectionSelector": "L:source.php -comment -string",
+  "patterns": [
+    { "include": "#warrant-heredoc" }
+  ],
+  "repository": {
+    "warrant-heredoc": {
+      "comment": "Injects the Warrant grammar into PHP heredocs/nowdocs whose label is WARRANT, e.g. <<<'WARRANT' ... WARRANT",
+      "begin": "(<<<)\\s*([\"']?)(WARRANT)\\2\\s*$",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.string.begin.php" },
+        "3": { "name": "keyword.other.warrant-label.php" }
+      },
+      "end": "^\\s*(WARRANT)\\b",
+      "endCaptures": {
+        "1": { "name": "keyword.other.warrant-label.php" }
+      },
+      "contentName": "meta.embedded.block.warrant",
+      "patterns": [
+        { "include": "source.warrant" }
+      ]
+    }
+  }
+}

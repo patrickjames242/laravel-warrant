@@ -1,0 +1,6 @@
+.vscode/**
+.gitignore
+vsc-extension-quickstart.md
+**/*.map
+**/.DS_Store
+syntaxes/FUTURE-FEATURES-*.md

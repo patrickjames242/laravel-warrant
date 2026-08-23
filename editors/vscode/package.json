@@ -1,0 +1,48 @@
+{
+  "name": "warrant-dsl",
+  "displayName": "Laravel Warrant",
+  "description": "Syntax highlighting for the Warrant authorization rule language, including inside PHP heredocs labelled WARRANT.",
+  "version": "0.2.0",
+  "publisher": "patrickhanna",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patrickjames242/laravel-warrant.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "warrant",
+    "laravel",
+    "authorization",
+    "permissions",
+    "dsl"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "warrant",
+        "aliases": ["Warrant", "warrant"],
+        "extensions": [".warrant"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "warrant",
+        "scopeName": "source.warrant",
+        "path": "./syntaxes/warrant.tmLanguage.json"
+      },
+      {
+        "scopeName": "warrant.php.injection",
+        "path": "./syntaxes/warrant.php-injection.json",
+        "injectTo": ["text.html.php", "source.php"]
+      }
+    ]
+  }
+}
