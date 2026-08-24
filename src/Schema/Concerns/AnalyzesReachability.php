@@ -40,23 +40,14 @@ trait AnalyzesReachability
      */
     public function reachabilityMap(Authenticatable $currentUser, ?array $abilities = null): array
     {
-        /* The default (all abilities) seeds from the compiled vocabulary only, so
-           enumeration entry points never surface computed abilities. An explicitly
-           named computed ability, however, is answered as MAYBE: it has no rule
-           structure to analyze and its outcome is only knowable at evaluation time,
-           which is exactly what MAYBE means (reachable, not guaranteed). */
-        $abilities = $abilities === null ? static::nonComputedAbilityNames() : $this->normalizeAbilities($abilities);
+        $abilities = $abilities === null ? static::abilityNames() : $this->normalizeAbilities($abilities);
 
-        $compiled = array_values(array_filter($abilities, fn (string $a): bool => !static::isComputedAbility($a)));
-
-        $ruleSet = $compiled === [] ? null : $this->resolveRuleSet($currentUser);
+        $ruleSet = $abilities === [] ? null : $this->resolveRuleSet($currentUser);
         $analyzer = new ReachabilityAnalyzer;
 
         $map = [];
         foreach ($abilities as $ability) {
-            $map[$ability] = static::isComputedAbility($ability)
-                ? Reachability::MAYBE
-                : $analyzer->analyze($ruleSet, $ability);
+            $map[$ability] = $analyzer->analyze($ruleSet, $ability);
         }
 
         return $map;

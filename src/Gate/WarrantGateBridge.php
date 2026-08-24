@@ -95,10 +95,9 @@ final class WarrantGateBridge
             return null; // could not tie the call to a Warrant schema
         }
 
-        /* Only claim abilities the schema actually declares (compiled or computed);
-           everything else belongs to a policy. */
-        if (!in_array($ability, $schemaClass::nonComputedAbilityNames(), true)
-            && !$schemaClass::isComputedAbility($ability)) {
+        /* Only claim abilities the schema actually declares; everything else
+           belongs to a policy. */
+        if (!in_array($ability, $schemaClass::abilityNames(), true)) {
             return null;
         }
 

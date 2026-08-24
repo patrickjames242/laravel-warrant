@@ -23,11 +23,11 @@ final class RuleSetValidator
      */
     public function validate(WarrantRuleSet $ruleSet): void
     {
-        $nonComputedAbilityNames = $this->schema->nonComputedAbilityNames();
+        $abilityNames = $this->schema->abilityNames();
 
         foreach ($ruleSet->rules as $rule) {
             foreach ([...$rule->canAbilities, ...$rule->cannotAbilities] as $ability) {
-                if ($ability !== '*' && ! in_array($ability, $nonComputedAbilityNames, true)) {
+                if ($ability !== '*' && ! in_array($ability, $abilityNames, true)) {
                     throw new InvalidArgumentException(
                         sprintf('Ability [%s] is not declared by the schema.', $ability)
                     );

@@ -10,11 +10,9 @@ use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Ability;
-use Warrant\ComputedAbility;
 use Warrant\GlobalCondition;
 use Warrant\RequiredContext;
 use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ComputedAbilityContext;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\TargetedConditionContext;
 use Warrant\TargetedCondition;
@@ -114,33 +112,22 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * The names of the schema's non-computed (`#[Ability]`, rule/SQL-backed)
-     * abilities, as a plain string list — the compiled subset of
-     * {@see abilityDefinitions} (the full catalog of both kinds, as objects),
-     * projected to names.
+     * The names of the schema's `#[Ability]` abilities, as a plain string list —
+     * {@see abilityDefinitions} (the catalog, as objects) projected to names.
      *
      * The whole rule/SQL world speaks these names: the rule-set validator, the rule
      * compiler, the `$abilityLookup` that {@see normalizeAbilities} checks, per-row
-     * `selectUserAbilities`, and reachability analysis. A computed ability has no
-     * rule, no SQL predicate, and no per-row value, so it is excluded here — which is
-     * why this projection exists next to the catalog rather than every caller
-     * re-deriving `reject(computed)->map(name)` itself.
+     * `selectUserAbilities`, and reachability analysis. This projection exists next
+     * to the catalog so callers don't re-derive `map(name)` themselves.
      *
      * @return array<int, string>
      */
-    public static function nonComputedAbilityNames(): array
+    public static function abilityNames(): array
     {
         return collect(static::abilityDefinitions())
-            ->reject(fn (AbilityDefinition $ability): bool => $ability->computed)
             ->map(fn (AbilityDefinition $ability): string => $ability->name)
             ->values()
             ->all();
-    }
-
-    public static function isComputedAbility(string $ability): bool
-    {
-        return collect(static::abilityDefinitions())
-            ->contains(fn (AbilityDefinition $definition): bool => $definition->computed && $definition->name === $ability);
     }
 
     /**
@@ -322,9 +309,9 @@ trait ReflectsSchemaDefinition
 
     /**
      * The abilities declared by the schema, resolved to {@see AbilityDefinition}
-     * objects — from `#[Ability]` constants (compiled/SQL) and `#[ComputedAbility]`
-     * methods (imperative). The single source of truth every other ability
-     * accessor projects from. Throws if a name is declared more than once.
+     * objects from its `#[Ability]` constants. The single source of truth every
+     * other ability accessor projects from. Throws if a name is declared more
+     * than once.
      *
      * @return array<int, AbilityDefinition>
      */
@@ -332,7 +319,7 @@ trait ReflectsSchemaDefinition
     {
         $reflection = new ReflectionClass(static::class);
 
-        $fromConstants = collect($reflection->getReflectionConstants())
+        $definitions = collect($reflection->getReflectionConstants())
             ->map(function (ReflectionClassConstant $constant): ?AbilityDefinition {
                 $attributes = $constant->getAttributes(Ability::class);
 
@@ -344,12 +331,9 @@ trait ReflectsSchemaDefinition
                     name: $constant->getValue(),
                     requiredContext: $attributes[0]->newInstance()->requiredContext,
                 );
-            });
-
-        $fromMethods = collect($reflection->getMethods(ReflectionMethod::IS_PUBLIC))
-            ->map(fn (ReflectionMethod $method): ?AbilityDefinition => static::computedAbilityDefinition($method));
-
-        $definitions = $fromConstants->concat($fromMethods)->filter()->values();
+            })
+            ->filter()
+            ->values();
 
         $duplicate = $definitions->pluck('name')->duplicates()->first();
 
@@ -362,115 +346,5 @@ trait ReflectsSchemaDefinition
         }
 
         return $definitions->all();
-    }
-
-    /**
-     * Reflect a single method into a computed {@see AbilityDefinition}, or null
-     * when it carries no `#[ComputedAbility]`. Mirrors the condition-method
-     * validation: exactly one `ComputedAbilityContext` parameter, throwing at
-     * reflection time on any mismatch.
-     */
-    private static function computedAbilityDefinition(ReflectionMethod $method): ?AbilityDefinition
-    {
-        if ($method->isStatic()) {
-            return null;
-        }
-
-        $attributes = $method->getAttributes(ComputedAbility::class);
-
-        if ($attributes === []) {
-            return null;
-        }
-
-        if (count($attributes) > 1) {
-            throw new InvalidArgumentException(sprintf(
-                'Method [%s::%s] must not declare duplicate #[ComputedAbility] attributes.',
-                static::class,
-                $method->getName(),
-            ));
-        }
-
-        $attribute = $attributes[0]->newInstance();
-        $name = $attribute->name ?? static::conditionKeyFromMethodName($method->getName());
-
-        if (!is_string($name) || $name === '') {
-            throw new InvalidArgumentException(sprintf(
-                'Computed ability method [%s::%s] must resolve to a non-empty name.',
-                static::class,
-                $method->getName(),
-            ));
-        }
-
-        $bindings = static::computedAbilityParameters($method);
-
-        $autoRequired = collect($bindings)
-            ->filter(fn (array $binding): bool => $binding['kind'] === 'context' && !$binding['optional'])
-            ->pluck('key')
-            ->all();
-
-        $requiredContext = array_values(array_unique([
-            ...$attribute->requiredContext,
-            ...$autoRequired,
-        ]));
-
-        return new AbilityDefinition(
-            name: $name,
-            requiredContext: $requiredContext,
-            computed: true,
-            method: $method->getName(),
-            parameterBindings: $bindings,
-        );
-    }
-
-    /**
-     * Reflect a computed ability method's signature into an ordered call plan.
-     *
-     * The first parameter is the subject: a `ComputedAbilityContext` (when typed
-     * as such, or untyped and named `$context`) receives the full bag + user,
-     * otherwise the parameter receives the user. Every parameter after the first
-     * is a context value injected by the snake_case of its name; a parameter with
-     * a default value is optional context (its default stands in when the key is
-     * absent), everything else is required.
-     *
-     * @return array<int, array{kind: string, key?: string, optional?: bool, default?: mixed}>
-     */
-    private static function computedAbilityParameters(ReflectionMethod $method): array
-    {
-        $parameters = $method->getParameters();
-
-        if ($parameters === []) {
-            throw new InvalidArgumentException(sprintf(
-                'Computed ability method [%s::%s] must accept at least one parameter (the user or a %s).',
-                static::class,
-                $method->getName(),
-                ComputedAbilityContext::class,
-            ));
-        }
-
-        $bindings = [];
-
-        foreach ($parameters as $index => $parameter) {
-            if ($index === 0) {
-                $type = $parameter->getType();
-                $isContextObject =
-                    ($type instanceof ReflectionNamedType && $type->getName() === ComputedAbilityContext::class)
-                    || ($type === null && $parameter->getName() === 'context');
-
-                $bindings[] = ['kind' => $isContextObject ? 'context_object' : 'user'];
-
-                continue;
-            }
-
-            $optional = $parameter->isDefaultValueAvailable();
-
-            $bindings[] = [
-                'kind' => 'context',
-                'key' => Str::snake($parameter->getName()),
-                'optional' => $optional,
-                'default' => $optional ? $parameter->getDefaultValue() : null,
-            ];
-        }
-
-        return $bindings;
     }
 }

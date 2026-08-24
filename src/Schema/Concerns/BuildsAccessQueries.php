@@ -36,7 +36,6 @@ trait BuildsAccessQueries
     ): Builder
     {
         $abilities = $this->normalizeAbilities($abilities);
-        static::assertNoComputedAbilitiesInQuery($abilities);
 
         if ($abilities === []) {
             return $query;
@@ -102,10 +101,9 @@ trait BuildsAccessQueries
         }
 
         if ($onlyAbilities === null) {
-            $abilities = static::nonComputedAbilityNames();
+            $abilities = static::abilityNames();
         } else {
             $abilities = static::normalizeAbilities($onlyAbilities);
-            static::assertNoComputedAbilitiesInQuery($abilities);
         }
 
         if ($abilities === []) {
@@ -172,14 +170,12 @@ trait BuildsAccessQueries
         array $context = []
     ): array
     {
-        /* Enumeration ($abilities === null): every compiled ability the user holds,
-           skipping (never throwing) any whose per-ability required context is absent.
-           Computed abilities are excluded from every enumeration — a list of "what
-           the user can do" is the compiled vocabulary only. */
+        /* Enumeration ($abilities === null): every declared ability the user holds,
+           skipping (never throwing) any whose per-ability required context is absent. */
         if ($abilities === null) {
             $context = $this->resolveEffectiveContext($context);
 
-            $declared = static::partitionAbilitiesByContext(static::nonComputedAbilityNames(), $context)['satisfied'];
+            $declared = static::partitionAbilitiesByContext(static::abilityNames(), $context)['satisfied'];
 
             return $declared === []
                 ? []
@@ -331,27 +327,6 @@ trait BuildsAccessQueries
         }
 
         return $effective;
-    }
-
-    /**
-     * Reject computed abilities named in a query scope. Query scopes are the one
-     * place a computed ability is never resolved — it has no SQL form to filter or
-     * select per row — so naming one is a programming error surfaced clearly here
-     * rather than silently never matching.
-     *
-     * @param array<int, string> $abilities
-     */
-    protected static function assertNoComputedAbilitiesInQuery(array $abilities): void
-    {
-        foreach ($abilities as $ability) {
-            if (static::isComputedAbility($ability)) {
-                throw new InvalidArgumentException(sprintf(
-                    'Computed ability [%s] cannot be used in a query scope on schema [%s]; computed abilities have no SQL form.',
-                    $ability,
-                    static::class,
-                ));
-            }
-        }
     }
 
     /**

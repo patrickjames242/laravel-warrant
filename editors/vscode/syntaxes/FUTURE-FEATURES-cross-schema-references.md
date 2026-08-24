@@ -130,7 +130,7 @@ host query by `BuildsAccessQueries`.
   at compile time from the check-time context bag.
 - **Validator** (`src/RuleSyntaxTree/RuleSetValidator.php`): constructed with
   **one** `SchemaVocabulary`. `validate()` ~L24 checks every ability name is `*`
-  or in `nonComputedAbilityNames()`; `validateConditionNames()` ~L52 walks the
+  or in `abilityNames()`; `validateConditionNames()` ~L52 walks the
   AST; `assertConditionExists()` ~L65 calls `$schema->conditionExists($key)`.
 - **Compiler** (`src/RuleSyntaxTree/RuleSetCompiler.php`): see §2.2.
 
@@ -413,7 +413,7 @@ that error is the seed of Feature 7.
 
 **Touch:** parser (`can(IDENTIFIER for handle)`), new AST node (e.g.
 `CrossSchemaCanNode {schemaKey, abilities[], matchMode, boundRowExpr?, contextMap}`),
-validator (assert ability exists in B's `nonComputedAbilityNames()`), compiler
+validator (assert ability exists in B's `abilityNames()`), compiler
 (the recursion), writer.
 
 ### Feature 4 — Ability lists + match mode for `can`

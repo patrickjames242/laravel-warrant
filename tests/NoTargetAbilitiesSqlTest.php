@@ -140,7 +140,7 @@ it('UNION ALLs one wrapped branch per explicit ability', function () {
 
 // -- enumeration (all declared abilities) -------------------------------------
 
-it('enumerates every declared non-computed ability in declaration order', function () {
+it('enumerates every declared ability in declaration order', function () {
     bindWarrantRules('they can *');
 
     assertNoTargetSql(null, <<<SQL

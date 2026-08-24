@@ -28,7 +28,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 |   - the fixture connection is sqlite, so the aggregate is json_group_array;
 |     the pgsql/mysql variants are a driver switch not exercised here.
 |   - abilities default (onlyAbilities = null) to the schema's declared,
-|     non-computed set, in declaration order: create, publish, archive, view, update.
+|     declared set, in declaration order: create, publish, archive, view, update.
 |   - bindings are substituted inline via toRawSql(); the fixture role is
 |     "teacher-role", so isTeacher's target predicate reads
 |     `course_sections.id = 'teacher:teacher-role'`.
@@ -120,7 +120,7 @@ it('UNION ALLs one wrapped branch per ability', function () {
 
 // -- default (all declared) abilities -----------------------------------------
 
-it('defaults to the declared non-computed abilities in declaration order', function () {
+it('defaults to the declared abilities in declaration order', function () {
     bindWarrantRules('they can *');
 
     assertWarrantAbilitiesSql(<<<SQL
