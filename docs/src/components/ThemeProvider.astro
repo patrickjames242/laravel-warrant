@@ -1,0 +1,12 @@
+---
+// Override of Starlight's ThemeProvider. We always run in dark mode, so instead
+// of reading a stored preference or the system setting we hard-set `data-theme`
+// to "dark" and persist it so nothing else can flip it back to light.
+---
+
+<script is:inline>
+	document.documentElement.dataset.theme = 'dark';
+	try {
+		localStorage.setItem('starlight-theme', 'dark');
+	} catch {}
+</script>

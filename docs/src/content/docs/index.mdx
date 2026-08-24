@@ -1,0 +1,78 @@
+---
+banner:
+  content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
+title: Laravel Warrant
+description: Schema-based permissions and authorization for Laravel — write a row-level access rule once and compile it straight to SQL. No permission tables to migrate.
+head:
+  - tag: title
+    content: "Laravel Warrant · row-level permissions & authorization for Laravel"
+  - tag: meta
+    attrs:
+      property: og:title
+      content: "Laravel Warrant — row-level permissions & authorization for Laravel"
+template: splash
+hero:
+  tagline: A small DSL language that converts portable conditional permission rules to sql to make row level access control centralized and flexible.
+  image:
+    alt: Laravel Warrant
+    file: ../../assets/warrant-logo.png
+  actions:
+    - text: Get started
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: Why Warrant?
+      link: /getting-started/why-warrant/
+      icon: open-book
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/patrickjames242/laravel-warrant
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+:::note[Not an official Laravel package]
+Laravel Warrant is an independent, open-source project. It is not affiliated
+with, maintained by, or endorsed by the Laravel team.
+:::
+
+Warrant lets you write your access rules once — as small, portable strings — and
+compiles them straight to SQL. One rule set answers "can they?", filters a list,
+and tells you what a user can do to each row, with no permission tables to migrate
+and no policy logic duplicated across your app.
+
+```text
+if is_my_own_document or manages_team they can view, update
+if is_document_locked and not is_admin they cannot view, update
+if is_admin they can *
+```
+
+New here? [**Why Warrant**](/getting-started/why-warrant/) walks through the problem
+it solves and how it works.
+
+## Start here
+
+<CardGrid>
+	<Card title="Why it exists" icon="information">
+		[Why Warrant](/getting-started/why-warrant/) — the problem with the usual
+		policy-and-query approach, and what Warrant does instead.
+	</Card>
+	<Card title="Install & first check" icon="rocket">
+		[Installation](/getting-started/installation/) then the [Quick
+		start](/getting-started/quick-start/) — a schema, a rule, a resolver, and
+		the checks that use them, end to end.
+	</Card>
+	<Card title="The mental model" icon="puzzle">
+		[Core concepts](/getting-started/core-concepts/) — how schemas, rules, and
+		the resolver divide the work.
+	</Card>
+	<Card title="Build for real" icon="open-book">
+		The [Guides](/guides/schemas/) go deep on schemas, conditions, the rule
+		language, resolvers, context, middleware, and testing.
+	</Card>
+	<Card title="Look something up" icon="list-format">
+		The [API Reference](/reference/api-cheat-sheet/) has the cheat sheet, full
+		signatures, and the complete error catalogue.
+	</Card>
+</CardGrid>

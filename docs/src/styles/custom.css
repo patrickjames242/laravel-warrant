@@ -1,0 +1,40 @@
+/* Small overrides layered on top of starlight-theme-vintage.
+   The theme owns the full palette (accent ramp, surfaces, Expressive Code) and
+   loads its stylesheets after this file, so we leave colours to it and only make
+   minor layout tweaks here. */
+
+/* Give the hero on the landing page a touch more breathing room. */
+.hero > .stack {
+	gap: 1.5rem;
+}
+
+/* Slightly tighter, more code-forward feel for inline code in prose. */
+.sl-markdown-content code:not(:where(.not-content *)) {
+	font-size: 0.9em;
+}
+
+/* Pull the masthead logo closer to the title wordmark (default gap is 24px). */
+.site-title {
+	gap: 0.5rem;
+}
+
+/* On pages with the beta banner, the vintage theme switches <main> to
+   `display: grid` to position the banner. Grid items default to
+   `min-width: auto`, so the content column sizes to its min-content (~768px)
+   and refuses to shrink into the narrower column available once the right-hand
+   table of contents appears — spilling the prose and code under the ToC.
+   Letting the single track shrink (minmax(0, 1fr)) keeps content in its column;
+   code blocks then scroll horizontally on their own as intended. */
+main:has(.sl-banner) {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+/* Starlight's default sidebar width (18.75rem) leaves a wide dead band to the
+   right of the table of contents and squeezes the prose column. Trimming it
+   tightens that gutter and gives the content more room. Scoped to the breakpoint
+   where the persistent sidebars exist, so the mobile nav drawer is untouched. */
+@media (min-width: 50rem) {
+	:root {
+		--sl-sidebar-width: 16rem;
+	}
+}

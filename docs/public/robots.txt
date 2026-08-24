@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://laravel-warrant.dev/sitemap-index.xml

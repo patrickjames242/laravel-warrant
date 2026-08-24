@@ -5,4 +5,8 @@ composer.lock
 /build
 /.idea
 /.vscode
-/CLAUDE.md
+
+# AI agent instruction files (local only, any directory)
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
