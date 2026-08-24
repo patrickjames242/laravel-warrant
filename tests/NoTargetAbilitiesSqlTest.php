@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
 | condition leaves:
 |   - a *targeted* condition cannot be evaluated without a row, so it is forced
 |     false — `1 = 0` — or, under negation, true — `1 = 1`.
-|   - a *no-target* (global) condition still compiles to its EXISTS leaf.
+|   - a *no-target* (global) condition compiles to its inline where-clause.
 | The grant/deny formula and unconditional `1 = 1` / `1 = 0` shapes are unchanged.
 |
 | As in Stage 2, the SQLite grammar wraps each UNION arm as `select * from (...)`.

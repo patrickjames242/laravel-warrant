@@ -24,9 +24,9 @@ use Warrant\AbilityMatchMode;
 |     `(not <cannot condition>)` group per conditional `cannot` rule.
 |   - an unconditional `can` contributes `1 = 1`; an unconditional `cannot`, or
 |     an ability with no `can` rule at all, collapses the predicate to `1 = 0`.
-|   - a plain positive `can` condition leaf is applied inline (correlated, no
-|     subquery); a negated leaf or any `cannot` leaf stays an EXISTS subquery so
-|     it is a strict boolean — `not` lands on the leaf as `not exists (...)`.
+|   - every condition leaf is applied inline as a nested where-group; a negated
+|     leaf lands as `not (...)` (no EXISTS wrapping). Reaching another table is
+|     the condition author's own `whereExists`, which splices in as-is.
 |   - the target id is injected raw by the fixture conditions (isTeacher writes
 |     `course_sections.id = ?`), while the base table is grammar-quoted.
 |
@@ -114,42 +114,53 @@ it('ORs two inlined condition leaves for an or-expression', function () {
     SQL);
 });
 
-it('keeps the EXISTS wrapper for a positive condition that adds a join', function () {
+it('inlines a relational condition written as a correlated whereExists', function () {
     bindWarrantRules('if via_join they can view');
 
-    // via_join emits a join, not a plain where-clause: inlining would silently
-    // drop the join (addNestedWhereQuery merges only wheres), so it must stay
-    // wrapped in EXISTS even though it is a positive grant leaf.
+    // via_join reaches another table via whereExists (the required idiom now that
+    // top-level joins are banned). The author's EXISTS is spliced in inline — no
+    // compiler-injected wrapper or `warrant_exists` scaffold.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
             exists (
-                select 1
-                from (select 1) as "warrant_exists"
-                inner join "enrollments" on "enrollments"."section_id" = "course_sections"."id"
-                where enrollments.user_id = 'teacher-role'
+                select * from "enrollments"
+                where "enrollments"."section_id" = "course_sections"."id"
+                    and enrollments.user_id = 'teacher-role'
             )
         )
     SQL);
 });
 
+it('throws when a condition emits a top-level join instead of a where clause', function () {
+    bindWarrantRules('if via_bad_join they can view');
+
+    expect(fn () => (new WarrantJoinConditionSchema)->filterQuery(
+        makeWarrantTestUser('teacher-role'),
+        warrantTestQuery(),
+        'course_sections.id',
+        'view',
+    )->toRawSql())
+        ->toThrow(
+            InvalidArgumentException::class,
+            'may only add where clauses',
+        );
+});
+
 // -- deny-overrides -----------------------------------------------------------
 
-it('ANDs a negated EXISTS leaf for a conditional cannot', function () {
+it('ANDs an inline negated leaf for a conditional cannot', function () {
     bindWarrantRules('they can view if is_teacher they cannot view');
 
+    // The cannot compiles to `AND NOT(condition)` inline — no NOT EXISTS wrapper.
+    // A NULL target column therefore follows SQL's three-valued logic and the row
+    // is excluded (fail-closed), rather than being kept as NOT EXISTS would.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
             (1 = 1)
             and
-            (
-                not exists (
-                    select 1
-                    from (select 1) as "warrant_exists"
-                    where course_sections.id = 'teacher:teacher-role'
-                )
-            )
+            (not (course_sections.id = 'teacher:teacher-role'))
         )
     SQL);
 });

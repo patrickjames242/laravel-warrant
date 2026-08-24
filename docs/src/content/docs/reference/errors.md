@@ -101,9 +101,10 @@ From the condition resolver:
 Schema [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().
 ```
 
-See [Check-time context](/guides/context/#required-vs-optional). Note the
-[fail-open caveat](/guides/context/#the-fail-open-caveat): an *optional* key that's
-absent doesn't throw — it soft-falses its condition.
+See [Check-time context](/guides/context/#required-vs-optional). Note that an
+[*optional* key](/guides/context/#missing-optional-context) that's absent doesn't
+throw — it's passed to its condition as `null` (standard SQL logic then applies,
+which is fail-closed).
 
 ## Registry errors → `WarrantManager`
 

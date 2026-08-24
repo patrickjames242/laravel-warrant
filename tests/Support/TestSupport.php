@@ -96,12 +96,31 @@ class WarrantTestSchema extends WarrantSchema
     }
 
     /**
-     * A condition that emits more than a where-clause (a join). It must never be
-     * inlined — the join needs the EXISTS subquery's isolation — so the compiler
-     * keeps the EXISTS wrapper for it even on the positive grant side.
+     * A relational condition expressed as a correlated whereExists subquery — the
+     * required idiom for reaching another table (conditions may only add where
+     * clauses, so a top-level join is rejected; see WarrantJoinConditionSchema).
      */
     #[TargetedCondition]
     public function viaJoin(TargetedConditionContext $c): BuilderContract
+    {
+        return $c->query->whereExists(fn (BuilderContract $sub) => $sub
+            ->from('enrollments')
+            ->whereColumn('enrollments.section_id', $c->targetSqlId)
+            ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]));
+    }
+}
+
+class WarrantJoinConditionSchema extends WarrantSchema
+{
+    public const model = WarrantTestModel::class;
+
+    #[Ability]
+    public const ABILITY_VIEW = 'view';
+
+    // Illegal: a condition may only add where clauses. Emitting a top-level join
+    // is rejected by the compiler with a whereExists() pointer.
+    #[TargetedCondition]
+    public function viaBadJoin(TargetedConditionContext $c): BuilderContract
     {
         return $c->query
             ->join('enrollments', 'enrollments.section_id', '=', $c->targetSqlId)

@@ -192,21 +192,25 @@ it('soft-falses a grant when a referenced context key is absent', function () {
     expect(compileDocIds('if id_is(@context doc_id) they can view', 'view'))->toBe([]);
 });
 
-it('lifts a context-gated cannot when the key is absent (fail-open)', function () {
-    // id_is gets null → the veto's condition matches nothing, so the unconditional
-    // grant stands — the documented reason a deny-gating key should be required.
+it('over-applies a context-gated cannot when the key is absent (fail-closed)', function () {
+    // id_is gets null → `id = null` is UNKNOWN for every row, so the inline
+    // `not (id = null)` deny term is UNKNOWN and excludes them all. Since SQL's
+    // three-valued logic is no longer normalized away, an absent deny-gating key
+    // now fails safe (blocks everything) instead of silently lifting the veto.
     expect(compileDocIds('they can view if id_is(@context doc_id) they cannot view', 'view'))
-        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+        ->toBe([]);
 
-    // With the key present, the veto subtracts the matching row.
+    // With the key present, the veto subtracts only the matching row.
     expect(compileDocIds('they can view if id_is(@context doc_id) they cannot view', 'view', 'role-1', [], ['doc_id' => 'doc-9']))
         ->toBe(['other', 'teacher:role-1']);
 });
 
-it('treats a negated absent context condition as true (De Morgan-safe)', function () {
-    // not id_is(@context doc_id): id_is(null) matches nothing → NOT EXISTS → all rows.
+it('grants nothing for a negated condition whose context key is absent (fail-closed)', function () {
+    // not id_is(@context doc_id): id_is(null) is `id = null` → UNKNOWN, and
+    // `not (UNKNOWN)` is UNKNOWN, so no row is granted. An unknown condition
+    // contributes no access — never granting is the safe direction.
     expect(compileDocIds('if not id_is(@context doc_id) they can view', 'view'))
-        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+        ->toBe([]);
 });
 
 it('passes an absent context key to the condition as null, letting it decide', function () {

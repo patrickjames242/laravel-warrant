@@ -23,13 +23,16 @@ use InvalidArgumentException;
  *   - an ability with no `can` rule is never granted → 1 = 0;
  *   - an unconditional `can` contributes an always-true term → 1 = 1.
  *
- * A condition leaf is wrapped as an EXISTS subquery only when it needs to be a
- * strict boolean: when it is negated (so NOT EXISTS is exact — NULL → false),
- * when it comes from a `cannot` rule (a deny is a subtraction; an unknown there
- * must fail safe), or when the condition emits more than a where-clause (e.g. a
- * join), which needs the subquery's isolation. A plain positive `can`
- * where-clause is applied inline instead: NULL already means "row excluded,"
- * which is the correct, safe outcome, and the correlated subquery buys nothing.
+ * Every condition leaf is applied inline as a nested where-group and negated
+ * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
+ * There is no EXISTS wrapping and no attempt to normalize SQL's three-valued
+ * (NULL) logic: a condition compiles to exactly the SQL it emits, so an unknown
+ * (NULL) row contributes no access — it never grants and never lifts a deny (the
+ * safe direction; the worst case is a legitimate user blocked, never unauthorized
+ * access). Because a leaf must be a spliceable boolean, a condition may only add
+ * where clauses to its builder; one that emits a join/group/having/aggregate/union
+ * is rejected (see {@see applyCondition}) — relational checks use
+ * `whereExists()`/`whereNotExists()` with a correlated subquery.
  */
 final class RuleSetCompiler
 {
@@ -95,7 +98,7 @@ final class RuleSetCompiler
         });
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, fromCannot: true);
+        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true);
 
         foreach ($denies as $denyExpression) {
             $predicate->where(function (Builder $denyGroup) use ($denyExpression, $denyCtx): void {
@@ -112,7 +115,7 @@ final class RuleSetCompiler
      *
      * Used by the singular-target denial diagnostic to test whether one `cannot`
      * rule's condition fired for the target. A null condition (an unconditional
-     * `cannot`) always matches. Reuses the same leaf/EXISTS, targeted-vs-global,
+     * `cannot`) always matches. Reuses the same inline leaf, targeted-vs-global,
      * and `@context` semantics as {@see compileAbility}, so a diagnostic re-run
      * agrees exactly with the live check.
      */
@@ -129,13 +132,10 @@ final class RuleSetCompiler
             return $predicate->whereRaw('1 = 1');
         }
 
-        // This diagnoses a `cannot` rule's condition, so treat its leaves as
-        // deny-side (fromCannot) — keeping them EXISTS-wrapped exactly as the
-        // live check does, so a re-run agrees.
         $this->applyExpression(
             $predicate,
             $condition,
-            new CompilationContext($user, $targetSqlId, $context, fromCannot: true),
+            new CompilationContext($user, $targetSqlId, $context),
         );
 
         return $predicate;
@@ -151,11 +151,9 @@ final class RuleSetCompiler
 
     /**
      * Add $node's predicate to $parent under the context's boolean connector,
-     * negating via De Morgan so that negation always lands on the leaves (where
-     * a negated leaf is EXISTS-wrapped to keep it a strict boolean). The context's
-     * `fromCannot` marks a leaf as originating from a `cannot` rule; it rides down
-     * unchanged (De Morgan flips only `negate`) and forces EXISTS-wrapping at the
-     * leaf even when a double negation leaves the leaf positive.
+     * negating via De Morgan so that negation always lands on the leaves, where a
+     * negated leaf is applied inline as `not (…)` (for an author's `whereExists`,
+     * that reads as `not exists (…)`).
      */
     private function applyExpression(Builder $parent, IBooleanExpressionNode $node, CompilationContext $ctx): void
     {
@@ -221,16 +219,12 @@ final class RuleSetCompiler
             $parameters[] = $parameter;
         }
 
-        $existsQuery = $parent->newQuery();
-        $existsQuery->selectRaw('1')->fromSub(
-            fn (Builder $one) => $one->selectRaw('1'),
-            'warrant_exists'
-        );
+        $conditionQuery = $parent->newQuery();
 
         $result = $this->conditions->applyCondition(
             $node->conditionKey,
             $ctx->user,
-            $existsQuery,
+            $conditionQuery,
             $ctx->targetSqlId,
             $parameters,
             $ctx->checkContext,
@@ -244,28 +238,60 @@ final class RuleSetCompiler
             return;
         }
 
-        // A plain positive `can` where-clause is applied inline (correlated,
-        // no subquery): NULL already means "row excluded," the safe outcome.
-        // The EXISTS wrapper is kept when a leaf is negated, comes from a
-        // `cannot`, or the condition emitted more than a plain, non-empty
-        // where-clause:
-        //   - a join/group/having/aggregate needs the subquery's isolation —
-        //     addNestedWhereQuery merges only `wheres`, silently dropping them;
-        //   - a condition that added no where at all means "match every row",
-        //     which EXISTS renders as an always-true term — inlining it would
-        //     contribute nothing and wrongly vanish from an OR.
-        $isPlainNonEmptyWhereClause = ! empty($existsQuery->wheres)
-            && empty($existsQuery->joins)
-            && empty($existsQuery->groups)
-            && empty($existsQuery->havings)
-            && $existsQuery->aggregate === null;
+        // A condition must be a spliceable boolean, so it may only add where
+        // clauses. Anything that changes the query's row shape — a join, group,
+        // having, aggregate, or union — cannot be inlined, ANDed/ORed, or negated
+        // in place; reject it with a clear message pointing at whereExists().
+        $this->assertOnlyWhereClauses($conditionQuery, $node->conditionKey);
 
-        if (! $ctx->negate && ! $ctx->fromCannot && $isPlainNonEmptyWhereClause) {
-            $parent->addNestedWhereQuery($existsQuery, $ctx->boolean);
+        // A condition that added no where at all means "match every row" — an
+        // always-true term (or always-false when negated). Inlining an empty
+        // group would contribute nothing and wrongly vanish from an OR.
+        if (empty($conditionQuery->wheres)) {
+            $parent->whereRaw($ctx->negate ? '1 = 0' : '1 = 1', [], $ctx->boolean);
 
             return;
         }
 
-        $parent->addWhereExistsQuery($existsQuery, $ctx->boolean, $ctx->negate);
+        // Apply the condition's where-group inline. Negation lands here as a
+        // `not (…)` nested group — the same way Laravel's whereNot composes its
+        // boolean — so a scalar leaf follows SQL's three-valued logic and an
+        // author's whereExists reads as `not exists (…)`.
+        $parent->addNestedWhereQuery(
+            $conditionQuery,
+            $ctx->negate ? "{$ctx->boolean} not" : $ctx->boolean,
+        );
+    }
+
+    /**
+     * A condition leaf must compile to a boolean the compiler can splice into the
+     * deny-overrides predicate. Only where clauses qualify; a join, group, having,
+     * aggregate, or union changes the query's row shape and cannot be inlined or
+     * negated in place. Relational checks must use `whereExists()`/`whereNotExists()`
+     * with a correlated subquery instead (their inner joins live on the subquery,
+     * not on this builder, so they are allowed).
+     */
+    private function assertOnlyWhereClauses(Builder $conditionQuery, string $conditionKey): void
+    {
+        $offending = match (true) {
+            ! empty($conditionQuery->joins) => 'join',
+            ! empty($conditionQuery->groups) => 'group by',
+            ! empty($conditionQuery->havings) => 'having',
+            ! empty($conditionQuery->unions) => 'union',
+            $conditionQuery->aggregate !== null => 'aggregate',
+            default => null,
+        };
+
+        if ($offending === null) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; '
+                .'use whereExists()/whereNotExists() with a correlated subquery instead of join()/groupBy()/having().',
+            $conditionKey,
+            $this->conditions::class,
+            $offending,
+        ));
     }
 }

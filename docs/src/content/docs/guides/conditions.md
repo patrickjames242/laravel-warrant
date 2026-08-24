@@ -52,6 +52,22 @@ public function isSelf(TargetedConditionContext $c): Builder
 Your predicate may reference any column of the entity's table; it's evaluated
 correlated to the row under test.
 
+:::caution[Conditions may only add `where` clauses]
+A condition must compile to a boolean that Warrant can `AND`/`OR`/`NOT` together,
+so it may only add `where` clauses (including `whereExists`, `whereIn`, `whereRaw`)
+to `$c->query`. Calling `join()`, `groupBy()`, `having()`, an aggregate, or
+`union()` throws — those change the query's row shape and can't be spliced or
+negated in place. To reach another table, use a correlated
+`whereExists()`/`whereNotExists()` instead of a join:
+
+```php
+return $c->query->whereExists(fn ($sub) => $sub
+    ->from('team_members')
+    ->whereColumn('team_members.team_id', 'documents.team_id')
+    ->where('user_id', $c->user->getAuthIdentifier()));
+```
+:::
+
 ### `#[GlobalCondition]` — about the user or the world
 
 Its context is a `GlobalConditionContext` (no `targetSqlId`). It may mutate
@@ -131,9 +147,10 @@ public function inCurrentWorkspace(TargetedConditionContext $c): Builder
 }
 ```
 
-The difference from `@context`: a condition reading `$c->context` itself always
-runs and decides for itself, whereas a missing _optional_ `@context` key
-soft-falses the condition automatically. See [Check-time context](/guides/context/)
+The difference from `@context`: a condition reading `$c->context` decides for
+itself what an absent key means, whereas a missing _optional_ `@context` key is
+passed positionally to the condition as `null` (standard SQL logic then applies —
+typically `UNKNOWN`, which grants no access). See [Check-time context](/guides/context/)
 for that mechanism.
 
 ## Always bind values
@@ -155,7 +172,11 @@ $c->query->whereRaw("documents.user_id = {$c->user->getAuthIdentifier()}");
 
 ## How conditions become SQL
 
-Every condition leaf is wrapped as an **`EXISTS`** subquery, which makes it a
-strict boolean: a condition touching a `NULL` column yields `false`, not SQL's
-"unknown," and negation via `NOT EXISTS` is exact. That's why `not` / `cannot`
-behave predictably. See [How it compiles to SQL](/guides/how-it-compiles/).
+Each condition is spliced **inline** into the compiled `WHERE` as a nested
+predicate, with negation pushed onto the leaves via De Morgan (a `not` becomes
+`not (…)`, or `not exists (…)` for a `whereExists`). Warrant does **not** normalize
+SQL's three-valued logic: a condition that touches a `NULL` column is `UNKNOWN`, so
+it contributes no access — an unknown condition never grants and never lifts a deny.
+The failure direction is always safe (worst case: a legitimate user is blocked,
+never unauthorized access); handle `NULL` explicitly in the condition if you want a
+different outcome. See [How it compiles to SQL](/guides/how-it-compiles/).

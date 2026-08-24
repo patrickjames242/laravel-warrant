@@ -10,9 +10,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
  * It bundles the check-time invariants that never change during a single compile
  * (the user, the target SQL id, the effective check-time context bag) together
  * with the position-dependent state that a recursive step derives for its
- * children: the boolean connector a predicate attaches under, whether the current
- * subtree is negated (flipped by De Morgan at each `not`), and whether it
- * originates from a `cannot` rule (fixed per side — never flipped).
+ * children: the boolean connector a predicate attaches under, and whether the
+ * current subtree is negated (flipped by De Morgan at each `not`).
  *
  * Immutable: the `with*` helpers return a modified copy, so a step can derive a
  * child context without disturbing its own.
@@ -28,7 +27,6 @@ final readonly class CompilationContext
         public array $checkContext,
         public string $boolean = 'and',
         public bool $negate = false,
-        public bool $fromCannot = false,
     ) {
     }
 
@@ -43,7 +41,6 @@ final readonly class CompilationContext
             $this->checkContext,
             $boolean,
             $this->negate,
-            $this->fromCannot,
         );
     }
 
@@ -58,7 +55,6 @@ final readonly class CompilationContext
             $this->checkContext,
             $this->boolean,
             ! $this->negate,
-            $this->fromCannot,
         );
     }
 }

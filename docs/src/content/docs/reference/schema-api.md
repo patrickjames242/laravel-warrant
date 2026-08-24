@@ -132,6 +132,12 @@ name; passing `''` throws.
 The method must accept **exactly one** parameter, typed to match:
 `TargetedConditionContext` or `GlobalConditionContext`.
 
+A condition may only add **where clauses** to `$c->query` (including `whereExists`,
+`whereIn`, `whereRaw`). Emitting a `join`, `groupBy`, `having`, aggregate, or
+`union` throws at compile time — use a correlated `whereExists()`/`whereNotExists()`
+subquery to reach another table. A `#[GlobalCondition]` may instead return a
+`bool`, evaluated in PHP.
+
 ### `#[ContextKey]`
 
 Marks a class constant as a check-time context key. `required` defaults to `true`.

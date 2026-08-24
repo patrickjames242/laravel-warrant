@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: How it compiles to SQL
-description: Why Warrant's semantics are what they are — EXISTS leaves, De Morgan, and how can/cannot combine.
+description: Why Warrant's semantics are what they are — inline conditions, De Morgan, and how can/cannot combine.
 sidebar:
   order: 11
 ---
@@ -125,9 +125,11 @@ and not (
 )
 ```
 
-That's a good enough mental model for reasoning about which rows a query returns.
-It isn't quite what Warrant emits, though — the real output is a little more
-careful, for the two reasons the next sections cover.
+That's very close to what Warrant actually emits — each condition really is
+spliced straight into the `WHERE` like this. The next section covers the two
+refinements: relational conditions reach other tables through a `whereExists`
+subquery, and `NULL` columns follow SQL's own logic rather than being normalized
+away.
 
 :::note[Work in progress]
 I'm currently working on collapsing redundant branches like the `1 = 1` above.
@@ -137,118 +139,102 @@ often be simplified away — an `... or 1 = 1` makes the whole `OR` true, and an
 in a future release.
 :::
 
-## Every condition is an `EXISTS` leaf
+## Conditions compile inline
 
-The rough shape above drops each condition straight into the `WHERE` as a bare
-predicate. The real output wraps each one in its own `EXISTS` subquery instead. Two
-things make that necessary.
+The rough shape above is essentially the real output: each condition is spliced
+directly into the `WHERE` as a nested predicate — there's no `EXISTS` wrapper. Two
+things are worth understanding about how that works.
 
-**1. Negation is not sound in SQL's three-valued logic.**
+**1. A condition may only add `where` clauses.**
 
-SQL predicates aren't booleans — they're _three_-valued: `TRUE`, `FALSE`, or
-`UNKNOWN` (what you get when `NULL` is involved). The second rule denies `update`
-when `is_locked`, so it has to negate that condition. Drop it in directly and the
-deny side reads:
+A condition method is handed a query builder, but whatever it emits has to be a
+boolean the compiler can drop into an `OR`, `AND` together, and wrap in `NOT`. A
+`where` — including `whereExists`, `whereIn`, and `whereRaw` — is exactly that. A
+`join`, `groupBy`, `having`, aggregate, or `union` is not: it changes the query's
+row shape and can't be spliced into an `OR` branch or negated in place, so
+emitting one throws.
 
-```sql
-and not (documents.locked = 1)
-```
-
-Now consider a row where `locked` is `NULL`. `documents.locked = 1` is `UNKNOWN`,
-so `NOT (UNKNOWN)` is **still `UNKNOWN`** — and the outer `WHERE` drops any row that
-isn't `TRUE`. The result: a `cannot` rule that _silently fails to deny_ on exactly
-the rows with a null column. In an authorization system, that's a hole.
-
-`EXISTS` collapses the three values back to two. `EXISTS (…)` is always `TRUE` or
-`FALSE`, never `UNKNOWN`, so `NOT EXISTS (…)` is its **exact** complement:
-
-```sql
-and not exists (
-    select 1 from (select 1) as warrant_exists
-    where documents.locked = 1        -- NULL locked → EXISTS is false → NOT EXISTS is true
-)
-```
-
-**2. A condition is a query fragment, not a predicate.**
-
-A condition method is handed its own query builder and can do whatever it needs —
-a `whereIn` with a subquery, a join, several `where`s at once. There's no
-guarantee it reduces to a single boolean expression you can splice into the outer
-`WHERE` with an `or`. Wrapping it in its own `EXISTS` subquery gives every
-condition a private scope to build in, and hands the outer query back a single,
-well-behaved boolean, so the outer query only ever sees `EXISTS (…)`.
-
-For example, `manages_team` probably isn't a literal `in (7, 12)` in real life —
-it more likely looks the teams up with a subquery:
+To reach another table, use a correlated `whereExists` / `whereNotExists` instead
+of a join — it stays a boolean and never multiplies rows:
 
 ```php
 #[TargetedCondition]
 public function managesTeam(TargetedConditionContext $c): Builder
 {
-    return $c->query->whereIn('documents.team_id', fn ($sub) => $sub
-        ->select('team_id')
+    return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_managers')
+        ->whereColumn('team_managers.team_id', 'documents.team_id')
         ->where('user_id', $c->user->getKey()));
 }
 ```
 
-That subquery just rides along inside the condition's own `EXISTS` leaf, and the
-leaf drops into the same `OR` as the flat `is_self` one — neither needs to know
-what the other looks like:
+That `whereExists` is itself just a boolean `where`, so it drops into the same
+`OR` as the flat `is_self` one — neither needs to know what the other looks like:
 
 ```sql
 where (
-    exists (select 1 from (select 1) as warrant_exists
-        where documents.user_id = 42)                    -- is_self
-    or exists (select 1 from (select 1) as warrant_exists
-        where documents.team_id in (
-            select team_id from team_managers where user_id = 42
-        ))                                               -- manages_team
+    documents.user_id = 42                          -- is_self
+    or exists (
+        select * from team_managers
+        where team_managers.team_id = documents.team_id
+          and user_id = 42
+    )                                               -- manages_team
 )
 ```
 
-Try to flatten that into a bare `... or documents.team_id in (select …)` and it
-still happens to work — but a condition that added a `join` instead of a subquery
-would have nowhere to go. The `EXISTS` wrapper is what makes every condition splice
-in the same way, regardless of the SQL it emits.
+**2. `NULL` follows SQL's own three-valued logic — and that's the safe default.**
 
-### The result
+SQL predicates are _three_-valued: `TRUE`, `FALSE`, or `UNKNOWN` (what you get when
+`NULL` is involved). Warrant doesn't try to hide that. A condition that touches a
+`NULL` column is `UNKNOWN`, and the outer `WHERE` keeps only `TRUE` rows — so an
+unknown condition simply contributes no access. Trace it both ways:
 
-Because each leaf is a strict boolean:
+- On a `can`, an `UNKNOWN` grant isn't `TRUE`, so it doesn't fire — no access added.
+- On a `cannot`, the deny side is `AND NOT(condition)`; with the condition
+  `UNKNOWN` that's `AND NOT(UNKNOWN)` = `AND UNKNOWN`, which drops the row.
 
-- A condition that touches a `NULL` column yields `false`, not SQL's "unknown."
-- Negation via `NOT EXISTS` is exact.
+So the failure direction is always the safe one: **an unknown condition never
+grants access and never lifts a deny.** The worst that can happen is a legitimate
+user being blocked on a null row — never someone seeing a row they shouldn't. (This
+is provable, not incidental: in three-valued logic, replacing any part of the
+predicate with `UNKNOWN` can never turn a not-`TRUE` result into `TRUE`.)
 
-This is why `not` / `cannot` behave predictably — no three-valued-logic surprises
-leak into your authorization results. Boolean structure (`and` / `or` / `not`)
-becomes nested `WHERE` groups, with **negation pushed to the leaves via De Morgan**
-so it always lands on an `EXISTS`, never on a group.
+If you want a different outcome for nulls, handle it explicitly in the condition:
 
-(The `from (select 1) as warrant_exists` is just a portable one-row dummy table to
-hang the correlated `where` off — it's what lets `documents.user_id` refer back to
-the outer row. A global condition like `is_admin` that returns a `bool` doesn't need
-a row — or even a subquery — at all: the compiler evaluates it in PHP and drops the
-result in as a bare `1 = 1` or `1 = 0`, no `EXISTS` wrapper.)
+```php
+// treat a NULL `locked` as "not locked"
+return $c->query->where(fn ($q) => $q
+    ->whereNull('documents.locked')
+    ->orWhere('documents.locked', false));
+```
+
+Boolean structure (`and` / `or` / `not`) becomes nested `WHERE` groups, with
+**negation pushed to the leaves via De Morgan** — so a `not` lands on a single
+condition (`not (documents.locked = 1)`, or `not exists (…)` for a `whereExists`),
+never on a whole group. A global condition like `is_admin` that returns a `bool`
+doesn't touch a row at all: the compiler evaluates it in PHP and drops in a bare
+`1 = 1` or `1 = 0`.
 
 ## Targeted conditions with no row
 
 In a no-target check (for example `getUserAbilities()` with no target),
 a targeted condition has no row to correlate against, so the compiler forces it to
 `1 = 0` (false) — and, under negation, `1 = 1` (true). Global conditions still
-evaluate normally. This is the same rule that makes an absent optional
-[`@context`](/guides/context/#the-fail-open-caveat) key soft-false its condition.
+evaluate normally. (Separately, an absent optional
+[`@context`](/guides/context/) value is passed to the condition as `null`, and
+standard SQL logic applies from there.)
 
 ## Worked examples
 
 Now compile [the example](#the-example)'s rule set, one ability at a time. Each
 ability gets its own predicate, and its shape comes entirely from which rules
 mention it. Our user is an admin, so the wildcard `is_admin` rule folds a `1 = 1`
-into every grant — for a non-admin that term would be `1 = 0` and the `EXISTS`
-leaves would decide instead.
+into every grant — for a non-admin that term would be `1 = 0` and the condition
+predicates would decide instead.
 
 **`delete`** is the simplest — only the wildcard `is_admin they can *` grants it,
 and no `cannot` mentions it. `is_admin` is a global `bool`, `1 = 1` for this admin,
-so the whole predicate is that one constant (no `EXISTS` at all):
+so the whole predicate is that one constant:
 
 ```sql
 select * from documents where 1 = 1
@@ -256,14 +242,14 @@ select * from documents where 1 = 1
 
 **`view`** is granted by three sources — `is_self`, `manages_team`, and the
 wildcard `is_admin` — `OR`'d together, with nothing denying it. The `is_admin` term
-is `1 = 1`, so for this admin the `OR` is already true; the two `EXISTS` leaves are
-what would decide it for a non-admin:
+is `1 = 1`, so for this admin the `OR` is already true; the two condition predicates
+are what would decide it for a non-admin:
 
 ```sql
 select * from documents where (
-    exists (select 1 from (select 1) as warrant_exists where documents.user_id = 42)           -- is_self
-    or exists (select 1 from (select 1) as warrant_exists where documents.team_id in (7, 12))  -- manages_team
-    or 1 = 1                                                                                    -- is_admin (from `they can *`)
+    documents.user_id = 42                 -- is_self
+    or documents.team_id in (7, 12)        -- manages_team
+    or 1 = 1                               -- is_admin (from `they can *`)
 )
 ```
 
@@ -274,22 +260,21 @@ select * from documents where (
 select * from documents where
   (
     -- grant side: the two-part first rule, OR the wildcard `is_admin` rule
-    exists (select 1 from (select 1) as warrant_exists where documents.user_id = 42)           -- is_self
-    or exists (select 1 from (select 1) as warrant_exists where documents.team_id in (7, 12))  -- manages_team
-    or 1 = 1                                                                                    -- is_admin (from `they can *`)
+    documents.user_id = 42                 -- is_self
+    or documents.team_id in (7, 12)        -- manages_team
+    or 1 = 1                               -- is_admin (from `they can *`)
   )
   and (
     -- deny side: NOT(is_locked and not is_admin), De-Morgan'd onto the leaves
-    not exists (select 1 from (select 1) as warrant_exists where documents.locked = 1)         -- not is_locked
-    or 1 = 1                                                                                    -- or is_admin
+    not (documents.locked = 1)             -- not is_locked
+    or 1 = 1                               -- or is_admin
   )
 ```
 
 The `cannot update` guarded by `is_locked and not is_admin` becomes
 `NOT(is_locked AND NOT is_admin)`, which De Morgan turns into
-`(NOT is_locked OR is_admin)` — negation always lands on a leaf (an `EXISTS`, or a
-constant for a global `bool`), never on a group, so it stays a strict two-valued
-boolean.
+`(NOT is_locked OR is_admin)` — negation always lands on a leaf (a single
+condition, or a constant for a global `bool`), never on a group.
 
 **Several abilities at once** combine per the [match mode](/guides/checking-access/#match-modes).
 `userHasAbility(['view', 'update'], matchMode: ALL)` `AND`s the `view` and `update`

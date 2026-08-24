@@ -239,8 +239,10 @@ and not (
 )
 ```
 
-That's the rough idea, not the exact output. The real SQL wraps each condition in
-an `EXISTS` subquery so that `not` and null columns behave. For the full story, see
+That's very close to the real output — each condition is spliced inline like this.
+Relational conditions reach other tables through a correlated `whereExists`
+subquery, and `NULL` columns follow standard SQL logic (an unknown condition simply
+contributes no access). For the full story, see
 [How it compiles to SQL](/guides/how-it-compiles/).
 
 :::note[Work in progress]

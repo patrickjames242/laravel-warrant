@@ -74,9 +74,11 @@ isn't. Every ability a user should have needs a matching `can`.
 
 ## Interaction with missing context
 
-There's one way this can surprise you: an **optional** `@context` key
-that's absent at check time makes its condition unevaluable → treated as false.
-On a `can` that's safe (no key, no grant). But on a `cannot`, a false condition
-means the veto *doesn't apply* — the deny silently **lifts** (fail-open). That's
-exactly why any context key gating a `cannot` should be declared `required`. See
-[Check-time context](/guides/context/#the-fail-open-caveat).
+An **optional** `@context` key that's absent at check time is passed to its
+condition as `null`, and standard SQL logic takes over. A comparison against `null`
+is `UNKNOWN`, which contributes no access: on a `can` it doesn't grant, and on a
+`cannot` the `AND NOT(UNKNOWN)` term drops the row — so an absent key makes the veto
+err toward *denying* (fail-closed), never toward silently granting. It's still good
+practice to declare a context key that gates a `cannot` as `required`, so a missing
+frame fails loudly rather than quietly blocking rows. See
+[Check-time context](/guides/context/).

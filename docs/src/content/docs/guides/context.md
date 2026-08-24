@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Check-time context
-description: Context keys, the @context reference, defaults, and the fail-open caveat on denies.
+description: Context keys, the @context reference, defaults, and how a missing optional key fails closed.
 sidebar:
   order: 9
 ---
@@ -92,8 +92,8 @@ public function inCurrentWorkspace(TargetedConditionContext $c): Builder
 }
 ```
 
-Two styles, same value. `@context` threads a key positionally and soft-falses the
-condition when an *optional* key is missing; `$c->context` hands every condition
+Two styles, same value. `@context` threads a key positionally and passes `null` to
+the condition when an *optional* key is missing; `$c->context` hands every condition
 the whole bag to read however it likes. Pick whichever makes your rules read the
 way you want.
 
@@ -144,25 +144,28 @@ or via defaultContext().
 
 That loud failure is a feature — a required frame is never silently skipped.
 
-## The fail-open caveat
+## Missing optional context
 
-Opt out with `#[ContextKey(required: false)]` **only** for a frame that never
-gates a `cannot`. Here's why:
+`#[ContextKey(required: false)]` lets a frame be absent at check time. When an
+optional `@context` key is missing, Warrant passes it to the condition as `null`
+and standard SQL logic takes over — a comparison against `null` is `UNKNOWN`.
 
-When an *optional* `@context` key is absent at check time, its condition becomes
-unevaluable and is treated as **false** — the same rule Warrant applies to a
-targeted condition in a no-target check (and, by De Morgan, `not <it>` becomes
-**true**).
+An `UNKNOWN` condition contributes no access in either direction:
 
-- On a **grant** (`can`), false is safe: no key, no grant (fail-closed).
-- On a **deny** (`cannot`), false means the veto *doesn't apply* — the deny
-  **lifts** (fail-open).
+- On a **grant** (`can`), it doesn't grant — no key, no access (fail-closed).
+- On a **deny** (`cannot`), the `AND NOT(UNKNOWN)` term drops the row — the veto
+  errs toward *blocking*, never lifting (also fail-closed).
 
-So a missing optional key can silently *remove* a restriction. That's exactly what
-`required: true` forecloses. **When in doubt, leave it required.**
+So a missing optional key can only ever *remove* access, never silently restore it —
+the failure direction is safe. It's still good practice to mark a key that gates a
+`cannot` as `required`, so a missing frame fails loudly instead of quietly blocking
+rows. **When in doubt, leave it required.**
 
 ```text
-# If workspace_id is optional and absent, this cannot LIFTS — the user is no
-# longer blocked. Declare workspace_id required to prevent that.
+# If workspace_id is optional and absent, this condition is UNKNOWN and the cannot
+# blocks the row (fail-closed). Declare workspace_id required to fail loudly instead.
 if outside_workspace(@context workspace_id) they cannot view
 ```
+
+(A condition is free to treat `null` deliberately — e.g. `whereNull(...)` — if you
+want a specific behavior for the absent-key case rather than the default `UNKNOWN`.)

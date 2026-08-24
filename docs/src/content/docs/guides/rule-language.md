@@ -181,8 +181,8 @@ time, may sit alongside literals and bindings, and never consumes a positional
 if scoped_to('projects', @context project_id, :region) they can view
 ```
 
-Full behaviour — required vs. optional keys, the fail-open caveat on `cannot` —
-is covered in [Check-time context](/guides/context/).
+Full behaviour — required vs. optional keys, and how a missing optional key fails
+closed — is covered in [Check-time context](/guides/context/).
 
 ## Whitespace, multiple rules, reserved words
 
