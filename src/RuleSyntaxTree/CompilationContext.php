@@ -20,6 +20,10 @@ final readonly class CompilationContext
 {
     /**
      * @param array<string, mixed> $checkContext The effective check-time context.
+     * @param list<string> $visited The `(schema, ability)` frames on the current
+     *   cross-schema compile path (each `"schemaKey\0ability"`), for cycle
+     *   detection. Path-scoped: a frame added descending into a referenced schema
+     *   never leaks to a sibling branch, since each step derives a fresh copy.
      */
     public function __construct(
         public Authenticatable $user,
@@ -27,6 +31,7 @@ final readonly class CompilationContext
         public array $checkContext,
         public string $boolean = 'and',
         public bool $negate = false,
+        public array $visited = [],
     ) {
     }
 
@@ -36,11 +41,12 @@ final readonly class CompilationContext
     public function withBoolean(string $boolean): self
     {
         return new self(
-            $this->user,
-            $this->targetSqlId,
-            $this->checkContext,
-            $boolean,
-            $this->negate,
+            user: $this->user,
+            targetSqlId: $this->targetSqlId,
+            checkContext: $this->checkContext,
+            boolean: $boolean,
+            negate: $this->negate,
+            visited: $this->visited,
         );
     }
 
@@ -50,11 +56,12 @@ final readonly class CompilationContext
     public function negated(): self
     {
         return new self(
-            $this->user,
-            $this->targetSqlId,
-            $this->checkContext,
-            $this->boolean,
-            ! $this->negate,
+            user: $this->user,
+            targetSqlId: $this->targetSqlId,
+            checkContext: $this->checkContext,
+            boolean: $this->boolean,
+            negate: ! $this->negate,
+            visited: $this->visited,
         );
     }
 }

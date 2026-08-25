@@ -3,8 +3,11 @@
 namespace Warrant\RuleSyntaxTree;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
+use RuntimeException;
+use Warrant\WarrantManager;
 
 /**
  * Compiles a {@see WarrantRuleSet} into SQL predicates.
@@ -36,12 +39,32 @@ use InvalidArgumentException;
  */
 final class RuleSetCompiler
 {
-    public function __construct(private readonly ConditionResolver $conditions)
-    {
+    /**
+     * Hard cap on cross-schema `can(...)` nesting depth. The visited-set already
+     * guarantees termination (a finite set of `(schema, ability)` pairs can never
+     * repeat on one path); this is a secondary backstop against a legal but
+     * pathologically deep reference chain producing enormous nested SQL.
+     */
+    private const MAX_CROSS_SCHEMA_DEPTH = 32;
+
+    /**
+     * @param WarrantManager|null $manager The schema registry, required only to
+     *   compile a {@see CrossSchemaCanNode} (resolving the referenced schema);
+     *   null is fine for rule sets with no cross-schema references.
+     */
+    public function __construct(
+        private readonly ConditionResolver $conditions,
+        private readonly ?WarrantManager $manager = null,
+    ) {
     }
 
     /**
      * Build the predicate for a single ability as a nested query on $query.
+     */
+    /**
+     * @param list<string> $visited The `(schema, ability)` frames already on the
+     *   cross-schema compile path; a recursive call threads its parent's frames
+     *   in so a cycle back to any of them is detected.
      */
     public function compileAbility(
         Authenticatable $user,
@@ -50,7 +73,10 @@ final class RuleSetCompiler
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
         array $context = [],
+        array $visited = [],
     ): Builder {
+        $visited = $this->enterFrame($visited, $ability);
+
         $predicate = $query->newQuery();
 
         /** @var list<IBooleanExpressionNode|null> $grants */
@@ -80,7 +106,7 @@ final class RuleSetCompiler
             return $predicate->whereRaw('1 = 0');
         }
 
-        $grantCtx = new CompilationContext($user, $targetSqlId, $context);
+        $grantCtx = new CompilationContext($user, $targetSqlId, $context, visited: $visited);
 
         // Grant side: OR of every can-expression (null => always-true term).
         $predicate->where(function (Builder $grantGroup) use ($grants, $grantCtx): void {
@@ -98,7 +124,7 @@ final class RuleSetCompiler
         });
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true);
+        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, visited: $visited);
 
         foreach ($denies as $denyExpression) {
             $predicate->where(function (Builder $denyGroup) use ($denyExpression, $denyCtx): void {
@@ -182,6 +208,12 @@ final class RuleSetCompiler
             return;
         }
 
+        if ($node instanceof CrossSchemaCanNode) {
+            $this->applyCrossSchemaCan($parent, $node, $ctx);
+
+            return;
+        }
+
         if ($node instanceof BooleanNode) {
             $value = $ctx->negate ? ! $node->value : $node->value;
             $parent->whereRaw($value ? '1 = 1' : '1 = 0', [], $ctx->boolean);
@@ -190,6 +222,135 @@ final class RuleSetCompiler
         }
 
         throw new InvalidArgumentException(sprintf('Unsupported expression node [%s].', $node::class));
+    }
+
+    /**
+     * Push this compile's `(schema, ability)` frame onto the visited path,
+     * detecting a cross-schema cycle (the frame already present) and enforcing
+     * the depth cap.
+     *
+     * @param list<string> $visited
+     * @return list<string>
+     */
+    private function enterFrame(array $visited, string $ability): array
+    {
+        $frame = $this->conditions::schemaKey() . "\0" . $ability;
+
+        if (in_array($frame, $visited, true)) {
+            throw CrossSchemaCycleException::forPath(
+                array_map(fn (string $f): string => str_replace("\0", ':', $f), [...$visited, $frame]),
+            );
+        }
+
+        $visited[] = $frame;
+
+        if (count($visited) > self::MAX_CROSS_SCHEMA_DEPTH) {
+            throw new RuntimeException(sprintf(
+                'Cross-schema can(...) nesting exceeded the maximum depth of %d.',
+                self::MAX_CROSS_SCHEMA_DEPTH,
+            ));
+        }
+
+        return $visited;
+    }
+
+    /**
+     * Compile a cross-schema `can(<ability> for <schema>[(<row>)] [with <map>])`
+     * by recursively compiling the referenced schema B's ability and embedding it:
+     * a row-bound reference wraps B's per-row predicate as `EXISTS` over B's table;
+     * an unbound reference splices B's no-target boolean predicate inline. B sees
+     * only the explicit `with` map as its context — never A's ambient context.
+     */
+    private function applyCrossSchemaCan(Builder $parent, CrossSchemaCanNode $node, CompilationContext $ctx): void
+    {
+        if ($this->manager === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Compiling a can(...) reference to schema [%s] requires the schema registry; '
+                    .'construct RuleSetCompiler with a WarrantManager.',
+                $node->schemaKey,
+            ));
+        }
+
+        /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
+        $bClass = $this->manager->getSchemaForKey($node->schemaKey);
+        $bSchema = new $bClass;
+
+        // Explicit boundary context only: resolve each with-map RHS against A's
+        // context, with no ambient inheritance of A's bag.
+        $bContext = [];
+        foreach ($node->contextMap as $key => $value) {
+            $bContext[$key] = $value instanceof ContextRef
+                ? ($ctx->checkContext[$value->key] ?? null)
+                : $value;
+        }
+
+        $bRuleSet = $bSchema->resolvedRuleSet($ctx->user);
+        $bCompiler = new self($bSchema, $this->manager);
+
+        if ($node->isRowBound) {
+            /** @var Model $bModel */
+            $bModel = new ($bClass::model);
+            $this->assertSameConnection($parent, $bModel, $node->schemaKey);
+
+            $rowId = $node->boundRow instanceof ContextRef
+                ? ($ctx->checkContext[$node->boundRow->key] ?? null)
+                : $node->boundRow;
+
+            $bSubquery = $parent->newQuery()
+                ->from($bModel->getTable())
+                ->where($bModel->getQualifiedKeyName(), '=', $rowId);
+
+            $predicate = $bCompiler->compileAbility(
+                $ctx->user,
+                $bSubquery,
+                $node->ability,
+                $bRuleSet,
+                $bModel->getQualifiedKeyName(),
+                $bContext,
+                $ctx->visited,
+            );
+
+            $bSubquery->addNestedWhereQuery($predicate);
+            $parent->addWhereExistsQuery($bSubquery, $ctx->boolean, $ctx->negate);
+
+            return;
+        }
+
+        // Unbound / no-target: row conditions in B are forced false; the result is
+        // a correlation-free boolean predicate spliced inline (negation-aware).
+        $predicate = $bCompiler->compileAbility(
+            $ctx->user,
+            $parent,
+            $node->ability,
+            $bRuleSet,
+            null,
+            $bContext,
+            $ctx->visited,
+        );
+
+        $parent->addNestedWhereQuery($predicate, $ctx->negate ? "{$ctx->boolean} not" : $ctx->boolean);
+    }
+
+    /**
+     * A cross-schema `can(...)` embeds B's table as a subquery inside A's query,
+     * which executes on a single connection. If B lives on a different connection
+     * the emitted SQL would silently reference a table that isn't there, so reject
+     * it with a clear message instead.
+     */
+    private function assertSameConnection(Builder $parent, Model $bModel, string $bSchemaKey): void
+    {
+        $parentConnection = $parent->getConnection()->getName();
+        $bConnection = $bModel->getConnection()->getName();
+
+        if ($parentConnection !== $bConnection) {
+            throw new InvalidArgumentException(sprintf(
+                'Cannot compile can(... for %s): that schema is on database connection [%s] but the '
+                    .'query runs on [%s]; cross-connection can(...) is not supported.',
+                $bSchemaKey,
+                $bConnection,
+                $parentConnection,
+            ));
+        }
     }
 
     private function applyCondition(Builder $parent, ConditionNode $node, CompilationContext $ctx): void

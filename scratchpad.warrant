@@ -51,7 +51,7 @@ they can update, delete
 
 
 # ── Ability list — ALL must hold ─────────────────────────────────────
-if can([view, approve] for pay_periods(@context pay_period_id))
+if can(view and approve for pay_periods(@context pay_period_id))
 they can approve
 
 

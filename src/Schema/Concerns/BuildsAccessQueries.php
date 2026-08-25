@@ -9,6 +9,7 @@ use RuntimeException;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\WarrantManager;
 
 /**
  * The SQL runtime: turns the resolved {@see WarrantRuleSet} into access-control
@@ -236,7 +237,7 @@ trait BuildsAccessQueries
 
     protected function compiler(): RuleSetCompiler
     {
-        return new RuleSetCompiler($this);
+        return new RuleSetCompiler($this, app(WarrantManager::class));
     }
 
     /**

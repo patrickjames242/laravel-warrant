@@ -17,6 +17,12 @@ use Illuminate\Database\Query\Builder;
 interface ConditionResolver extends SchemaVocabulary
 {
     /**
+     * The schema's key. Used by the compiler to seed the cross-schema cycle
+     * guard with a `(schemaKey, ability)` frame per compiled ability.
+     */
+    public static function schemaKey(): string;
+
+    /**
      * Whether the keyed condition is a row condition (needs a target SQL id). A
      * row condition is forced to false when compiled without a target.
      */

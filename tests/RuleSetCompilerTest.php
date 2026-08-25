@@ -36,6 +36,11 @@ final class FakeConditionResolver implements ConditionResolver
 {
     private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true];
 
+    public static function schemaKey(): string
+    {
+        return 'docs';
+    }
+
     public static function abilityNames(): array
     {
         return ['view', 'edit', 'delete', 'publish'];

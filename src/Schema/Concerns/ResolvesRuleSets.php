@@ -16,6 +16,16 @@ use Warrant\RuleSyntaxTree\WarrantRuleSet;
 trait ResolvesRuleSets
 {
     /**
+     * Public entry to this schema's resolved, validated rule set for a user.
+     * Used by the compiler when a cross-schema `can(...)` reference must resolve
+     * another schema's rules; internal callers use {@see resolveRuleSet}.
+     */
+    public function resolvedRuleSet(Authenticatable $currentUser): WarrantRuleSet
+    {
+        return $this->resolveRuleSet($currentUser);
+    }
+
+    /**
      * Resolve and validate the rule set that governs this user's access to the
      * managed entity.
      */
