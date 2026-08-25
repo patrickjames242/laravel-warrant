@@ -142,7 +142,7 @@ use Warrant\RuleSyntaxTree\WarrantRule;
 
 class DocumentSchema extends WarrantSchema
 {
-    protected function implicitRules(): array
+    protected function implicitRules(): array|WarrantRuleSet
     {
         return [
             WarrantRule::fromSyntax('if is_admin they can *'),
@@ -151,6 +151,10 @@ class DocumentSchema extends WarrantSchema
     }
 }
 ```
+
+You may return either a plain list of rules (above) or a fully-formed
+`WarrantRuleSet` for this schema — whichever your baseline logic produces most
+naturally. A returned rule set must target this schema.
 
 Because rule order never matters, an implicit `cannot` beats any
 resolver-supplied `can` — ideal for baseline guarantees like an admin escape

@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\ConditionResolver;
 use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Concerns\AnalyzesReachability;
 use Warrant\Schema\Concerns\BuildsAccessQueries;
 use Warrant\Schema\Concerns\DiagnosesDenials;
@@ -73,10 +74,11 @@ abstract class WarrantSchema implements ConditionResolver
      * rules (deny-overrides still applies across both).
      *
      * Override to establish baseline access — e.g. a super-admin escape hatch or
-     * a universal deny:
+     * a universal deny. Return either a plain list of {@see WarrantRule} or a
+     * fully-formed {@see WarrantRuleSet} for this schema:
      *
      * ```php
-     * protected function implicitRules(): array
+     * protected function implicitRules(): array|WarrantRuleSet
      * {
      *     return [
      *         WarrantRule::fromSyntax('if is_super_admin they can *'),
@@ -85,9 +87,9 @@ abstract class WarrantSchema implements ConditionResolver
      * }
      * ```
      *
-     * @return array<int, WarrantRule>
+     * @return array<int, WarrantRule>|WarrantRuleSet
      */
-    protected function implicitRules(): array
+    protected function implicitRules(): array|WarrantRuleSet
     {
         return [];
     }

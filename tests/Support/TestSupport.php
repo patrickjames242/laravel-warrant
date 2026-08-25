@@ -221,6 +221,18 @@ class WarrantImplicitRulesSchema extends WarrantTestSchema
     }
 }
 
+class WarrantImplicitRuleSetSchema extends WarrantTestSchema
+{
+    protected function implicitRules(): array|WarrantRuleSet
+    {
+        // Same baseline as WarrantImplicitRulesSchema, but returned as a rule set.
+        return WarrantRuleSet::fromSyntax(
+            "they can publish\nthey cannot archive",
+            self::schemaKey(),
+        );
+    }
+}
+
 class FakeWarrantRuleResolver implements RuleResolver
 {
     public function __construct(private WarrantRuleSet $ruleSet) {}

@@ -127,7 +127,7 @@ Targeted checks against a model-less schema throw; use
 
 | Hook | Purpose |
 |---|---|
-| `protected function implicitRules(): array` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
+| `protected function implicitRules(): array\|WarrantRuleSet` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
 | `protected function defaultContext(): array` | Default check-time context, merged *under* explicit values. See [Check-time context](/guides/context/). |
 
 ## Registering the schema

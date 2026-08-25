@@ -71,7 +71,7 @@ public static function requiredContextKeys(): array;
 ### Overridable hooks
 
 ```php
-protected function implicitRules(): array;   // default []; merged into every rule set
+protected function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
 protected function defaultContext(): array;  // default []; merged UNDER explicit context
 ```
 

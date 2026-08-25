@@ -18,7 +18,7 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 - `#[Ability] const X = '...'` — declare an ability
 - `#[ContextKey] const X = '...'` — declare a check-time context key (required by default; `required: false` to opt out)
 - `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions
-- `protected function implicitRules(): array` — always-on rules
+- `protected function implicitRules(): array|WarrantRuleSet` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
 - `protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied
 - `protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when nothing granted

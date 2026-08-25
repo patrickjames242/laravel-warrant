@@ -163,6 +163,19 @@ it('merges implicit rules with resolver rules', function () {
     expect(WarrantImplicitRulesSchema::userHasAbilities('publish', 'other-section', $user))->toBeTrue();
 });
 
+it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list', function () {
+    seedCourseSections();
+    bindWarrantRules('if is_teacher they can view');
+
+    $user = makeWarrantTestUser('teacher-role');
+
+    // Identical behaviour to the array-returning variant: view from the resolver,
+    // publish from the implicit rule set, archive denied by the implicit set.
+    expect(WarrantImplicitRuleSetSchema::userHasAbilities('view', 'teacher:teacher-role', $user))->toBeTrue();
+    expect(WarrantImplicitRuleSetSchema::userHasAbilities('publish', 'other-section', $user))->toBeTrue();
+    expect(WarrantImplicitRuleSetSchema::userHasAbilities('archive', 'teacher:teacher-role', $user))->toBeFalse();
+});
+
 it('lets an implicit unconditional cannot override a resolver grant (deny-overrides)', function () {
     seedCourseSections();
     bindWarrantRules('they can archive'); // resolver grants archive unconditionally
