@@ -1,0 +1,51 @@
+<idea-plugin>
+    <id>com.patrickhanna.warrant</id>
+    <name>Laravel Warrant</name>
+    <version>0.1.0</version>
+    <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
+
+    <description><![CDATA[
+        Syntax highlighting for the <b>Warrant</b> authorization rule language.
+        Highlights standalone <code>.warrant</code> files and, more importantly,
+        the DSL embedded inside PHP heredocs/nowdocs labelled <code>WARRANT</code>
+        &mdash; e.g. <code>&lt;&lt;&lt;'WARRANT' ... WARRANT</code>.
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <ul>
+            <li><b>0.1.0</b> &mdash; Initial release: Warrant DSL syntax highlighting,
+                including injection into PHP heredocs labelled <code>WARRANT</code>.</li>
+        </ul>
+    ]]></change-notes>
+
+    <!-- Core platform. -->
+    <depends>com.intellij.modules.platform</depends>
+    <!-- The injector reads PHP heredoc PSI, so we need the PHP plugin. This also
+         means the plugin only loads in PhpStorm / IDEs with PHP support. -->
+    <depends>com.jetbrains.php</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 1. The language + its .warrant file association. -->
+        <fileType
+            name="Warrant"
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantFileType"
+            fieldName="INSTANCE"
+            extensions="warrant"/>
+
+        <!-- 2. Lexer + trivial parser (the parser is deliberately flat; the
+                future language server will provide errors/completion). -->
+        <lang.parserDefinition
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantParserDefinition"/>
+
+        <!-- 3. Token -> color mapping. This is what produces the highlighting. -->
+        <lang.syntaxHighlighterFactory
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantSyntaxHighlighterFactory"/>
+
+        <!-- 4. Inject Warrant into PHP heredocs labelled WARRANT/DSL. -->
+        <multiHostInjector
+            implementationClass="com.warrant.phpstorm.WarrantInjector"/>
+    </extensions>
+</idea-plugin>
