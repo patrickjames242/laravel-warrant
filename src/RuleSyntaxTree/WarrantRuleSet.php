@@ -141,7 +141,7 @@ readonly class WarrantRuleSet
     {
         $schemaClass = Warrant::getSchemaForKey($this->schemaKey);
 
-        (new RuleSetValidator(new $schemaClass))->validate($this);
+        (new RuleSetValidator(new $schemaClass, $this->schemaKey))->validate($this);
     }
 
     /**

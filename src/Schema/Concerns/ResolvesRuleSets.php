@@ -39,7 +39,7 @@ trait ResolvesRuleSets
             ]);
         }
 
-        (new RuleSetValidator($this))->validate($ruleSet);
+        (new RuleSetValidator($this, static::schemaKey()))->validate($ruleSet);
 
         return $ruleSet;
     }

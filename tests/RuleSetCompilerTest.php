@@ -225,7 +225,7 @@ it('passes an absent context key to the condition as null, letting it decide', f
 });
 
 it('accepts a rule referencing any context key without declaration', function () {
-    $validator = new RuleSetValidator(new FakeConditionResolver);
+    $validator = new RuleSetValidator(new FakeConditionResolver, 'docs');
 
     // Context keys need no declaration; an absent one just makes its condition
     // false at compile time. Required-ness is enforced at check time, not here.
@@ -234,7 +234,7 @@ it('accepts a rule referencing any context key without declaration', function ()
 });
 
 it('validates unknown ability and condition names', function () {
-    $validator = new RuleSetValidator(new FakeConditionResolver);
+    $validator = new RuleSetValidator(new FakeConditionResolver, 'docs');
 
     expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'they can fly')))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
