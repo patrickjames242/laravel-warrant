@@ -1,0 +1,113 @@
+
+
+
+if blah_blah
+they can view, delete
+they cannot touch, fight
+
+# # global condition on another schema (no row involved)
+# if some_other_schema.some_global_condition('p') they can view
+
+# # targeted condition on a SPECIFIC row of another schema
+# if pay_periods(@context pay_period_id).is_payroll_published_for_user(@context user_id)
+#     they can create
+
+# # ability check on another schema, no specific row (capability / global)
+# if some_other_schema.can(do_something) they can create
+
+# # ability check on a SPECIFIC row of another schema
+# if pay_periods(@context pay_period_id).can([create, view]) they can create
+# if pay_periods(@context pay_period_id).can(any of [create, view]) they can create
+
+# # passing context explicitly across the boundary (no ambient inheritance)
+# if some_other_schema.can(create)
+#         with as_of_date = @context pay_run_date, plan_id = @context plan_id
+#     they can create
+
+# composition is just boolean AND/OR of the above
+# if users.can(create_timesheet)
+#         and pay_periods(@context pay_period_id).is_payroll_published_for_user(@context user_id)
+#     they can create
+
+if can(create_timesheet for users(@context user_id))
+		and can(
+			create_timesheet for pay_periods(@context pay_period_id) 
+			with user_id = @context user_id
+		)
+they can create
+
+# ── Capability check: no specific row ────────────────────────────────
+# `payroll_admin` is a capability schema (no model). Just asks whether the
+# current user holds that ability at all.
+if can(access_payroll for payroll_admin)
+they can view, export
+
+
+# ── Ability check on a specific row of another schema ────────────────
+# The user may edit a timesheet only if they can `manage` the owning
+# department row.
+if can(manage for departments(@context department_id))
+they can update, delete
+
+
+# ── Ability list — ALL must hold ─────────────────────────────────────
+if can([view, approve] for pay_periods(@context pay_period_id))
+they can approve
+
+
+# ── Ability list — ANY is enough ─────────────────────────────────────
+if can(any of [approve, override] for pay_periods(@context pay_period_id))
+they can approve
+
+
+# ── Global condition on another schema ───────────────────────────────
+if check(is_locked_down('maintenance') for tenant_settings)
+they cannot update
+	with message 'The system is in maintenance mode.'
+
+
+# ── Targeted condition on a specific row of another schema ───────────
+# Delegates a domain question ("is payroll published for this user?") to the
+# pay_periods schema, evaluated against a specific pay-period row.
+if check(is_payroll_published_for_user(@context user_id) for pay_periods(@context pay_period_id))
+they cannot update
+	with message 'Payroll for this pay period is already published.'
+
+
+# ── Passing context explicitly across the boundary (with-map) ────────
+# `create` on the target schema internally references @context as_of_date and
+# plan_id; we supply them by name so nothing is inherited ambiently.
+if can(create for billing_plans
+	with as_of_date = @context pay_run_date, plan_id = @context plan_id)
+they can create
+
+
+# ── Composition: cross-schema + local conditions together ────────────
+# `is_self` and `is_manager` are this schema's own conditions; the cross-schema
+# checks gate on top of them.
+if (is_self or is_manager)
+	and can(submit_timesheets for pay_periods(@context pay_period_id))
+they can create, update
+
+
+# ── Composition with a deny that overrides ───────────────────────────
+if can(view_team for departments(@context department_id))
+they can view
+
+if not check(is_payroll_published_for_user(@context user_id) for pay_periods(@context pay_period_id))
+they can update
+they cannot delete
+
+
+# ── A fuller real-world rule ─────────────────────────────────────────
+# Create a timesheet only if: you can create timesheets for yourself as a user,
+# AND payroll for the target pay period is NOT yet published for you.
+if can(create_timesheet for users(@context user_id))
+	and not check(
+		is_payroll_published_for_user(@context user_id)
+		for pay_periods(@context pay_period_id)
+		with user_id = @context user_id
+	)
+they can create
+they cannot view 
+because 'You cannot view timesheets for a pay period that is already published.'
