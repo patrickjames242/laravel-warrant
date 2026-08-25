@@ -67,6 +67,7 @@ final class RuleSetValidator
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionExists($node),
             $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node),
+            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node),
             $node instanceof NotNode => $this->validateConditionNames($node->operand),
             $node instanceof AndNode, $node instanceof OrNode => (function () use ($node): void {
                 $this->validateConditionNames($node->leftSide);
@@ -125,6 +126,106 @@ final class RuleSetValidator
             throw new InvalidArgumentException(sprintf(
                 'A can(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
                 $node->schemaKey,
+            ));
+        }
+    }
+
+    /**
+     * Validate a cross-schema `check(<predicate> for <schema>[(<row>)])` reference:
+     * it must target another schema (never its own), that schema must be
+     * registered, and a row-bound reference requires a model-backed target with a
+     * non-null row. The predicate is a boolean expression whose every leaf must be
+     * a condition declared by the *target* schema; on an unbound handle no leaf may
+     * be a row condition (it would have no row to run against).
+     */
+    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node): void
+    {
+        if ($node->schemaKey === $this->schemaKey) {
+            throw new InvalidArgumentException(sprintf(
+                'A check(...) reference cannot target its own schema [%s]; it may only reference other schemas.',
+                $node->schemaKey,
+            ));
+        }
+
+        try {
+            $targetClass = Warrant::getSchemaForKey($node->schemaKey);
+        } catch (OutOfBoundsException $e) {
+            throw new InvalidArgumentException(
+                sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
+                previous: $e,
+            );
+        }
+
+        if ($node->isRowBound && $targetClass::model === '') {
+            throw new InvalidArgumentException(sprintf(
+                'A check(...) reference targets a specific row of schema [%s], but [%s] has no model and cannot be row-targeted; drop the row selector.',
+                $node->schemaKey,
+                $node->schemaKey,
+            ));
+        }
+
+        // A specified row target must resolve to a value; a literal `null` (or a
+        // binding that resolved to null) can never match a row. A `@context`
+        // reference is a symbolic ContextRef, not null — filled per check — so its
+        // nullability stays a compile-time concern, not a static one. (Same as can.)
+        if ($node->isRowBound && $node->boundRow === null) {
+            throw new InvalidArgumentException(sprintf(
+                'A check(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
+                $node->schemaKey,
+            ));
+        }
+
+        $this->assertCheckPredicateValid($node->predicate, $node, new $targetClass);
+    }
+
+    /**
+     * Walk a `check(...)` predicate, asserting every leaf is a condition of the
+     * target schema and rejecting any other node kind (a nested `can(...)` or
+     * `check(...)`, or a constant boolean) — the predicate may only ask domain
+     * questions of the target.
+     */
+    private function assertCheckPredicateValid(
+        IBooleanExpressionNode $node,
+        CrossSchemaConditionNode $reference,
+        ConditionResolver $target,
+    ): void {
+        match (true) {
+            $node instanceof ConditionNode => $this->assertCheckLeafValid($node, $reference, $target),
+            $node instanceof NotNode => $this->assertCheckPredicateValid($node->operand, $reference, $target),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $reference, $target): void {
+                $this->assertCheckPredicateValid($node->leftSide, $reference, $target);
+                $this->assertCheckPredicateValid($node->rightSide, $reference, $target);
+            })(),
+            default => throw new InvalidArgumentException(sprintf(
+                'A check(...) predicate for schema [%s] may only reference that schema\'s conditions; it may not contain can(...) or a nested check(...).',
+                $reference->schemaKey,
+            )),
+        };
+    }
+
+    /**
+     * Validate one condition leaf of a `check(...)` predicate: it must be declared
+     * by the target schema, and on an unbound handle it may not be a row condition.
+     */
+    private function assertCheckLeafValid(
+        ConditionNode $node,
+        CrossSchemaConditionNode $reference,
+        ConditionResolver $target,
+    ): void {
+        if (! $target->conditionExists($node->conditionKey)) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] is not declared by schema [%s].',
+                $node->conditionKey,
+                $reference->schemaKey,
+            ));
+        }
+
+        if (! $reference->isRowBound && $target->conditionIsRow($node->conditionKey)) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] is a row condition and needs a specific row, but the check(...) handle is unbound; add a row selector like %s(@context id).',
+                $node->conditionKey,
+                $reference->schemaKey,
+                $reference->schemaKey,
             ));
         }
     }
