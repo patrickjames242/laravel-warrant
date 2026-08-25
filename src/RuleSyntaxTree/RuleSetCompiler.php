@@ -137,13 +137,14 @@ final class RuleSetCompiler
 
     /**
      * Build a predicate that is true for the target row iff $condition matches —
-     * a single condition tree in isolation, without the deny-overrides formula.
+     * an expression tree compiled in isolation, without the deny-overrides formula.
      *
-     * Used by the singular-target denial diagnostic to test whether one `cannot`
-     * rule's condition fired for the target. A null condition (an unconditional
-     * `cannot`) always matches. Reuses the same inline leaf, targeted-vs-global,
-     * and `@context` semantics as {@see compileAbility}, so a diagnostic re-run
-     * agrees exactly with the live check.
+     * Two callers: the singular-target denial diagnostic (does one `cannot` rule's
+     * condition fire for the target?), and {@see applyCrossSchemaCheck}, which uses
+     * it to compile a `check(...)` predicate against the *target* schema's resolver.
+     * A null condition (an unconditional `cannot`) always matches. Reuses the same
+     * inline leaf, targeted-vs-global, and `@context` semantics as
+     * {@see compileAbility}, so a re-run agrees exactly with the live check.
      */
     public function matchesCondition(
         Authenticatable $user,
@@ -210,6 +211,12 @@ final class RuleSetCompiler
 
         if ($node instanceof CrossSchemaCanNode) {
             $this->applyCrossSchemaCan($parent, $node, $ctx);
+
+            return;
+        }
+
+        if ($node instanceof CrossSchemaConditionNode) {
+            $this->applyCrossSchemaCheck($parent, $node, $ctx);
 
             return;
         }
@@ -326,6 +333,84 @@ final class RuleSetCompiler
             null,
             $bContext,
             $ctx->visited,
+        );
+
+        $parent->addNestedWhereQuery($predicate, $ctx->negate ? "{$ctx->boolean} not" : $ctx->boolean);
+    }
+
+    /**
+     * Compile a cross-schema `check(<predicate> for <schema>[(<row>)] [with <map>])`
+     * by dispatching the target schema B's conditions and splicing the emitted SQL.
+     * Unlike {@see applyCrossSchemaCan} it never compiles B's *rules* — it is pure
+     * condition dispatch, so it carries no cycle risk and needs no visited-set. A
+     * row-bound reference wraps B's predicate as `EXISTS` over B's table
+     * (`NOT EXISTS` when negated); an unbound reference splices B's boolean predicate
+     * inline. The predicate's condition leaves are compiled with B's own resolver,
+     * and B sees only the explicit `with` map as its context — never A's ambient bag.
+     */
+    private function applyCrossSchemaCheck(Builder $parent, CrossSchemaConditionNode $node, CompilationContext $ctx): void
+    {
+        if ($this->manager === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Compiling a check(...) reference to schema [%s] requires the schema registry; '
+                    .'construct RuleSetCompiler with a WarrantManager.',
+                $node->schemaKey,
+            ));
+        }
+
+        /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
+        $bClass = $this->manager->getSchemaForKey($node->schemaKey);
+        $bSchema = new $bClass;
+
+        // Explicit boundary context only: resolve each with-map RHS against A's
+        // context, with no ambient inheritance of A's bag.
+        $bContext = [];
+        foreach ($node->contextMap as $key => $value) {
+            $bContext[$key] = $value instanceof ContextRef
+                ? ($ctx->checkContext[$value->key] ?? null)
+                : $value;
+        }
+
+        // Compile the predicate with B's own resolver, so its condition leaves emit
+        // B's SQL. matchesCondition() walks an expression subtree in isolation.
+        $bCompiler = new self($bSchema, $this->manager);
+
+        if ($node->isRowBound) {
+            /** @var Model $bModel */
+            $bModel = new ($bClass::model);
+            $this->assertSameConnection($parent, $bModel, $node->schemaKey);
+
+            $rowId = $node->boundRow instanceof ContextRef
+                ? ($ctx->checkContext[$node->boundRow->key] ?? null)
+                : $node->boundRow;
+
+            $bSubquery = $parent->newQuery()
+                ->from($bModel->getTable())
+                ->where($bModel->getQualifiedKeyName(), '=', $rowId);
+
+            $predicate = $bCompiler->matchesCondition(
+                $ctx->user,
+                $bSubquery,
+                $node->predicate,
+                $bModel->getQualifiedKeyName(),
+                $bContext,
+            );
+
+            $bSubquery->addNestedWhereQuery($predicate);
+            $parent->addWhereExistsQuery($bSubquery, $ctx->boolean, $ctx->negate);
+
+            return;
+        }
+
+        // Unbound / no-target: row conditions in B are forced false (validation
+        // already forbids them here); the result is a correlation-free boolean
+        // predicate spliced inline (negation-aware).
+        $predicate = $bCompiler->matchesCondition(
+            $ctx->user,
+            $parent,
+            $node->predicate,
+            null,
+            $bContext,
         );
 
         $parent->addNestedWhereQuery($predicate, $ctx->negate ? "{$ctx->boolean} not" : $ctx->boolean);
