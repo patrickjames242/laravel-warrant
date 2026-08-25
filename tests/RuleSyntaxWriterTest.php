@@ -233,3 +233,56 @@ it('renders literal row selectors and with-values via bound syntax losslessly', 
     $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
     expect($reparsed->conditions)->toEqual($rule->conditions);
 });
+
+// -- Cross-schema check(...) round-trip ----------------------------------------
+
+it('round-trips an unbound check(...) handle with a global condition', function () {
+    $rule = WarrantRule::fromSyntax("if check(is_open('maintenance') for tenant_settings) they cannot update");
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if check(is_open('maintenance') for tenant_settings)
+        they cannot update
+        TXT);
+});
+
+it('round-trips a row-bound check(...) handle with @context', function () {
+    $rule = WarrantRule::fromSyntax(
+        'if check(is_payroll_published_for_user(@context user_id) for pay_periods(@context id)) they cannot update'
+    );
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if check(is_payroll_published_for_user(@context user_id) for pay_periods(@context id))
+        they cannot update
+        TXT);
+});
+
+it('round-trips a complex check(...) predicate with minimal parentheses', function () {
+    $syntax = 'if check(is_published or (needs_review and not is_locked) for pay_periods(@context id)) they can approve';
+    $rule = WarrantRule::fromSyntax($syntax);
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if check(is_published or needs_review and not is_locked for pay_periods(@context id))
+        they can approve
+        TXT);
+});
+
+it('re-parses a check(...) to an equal tree (inline round-trip)', function () {
+    $syntax = 'if is_manager and not check(is_locked or is_frozen for pay_periods(@context id) with t = @context t) they can update';
+    $once = WarrantRule::fromSyntax($syntax);
+    $twice = WarrantRule::fromSyntax($once->toSyntax());
+
+    expect($twice->conditions)->toEqual($once->conditions);
+});
+
+it('renders a check(...) row selector and predicate args via bound syntax losslessly', function () {
+    $rule = WarrantRule::fromSyntax(
+        'if check(is_open(?) for pay_periods(?) with tenant = ?) they can view',
+        ['maintenance', 'pp-1', 'tenant-9'],
+    );
+
+    $bound = $rule->toBoundSyntax();
+    expect($bound->bindings)->toBe(['maintenance', 'pp-1', 'tenant-9']);
+
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
+    expect($reparsed->conditions)->toEqual($rule->conditions);
+});

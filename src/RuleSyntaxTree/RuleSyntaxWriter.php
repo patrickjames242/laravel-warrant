@@ -91,6 +91,7 @@ final class RuleSyntaxWriter
                 . ' and ' . $this->child($node->rightSide, self::PREC_AND),
             $node instanceof NotNode => 'not ' . $this->child($node->operand, self::PREC_NOT),
             $node instanceof CrossSchemaCanNode => $this->writeCrossSchemaCan($node),
+            $node instanceof CrossSchemaConditionNode => $this->writeCrossSchemaCheck($node),
             $node instanceof ConditionNode => $this->writeCondition($node),
             $node instanceof BooleanNode => throw new LogicException(
                 'A constant boolean expression has no rule-language representation.'
@@ -122,18 +123,34 @@ final class RuleSyntaxWriter
 
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
-        $handle = $node->schemaKey;
+        return 'can(' . $node->ability . ' for '
+            . $this->writeHandleAndWith($node->schemaKey, $node->isRowBound, $node->boundRow, $node->contextMap);
+    }
 
-        if ($node->isRowBound) {
-            $handle .= '(' . $this->arg($node->boundRow) . ')';
+    private function writeCrossSchemaCheck(CrossSchemaConditionNode $node): string
+    {
+        return 'check(' . $this->writeExpression($node->predicate) . ' for '
+            . $this->writeHandleAndWith($node->schemaKey, $node->isRowBound, $node->boundRow, $node->contextMap);
+    }
+
+    /**
+     * Render the shared cross-schema tail: the handle (`schema` or
+     * `schema(<row>)`), an optional `with <map>`, and the closing paren.
+     *
+     * @param array<string, mixed> $contextMap
+     */
+    private function writeHandleAndWith(string $schemaKey, bool $isRowBound, mixed $boundRow, array $contextMap): string
+    {
+        $out = $schemaKey;
+
+        if ($isRowBound) {
+            $out .= '(' . $this->arg($boundRow) . ')';
         }
 
-        $out = 'can(' . $node->ability . ' for ' . $handle;
-
-        if ($node->contextMap !== []) {
+        if ($contextMap !== []) {
             $entries = [];
 
-            foreach ($node->contextMap as $key => $value) {
+            foreach ($contextMap as $key => $value) {
                 $entries[] = $key . ' = ' . $this->arg($value);
             }
 

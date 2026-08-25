@@ -6,6 +6,7 @@ use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
+use Warrant\RuleSyntaxTree\CrossSchemaConditionNode;
 use Warrant\RuleSyntaxTree\IBooleanExpressionNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
@@ -24,8 +25,10 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  *   or       := and ('or' and)*
  *   and      := not ('and' not)*
  *   not      := ('not'|'!') not | primary
- *   primary  := '(' expr ')' | can_expr | condition
+ *   primary  := '(' expr ')' | can_expr | check_expr | condition
  *   can_expr := 'can' '(' IDENTIFIER 'for' handle ( 'with' with_map )? ')'
+ *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
+ *              -- the inner expr is a boolean tree of the target schema's conditions
  *   handle   := IDENTIFIER ( '(' arg ')' )?   -- no parens: unbound; one arg: row-bound
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
@@ -250,11 +253,15 @@ final class WarrantParser
             return $this->parseCan();
         }
 
+        if ($this->check(TokenType::CHECK)) {
+            return $this->parseCheck();
+        }
+
         if ($this->check(TokenType::IDENTIFIER)) {
             return $this->parseCondition();
         }
 
-        throw $this->nameError("a condition, 'can(', or '('");
+        throw $this->nameError("a condition, 'can(', 'check(', or '('");
     }
 
     /**
@@ -277,22 +284,7 @@ final class WarrantParser
 
         $this->expect(TokenType::FOR, "Expected 'for' after the ability name in 'can(...)'.");
 
-        if (! $this->check(TokenType::IDENTIFIER)) {
-            throw $this->nameError('a schema name');
-        }
-
-        $schemaKey = $this->advance()->lexeme;
-
-        // Optional row selector: `schema(<arg>)`. Its absence marks an unbound handle.
-        $isRowBound = false;
-        $boundRow = null;
-
-        if ($this->check(TokenType::LPAREN)) {
-            $this->advance();
-            $isRowBound = true;
-            $boundRow = $this->parseArgument();
-            $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
-        }
+        [$schemaKey, $isRowBound, $boundRow] = $this->parseHandle();
 
         $contextMap = [];
 
@@ -304,6 +296,65 @@ final class WarrantParser
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
         return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundRow, $contextMap);
+    }
+
+    /**
+     * Parse a cross-schema condition check:
+     * `check(<predicate> for <handle> [with <map>])`.
+     *
+     * The predicate is a full boolean expression whose leaves are the target
+     * schema's conditions; {@see parseExpression()} consumes it and naturally
+     * stops at `for`, which is neither an operator nor the start of a primary.
+     * Like `can`, `check` in expression position is unambiguously this builtin.
+     */
+    private function parseCheck(): CrossSchemaConditionNode
+    {
+        $this->advance(); // consume 'check'
+        $this->expect(TokenType::LPAREN, "Expected '(' after 'check'.");
+
+        $predicate = $this->parseExpression();
+
+        $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
+
+        [$schemaKey, $isRowBound, $boundRow] = $this->parseHandle();
+
+        $contextMap = [];
+
+        if ($this->check(TokenType::WITH)) {
+            $this->advance();
+            $contextMap = $this->parseWithMap();
+        }
+
+        $this->expect(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
+
+        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundRow, $contextMap);
+    }
+
+    /**
+     * Parse a cross-schema handle: a schema name with an optional row selector
+     * `schema(<arg>)`. The selector's absence marks an unbound (no-row) handle.
+     *
+     * @return array{0: string, 1: bool, 2: mixed} [schemaKey, isRowBound, boundRow]
+     */
+    private function parseHandle(): array
+    {
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->nameError('a schema name');
+        }
+
+        $schemaKey = $this->advance()->lexeme;
+
+        $isRowBound = false;
+        $boundRow = null;
+
+        if ($this->check(TokenType::LPAREN)) {
+            $this->advance();
+            $isRowBound = true;
+            $boundRow = $this->parseArgument();
+            $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
+        }
+
+        return [$schemaKey, $isRowBound, $boundRow];
     }
 
     /**
@@ -459,6 +510,7 @@ final class WarrantParser
             TokenType::THEY,
             TokenType::CAN,
             TokenType::CANNOT,
+            TokenType::CHECK,
             TokenType::AND,
             TokenType::OR,
             TokenType::NOT,

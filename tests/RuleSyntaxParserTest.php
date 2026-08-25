@@ -4,6 +4,7 @@ use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
+use Warrant\RuleSyntaxTree\CrossSchemaConditionNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
 use Warrant\RuleSyntaxTree\WarrantRule;
@@ -461,5 +462,107 @@ it('rejects a reserved word (for) used as a bare condition name', function () {
 
 it('rejects a duplicate key in a with-map', function () {
     expect(fn () => WarrantParser::parse('if can(create for s with a = 1, a = 2) they can view'))
+        ->toThrow(WarrantSyntaxException::class, "Duplicate key 'a'");
+});
+
+// -- Cross-schema check(...) ---------------------------------------------------
+
+it('parses an unbound check(...) handle with a global condition', function () {
+    $rules = WarrantParser::parse("if check(is_open('maintenance') for tenant_settings) they cannot update");
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->schemaKey)->toBe('tenant_settings');
+    expect($node->isRowBound)->toBeFalse();
+    expect($node->boundRow)->toBeNull();
+    expect($node->contextMap)->toBe([]);
+    expect($node->predicate)->toBeInstanceOf(ConditionNode::class);
+    expect($node->predicate->conditionKey)->toBe('is_open');
+    expect($node->predicate->parameters)->toBe(['maintenance']);
+    expect($rules[0]->cannotAbilities)->toBe(['update']);
+});
+
+it('parses a row-bound check(...) handle with a @context row selector', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_payroll_published_for_user(@context user_id) for pay_periods(@context id)) they cannot update'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->schemaKey)->toBe('pay_periods');
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->boundRow)->toEqual(new ContextRef('id'));
+    expect($node->predicate->conditionKey)->toBe('is_payroll_published_for_user');
+    expect($node->predicate->parameters)->toEqual([new ContextRef('user_id')]);
+});
+
+it('parses a complex boolean predicate of conditions inside check(...)', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_published or (needs_review and not is_locked) for pay_periods(@context id)) they can approve'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->schemaKey)->toBe('pay_periods');
+
+    // is_published OR (needs_review AND NOT is_locked)
+    $predicate = $node->predicate;
+    expect($predicate)->toBeInstanceOf(OrNode::class);
+    expect($predicate->leftSide)->toBeInstanceOf(ConditionNode::class);
+    expect($predicate->leftSide->conditionKey)->toBe('is_published');
+    expect($predicate->rightSide)->toBeInstanceOf(AndNode::class);
+    expect($predicate->rightSide->leftSide->conditionKey)->toBe('needs_review');
+    expect($predicate->rightSide->rightSide)->toBeInstanceOf(NotNode::class);
+    expect($predicate->rightSide->rightSide->operand->conditionKey)->toBe('is_locked');
+});
+
+it('parses a check(...) with a with-map of @context values', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_published(@context user_id) for pay_periods(@context id) with user_id = @context user_id) they can create'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->schemaKey)->toBe('pay_periods');
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->contextMap)->toEqual(['user_id' => new ContextRef('user_id')]);
+});
+
+it('composes a check(...) leaf with a local condition, negated', function () {
+    $rules = WarrantParser::parse(
+        'if is_manager and not check(is_locked for pay_periods(@context id)) they can update'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(AndNode::class);
+    expect($node->leftSide->conditionKey)->toBe('is_manager');
+    expect($node->rightSide)->toBeInstanceOf(NotNode::class);
+    expect($node->rightSide->operand)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->rightSide->operand->schemaKey)->toBe('pay_periods');
+});
+
+it('resolves positional bindings across a check(...) predicate arg, row selector and with-map', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_open(?) for pay_periods(?) with tenant = ?) they can view',
+        ['maintenance', 'pp-1', 'tenant-9'],
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->predicate->parameters)->toBe(['maintenance']);
+    expect($node->boundRow)->toBe('pp-1');
+    expect($node->contextMap)->toBe(['tenant' => 'tenant-9']);
+});
+
+it('throws when the check(...) predicate is not followed by for', function () {
+    expect(fn () => WarrantParser::parse('if check(is_open pay_periods) they can view'))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+it('throws on an empty check(...) predicate', function () {
+    expect(fn () => WarrantParser::parse('if check(for pay_periods) they can view'))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+it('rejects a duplicate key in a check(...) with-map', function () {
+    expect(fn () => WarrantParser::parse('if check(is_open for s with a = 1, a = 2) they can view'))
         ->toThrow(WarrantSyntaxException::class, "Duplicate key 'a'");
 });

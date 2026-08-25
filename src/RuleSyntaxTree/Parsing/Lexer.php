@@ -12,8 +12,8 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  * the source); comments are trivia and never reach the parser. A `#` inside a
  * string literal is literal, since comments are only recognised between tokens.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
- * `cannot`, `and`, `or`, `not`, `for`, `with`. `true` / `false` / `null` are always lexed as
- * literals, so they cannot double as condition or ability names.
+ * `cannot`, `check`, `and`, `or`, `not`, `for`, `with`. `true` / `false` / `null` are always
+ * lexed as literals, so they cannot double as condition or ability names.
  */
 final class Lexer
 {
@@ -22,6 +22,7 @@ final class Lexer
         'they' => TokenType::THEY,
         'can' => TokenType::CAN,
         'cannot' => TokenType::CANNOT,
+        'check' => TokenType::CHECK,
         'and' => TokenType::AND,
         'or' => TokenType::OR,
         'not' => TokenType::NOT,
