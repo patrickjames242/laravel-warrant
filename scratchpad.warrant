@@ -56,7 +56,7 @@ they can approve
 
 
 # ── Ability list — ANY is enough ─────────────────────────────────────
-if can(any of [approve, override] for pay_periods(@context pay_period_id))
+if can(approve or override for pay_periods(@context pay_period_id))
 they can approve
 
 
@@ -90,24 +90,57 @@ if (is_self or is_manager)
 they can create, update
 
 
-# ── Composition with a deny that overrides ───────────────────────────
-if can(view_team for departments(@context department_id))
-they can view
-
-if not check(is_payroll_published_for_user(@context user_id) for pay_periods(@context pay_period_id))
-they can update
-they cannot delete
 
 
-# ── A fuller real-world rule ─────────────────────────────────────────
-# Create a timesheet only if: you can create timesheets for yourself as a user,
-# AND payroll for the target pay period is NOT yet published for you.
-if can(create_timesheet for users(@context user_id))
-	and not check(
-		is_payroll_published_for_user(@context user_id)
-		for pay_periods(@context pay_period_id)
-		with user_id = @context user_id
-	)
-they can create
-they cannot view 
-because 'You cannot view timesheets for a pay period that is already published.'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+for timesheets {
+
+	# ── Composition with a deny that overrides ───────────────────────────
+	if can(view_team for departments(@context department_id))
+	they can view
+
+	if not check(is_payroll_published_for_user(@context user_id) for pay_periods(@context pay_period_id))
+	they can update
+	they cannot delete
+
+}
+
+for some_schema{
+	they can view
+	
+	if some_condition they can edit
+}
+
+for some_other_schema{
+	they can view
+	
+	if some_condition they can edit
+}
+
+for documents {
+
+	if can(create_timesheet for users(@context user_id))
+		and check(
+			is_payroll_published_for_user(@context user_id)
+			for pay_periods(@context pay_period_id)
+			with user_id = @context user_id
+		)
+	they can create
+
+	if some_condition
+	they cannot view because 'Some denial message'
+}
+
