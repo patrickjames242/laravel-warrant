@@ -89,7 +89,7 @@ StandardAbilities::ARCHIVE;  // 'archive'
 ## Conditions
 
 Conditions are the predicates a rule may test. Each is a public method marked
-`#[TargetedCondition]` or `#[GlobalCondition]`. They're covered in depth in
+`#[RowCondition]` or `#[GlobalCondition]`. They're covered in depth in
 [Conditions](/guides/conditions/).
 
 ## Context keys
@@ -110,7 +110,7 @@ class SettingsSchema extends WarrantSchema
 
     #[Ability] public const MANAGE = 'manage';
 
-    // Only global conditions make sense here — targeted conditions
+    // Only global conditions make sense here — row conditions
     // are treated as false in a no-target check.
     #[GlobalCondition]
     public function isAdmin(GlobalConditionContext $c): bool

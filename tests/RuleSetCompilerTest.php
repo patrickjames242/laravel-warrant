@@ -46,7 +46,7 @@ final class FakeConditionResolver implements ConditionResolver
         return array_key_exists($name, self::TARGETED);
     }
 
-    public function conditionIsTargeted(string $name): bool
+    public function conditionIsRow(string $name): bool
     {
         return self::TARGETED[$name] ?? false;
     }
@@ -103,7 +103,7 @@ it('grants no row when the ability is never mentioned', function () {
     expect(compileDocIds('they can view', 'edit'))->toBe([]);
 });
 
-it('grants only rows matching a targeted condition', function () {
+it('grants only rows matching a row condition', function () {
     expect(compileDocIds('if is_teacher they can view', 'view'))->toBe(['teacher:role-1']);
 });
 
@@ -124,7 +124,7 @@ it('ANDs conditions', function () {
         ->toBe([]);
 });
 
-it('negates a targeted condition with not', function () {
+it('negates a row condition with not', function () {
     expect(compileDocIds('if not is_teacher they can view', 'view'))
         ->toBe(['doc-9', 'other']);
 });
@@ -148,13 +148,13 @@ it('expands a wildcard cannot to every declared ability', function () {
         ->toBe(['doc-9', 'other']);
 });
 
-it('resolves a no-target boolean condition', function () {
+it('resolves a global boolean condition', function () {
     expect(compileDocIds('if is_admin they can view', 'view', 'admin'))
         ->toBe(['doc-9', 'other', 'teacher:role-1']);
     expect(compileDocIds('if is_admin they can view', 'view', 'not-admin'))->toBe([]);
 });
 
-it('forces a targeted condition to false with no target, true under not', function () {
+it('forces a row condition to false with no target, true under not', function () {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $user = new CompilerTestUser('role-1');
 

@@ -2,13 +2,13 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Conditions
-description: Targeted vs. global conditions, how they emit SQL, arguments, and the context bag.
+description: Row vs. global conditions, how they emit SQL, arguments, and the context bag.
 sidebar:
   order: 2
 ---
 
 Conditions are the predicates a rule's `if` may test. Each is a public method on
-the schema, marked `#[TargetedCondition]` or `#[GlobalCondition]`. A condition's
+the schema, marked `#[RowCondition]` or `#[GlobalCondition]`. A condition's
 one job is to **emit SQL** — there is no in-memory evaluation path, so a
 condition behaves identically when filtering a list or checking one row.
 
@@ -19,29 +19,30 @@ stripped: `isSelf` → `is_self`, `managesTeam` → `manages_team`.
 Override it by passing a key to the attribute:
 
 ```php
-#[TargetedCondition('is_owner')]
-public function isSelf(TargetedConditionContext $c): Builder { /* ... */ }
+#[RowCondition('is_owner')]
+public function isSelf(RowConditionContext $c): Builder { /* ... */ }
 ```
 
-## Targeted vs. global
+## Row vs. global
 
 The distinction is: _does this predicate talk about a specific row?_
 
-### `#[TargetedCondition]` — constrains which rows match
+### `#[RowCondition]` — constrains which rows match
 
-Its context is a `TargetedConditionContext` carrying `targetSqlId` — the
-qualified primary-key SQL id of the row under test (`documents.id`). Mutate
-`$c->query` to add the `WHERE` fragment and return the builder:
+Its context is a `RowConditionContext` exposing `$c->row()` — which returns the
+qualified primary-key SQL id of the row under test (`documents.id`), or the
+qualified name of any column you name (`$c->row('user_id')` → `documents.user_id`).
+Mutate `$c->query` to add the `WHERE` fragment and return the builder:
 
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\Schema\Conditions\TargetedConditionContext;
-use Warrant\TargetedCondition;
+use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\RowCondition;
 
-#[TargetedCondition]
-public function isSelf(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function isSelf(RowConditionContext $c): Builder
 {
-    // $c->targetSqlId === "documents.id" (the correlated row under test)
+    // $c->row() === "documents.id" (the correlated row under test)
     return $c->query->whereRaw(
         'documents.user_id = ?',
         [$c->user->getAuthIdentifier()],
@@ -70,8 +71,8 @@ return $c->query->whereExists(fn ($sub) => $sub
 
 ### `#[GlobalCondition]` — about the user or the world
 
-Its context is a `GlobalConditionContext` (no `targetSqlId`). It may mutate
-`$c->query` like a targeted condition, or simply **return a `bool`**:
+Its context is a `GlobalConditionContext` (no `row()`). It may mutate
+`$c->query` like a row condition, or simply **return a `bool`**:
 
 ```php
 use Warrant\GlobalCondition;
@@ -87,9 +88,9 @@ public function isAdmin(GlobalConditionContext $c): bool
 ### Why the split matters
 
 Some checks run with **no row** — [no-target checks](/guides/checking-access/#no-target-checks)
-and `getUserAbilities()` with no target. In that context a targeted condition
+and `getUserAbilities()` with no target. In that context a row condition
 can't be evaluated, so Warrant treats it as **false** (and therefore
-`not <targeted>` as **true**). Global conditions still evaluate normally. This is
+`not <row-condition>` as **true**). Global conditions still evaluate normally. This is
 why a no-model schema should only use global conditions.
 
 ## The context object
@@ -103,11 +104,11 @@ Every condition method takes a **single context object** and returns `Builder`
 | `$c->query`       | `Builder` (query builder) | both          |
 | `$c->arguments`   | `array`                   | both          |
 | `$c->context`     | `array`                   | both          |
-| `$c->targetSqlId` | `string`                  | targeted only |
+| `$c->row()`       | `string` (method)         | row only      |
 
 :::caution[Exactly one parameter, of the matching type]
 A condition method must accept **exactly one** parameter, and its type must match
-the attribute — `TargetedConditionContext` for `#[TargetedCondition]`,
+the attribute — `RowConditionContext` for `#[RowCondition]`,
 `GlobalConditionContext` for `#[GlobalCondition]`. A wrong type or an extra
 parameter throws `Condition method [...] must accept exactly one [...] parameter.`
 :::
@@ -118,8 +119,8 @@ A condition can take arguments from the rule (`in_team('sales')`). The
 resolved arguments arrive on `$c->arguments`, in order:
 
 ```php
-#[TargetedCondition]
-public function inTeam(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function inTeam(RowConditionContext $c): Builder
 {
     // in_team('sales', 'eng')  ->  $c->arguments === ['sales', 'eng']
     return $c->query->whereIn('documents.team_id', $c->arguments);
@@ -139,8 +140,8 @@ a condition is inherently tied to the frame — then the rule needn't mention th
 key at all:
 
 ```php
-#[TargetedCondition]
-public function inCurrentWorkspace(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function inCurrentWorkspace(RowConditionContext $c): Builder
 {
     // Rule is just `if in_current_workspace they can view` — no @context needed.
     return $c->query->where('documents.workspace_id', $c->context['workspace_id']);

@@ -32,7 +32,7 @@ final class BuilderFakeResolver implements ConditionResolver
 {
     public static function abilityNames(): array { return ['view']; }
     public function conditionExists(string $name): bool { return $name === 'is_teacher'; }
-    public function conditionIsTargeted(string $name): bool { return true; }
+    public function conditionIsRow(string $name): bool { return true; }
 
     public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = []): Builder|bool
     {

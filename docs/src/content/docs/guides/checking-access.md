@@ -201,7 +201,7 @@ DocumentSchema::getUserAbilities();     // all no-target abilities
 For a section with no model at all, define a
 [schema with no model](/guides/schemas/#schemas-with-no-model) with
 `const model = ''` and only `#[GlobalCondition]` conditions. In a no-target check,
-targeted conditions are treated as false, so only global logic contributes.
+row conditions are treated as false, so only global logic contributes.
 
 ## Passing context
 

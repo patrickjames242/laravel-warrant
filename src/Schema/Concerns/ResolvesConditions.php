@@ -7,7 +7,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 
 /**
  * The vocabulary seam the compiler dispatches into (the {@see \Warrant\RuleSyntaxTree\ConditionResolver}
@@ -20,11 +20,11 @@ trait ResolvesConditions
      * Applies a named condition filter to the provided builder.
      *
      * The named condition must correspond to a public method declared on the
-     * schema and marked with either `#[TargetedCondition(...)]` or
+     * schema and marked with either `#[RowCondition(...)]` or
      * `#[GlobalCondition(...)]`. The method receives a single context object
-     * carrying the user, the builder, the DSL arguments, and — for targeted
-     * conditions — the target SQL id. The builder is mutated in place and also
-     * returned for convenience.
+     * carrying the user, the builder, the DSL arguments, and — for row
+     * conditions — the target row's SQL identity. The builder is mutated in
+     * place and also returned for convenience.
      *
      * @param array<int, mixed> $arguments The resolved DSL arguments for the condition.
      * @param array<string, mixed> $context The effective check-time context bag.
@@ -48,14 +48,24 @@ trait ResolvesConditions
 
         $methodName = $conditionDefinition['method']->getName();
 
-        if ($conditionDefinition['has_target']) {
+        if ($conditionDefinition['is_row']) {
             if ($targetSqlId === null) {
                 throw new InvalidArgumentException(
                     sprintf('Condition [%s] on schema [%s] requires a target SQL id.', $conditionKey, static::class)
                 );
             }
 
-            $conditionContext = new TargetedConditionContext($currentUser, $whereClause, $targetSqlId, $arguments, $context);
+            $modelClass = static::model;
+            $model = new $modelClass;
+
+            $conditionContext = new RowConditionContext(
+                $currentUser,
+                $whereClause,
+                $model->getTable(),
+                $model->getKeyName(),
+                $arguments,
+                $context,
+            );
         } else {
             $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context);
         }
@@ -70,11 +80,11 @@ trait ResolvesConditions
         return static::conditionDefinitionForKey($conditionKey) !== null;
     }
 
-    public function conditionIsTargeted(string $conditionKey): bool
+    public function conditionIsRow(string $conditionKey): bool
     {
         $definition = static::conditionDefinitionForKey($conditionKey);
 
-        return $definition !== null && $definition['has_target'];
+        return $definition !== null && $definition['is_row'];
     }
 
     public function applyCondition(

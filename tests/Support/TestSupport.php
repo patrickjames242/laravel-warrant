@@ -13,8 +13,8 @@ use Warrant\RuleResolver;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\TargetedConditionContext;
-use Warrant\TargetedCondition;
+use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\RowCondition;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantManager;
 
@@ -83,10 +83,10 @@ class WarrantTestSchema extends WarrantSchema
     #[Ability]
     public const ABILITY_UPDATE = 'update';
 
-    #[TargetedCondition]
-    public function isTeacher(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function isTeacher(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->targetSqlId} = ?", ["teacher:{$c->user->role_id}"]);
+        return $c->query->whereRaw("{$c->row()} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
     #[GlobalCondition]
@@ -100,12 +100,12 @@ class WarrantTestSchema extends WarrantSchema
      * required idiom for reaching another table (conditions may only add where
      * clauses, so a top-level join is rejected; see WarrantJoinConditionSchema).
      */
-    #[TargetedCondition]
-    public function viaJoin(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function viaJoin(RowConditionContext $c): BuilderContract
     {
         return $c->query->whereExists(fn (BuilderContract $sub) => $sub
             ->from('enrollments')
-            ->whereColumn('enrollments.section_id', $c->targetSqlId)
+            ->whereColumn('enrollments.section_id', $c->row())
             ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]));
     }
 }
@@ -119,11 +119,11 @@ class WarrantJoinConditionSchema extends WarrantSchema
 
     // Illegal: a condition may only add where clauses. Emitting a top-level join
     // is rejected by the compiler with a whereExists() pointer.
-    #[TargetedCondition]
-    public function viaBadJoin(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function viaBadJoin(RowConditionContext $c): BuilderContract
     {
         return $c->query
-            ->join('enrollments', 'enrollments.section_id', '=', $c->targetSqlId)
+            ->join('enrollments', 'enrollments.section_id', '=', $c->row())
             ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]);
     }
 }
@@ -150,7 +150,7 @@ class MistypedConditionSchema extends WarrantSchema
     public const ABILITY_VIEW = 'view';
 
     // Marked targeted but typed with the global context — a boot-time mistake.
-    #[TargetedCondition]
+    #[RowCondition]
     public function isWrong(GlobalConditionContext $c): BuilderContract
     {
         return $c->query;

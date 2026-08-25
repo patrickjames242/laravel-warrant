@@ -83,7 +83,7 @@ site.
 Thrown lazily the first time a schema's conditions are reflected:
 
 - `Condition method [%s::%s] must not declare duplicate condition attributes.`
-- `Condition method [%s::%s] cannot declare both #[TargetedCondition] and #[GlobalCondition].`
+- `Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].`
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
 - `Condition method [%s::%s] must accept exactly one [%s] parameter.` — wrong context type **or** an extra parameter.
 - `Schema [%s] is a schema with no model and does not support targeted checks; use a no-target check instead.`
@@ -93,7 +93,7 @@ Thrown lazily the first time a schema's conditions are reflected:
 From the condition resolver:
 
 - `BadMethodCallException` — `Condition [%s] is not defined on schema [%s].`
-- `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target SQL id.` (a targeted condition run with no target)
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target SQL id.` (a row condition run with no target)
 
 ## Context errors → `InvalidArgumentException`
 

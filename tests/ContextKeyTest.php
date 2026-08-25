@@ -11,9 +11,9 @@ use Warrant\AbilityMatchMode;
 use Warrant\HasWarrantSchema;
 use Warrant\RequiredContext;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\TargetedCondition;
+use Warrant\RowCondition;
 
 class ContextDoc extends Model
 {
@@ -39,8 +39,8 @@ class ContextDocSchema extends WarrantSchema
     #[RequiredContext] public const WORKSPACE = 'workspace_id';           // required schema-wide
     public const AS_OF = 'as_of_date';                                    // usable without any declaration
 
-    #[TargetedCondition]
-    public function inWorkspace(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function inWorkspace(RowConditionContext $c): BuilderContract
     {
         [$workspace] = $c->arguments;
 
@@ -48,8 +48,8 @@ class ContextDocSchema extends WarrantSchema
     }
 
     // Reads the ambient context bag directly — no @context argument in the rule.
-    #[TargetedCondition]
-    public function currentWorkspace(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function currentWorkspace(RowConditionContext $c): BuilderContract
     {
         return $c->query->whereRaw('context_docs.workspace_id = ?', [$c->context['workspace_id'] ?? null]);
     }

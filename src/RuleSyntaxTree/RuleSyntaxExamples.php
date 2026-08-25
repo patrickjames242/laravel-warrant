@@ -156,23 +156,23 @@ class RuleSyntaxExamples
      * interpolating it into SQL. The arguments arrive on the condition's context
      * object as `$c->arguments`:
      *
-     *   use Warrant\TargetedCondition;
+     *   use Warrant\RowCondition;
      *   use Warrant\GlobalCondition;
-     *   use Warrant\Schema\Conditions\TargetedConditionContext;
+     *   use Warrant\Schema\Conditions\RowConditionContext;
      *   use Warrant\Schema\Conditions\GlobalConditionContext;
      *
-     *   // Targeted: the context carries the target SQL id and the DSL arguments.
-     *   #[TargetedCondition]
-     *   public function isSpecificUser(TargetedConditionContext $c): Builder {
+     *   // Row: the context exposes the target row's SQL identity and the DSL arguments.
+     *   #[RowCondition]
+     *   public function isSpecificUser(RowConditionContext $c): Builder {
      *       // is_specific_user('some-user-id') -> $c->arguments[0] === 'some-user-id'
-     *       return $c->query->whereRaw("{$c->targetSqlId} = ?", [$c->arguments[0]]);
+     *       return $c->query->whereRaw("{$c->row()} = ?", [$c->arguments[0]]);
      *   }
      *
      *   // Variadic / list argument -> a whereIn:
-     *   #[TargetedCondition]
-     *   public function isDepartment(TargetedConditionContext $c): Builder {
+     *   #[RowCondition]
+     *   public function isDepartment(RowConditionContext $c): Builder {
      *       // is_department(?, ?, ?) with positional bindings ['a', 'b', 'c']
-     *       return $c->query->whereIn($c->targetSqlId, $c->arguments);
+     *       return $c->query->whereIn($c->row(), $c->arguments);
      *   }
      *
      *   // No-target boolean condition: returns true/false, ignoring the query.

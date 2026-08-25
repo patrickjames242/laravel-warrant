@@ -62,8 +62,8 @@ public static function getNoTargetAbilitiesBag(?Authenticatable $user = null): a
 public static function schemaKey(): string;            // const or (new model)->getTable()
 public static function declaredAbilities(): array;     // declaration order (NOT sorted)
 public static function conditionKeys(): array;         // sorted
-public static function targetedConditionKeys(): array; // sorted
-public static function noTargetConditionKeys(): array; // sorted
+public static function rowConditionKeys(): array;      // sorted
+public static function globalConditionKeys(): array;   // sorted
 public static function declaredContextKeys(): array;   // declaration order
 public static function requiredContextKeys(): array;
 ```
@@ -118,19 +118,19 @@ the ability name; its name is ignored (discovery is by attribute).
 #[Ability] public const VIEW = 'view';
 ```
 
-### `#[TargetedCondition]` / `#[GlobalCondition]`
+### `#[RowCondition]` / `#[GlobalCondition]`
 
 Mark a public method as a condition. Optional key overrides the snake-cased method
 name; passing `''` throws.
 
 ```php
-#[TargetedCondition]              // key = snake_case(method)
-#[TargetedCondition('is_owner')] // explicit key
+#[RowCondition]              // key = snake_case(method)
+#[RowCondition('is_owner')]  // explicit key
 #[GlobalCondition]
 ```
 
 The method must accept **exactly one** parameter, typed to match:
-`TargetedConditionContext` or `GlobalConditionContext`.
+`RowConditionContext` or `GlobalConditionContext`.
 
 A condition may only add **where clauses** to `$c->query` (including `whereExists`,
 `whereIn`, `whereRaw`). Emitting a `join`, `groupBy`, `having`, aggregate, or
@@ -161,18 +161,22 @@ public function __construct(
 );
 ```
 
-### `TargetedConditionContext` (readonly)
+### `RowConditionContext` (readonly)
 
-Same as above, plus `targetSqlId` (always present for a targeted condition):
+Same as above, plus the target row's `table` and `keyColumn`, and a `row()` helper
+that qualifies a column against the target table (always present for a row condition):
 
 ```php
 public function __construct(
     public Authenticatable $user,
     public Builder $query,
-    public string $targetSqlId,  // e.g. "documents.id"
+    public string $table,        // e.g. "documents"
+    public string $keyColumn,    // e.g. "id"
     public array $arguments = [],
     public array $context = [],
 );
+
+public function row(?string $column = null): string; // row() => "documents.id"; row('user_id') => "documents.user_id"
 ```
 
 ## Enums & helpers

@@ -17,7 +17,7 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 - `const schemaKey` — optional schema-key override (**required** with no model)
 - `#[Ability] const X = '...'` — declare an ability
 - `#[ContextKey] const X = '...'` — declare a check-time context key (required by default; `required: false` to opt out)
-- `#[TargetedCondition]` / `#[GlobalCondition]` methods — declare conditions
+- `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions
 - `protected function implicitRules(): array` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
 - `protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied

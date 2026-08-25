@@ -12,14 +12,14 @@ use ReflectionNamedType;
 use Warrant\Ability;
 use Warrant\GlobalCondition;
 use Warrant\RequiredContext;
+use Warrant\RowCondition;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\TargetedConditionContext;
-use Warrant\TargetedCondition;
+use Warrant\Schema\Conditions\RowConditionContext;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`
- * constants) and the conditions (from `#[TargetedCondition]` / `#[GlobalCondition]`
+ * constants) and the conditions (from `#[RowCondition]` / `#[GlobalCondition]`
  * methods) that a rule string is allowed to reference.
  */
 trait ReflectsSchemaDefinition
@@ -57,17 +57,17 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns all targeted condition keys declared by the schema.
+     * Returns all row condition keys declared by the schema.
      *
-     * A targeted condition key is discovered from each public method marked with
-     * `#[TargetedCondition(...)]`.
+     * A row condition key is discovered from each public method marked with
+     * `#[RowCondition(...)]`.
      *
      * @return array<int, string>
      */
-    public static function targetedConditionKeys(): array
+    public static function rowConditionKeys(): array
     {
         return collect(static::conditionDefinitions())
-            ->filter(fn(array $definition): bool => $definition['has_target'])
+            ->filter(fn(array $definition): bool => $definition['is_row'])
             ->pluck('key')
             ->filter()
             ->sort()
@@ -76,17 +76,17 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns all no-target condition keys declared by the schema.
+     * Returns all global condition keys declared by the schema.
      *
-     * A no-target condition key is discovered from each public method marked with
+     * A global condition key is discovered from each public method marked with
      * `#[GlobalCondition(...)]`.
      *
      * @return array<int, string>
      */
-    public static function noTargetConditionKeys(): array
+    public static function globalConditionKeys(): array
     {
         return collect(static::conditionDefinitions())
-            ->filter(fn(array $definition): bool => $definition['no_target'])
+            ->filter(fn(array $definition): bool => $definition['is_global'])
             ->pluck('key')
             ->filter()
             ->sort()
@@ -95,15 +95,15 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns all condition keys declared by the schema (targeted and no-target).
+     * Returns all condition keys declared by the schema (row and global).
      *
      * @return array<int, string>
      */
     public static function conditionKeys(): array
     {
         return collect([
-            ...static::targetedConditionKeys(),
-            ...static::noTargetConditionKeys(),
+            ...static::rowConditionKeys(),
+            ...static::globalConditionKeys(),
         ])
             ->unique()
             ->sort()
@@ -194,7 +194,7 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * @return array<int, array{key: string, method: ReflectionMethod, has_target: bool, no_target: bool}>
+     * @return array<int, array{key: string, method: ReflectionMethod, is_row: bool, is_global: bool}>
      */
     protected static function conditionDefinitions(): array
     {
@@ -206,14 +206,14 @@ trait ReflectsSchemaDefinition
                     return null;
                 }
 
-                $targetedAttributes = $method->getAttributes(TargetedCondition::class);
+                $rowAttributes = $method->getAttributes(RowCondition::class);
                 $globalAttributes = $method->getAttributes(GlobalCondition::class);
 
-                if ($targetedAttributes === [] && $globalAttributes === []) {
+                if ($rowAttributes === [] && $globalAttributes === []) {
                     return null;
                 }
 
-                if (count($targetedAttributes) > 1 || count($globalAttributes) > 1) {
+                if (count($rowAttributes) > 1 || count($globalAttributes) > 1) {
                     throw new InvalidArgumentException(sprintf(
                         'Condition method [%s::%s] must not declare duplicate condition attributes.',
                         static::class,
@@ -221,17 +221,17 @@ trait ReflectsSchemaDefinition
                     ));
                 }
 
-                if ($targetedAttributes !== [] && $globalAttributes !== []) {
+                if ($rowAttributes !== [] && $globalAttributes !== []) {
                     throw new InvalidArgumentException(sprintf(
-                        'Condition method [%s::%s] cannot declare both #[TargetedCondition] and #[GlobalCondition].',
+                        'Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].',
                         static::class,
                         $method->getName()
                     ));
                 }
 
-                $hasTarget = $targetedAttributes !== [];
-                $attributeInstance = $hasTarget
-                    ? $targetedAttributes[0]->newInstance()
+                $isRow = $rowAttributes !== [];
+                $attributeInstance = $isRow
+                    ? $rowAttributes[0]->newInstance()
                     : $globalAttributes[0]->newInstance();
                 $conditionKey = $attributeInstance->key ?? static::conditionKeyFromMethodName($method->getName());
 
@@ -243,12 +243,12 @@ trait ReflectsSchemaDefinition
                     ));
                 }
 
-                /* The attribute chooses the context: a targeted condition receives
-                   a TargetedConditionContext (carrying the target SQL id), a global
-                   one a GlobalConditionContext. Require the single parameter to be
-                   typed accordingly so a mismatch fails loudly at boot. */
-                $expectedContext = $hasTarget
-                    ? TargetedConditionContext::class
+                /* The attribute chooses the context: a row condition receives a
+                   RowConditionContext (carrying the target row's SQL identity), a
+                   global one a GlobalConditionContext. Require the single parameter
+                   to be typed accordingly so a mismatch fails loudly at boot. */
+                $expectedContext = $isRow
+                    ? RowConditionContext::class
                     : GlobalConditionContext::class;
                 $parameters = $method->getParameters();
                 $parameterType = ($parameters[0] ?? null)?->getType();
@@ -269,8 +269,8 @@ trait ReflectsSchemaDefinition
                 return [
                     'key' => $conditionKey,
                     'method' => $method,
-                    'has_target' => $hasTarget,
-                    'no_target' => !$hasTarget,
+                    'is_row' => $isRow,
+                    'is_global' => !$isRow,
                 ];
             })
             ->filter()
@@ -279,7 +279,7 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * @return array{key: string, method: ReflectionMethod, has_target: bool, no_target: bool}|null
+     * @return array{key: string, method: ReflectionMethod, is_row: bool, is_global: bool}|null
      */
     protected static function conditionDefinitionForKey(string $conditionKey): ?array
     {

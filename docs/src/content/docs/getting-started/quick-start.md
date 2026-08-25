@@ -23,9 +23,9 @@ namespace App\Warrant;
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Ability;
-use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\TargetedCondition;
+use Warrant\RowCondition;
 
 class DocumentSchema extends WarrantSchema
 {
@@ -34,10 +34,10 @@ class DocumentSchema extends WarrantSchema
     #[Ability] public const VIEW   = 'view';
     #[Ability] public const UPDATE = 'update';
 
-    // A targeted condition narrows WHICH rows the user matches.
+    // A row condition narrows WHICH rows the user matches.
     // The method name `isSelf` becomes the rule name `is_self`.
-    #[TargetedCondition]
-    public function isSelf(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isSelf(RowConditionContext $c): Builder
     {
         return $c->query->whereRaw(
             'documents.user_id = ?',

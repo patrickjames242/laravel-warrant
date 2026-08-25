@@ -36,8 +36,8 @@ for a **global** condition, returns a `bool`), so conditions are the bridge betw
 the rule language and your database:
 
 ```php
-#[TargetedCondition]                                    // constrains which rows match
-public function isSelf(TargetedConditionContext $c): Builder
+#[RowCondition]                                    // constrains which rows match
+public function isSelf(RowConditionContext $c): Builder
 {
     return $c->query->where('documents.user_id', $c->user->getKey());
 }
@@ -56,7 +56,7 @@ arrives on `$c->arguments`:
 if in_team('sales') they can view
 ```
 
-See [Conditions](/guides/conditions/), [targeted vs. global](/guides/conditions/#targeted-vs-global),
+See [Conditions](/guides/conditions/), [row vs. global](/guides/conditions/#row-vs-global),
 and [arguments](/guides/conditions/#arguments).
 
 ## Rule
@@ -164,8 +164,8 @@ class DocumentSchema extends WarrantSchema
     #[Ability] public const VIEW = 'view';
     #[Ability] public const UPDATE = 'update';
 
-    #[TargetedCondition]
-    public function isSelf(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isSelf(RowConditionContext $c): Builder
     {
         return $c->query->where('documents.user_id', $c->user->getKey());
     }

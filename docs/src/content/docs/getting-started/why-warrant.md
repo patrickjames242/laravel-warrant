@@ -114,15 +114,15 @@ class DocumentSchema extends WarrantSchema
     #[Ability]
     public const UPDATE = 'update';
 
-    #[TargetedCondition]
-    public function isMyOwnDocument(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isMyOwnDocument(RowConditionContext $c): Builder
     {
         return $c->query->where('documents.user_id', '=', $c->user->getKey());
     }
 
     /** The current user manages the team that owns the document. */
-    #[TargetedCondition]
-    public function managesTeam(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function managesTeam(RowConditionContext $c): Builder
     {
         return $c->query->whereIn('documents.team_id', function ($sub) use ($c) {
             $sub->select('team_id')
@@ -131,8 +131,8 @@ class DocumentSchema extends WarrantSchema
         });
     }
 
-    #[TargetedCondition]
-    public function isDocumentLocked(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isDocumentLocked(RowConditionContext $c): Builder
     {
         return $c->query->where('documents.is_locked', '=', true);
     }

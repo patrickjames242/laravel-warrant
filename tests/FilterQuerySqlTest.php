@@ -90,7 +90,7 @@ it('emits 1 = 0 when no rule grants the ability', function () {
 
 // -- condition leaves ---------------------------------------------------------
 
-it('inlines a positive targeted condition as a correlated predicate', function () {
+it('inlines a positive row condition as a correlated predicate', function () {
     bindWarrantRules('if is_teacher they can view');
 
     assertWarrantFilterSql('view', <<<SQL

@@ -6,12 +6,12 @@ use Attribute;
 use InvalidArgumentException;
 
 #[Attribute(Attribute::TARGET_METHOD)]
-class TargetedCondition
+class RowCondition
 {
     public function __construct(public ?string $key = null)
     {
         if ($this->key === '') {
-            throw new InvalidArgumentException('TargetedCondition key cannot be empty.');
+            throw new InvalidArgumentException('RowCondition key cannot be empty.');
         }
     }
 }

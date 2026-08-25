@@ -165,20 +165,20 @@ class DocumentSchema extends WarrantSchema
     #[Ability] public const VIEW   = 'view';
     #[Ability] public const UPDATE = 'update';
 
-    #[TargetedCondition] // is_self
-    public function isSelf(TargetedConditionContext $c): Builder
+    #[RowCondition] // is_self
+    public function isSelf(RowConditionContext $c): Builder
     {
         return $c->query->whereRaw('documents.user_id = ?', [$c->user->getAuthIdentifier()]);
     }
 
-    #[TargetedCondition] // manages_team — the current user manages the document's team
-    public function managesTeam(TargetedConditionContext $c): Builder
+    #[RowCondition] // manages_team — the current user manages the document's team
+    public function managesTeam(RowConditionContext $c): Builder
     {
         return $c->query->whereIn('documents.team_id', $c->user->managedTeamIds());
     }
 
-    #[TargetedCondition] // is_locked
-    public function isLocked(TargetedConditionContext $c): Builder
+    #[RowCondition] // is_locked
+    public function isLocked(RowConditionContext $c): Builder
     {
         return $c->query->whereRaw('documents.locked = ?', [true]);
     }

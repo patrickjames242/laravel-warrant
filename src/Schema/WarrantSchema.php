@@ -21,7 +21,7 @@ use Warrant\WarrantUngrantedContext;
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
- * (`#[TargetedCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
+ * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
  * rules live — those come from the {@see RuleResolver} as a
  * {@see \Warrant\RuleSyntaxTree\WarrantRuleSet}, compiled against this schema.
  *

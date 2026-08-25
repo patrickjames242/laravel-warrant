@@ -22,9 +22,9 @@ they are.
 
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\{Ability, TargetedCondition, GlobalCondition};
+use Warrant\{Ability, RowCondition, GlobalCondition};
 use Warrant\Schema\WarrantSchema;
-use Warrant\Schema\Conditions\{TargetedConditionContext, GlobalConditionContext};
+use Warrant\Schema\Conditions\{RowConditionContext, GlobalConditionContext};
 
 class DocumentSchema extends WarrantSchema
 {
@@ -34,20 +34,20 @@ class DocumentSchema extends WarrantSchema
     #[Ability] public const UPDATE = 'update';
     #[Ability] public const DELETE = 'delete';
 
-    #[TargetedCondition]
-    public function isSelf(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isSelf(RowConditionContext $c): Builder
     {
         return $c->query->whereRaw('documents.user_id = ?', [$c->user->getAuthIdentifier()]);
     }
 
-    #[TargetedCondition]
-    public function managesTeam(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function managesTeam(RowConditionContext $c): Builder
     {
         return $c->query->whereIn('documents.team_id', $c->user->managedTeamIds());
     }
 
-    #[TargetedCondition]
-    public function isLocked(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function isLocked(RowConditionContext $c): Builder
     {
         return $c->query->where('documents.locked', true);
     }
@@ -64,9 +64,9 @@ So each condition contributes this fragment of SQL:
 
 | Condition                 | SQL it adds                                                                      |
 | ------------------------- | -------------------------------------------------------------------------------- |
-| `is_self` (targeted)      | `documents.user_id = 42`                                                         |
-| `manages_team` (targeted) | `documents.team_id in (7, 12)`                                                   |
-| `is_locked` (targeted)    | `documents.locked = 1`                                                           |
+| `is_self` (row)           | `documents.user_id = 42`                                                         |
+| `manages_team` (row)      | `documents.team_id in (7, 12)`                                                   |
+| `is_locked` (row)         | `documents.locked = 1`                                                           |
 | `is_admin` (global)       | `1 = 1` — a `bool` evaluated in PHP, baked in as a constant (`1 = 0` when false) |
 
 **The rules** ([resolved](/guides/rules/) for the current user):
@@ -158,8 +158,8 @@ To reach another table, use a correlated `whereExists` / `whereNotExists` instea
 of a join — it stays a boolean and never multiplies rows:
 
 ```php
-#[TargetedCondition]
-public function managesTeam(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function managesTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_managers')
@@ -215,10 +215,10 @@ never on a whole group. A global condition like `is_admin` that returns a `bool`
 doesn't touch a row at all: the compiler evaluates it in PHP and drops in a bare
 `1 = 1` or `1 = 0`.
 
-## Targeted conditions with no row
+## Row conditions with no row
 
 In a no-target check (for example `getUserAbilities()` with no target),
-a targeted condition has no row to correlate against, so the compiler forces it to
+a row condition has no row to correlate against, so the compiler forces it to
 `1 = 0` (false) — and, under negation, `1 = 1` (true). Global conditions still
 evaluate normally. (Separately, an absent optional
 [`@context`](/guides/context/) value is passed to the condition as `null`, and

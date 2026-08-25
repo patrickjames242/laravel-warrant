@@ -44,8 +44,8 @@ if in_workspace(@context workspace_id) they can view, edit
 ```
 
 ```php
-#[TargetedCondition]
-public function inWorkspace(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function inWorkspace(RowConditionContext $c): Builder
 {
     [$workspace] = $c->arguments;   // supplied at the check via @context workspace_id
     return $c->query->where('documents.workspace_id', $workspace);
@@ -84,8 +84,8 @@ a condition is inherently tied to the frame — then the rule needn't mention th
 key:
 
 ```php
-#[TargetedCondition]
-public function inCurrentWorkspace(TargetedConditionContext $c): Builder
+#[RowCondition]
+public function inCurrentWorkspace(RowConditionContext $c): Builder
 {
     // Rule is just `if in_current_workspace they can view` — no @context needed.
     return $c->query->where('documents.workspace_id', $c->context['workspace_id']);

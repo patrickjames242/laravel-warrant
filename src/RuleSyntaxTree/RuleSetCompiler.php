@@ -194,9 +194,9 @@ final class RuleSetCompiler
 
     private function applyCondition(Builder $parent, ConditionNode $node, CompilationContext $ctx): void
     {
-        // A targeted condition cannot be evaluated without a row; force it false
-        // (so `not <targeted>` becomes true) in a no-target compile.
-        if ($ctx->targetSqlId === null && $this->conditions->conditionIsTargeted($node->conditionKey)) {
+        // A row condition cannot be evaluated without a row; force it false
+        // (so `not <row-condition>` becomes true) in a no-target compile.
+        if ($ctx->targetSqlId === null && $this->conditions->conditionIsRow($node->conditionKey)) {
             $parent->whereRaw($ctx->negate ? '1 = 1' : '1 = 0', [], $ctx->boolean);
 
             return;

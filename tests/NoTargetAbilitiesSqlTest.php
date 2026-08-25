@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
 | condition leaves:
 |   - a *targeted* condition cannot be evaluated without a row, so it is forced
 |     false — `1 = 0` — or, under negation, true — `1 = 1`.
-|   - a *no-target* (global) condition compiles to its inline where-clause.
+|   - a *global* condition compiles to its inline where-clause.
 | The grant/deny formula and unconditional `1 = 1` / `1 = 0` shapes are unchanged.
 |
 | As in Stage 2, the SQLite grammar wraps each UNION arm as `select * from (...)`.
@@ -83,9 +83,9 @@ it('selects an always-true branch for an unconditional grant', function () {
     SQL);
 });
 
-// -- targeted conditions have no row, so they are forced ----------------------
+// -- row conditions have no row, so they are forced ----------------------
 
-it('forces a targeted condition false without a target', function () {
+it('forces a row condition false without a target', function () {
     bindWarrantRules('if is_teacher they can view');
 
     assertNoTargetSql('view', <<<SQL
@@ -96,7 +96,7 @@ it('forces a targeted condition false without a target', function () {
     SQL);
 });
 
-it('forces a negated targeted condition true without a target', function () {
+it('forces a negated row condition true without a target', function () {
     bindWarrantRules('if not is_teacher they can view');
 
     assertNoTargetSql('view', <<<SQL
@@ -107,9 +107,9 @@ it('forces a negated targeted condition true without a target', function () {
     SQL);
 });
 
-// -- no-target (global) positive conditions are inlined -----------------------
+// -- global positive conditions are inlined -----------------------
 
-it('inlines a positive no-target condition as a correlated predicate', function () {
+it('inlines a positive global condition as a correlated predicate', function () {
     bindWarrantRules('if is_advisor they can view');
 
     assertNoTargetSql('view', <<<SQL

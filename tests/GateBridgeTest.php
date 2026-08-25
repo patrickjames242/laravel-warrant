@@ -14,9 +14,9 @@ use Warrant\HasWarrantSchema;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\TargetedCondition;
+use Warrant\RowCondition;
 
 // -- fixtures -----------------------------------------------------------------
 
@@ -49,10 +49,10 @@ class GateTestSchema extends WarrantSchema
     #[Ability]
     public const APPROVE = 'approve';
 
-    #[TargetedCondition]
-    public function isTeacher(TargetedConditionContext $c): BuilderContract
+    #[RowCondition]
+    public function isTeacher(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->targetSqlId} = ?", ["teacher:{$c->user->role_id}"]);
+        return $c->query->whereRaw("{$c->row()} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
     #[GlobalCondition]

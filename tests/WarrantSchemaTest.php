@@ -55,14 +55,14 @@ it('matches every row for a wildcard grant', function () {
     expect(filteredSectionIds('view'))->toBe(['other-section', 'teacher:teacher-role']);
 });
 
-it('matches only rows satisfying a targeted condition', function () {
+it('matches only rows satisfying a row condition', function () {
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
     expect(filteredSectionIds('view'))->toBe(['teacher:teacher-role']);
 });
 
-it('ORs a no-target and a targeted condition', function () {
+it('ORs a global and a row condition', function () {
     seedCourseSections();
     bindWarrantRules('if is_advisor or is_teacher they can view');
 
@@ -179,9 +179,9 @@ it('returns the full reflected list of abilities', function () {
     expect(WarrantTestSchema::abilityNames())->toBe(['create', 'publish', 'archive', 'view', 'update']);
 });
 
-it('returns targeted, no-target, and all condition keys', function () {
-    expect(WarrantTestSchema::targetedConditionKeys())->toBe(['is_teacher', 'via_join']);
-    expect(WarrantTestSchema::noTargetConditionKeys())->toBe(['is_advisor']);
+it('returns row, global, and all condition keys', function () {
+    expect(WarrantTestSchema::rowConditionKeys())->toBe(['is_teacher', 'via_join']);
+    expect(WarrantTestSchema::globalConditionKeys())->toBe(['is_advisor']);
     expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher', 'via_join']);
 });
 
@@ -201,7 +201,7 @@ it('rejects a condition method that takes extra parameters', function () {
         ->toThrow(InvalidArgumentException::class, 'must accept exactly one');
 });
 
-it('requires a target sql id for targeted conditions', function () {
+it('requires a target sql id for row conditions', function () {
     expect(fn () => (new WarrantTestSchema)->applyConditionFilter(
         'is_teacher',
         makeWarrantTestUser('teacher-role'),
@@ -241,7 +241,7 @@ it('returns abilities the user can perform without a target in one query', funct
         ->toBe([]);
 });
 
-it('grants an ability when a no-target boolean condition evaluates true, denies when false', function () {
+it('grants an ability when a global boolean condition evaluates true, denies when false', function () {
     bindWarrantRules('if is_super_user they can view');
 
     $schema = new WarrantBooleanConditionSchema;

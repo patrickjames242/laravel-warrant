@@ -93,7 +93,7 @@ the earliest one carrying a message wins.
 Diagnosis runs the *same* condition SQL as the check itself, so it can never blame
 a rule that didn't fire. It also works for [no-target
 checks](/guides/checking-access/#no-target-checks) — there, only global
-or unconditional `cannot` rules can be the cause, since a targeted condition can't
+or unconditional `cannot` rules can be the cause, since a row condition can't
 fire without a row.
 
 :::note[Messages live in PHP, never in the DSL]
