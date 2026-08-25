@@ -11,17 +11,17 @@ use Warrant\WarrantDenialContext;
  * {@see WarrantRule} in PHP instead of the string DSL.
  *
  * It extends {@see WarrantConditionBuilder} with the clause half of a rule
- * (`theyCan` / `theyCannot`) and finalization via `toRule()`. The condition
- * methods it inherits return `static`, so a top-level chain keeps the rule
- * builder — `->if(...)->theyCan(...)` works — while a group closure only ever
- * receives a bare condition builder.
+ * (`theyCan` / `theyCannot` / `theyCannotBecause`) and finalization via
+ * `toRule()`. The condition methods it inherits return `static`, so a top-level
+ * chain keeps the rule builder — `->if(...)->theyCan(...)` works — while a group
+ * closure only ever receives a bare condition builder.
  *
  * ```php
  * WarrantRule::build()
  *     ->if('is_self')
  *     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
  *     ->theyCan('view', 'update')
- *     ->theyCannot('delete')
+ *     ->theyCannotBecause('delete', 'This record is locked.')
  *     ->toRule();
  * ```
  */
@@ -30,10 +30,8 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     /** @var list<string> */
     private array $can = [];
 
-    /** @var list<string> */
-    private array $cannot = [];
-
-    private string|Closure|null $message = null;
+    /** @var list<CannotClause> */
+    private array $cannotClauses = [];
 
     // -- clauses --------------------------------------------------------------
 
@@ -46,22 +44,24 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
 
     public function theyCannot(string ...$abilities): static
     {
-        $this->cannot = [...$this->cannot, ...$abilities];
+        $this->cannotClauses[] = new CannotClause($abilities);
 
         return $this;
     }
 
     /**
-     * Attach a denial message surfaced when this rule's `cannot` clause blocks
-     * access to a singular target (see {@see WarrantRule::$message}). A message
-     * on a rule with no `theyCannot` clause can never fire and is rejected at
-     * validation time.
+     * Deny the given abilities with a denial message, surfaced when this clause is
+     * the attributable cause of a singular-target denial. Each call adds one
+     * clause, so calling it more than once gives different abilities different
+     * messages. Pass a single ability as a string or several as an array; the
+     * abilities in one call share the message.
      *
+     * @param string|list<string> $abilities
      * @param string|Closure(WarrantDenialContext):(string|\Throwable) $message
      */
-    public function withDenialMessage(string|Closure $message): static
+    public function theyCannotBecause(string|array $abilities, string|Closure $message): static
     {
-        $this->message = $message;
+        $this->cannotClauses[] = new CannotClause(is_array($abilities) ? array_values($abilities) : [$abilities], $message);
 
         return $this;
     }
@@ -70,12 +70,12 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
 
     public function toRule(): WarrantRule
     {
-        if ($this->can === [] && $this->cannot === []) {
+        if ($this->can === [] && $this->cannotClauses === []) {
             throw new LogicException(
-                "A rule needs at least one 'they can ...' or 'they cannot ...' clause; call theyCan() or theyCannot() before toRule()."
+                "A rule needs at least one 'they can ...' or 'they cannot ...' clause; call theyCan(), theyCannot(), or theyCannotBecause() before toRule()."
             );
         }
 
-        return new WarrantRule($this->buildConditions(), $this->can, $this->cannot, $this->message);
+        return new WarrantRule($this->buildConditions(), $this->can, $this->cannotClauses);
     }
 }

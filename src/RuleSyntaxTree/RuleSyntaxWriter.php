@@ -76,11 +76,13 @@ final class RuleSyntaxWriter
             $lines[] = 'they can ' . implode(', ', $rule->canAbilities);
         }
 
-        if ($rule->cannotAbilities !== []) {
-            $line = 'they cannot ' . implode(', ', $rule->cannotAbilities);
+        // One `they cannot ...` line per clause; each clause groups the abilities
+        // that share its message.
+        foreach ($rule->cannotClauses as $clause) {
+            $line = 'they cannot ' . implode(', ', $clause->abilities);
 
-            if ($rule->message !== null) {
-                $line .= ' because ' . $this->messageArg($rule->message);
+            if ($clause->message !== null) {
+                $line .= ' because ' . $this->messageArg($clause->message);
             }
 
             $lines[] = $line;

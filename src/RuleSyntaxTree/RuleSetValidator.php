@@ -39,7 +39,7 @@ final class RuleSetValidator
         $abilityNames = $this->schema->abilityNames();
 
         foreach ($ruleSet->rules as $rule) {
-            foreach ([...$rule->canAbilities, ...$rule->cannotAbilities] as $ability) {
+            foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
                 if ($ability !== '*' && ! in_array($ability, $abilityNames, true)) {
                     throw new InvalidArgumentException(
                         sprintf('Ability [%s] is not declared by the schema.', $ability)
@@ -47,17 +47,34 @@ final class RuleSetValidator
                 }
             }
 
-            // A denial message is only ever surfaced for a matching `cannot`; on a
-            // rule with no `cannot` clause it can never fire, so reject it loudly
-            // rather than silently doing nothing.
-            if ($rule->message !== null && $rule->cannotAbilities === []) {
-                throw new InvalidArgumentException(
-                    'A denial message requires a `they cannot ...` clause; it can never be surfaced by a rule that only grants.'
-                );
-            }
+            $this->assertNoDuplicateCannotAbility($rule);
 
             if ($rule->conditions !== null) {
                 $this->validateConditionNames($rule->conditions);
+            }
+        }
+    }
+
+    /**
+     * An ability may appear in at most one `cannot` clause of a rule. A duplicate
+     * would give that ability two denial messages, of which only the first could
+     * ever surface (see {@see WarrantRule::messageFor()}), so it is almost always
+     * a mistake — reject it rather than silently dropping the later message.
+     */
+    private function assertNoDuplicateCannotAbility(WarrantRule $rule): void
+    {
+        $seen = [];
+
+        foreach ($rule->cannotClauses as $clause) {
+            foreach ($clause->abilities as $ability) {
+                if (isset($seen[$ability])) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
+                        $ability,
+                    ));
+                }
+
+                $seen[$ability] = true;
             }
         }
     }

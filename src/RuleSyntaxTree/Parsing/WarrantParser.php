@@ -4,6 +4,7 @@ namespace Warrant\RuleSyntaxTree\Parsing;
 
 use Closure;
 use Warrant\RuleSyntaxTree\AndNode;
+use Warrant\RuleSyntaxTree\CannotClause;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
@@ -22,8 +23,9 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  *   ruleset  := clauses? ( 'if' expr clause+ )*
  *   clause   := 'they' ( 'can' ability (',' ability)*
  *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
- *              -- `because` attaches a denial message; it is valid only after a
- *                 `cannot` clause, and at most once per rule
+ *              -- `because` attaches a denial message; valid only after `cannot`.
+ *                 Each `they cannot ...` clause becomes one CannotClause on the
+ *                 rule, so distinct clauses keep distinct messages.
  *   message  := STRING | NAMED_BINDING | POSITIONAL
  *              -- a string literal, or a binding resolving to a string or closure
  *   ability  := IDENTIFIER | '*'
@@ -147,11 +149,17 @@ final class WarrantParser
         return $rules;
     }
 
+    /**
+     * Parse the `they can/cannot` clauses that share one condition (the clauses
+     * after an `if`, or the leading clauses with none) into a single rule. Each
+     * `they cannot <abilities> [because <msg>]` clause becomes one
+     * {@see CannotClause}, so distinct clauses keep distinct messages on the same
+     * rule.
+     */
     private function parseClausesInto(?IBooleanExpressionNode $conditions): WarrantRule
     {
         $can = [];
-        $cannot = [];
-        $message = null;
+        $cannotClauses = [];
         $sawClause = false;
 
         while ($this->check(TokenType::THEY)) {
@@ -171,21 +179,16 @@ final class WarrantParser
                 }
             } elseif ($this->check(TokenType::CANNOT)) {
                 $this->advance();
-                $cannot = array_merge($cannot, $this->parseAbilityList());
+                $abilities = $this->parseAbilityList();
+
+                $message = null;
 
                 if ($this->check(TokenType::BECAUSE)) {
-                    $becauseToken = $this->advance();
-
-                    if ($message !== null) {
-                        throw WarrantSyntaxException::at(
-                            'A rule may carry at most one denial message.',
-                            $this->source,
-                            $becauseToken,
-                        );
-                    }
-
+                    $this->advance();
                     $message = $this->parseDenialMessage();
                 }
+
+                $cannotClauses[] = new CannotClause($abilities, $message);
             } else {
                 throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'.");
             }
@@ -195,7 +198,7 @@ final class WarrantParser
             throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause.");
         }
 
-        return new WarrantRule($conditions, $can, $cannot, $message);
+        return new WarrantRule($conditions, $can, $cannotClauses);
     }
 
     /**

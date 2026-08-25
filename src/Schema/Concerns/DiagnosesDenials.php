@@ -2,6 +2,7 @@
 
 namespace Warrant\Schema\Concerns;
 
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -19,8 +20,8 @@ use Warrant\WarrantUngrantedContext;
  *
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
- * *forbidden* by a `cannot` (surfacing that rule's own
- * {@see WarrantRule::$message}) from being *ungranted* (nothing forbade and
+ * *forbidden* by a `cannot` (surfacing that clause's
+ * {@see WarrantRule::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
  * {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook).
  */
@@ -138,7 +139,7 @@ trait DiagnosesDenials
             $anyCannotFired = false;
 
             foreach ($ruleSet->rules as $rule) {
-                if (! $this->ruleDeniesAbility($rule, $ability)) {
+                if (! $rule->deniesAbility($ability)) {
                     continue;
                 }
 
@@ -160,8 +161,10 @@ trait DiagnosesDenials
                     continue;
                 }
 
-                if ($rule->message !== null) {
-                    return $this->buildDenialException($rule, $currentUser, $targetModel, $gate, $context);
+                $message = $rule->messageFor($ability);
+
+                if ($message !== null) {
+                    return $this->buildDenialException($rule, $ability, $message, $currentUser, $targetModel, $gate, $context);
                 }
 
                 $anyCannotFired = true;
@@ -192,17 +195,8 @@ trait DiagnosesDenials
     }
 
     /**
-     * Whether $rule's `cannot` clause lists $ability (exact match or `*`).
-     */
-    private function ruleDeniesAbility(WarrantRule $rule, string $ability): bool
-    {
-        return in_array($ability, $rule->cannotAbilities, true)
-            || in_array('*', $rule->cannotAbilities, true);
-    }
-
-    /**
      * The concrete gate abilities a `cannot` rule blocks — the gate intersected
-     * with the rule's `cannotAbilities`, with `*` resolved to the whole gate so
+     * with the rule's denied abilities, with `*` resolved to the whole gate so
      * the caller never sees a wildcard.
      *
      * @param array<int, string> $gateAbilities
@@ -210,11 +204,33 @@ trait DiagnosesDenials
      */
     private function abilitiesBlockedByRule(WarrantRule $rule, array $gateAbilities): array
     {
-        if (in_array('*', $rule->cannotAbilities, true)) {
+        $cannotAbilities = $rule->cannotAbilities();
+
+        if (in_array('*', $cannotAbilities, true)) {
             return $gateAbilities;
         }
 
-        return array_values(array_intersect($gateAbilities, $rule->cannotAbilities));
+        return array_values(array_intersect($gateAbilities, $cannotAbilities));
+    }
+
+    /**
+     * The gate abilities this rule blocks that share $ability's denial message —
+     * so a per-ability message's context lists only the abilities it explains,
+     * not siblings a different clause denied. For a rule-level/blanket message
+     * every blocked ability resolves to the same message, so this is the whole
+     * blocked set.
+     *
+     * @param array<int, string> $gateAbilities
+     * @return array<int, string>
+     */
+    private function abilitiesBlockedByRuleForMessage(WarrantRule $rule, array $gateAbilities, string $ability): array
+    {
+        $target = $rule->messageFor($ability);
+
+        return array_values(array_filter(
+            $this->abilitiesBlockedByRule($rule, $gateAbilities),
+            static fn (string $blocked): bool => $rule->messageFor($blocked) === $target,
+        ));
     }
 
     /**
@@ -227,6 +243,8 @@ trait DiagnosesDenials
      */
     private function buildDenialException(
         WarrantRule $rule,
+        string $ability,
+        string|Closure $message,
         Authenticatable $currentUser,
         ?Model $targetModel,
         WarrantGate $gate,
@@ -240,10 +258,8 @@ trait DiagnosesDenials
             context: $context,
             gate: $gate,
             rule: $rule,
-            deniedAbilities: $this->abilitiesBlockedByRule($rule, $gate->abilities),
+            deniedAbilities: $this->abilitiesBlockedByRuleForMessage($rule, $gate->abilities, $ability),
         );
-
-        $message = $rule->message;
 
         if (is_string($message)) {
             return new WarrantAuthorizationException($message, $denialContext);

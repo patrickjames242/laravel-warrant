@@ -33,7 +33,7 @@ final class ReachabilityAnalyzer
         foreach ($ruleSet->rules as $rule) {
             $isUnconditional = $rule->conditions === null;
 
-            if ($this->listsAbility($rule->cannotAbilities, $ability)) {
+            if ($this->listsAbility($rule->cannotAbilities(), $ability)) {
                 $isUnconditional ? $hasUnconditionalCannot = true : $hasConditionalCannot = true;
             }
 

@@ -142,7 +142,7 @@ it('escapes quotes in a written denial message', function () {
 it('round-trips a string denial message through the inline form', function () {
     $rule = WarrantRule::fromSyntax("if is_locked they cannot edit because 'locked'");
 
-    expect(WarrantRule::fromSyntax($rule->toSyntax())->message)->toBe('locked');
+    expect(WarrantRule::fromSyntax($rule->toSyntax())->messageFor('edit'))->toBe('locked');
 });
 
 it('extracts a string denial message as a positional binding in bound form', function () {
@@ -154,7 +154,7 @@ it('extracts a string denial message as a positional binding in bound form', fun
     expect($bound->bindings)->toBe(['locked']);
 
     // Re-parsing the bound form restores the message.
-    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->message)->toBe('locked');
+    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->messageFor('edit'))->toBe('locked');
 });
 
 it('orders the message binding after the condition bindings', function () {
@@ -174,13 +174,31 @@ it('carries a closure denial message losslessly through the bound form', functio
 
     expect($bound->syntax)->toBe('they cannot edit because ?');
     expect($bound->bindings)->toBe([$closure]);
-    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->message)->toBe($closure);
+    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->messageFor('edit'))->toBe($closure);
 });
 
 it('throws when writing a closure denial message inline', function () {
     $rule = WarrantRule::fromSyntax('they cannot edit')->withDenialMessage(fn () => 'x');
 
     expect(fn () => $rule->toSyntax())->toThrow(LogicException::class, 'no inline representation');
+});
+
+it('renders one they-cannot line per clause and round-trips them', function () {
+    $rule = WarrantRule::fromSyntax(
+        "if is_locked they cannot update because 'no update' they cannot delete because 'no delete'",
+    );
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if is_locked
+        they cannot update because 'no update'
+        they cannot delete because 'no delete'
+        TXT);
+
+    // Re-parsing yields the same single rule with both clause messages.
+    $reparsed = WarrantRule::fromSyntax($rule->toSyntax());
+    expect($reparsed->cannotClauses)->toHaveCount(2);
+    expect($reparsed->messageFor('update'))->toBe('no update');
+    expect($reparsed->messageFor('delete'))->toBe('no delete');
 });
 
 // -- context references (@context) --------------------------------------------

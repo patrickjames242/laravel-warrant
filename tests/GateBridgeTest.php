@@ -233,8 +233,8 @@ it('carries the Warrant denial message through inspect/authorize', function () {
     useWarrantSchemas([GateTestSchema::class]);
     bindWarrantRuleSet(WarrantRuleSet::fromRules(GateTestSchema::class, [
         WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->if('is_teacher')->theyCannot('view')
-            ->withDenialMessage('teacher blocked')->toRule(),
+        WarrantRule::build()->if('is_teacher')
+            ->theyCannotBecause('view', 'teacher blocked')->toRule(),
     ]));
     $user = makeWarrantTestUser('teacher-role');
 

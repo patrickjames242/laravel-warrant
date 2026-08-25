@@ -89,21 +89,26 @@ class RuleSyntaxExamples
     }
 
     /**
-     * A `cannot` clause may carry a denial message via `because '<message>'`. It
-     * is surfaced (as a WarrantAuthorizationException) when this rule is the
+     * A `cannot` clause may carry a denial message via `because '<message>'`,
+     * surfaced (as a WarrantAuthorizationException) when this rule is the
      * attributable cause of a singular-target denial. `because` is valid only
-     * after a `cannot` clause — never after `can` — and at most once per rule.
+     * after a `cannot` clause — never after `can`.
+     *
+     * Each `they cannot ...` clause is its own denial, so different abilities
+     * under one `if` can give different reasons — the two clauses below deny
+     * `edit` and `delete` with different messages, all on ONE rule.
      */
     public function denialMessage(): void
     {
         $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
-            they can view, edit
+            they can view, edit, delete
             if is_locked
             they cannot edit because 'This timesheet is locked and can no longer be edited.'
+            they cannot delete because 'Locked timesheets cannot be deleted.'
             DSL);
 
-        // edit is granted unless is_locked; when a locked row denies edit, the
-        // denial surfaces the message above instead of the generic 403 text.
+        // edit/delete are granted unless is_locked; when a locked row denies one,
+        // the denial surfaces that clause's own message instead of the generic 403.
         //
         // The message may also come from a binding rather than an inline literal.
         // A `?`/`:name` binding may resolve to a string, or to a closure of the
@@ -113,6 +118,13 @@ class RuleSyntaxExamples
             "if is_locked they cannot edit because :msg",
             ['msg' => fn (\Warrant\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
         );
+
+        // The same rule built fluently — theyCannotBecause() carries the message:
+        WarrantRule::build()
+            ->if('is_locked')
+            ->theyCannotBecause('edit', 'This timesheet is locked and can no longer be edited.')
+            ->theyCannotBecause('delete', 'Locked timesheets cannot be deleted.')
+            ->toRule();
 
         // `@context` is NOT accepted after `because` — a message is fixed when the
         // rule is parsed, not resolved per check.

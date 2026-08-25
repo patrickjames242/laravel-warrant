@@ -67,7 +67,52 @@ it('builds an unconditional rule (no if) with null conditions', function () {
 
     expect($rule->conditions)->toBeNull();
     expect($rule->canAbilities)->toBe(['view', 'update']);
-    expect($rule->cannotAbilities)->toBe(['delete']);
+    expect($rule->cannotAbilities())->toBe(['delete']);
+});
+
+it('attaches a denial message to a single ability via theyCannotBecause', function () {
+    $rule = WarrantRule::build()->theyCannotBecause('delete', 'This record is locked.')->toRule();
+
+    expect($rule->cannotAbilities())->toBe(['delete']);
+    expect($rule->messageFor('delete'))->toBe('This record is locked.');
+});
+
+it('shares one message across several abilities in a theyCannotBecause array', function () {
+    $rule = WarrantRule::build()->theyCannotBecause(['update', 'delete'], 'locked')->toRule();
+
+    expect($rule->cannotClauses)->toHaveCount(1);
+    expect($rule->cannotAbilities())->toBe(['update', 'delete']);
+    expect($rule->messageFor('update'))->toBe('locked');
+    expect($rule->messageFor('delete'))->toBe('locked');
+});
+
+it('gives each theyCannotBecause clause its own message', function () {
+    $rule = WarrantRule::build()
+        ->theyCannotBecause('update', 'no update')
+        ->theyCannotBecause('delete', 'no delete')
+        ->toRule();
+
+    expect($rule->cannotClauses)->toHaveCount(2);
+    expect($rule->messageFor('update'))->toBe('no update');
+    expect($rule->messageFor('delete'))->toBe('no delete');
+});
+
+it('accepts a closure denial message via theyCannotBecause', function () {
+    $closure = fn () => 'dynamic';
+    $rule = WarrantRule::build()->theyCannotBecause('delete', $closure)->toRule();
+
+    expect($rule->messageFor('delete'))->toBe($closure);
+});
+
+it('mixes message-less theyCannot and message-bearing theyCannotBecause', function () {
+    $rule = WarrantRule::build()
+        ->theyCannot('archive')
+        ->theyCannotBecause('delete', 'locked')
+        ->toRule();
+
+    expect($rule->cannotAbilities())->toBe(['archive', 'delete']);
+    expect($rule->messageFor('archive'))->toBeNull();
+    expect($rule->messageFor('delete'))->toBe('locked');
 });
 
 it('carries condition parameters onto the node', function () {

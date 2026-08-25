@@ -89,7 +89,7 @@ final class RuleSetCompiler
                 $grants[] = $rule->conditions;
             }
 
-            if ($this->listsAbility($rule->cannotAbilities, $ability)) {
+            if ($this->listsAbility($rule->cannotAbilities(), $ability)) {
                 $denies[] = $rule->conditions;
             }
         }

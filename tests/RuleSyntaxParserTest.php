@@ -46,7 +46,7 @@ it('parses a single rule with can and cannot clauses', function () {
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
     expect($rule->conditions->conditionKey)->toBe('is_self');
     expect($rule->canAbilities)->toBe(['edit', 'view', 'delete']);
-    expect($rule->cannotAbilities)->toBe(['approve', 'deny']);
+    expect($rule->cannotAbilities())->toBe(['approve', 'deny']);
 });
 
 it('parses multiple rules in one string', function () {
@@ -72,7 +72,7 @@ it('parses an unconditional rule (no if) with null conditions', function () {
     expect($set->rules)->toHaveCount(1);
     expect($set->rules[0]->conditions)->toBeNull();
     expect($set->rules[0]->canAbilities)->toBe(['view']);
-    expect($set->rules[0]->cannotAbilities)->toBe(['delete']);
+    expect($set->rules[0]->cannotAbilities())->toBe(['delete']);
 });
 
 it('allows an empty rule set', function () {
@@ -94,7 +94,7 @@ it('treats whitespace as insignificant (whole ruleset on one line)', function ()
     expect($set->rules[0]->canAbilities)->toBe(['edit']);
     expect($set->rules[1]->conditions->conditionKey)->toBe('is_manager');
     expect($set->rules[1]->canAbilities)->toBe(['approve']);
-    expect($set->rules[1]->cannotAbilities)->toBe(['delete']);
+    expect($set->rules[1]->cannotAbilities())->toBe(['delete']);
 });
 
 // -- Boolean expressions ------------------------------------------------------
@@ -231,7 +231,7 @@ it('parses wildcard abilities on can and cannot', function () {
         DSL);
 
     expect($set->rules[0]->canAbilities)->toBe(['*']);
-    expect($set->rules[1]->cannotAbilities)->toBe(['*']);
+    expect($set->rules[1]->cannotAbilities())->toBe(['*']);
 });
 
 // -- Identifiers --------------------------------------------------------------
@@ -249,7 +249,7 @@ it('parses a single unconditional rule via WarrantRule::fromSyntax', function ()
     $rule = WarrantRule::fromSyntax('they cannot publish');
 
     expect($rule->conditions)->toBeNull();
-    expect($rule->cannotAbilities)->toBe(['publish']);
+    expect($rule->cannotAbilities())->toBe(['publish']);
 });
 
 it('parses a single conditional rule with a binding via WarrantRule::fromSyntax', function () {
@@ -300,60 +300,83 @@ it('parses a string denial message after a cannot clause', function () {
         they cannot edit because 'This row is locked.'
         DSL);
 
-    expect($rule->cannotAbilities)->toBe(['edit']);
-    expect($rule->message)->toBe('This row is locked.');
+    expect($rule->cannotAbilities())->toBe(['edit']);
+    expect($rule->messageFor('edit'))->toBe('This row is locked.');
 });
 
 it('unescapes quotes in a denial message', function () {
     $rule = WarrantRule::fromSyntax("they cannot edit because 'can\\'t touch this'");
 
-    expect($rule->message)->toBe("can't touch this");
+    expect($rule->messageFor('edit'))->toBe("can't touch this");
 });
 
-it('leaves message null when no because clause is present', function () {
+it('leaves the message null when no because clause is present', function () {
     $rule = WarrantRule::fromSyntax('they cannot edit');
 
-    expect($rule->message)->toBeNull();
+    expect($rule->messageFor('edit'))->toBeNull();
 });
 
 it('resolves a named binding message to a string', function () {
     $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => 'locked']);
 
-    expect($rule->message)->toBe('locked');
+    expect($rule->messageFor('edit'))->toBe('locked');
 });
 
 it('resolves a positional binding message to a string', function () {
     $rule = WarrantRule::fromSyntax('they cannot edit because ?', ['locked']);
 
-    expect($rule->message)->toBe('locked');
+    expect($rule->messageFor('edit'))->toBe('locked');
 });
 
 it('accepts a closure resolved from a binding as the message', function () {
     $closure = fn () => 'dynamic';
     $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => $closure]);
 
-    expect($rule->message)->toBe($closure);
+    expect($rule->messageFor('edit'))->toBe($closure);
 });
 
-it('attaches the message to a cannot even when a can clause is also present', function () {
+it('keeps a can clause and a message-bearing cannot in one rule', function () {
     $rule = WarrantRule::fromSyntax(<<<'DSL'
         they can view
         they cannot edit because 'locked'
         DSL);
 
     expect($rule->canAbilities)->toBe(['view']);
-    expect($rule->cannotAbilities)->toBe(['edit']);
-    expect($rule->message)->toBe('locked');
+    expect($rule->cannotAbilities())->toBe(['edit']);
+    expect($rule->messageFor('edit'))->toBe('locked');
+});
+
+it('gives each cannot clause its own message on a single rule', function () {
+    $rule = WarrantRule::fromSyntax(
+        "if is_locked they cannot update because 'no update' they cannot delete because 'no delete'",
+    );
+
+    expect($rule->cannotAbilities())->toBe(['update', 'delete']);
+    expect($rule->cannotClauses)->toHaveCount(2);
+    expect($rule->messageFor('update'))->toBe('no update');
+    expect($rule->messageFor('delete'))->toBe('no delete');
+});
+
+it('mixes message-less and message-bearing cannot clauses on one rule', function () {
+    $rule = WarrantRule::fromSyntax("they cannot archive they cannot edit because 'locked'");
+
+    expect($rule->cannotAbilities())->toBe(['archive', 'edit']);
+    expect($rule->messageFor('archive'))->toBeNull();
+    expect($rule->messageFor('edit'))->toBe('locked');
+});
+
+it('groups multiple abilities in one cannot clause under one message', function () {
+    $rule = WarrantRule::fromSyntax("they cannot update, delete because 'locked'");
+
+    expect($rule->cannotClauses)->toHaveCount(1);
+    expect($rule->cannotClauses[0]->abilities)->toBe(['update', 'delete']);
+    expect($rule->messageFor('update'))->toBe('locked');
+    expect($rule->messageFor('delete'))->toBe('locked');
 });
 
 it('rejects because after a can clause', function () {
     expect(fn () => WarrantRule::fromSyntax("they can view because 'nope'"))
         ->toThrow(WarrantSyntaxException::class, "'because' may only follow a 'they cannot");
-});
-
-it('rejects more than one because in a rule', function () {
-    expect(fn () => WarrantRule::fromSyntax("they cannot view because 'a' they cannot edit because 'b'"))
-        ->toThrow(WarrantSyntaxException::class, 'at most one denial message');
 });
 
 it('rejects a non-string literal after because', function () {
@@ -431,7 +454,7 @@ it('ignores a trailing comment on a line', function () {
 
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
     expect($set->rules[0]->canAbilities)->toBe(['edit']);
-    expect($set->rules[0]->cannotAbilities)->toBe(['approve']);
+    expect($set->rules[0]->cannotAbilities())->toBe(['approve']);
 });
 
 it('ignores a comment with no trailing newline at end of source', function () {
@@ -564,7 +587,7 @@ it('parses an unbound check(...) handle with a global condition', function () {
     expect($node->predicate)->toBeInstanceOf(ConditionNode::class);
     expect($node->predicate->conditionKey)->toBe('is_open');
     expect($node->predicate->parameters)->toBe(['maintenance']);
-    expect($rules[0]->cannotAbilities)->toBe(['update']);
+    expect($rules[0]->cannotAbilities())->toBe(['update']);
 });
 
 it('parses a row-bound check(...) handle with a @context row selector', function () {

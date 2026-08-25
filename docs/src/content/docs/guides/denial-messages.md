@@ -25,35 +25,15 @@ and [context](/guides/context/).
 
 ## Attaching a message to a rule
 
-Only a `cannot` rule can carry a message, because only a `cannot` *actively
+Only a `cannot` clause can carry a message, because only a `cannot` *actively
 forbids*. A missing `can` is the **absence** of a grant — it names no single
 rule, so there is nothing to hang a message on (that case is covered
-[below](#when-nothing-granted-access)).
-
-`withDenialMessage` lives on `WarrantRule` itself, so you can attach one to any
-rule regardless of how it was authored — including a rule parsed from the string
-DSL:
-
-```php
-use Warrant\RuleSyntaxTree\WarrantRule;
-
-// On a rule parsed from syntax:
-WarrantRule::fromSyntax('if is_locked they cannot update')
-    ->withDenialMessage('This document is locked and can no longer be edited.');
-
-// Or mid-chain on the fluent builder:
-WarrantRule::build()
-    ->if('is_locked')->theyCannot('update')
-    ->withDenialMessage('This document is locked and can no longer be edited.')
-    ->toRule();
-```
-
-`WarrantRule` is immutable, so `withDenialMessage` returns a **copy** carrying the
-message — the original is untouched.
+[below](#when-nothing-granted-access)). Each `cannot` clause carries its own
+message, so a rule that denies several abilities can give each its own reason.
 
 ### In the string DSL
 
-A `cannot` clause can carry its message inline, with `because` followed by a
+A `cannot` clause carries its message inline, with `because` followed by a
 string literal:
 
 ```
@@ -62,9 +42,17 @@ they cannot update because 'This document is locked and can no longer be edited.
 ```
 
 `because` is valid **only** immediately after a `cannot` clause — never after
-`can` — and a rule may carry **at most one** message. A `@context` reference is
-not accepted here: a message is fixed when the rule is parsed, not resolved per
-check.
+`can`. A `@context` reference is not accepted here: a message is fixed when the
+rule is parsed, not resolved per check.
+
+Different abilities under the same `if` can give different reasons — each
+`they cannot ...` clause is its own denial, all on one rule:
+
+```
+if is_locked
+they cannot update because 'This document is locked and can no longer be edited.'
+they cannot delete because 'Locked documents cannot be deleted.'
+```
 
 The message can also come from a `:name`/`?` [binding](/guides/rule-language/#bindings)
 instead of a literal, and that binding may resolve to a **string or a closure** —
@@ -76,6 +64,48 @@ WarrantRule::fromSyntax('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
 ]);
 ```
+
+### With the fluent builder
+
+`theyCannotBecause` attaches a message in the same call — one clause per call, so
+separate calls give separate abilities separate messages, and abilities passed
+together share one message:
+
+```php
+use Warrant\RuleSyntaxTree\WarrantRule;
+
+WarrantRule::build()
+    ->if('is_locked')
+    ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
+    ->theyCannotBecause('delete', 'Locked documents cannot be deleted.')
+    ->toRule();
+
+// several abilities sharing one message:
+WarrantRule::build()
+    ->if('is_locked')
+    ->theyCannotBecause(['update', 'delete'], 'This document is locked.')
+    ->toRule();
+```
+
+`theyCannot(...)` (message-less) stays available for plain denials.
+
+### On an existing rule
+
+`withDenialMessage` lives on `WarrantRule` itself, so you can add a message to a
+rule however it was authored — notably a `fromSyntax` rule. It applies to every
+denied ability by default, or pass a list of abilities to scope it:
+
+```php
+WarrantRule::fromSyntax('if is_locked they cannot update, delete')
+    ->withDenialMessage('This document is locked.');            // both abilities
+
+WarrantRule::fromSyntax('if is_locked they cannot update, delete')
+    ->withDenialMessage('Deletes are permanent.', ['delete']);  // just delete
+```
+
+`WarrantRule` is immutable, so `withDenialMessage` returns a **copy** — the
+original is untouched. It can only target abilities the rule denies; messaging an
+ability the rule does not `cannot`, or any rule with no `cannot` clause, throws.
 
 ### Dynamic messages with a closure
 
@@ -104,7 +134,7 @@ blocked:
 | `$c->context` | `array` | The effective [check-time context](/guides/context/). |
 | `$c->gate` | `WarrantGate` | What was asked — `$c->gate->abilities` and `$c->gate->matchMode`. |
 | `$c->rule` | `WarrantRule` | The responsible `cannot` rule. |
-| `$c->deniedAbilities` | `array` | The concrete gate abilities this rule blocked, with any `*` already resolved. |
+| `$c->deniedAbilities` | `array` | The concrete gate abilities blocked by the *same message* that fired, with any `*` already resolved — so a per-clause message sees only the abilities it explains. |
 
 `deniedAbilities` has the wildcard expanded for you, so you never have to unpack a
 `*` yourself.
@@ -123,10 +153,11 @@ or unconditional `cannot` rules can be the cause, since a row condition can't
 fire without a row.
 
 :::note[Where messages can live]
-A message can be written inline in the DSL with [`because`](#in-the-string-dsl),
-or attached in PHP with `withDenialMessage` (the only option for a rule built
-without syntax). Either way, a message on a rule with **no** `theyCannot` clause
-is rejected at validation — it could never fire.
+Inline in the DSL with [`because`](#in-the-string-dsl), on the
+[fluent builder](#with-the-fluent-builder) with `theyCannotBecause`, or on an
+[existing rule](#on-an-existing-rule) with `withDenialMessage`. A message always
+rides on a `cannot`, so attaching one to a rule with **no** `cannot` clause (or to
+an ability the rule does not deny) throws immediately.
 
 Round-tripping: `toSyntax()` re-renders a string message as `because '...'` but
 **throws** on a closure message (no inline form); `toBoundSyntax()` carries
