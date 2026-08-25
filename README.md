@@ -122,9 +122,9 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Ability;
 use Warrant\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\TargetedConditionContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\TargetedCondition;
+use Warrant\RowCondition;
 
 class TimesheetSchema extends WarrantSchema
 {
@@ -135,15 +135,15 @@ class TimesheetSchema extends WarrantSchema
     #[Ability] public const DELETE  = 'delete';
     #[Ability] public const APPROVE = 'approve';
 
-    // Targeted: narrows WHICH timesheet rows the user matches.
-    #[TargetedCondition]
-    public function isSelf(TargetedConditionContext $c): Builder
+    // Row: narrows WHICH timesheet rows the user matches.
+    #[RowCondition]
+    public function isSelf(RowConditionContext $c): Builder
     {
         return $c->query->whereRaw('timesheets.user_id = ?', [$c->user->getAuthIdentifier()]);
     }
 
-    #[TargetedCondition]
-    public function inDepartment(TargetedConditionContext $c): Builder
+    #[RowCondition]
+    public function inDepartment(RowConditionContext $c): Builder
     {
         return $c->query->whereIn('timesheets.department_id', $c->arguments);
     }
