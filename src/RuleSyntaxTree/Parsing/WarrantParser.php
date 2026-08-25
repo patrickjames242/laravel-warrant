@@ -20,6 +20,9 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  * as the tree is built, so the resulting nodes hold only concrete values.
  *
  * Grammar:
+ *   group    := block*                               -- one or more `for` blocks (RuleSetGroup)
+ *   block    := 'for' IDENTIFIER '{' ruleset '}'     -- header + braces mandatory in a group
+ *   header   := 'for' IDENTIFIER                     -- optional schema header on a lone rule/ruleset
  *   ruleset  := clauses? ( 'if' expr clause+ )*
  *   clause   := 'they' ( 'can' ability (',' ability)*
  *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
@@ -76,14 +79,27 @@ final class WarrantParser
     }
 
     /**
-     * Parse source that must contain exactly one rule.
+     * Parse source that must contain exactly one rule, preceded by an optional
+     * `for <schema>` header. Curly braces are rejected — a `{ ... }` block wraps a
+     * rule *set*, not a single rule. The header schema (or null) is baked onto the
+     * returned rule via {@see WarrantRule::withSchemaKey()}; header/param
+     * reconciliation happens in {@see WarrantRule::fromSyntax()}.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parseSingleRule(string $source, array $bindings = []): WarrantRule
     {
         $parser = new self($source, $bindings);
-        $rules = $parser->parseComplete();
+
+        $schemaKey = $parser->parseOptionalHeader();
+
+        if ($parser->check(TokenType::LBRACE)) {
+            throw $parser->errorAtCurrent(
+                'Curly braces are not valid for a single rule; use WarrantRuleSet::fromSyntax for a `{ ... }` block.'
+            );
+        }
+
+        $rules = $parser->parseRules();
 
         if ($rules === []) {
             throw $parser->errorAtCurrent('Expected a rule.');
@@ -93,7 +109,76 @@ final class WarrantParser
             throw $parser->errorAtCurrent('Expected a single rule but found multiple.');
         }
 
-        return $rules[0];
+        $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        $parser->bindings->finalize($parser->peek());
+
+        return $rules[0]->withSchemaKey($schemaKey);
+    }
+
+    /**
+     * Parse exactly one rule set: an optional `for <schema>` header, then either a
+     * braced `{ ... }` body or a bare rule body. A second `for`/`{` block is
+     * rejected — multiple schemas belong in a {@see parseGroup()}. The header
+     * schema may be null; the "a rule set must name a schema" check happens in
+     * {@see \Warrant\RuleSyntaxTree\WarrantRuleSet::fromSyntax()} after it is
+     * reconciled with the `$schema` argument.
+     *
+     * @param array<int|string, mixed> $bindings
+     */
+    public static function parseSingleRuleSet(string $source, array $bindings = []): ParsedRuleSet
+    {
+        $parser = new self($source, $bindings);
+
+        $schemaKey = $parser->parseOptionalHeader();
+
+        $rules = $parser->check(TokenType::LBRACE)
+            ? $parser->parseBracedBody()
+            : $parser->parseRules();
+
+        if ($parser->check(TokenType::FOR) || $parser->check(TokenType::LBRACE)) {
+            throw $parser->errorAtCurrent(
+                'A single rule set targets one schema; use RuleSetGroup::fromSyntax for multiple `for ... { }` blocks.'
+            );
+        }
+
+        $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        $parser->bindings->finalize($parser->peek());
+
+        return new ParsedRuleSet($schemaKey, $rules);
+    }
+
+    /**
+     * Parse a group of one or more `for <schema> { ... }` blocks. Both the `for`
+     * header and the braces are mandatory on every block. Blocks are returned in
+     * source order and are NOT merged — {@see \Warrant\RuleSyntaxTree\RuleSetGroup}
+     * folds same-schema blocks together. An empty (or whitespace/comment-only)
+     * source yields an empty list.
+     *
+     * @param array<int|string, mixed> $bindings
+     * @return list<ParsedRuleSet>
+     */
+    public static function parseGroup(string $source, array $bindings = []): array
+    {
+        $parser = new self($source, $bindings);
+
+        $blocks = [];
+
+        while (! $parser->check(TokenType::EOF)) {
+            if (! $parser->check(TokenType::FOR)) {
+                throw $parser->errorAtCurrent(
+                    'Expected `for <schema> { ... }`; every block in a rule set group needs a `for` header and braces.'
+                );
+            }
+
+            $schemaKey = $parser->parseOptionalHeader();
+            $rules = $parser->parseBracedBody();
+
+            $blocks[] = new ParsedRuleSet($schemaKey, $rules);
+        }
+
+        $parser->bindings->finalize($parser->peek());
+
+        return $blocks;
     }
 
     /**
@@ -123,6 +208,40 @@ final class WarrantParser
         $rules = $this->parseRules();
         $this->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
         $this->bindings->finalize($this->peek());
+
+        return $rules;
+    }
+
+    /**
+     * Parse an optional leading `for <schema>` header, returning the schema key,
+     * or null when no header is present.
+     */
+    private function parseOptionalHeader(): ?string
+    {
+        if (! $this->check(TokenType::FOR)) {
+            return null;
+        }
+
+        $this->advance(); // consume 'for'
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->nameError('a schema name after `for`');
+        }
+
+        return $this->advance()->lexeme;
+    }
+
+    /**
+     * Parse a braced `{ <rules> }` body. {@see parseRules()} already stops when
+     * the next token isn't `if`/`they`, so it naturally halts at the closing `}`.
+     *
+     * @return list<WarrantRule>
+     */
+    private function parseBracedBody(): array
+    {
+        $this->expect(TokenType::LBRACE, "Expected '{' to open the rule set body.");
+        $rules = $this->parseRules();
+        $this->expect(TokenType::RBRACE, "Expected '}' to close the rule set body.");
 
         return $rules;
     }

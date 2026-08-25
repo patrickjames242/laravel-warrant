@@ -24,7 +24,7 @@ beforeEach(function () {
 
 function validateOwnerSyntax(string $syntax): void
 {
-    WarrantRuleSet::fromSyntax('xs_owner', $syntax)->validate();
+    WarrantRuleSet::fromSyntax($syntax, 'xs_owner')->validate();
 }
 
 it('accepts an unbound reference to a capability (no-model) schema', function () {
@@ -74,8 +74,8 @@ it('rejects a specified row target that is a null literal', function () {
 
 it('rejects a specified row target from a binding that resolved to null', function () {
     expect(fn () => WarrantRuleSet::fromSyntax(
-        'xs_owner',
         'if can(manage for xs_target(:folder)) they can edit',
+        'xs_owner',
         ['folder' => null],
     )->validate())
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');

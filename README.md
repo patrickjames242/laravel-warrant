@@ -176,7 +176,7 @@ class DatabaseRuleResolver implements RuleResolver
             resource: $context->schemaKey, // 'timesheets'
         );
 
-        return WarrantRuleSet::fromSyntax($context->schemaKey, $syntax, $bindings);
+        return WarrantRuleSet::fromSyntax($syntax, $context->schemaKey, $bindings);
     }
 }
 ```

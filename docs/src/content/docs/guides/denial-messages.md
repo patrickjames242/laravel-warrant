@@ -60,7 +60,7 @@ so even the [dynamic closure form](#dynamic-messages-with-a-closure) can be
 carried through `fromSyntax`:
 
 ```php
-WarrantRule::fromSyntax('if is_locked they cannot update because :msg', [
+WarrantRule::fromSyntax('if is_locked they cannot update because :msg', bindings: [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
 ]);
 ```

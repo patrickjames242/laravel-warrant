@@ -26,8 +26,8 @@ app()->instance(RuleResolver::class, new class implements RuleResolver {
     public function resolve(RuleResolutionContext $context): WarrantRuleSet
     {
         return WarrantRuleSet::fromSyntax(
-            $context->schemaKey,
             'if is_self they can view',
+            $context->schemaKey,
         );
     }
 });
@@ -61,7 +61,7 @@ compiling them against the schema in a test. `WarrantRuleSet::validate()` (and
 `validateAll()` for a batch) runs the same name-checking the compiler does:
 
 ```php
-WarrantRuleSet::fromSyntax('documents', $storedRuleString)->validate();
+WarrantRuleSet::fromSyntax($storedRuleString, 'documents')->validate();
 // throws if the string names an unknown ability, condition, or context key
 ```
 

@@ -3,12 +3,25 @@
 namespace Warrant\RuleSyntaxTree;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\Facades\Warrant;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantDenialContext;
 
 readonly class WarrantRule
 {
+    use NormalizesRuleSchema;
+
+    /**
+     * The schema this rule targets, or null when the rule is schema-less. A rule
+     * may name its schema via a `for <schema>` header in the syntax or the
+     * `$schema` argument to {@see fromSyntax()}; when it is placed in a
+     * {@see WarrantRuleSet} the two must agree (see the rule set constructor).
+     */
+    public ?string $schemaKey;
+
     /**
      * @param list<string> $canAbilities Granted ability names (or `*`).
      * @param list<CannotClause> $cannotClauses The denied abilities, grouped into
@@ -17,23 +30,49 @@ readonly class WarrantRule
      *   {@see messageFor()}. A denial message is only ever surfaced for a matching
      *   `cannot`, so it lives on a clause — a rule that only grants has no place
      *   for one.
+     * @param Model|WarrantSchema|string|null $schema The target schema (key,
+     *   schema/model instance or class-string), normalized to a key; null leaves
+     *   the rule schema-less.
      */
     public function __construct(
         public ?IBooleanExpressionNode $conditions,
         public array $canAbilities,
         public array $cannotClauses,
+        Model|WarrantSchema|string|null $schema = null,
     ) {
+        $this->schemaKey = $schema === null ? null : Warrant::resolveSchemaKey($schema);
     }
 
     /**
      * Build a single rule by parsing raw Warrant syntax, resolving any
      * named (:name) or positional (?) placeholders against $bindings.
+     *
+     * The schema may be given by a `for <schema>` header in $syntax and/or the
+     * $schema argument; either, both, or neither is allowed, but if both are given
+     * they must agree.
+     *
+     * @param Model|WarrantSchema|string|null $schema
      */
     public static function fromSyntax(
         string $syntax,
+        Model|WarrantSchema|string|null $schema = null,
         array $bindings = [],
     ): self {
-        return WarrantParser::parseSingleRule($syntax, $bindings);
+        $rule = WarrantParser::parseSingleRule($syntax, $bindings);
+
+        $paramKey = $schema === null ? null : Warrant::resolveSchemaKey($schema);
+
+        return $rule->withSchemaKey(self::reconcileSchemaKey($rule->schemaKey, $paramKey, required: false));
+    }
+
+    /**
+     * Return a copy of this rule targeting $schemaKey (an already-resolved key, or
+     * null to clear it). Used to bake a parsed `for` header onto a rule and to
+     * reconcile it with the `$schema` argument.
+     */
+    public function withSchemaKey(?string $schemaKey): self
+    {
+        return new self($this->conditions, $this->canAbilities, $this->cannotClauses, $schemaKey);
     }
 
     /**
@@ -153,7 +192,7 @@ readonly class WarrantRule
             $map[$ability] = $message;
         }
 
-        return new self($this->conditions, $this->canAbilities, self::clausesFromMessageMap($map));
+        return new self($this->conditions, $this->canAbilities, self::clausesFromMessageMap($map), $this->schemaKey);
     }
 
     /**
@@ -167,17 +206,18 @@ readonly class WarrantRule
      */
     public function toSyntax(): string
     {
-        return RuleSyntaxWriter::toSyntax($this);
+        return RuleSyntaxWriter::ruleToSyntax($this);
     }
 
     /**
      * Render this rule to `?`-parameterized syntax plus the positional bindings
      * that fill it. Lossless for any parameter value. Round-trips via
-     * `WarrantRule::fromSyntax($result->syntax, $result->bindings)`.
+     * `WarrantRule::fromSyntax($result->syntax, bindings: $result->bindings)` (the
+     * schema rides along in the rendered `for` header when the rule has one).
      */
     public function toBoundSyntax(): BoundSyntax
     {
-        return RuleSyntaxWriter::toBoundSyntax($this);
+        return RuleSyntaxWriter::ruleToBoundSyntax($this);
     }
 
     /**

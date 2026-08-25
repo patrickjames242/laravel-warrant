@@ -33,11 +33,11 @@ it('resolves bindings through Parser::parse', function () {
 // -- Basics -------------------------------------------------------------------
 
 it('parses a single rule with can and cannot clauses', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         if is_self
         they can edit, view, delete
         they cannot approve, deny
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->schemaKey)->toBe('timesheets');
     expect($set->rules)->toHaveCount(1);
@@ -50,13 +50,13 @@ it('parses a single rule with can and cannot clauses', function () {
 });
 
 it('parses multiple rules in one string', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         if is_self
         they can edit
 
         if has_access_control_level
         they can view
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->rules)->toHaveCount(2);
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
@@ -64,10 +64,10 @@ it('parses multiple rules in one string', function () {
 });
 
 it('parses an unconditional rule (no if) with null conditions', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         they can view
         they cannot delete
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->rules)->toHaveCount(1);
     expect($set->rules[0]->conditions)->toBeNull();
@@ -76,7 +76,7 @@ it('parses an unconditional rule (no if) with null conditions', function () {
 });
 
 it('allows an empty rule set', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', '   ');
+    $set = WarrantRuleSet::fromSyntax('   ', 'timesheets');
 
     expect($set->rules)->toBe([]);
 });
@@ -85,8 +85,8 @@ it('allows an empty rule set', function () {
 
 it('treats whitespace as insignificant (whole ruleset on one line)', function () {
     $set = WarrantRuleSet::fromSyntax(
-        'timesheets',
-        'if is_self they can edit if is_manager they can approve they cannot delete'
+        'if is_self they can edit if is_manager they can approve they cannot delete',
+        'timesheets'
     );
 
     expect($set->rules)->toHaveCount(2);
@@ -100,7 +100,7 @@ it('treats whitespace as insignificant (whole ruleset on one line)', function ()
 // -- Boolean expressions ------------------------------------------------------
 
 it('applies precedence not > and > or', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is_self or not is_manager and is_owner they can view');
+    $set = WarrantRuleSet::fromSyntax('if is_self or not is_manager and is_owner they can view', 'timesheets');
 
     // Expect: Or(is_self, And(Not(is_manager), is_owner))
     $expr = $set->rules[0]->conditions;
@@ -115,15 +115,15 @@ it('applies precedence not > and > or', function () {
 });
 
 it('treats ! as a synonym for not', function () {
-    $bang = WarrantRuleSet::fromSyntax('timesheets', 'if !is_manager they can view');
-    $word = WarrantRuleSet::fromSyntax('timesheets', 'if not is_manager they can view');
+    $bang = WarrantRuleSet::fromSyntax('if !is_manager they can view', 'timesheets');
+    $word = WarrantRuleSet::fromSyntax('if not is_manager they can view', 'timesheets');
 
     expect($bang->rules[0]->conditions)->toBeInstanceOf(NotNode::class);
     expect($word->rules[0]->conditions)->toBeInstanceOf(NotNode::class);
 });
 
 it('honours parentheses over precedence', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if !(is_self or is_manager) they cannot edit');
+    $set = WarrantRuleSet::fromSyntax('if !(is_self or is_manager) they cannot edit', 'timesheets');
 
     $expr = $set->rules[0]->conditions;
     expect($expr)->toBeInstanceOf(NotNode::class);
@@ -133,14 +133,14 @@ it('honours parentheses over precedence', function () {
 // -- Inline literals ----------------------------------------------------------
 
 it('parses inline literals of every supported type', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', "if is_thing('a-string', 42, 3.14, true, null) they can view");
+    $set = WarrantRuleSet::fromSyntax("if is_thing('a-string', 42, 3.14, true, null) they can view", 'timesheets');
 
     $params = $set->rules[0]->conditions->parameters;
     expect($params)->toBe(['a-string', 42, 3.14, true, null]);
 });
 
 it('unescapes quotes and backslashes in string literals', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', "if is_thing('a\\'b\\\\c') they can view");
+    $set = WarrantRuleSet::fromSyntax("if is_thing('a\\'b\\\\c') they can view", 'timesheets');
 
     expect($set->rules[0]->conditions->parameters)->toBe(["a'b\\c"]);
 });
@@ -148,10 +148,10 @@ it('unescapes quotes and backslashes in string literals', function () {
 // -- Bindings -----------------------------------------------------------------
 
 it('resolves named bindings inline, reused and order-independent', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         if is_specific_user(:user_id, :user_id, :list)
         they cannot edit
-        DSL, [
+        DSL, 'timesheets', [
         'list' => [1, null, false, 'x'],
         'user_id' => 'some-user-id',
     ]);
@@ -164,7 +164,7 @@ it('resolves named bindings inline, reused and order-independent', function () {
 });
 
 it('resolves positional bindings left-to-right across the whole string', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is_department(?, ?, ?) they can view', [
+    $set = WarrantRuleSet::fromSyntax('if is_department(?, ?, ?) they can view', 'timesheets', [
         'a', 'b', 'c',
     ]);
 
@@ -173,7 +173,7 @@ it('resolves positional bindings left-to-right across the whole string', functio
 
 it('accepts any value type through a binding', function () {
     $object = new stdClass;
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is_thing(:v) they can view', ['v' => $object]);
+    $set = WarrantRuleSet::fromSyntax('if is_thing(:v) they can view', 'timesheets', ['v' => $object]);
 
     expect($set->rules[0]->conditions->parameters[0])->toBe($object);
 });
@@ -181,7 +181,7 @@ it('accepts any value type through a binding', function () {
 // -- Context references (@context) --------------------------------------------
 
 it('parses @context <key> into a symbolic ContextRef, not a value', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is_teacher(@context academic_year_id) they can view');
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@context academic_year_id) they can view', 'timesheets');
 
     $params = $set->rules[0]->conditions->parameters;
     expect($params)->toHaveCount(1);
@@ -191,8 +191,8 @@ it('parses @context <key> into a symbolic ContextRef, not a value', function () 
 
 it('mixes a context ref with literals and bindings in one condition', function () {
     $set = WarrantRuleSet::fromSyntax(
-        'timesheets',
         "if is_teacher('x', @context year, :b) they can view",
+        'timesheets',
         ['b' => 42],
     );
 
@@ -206,13 +206,13 @@ it('mixes a context ref with literals and bindings in one condition', function (
 it('exempts a context ref from binding finalize (no "unused binding" error)', function () {
     // A bare @context ref with an empty bindings array must not trip the
     // all-bindings-used / mixing checks — it is resolved later, at check time.
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is_teacher(@context year) they can view');
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@context year) they can view', 'timesheets');
 
     expect($set->rules[0]->conditions->parameters[0])->toBeInstanceOf(ContextRef::class);
 });
 
 it('errors on a bad context sigil or a missing key', function (string $syntax, string $needle) {
-    expect(fn () => WarrantRuleSet::fromSyntax('timesheets', $syntax))
+    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
     'not context'  => ['if is_teacher(@year) they can view', "Expected 'context'"],
@@ -222,13 +222,13 @@ it('errors on a bad context sigil or a missing key', function (string $syntax, s
 // -- Wildcards ----------------------------------------------------------------
 
 it('parses wildcard abilities on can and cannot', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         if is_admin
         they can *
 
         if is_suspended
         they cannot *
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->rules[0]->canAbilities)->toBe(['*']);
     expect($set->rules[1]->cannotAbilities())->toBe(['*']);
@@ -237,7 +237,7 @@ it('parses wildcard abilities on can and cannot', function () {
 // -- Identifiers --------------------------------------------------------------
 
 it('allows dashes inside condition and ability names', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', 'if is-department-manager they can soft-delete');
+    $set = WarrantRuleSet::fromSyntax('if is-department-manager they can soft-delete', 'timesheets');
 
     expect($set->rules[0]->conditions->conditionKey)->toBe('is-department-manager');
     expect($set->rules[0]->canAbilities)->toBe(['soft-delete']);
@@ -253,7 +253,7 @@ it('parses a single unconditional rule via WarrantRule::fromSyntax', function ()
 });
 
 it('parses a single conditional rule with a binding via WarrantRule::fromSyntax', function () {
-    $rule = WarrantRule::fromSyntax('if some_condition(:p) they can edit', ['p' => 'v']);
+    $rule = WarrantRule::fromSyntax('if some_condition(:p) they can edit', bindings: ['p' => 'v']);
 
     expect($rule->conditions->parameters)->toBe(['v']);
     expect($rule->canAbilities)->toBe(['edit']);
@@ -317,20 +317,20 @@ it('leaves the message null when no because clause is present', function () {
 });
 
 it('resolves a named binding message to a string', function () {
-    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => 'locked']);
+    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', bindings: ['msg' => 'locked']);
 
     expect($rule->messageFor('edit'))->toBe('locked');
 });
 
 it('resolves a positional binding message to a string', function () {
-    $rule = WarrantRule::fromSyntax('they cannot edit because ?', ['locked']);
+    $rule = WarrantRule::fromSyntax('they cannot edit because ?', bindings: ['locked']);
 
     expect($rule->messageFor('edit'))->toBe('locked');
 });
 
 it('accepts a closure resolved from a binding as the message', function () {
     $closure = fn () => 'dynamic';
-    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => $closure]);
+    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', bindings: ['msg' => $closure]);
 
     expect($rule->messageFor('edit'))->toBe($closure);
 });
@@ -390,7 +390,7 @@ it('rejects @context after because', function () {
 });
 
 it('rejects a binding that resolves to a non-string, non-closure message', function () {
-    expect(fn () => WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => 42]))
+    expect(fn () => WarrantRule::fromSyntax('they cannot edit because :msg', bindings: ['msg' => 42]))
         ->toThrow(WarrantSyntaxException::class, 'must be a string or a closure');
 });
 
@@ -402,7 +402,7 @@ it('rejects a bare because with no message', function () {
 // -- Invalid syntax -----------------------------------------------------------
 
 it('throws on invalid syntax', function (string $syntax, array $bindings, string $needle) {
-    expect(fn () => WarrantRuleSet::fromSyntax('timesheets', $syntax, $bindings))
+    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets', $bindings))
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
     'mixed bindings' => ['if is_thing(:a, ?) they can view', ['a' => 1], 'mix named and positional'],
@@ -422,7 +422,7 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
 
 it('reports the position of a syntax error', function () {
     try {
-        WarrantRuleSet::fromSyntax('timesheets', 'if is_self they can can');
+        WarrantRuleSet::fromSyntax('if is_self they can can', 'timesheets');
         $this->fail('Expected a WarrantSyntaxException.');
     } catch (WarrantSyntaxException $e) {
         expect($e->sourceLine)->toBe(1);
@@ -434,11 +434,11 @@ it('reports the position of a syntax error', function () {
 // -- Comments -----------------------------------------------------------------
 
 it('ignores a full-line comment', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         # only the owner may touch their own timesheet
         if is_self
         they can edit
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->rules)->toHaveCount(1);
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
@@ -446,11 +446,11 @@ it('ignores a full-line comment', function () {
 });
 
 it('ignores a trailing comment on a line', function () {
-    $set = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
         if is_self   # the author
         they can edit   # but see the cannot below
         they cannot approve
-        DSL);
+        DSL, 'timesheets');
 
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
     expect($set->rules[0]->canAbilities)->toBe(['edit']);

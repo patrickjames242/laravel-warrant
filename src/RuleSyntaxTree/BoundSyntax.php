@@ -8,8 +8,9 @@ namespace Warrant\RuleSyntaxTree;
  * left-to-right list of values that fill them.
  *
  * Round-trips through the parser: for a rule set,
- * `WarrantRuleSet::fromSyntax($schemaKey, $syntax, $bindings)` reconstructs an
- * equivalent set; for a single rule, `WarrantRule::fromSyntax($syntax, $bindings)`.
+ * `WarrantRuleSet::fromSyntax($syntax, bindings: $bindings)` reconstructs an
+ * equivalent set (the schema rides in the rendered `for` header); for a single
+ * rule, `WarrantRule::fromSyntax($syntax, bindings: $bindings)`.
  */
 readonly class BoundSyntax
 {

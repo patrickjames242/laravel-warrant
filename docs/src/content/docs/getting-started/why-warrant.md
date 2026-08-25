@@ -89,11 +89,11 @@ class DatabaseRuleResolver implements RuleResolver
 				$user = $context->user; // the user these rules are for
 
 				if ($context->schemaKey === 'documents' && $user->role === 'employee'){
-						return WarrantRuleSet::fromSyntax('documents', '
+						return WarrantRuleSet::fromSyntax('
 								if is_my_own_document or manages_team they can update
 								if is_document_locked and not is_admin they cannot update
 								if is_admin they can *
-						');
+						', 'documents');
 				}
 				// ...
 		}

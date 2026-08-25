@@ -47,7 +47,7 @@
       "name": "variable.parameter.binding.warrant"
     },
     "schema-target": {
-      "comment": "`for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. The optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the handle are on different lines, `for` falls back to the keyword rule below.",
+      "comment": "`for <schema>` — both the header of a top-level `for <schema> { ... }` rule-set block and the `for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. Any optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the name are on different lines, `for` falls back to the keyword rule below.",
       "match": "\\b(for)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)",
       "captures": {
         "1": { "name": "keyword.control.warrant" },
@@ -73,8 +73,8 @@
       "name": "keyword.operator.warrant"
     },
     "punctuation": {
-      "comment": "( ) , punctuation.",
-      "match": "[(),]",
+      "comment": "( ) , punctuation, plus { } delimiting a `for <schema> { ... }` rule-set block.",
+      "match": "[(){},]",
       "name": "punctuation.separator.warrant"
     },
     "identifiers": {

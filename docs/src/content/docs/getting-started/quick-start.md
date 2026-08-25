@@ -76,8 +76,8 @@ class DatabaseRuleResolver implements RuleResolver
         // In a real app you'd look these rules up per user/role/tenant.
         // Here we return the same rule for everyone, for the documents schema.
         return WarrantRuleSet::fromSyntax(
-            $context->schemaKey,
             'if is_self they can view, update',
+            $context->schemaKey,
         );
     }
 }

@@ -40,8 +40,8 @@ it('throws when two schemas claim the same schema key', function () {
 it('validates a batch of rule sets, each against its own registered schema', function () {
     // Passes silently: every name is declared by the course_sections schema.
     WarrantRuleSet::validateAll(
-        WarrantRuleSet::fromSyntax('course_sections', 'if is_teacher they can view, update'),
-        [WarrantRuleSet::fromSyntax('course_sections', 'if is_advisor they can publish')],
+        WarrantRuleSet::fromSyntax('if is_teacher they can view, update', 'course_sections'),
+        [WarrantRuleSet::fromSyntax('if is_advisor they can publish', 'course_sections')],
     );
 
     expect(true)->toBeTrue();
@@ -49,8 +49,8 @@ it('validates a batch of rule sets, each against its own registered schema', fun
 
 it('throws on the first unknown name across a validateAll batch', function () {
     expect(fn () => WarrantRuleSet::validateAll(
-        WarrantRuleSet::fromSyntax('course_sections', 'if is_teacher they can view'),
-        WarrantRuleSet::fromSyntax('course_sections', 'they can fly'),
+        WarrantRuleSet::fromSyntax('if is_teacher they can view', 'course_sections'),
+        WarrantRuleSet::fromSyntax('they can fly', 'course_sections'),
     ))->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 });
 

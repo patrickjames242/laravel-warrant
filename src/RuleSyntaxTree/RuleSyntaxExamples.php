@@ -48,11 +48,11 @@ class RuleSyntaxExamples
     /** A single rule: one `if`, a `can` line, and a `cannot` line. */
     public function basicRule(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_self
             they can edit, view, delete
             they cannot approve, deny
-            DSL);
+            DSL, 'timesheets');
 
         // Compiles per ability, for this rule:
         //   edit / view / delete  ->  is_self
@@ -62,7 +62,7 @@ class RuleSyntaxExamples
     /** Several rules in one string. Each `if` starts a new rule. */
     public function multipleRules(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_self or (not is_manager and is_specific_user('some-user-id'))
             they can edit, view, delete
             they cannot approve, deny
@@ -70,7 +70,7 @@ class RuleSyntaxExamples
             if has_access_control_level
             they can edit, view, update
             they cannot publish, deny
-            DSL);
+            DSL, 'timesheets');
 
         // The same ability may appear in multiple rules; the per-ability formula
         // ORs the `can` expressions and ANDs the negated `cannot` expressions.
@@ -79,10 +79,10 @@ class RuleSyntaxExamples
     /** No `if` → the rule always applies (compiles to `WHERE true` on the grant side). */
     public function unconditionalRule(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             they can view
             they cannot delete
-            DSL);
+            DSL, 'timesheets');
 
         // view   -> true            (always granted)
         // delete -> NOT (true)      (never granted, by anyone)
@@ -100,12 +100,12 @@ class RuleSyntaxExamples
      */
     public function denialMessage(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             they can view, edit, delete
             if is_locked
             they cannot edit because 'This timesheet is locked and can no longer be edited.'
             they cannot delete because 'Locked timesheets cannot be deleted.'
-            DSL);
+            DSL, 'timesheets');
 
         // edit/delete are granted unless is_locked; when a locked row denies one,
         // the denial surfaces that clause's own message instead of the generic 403.
@@ -116,7 +116,7 @@ class RuleSyntaxExamples
         // dynamic message form accepted by WarrantRule::withDenialMessage():
         WarrantRule::fromSyntax(
             "if is_locked they cannot edit because :msg",
-            ['msg' => fn (\Warrant\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
+            bindings: ['msg' => fn (\Warrant\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
         );
 
         // The same rule built fluently — theyCannotBecause() carries the message:
@@ -138,8 +138,8 @@ class RuleSyntaxExamples
     public function singleLine(): void
     {
         $ruleSet = WarrantRuleSet::fromSyntax(
-            'timesheets',
-            'if is_self they can edit if is_manager they can approve they cannot delete'
+            'if is_self they can edit if is_manager they can approve they cannot delete',
+            'timesheets'
         );
 
         // Two rules:
@@ -156,19 +156,19 @@ class RuleSyntaxExamples
     public function booleanPrecedence(): void
     {
         // Parses as: is_self OR ((NOT is_manager) AND is_owner)
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_self or not is_manager and is_owner
             they can view
-            DSL);
+            DSL, 'timesheets');
     }
 
     /** `!` is an accepted synonym for `not`; parentheses group freely. */
     public function negationSynonymAndGrouping(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if !(is_self or (!is_manager and is_specific_user('some-user-id')))
             they cannot edit
-            DSL);
+            DSL, 'timesheets');
 
         // Equivalent, using canonical `not`:
         //   if not (is_self or (not is_manager and is_specific_user('some-user-id')))
@@ -184,10 +184,10 @@ class RuleSyntaxExamples
      */
     public function inlineLiterals(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_thing('a-string', 42, 3.14, true, null)
             they can view
-            DSL);
+            DSL, 'timesheets');
     }
 
     /**
@@ -243,10 +243,10 @@ class RuleSyntaxExamples
      */
     public function namedBindings(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if not (is_self or (not is_manager and is_specific_user(:specific_user_id, :specific_user_id, :some_list)))
             they cannot edit
-            DSL, [
+            DSL, 'timesheets', [
             'specific_user_id' => 'some-user-id',
             'some_list' => [1, null, false, 'some-string'],
         ]);
@@ -258,10 +258,10 @@ class RuleSyntaxExamples
      */
     public function positionalBindings(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_department(?, ?, ?)
             they can view
-            DSL, [
+            DSL, 'timesheets', [
             'department-id-1',
             'department-id-2',
             'department-id-3',
@@ -278,13 +278,13 @@ class RuleSyntaxExamples
      */
     public function wildcards(): void
     {
-        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+        $ruleSet = WarrantRuleSet::fromSyntax(<<<'DSL'
             if is_admin
             they can *
 
             if is_suspended
             they cannot *
-            DSL);
+            DSL, 'timesheets');
 
         // is_admin     -> grants every ability
         // is_suspended -> AND NOT (is_suspended) applied to every ability
@@ -307,7 +307,7 @@ class RuleSyntaxExamples
         $cannotEdit    = WarrantRule::fromSyntax('they cannot edit');
         $canEdit       = WarrantRule::fromSyntax(
             'if some_condition(:some_param) they can edit',
-            ['some_param' => 'some-value']
+            bindings: ['some_param' => 'some-value']
         );
 
         // Variadic:

@@ -67,6 +67,8 @@ final class Lexer
         return match (true) {
             $char === '(' => $this->single(TokenType::LPAREN),
             $char === ')' => $this->single(TokenType::RPAREN),
+            $char === '{' => $this->single(TokenType::LBRACE),
+            $char === '}' => $this->single(TokenType::RBRACE),
             $char === ',' => $this->single(TokenType::COMMA),
             $char === '*' => $this->single(TokenType::STAR),
             $char === '=' => $this->single(TokenType::EQUALS),

@@ -100,11 +100,11 @@ are three ways to construct one.
 Parse a whole multi-rule string with `fromSyntax`:
 
 ```php
-WarrantRuleSet::fromSyntax('documents', '
+WarrantRuleSet::fromSyntax('
     if is_self or manages_team they can view, update
     if is_locked and not is_admin they cannot update
     if is_admin they can *
-');
+', 'documents');
 ```
 
 Compose it from already-built `WarrantRule` objects with `fromRules`:
@@ -142,7 +142,7 @@ class DatabaseRuleResolver implements RuleResolver
             ->where('resource', $context->schemaKey)   // e.g. 'documents'
             ->pluck('rule');
 
-        return WarrantRuleSet::fromSyntax($context->schemaKey, $rules->implode("\n"));
+        return WarrantRuleSet::fromSyntax($rules->implode("\n"), $context->schemaKey);
     }
 }
 ```

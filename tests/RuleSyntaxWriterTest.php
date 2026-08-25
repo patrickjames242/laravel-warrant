@@ -26,14 +26,16 @@ it('omits the if line for an unconditional rule', function () {
 });
 
 it('separates rules in a set with a blank line', function () {
-    $set = WarrantRuleSet::fromSyntax('docs', 'if is_self they can view if is_manager they can approve');
+    $set = WarrantRuleSet::fromSyntax('if is_self they can view if is_manager they can approve', 'docs');
 
     expect($set->toSyntax())->toBe(<<<'TXT'
-        if is_self
-        they can view
+        for docs {
+            if is_self
+            they can view
 
-        if is_manager
-        they can approve
+            if is_manager
+            they can approve
+        }
         TXT);
 });
 
@@ -108,19 +110,21 @@ it('binds any value losslessly, including non-inlinable ones', function () {
 
 it('orders bindings left-to-right across the whole set', function () {
     $set = WarrantRuleSet::fromSyntax(
-        'docs',
         'if a(?) they can view if b(?, ?) they can edit',
+        'docs',
         ['first', 'second', 'third'],
     );
 
     $bound = $set->toBoundSyntax();
 
     expect($bound->syntax)->toBe(<<<'TXT'
-        if a(?)
-        they can view
+        for docs {
+            if a(?)
+            they can view
 
-        if b(?, ?)
-        they can edit
+            if b(?, ?)
+            they can edit
+        }
         TXT);
     expect($bound->bindings)->toBe(['first', 'second', 'third']);
 });
@@ -154,7 +158,7 @@ it('extracts a string denial message as a positional binding in bound form', fun
     expect($bound->bindings)->toBe(['locked']);
 
     // Re-parsing the bound form restores the message.
-    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->messageFor('edit'))->toBe('locked');
+    expect(WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings)->messageFor('edit'))->toBe('locked');
 });
 
 it('orders the message binding after the condition bindings', function () {
@@ -168,13 +172,13 @@ it('orders the message binding after the condition bindings', function () {
 
 it('carries a closure denial message losslessly through the bound form', function () {
     $closure = fn () => 'dynamic';
-    $rule = WarrantRule::fromSyntax('they cannot edit because :m', ['m' => $closure]);
+    $rule = WarrantRule::fromSyntax('they cannot edit because :m', bindings: ['m' => $closure]);
 
     $bound = $rule->toBoundSyntax();
 
     expect($bound->syntax)->toBe('they cannot edit because ?');
     expect($bound->bindings)->toBe([$closure]);
-    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->messageFor('edit'))->toBe($closure);
+    expect(WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings)->messageFor('edit'))->toBe($closure);
 });
 
 it('throws when writing a closure denial message inline', function () {
@@ -223,7 +227,7 @@ it('keeps a context ref out of the positional binding stream', function () {
     expect($bound->bindings)->toBe(['x']);
 
     // Re-parsing the bound form restores the same value + ref shape.
-    $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
     expect($reparsed->conditions->parameters[0])->toBe('x');
     expect($reparsed->conditions->parameters[1])->toBeInstanceOf(ContextRef::class);
     expect($reparsed->conditions->parameters[1]->key)->toBe('year');
@@ -232,8 +236,8 @@ it('keeps a context ref out of the positional binding stream', function () {
 // -- round-trip ---------------------------------------------------------------
 
 it('round-trips the inline form back through the parser', function (string $syntax) {
-    $set = WarrantRuleSet::fromSyntax('docs', $syntax);
-    $reparsed = WarrantRuleSet::fromSyntax('docs', $set->toSyntax());
+    $set = WarrantRuleSet::fromSyntax($syntax, 'docs');
+    $reparsed = WarrantRuleSet::fromSyntax($set->toSyntax(), 'docs');
 
     // toSyntax is idempotent: a second render matches the first.
     expect($reparsed->toSyntax())->toBe($set->toSyntax());
@@ -247,13 +251,13 @@ it('round-trips the inline form back through the parser', function (string $synt
 
 it('round-trips the bound form back through the parser', function () {
     $set = WarrantRuleSet::fromSyntax(
-        'docs',
         "if in_department(?, ?) they can view they cannot delete if is_admin they can *",
+        'docs',
         ['sales', 'eng'],
     );
 
     $bound = $set->toBoundSyntax();
-    $reparsed = WarrantRuleSet::fromSyntax('docs', $bound->syntax, $bound->bindings);
+    $reparsed = WarrantRuleSet::fromSyntax($bound->syntax, 'docs', $bound->bindings);
 
     expect($reparsed->toBoundSyntax()->syntax)->toBe($bound->syntax);
     expect($reparsed->toBoundSyntax()->bindings)->toBe(['sales', 'eng']);
@@ -300,13 +304,13 @@ it('re-parses to an equal tree (inline round-trip)', function () {
 it('renders literal row selectors and with-values via bound syntax losslessly', function () {
     $rule = WarrantRule::fromSyntax(
         'if can(manage for departments(?) with tenant = ?) they can update',
-        ['dept-1', 'tenant-9'],
+        bindings: ['dept-1', 'tenant-9'],
     );
 
     $bound = $rule->toBoundSyntax();
     expect($bound->bindings)->toBe(['dept-1', 'tenant-9']);
 
-    $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
     expect($reparsed->conditions)->toEqual($rule->conditions);
 });
 
@@ -353,12 +357,12 @@ it('re-parses a check(...) to an equal tree (inline round-trip)', function () {
 it('renders a check(...) row selector and predicate args via bound syntax losslessly', function () {
     $rule = WarrantRule::fromSyntax(
         'if check(is_open(?) for pay_periods(?) with tenant = ?) they can view',
-        ['maintenance', 'pp-1', 'tenant-9'],
+        bindings: ['maintenance', 'pp-1', 'tenant-9'],
     );
 
     $bound = $rule->toBoundSyntax();
     expect($bound->bindings)->toBe(['maintenance', 'pp-1', 'tenant-9']);
 
-    $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
     expect($reparsed->conditions)->toEqual($rule->conditions);
 });

@@ -73,7 +73,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantRuleSet::fromSyntax($key, $syntax);
+        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {

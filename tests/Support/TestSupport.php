@@ -250,7 +250,7 @@ function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKe
 {
     app()->instance(
         RuleResolver::class,
-        new FakeWarrantRuleResolver(WarrantRuleSet::fromSyntax($schemaKey, $syntax, $bindings))
+        new FakeWarrantRuleResolver(WarrantRuleSet::fromSyntax($syntax, $schemaKey, $bindings))
     );
 }
 

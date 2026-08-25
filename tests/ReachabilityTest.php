@@ -21,7 +21,7 @@ beforeEach(function () {
 function analyze(string $syntax, string $ability): Reachability
 {
     return (new ReachabilityAnalyzer)->analyze(
-        WarrantRuleSet::fromSyntax('course_sections', $syntax),
+        WarrantRuleSet::fromSyntax($syntax, 'course_sections'),
         $ability,
     );
 }

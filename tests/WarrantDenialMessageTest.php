@@ -543,7 +543,7 @@ it('surfaces a because message supplied through a binding closure', function () 
     seedDenialSections();
     bindDenialRules([
         WarrantRule::fromSyntax('they can update'),
-        WarrantRule::fromSyntax('if is_teacher they cannot update because :msg', [
+        WarrantRule::fromSyntax('if is_teacher they cannot update because :msg', bindings: [
             'msg' => fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}.",
         ]),
     ]);

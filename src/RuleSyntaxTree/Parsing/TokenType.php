@@ -22,6 +22,8 @@ enum TokenType
     // Punctuation.
     case LPAREN;
     case RPAREN;
+    case LBRACE; // `{` opens a `for <schema> { ... }` rule-set block
+    case RBRACE; // `}` closes a rule-set block
     case COMMA;
     case STAR;   // wildcard ability `*`
     case EQUALS; // `=` in a cross-schema `with` map

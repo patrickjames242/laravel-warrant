@@ -27,10 +27,10 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 
 See [Rule-building API](/reference/rule-building-api/).
 
-- `WarrantRuleSet::fromSyntax(Model|WarrantSchema|string $schema, string $syntax, array $bindings = [])`
+- `WarrantRuleSet::fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = [])`
 - `WarrantRuleSet::fromRules(Model|WarrantSchema|string $schema, WarrantRule|WarrantRuleBuilder|array ...$rules)`
 - `WarrantRuleSet::build(Model|WarrantSchema|string $schema, Closure $callback)`
-- `WarrantRule::fromSyntax(string $syntax, array $bindings = [])`
+- `WarrantRule::fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = [])`
 - `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
 - `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
 - `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->theyCan/theyCannot`, `->toRule()`

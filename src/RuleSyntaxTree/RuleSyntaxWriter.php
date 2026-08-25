@@ -57,11 +57,92 @@ final class RuleSyntaxWriter
     }
 
     /**
+     * Render a single rule, prefixed with a `for <schema>` header when the rule
+     * carries a schema (braceless — a single rule takes no `{ }` block).
+     */
+    public static function ruleToSyntax(WarrantRule $rule): string
+    {
+        return (new self(bound: false))->writeRuleWithHeader($rule);
+    }
+
+    public static function ruleToBoundSyntax(WarrantRule $rule): BoundSyntax
+    {
+        $writer = new self(bound: true);
+
+        return new BoundSyntax($writer->writeRuleWithHeader($rule), $writer->bindings);
+    }
+
+    /**
+     * Render a rule set as a `for <schema> { ... }` block with an indented body.
+     */
+    public static function ruleSetToSyntax(WarrantRuleSet $set): string
+    {
+        return (new self(bound: false))->writeRuleSet($set);
+    }
+
+    public static function ruleSetToBoundSyntax(WarrantRuleSet $set): BoundSyntax
+    {
+        $writer = new self(bound: true);
+
+        return new BoundSyntax($writer->writeRuleSet($set), $writer->bindings);
+    }
+
+    /**
+     * Render a group as its `for <schema> { ... }` blocks, one blank line apart.
+     * One shared bindings list spans the whole group, left to right.
+     */
+    public static function groupToSyntax(RuleSetGroup $group): string
+    {
+        return (new self(bound: false))->writeGroup($group);
+    }
+
+    public static function groupToBoundSyntax(RuleSetGroup $group): BoundSyntax
+    {
+        $writer = new self(bound: true);
+
+        return new BoundSyntax($writer->writeGroup($group), $writer->bindings);
+    }
+
+    /**
      * @param list<WarrantRule> $rules
      */
     private function writeRules(array $rules): string
     {
         return implode("\n\n", array_map($this->writeRule(...), $rules));
+    }
+
+    private function writeRuleWithHeader(WarrantRule $rule): string
+    {
+        $body = $this->writeRule($rule);
+
+        return $rule->schemaKey !== null ? "for {$rule->schemaKey}\n{$body}" : $body;
+    }
+
+    private function writeRuleSet(WarrantRuleSet $set): string
+    {
+        $body = $this->writeRules($set->rules);
+
+        if ($body === '') {
+            return "for {$set->schemaKey} {\n}";
+        }
+
+        return "for {$set->schemaKey} {\n" . $this->indent($body) . "\n}";
+    }
+
+    private function writeGroup(RuleSetGroup $group): string
+    {
+        return implode("\n\n", array_map($this->writeRuleSet(...), $group->ruleSets));
+    }
+
+    /**
+     * Indent every non-empty line of $text by four spaces (blank lines stay blank).
+     */
+    private function indent(string $text): string
+    {
+        return implode("\n", array_map(
+            static fn (string $line): string => $line === '' ? '' : '    ' . $line,
+            explode("\n", $text),
+        ));
     }
 
     private function writeRule(WarrantRule $rule): string

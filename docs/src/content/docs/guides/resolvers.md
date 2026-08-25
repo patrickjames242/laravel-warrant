@@ -35,8 +35,8 @@ class DatabaseRuleResolver implements RuleResolver
             ->pluck('rule');                    // ['if is_self they can view', ...]
 
         return WarrantRuleSet::fromSyntax(
-            $context->schemaKey,
             $grants->implode("\n"),             // rules concatenate freely
+            $context->schemaKey,
         );
     }
 }
@@ -66,7 +66,7 @@ plain schema-key string):
 Parse a string, resolving bindings inline:
 
 ```php
-WarrantRuleSet::fromSyntax('documents', 'if is_self they can view', $bindings = []);
+WarrantRuleSet::fromSyntax('if is_self they can view', 'documents', $bindings = []);
 ```
 
 ### From already-parsed rules

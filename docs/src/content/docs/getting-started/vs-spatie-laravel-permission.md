@@ -144,11 +144,11 @@ class DocumentRuleResolver implements RuleResolver
     public function resolve(RuleResolutionContext $context): WarrantRuleSet
     {
         // $context->user and $context->schemaKey tell you who's asking, and about what
-        return WarrantRuleSet::fromSyntax($context->schemaKey, '
+        return WarrantRuleSet::fromSyntax('
             if is_self or manages_team they can update
             if is_locked and not is_admin they cannot update
             if is_admin they can *
-        ');
+        ', $context->schemaKey);
     }
 }
 ```
@@ -257,12 +257,12 @@ class DatabaseRuleResolver implements RuleResolver
     public function resolve(RuleResolutionContext $context): WarrantRuleSet
     {
         if ($context->user->hasRole('admin')) {          // Spatie answers "what role?"
-            return WarrantRuleSet::fromSyntax($context->schemaKey, 'they can *');
+            return WarrantRuleSet::fromSyntax('they can *', $context->schemaKey);
         }
 
         return WarrantRuleSet::fromSyntax(
-            $context->schemaKey,
             'if is_self they can view, update',           // Warrant answers "on which rows?"
+            $context->schemaKey,
         );
     }
 }

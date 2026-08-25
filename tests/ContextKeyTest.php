@@ -77,8 +77,8 @@ beforeEach(function () {
     ]);
 
     bindWarrantRuleSet(WarrantRuleSet::fromSyntax(
-        'context_docs',
         'if in_workspace(@context workspace_id) they can view',
+        'context_docs',
     ));
 });
 
@@ -125,7 +125,7 @@ it('lets a condition read the context bag directly, without @context in the rule
 
     // The rule names current_workspace with no arguments; the condition reaches
     // into $c->context itself.
-    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'if current_workspace they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('if current_workspace they can view', 'context_docs'));
 
     expect(ContextDoc::userHasAbilities('view', 'd2', $user, context: ['workspace_id' => 'w-2']))->toBeTrue();
     expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-2']))->toBeFalse();
@@ -175,7 +175,7 @@ it('references an undeclared @context key without a validation error', function 
     $user = makeWarrantTestUser();
 
     // `region` is never declared on the schema; before, this threw at validation.
-    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'if in_workspace(@context region) they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('if in_workspace(@context region) they can view', 'context_docs'));
 
     // Supplying the key drives the condition (its value is used as the filter).
     expect(ContextDoc::userHasAbilities('view', 'd1', $user, context: ['workspace_id' => 'w-1', 'region' => 'w-1']))->toBeTrue();
@@ -187,7 +187,7 @@ it('references an undeclared @context key without a validation error', function 
 
 it('throws when a named ability is missing its per-ability required context', function () {
     $user = makeWarrantTestUser();
-    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('they can audit if in_workspace(@context workspace_id) they can view', 'context_docs'));
 
     // `audit` requires as_of_date; naming it without that key throws...
     expect(fn () => ContextDoc::userHasAbilities('audit', 'd1', $user, context: ['workspace_id' => 'w-1']))
@@ -202,7 +202,7 @@ it('throws when a named ability is missing its per-ability required context', fu
 
 it('skips an ability missing its required context when enumerating no-target abilities', function () {
     $user = makeWarrantTestUser();
-    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('they can audit if in_workspace(@context workspace_id) they can view', 'context_docs'));
 
     // No as_of_date → audit is skipped (not thrown); view is targeted-only so absent no-target anyway.
     expect(ContextDoc::getUserAbilities(null, $user, ['workspace_id' => 'w-1']))->toBe([]);
@@ -213,7 +213,7 @@ it('skips an ability missing its required context when enumerating no-target abi
 
 it('skips an ability missing its required context in a per-row selection', function () {
     $user = makeWarrantTestUser();
-    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('context_docs', 'they can audit if in_workspace(@context workspace_id) they can view'));
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('they can audit if in_workspace(@context workspace_id) they can view', 'context_docs'));
 
     // audit (needs as_of_date, absent) is omitted; only view is computed per row.
     $rows = ContextDoc::query()

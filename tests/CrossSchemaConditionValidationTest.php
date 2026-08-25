@@ -29,7 +29,7 @@ beforeEach(function () {
 
 function validateOwnerCheckSyntax(string $syntax): void
 {
-    WarrantRuleSet::fromSyntax('xcv_owner', $syntax)->validate();
+    WarrantRuleSet::fromSyntax($syntax, 'xcv_owner')->validate();
 }
 
 it('accepts an unbound reference with a global condition', function () {
@@ -99,8 +99,8 @@ it('rejects a specified row target that is a null literal', function () {
 
 it('rejects a specified row target from a binding that resolved to null', function () {
     expect(fn () => WarrantRuleSet::fromSyntax(
-        'xcv_owner',
         'if check(is_published for xcv_target(:pp)) they can edit',
+        'xcv_owner',
         ['pp' => null],
     )->validate())
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');

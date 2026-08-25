@@ -79,7 +79,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantRuleSet::fromSyntax('docs', $syntax, $bindings);
+    $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs', $bindings);
 
     $query = DB::table('docs');
     $predicate = $compiler->compileAbility(new CompilerTestUser($role), $query, $ability, $ruleSet, 'docs.id', $context);
@@ -164,13 +164,13 @@ it('forces a row condition to false with no target, true under not', function ()
     $user = new CompilerTestUser('role-1');
 
     // No targetSqlId: is_teacher is forced false.
-    $granted = WarrantRuleSet::fromSyntax('docs', 'if is_teacher they can view');
+    $granted = WarrantRuleSet::fromSyntax('if is_teacher they can view', 'docs');
     $q = DB::table('docs');
     $q->addNestedWhereQuery($compiler->compileAbility($user, $q, 'view', $granted, null));
     expect($q->count())->toBe(0);
 
     // not is_teacher => true, so every row.
-    $negated = WarrantRuleSet::fromSyntax('docs', 'if not is_teacher they can view');
+    $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
     $q2 = DB::table('docs');
     $q2->addNestedWhereQuery($compiler->compileAbility($user, $q2, 'view', $negated, null));
     expect($q2->count())->toBe(3);
@@ -234,20 +234,20 @@ it('accepts a rule referencing any context key without declaration', function ()
 
     // Context keys need no declaration; an absent one just makes its condition
     // false at compile time. Required-ness is enforced at check time, not here.
-    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if id_is(@context nope) they can view'));
+    $validator->validate(WarrantRuleSet::fromSyntax('if id_is(@context nope) they can view', 'docs'));
     expect(true)->toBeTrue();
 });
 
 it('validates unknown ability and condition names', function () {
     $validator = new RuleSetValidator(new FakeConditionResolver, 'docs');
 
-    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'they can fly')))
+    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('they can fly', 'docs')))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 
-    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if is_wizard they can view')))
+    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('if is_wizard they can view', 'docs')))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard]');
 
     // A valid set passes silently.
-    $validator->validate(WarrantRuleSet::fromSyntax('docs', 'if is_teacher they can view, edit'));
+    $validator->validate(WarrantRuleSet::fromSyntax('if is_teacher they can view, edit', 'docs'));
     expect(true)->toBeTrue();
 });

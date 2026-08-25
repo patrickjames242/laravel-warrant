@@ -22,8 +22,8 @@ public array  $rules;
 public function __construct(Model|WarrantSchema|string $schema, array $rules);
 
 public static function fromSyntax(
-    Model|WarrantSchema|string $schema,
     string $syntax,
+    Model|WarrantSchema|string|null $schema = null,
     array $bindings = [],
 ): self;
 
@@ -56,7 +56,7 @@ public array $canAbilities;
 public array $cannotAbilities;
 public string|Closure|null $message;         // denial message; see below
 
-public static function fromSyntax(string $syntax, array $bindings = []): self; // exactly one rule
+public static function fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): self; // exactly one rule
 public static function build(): WarrantRuleBuilder;
 
 public function withDenialMessage(string|Closure $message): self; // returns a copy carrying the message

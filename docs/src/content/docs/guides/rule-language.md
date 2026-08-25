@@ -142,10 +142,11 @@ may be reused any number of times, appear anywhere in the string (even across
 rules), and array order is irrelevant.
 
 ```php
-WarrantRuleSet::fromSyntax('documents', '
+WarrantRuleSet::fromSyntax('
     if is_specific_user(:uid) they can view
     if delegated_to(:uid) they can approve
 ',
+    'documents',
     ['uid' => $currentUserId],   // one value, used twice
 );
 ```
@@ -155,8 +156,9 @@ WarrantRuleSet::fromSyntax('documents', '
 Filled left-to-right across the *entire* string from a flat array.
 
 ```php
-WarrantRuleSet::fromSyntax('documents',
+WarrantRuleSet::fromSyntax(
     'if in_team(?, ?) they can view',
+    'documents',
     ['sales', 'eng'],            // ? ? -> 'sales', 'eng'
 );
 ```

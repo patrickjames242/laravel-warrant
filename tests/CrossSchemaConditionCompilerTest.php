@@ -64,7 +64,7 @@ beforeEach(function () {
  */
 function bindCheckDocRules(string $docSyntax): void
 {
-    $set = WarrantRuleSet::fromSyntax('chk_docs', $docSyntax);
+    $set = WarrantRuleSet::fromSyntax($docSyntax, 'chk_docs');
 
     app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
         public function __construct(private WarrantRuleSet $set) {}
