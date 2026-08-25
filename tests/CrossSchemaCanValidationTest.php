@@ -67,6 +67,20 @@ it('rejects a row-bound reference to a capability schema (no row to target)', fu
         ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
 });
 
+it('rejects a specified row target that is a null literal', function () {
+    expect(fn () => validateOwnerSyntax('if can(manage for xs_target(null)) they can edit'))
+        ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
+});
+
+it('rejects a specified row target from a binding that resolved to null', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'xs_owner',
+        'if can(manage for xs_target(:folder)) they can edit',
+        ['folder' => null],
+    )->validate())
+        ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
+});
+
 it('validates a can reference nested inside a boolean expression', function () {
     expect(fn () => validateOwnerSyntax('if not can(fly for xs_target) they can edit'))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly] is not declared by schema [xs_target]');

@@ -115,6 +115,18 @@ final class RuleSetValidator
                 $node->schemaKey,
             ));
         }
+
+        // A specified row target must resolve to a value. A literal `null` (or a
+        // `:name`/`?` binding that resolved to null) can never match a row, so it
+        // is a mistake rather than a valid selector; reject it here. A `@context`
+        // reference is a symbolic ContextRef, not null — its value is filled per
+        // check, so its nullability stays a compile-time concern, not a static one.
+        if ($node->isRowBound && $node->boundRow === null) {
+            throw new InvalidArgumentException(sprintf(
+                'A can(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
+                $node->schemaKey,
+            ));
+        }
     }
 
     private function assertConditionExists(ConditionNode $node): void
