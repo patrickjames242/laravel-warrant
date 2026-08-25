@@ -51,6 +51,32 @@ WarrantRule::build()
 `WarrantRule` is immutable, so `withDenialMessage` returns a **copy** carrying the
 message — the original is untouched.
 
+### In the string DSL
+
+A `cannot` clause can carry its message inline, with `because` followed by a
+string literal:
+
+```
+if is_locked
+they cannot update because 'This document is locked and can no longer be edited.'
+```
+
+`because` is valid **only** immediately after a `cannot` clause — never after
+`can` — and a rule may carry **at most one** message. A `@context` reference is
+not accepted here: a message is fixed when the rule is parsed, not resolved per
+check.
+
+The message can also come from a `:name`/`?` [binding](/guides/rule-language/#bindings)
+instead of a literal, and that binding may resolve to a **string or a closure** —
+so even the [dynamic closure form](#dynamic-messages-with-a-closure) can be
+carried through `fromSyntax`:
+
+```php
+WarrantRule::fromSyntax('if is_locked they cannot update because :msg', [
+    'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
+]);
+```
+
 ### Dynamic messages with a closure
 
 The message may also be a **closure**, receiving a `WarrantDenialContext` and
@@ -96,12 +122,15 @@ checks](/guides/checking-access/#no-target-checks) — there, only global
 or unconditional `cannot` rules can be the cause, since a row condition can't
 fire without a row.
 
-:::note[Messages live in PHP, never in the DSL]
-Messages are attached with `withDenialMessage`, never written inside rule text —
-the [rule language](/guides/rule-language/) has no syntax for them (a closure
-couldn't be expressed anyway), and `toSyntax()` drops any attached message. A
-`withDenialMessage` on a rule with **no** `theyCannot` clause is rejected at
-validation — it could never fire.
+:::note[Where messages can live]
+A message can be written inline in the DSL with [`because`](#in-the-string-dsl),
+or attached in PHP with `withDenialMessage` (the only option for a rule built
+without syntax). Either way, a message on a rule with **no** `theyCannot` clause
+is rejected at validation — it could never fire.
+
+Round-tripping: `toSyntax()` re-renders a string message as `because '...'` but
+**throws** on a closure message (no inline form); `toBoundSyntax()` carries
+either form losslessly, as a `?` binding.
 :::
 
 ## When nothing granted access

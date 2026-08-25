@@ -125,6 +125,64 @@ it('orders bindings left-to-right across the whole set', function () {
     expect($bound->bindings)->toBe(['first', 'second', 'third']);
 });
 
+// -- denial messages (because) ------------------------------------------------
+
+it('writes a string denial message on the cannot line', function () {
+    $rule = WarrantRule::fromSyntax("if is_locked they cannot edit because 'This row is locked.'");
+
+    expect($rule->toSyntax())->toBe("if is_locked\nthey cannot edit because 'This row is locked.'");
+});
+
+it('escapes quotes in a written denial message', function () {
+    $rule = WarrantRule::fromSyntax("they cannot edit because 'can\\'t'");
+
+    expect($rule->toSyntax())->toBe("they cannot edit because 'can\\'t'");
+});
+
+it('round-trips a string denial message through the inline form', function () {
+    $rule = WarrantRule::fromSyntax("if is_locked they cannot edit because 'locked'");
+
+    expect(WarrantRule::fromSyntax($rule->toSyntax())->message)->toBe('locked');
+});
+
+it('extracts a string denial message as a positional binding in bound form', function () {
+    $rule = WarrantRule::fromSyntax("if is_locked they cannot edit because 'locked'");
+
+    $bound = $rule->toBoundSyntax();
+
+    expect($bound->syntax)->toBe("if is_locked\nthey cannot edit because ?");
+    expect($bound->bindings)->toBe(['locked']);
+
+    // Re-parsing the bound form restores the message.
+    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->message)->toBe('locked');
+});
+
+it('orders the message binding after the condition bindings', function () {
+    $rule = WarrantRule::fromSyntax("if in_dept('sales') they cannot edit because 'locked'");
+
+    $bound = $rule->toBoundSyntax();
+
+    expect($bound->syntax)->toBe("if in_dept(?)\nthey cannot edit because ?");
+    expect($bound->bindings)->toBe(['sales', 'locked']);
+});
+
+it('carries a closure denial message losslessly through the bound form', function () {
+    $closure = fn () => 'dynamic';
+    $rule = WarrantRule::fromSyntax('they cannot edit because :m', ['m' => $closure]);
+
+    $bound = $rule->toBoundSyntax();
+
+    expect($bound->syntax)->toBe('they cannot edit because ?');
+    expect($bound->bindings)->toBe([$closure]);
+    expect(WarrantRule::fromSyntax($bound->syntax, $bound->bindings)->message)->toBe($closure);
+});
+
+it('throws when writing a closure denial message inline', function () {
+    $rule = WarrantRule::fromSyntax('they cannot edit')->withDenialMessage(fn () => 'x');
+
+    expect(fn () => $rule->toSyntax())->toThrow(LogicException::class, 'no inline representation');
+});
+
 // -- context references (@context) --------------------------------------------
 
 it('renders a context ref as @context <key>, inline and bound alike', function () {

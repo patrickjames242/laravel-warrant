@@ -2,6 +2,7 @@
 
 namespace Warrant\RuleSyntaxTree\Parsing;
 
+use Closure;
 use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
@@ -19,7 +20,12 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  *
  * Grammar:
  *   ruleset  := clauses? ( 'if' expr clause+ )*
- *   clause   := 'they' ('can'|'cannot') ability (',' ability)*
+ *   clause   := 'they' ( 'can' ability (',' ability)*
+ *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
+ *              -- `because` attaches a denial message; it is valid only after a
+ *                 `cannot` clause, and at most once per rule
+ *   message  := STRING | NAMED_BINDING | POSITIONAL
+ *              -- a string literal, or a binding resolving to a string or closure
  *   ability  := IDENTIFIER | '*'
  *   expr     := or
  *   or       := and ('or' and)*
@@ -145,6 +151,7 @@ final class WarrantParser
     {
         $can = [];
         $cannot = [];
+        $message = null;
         $sawClause = false;
 
         while ($this->check(TokenType::THEY)) {
@@ -154,9 +161,31 @@ final class WarrantParser
             if ($this->check(TokenType::CAN)) {
                 $this->advance();
                 $can = array_merge($can, $this->parseAbilityList());
+
+                // A `because` message only ever surfaces for a matching `cannot`;
+                // hanging one off a `can` clause can never fire, so reject it here.
+                if ($this->check(TokenType::BECAUSE)) {
+                    throw $this->errorAtCurrent(
+                        "'because' may only follow a 'they cannot ...' clause, not 'they can ...'."
+                    );
+                }
             } elseif ($this->check(TokenType::CANNOT)) {
                 $this->advance();
                 $cannot = array_merge($cannot, $this->parseAbilityList());
+
+                if ($this->check(TokenType::BECAUSE)) {
+                    $becauseToken = $this->advance();
+
+                    if ($message !== null) {
+                        throw WarrantSyntaxException::at(
+                            'A rule may carry at most one denial message.',
+                            $this->source,
+                            $becauseToken,
+                        );
+                    }
+
+                    $message = $this->parseDenialMessage();
+                }
             } else {
                 throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'.");
             }
@@ -166,7 +195,40 @@ final class WarrantParser
             throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause.");
         }
 
-        return new WarrantRule($conditions, $can, $cannot);
+        return new WarrantRule($conditions, $can, $cannot, $message);
+    }
+
+    /**
+     * Parse the denial message after `because`. Accepts a quoted string literal
+     * or a `:name`/`?` binding; a literal must be a string (no numbers/bools),
+     * and `@context` is not allowed — a message is fixed at parse time, not
+     * resolved per check. A binding may resolve to a string *or* to a closure
+     * (the `Closure(WarrantDenialContext): string|Throwable` message form), so
+     * dynamic messages can still be carried through the DSL via a binding.
+     */
+    private function parseDenialMessage(): string|Closure
+    {
+        $token = $this->peek();
+
+        $message = match ($token->type) {
+            TokenType::STRING => $this->advance()->value,
+            TokenType::NAMED_BINDING => $this->bindings->resolveNamed($this->advance()),
+            TokenType::POSITIONAL => $this->bindings->resolvePositional($this->advance()),
+            default => throw $this->errorAtCurrent(
+                "Expected a denial message after 'because': a quoted string or a binding (:name or ?). "
+                . '@context is not allowed here.'
+            ),
+        };
+
+        if (! is_string($message) && ! $message instanceof Closure) {
+            throw WarrantSyntaxException::at(
+                sprintf('A denial message must be a string or a closure, got %s.', get_debug_type($message)),
+                $this->source,
+                $token,
+            );
+        }
+
+        return $message;
     }
 
     /**
@@ -510,6 +572,7 @@ final class WarrantParser
             TokenType::THEY,
             TokenType::CAN,
             TokenType::CANNOT,
+            TokenType::BECAUSE,
             TokenType::CHECK,
             TokenType::AND,
             TokenType::OR,

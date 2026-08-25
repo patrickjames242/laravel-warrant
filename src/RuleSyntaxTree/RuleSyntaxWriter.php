@@ -2,6 +2,7 @@
 
 namespace Warrant\RuleSyntaxTree;
 
+use Closure;
 use LogicException;
 
 /**
@@ -76,7 +77,13 @@ final class RuleSyntaxWriter
         }
 
         if ($rule->cannotAbilities !== []) {
-            $lines[] = 'they cannot ' . implode(', ', $rule->cannotAbilities);
+            $line = 'they cannot ' . implode(', ', $rule->cannotAbilities);
+
+            if ($rule->message !== null) {
+                $line .= ' because ' . $this->messageArg($rule->message);
+            }
+
+            $lines[] = $line;
         }
 
         return implode("\n", $lines);
@@ -167,6 +174,30 @@ final class RuleSyntaxWriter
         }
 
         return $node->conditionKey . '(' . implode(', ', array_map($this->arg(...), $node->parameters)) . ')';
+    }
+
+    /**
+     * Render a `cannot` clause's denial message. In bound mode it becomes a
+     * positional `?` and its value — a string or a closure — is collected like
+     * any other binding, so it round-trips losslessly via toBoundSyntax(). In
+     * inline mode a string is written as a literal; a closure has no textual
+     * form, so it throws, directing the caller to toBoundSyntax().
+     */
+    private function messageArg(string|Closure $message): string
+    {
+        if ($this->bound) {
+            $this->bindings[] = $message;
+
+            return '?';
+        }
+
+        if ($message instanceof Closure) {
+            throw new LogicException(
+                'A closure denial message has no inline representation; use toBoundSyntax().'
+            );
+        }
+
+        return $this->literal($message);
     }
 
     private function arg(mixed $value): string

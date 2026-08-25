@@ -33,6 +33,15 @@ they cannot delete
 
 Abilities are comma-separated. A rule may freely mix `can` and `cannot` clauses.
 
+A `cannot` clause may also carry a **denial message** with `because '<message>'`,
+surfaced when that rule is the cause of a denial — see
+[Denial messages](/guides/denial-messages/#in-the-string-dsl):
+
+```text
+if is_locked
+they cannot update because 'This document is locked.'
+```
+
 ## `can`, `cannot`, and how they combine
 
 Warrant combines grants and denials with one rule: **a `cannot` always beats a
@@ -204,9 +213,10 @@ closed — is covered in [Check-time context](/guides/context/).
   clauses attach to the most recent `if` above them. Clauses before any `if` form
   a single leading unconditional rule.
 
-- **Reserved words** — `if`, `they`, `can`, `cannot`, `and`, `or`, `not` — cannot
-  be used as an *exact* condition or ability name. A name may *contain* or *start
-  with* one, though: `canonical`, `cannot_publish`, `is_and_something` are all fine.
+- **Reserved words** — `if`, `they`, `can`, `cannot`, `because`, `and`, `or`,
+  `not` — cannot be used as an *exact* condition or ability name. A name may
+  *contain* or *start with* one, though: `canonical`, `cannot_publish`,
+  `is_and_something` are all fine.
 
 - **Identifiers** (condition, ability, and binding names) match
   `[A-Za-z_][A-Za-z0-9_-]*` — start with a letter or underscore; may contain
@@ -216,8 +226,10 @@ closed — is covered in [Check-time context](/guides/context/).
 
 ```text
 ruleset     = clause* ( "if" expr clause+ )* ;
-clause      = "they" ( "can" | "cannot" ) ability ( "," ability )* ;
+clause      = "they" ( "can" ability ( "," ability )*
+                     | "cannot" ability ( "," ability )* ( "because" message )? ) ;
 ability     = IDENTIFIER | "*" ;
+message     = STRING | NAMED_BINDING | POSITIONAL ;
 expr        = or ;
 or          = and ( "or" and )* ;
 and         = not ( "and" not )* ;

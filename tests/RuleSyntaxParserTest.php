@@ -292,6 +292,90 @@ it('rejects non-rule elements inside a fromRules array', function () {
         ->toThrow(InvalidArgumentException::class, 'WarrantRule');
 });
 
+// -- Denial messages (because) ------------------------------------------------
+
+it('parses a string denial message after a cannot clause', function () {
+    $rule = WarrantRule::fromSyntax(<<<'DSL'
+        if is_locked
+        they cannot edit because 'This row is locked.'
+        DSL);
+
+    expect($rule->cannotAbilities)->toBe(['edit']);
+    expect($rule->message)->toBe('This row is locked.');
+});
+
+it('unescapes quotes in a denial message', function () {
+    $rule = WarrantRule::fromSyntax("they cannot edit because 'can\\'t touch this'");
+
+    expect($rule->message)->toBe("can't touch this");
+});
+
+it('leaves message null when no because clause is present', function () {
+    $rule = WarrantRule::fromSyntax('they cannot edit');
+
+    expect($rule->message)->toBeNull();
+});
+
+it('resolves a named binding message to a string', function () {
+    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => 'locked']);
+
+    expect($rule->message)->toBe('locked');
+});
+
+it('resolves a positional binding message to a string', function () {
+    $rule = WarrantRule::fromSyntax('they cannot edit because ?', ['locked']);
+
+    expect($rule->message)->toBe('locked');
+});
+
+it('accepts a closure resolved from a binding as the message', function () {
+    $closure = fn () => 'dynamic';
+    $rule = WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => $closure]);
+
+    expect($rule->message)->toBe($closure);
+});
+
+it('attaches the message to a cannot even when a can clause is also present', function () {
+    $rule = WarrantRule::fromSyntax(<<<'DSL'
+        they can view
+        they cannot edit because 'locked'
+        DSL);
+
+    expect($rule->canAbilities)->toBe(['view']);
+    expect($rule->cannotAbilities)->toBe(['edit']);
+    expect($rule->message)->toBe('locked');
+});
+
+it('rejects because after a can clause', function () {
+    expect(fn () => WarrantRule::fromSyntax("they can view because 'nope'"))
+        ->toThrow(WarrantSyntaxException::class, "'because' may only follow a 'they cannot");
+});
+
+it('rejects more than one because in a rule', function () {
+    expect(fn () => WarrantRule::fromSyntax("they cannot view because 'a' they cannot edit because 'b'"))
+        ->toThrow(WarrantSyntaxException::class, 'at most one denial message');
+});
+
+it('rejects a non-string literal after because', function () {
+    expect(fn () => WarrantRule::fromSyntax('they cannot edit because 42'))
+        ->toThrow(WarrantSyntaxException::class, "Expected a denial message after 'because'");
+});
+
+it('rejects @context after because', function () {
+    expect(fn () => WarrantRule::fromSyntax('they cannot edit because @context reason'))
+        ->toThrow(WarrantSyntaxException::class, '@context is not allowed');
+});
+
+it('rejects a binding that resolves to a non-string, non-closure message', function () {
+    expect(fn () => WarrantRule::fromSyntax('they cannot edit because :msg', ['msg' => 42]))
+        ->toThrow(WarrantSyntaxException::class, 'must be a string or a closure');
+});
+
+it('rejects a bare because with no message', function () {
+    expect(fn () => WarrantRule::fromSyntax('they cannot edit because'))
+        ->toThrow(WarrantSyntaxException::class, "Expected a denial message after 'because'");
+});
+
 // -- Invalid syntax -----------------------------------------------------------
 
 it('throws on invalid syntax', function (string $syntax, array $bindings, string $needle) {
@@ -306,6 +390,7 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     'bare if' => ['if is_self', [], "Expected at least one 'they can"],
     'reserved word as ability' => ['they can can', [], "Reserved word 'can' cannot be used"],
     'reserved word as condition' => ['if if they can view', [], "Reserved word 'if' cannot be used"],
+    'because reserved as ability' => ['they can because', [], "Reserved word 'because' cannot be used"],
     'unterminated string' => ["if is_thing('oops) they can view", [], 'Unterminated string'],
     'unbalanced parens' => ['if (is_self they can view', [], "Expected ')'"],
     'they without can/cannot' => ['they view', [], "Expected 'can' or 'cannot'"],

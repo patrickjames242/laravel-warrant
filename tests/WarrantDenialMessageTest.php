@@ -465,6 +465,30 @@ it('attaches a message to a fromSyntax rule', function () {
         ->toThrow(WarrantAuthorizationException::class, 'This section is locked.');
 });
 
+it('surfaces a because message written directly in the DSL', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::fromSyntax('they can update'),
+        WarrantRule::fromSyntax("if is_teacher they cannot update because 'This section is locked.'"),
+    ]);
+
+    expect(fn () => WarrantTestSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'This section is locked.');
+});
+
+it('surfaces a because message supplied through a binding closure', function () {
+    seedDenialSections();
+    bindDenialRules([
+        WarrantRule::fromSyntax('they can update'),
+        WarrantRule::fromSyntax('if is_teacher they cannot update because :msg', [
+            'msg' => fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}.",
+        ]),
+    ]);
+
+    expect(fn () => WarrantTestSchema::authorize('update', 'teacher:teacher-role', makeWarrantTestUser('teacher-role')))
+        ->toThrow(WarrantAuthorizationException::class, 'No editing teacher:teacher-role.');
+});
+
 it('leaves the original rule untouched (immutable wither)', function () {
     $original = WarrantRule::fromSyntax('if is_teacher they cannot update');
     $withMessage = $original->withDenialMessage('locked');

@@ -32,7 +32,8 @@ namespace Warrant\RuleSyntaxTree;
  *    a letter or underscore, then letters / digits / underscores / dashes —
  *    `[A-Za-z_][A-Za-z0-9_-]*`. No dots.
  *  - Reserved words (cannot be used as an EXACT condition or ability name, though a
- *    name may start with or contain them): if, they, can, cannot, and, or, not.
+ *    name may start with or contain them): if, they, can, cannot, because, and, or,
+ *    not.
  *  - String literals: single-quoted, with `\'` and `\\` escapes.
  *  - Operators: `and`, `or`, and negation as `not` (canonical) or `!` (synonym).
  *    Precedence, tightest to loosest: `not`/`!` > `and` > `or`. Parentheses override.
@@ -85,6 +86,36 @@ class RuleSyntaxExamples
 
         // view   -> true            (always granted)
         // delete -> NOT (true)      (never granted, by anyone)
+    }
+
+    /**
+     * A `cannot` clause may carry a denial message via `because '<message>'`. It
+     * is surfaced (as a WarrantAuthorizationException) when this rule is the
+     * attributable cause of a singular-target denial. `because` is valid only
+     * after a `cannot` clause — never after `can` — and at most once per rule.
+     */
+    public function denialMessage(): void
+    {
+        $ruleSet = WarrantRuleSet::fromSyntax('timesheets', <<<'DSL'
+            they can view, edit
+            if is_locked
+            they cannot edit because 'This timesheet is locked and can no longer be edited.'
+            DSL);
+
+        // edit is granted unless is_locked; when a locked row denies edit, the
+        // denial surfaces the message above instead of the generic 403 text.
+        //
+        // The message may also come from a binding rather than an inline literal.
+        // A `?`/`:name` binding may resolve to a string, or to a closure of the
+        // form fn (WarrantDenialContext $c) => string|Throwable — the same
+        // dynamic message form accepted by WarrantRule::withDenialMessage():
+        WarrantRule::fromSyntax(
+            "if is_locked they cannot edit because :msg",
+            ['msg' => fn (\Warrant\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
+        );
+
+        // `@context` is NOT accepted after `because` — a message is fixed when the
+        // rule is parsed, not resolved per check.
     }
 
     // -------------------------------------------------------------------------

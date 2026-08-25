@@ -16,8 +16,12 @@ readonly class WarrantRule
      *   `can` rule is never the attributable cause of a denial). A string is
      *   wrapped in a {@see \Warrant\WarrantAuthorizationException}; a closure
      *   receives the denial context and returns either a string (wrapped) or a
-     *   Throwable (thrown as-is). Not expressible in the string DSL and dropped
-     *   by {@see toSyntax()} / {@see toBoundSyntax()}.
+     *   Throwable (thrown as-is). Expressible in the DSL as
+     *   `they cannot <abilities> because <message>`, where `<message>` is a
+     *   string literal or a `:name`/`?` binding; a binding may resolve to a
+     *   string or to a closure. Round-trip: {@see toBoundSyntax()} carries either
+     *   form losslessly (as a `?` binding); {@see toSyntax()} inlines a string
+     *   but throws on a closure, which has no textual form.
      */
     public function __construct(
         public ?IBooleanExpressionNode $conditions,
@@ -68,8 +72,9 @@ readonly class WarrantRule
      * inlined as literals. Throws if a parameter has no inline representation —
      * use {@see toBoundSyntax()} for those. Round-trips via {@see fromSyntax()}.
      *
-     * Note: an attached {@see $message} is dropped — the DSL cannot express it —
-     * so a message-bearing rule does not round-trip losslessly through syntax.
+     * Note: a string {@see $message} round-trips as a `because '...'` clause, but
+     * a closure {@see $message} has no inline form and throws here — use
+     * {@see toBoundSyntax()}, which carries a closure message as a `?` binding.
      */
     public function toSyntax(): string
     {

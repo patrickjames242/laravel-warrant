@@ -62,7 +62,8 @@ Thrown when a rule set is validated/compiled against a schema:
 - `Context key [%s] is not declared by the schema.`
 
 Attaching a denial message to a rule that has no `theyCannot` clause is also
-rejected here — only a `cannot` rule may carry a `withDenialMessage()`. See
+rejected here — only a `cannot` rule may carry one, whether it was set with
+`withDenialMessage()` or written in the DSL with `because`. See
 [Denial messages](/guides/denial-messages/).
 
 `fromRules` / `validateAll` type-guard their inputs:

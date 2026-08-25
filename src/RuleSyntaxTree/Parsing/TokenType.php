@@ -9,6 +9,7 @@ enum TokenType
     case THEY;
     case CAN;
     case CANNOT;
+    case BECAUSE; // denial message: they cannot <abilities> because '<message>'
     case CHECK; // cross-schema condition builtin: check(<predicate> for <handle>)
     case FOR;  // cross-schema handle: can(<ability> for <handle>)
     case WITH; // cross-schema context map: ... with <key> = <value>

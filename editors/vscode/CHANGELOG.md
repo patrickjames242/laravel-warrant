@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Highlight the `because` keyword, which introduces a denial message on a
+  `they cannot ...` clause: `they cannot edit because 'This row is locked.'`.
+
 ## 0.3.0
 
 - Sync the grammar with the now-implemented parser. Cross-schema
