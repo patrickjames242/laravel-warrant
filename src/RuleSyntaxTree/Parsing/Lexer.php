@@ -12,7 +12,7 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  * the source); comments are trivia and never reach the parser. A `#` inside a
  * string literal is literal, since comments are only recognised between tokens.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
- * `cannot`, `and`, `or`, `not`. `true` / `false` / `null` are always lexed as
+ * `cannot`, `and`, `or`, `not`, `for`, `with`. `true` / `false` / `null` are always lexed as
  * literals, so they cannot double as condition or ability names.
  */
 final class Lexer
@@ -25,6 +25,8 @@ final class Lexer
         'and' => TokenType::AND,
         'or' => TokenType::OR,
         'not' => TokenType::NOT,
+        'for' => TokenType::FOR,
+        'with' => TokenType::WITH,
     ];
 
     private int $pos = 0;
@@ -65,6 +67,7 @@ final class Lexer
             $char === ')' => $this->single(TokenType::RPAREN),
             $char === ',' => $this->single(TokenType::COMMA),
             $char === '*' => $this->single(TokenType::STAR),
+            $char === '=' => $this->single(TokenType::EQUALS),
             $char === '!' => $this->single(TokenType::NOT),
             $char === '?' => $this->single(TokenType::POSITIONAL),
             $char === ':' => $this->scanNamedBinding(),

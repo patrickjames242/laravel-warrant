@@ -9,6 +9,8 @@ enum TokenType
     case THEY;
     case CAN;
     case CANNOT;
+    case FOR;  // cross-schema handle: can(<ability> for <handle>)
+    case WITH; // cross-schema context map: ... with <key> = <value>
 
     // Boolean operators.
     case AND;
@@ -19,7 +21,8 @@ enum TokenType
     case LPAREN;
     case RPAREN;
     case COMMA;
-    case STAR; // wildcard ability `*`
+    case STAR;   // wildcard ability `*`
+    case EQUALS; // `=` in a cross-schema `with` map
 
     // Bindings.
     case NAMED_BINDING;  // :name

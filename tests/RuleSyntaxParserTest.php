@@ -3,6 +3,7 @@
 use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
+use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
 use Warrant\RuleSyntaxTree\WarrantRule;
@@ -364,4 +365,101 @@ it('keeps a "#" inside a string literal as a literal character', function () {
     $rules = WarrantParser::parse("if is_thing('a#b') they can view");
 
     expect($rules[0]->conditions->parameters)->toBe(['a#b']);
+});
+
+// -- Cross-schema can(...) -----------------------------------------------------
+
+it('parses an unbound can(...) handle (capability schema, no row)', function () {
+    $rules = WarrantParser::parse('if can(access_payroll for payroll_admin) they can view');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->schemaKey)->toBe('payroll_admin');
+    expect($node->ability)->toBe('access_payroll');
+    expect($node->isRowBound)->toBeFalse();
+    expect($node->boundRow)->toBeNull();
+    expect($node->contextMap)->toBe([]);
+    expect($rules[0]->canAbilities)->toBe(['view']);
+});
+
+it('parses a row-bound can(...) handle with a @context row selector', function () {
+    $rules = WarrantParser::parse('if can(manage for departments(@context department_id)) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->schemaKey)->toBe('departments');
+    expect($node->ability)->toBe('manage');
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->boundRow)->toEqual(new ContextRef('department_id'));
+});
+
+it('parses a can(...) with a with-map of @context values', function () {
+    $rules = WarrantParser::parse(
+        'if can(create for billing_plans with as_of_date = @context d, plan_id = @context p) they can create'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->schemaKey)->toBe('billing_plans');
+    expect($node->ability)->toBe('create');
+    expect($node->isRowBound)->toBeFalse();
+    expect($node->contextMap)->toEqual([
+        'as_of_date' => new ContextRef('d'),
+        'plan_id' => new ContextRef('p'),
+    ]);
+});
+
+it('composes a can(...) leaf with a local condition via and', function () {
+    $rules = WarrantParser::parse('if is_self and can(x for users(@context user_id)) they can create');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(AndNode::class);
+    expect($node->leftSide)->toBeInstanceOf(ConditionNode::class);
+    expect($node->leftSide->conditionKey)->toBe('is_self');
+    expect($node->rightSide)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->rightSide->schemaKey)->toBe('users');
+});
+
+it('resolves a named binding as the row selector', function () {
+    $rules = WarrantParser::parse(
+        'if can(manage for departments(:dept)) they can update',
+        ['dept' => 'dept-1'],
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->boundRow)->toBe('dept-1');
+});
+
+it('resolves positional bindings across the row selector and with-map', function () {
+    $rules = WarrantParser::parse(
+        'if can(manage for departments(?) with tenant = ?) they can update',
+        ['dept-1', 'tenant-9'],
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->boundRow)->toBe('dept-1');
+    expect($node->contextMap)->toBe(['tenant' => 'tenant-9']);
+});
+
+it('keeps a null literal row selector distinct from an unbound handle', function () {
+    $rules = WarrantParser::parse('if can(manage for departments(null)) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->boundRow)->toBeNull();
+});
+
+it('throws when the ability is not followed by for', function () {
+    expect(fn () => WarrantParser::parse('if can(manage departments) they can view'))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+it('rejects a reserved word (for) used as a bare condition name', function () {
+    expect(fn () => WarrantParser::parse('if for they can view'))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+it('rejects a duplicate key in a with-map', function () {
+    expect(fn () => WarrantParser::parse('if can(create for s with a = 1, a = 2) they can view'))
+        ->toThrow(WarrantSyntaxException::class, "Duplicate key 'a'");
 });

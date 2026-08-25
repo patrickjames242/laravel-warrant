@@ -5,6 +5,7 @@ namespace Warrant\RuleSyntaxTree\Parsing;
 use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
+use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
 use Warrant\RuleSyntaxTree\IBooleanExpressionNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
@@ -23,7 +24,11 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  *   or       := and ('or' and)*
  *   and      := not ('and' not)*
  *   not      := ('not'|'!') not | primary
- *   primary  := '(' expr ')' | condition
+ *   primary  := '(' expr ')' | can_expr | condition
+ *   can_expr := 'can' '(' IDENTIFIER 'for' handle ( 'with' with_map )? ')'
+ *   handle   := IDENTIFIER ( '(' arg ')' )?   -- no parens: unbound; one arg: row-bound
+ *   with_map := with_entry (',' with_entry)*
+ *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
  *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref
  *   context_ref := '@context' IDENTIFIER
@@ -241,11 +246,97 @@ final class WarrantParser
             return $expr;
         }
 
+        if ($this->check(TokenType::CAN)) {
+            return $this->parseCan();
+        }
+
         if ($this->check(TokenType::IDENTIFIER)) {
             return $this->parseCondition();
         }
 
-        throw $this->nameError("a condition or '('");
+        throw $this->nameError("a condition, 'can(', or '('");
+    }
+
+    /**
+     * Parse a cross-schema ability check: `can(<ability> for <handle> [with <map>])`.
+     *
+     * In expression position `can` is unambiguously this builtin — the clause
+     * keyword in `they can ...` is consumed by {@see parseClausesInto()} and never
+     * reaches here — so no lookahead is needed.
+     */
+    private function parseCan(): CrossSchemaCanNode
+    {
+        $this->advance(); // consume 'can'
+        $this->expect(TokenType::LPAREN, "Expected '(' after 'can'.");
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->nameError('an ability name');
+        }
+
+        $ability = $this->advance()->lexeme;
+
+        $this->expect(TokenType::FOR, "Expected 'for' after the ability name in 'can(...)'.");
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->nameError('a schema name');
+        }
+
+        $schemaKey = $this->advance()->lexeme;
+
+        // Optional row selector: `schema(<arg>)`. Its absence marks an unbound handle.
+        $isRowBound = false;
+        $boundRow = null;
+
+        if ($this->check(TokenType::LPAREN)) {
+            $this->advance();
+            $isRowBound = true;
+            $boundRow = $this->parseArgument();
+            $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
+        }
+
+        $contextMap = [];
+
+        if ($this->check(TokenType::WITH)) {
+            $this->advance();
+            $contextMap = $this->parseWithMap();
+        }
+
+        $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
+
+        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundRow, $contextMap);
+    }
+
+    /**
+     * Parse a `with` context map: `key = arg (, key = arg)*`. Keys are the target
+     * schema's context key names; duplicate keys are rejected.
+     *
+     * @return array<string, mixed>
+     */
+    private function parseWithMap(): array
+    {
+        $map = [];
+
+        do {
+            if (! $this->check(TokenType::IDENTIFIER)) {
+                throw $this->nameError('a context key name');
+            }
+
+            $keyToken = $this->advance();
+            $key = $keyToken->lexeme;
+
+            if (array_key_exists($key, $map)) {
+                throw WarrantSyntaxException::at(
+                    sprintf("Duplicate key '%s' in the 'with' map.", $key),
+                    $this->source,
+                    $keyToken,
+                );
+            }
+
+            $this->expect(TokenType::EQUALS, "Expected '=' after the 'with' key.");
+            $map[$key] = $this->parseArgument();
+        } while ($this->check(TokenType::COMMA) && $this->advance());
+
+        return $map;
     }
 
     private function parseCondition(): ConditionNode
@@ -371,6 +462,8 @@ final class WarrantParser
             TokenType::AND,
             TokenType::OR,
             TokenType::NOT,
+            TokenType::FOR,
+            TokenType::WITH,
         ], true) && ctype_alpha($token->lexeme);
     }
 }

@@ -182,3 +182,54 @@ it('round-trips the bound form back through the parser', function () {
     expect($reparsed->toBoundSyntax()->syntax)->toBe($bound->syntax);
     expect($reparsed->toBoundSyntax()->bindings)->toBe(['sales', 'eng']);
 });
+
+// -- Cross-schema can(...) round-trip -----------------------------------------
+
+it('round-trips an unbound can(...) handle', function () {
+    $rule = WarrantRule::fromSyntax('if can(access_payroll for payroll_admin) they can view');
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if can(access_payroll for payroll_admin)
+        they can view
+        TXT);
+});
+
+it('round-trips a row-bound can(...) handle with @context', function () {
+    $rule = WarrantRule::fromSyntax('if can(manage for departments(@context department_id)) they can update');
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if can(manage for departments(@context department_id))
+        they can update
+        TXT);
+});
+
+it('round-trips a can(...) with-map', function () {
+    $syntax = 'if can(create for billing_plans with as_of_date = @context d, plan_id = @context p) they can create';
+    $rule = WarrantRule::fromSyntax($syntax);
+
+    expect($rule->toSyntax())->toBe(<<<'TXT'
+        if can(create for billing_plans with as_of_date = @context d, plan_id = @context p)
+        they can create
+        TXT);
+});
+
+it('re-parses to an equal tree (inline round-trip)', function () {
+    $syntax = 'if is_self and can(manage for departments(@context id) with tenant = @context t) they can update';
+    $once = WarrantRule::fromSyntax($syntax);
+    $twice = WarrantRule::fromSyntax($once->toSyntax());
+
+    expect($twice->conditions)->toEqual($once->conditions);
+});
+
+it('renders literal row selectors and with-values via bound syntax losslessly', function () {
+    $rule = WarrantRule::fromSyntax(
+        'if can(manage for departments(?) with tenant = ?) they can update',
+        ['dept-1', 'tenant-9'],
+    );
+
+    $bound = $rule->toBoundSyntax();
+    expect($bound->bindings)->toBe(['dept-1', 'tenant-9']);
+
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, $bound->bindings);
+    expect($reparsed->conditions)->toEqual($rule->conditions);
+});

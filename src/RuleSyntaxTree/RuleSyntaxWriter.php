@@ -90,6 +90,7 @@ final class RuleSyntaxWriter
             $node instanceof AndNode => $this->child($node->leftSide, self::PREC_AND)
                 . ' and ' . $this->child($node->rightSide, self::PREC_AND),
             $node instanceof NotNode => 'not ' . $this->child($node->operand, self::PREC_NOT),
+            $node instanceof CrossSchemaCanNode => $this->writeCrossSchemaCan($node),
             $node instanceof ConditionNode => $this->writeCondition($node),
             $node instanceof BooleanNode => throw new LogicException(
                 'A constant boolean expression has no rule-language representation.'
@@ -117,6 +118,29 @@ final class RuleSyntaxWriter
             $node instanceof NotNode => self::PREC_NOT,
             default => PHP_INT_MAX, // primaries never need wrapping
         };
+    }
+
+    private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
+    {
+        $handle = $node->schemaKey;
+
+        if ($node->isRowBound) {
+            $handle .= '(' . $this->arg($node->boundRow) . ')';
+        }
+
+        $out = 'can(' . $node->ability . ' for ' . $handle;
+
+        if ($node->contextMap !== []) {
+            $entries = [];
+
+            foreach ($node->contextMap as $key => $value) {
+                $entries[] = $key . ' = ' . $this->arg($value);
+            }
+
+            $out .= ' with ' . implode(', ', $entries);
+        }
+
+        return $out . ')';
     }
 
     private function writeCondition(ConditionNode $node): string
