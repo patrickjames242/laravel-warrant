@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Sync the grammar with the now-implemented parser. Cross-schema
+  `can(...)` / `check(...)` references, the `for` / `with` keywords, and the `=`
+  context-map operator are no longer forward-looking — the `FUTURE:` tags are
+  removed. Drop highlighting for constructs that were never implemented: `[ ]`
+  ability lists and the `any` / `of` keywords. Removes the
+  `FUTURE-FEATURES-cross-schema-references.md` planning doc.
+
 ## 0.2.0
 
 - Revise the **forward-looking** cross-schema highlighting to the final proposed

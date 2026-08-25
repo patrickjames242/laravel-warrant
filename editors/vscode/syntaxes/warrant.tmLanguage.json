@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Warrant",
   "scopeName": "source.warrant",
-  "comment": "NOTE FOR FUTURE MAINTAINERS/AGENTS: some patterns in this grammar highlight CROSS-SCHEMA REFERENCE syntax that is a DESIGN PROPOSAL and NOT YET IMPLEMENTED in the Warrant DSL parser. The proposed form is KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). Forward-looking pieces: the `can(...)`/`check(...)` builtins used in expression position, the `for` and `with` keywords, `[ ]` ability lists, the `any`/`of` keywords, the `=` operator, and the `entity.name.namespace` scope on a schema handle after `for`. See ./FUTURE-FEATURES-cross-schema-references.md (next to this file) for the full plan. If those features are cut or their syntax changes, update or remove the patterns tagged 'FUTURE:' below.",
+  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/RuleSyntaxTree/Parsing). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector. If the DSL grows new tokens/keywords, add matching patterns here.",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
@@ -47,7 +47,7 @@
       "name": "variable.parameter.binding.warrant"
     },
     "schema-target": {
-      "comment": "FUTURE: `for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. The optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the handle are on different lines, `for` falls back to the keyword rule below. Not yet supported by the parser.",
+      "comment": "`for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. The optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the handle are on different lines, `for` falls back to the keyword rule below.",
       "match": "\\b(for)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)",
       "captures": {
         "1": { "name": "keyword.control.warrant" },
@@ -55,8 +55,8 @@
       }
     },
     "keywords": {
-      "comment": "if/they/can/cannot/and/or/not are current keywords. FUTURE: check/for/with/any/of are cross-schema keywords (see file header note). `can`/`check` also act as expression-position builtins; they still scope as keywords here.",
-      "match": "\\b(if|they|can|cannot|and|or|not|check|for|with|any|of)\\b",
+      "comment": "The DSL's reserved words (Lexer::KEYWORDS). `can`/`check` also act as expression-position builtins for cross-schema references; they still scope as keywords here.",
+      "match": "\\b(if|they|can|cannot|and|or|not|check|for|with)\\b",
       "name": "keyword.control.warrant"
     },
     "constants": {
@@ -68,13 +68,13 @@
       "name": "constant.numeric.warrant"
     },
     "operators": {
-      "comment": "! * ? are current operators. FUTURE: `=` is the assignment in a `with key = value` context-mapping clause.",
+      "comment": "! * ? operators, plus `=` for the assignment in a `with key = value` context-mapping clause.",
       "match": "[!*?=]",
       "name": "keyword.operator.warrant"
     },
     "punctuation": {
-      "comment": "( ) , are current punctuation. FUTURE: [ ] delimit an ability list in a cross-schema can(...).",
-      "match": "[(),\\[\\]]",
+      "comment": "( ) , punctuation.",
+      "match": "[(),]",
       "name": "punctuation.separator.warrant"
     },
     "identifiers": {

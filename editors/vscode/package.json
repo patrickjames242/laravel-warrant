@@ -2,7 +2,7 @@
   "name": "warrant-dsl",
   "displayName": "Laravel Warrant",
   "description": "Syntax highlighting for the Warrant authorization rule language, including inside PHP heredocs labelled WARRANT.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "patrickhanna",
   "license": "MIT",
   "repository": {
