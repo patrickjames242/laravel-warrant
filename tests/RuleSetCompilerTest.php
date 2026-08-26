@@ -8,6 +8,8 @@ use Warrant\RuleSyntaxTree\ConditionResolver;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ConditionDefinition;
 
 /**
  * A tiny user carrying just a role, enough for the fake conditions below.
@@ -46,20 +48,21 @@ final class FakeConditionResolver implements ConditionResolver
         return ['view', 'edit', 'delete', 'publish'];
     }
 
-    public function conditionExists(string $name): bool
+    public function getAbilityDefinition(string $name): ?AbilityDefinition
     {
-        return array_key_exists($name, self::TARGETED);
+        return in_array($name, self::abilityNames(), true) ? new AbilityDefinition($name) : null;
     }
 
-    public function requiredConditionArgumentCount(string $name): int
+    public function getConditionDefinition(string $name): ?ConditionDefinition
     {
+        if (! array_key_exists($name, self::TARGETED)) {
+            return null;
+        }
+
         // is_owner and id_is read $parameters[0]; the rest take no required args.
-        return in_array($name, ['is_owner', 'id_is'], true) ? 1 : 0;
-    }
+        $required = in_array($name, ['is_owner', 'id_is'], true) ? 1 : 0;
 
-    public function conditionIsRow(string $name): bool
-    {
-        return self::TARGETED[$name] ?? false;
+        return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
     }
 
     public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = []): Builder|bool

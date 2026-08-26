@@ -6,6 +6,7 @@ use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use InvalidArgumentException;
+use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 
@@ -48,22 +49,21 @@ trait ResolvesConditions
             );
         }
 
-        $methodName = $conditionDefinition->method->getName();
+        $methodName = $conditionDefinition->methodName;
 
         /* The context object is always the method's first parameter; any further
            parameters are the condition's DSL arguments, bound positionally
            (parameter #2 -> argument[0], and so on). Supplying more arguments than
            declared parameters is fine — the extras are ignored by the call and stay
            reachable via $c->arguments — but a required parameter with no matching
-           argument is a rule-level mistake, so reject it here with a branded error. */
-        $requiredArguments = $conditionDefinition->requiredArgumentCount();
-
-        if (count($arguments) < $requiredArguments) {
+           argument is a rule-level mistake, so reject it here with a branded error
+           (validation catches this earlier; this guards direct callers too). */
+        if (count($arguments) < $conditionDefinition->requiredArgumentCount) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.',
                 $conditionKey,
                 static::class,
-                $requiredArguments,
+                $conditionDefinition->requiredArgumentCount,
                 count($arguments)
             ));
         }
@@ -95,21 +95,9 @@ trait ResolvesConditions
 
     // -- ConditionResolver ----------------------------------------------------
 
-    public function conditionExists(string $conditionKey): bool
+    public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
     {
-        return static::conditionDefinitionForKey($conditionKey) !== null;
-    }
-
-    public function requiredConditionArgumentCount(string $conditionKey): int
-    {
-        return static::conditionDefinitionForKey($conditionKey)?->requiredArgumentCount() ?? 0;
-    }
-
-    public function conditionIsRow(string $conditionKey): bool
-    {
-        $definition = static::conditionDefinitionForKey($conditionKey);
-
-        return $definition !== null && $definition->isRow;
+        return static::conditionDefinitionForKey($conditionKey);
     }
 
     public function applyCondition(

@@ -2,32 +2,31 @@
 
 namespace Warrant\RuleSyntaxTree;
 
+use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ConditionDefinition;
+
 /**
- * A schema's declared vocabulary: the ability names and condition keys a rule
- * string may reference. This is the minimal contract needed to *validate* a
- * rule set — nothing here emits SQL. The compile-time seam
- * {@see ConditionResolver} extends it with the emission methods.
+ * A schema's declared vocabulary: the abilities and conditions a rule string may
+ * reference. This is the minimal contract needed to *validate* a rule set —
+ * nothing here emits SQL. The compile-time seam {@see ConditionResolver} extends
+ * it with the emission methods.
+ *
+ * Existence and metadata are answered together: {@see getAbilityDefinition} and
+ * {@see getConditionDefinition} return the definition (or null if undeclared), so
+ * a caller checks existence and reads what it needs — a condition's row-ness or
+ * required argument count — from one lookup.
  */
 interface SchemaVocabulary
 {
     /**
-     * The names of the schema's `#[Ability]` abilities. Used to expand `*` and to
-     * validate the ability names a rule string may reference.
-     *
-     * @return array<int, string>
+     * The definition for a single ability, or null if the schema declares no such
+     * ability.
      */
-    public static function abilityNames(): array;
+    public function getAbilityDefinition(string $abilityKey): ?AbilityDefinition;
 
     /**
-     * Whether a condition with this key is declared by the schema.
+     * The definition for a single condition, or null if the schema declares no such
+     * condition.
      */
-    public function conditionExists(string $conditionKey): bool;
-
-    /**
-     * The number of DSL arguments the keyed condition requires — its parameters
-     * after the leading context object that have no default value. A rule that
-     * supplies fewer arguments than this is rejected during validation. Returns 0
-     * for an unknown key (its existence is reported by {@see conditionExists}).
-     */
-    public function requiredConditionArgumentCount(string $conditionKey): int;
+    public function getConditionDefinition(string $conditionKey): ?ConditionDefinition;
 }

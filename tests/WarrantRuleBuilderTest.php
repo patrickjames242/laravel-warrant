@@ -14,6 +14,8 @@ use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ConditionDefinition;
 
 final class BuilderTestUser implements Authenticatable
 {
@@ -31,10 +33,8 @@ final class BuilderTestUser implements Authenticatable
 final class BuilderFakeResolver implements ConditionResolver
 {
     public static function schemaKey(): string { return 'builder-fake'; }
-    public static function abilityNames(): array { return ['view']; }
-    public function conditionExists(string $name): bool { return $name === 'is_teacher'; }
-    public function requiredConditionArgumentCount(string $name): int { return 0; }
-    public function conditionIsRow(string $name): bool { return true; }
+    public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
+    public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
 
     public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = []): Builder|bool
     {

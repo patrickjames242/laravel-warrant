@@ -8,10 +8,10 @@ use Illuminate\Database\Query\Builder;
 /**
  * The seam between a compiled {@see WarrantRuleSet} and the host schema. The
  * compiler only knows how to assemble boolean structure and the deny-overrides
- * formula; everything condition-specific (whether a condition is a row condition,
- * and the SQL it emits) is delegated here.
+ * formula; emitting a condition's SQL is delegated here.
  *
- * Extends {@see SchemaVocabulary}: the declared ability list and name existence
+ * Extends {@see SchemaVocabulary}: the declared abilities and conditions (including
+ * whether a condition is a row condition, via {@see SchemaVocabulary::getConditionDefinition})
  * are pure vocabulary, shared with validation — which needs nothing more.
  */
 interface ConditionResolver extends SchemaVocabulary
@@ -21,12 +21,6 @@ interface ConditionResolver extends SchemaVocabulary
      * guard with a `(schemaKey, ability)` frame per compiled ability.
      */
     public static function schemaKey(): string;
-
-    /**
-     * Whether the keyed condition is a row condition (needs a target SQL id). A
-     * row condition is forced to false when compiled without a target.
-     */
-    public function conditionIsRow(string $conditionKey): bool;
 
     /**
      * Apply a condition's predicate to $whereClause (mutating it) and return the

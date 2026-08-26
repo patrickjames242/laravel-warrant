@@ -442,7 +442,7 @@ final class RuleSetCompiler
     {
         // A row condition cannot be evaluated without a row; force it false
         // (so `not <row-condition>` becomes true) in a no-target compile.
-        if ($ctx->targetSqlId === null && $this->conditions->conditionIsRow($node->conditionKey)) {
+        if ($ctx->targetSqlId === null && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
             $parent->whereRaw($ctx->negate ? '1 = 1' : '1 = 0', [], $ctx->boolean);
 
             return;

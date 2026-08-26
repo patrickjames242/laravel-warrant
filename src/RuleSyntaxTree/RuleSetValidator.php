@@ -37,11 +37,9 @@ final class RuleSetValidator
      */
     public function validate(WarrantRuleSet $ruleSet): void
     {
-        $abilityNames = $this->schema->abilityNames();
-
         foreach ($ruleSet->rules as $rule) {
             foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
-                if ($ability !== '*' && ! in_array($ability, $abilityNames, true)) {
+                if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
                     throw new InvalidArgumentException(
                         sprintf('Ability [%s] is not declared by the schema.', $ability)
                     );
@@ -119,7 +117,7 @@ final class RuleSetValidator
             );
         }
 
-        if (! in_array($node->ability, $targetClass::abilityNames(), true)) {
+        if ((new $targetClass)->getAbilityDefinition($node->ability) === null) {
             throw new InvalidArgumentException(sprintf(
                 'Ability [%s] is not declared by schema [%s].',
                 $node->ability,
@@ -230,7 +228,9 @@ final class RuleSetValidator
         CrossSchemaConditionNode $reference,
         ConditionResolver $target,
     ): void {
-        if (! $target->conditionExists($node->conditionKey)) {
+        $definition = $target->getConditionDefinition($node->conditionKey);
+
+        if ($definition === null) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] is not declared by schema [%s].',
                 $node->conditionKey,
@@ -238,7 +238,7 @@ final class RuleSetValidator
             ));
         }
 
-        if (! $reference->isRowBound && $target->conditionIsRow($node->conditionKey)) {
+        if (! $reference->isRowBound && $definition->isRow) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] is a row condition and needs a specific row, but the check(...) handle is unbound; add a row selector like %s(@context id).',
                 $node->conditionKey,
@@ -247,21 +247,20 @@ final class RuleSetValidator
             ));
         }
 
-        $this->assertEnoughArguments($node, $target->requiredConditionArgumentCount($node->conditionKey));
+        $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
     }
 
     private function assertConditionExists(ConditionNode $node): void
     {
-        if (! $this->schema->conditionExists($node->conditionKey)) {
+        $definition = $this->schema->getConditionDefinition($node->conditionKey);
+
+        if ($definition === null) {
             throw new InvalidArgumentException(
                 sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey)
             );
         }
 
-        $this->assertEnoughArguments(
-            $node,
-            $this->schema->requiredConditionArgumentCount($node->conditionKey),
-        );
+        $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
 
         /* Context keys need no declaration: a rule may reference any `@context`
            key. An absent key simply makes its condition false at compile time

@@ -132,6 +132,17 @@ trait ReflectsSchemaDefinition
     }
 
     /**
+     * The {@see AbilityDefinition} for a single ability name, or null if the schema
+     * declares no such ability. The vocabulary seam callers use to both check an
+     * ability exists and read its metadata (e.g. required context) in one lookup.
+     */
+    public function getAbilityDefinition(string $abilityKey): ?AbilityDefinition
+    {
+        return collect(static::abilityDefinitions())
+            ->first(fn (AbilityDefinition $ability): bool => $ability->name === $abilityKey);
+    }
+
+    /**
      * Split the given abilities by whether their per-ability required context
      * (declared via `#[Ability(requiredContext: [...])]`) is satisfied by the keys
      * present in the effective context. `satisfied` keeps its input order;
@@ -273,8 +284,9 @@ trait ReflectsSchemaDefinition
 
                 return new ConditionDefinition(
                     $conditionKey,
-                    $method,
+                    $method->getName(),
                     $isRow,
+                    max(0, $method->getNumberOfRequiredParameters() - 1),
                 );
             })
             ->filter()
