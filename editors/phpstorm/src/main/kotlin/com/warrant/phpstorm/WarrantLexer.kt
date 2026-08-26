@@ -65,7 +65,7 @@ class WarrantLexer : LexerBase() {
                 tokenEnd = consumeWhile(pos) { it != '\n' }
                 tokenType = WarrantTokenTypes.COMMENT
             }
-            c == '\'' -> scanString(pos)
+            c == '\'' || c == '"' -> scanString(pos)
             c == '@' -> {
                 // @context / @column (tolerant: any @word). Lexer.php requires
                 // exactly "context" or "column"; for colouring we accept the @word
@@ -127,14 +127,15 @@ class WarrantLexer : LexerBase() {
     }
 
     private fun scanString(pos: Int) {
+        val quote = buffer[pos]
         var i = pos + 1 // skip opening quote
         while (i < endOffset) {
             val c = buffer[i]
             if (c == '\\') {
-                i += 2 // skip escaped char (\' or \\)
+                i += 2 // skip escaped char (\' or \" or \\)
                 continue
             }
-            if (c == '\'') {
+            if (c == quote) {
                 i++ // consume closing quote
                 break
             }

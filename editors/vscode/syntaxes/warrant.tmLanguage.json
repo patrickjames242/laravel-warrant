@@ -23,6 +23,12 @@
       "name": "comment.line.number-sign.warrant"
     },
     "strings": {
+      "patterns": [
+        { "include": "#string-single" },
+        { "include": "#string-double" }
+      ]
+    },
+    "string-single": {
       "name": "string.quoted.single.warrant",
       "begin": "'",
       "beginCaptures": {
@@ -34,7 +40,24 @@
       },
       "patterns": [
         {
-          "match": "\\\\(['\\\\])",
+          "match": "\\\\(['\"\\\\])",
+          "name": "constant.character.escape.warrant"
+        }
+      ]
+    },
+    "string-double": {
+      "name": "string.quoted.double.warrant",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.warrant" }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.warrant" }
+      },
+      "patterns": [
+        {
+          "match": "\\\\(['\"\\\\])",
           "name": "constant.character.escape.warrant"
         }
       ]

@@ -124,16 +124,18 @@ inline literals, named bindings, and positional bindings. A fourth source,
 
 ### Inline literals
 
-Written directly in the rule. Supported types: `string` (single-quoted), `int`,
-`float`, `bool`, `null`.
+Written directly in the rule. Supported types: `string` (single- or
+double-quoted), `int`, `float`, `bool`, `null`.
 
 ```text
 if in_team('sales', 'eng') they can view
 if seen_recently(30, true) they can view
 ```
 
-Strings use single quotes; escape a quote or backslash with `\'` and `\\`. Lists
-and other complex values **cannot** be written inline — pass them via a binding.
+Strings may be delimited by single (`'`) or double (`"`) quotes — pick whichever
+avoids escaping (e.g. `"can't touch this"`). The closing quote must match the
+opener; escape a quote or backslash with `\'`, `\"`, and `\\`. Lists and other
+complex values **cannot** be written inline — pass them via a binding.
 
 ### Named bindings (`:name`)
 

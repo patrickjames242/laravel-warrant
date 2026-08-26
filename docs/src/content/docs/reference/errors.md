@@ -37,7 +37,7 @@ Representative messages:
 
 - `Unexpected character %s.`
 - `Unterminated string literal.`
-- `Invalid escape sequence "\%s"; only \' and \\ are allowed.`
+- `Invalid escape sequence "\%s"; only \', \", and \\ are allowed.`
 - `Expected 'context' after '@'.` / `Expected a context key after '@context'.`
 - `Expected 'can' or 'cannot' after 'they'.`
 - `Expected at least one 'they can ...' or 'they cannot ...' clause.`

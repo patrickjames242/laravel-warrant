@@ -22,8 +22,9 @@ authorization rule language.
 
 ## Highlighted tokens
 
-Keywords (`if they can cannot and or not`), string literals with `\'` / `\\`
-escapes, numbers, `true`/`false`/`null`, `@context`, `:named` bindings,
+Keywords (`if they can cannot and or not`), single- and double-quoted string
+literals with `\'` / `\"` / `\\` escapes, numbers, `true`/`false`/`null`,
+`@context`, `:named` bindings,
 positional `?`, the `*` wildcard, and `#` line comments.
 
 ## Before publishing

@@ -11,6 +11,8 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  * A `#` begins a line comment that runs to the end of the line (or the end of
  * the source); comments are trivia and never reach the parser. A `#` inside a
  * string literal is literal, since comments are only recognised between tokens.
+ * String literals may be delimited by single (`'`) or double (`"`) quotes; the
+ * closing quote must match the opener, and `\'`, `\"`, and `\\` are the escapes.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
  * `cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`. `true` / `false` / `null` are
  * always lexed as literals, so they cannot double as condition or ability names.
@@ -78,6 +80,7 @@ final class Lexer
             $char === ':' => $this->scanNamedBinding(),
             $char === '@' => $this->scanAtRef(),
             $char === "'" => $this->scanString(),
+            $char === '"' => $this->scanString(),
             $this->isDigit($char) => $this->scanNumber(),
             $char === '-' => $this->scanNumber(),
             $this->isIdentifierStart($char) => $this->scanWord(),
@@ -139,6 +142,8 @@ final class Lexer
         $startLine = $this->line;
         $startCol = $this->col;
 
+        $quote = $this->source[$this->pos];
+
         $this->advance(); // consume opening quote
 
         $value = '';
@@ -161,15 +166,16 @@ final class Lexer
 
                 $value .= match ($escaped) {
                     "'" => "'",
+                    '"' => '"',
                     '\\' => '\\',
-                    default => throw $this->error(sprintf('Invalid escape sequence "\\%s"; only \\\' and \\\\ are allowed.', $escaped)),
+                    default => throw $this->error(sprintf('Invalid escape sequence "\\%s"; only \\\', \\", and \\\\ are allowed.', $escaped)),
                 };
 
                 $this->advance();
                 continue;
             }
 
-            if ($char === "'") {
+            if ($char === $quote) {
                 $this->advance(); // consume closing quote
                 $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
 

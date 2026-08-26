@@ -146,6 +146,38 @@ it('unescapes quotes and backslashes in string literals', function () {
     expect($set->rules[0]->conditions->parameters)->toBe(["a'b\\c"]);
 });
 
+it('parses a double-quoted string literal', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_thing("a-string") they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters)->toBe(['a-string']);
+});
+
+it('keeps a single quote literal inside a double-quoted string', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_thing("can\'t touch this") they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters)->toBe(["can't touch this"]);
+});
+
+it('keeps a double quote literal inside a single-quoted string', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_thing(\'she said "hi"\') they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters)->toBe(['she said "hi"']);
+});
+
+it('unescapes quotes and backslashes in double-quoted string literals', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_thing("a\\"b\\\\c") they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters)->toBe(['a"b\\c']);
+});
+
+it('allows escaping either quote regardless of the delimiter', function () {
+    $single = WarrantRuleSet::fromSyntax("if is_thing('a\\\"b') they can view", 'timesheets');
+    $double = WarrantRuleSet::fromSyntax('if is_thing("a\\\'b") they can view', 'timesheets');
+
+    expect($single->rules[0]->conditions->parameters)->toBe(['a"b']);
+    expect($double->rules[0]->conditions->parameters)->toBe(["a'b"]);
+});
+
 // -- Bindings -----------------------------------------------------------------
 
 it('resolves named bindings inline, reused and order-independent', function () {
@@ -486,6 +518,8 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     'reserved word as condition' => ['if if they can view', [], "Reserved word 'if' cannot be used"],
     'because reserved as ability' => ['they can because', [], "Reserved word 'because' cannot be used"],
     'unterminated string' => ["if is_thing('oops) they can view", [], 'Unterminated string'],
+    'unterminated double-quoted string' => ['if is_thing("oops) they can view', [], 'Unterminated string'],
+    'invalid escape sequence' => ["if is_thing('a\\nb') they can view", [], 'Invalid escape sequence'],
     'unbalanced parens' => ['if (is_self they can view', [], "Expected ')'"],
     'they without can/cannot' => ['they view', [], "Expected 'can' or 'cannot'"],
     'trailing junk' => ['if is_self they can edit garbage', [], 'end of input'],
