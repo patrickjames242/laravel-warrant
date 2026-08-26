@@ -51,6 +51,12 @@ final class FakeConditionResolver implements ConditionResolver
         return array_key_exists($name, self::TARGETED);
     }
 
+    public function requiredConditionArgumentCount(string $name): int
+    {
+        // is_owner and id_is read $parameters[0]; the rest take no required args.
+        return in_array($name, ['is_owner', 'id_is'], true) ? 1 : 0;
+    }
+
     public function conditionIsRow(string $name): bool
     {
         return self::TARGETED[$name] ?? false;

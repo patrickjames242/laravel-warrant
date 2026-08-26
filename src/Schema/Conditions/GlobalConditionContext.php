@@ -17,6 +17,11 @@ use Illuminate\Contracts\Database\Query\Builder;
  * `context` is the effective check-time context (after `defaultContext()` merge),
  * available whether or not the rule passed a value via `@context`. Read it
  * directly for an ambient frame: `$c->context['tenant_id']`.
+ *
+ * The DSL arguments are exposed as `arguments`, but a condition may also declare
+ * them as method parameters after this context object — parameter #2 receives
+ * `arguments[0]`, #3 receives `arguments[1]`, and so on — with the full list still
+ * available here.
  */
 final readonly class GlobalConditionContext
 {

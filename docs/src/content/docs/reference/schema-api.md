@@ -129,8 +129,10 @@ name; passing `''` throws.
 #[GlobalCondition]
 ```
 
-The method must accept **exactly one** parameter, typed to match:
-`RowConditionContext` or `GlobalConditionContext`.
+The method's **first** parameter is the context object, typed to match:
+`RowConditionContext` or `GlobalConditionContext`. Any parameters after it receive
+the condition's DSL arguments positionally (parameter #2 → `argument[0]`, and so
+on); a variadic tail collects the rest, and a parameter with a default is optional.
 
 A condition may only add **where clauses** to `$c->query` (including `whereExists`,
 `whereIn`, `whereRaw`). Emitting a `join`, `groupBy`, `having`, aggregate, or

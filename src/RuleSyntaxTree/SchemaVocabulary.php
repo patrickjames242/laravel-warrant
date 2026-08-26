@@ -22,4 +22,12 @@ interface SchemaVocabulary
      * Whether a condition with this key is declared by the schema.
      */
     public function conditionExists(string $conditionKey): bool;
+
+    /**
+     * The number of DSL arguments the keyed condition requires — its parameters
+     * after the leading context object that have no default value. A rule that
+     * supplies fewer arguments than this is rejected during validation. Returns 0
+     * for an unknown key (its existence is reported by {@see conditionExists}).
+     */
+    public function requiredConditionArgumentCount(string $conditionKey): int;
 }

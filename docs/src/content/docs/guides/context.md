@@ -36,8 +36,8 @@ DocumentSchema::requiredContextKeys(); // ['workspace_id']
 
 ### 1. `@context` in the rule
 
-A rule references a key with `@context <key>`; the value is threaded into
-`$c->arguments` positionally at check time:
+A rule references a key with `@context <key>`; the value is passed to the
+condition positionally at check time, just like any other argument:
 
 ```text
 if in_workspace(@context workspace_id) they can view, edit
@@ -45,9 +45,10 @@ if in_workspace(@context workspace_id) they can view, edit
 
 ```php
 #[RowCondition]
-public function inWorkspace(RowConditionContext $c): Builder
+public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
 {
-    [$workspace] = $c->arguments;   // supplied at the check via @context workspace_id
+    // $workspace is supplied at the check via @context workspace_id. Type it as
+    // mixed or a nullable type: an absent @context key arrives as null.
     return $c->query->where('documents.workspace_id', $workspace);
 }
 ```

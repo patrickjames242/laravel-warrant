@@ -157,18 +157,33 @@ class MistypedConditionSchema extends WarrantSchema
     }
 }
 
-class ExtraParamConditionSchema extends WarrantSchema
+class ParameterizedConditionSchema extends WarrantSchema
 {
     public const model = WarrantTestModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
 
-    // One context parameter is the whole contract; a second is a mistake.
-    #[GlobalCondition]
-    public function isWrong(GlobalConditionContext $c, string $extra): bool
+    // A required DSL argument bound as a parameter: arg[0] -> $userId.
+    #[RowCondition]
+    public function isSpecificUser(RowConditionContext $c, string $userId): BuilderContract
     {
-        return $extra !== '';
+        return $c->query->whereRaw("{$c->row()} = ?", [$userId]);
+    }
+
+    // An optional parameter falls back to its default when no argument is supplied.
+    #[GlobalCondition]
+    public function roleIs(GlobalConditionContext $c, string $role = 'guest'): bool
+    {
+        return $c->user->role_id === $role;
+    }
+
+    // The first parameter binds arg[0]; arguments beyond the declared parameters
+    // are not passed positionally but remain reachable via $c->arguments.
+    #[GlobalCondition]
+    public function hasExtraArgs(GlobalConditionContext $c, string $first): bool
+    {
+        return $first === ($c->arguments[0] ?? null) && ($c->arguments[1] ?? null) === 'b';
     }
 }
 

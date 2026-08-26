@@ -21,10 +21,12 @@ trait ResolvesConditions
      *
      * The named condition must correspond to a public method declared on the
      * schema and marked with either `#[RowCondition(...)]` or
-     * `#[GlobalCondition(...)]`. The method receives a single context object
-     * carrying the user, the builder, the DSL arguments, and — for row
-     * conditions — the target row's SQL identity. The builder is mutated in
-     * place and also returned for convenience.
+     * `#[GlobalCondition(...)]`. The method's first parameter is always the
+     * context object carrying the user, the builder, the DSL arguments, and —
+     * for row conditions — the target row's SQL identity. Any further parameters
+     * receive the DSL arguments positionally (parameter #2 -> argument[0], and so
+     * on); the full argument list also remains available via `$c->arguments`. The
+     * builder is mutated in place and also returned for convenience.
      *
      * @param array<int, mixed> $arguments The resolved DSL arguments for the condition.
      * @param array<string, mixed> $context The effective check-time context bag.
@@ -46,9 +48,27 @@ trait ResolvesConditions
             );
         }
 
-        $methodName = $conditionDefinition['method']->getName();
+        $methodName = $conditionDefinition->method->getName();
 
-        if ($conditionDefinition['is_row']) {
+        /* The context object is always the method's first parameter; any further
+           parameters are the condition's DSL arguments, bound positionally
+           (parameter #2 -> argument[0], and so on). Supplying more arguments than
+           declared parameters is fine — the extras are ignored by the call and stay
+           reachable via $c->arguments — but a required parameter with no matching
+           argument is a rule-level mistake, so reject it here with a branded error. */
+        $requiredArguments = $conditionDefinition->requiredArgumentCount();
+
+        if (count($arguments) < $requiredArguments) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.',
+                $conditionKey,
+                static::class,
+                $requiredArguments,
+                count($arguments)
+            ));
+        }
+
+        if ($conditionDefinition->isRow) {
             if ($targetSqlId === null) {
                 throw new InvalidArgumentException(
                     sprintf('Condition [%s] on schema [%s] requires a target SQL id.', $conditionKey, static::class)
@@ -70,7 +90,7 @@ trait ResolvesConditions
             $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context);
         }
 
-        return $this->{$methodName}($conditionContext);
+        return $this->{$methodName}($conditionContext, ...$arguments);
     }
 
     // -- ConditionResolver ----------------------------------------------------
@@ -80,11 +100,16 @@ trait ResolvesConditions
         return static::conditionDefinitionForKey($conditionKey) !== null;
     }
 
+    public function requiredConditionArgumentCount(string $conditionKey): int
+    {
+        return static::conditionDefinitionForKey($conditionKey)?->requiredArgumentCount() ?? 0;
+    }
+
     public function conditionIsRow(string $conditionKey): bool
     {
         $definition = static::conditionDefinitionForKey($conditionKey);
 
-        return $definition !== null && $definition['is_row'];
+        return $definition !== null && $definition->isRow;
     }
 
     public function applyCondition(

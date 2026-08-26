@@ -295,9 +295,9 @@ class ChkTargetSchema extends WarrantSchema
 
     // Owner check driven by a condition argument (used to prove with-map plumbing).
     #[RowCondition]
-    public function ownerIs(RowConditionContext $c): BuilderContract
+    public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->arguments[0]]);
+        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
     }
 }
 

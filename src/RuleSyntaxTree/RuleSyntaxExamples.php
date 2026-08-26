@@ -193,29 +193,29 @@ class RuleSyntaxExamples
     /**
      * The schema side of a parameterised condition.
      *
-     * A condition's DSL arguments arrive as a single trailing `array $parameters`
-     * bag (the resolved ConditionNode::$parameters). The condition indexes it and
-     * is responsible for binding every value as a placeholder — never
-     * interpolating it into SQL. The arguments arrive on the condition's context
-     * object as `$c->arguments`:
+     * A condition declares its DSL arguments as method parameters. The context
+     * object is always the first parameter; every parameter after it receives an
+     * argument positionally (parameter #2 -> argument[0], #3 -> argument[1], …).
+     * The condition binds every value as a placeholder — never interpolating it
+     * into SQL:
      *
      *   use Warrant\RowCondition;
      *   use Warrant\GlobalCondition;
      *   use Warrant\Schema\Conditions\RowConditionContext;
      *   use Warrant\Schema\Conditions\GlobalConditionContext;
      *
-     *   // Row: the context exposes the target row's SQL identity and the DSL arguments.
+     *   // Row: the context exposes the target row's SQL identity; the argument binds a parameter.
      *   #[RowCondition]
-     *   public function isSpecificUser(RowConditionContext $c): Builder {
-     *       // is_specific_user('some-user-id') -> $c->arguments[0] === 'some-user-id'
-     *       return $c->query->whereRaw("{$c->row()} = ?", [$c->arguments[0]]);
+     *   public function isSpecificUser(RowConditionContext $c, string $userId): Builder {
+     *       // is_specific_user('some-user-id') -> $userId === 'some-user-id'
+     *       return $c->query->whereRaw("{$c->row()} = ?", [$userId]);
      *   }
      *
-     *   // Variadic / list argument -> a whereIn:
+     *   // Variadic parameter -> a list argument -> a whereIn:
      *   #[RowCondition]
-     *   public function isDepartment(RowConditionContext $c): Builder {
+     *   public function isDepartment(RowConditionContext $c, string ...$departmentIds): Builder {
      *       // is_department(?, ?, ?) with positional bindings ['a', 'b', 'c']
-     *       return $c->query->whereIn($c->row(), $c->arguments);
+     *       return $c->query->whereIn($c->row(), $departmentIds);
      *   }
      *
      *   // No-target boolean condition: returns true/false, ignoring the query.
@@ -224,7 +224,12 @@ class RuleSyntaxExamples
      *       return $c->user->isSuperUser();
      *   }
      *
-     * Conditions that ignore arguments simply never read `$c->arguments`.
+     * Conditions that ignore arguments simply declare no parameters beyond the
+     * context. A parameter with a default value is optional. Passing more arguments
+     * than declared parameters is fine — the extras are ignored by the call but stay
+     * reachable via the full positional array `$c->arguments`. Passing fewer
+     * arguments than a required parameter (one with no default) is a rule-level
+     * error, rejected during validation before compilation.
      */
     public function conditionParameterContract(): void
     {

@@ -95,8 +95,9 @@ why a no-model schema should only use global conditions.
 
 ## The context object
 
-Every condition method takes a **single context object** and returns `Builder`
-(mutated) or, for a global condition, a `bool`. The object carries:
+Every condition method takes the **context object as its first parameter** and
+returns `Builder` (mutated) or, for a global condition, a `bool`. The object
+carries:
 
 | Property          | Type                      | Present on    |
 | ----------------- | ------------------------- | ------------- |
@@ -106,31 +107,51 @@ Every condition method takes a **single context object** and returns `Builder`
 | `$c->context`     | `array`                   | both          |
 | `$c->row()`       | `string` (method)         | row only      |
 
-:::caution[Exactly one parameter, of the matching type]
-A condition method must accept **exactly one** parameter, and its type must match
-the attribute — `RowConditionContext` for `#[RowCondition]`,
-`GlobalConditionContext` for `#[GlobalCondition]`. A wrong type or an extra
-parameter throws `Condition method [...] must accept exactly one [...] parameter.`
+:::caution[The context is always the first parameter, of the matching type]
+The first parameter's type must match the attribute — `RowConditionContext` for
+`#[RowCondition]`, `GlobalConditionContext` for `#[GlobalCondition]`. A missing or
+wrong-typed first parameter throws
+`Condition method [...] must accept a [...] as its first parameter.` Any parameters
+after it are the condition's [arguments](#arguments).
 :::
 
 ## Arguments
 
-A condition can take arguments from the rule (`in_team('sales')`). The
-resolved arguments arrive on `$c->arguments`, in order:
+A condition can take arguments from the rule (`in_team('sales')`). Declare them as
+**parameters after the context object**: the context is always first, then
+parameter #2 binds `argument[0]`, #3 binds `argument[1]`, and so on.
 
 ```php
 #[RowCondition]
-public function inTeam(RowConditionContext $c): Builder
+public function inTeam(RowConditionContext $c, string $team): Builder
 {
-    // in_team('sales', 'eng')  ->  $c->arguments === ['sales', 'eng']
-    return $c->query->whereIn('documents.team_id', $c->arguments);
+    // in_team('sales')  ->  $team === 'sales'
+    return $c->query->whereRaw('documents.team_id = ?', [$team]);
 }
 ```
 
-A condition that ignores arguments simply never reads `$c->arguments`. Arguments
-come from [inline literals, bindings, or `@context`](/guides/rule-language/#passing-arguments-to-conditions);
+A **variadic** parameter collects a list argument:
+
+```php
+#[RowCondition]
+public function inTeams(RowConditionContext $c, string ...$teams): Builder
+{
+    // in_teams('sales', 'eng')  ->  $teams === ['sales', 'eng']
+    return $c->query->whereIn('documents.team_id', $teams);
+}
+```
+
+A parameter with a **default value** is optional — the rule may omit that
+argument. Supplying **fewer** arguments than the required parameters is rejected
+during rule validation; supplying **more** is fine — the extras are ignored by the
+call but stay reachable via `$c->arguments`, the full positional array. A condition
+that ignores arguments simply declares no parameters beyond the context.
+
+Arguments come from [inline literals, bindings, or `@context`](/guides/rule-language/#passing-arguments-to-conditions);
 a value passed via a binding reaches you **verbatim** — any PHP type, including
-arrays and objects.
+arrays and objects. (Type-hint a parameter only as loosely as its values allow —
+use `mixed` or a nullable type for an argument that may be null, e.g. an absent
+`@context` key.)
 
 ## The ambient context bag
 

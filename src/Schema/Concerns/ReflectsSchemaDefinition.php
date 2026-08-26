@@ -14,6 +14,7 @@ use Warrant\GlobalCondition;
 use Warrant\RequiredContext;
 use Warrant\RowCondition;
 use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 
@@ -67,8 +68,8 @@ trait ReflectsSchemaDefinition
     public static function rowConditionKeys(): array
     {
         return collect(static::conditionDefinitions())
-            ->filter(fn(array $definition): bool => $definition['is_row'])
-            ->pluck('key')
+            ->filter(fn(ConditionDefinition $definition): bool => $definition->isRow)
+            ->map(fn(ConditionDefinition $definition): string => $definition->key)
             ->filter()
             ->sort()
             ->values()
@@ -86,8 +87,8 @@ trait ReflectsSchemaDefinition
     public static function globalConditionKeys(): array
     {
         return collect(static::conditionDefinitions())
-            ->filter(fn(array $definition): bool => $definition['is_global'])
-            ->pluck('key')
+            ->filter(fn(ConditionDefinition $definition): bool => $definition->isGlobal())
+            ->map(fn(ConditionDefinition $definition): string => $definition->key)
             ->filter()
             ->sort()
             ->values()
@@ -194,14 +195,14 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * @return array<int, array{key: string, method: ReflectionMethod, is_row: bool, is_global: bool}>
+     * @return array<int, ConditionDefinition>
      */
     protected static function conditionDefinitions(): array
     {
         $reflection = new ReflectionClass(static::class);
 
         return collect($reflection->getMethods(ReflectionMethod::IS_PUBLIC))
-            ->map(function (ReflectionMethod $method): ?array {
+            ->map(function (ReflectionMethod $method): ?ConditionDefinition {
                 if ($method->isStatic()) {
                     return null;
                 }
@@ -245,8 +246,12 @@ trait ReflectsSchemaDefinition
 
                 /* The attribute chooses the context: a row condition receives a
                    RowConditionContext (carrying the target row's SQL identity), a
-                   global one a GlobalConditionContext. Require the single parameter
-                   to be typed accordingly so a mismatch fails loudly at boot. */
+                   global one a GlobalConditionContext. The context object is always
+                   the first parameter — require it to be typed accordingly so a
+                   mismatch fails loudly at boot. Any further parameters are the
+                   condition's DSL arguments, bound positionally at call time
+                   (parameter #2 -> argument[0], #3 -> argument[1], …), so they are
+                   left unconstrained here. */
                 $expectedContext = $isRow
                     ? RowConditionContext::class
                     : GlobalConditionContext::class;
@@ -254,37 +259,33 @@ trait ReflectsSchemaDefinition
                 $parameterType = ($parameters[0] ?? null)?->getType();
 
                 if (
-                    count($parameters) !== 1
+                    $parameters === []
                     || !$parameterType instanceof ReflectionNamedType
                     || $parameterType->getName() !== $expectedContext
                 ) {
                     throw new InvalidArgumentException(sprintf(
-                        'Condition method [%s::%s] must accept exactly one [%s] parameter.',
+                        'Condition method [%s::%s] must accept a [%s] as its first parameter.',
                         static::class,
                         $method->getName(),
                         $expectedContext
                     ));
                 }
 
-                return [
-                    'key' => $conditionKey,
-                    'method' => $method,
-                    'is_row' => $isRow,
-                    'is_global' => !$isRow,
-                ];
+                return new ConditionDefinition(
+                    $conditionKey,
+                    $method,
+                    $isRow,
+                );
             })
             ->filter()
             ->values()
             ->all();
     }
 
-    /**
-     * @return array{key: string, method: ReflectionMethod, is_row: bool, is_global: bool}|null
-     */
-    protected static function conditionDefinitionForKey(string $conditionKey): ?array
+    protected static function conditionDefinitionForKey(string $conditionKey): ?ConditionDefinition
     {
         return collect(static::conditionDefinitions())
-            ->first(fn(array $definition): bool => $definition['key'] === $conditionKey);
+            ->first(fn(ConditionDefinition $definition): bool => $definition->key === $conditionKey);
     }
 
     /**

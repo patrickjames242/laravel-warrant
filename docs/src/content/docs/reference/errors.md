@@ -59,6 +59,7 @@ Thrown when a rule set is validated/compiled against a schema:
 
 - `Ability [%s] is not declared by the schema.`
 - `Condition [%s] is not declared by the schema.`
+- `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
 - `Context key [%s] is not declared by the schema.`
 
 Attaching a denial message to a rule that has no `theyCannot` clause is also
@@ -86,7 +87,7 @@ Thrown lazily the first time a schema's conditions are reflected:
 - `Condition method [%s::%s] must not declare duplicate condition attributes.`
 - `Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].`
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
-- `Condition method [%s::%s] must accept exactly one [%s] parameter.` — wrong context type **or** an extra parameter.
+- `Condition method [%s::%s] must accept a [%s] as its first parameter.` — a missing or wrong-typed context parameter.
 - `Schema [%s] is a schema with no model and does not support targeted checks; use a no-target check instead.`
 
 ## Applying a condition
@@ -95,6 +96,7 @@ From the condition resolver:
 
 - `BadMethodCallException` — `Condition [%s] is not defined on schema [%s].`
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target SQL id.` (a row condition run with no target)
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (fewer arguments than the condition's required parameters)
 
 ## Context errors → `InvalidArgumentException`
 

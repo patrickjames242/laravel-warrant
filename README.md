@@ -142,10 +142,21 @@ class TimesheetSchema extends WarrantSchema
         return $c->query->whereRaw('timesheets.user_id = ?', [$c->user->getAuthIdentifier()]);
     }
 
+    // DSL arguments are declared as parameters after the context object:
+    // the context is always first, then parameter #2 binds argument[0],
+    // #3 binds argument[1], and so on. has_status('approved') -> $status.
     #[RowCondition]
-    public function inDepartment(RowConditionContext $c): Builder
+    public function hasStatus(RowConditionContext $c, string $status): Builder
     {
-        return $c->query->whereIn('timesheets.department_id', $c->arguments);
+        return $c->query->whereRaw('timesheets.status = ?', [$status]);
+    }
+
+    // A variadic parameter collects a list argument:
+    // in_department(?, ?, ?) -> $departmentIds === ['a', 'b', 'c'].
+    #[RowCondition]
+    public function inDepartment(RowConditionContext $c, string ...$departmentIds): Builder
+    {
+        return $c->query->whereIn('timesheets.department_id', $departmentIds);
     }
 
     // Global: a plain yes/no about the user, independent of any row.

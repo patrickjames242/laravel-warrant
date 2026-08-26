@@ -50,7 +50,7 @@ public function isAdmin(GlobalConditionContext $c): bool
 ```
 
 Conditions can take **arguments** straight from the rule string — here `'sales'`
-arrives on `$c->arguments`:
+binds to the condition's first parameter after the context object:
 
 ```text
 if in_team('sales') they can view

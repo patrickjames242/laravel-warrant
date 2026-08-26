@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 function createCourseSectionsTable(): void
@@ -206,12 +207,70 @@ it('derives condition keys by snake-casing the method name, no prefix', function
 
 it('rejects a condition method typed with the wrong context', function () {
     expect(fn () => MistypedConditionSchema::conditionKeys())
-        ->toThrow(InvalidArgumentException::class, 'must accept exactly one');
+        ->toThrow(InvalidArgumentException::class, 'must accept a');
 });
 
-it('rejects a condition method that takes extra parameters', function () {
-    expect(fn () => ExtraParamConditionSchema::conditionKeys())
-        ->toThrow(InvalidArgumentException::class, 'must accept exactly one');
+it('binds DSL arguments to declared condition parameters positionally', function () {
+    $filtered = (new ParameterizedConditionSchema)->applyConditionFilter(
+        'is_specific_user',
+        makeWarrantTestUser('teacher-role'),
+        warrantTestQuery(),
+        'course_sections.id',
+        ['some-user-id'],
+    );
+
+    expect($filtered->getBindings())->toBe(['some-user-id']);
+});
+
+it('allows more arguments than declared parameters, leaving the extras on $c->arguments', function () {
+    // hasExtraArgs declares one parameter ($first) but is called with two args;
+    // $first binds arg[0] and the extra 'b' stays reachable via $c->arguments.
+    $result = (new ParameterizedConditionSchema)->applyConditionFilter(
+        'has_extra_args',
+        makeWarrantTestUser('teacher-role'),
+        warrantTestQuery(),
+        null,
+        ['a', 'b'],
+    );
+
+    expect($result)->toBeTrue();
+});
+
+it('falls back to a parameter default when the argument is omitted', function () {
+    $result = (new ParameterizedConditionSchema)->applyConditionFilter(
+        'role_is',
+        makeWarrantTestUser('guest'),
+        warrantTestQuery(),
+    );
+
+    expect($result)->toBeTrue();
+});
+
+it('rejects a condition invoked with fewer arguments than its required parameters', function () {
+    expect(fn () => (new ParameterizedConditionSchema)->applyConditionFilter(
+        'is_specific_user',
+        makeWarrantTestUser('teacher-role'),
+        warrantTestQuery(),
+        'course_sections.id',
+        [],
+    ))->toThrow(InvalidArgumentException::class, 'requires at least 1 argument');
+});
+
+it('rejects a rule that supplies fewer condition arguments than required, during validation', function () {
+    $schema = new ParameterizedConditionSchema;
+    $ruleSet = WarrantRuleSet::fromSyntax('if is_specific_user they can view', $schema);
+
+    expect(fn () => (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet))
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_specific_user] requires at least 1 argument');
+});
+
+it('accepts a rule that supplies the required condition arguments, during validation', function () {
+    $schema = new ParameterizedConditionSchema;
+    $ruleSet = WarrantRuleSet::fromSyntax("if is_specific_user('u-1') they can view", $schema);
+
+    (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet);
+
+    expect(true)->toBeTrue();
 });
 
 it('requires a target sql id for row conditions', function () {

@@ -40,10 +40,8 @@ class ContextDocSchema extends WarrantSchema
     public const AS_OF = 'as_of_date';                                    // usable without any declaration
 
     #[RowCondition]
-    public function inWorkspace(RowConditionContext $c): BuilderContract
+    public function inWorkspace(RowConditionContext $c, mixed $workspace): BuilderContract
     {
-        [$workspace] = $c->arguments;
-
         return $c->query->whereRaw('context_docs.workspace_id = ?', [$workspace]);
     }
 

@@ -8,8 +8,9 @@ use Warrant\Facades\Warrant;
 
 /**
  * Validates every condition and ability name in a {@see WarrantRuleSet} against
- * the schema it targets. Runs before compilation so unknown names fail loudly
- * rather than silently producing an empty predicate.
+ * the schema it targets — including that each condition is called with at least
+ * as many arguments as it requires. Runs before compilation so unknown names or
+ * arity mistakes fail loudly rather than silently producing an empty predicate.
  *
  * Own-schema checks depend only on the schema's {@see SchemaVocabulary} — name
  * existence, no SQL. A cross-schema `can(...)` reference is additionally resolved
@@ -245,6 +246,8 @@ final class RuleSetValidator
                 $reference->schemaKey,
             ));
         }
+
+        $this->assertEnoughArguments($node, $target->requiredConditionArgumentCount($node->conditionKey));
     }
 
     private function assertConditionExists(ConditionNode $node): void
@@ -255,9 +258,35 @@ final class RuleSetValidator
             );
         }
 
+        $this->assertEnoughArguments(
+            $node,
+            $this->schema->requiredConditionArgumentCount($node->conditionKey),
+        );
+
         /* Context keys need no declaration: a rule may reference any `@context`
            key. An absent key simply makes its condition false at compile time
            (see RuleSetCompiler); required keys are enforced separately, at check
            time, via #[RequiredContext] and per-ability requires. */
+    }
+
+    /**
+     * A condition may declare its DSL arguments as method parameters after the
+     * leading context object; those without a default are required. Supplying
+     * fewer arguments than required is a rule-level mistake, caught here before
+     * compilation. (More arguments than parameters is allowed — the extras remain
+     * reachable via the condition's `$c->arguments`.)
+     */
+    private function assertEnoughArguments(ConditionNode $node, int $required): void
+    {
+        $supplied = count($node->parameters);
+
+        if ($supplied < $required) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] requires at least %d argument(s), but the rule supplied %d.',
+                $node->conditionKey,
+                $required,
+                $supplied,
+            ));
+        }
     }
 }

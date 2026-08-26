@@ -167,7 +167,7 @@ WarrantRuleSet::fromSyntax(
 
 - **A binding value may be any PHP value** — string, int, array, an object,
   anything. (Only *inline* literals are restricted to scalars.) Your condition
-  receives it verbatim on `$c->arguments`.
+  receives it verbatim — as the corresponding parameter (and on `$c->arguments`).
 - **You may not mix** named and positional bindings in one parse.
 - **Every placeholder must have a value, and every provided value must be used.**
   A missing binding, an unused binding, or a positional count mismatch is an error.
