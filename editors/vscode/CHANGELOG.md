@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- Highlight `@sql "<sql>"` raw SQL references — an arbitrary SQL fragment usable
+  anywhere `@context` / `@column` are, spliced into the query at compile time.
+
 ## 0.4.0
 
 - Highlight the `because` keyword, which introduces a denial message on a

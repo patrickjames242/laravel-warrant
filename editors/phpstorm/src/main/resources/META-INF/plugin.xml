@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Laravel Warrant</name>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -13,6 +13,8 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.2.0</b> &mdash; Highlight <code>@sql "&lt;sql&gt;"</code> raw SQL
+                references alongside <code>@context</code> and <code>@column</code>.</li>
             <li><b>0.1.0</b> &mdash; Initial release: Warrant DSL syntax highlighting,
                 including injection into PHP heredocs labelled <code>WARRANT</code>.</li>
         </ul>
