@@ -5,6 +5,7 @@ use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ColumnRef;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\RuleSyntaxTree\SqlRef;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
@@ -261,6 +262,43 @@ it('keeps a column ref out of the positional binding stream', function () {
     expect($reparsed->conditions->parameters[1])->toBeInstanceOf(ColumnRef::class);
     expect($reparsed->conditions->parameters[1]->schemaKey)->toBe('timesheets');
     expect($reparsed->conditions->parameters[1]->column)->toBe('id');
+});
+
+// -- SQL references (@sql) ----------------------------------------------------
+
+it('renders a @sql ref as @sql \'<sql>\', inline and bound alike', function () {
+    $rule = WarrantRule::fromSyntax('if is_teacher(@sql "select 1") they can view');
+
+    // Rendered with single quotes (the writer's canonical string form).
+    expect($rule->toSyntax())->toBe("if is_teacher(@sql 'select 1')\nthey can view");
+
+    // Bound form: the ref is NOT a runtime value, so it renders the same and
+    // consumes no positional binding.
+    $bound = $rule->toBoundSyntax();
+    expect($bound->syntax)->toBe("if is_teacher(@sql 'select 1')\nthey can view");
+    expect($bound->bindings)->toBe([]);
+});
+
+it('keeps a @sql ref out of the positional binding stream', function () {
+    $rule = WarrantRule::fromSyntax("if is_teacher('x', @sql \"select 1\") they can view");
+
+    $bound = $rule->toBoundSyntax();
+    expect($bound->syntax)->toBe("if is_teacher(?, @sql 'select 1')\nthey can view");
+    expect($bound->bindings)->toBe(['x']);
+
+    // Re-parsing the bound form restores the same value + ref shape.
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
+    expect($reparsed->conditions->parameters[0])->toBe('x');
+    expect($reparsed->conditions->parameters[1])->toEqual(new SqlRef('select 1'));
+});
+
+it('escapes quotes and backslashes in a @sql body so it round-trips', function () {
+    // A body containing single quotes, double quotes, and a backslash must survive
+    // the render → re-parse round trip unchanged.
+    $rule = WarrantRule::fromSyntax('if is_teacher(@sql "id = \'a\' or n = \\"b\\"") they can view');
+
+    $reparsed = WarrantRule::fromSyntax($rule->toSyntax());
+    expect($reparsed->conditions->parameters[0])->toEqual(new SqlRef('id = \'a\' or n = "b"'));
 });
 
 // -- round-trip ---------------------------------------------------------------

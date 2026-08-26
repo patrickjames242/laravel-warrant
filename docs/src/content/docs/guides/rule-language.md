@@ -242,6 +242,43 @@ correlated subquery. Referencing an unrelated table produces a SQL error at
 execution.
 :::
 
+## Raw SQL references (`@sql`)
+
+When a column reference is not enough — you need a scalar subquery, a function
+call, or any other expression the DSL has no syntax for — write `@sql "<sql>"`.
+The body is a quoted string (single or double quotes, using the usual `\'` / `\"`
+/ `\\` escapes), or a `:name` / `?` binding that resolves to a string — a binding
+is substituted for its value at parse time, so `@sql :q` with `q => 'select 1'` is
+identical to `@sql "select 1"`. Either way the body is spliced into the query
+**verbatim**:
+
+```text
+if pay_period_matches(@sql "select pay_period_id from settings limit 1") they can view
+```
+
+At compile time the body is wrapped in a single pair of parentheses and handed to
+the condition as an `Illuminate\Database\Query\Expression` — exactly what
+`DB::raw('(' . $sql . ')')` produces. The parentheses are always added (even if
+you wrote your own), so a bare `select ...` is valid as a scalar subquery in a
+comparison. Nothing else is done to the string: it is never bound as a value or
+re-quoted.
+
+Like `@context` and `@column`, the resolved `@sql` reference carries no value of
+its own into the compiled tree and may sit alongside literals and bindings. Note
+the one difference from those two: if you write the body as a `:name` / `?`
+binding, that binding *is* consumed — it feeds the SQL string and counts toward
+the "every binding used / no mixing" rules just like any other placeholder. (The
+string-literal form, `@sql "..."`, consumes nothing.) It works everywhere an
+argument is accepted: condition parameters, `can(...)` / `check(...)` row
+selectors, and `with` map values.
+
+:::danger
+`@sql` splices its body into the query with **no escaping, quoting, or binding**.
+Never build an `@sql` body from untrusted input — treat it exactly like
+`DB::raw()`. It is also your responsibility that any tables it names are in scope
+in the surrounding query and that the fragment is valid SQL for your connection.
+:::
+
 ## Whitespace, multiple rules, reserved words
 
 - **Whitespace is insignificant.** Newlines are cosmetic; an entire rule set can
@@ -285,9 +322,10 @@ and         = not ( "and" not )* ;
 not         = ( "not" | "!" ) not | primary ;
 primary     = "(" expr ")" | condition ;
 condition   = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
-arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF | COLUMN_REF ;
+arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF | COLUMN_REF | SQL_REF ;
 CONTEXT_REF = "@context" IDENTIFIER ;
 COLUMN_REF  = "@column" IDENTIFIER "." IDENTIFIER ;
+SQL_REF     = "@sql" ( STRING | NAMED_BINDING | POSITIONAL ) ;
 ```
 
 ## Syntax errors

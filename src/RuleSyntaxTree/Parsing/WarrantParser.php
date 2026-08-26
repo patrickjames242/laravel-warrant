@@ -13,6 +13,7 @@ use Warrant\RuleSyntaxTree\CrossSchemaConditionNode;
 use Warrant\RuleSyntaxTree\IBooleanExpressionNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
+use Warrant\RuleSyntaxTree\SqlRef;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantSyntaxException;
 
@@ -613,8 +614,9 @@ final class WarrantParser
             TokenType::POSITIONAL => $this->bindings->resolvePositional($this->advance()),
             TokenType::CONTEXT_REF => $this->parseContextRef(),
             TokenType::COLUMN_REF => $this->parseColumnRef(),
+            TokenType::SQL_REF => $this->parseSqlRef(),
             default => throw $this->errorAtCurrent(
-                'Expected an argument: a literal, a binding (:name or ?), @context <key>, or @column <schema>.<column>.'
+                'Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <schema>.<column>, or @sql "<sql>".'
             ),
         };
     }
@@ -660,6 +662,41 @@ final class WarrantParser
         }
 
         return new ColumnRef($schemaKey, $this->advance()->lexeme);
+    }
+
+    /**
+     * Parse a `@sql "<sql>"` reference into a symbolic {@see SqlRef}. The body is
+     * either a quoted string literal (single or double quotes) or a `:name` / `?`
+     * binding that resolves to a string — bindings resolve to their value at parse
+     * time, so `@sql :q` with `q => 'select 1'` is identical to `@sql "select 1"`.
+     * The resulting {@see SqlRef} stays symbolic until
+     * {@see \Warrant\RuleSyntaxTree\RuleSetCompiler} resolves it to a parenthesized
+     * raw SQL expression.
+     */
+    private function parseSqlRef(): SqlRef
+    {
+        $this->advance(); // consume '@sql'
+
+        $token = $this->peek();
+
+        $sql = match ($token->type) {
+            TokenType::STRING => $this->advance()->value,
+            TokenType::NAMED_BINDING => $this->bindings->resolveNamed($this->advance()),
+            TokenType::POSITIONAL => $this->bindings->resolvePositional($this->advance()),
+            default => throw $this->errorAtCurrent(
+                'Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.'
+            ),
+        };
+
+        if (! is_string($sql)) {
+            throw WarrantSyntaxException::at(
+                sprintf('An @sql binding must resolve to a string, got %s.', get_debug_type($sql)),
+                $this->source,
+                $token,
+            );
+        }
+
+        return new SqlRef($sql);
     }
 
     // -- token helpers --------------------------------------------------------

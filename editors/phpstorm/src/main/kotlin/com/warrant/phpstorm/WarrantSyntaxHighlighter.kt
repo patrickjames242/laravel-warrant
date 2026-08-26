@@ -32,6 +32,7 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
             WarrantTokenTypes.COMMENT -> COMMENT
             WarrantTokenTypes.CONTEXT_REF -> CONTEXT_REF
             WarrantTokenTypes.COLUMN_REF -> COLUMN_REF
+            WarrantTokenTypes.SQL_REF -> SQL_REF
             WarrantTokenTypes.NAMED_BINDING -> NAMED_BINDING
             WarrantTokenTypes.OPERATOR -> OPERATOR
             WarrantTokenTypes.PARENS -> PARENS
@@ -53,6 +54,7 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
         val COMMENT = createTextAttributesKey("WARRANT_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
         val CONTEXT_REF = createTextAttributesKey("WARRANT_CONTEXT_REF", DefaultLanguageHighlighterColors.METADATA)
         val COLUMN_REF = createTextAttributesKey("WARRANT_COLUMN_REF", DefaultLanguageHighlighterColors.METADATA)
+        val SQL_REF = createTextAttributesKey("WARRANT_SQL_REF", DefaultLanguageHighlighterColors.METADATA)
         val NAMED_BINDING = createTextAttributesKey("WARRANT_NAMED_BINDING", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
         val OPERATOR = createTextAttributesKey("WARRANT_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN)
         val PARENS = createTextAttributesKey("WARRANT_PARENS", DefaultLanguageHighlighterColors.PARENTHESES)

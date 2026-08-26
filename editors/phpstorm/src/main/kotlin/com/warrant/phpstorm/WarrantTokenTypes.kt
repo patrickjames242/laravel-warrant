@@ -22,6 +22,7 @@ object WarrantTokenTypes {
     @JvmField val COMMENT = WarrantTokenType("WARRANT_COMMENT")          // # ...
     @JvmField val CONTEXT_REF = WarrantTokenType("WARRANT_CONTEXT_REF")  // @context
     @JvmField val COLUMN_REF = WarrantTokenType("WARRANT_COLUMN_REF")    // @column
+    @JvmField val SQL_REF = WarrantTokenType("WARRANT_SQL_REF")          // @sql
     @JvmField val NAMED_BINDING = WarrantTokenType("WARRANT_NAMED_BINDING") // :name
     @JvmField val OPERATOR = WarrantTokenType("WARRANT_OPERATOR")        // ! * ? =
     @JvmField val PARENS = WarrantTokenType("WARRANT_PARENS")            // ( )

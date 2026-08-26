@@ -106,9 +106,11 @@ final class Lexer
     }
 
     /**
-     * Scan an `@`-prefixed reference: `@context` (a check-time context value) or
-     * `@column` (a schema-qualified database column). The word after `@` selects
-     * which; the identifier(s) that follow are separate tokens the parser reads.
+     * Scan an `@`-prefixed reference: `@context` (a check-time context value),
+     * `@column` (a schema-qualified database column), or `@sql` (an arbitrary SQL
+     * fragment). The word after `@` selects which; the token(s) that follow — an
+     * identifier for `@context`/`@column`, a quoted string for `@sql` — are separate
+     * tokens the parser reads.
      */
     private function scanAtRef(): Token
     {
@@ -119,7 +121,7 @@ final class Lexer
         $this->advance(); // consume '@'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
-            throw $this->errorAt("Expected 'context' or 'column' after '@'.", $startOffset, $startLine, $startCol);
+            throw $this->errorAt("Expected 'context', 'column', or 'sql' after '@'.", $startOffset, $startLine, $startCol);
         }
 
         $word = $this->consumeIdentifier();
@@ -127,8 +129,9 @@ final class Lexer
         return match ($word) {
             'context' => new Token(TokenType::CONTEXT_REF, '@context', $startOffset, $startLine, $startCol),
             'column' => new Token(TokenType::COLUMN_REF, '@column', $startOffset, $startLine, $startCol),
+            'sql' => new Token(TokenType::SQL_REF, '@sql', $startOffset, $startLine, $startCol),
             default => throw $this->errorAt(
-                sprintf("Expected 'context' or 'column' after '@', got '%s'.", $word),
+                sprintf("Expected 'context', 'column', or 'sql' after '@', got '%s'.", $word),
                 $startOffset,
                 $startLine,
                 $startCol,

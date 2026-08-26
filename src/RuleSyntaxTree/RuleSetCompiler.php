@@ -452,6 +452,12 @@ final class RuleSetCompiler
             return $this->resolveColumnRef($query, $value);
         }
 
+        if ($value instanceof SqlRef) {
+            // Always parenthesize (even if the author already did): a bare
+            // `select ...` is then valid as a scalar subquery in a comparison.
+            return new Expression('(' . $value->sql . ')');
+        }
+
         return $value;
     }
 

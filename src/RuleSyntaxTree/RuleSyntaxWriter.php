@@ -298,6 +298,13 @@ final class RuleSyntaxWriter
             return '@column ' . $value->schemaKey . '.' . $value->column;
         }
 
+        // An @sql ref is likewise a compile-time reference, not a runtime value —
+        // same rule: render identically in both modes and consume no `?` binding.
+        // The body is quoted/escaped so it round-trips back through the lexer.
+        if ($value instanceof SqlRef) {
+            return '@sql ' . $this->literal($value->sql);
+        }
+
         if ($this->bound) {
             $this->bindings[] = $value;
 

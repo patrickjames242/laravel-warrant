@@ -8,6 +8,7 @@ use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
 use Warrant\RuleSyntaxTree\CrossSchemaConditionNode;
 use Warrant\RuleSyntaxTree\NotNode;
 use Warrant\RuleSyntaxTree\OrNode;
+use Warrant\RuleSyntaxTree\SqlRef;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\RuleSyntaxTree\WarrantSyntaxException;
@@ -316,10 +317,114 @@ it('errors on a bad @-sigil or a malformed @column reference', function (string 
     expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
-    'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context' or 'column'"],
+    'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context', 'column', or 'sql'"],
     'missing dot'  => ['if is_teacher(@column timesheets) they can view', "Expected '.'"],
     'missing col'  => ['if is_teacher(@column timesheets.) they can view', 'Expected a column name'],
     'missing all'  => ['if is_teacher(@column) they can view', "Expected a schema key after '@column'"],
+]);
+
+// -- SQL references (@sql) ----------------------------------------------------
+
+it('parses @sql "<sql>" into a symbolic SqlRef, not a value', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@sql "select 1") they can view', 'timesheets');
+
+    $params = $set->rules[0]->conditions->parameters;
+    expect($params)->toHaveCount(1);
+    expect($params[0])->toBeInstanceOf(SqlRef::class);
+    expect($params[0]->sql)->toBe('select 1');
+});
+
+it('accepts single- or double-quoted @sql bodies, keeping the inner quote', function () {
+    $double = WarrantRuleSet::fromSyntax('if is_teacher(@sql "id = \'blah\'") they can view', 'timesheets');
+    $single = WarrantRuleSet::fromSyntax("if is_teacher(@sql 'name = \"x\"') they can view", 'timesheets');
+
+    expect($double->rules[0]->conditions->parameters[0])->toEqual(new SqlRef("id = 'blah'"));
+    expect($single->rules[0]->conditions->parameters[0])->toEqual(new SqlRef('name = "x"'));
+});
+
+it('resolves a :name binding as the @sql body at parse time', function () {
+    $set = WarrantRuleSet::fromSyntax(
+        'if is_teacher(@sql :q) they can view',
+        'timesheets',
+        ['q' => 'select 1'],
+    );
+
+    expect($set->rules[0]->conditions->parameters[0])->toEqual(new SqlRef('select 1'));
+});
+
+it('resolves a ? binding as the @sql body at parse time', function () {
+    $set = WarrantRuleSet::fromSyntax(
+        'if is_teacher(@sql ?) they can view',
+        'timesheets',
+        ['select 2'],
+    );
+
+    expect($set->rules[0]->conditions->parameters[0])->toEqual(new SqlRef('select 2'));
+});
+
+it('rejects a @sql binding that resolves to a non-string', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if is_teacher(@sql :q) they can view',
+        'timesheets',
+        ['q' => 42],
+    ))->toThrow(WarrantSyntaxException::class, 'must resolve to a string');
+});
+
+it('mixes a @sql ref with literals, column/context refs, and bindings in one condition', function () {
+    $set = WarrantRuleSet::fromSyntax(
+        "if is_teacher('x', @sql \"select 1\", @column timesheets.id, @context year, :b) they can view",
+        'timesheets',
+        ['b' => 42],
+    );
+
+    $params = $set->rules[0]->conditions->parameters;
+    expect($params[0])->toBe('x');
+    expect($params[1])->toEqual(new SqlRef('select 1'));
+    expect($params[2])->toEqual(new ColumnRef('timesheets', 'id'));
+    expect($params[3])->toEqual(new ContextRef('year'));
+    expect($params[4])->toBe(42);
+});
+
+it('exempts a @sql ref from binding finalize (no "unused binding" error)', function () {
+    // Like @context / @column, a bare @sql ref must not trip the all-bindings-used /
+    // mixing checks — it carries no value at parse time and never consumes a `?`.
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@sql "select 1") they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters[0])->toBeInstanceOf(SqlRef::class);
+});
+
+it('parses a @sql row selector in a can(...) handle', function () {
+    $rules = WarrantParser::parse('if can(manage for departments(@sql "select id from d")) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->boundRow)->toEqual(new SqlRef('select id from d'));
+});
+
+it('parses a @sql row selector in a check(...) handle', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_open for pay_periods(@sql "select id from p")) they can update'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->boundRow)->toEqual(new SqlRef('select id from p'));
+});
+
+it('parses a @sql value in a with-map', function () {
+    $rules = WarrantParser::parse(
+        'if can(create for billing_plans with plan_id = @sql "select id from plans") they can create'
+    );
+
+    expect($rules[0]->conditions->contextMap)->toEqual(['plan_id' => new SqlRef('select id from plans')]);
+});
+
+it('errors when @sql is not followed by a quoted string', function (string $syntax, string $needle) {
+    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, $needle);
+})->with([
+    'missing string' => ['if is_teacher(@sql) they can view', 'Expected a quoted SQL string'],
+    'identifier not string' => ['if is_teacher(@sql foo) they can view', 'Expected a quoted SQL string'],
 ]);
 
 // -- Wildcards ----------------------------------------------------------------
