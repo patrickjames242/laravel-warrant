@@ -97,7 +97,7 @@ readonly class RuleSetGroup implements IteratorAggregate, Countable
      */
     public function forSchema(Model|WarrantSchema|string $schema): ?WarrantRuleSet
     {
-        $schemaKey = Warrant::resolveSchemaKey($schema);
+        $schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema);
 
         foreach ($this->ruleSets as $ruleSet) {
             if ($ruleSet->schemaKey === $schemaKey) {

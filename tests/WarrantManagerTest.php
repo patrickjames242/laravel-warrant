@@ -4,36 +4,36 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\Facades\Warrant;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\WarrantManager;
+use Warrant\SchemaRegistry;
 
 beforeEach(function () {
     useWarrantSchemas([WarrantTestSchema::class]);
 });
 
 it('resolves the schema for a model class', function () {
-    expect(Warrant::getSchemaForModelClass(WarrantTestModel::class))->toBe(WarrantTestSchema::class);
+    expect(Warrant::registry()->resolveSchemaClassOrFail(WarrantTestModel::class))->toBe(WarrantTestSchema::class);
 });
 
 it('resolves the schema for a schema key', function () {
-    expect(Warrant::getSchemaForKey('course_sections'))->toBe(WarrantTestSchema::class);
+    expect(Warrant::registry()->resolveSchemaClassOrFail('course_sections'))->toBe(WarrantTestSchema::class);
 });
 
 it('throws when no schema is registered for a model class', function () {
-    expect(fn () => Warrant::getSchemaForModelClass('App\\Models\\Nope'))
-        ->toThrow(OutOfBoundsException::class, 'No Warrant schema registered for model');
+    expect(fn () => Warrant::registry()->resolveSchemaClassOrFail('App\\Models\\Nope'))
+        ->toThrow(OutOfBoundsException::class, 'No Warrant schema registered for reference');
 });
 
 it('throws when no schema is registered for a schema key', function () {
-    expect(fn () => Warrant::getSchemaForKey('widgets'))
-        ->toThrow(OutOfBoundsException::class, 'No Warrant schema registered for schema key');
+    expect(fn () => Warrant::registry()->resolveSchemaClassOrFail('widgets'))
+        ->toThrow(OutOfBoundsException::class, 'No Warrant schema registered for reference');
 });
 
 it('lists the registered schemas', function () {
-    expect(Warrant::registeredSchemas())->toBe([WarrantTestSchema::class]);
+    expect(Warrant::registry()->registeredSchemas())->toBe([WarrantTestSchema::class]);
 });
 
 it('throws when two schemas claim the same schema key', function () {
-    expect(fn () => new WarrantManager([WarrantTestSchema::class, WarrantScopedModelSchema::class]))
+    expect(fn () => new SchemaRegistry([WarrantTestSchema::class, WarrantScopedModelSchema::class]))
         ->toThrow(InvalidArgumentException::class, 'Duplicate schema for schema key');
 });
 

@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Route;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\WarrantSchema;
 
 class WarrantMiddleware
 {
@@ -46,38 +45,16 @@ class WarrantMiddleware
         ]);
     }
 
+    /**
+     * Normalize a guard target to a schema key. Accepts a schema class, a model
+     * class, or a bare schema key; the registry is the sole authority for the
+     * model->schema mapping (a model's own {@see \Warrant\HasWarrantSchema} trait
+     * is deliberately not consulted). A bare key passes through unchanged.
+     */
     private static function normalizeTarget(
         string $target
     ): string {
-        if (is_subclass_of($target, WarrantSchema::class)) {
-            return $target::schemaKey();
-        }
-
-        if (is_subclass_of($target, Model::class)) {
-            try {
-                return Warrant::getSchemaForModelClass($target)::schemaKey();
-            } catch (\OutOfBoundsException) {
-            }
-
-            /** @var Model $model */
-            $model = new $target;
-
-            if (
-                method_exists($model, 'warrantSchema')
-                && is_a($model->warrantSchema(), WarrantSchema::class, true)
-            ) {
-                return $model->warrantSchema()::schemaKey();
-            }
-
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Unable to resolve access control schema for model [%s].',
-                    $target
-                )
-            );
-        }
-
-        return $target;
+        return Warrant::registry()->resolveSchemaKeyOrFail($target);
     }
 
     /**
@@ -355,11 +332,7 @@ class WarrantMiddleware
             throw new InvalidArgumentException('Access control middleware requires at least one ability.');
         }
 
-        try {
-            $schemaClass = Warrant::getSchemaForKey($target);
-        } catch (\OutOfBoundsException) {
-            $schemaClass = null;
-        }
+        $schemaClass = Warrant::registry()->resolveSchemaClassOrNull($target);
         $resolvedTarget = null;
 
         if ($schemaClass === null) {
@@ -374,11 +347,7 @@ class WarrantMiddleware
                 );
             }
 
-            try {
-                $schemaClass = Warrant::getSchemaForModelClass($resolvedTarget::class);
-            } catch (\OutOfBoundsException) {
-                $schemaClass = null;
-            }
+            $schemaClass = Warrant::registry()->resolveSchemaClassOrNull($resolvedTarget::class);
         }
 
         if ($schemaClass === null) {

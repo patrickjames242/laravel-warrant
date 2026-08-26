@@ -30,7 +30,7 @@ readonly class WarrantRuleSet
         Model|WarrantSchema|string $schema,
         public array $rules,
     ){
-        $this->schemaKey = Warrant::resolveSchemaKey($schema);
+        $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema);
 
         foreach ($rules as $rule) {
             if ($rule->schemaKey !== null && $rule->schemaKey !== $this->schemaKey) {
@@ -60,7 +60,7 @@ readonly class WarrantRuleSet
     ): self {
         $parsed = WarrantParser::parseSingleRuleSet($syntax, $bindings);
 
-        $paramKey = $schema === null ? null : Warrant::resolveSchemaKey($schema);
+        $paramKey = Warrant::registry()->resolveSchemaKeyOrFail($schema, passThroughNull: true);
 
         $schemaKey = self::reconcileSchemaKey($parsed->schemaKey, $paramKey, required: true);
 
@@ -193,7 +193,7 @@ readonly class WarrantRuleSet
      */
     public function validate(): void
     {
-        $schemaClass = Warrant::getSchemaForKey($this->schemaKey);
+        $schemaClass = Warrant::registry()->resolveSchemaClassOrFail($this->schemaKey);
 
         (new RuleSetValidator(new $schemaClass, $this->schemaKey))->validate($this);
     }

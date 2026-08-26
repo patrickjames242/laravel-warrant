@@ -50,9 +50,10 @@ final class RuleSetCompiler
     private const MAX_CROSS_SCHEMA_DEPTH = 32;
 
     /**
-     * @param WarrantManager|null $manager The schema registry, required only to
-     *   compile a {@see CrossSchemaCanNode} (resolving the referenced schema);
-     *   null is fine for rule sets with no cross-schema references.
+     * @param WarrantManager|null $manager Provides the schema registry (via
+     *   {@see WarrantManager::registry()}), required only to compile a
+     *   {@see CrossSchemaCanNode} (resolving the referenced schema); null is fine
+     *   for rule sets with no cross-schema references.
      */
     public function __construct(
         private readonly ConditionResolver $conditions,
@@ -281,7 +282,7 @@ final class RuleSetCompiler
         }
 
         /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->getSchemaForKey($node->schemaKey);
+        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
         // Explicit boundary context only: resolve each with-map RHS against A's
@@ -357,7 +358,7 @@ final class RuleSetCompiler
         }
 
         /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->getSchemaForKey($node->schemaKey);
+        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
         // Explicit boundary context only: resolve each with-map RHS against A's
@@ -485,7 +486,7 @@ final class RuleSetCompiler
         }
 
         try {
-            $schemaClass = $this->manager->getSchemaForKey($ref->schemaKey);
+            $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($ref->schemaKey);
         } catch (OutOfBoundsException $e) {
             throw new InvalidArgumentException(
                 sprintf('A @column reference targets unknown schema [%s].', $ref->schemaKey),

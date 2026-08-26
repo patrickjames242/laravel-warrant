@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
-use OutOfBoundsException;
 use Symfony\Component\HttpFoundation\Response;
 use Warrant\AbilityMatchMode;
 use Warrant\Facades\Warrant;
@@ -56,9 +55,9 @@ abstract class AbstractReachabilityMiddleware
             throw new InvalidArgumentException('Warrant reachability middleware requires at least one ability.');
         }
 
-        try {
-            $schemaClass = Warrant::getSchemaForKey($target);
-        } catch (OutOfBoundsException) {
+        $schemaClass = Warrant::registry()->resolveSchemaClassOrNull($target);
+
+        if ($schemaClass === null) {
             throw new InvalidArgumentException(
                 sprintf('Unable to resolve Warrant schema for [%s]; reachability guards take a schema key.', $target)
             );

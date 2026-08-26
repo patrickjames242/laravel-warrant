@@ -88,7 +88,7 @@ final class WarrantGateBridge
 
         /* A target instance names the schema authoritatively. */
         if ($target !== null) {
-            $schemaClass = $this->manager->schemaForModelClassOrNull($target::class);
+            $schemaClass = $this->manager->registry()->resolveSchemaClassOrNull($target::class);
         }
 
         if ($schemaClass === null) {
@@ -116,7 +116,7 @@ final class WarrantGateBridge
         }
 
         if (is_a($class, Model::class, true)) {
-            return $this->manager->schemaForModelClassOrNull($class);
+            return $this->manager->registry()->resolveSchemaClassOrNull($class);
         }
 
         return null;

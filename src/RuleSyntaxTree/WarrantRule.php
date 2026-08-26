@@ -40,7 +40,7 @@ readonly class WarrantRule
         public array $cannotClauses,
         Model|WarrantSchema|string|null $schema = null,
     ) {
-        $this->schemaKey = $schema === null ? null : Warrant::resolveSchemaKey($schema);
+        $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema, passThroughNull: true);
     }
 
     /**
@@ -60,7 +60,7 @@ readonly class WarrantRule
     ): self {
         $rule = WarrantParser::parseSingleRule($syntax, $bindings);
 
-        $paramKey = $schema === null ? null : Warrant::resolveSchemaKey($schema);
+        $paramKey = Warrant::registry()->resolveSchemaKeyOrFail($schema, passThroughNull: true);
 
         return $rule->withSchemaKey(self::reconcileSchemaKey($rule->schemaKey, $paramKey, required: false));
     }

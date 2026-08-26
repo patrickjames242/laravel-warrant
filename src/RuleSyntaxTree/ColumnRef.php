@@ -12,7 +12,7 @@ namespace Warrant\RuleSyntaxTree;
  * Unlike a context ref its value never depends on the check-time context: it is
  * static. It still resolves late, in {@see RuleSetCompiler}, because turning the
  * schema key into the model's real table name needs the schema registry
- * ({@see \Warrant\WarrantManager}) and quoting the identifier needs the query's
+ * ({@see \Warrant\SchemaRegistry}) and quoting the identifier needs the query's
  * grammar — neither of which the parser has. The compiler resolves it to an
  * {@see \Illuminate\Database\Query\Expression} holding the grammar-wrapped
  * `<table>.<column>` (e.g. `` `timesheets`.`pay_period_id` ``), so a condition can

@@ -3,126 +3,27 @@
 namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Model;
-use InvalidArgumentException;
-use OutOfBoundsException;
 use Warrant\Schema\WarrantSchema;
 
 /**
- * Central registry and validation entry point for Warrant.
+ * Entry point for Warrant. Holds the {@see SchemaRegistry} (reached through
+ * {@see registry()}) and exposes the ability/reachability helpers that resolve a
+ * schema through the registry and delegate to it.
  *
- * Responsible for:
- * - mapping model classes to schema classes
- * - mapping schema keys to schema classes
- * - validating persisted rule sets against registered schemas
- *
- * Bound as a singleton and reached through the Warrant facade. The registry is
- * built from the `warrant.schemas` config.
+ * Bound as a singleton and reached through the Warrant facade.
  */
 class WarrantManager
 {
-    /**
-     * @var array<class-string<Model>, class-string<WarrantSchema>>
-     */
-    private array $modelsToSchemas = [];
-
-    /**
-     * @var array<string, class-string<WarrantSchema>>
-     */
-    private array $schemaKeysToSchemas = [];
-
-    /**
-     * @param  array<int, class-string<WarrantSchema>>  $schemaClasses
-     */
-    public function __construct(array $schemaClasses)
+    public function __construct(private readonly SchemaRegistry $registry)
     {
-        foreach ($schemaClasses as $schemaClass) {
-            $model = $schemaClass::model;
-
-            $schemaKey = $schemaClass::schemaKey();
-
-            if (isset($this->schemaKeysToSchemas[$schemaKey])) {
-                throw new InvalidArgumentException('Duplicate schema for schema key '.$schemaKey);
-            }
-
-            /* Capability schemas have no model; only model-backed schemas are
-               indexed by model class. */
-            if ($model !== '') {
-                if (isset($this->modelsToSchemas[$model])) {
-                    throw new InvalidArgumentException('Duplicate schema for model '.$model);
-                }
-
-                $this->modelsToSchemas[$model] = $schemaClass;
-            }
-
-            $this->schemaKeysToSchemas[$schemaKey] = $schemaClass;
-        }
     }
 
     /**
-     * @param  class-string<Model>  $modelClass
-     * @return class-string<WarrantSchema>
+     * The schema registry: model/schema-key/schema-class maps and their resolvers.
      */
-    public function getSchemaForModelClass(string $modelClass): string
+    public function registry(): SchemaRegistry
     {
-        if (!isset($this->modelsToSchemas[$modelClass])) {
-            throw new OutOfBoundsException(sprintf('No Warrant schema registered for model [%s].', $modelClass));
-        }
-
-        return $this->modelsToSchemas[$modelClass];
-    }
-
-    /**
-     * Like {@see getSchemaForModelClass} but returns null instead of throwing
-     * when the model class has no registered schema. Used by callers that probe
-     * whether a class is Warrant-managed (e.g. the Gate bridge).
-     *
-     * @param  class-string<Model>  $modelClass
-     * @return class-string<WarrantSchema>|null
-     */
-    public function schemaForModelClassOrNull(string $modelClass): ?string
-    {
-        return $this->modelsToSchemas[$modelClass] ?? null;
-    }
-
-    /**
-     * @return class-string<WarrantSchema>
-     */
-    public function getSchemaForKey(string $schemaKey): string
-    {
-        if (!isset($this->schemaKeysToSchemas[$schemaKey])) {
-            throw new OutOfBoundsException(sprintf('No Warrant schema registered for schema key [%s].', $schemaKey));
-        }
-
-        return $this->schemaKeysToSchemas[$schemaKey];
-    }
-
-    /**
-     * Normalize any of the accepted schema references to a schema key.
-     *
-     * Accepts a schema key string, a {@see WarrantSchema} instance or class-string,
-     * or a {@see Model} instance or class-string. A plain string that matches
-     * neither a schema class nor a model class is treated as a literal schema key.
-     */
-    public function resolveSchemaKey(Model|WarrantSchema|string $schema): string
-    {
-        if ($schema instanceof WarrantSchema) {
-            return $schema::schemaKey();
-        }
-
-        if ($schema instanceof Model) {
-            return $this->getSchemaForModelClass($schema::class)::schemaKey();
-        }
-
-        if (is_a($schema, WarrantSchema::class, true)) {
-            return $schema::schemaKey();
-        }
-
-        if (is_a($schema, Model::class, true)) {
-            return $this->getSchemaForModelClass($schema)::schemaKey();
-        }
-
-        return $schema;
+        return $this->registry;
     }
 
     /**
@@ -137,7 +38,7 @@ class WarrantManager
     ): array
     {
         return collect($schemaClassesOrSchemaKeys)
-            ->map(fn (string $schemaClassOrSchemaKey): string => $this->resolveSchemaClass(
+            ->map(fn (string $schemaClassOrSchemaKey): string => $this->registry->resolveSchemaClassOrFail(
                 $schemaClassOrSchemaKey
             ))
             ->reduce(
@@ -157,7 +58,7 @@ class WarrantManager
         string $ability,
         ?Authenticatable $user = null,
     ): \Warrant\Reachability {
-        return $this->resolveSchemaClass($schemaClassOrKey)::abilityReachability($ability, $user);
+        return $this->registry->resolveSchemaClassOrFail($schemaClassOrKey)::abilityReachability($ability, $user);
     }
 
     /**
@@ -171,7 +72,7 @@ class WarrantManager
         ?Authenticatable $user = null,
         \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
     ): bool {
-        return $this->resolveSchemaClass($schemaClassOrKey)::userCouldEverHave($abilities, $user, $matchMode);
+        return $this->registry->resolveSchemaClassOrFail($schemaClassOrKey)::userCouldEverHave($abilities, $user, $matchMode);
     }
 
     /**
@@ -185,7 +86,7 @@ class WarrantManager
         ?Authenticatable $user = null,
         \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
     ): bool {
-        return $this->resolveSchemaClass($schemaClassOrKey)::userAlwaysHas($abilities, $user, $matchMode);
+        return $this->registry->resolveSchemaClassOrFail($schemaClassOrKey)::userAlwaysHas($abilities, $user, $matchMode);
     }
 
     /**
@@ -199,28 +100,6 @@ class WarrantManager
         ?Authenticatable $user = null,
         \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL,
     ): bool {
-        return $this->resolveSchemaClass($schemaClassOrKey)::userNeverHas($abilities, $user, $matchMode);
-    }
-
-    /**
-     * The schema classes registered with Warrant.
-     *
-     * @return array<int, class-string<WarrantSchema>>
-     */
-    public function registeredSchemas(): array
-    {
-        return array_values($this->schemaKeysToSchemas);
-    }
-
-    /**
-     * @return class-string<WarrantSchema>
-     */
-    private function resolveSchemaClass(string $schemaClassOrSchemaKey): string
-    {
-        if (is_a($schemaClassOrSchemaKey, WarrantSchema::class, true)) {
-            return $schemaClassOrSchemaKey;
-        }
-
-        return $this->getSchemaForKey($schemaClassOrSchemaKey);
+        return $this->registry->resolveSchemaClassOrFail($schemaClassOrKey)::userNeverHas($abilities, $user, $matchMode);
     }
 }

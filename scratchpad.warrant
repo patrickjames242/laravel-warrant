@@ -126,7 +126,6 @@ for some_schema{
 
 for some_other_schema{
 	they can view
-	
 	if some_condition they can edit
 }
 
@@ -134,7 +133,7 @@ for documents {
 
 	if can(create_timesheet for users(@context user_id))
 		and check(
-			is_payroll_published_for_user(@context user_id)
+			is_payroll_published_for_user(@sql "select id from users limit 1")
 			for pay_periods(@context pay_period_id)
 			with user_id = @context user_id
 		)
@@ -142,5 +141,6 @@ for documents {
 
 	if some_condition
 	they cannot view because 'Some denial message'
+
 }
 

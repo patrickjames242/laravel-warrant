@@ -87,7 +87,7 @@ it('builds middleware strings with an implicit all match mode', function () {
 
 it('rejects unmapped model classes when building middleware strings', function () {
     expect(fn () => WarrantMiddleware::string(WarrantTestModel::class, 'publish'))
-        ->toThrow(InvalidArgumentException::class, 'Unable to resolve');
+        ->toThrow(OutOfBoundsException::class, 'No Warrant schema registered for reference');
 });
 
 it('builds middleware strings for standard ability helpers', function () {

@@ -18,7 +18,7 @@ final class WarrantServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/warrant.php', 'warrant');
 
         $this->app->singleton(WarrantManager::class, fn (Application $app): WarrantManager => new WarrantManager(
-            (array) $app['config']->get('warrant.schemas', [])
+            new SchemaRegistry((array) $app['config']->get('warrant.schemas', []))
         ));
 
         /* Warrant ships no default resolver; the consumer must configure one. */

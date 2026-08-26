@@ -109,7 +109,7 @@ final class RuleSetValidator
         }
 
         try {
-            $targetClass = Warrant::getSchemaForKey($node->schemaKey);
+            $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
         } catch (OutOfBoundsException $e) {
             throw new InvalidArgumentException(
                 sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
@@ -166,7 +166,7 @@ final class RuleSetValidator
         }
 
         try {
-            $targetClass = Warrant::getSchemaForKey($node->schemaKey);
+            $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
         } catch (OutOfBoundsException $e) {
             throw new InvalidArgumentException(
                 sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
@@ -315,7 +315,7 @@ final class RuleSetValidator
             }
 
             try {
-                $targetClass = Warrant::getSchemaForKey($value->schemaKey);
+                $targetClass = Warrant::registry()->resolveSchemaClassOrFail($value->schemaKey);
             } catch (OutOfBoundsException $e) {
                 throw new InvalidArgumentException(
                     sprintf('A @column reference targets unknown schema [%s].', $value->schemaKey),
