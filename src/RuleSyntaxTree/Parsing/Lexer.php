@@ -72,10 +72,11 @@ final class Lexer
             $char === ',' => $this->single(TokenType::COMMA),
             $char === '*' => $this->single(TokenType::STAR),
             $char === '=' => $this->single(TokenType::EQUALS),
+            $char === '.' => $this->single(TokenType::DOT),
             $char === '!' => $this->single(TokenType::NOT),
             $char === '?' => $this->single(TokenType::POSITIONAL),
             $char === ':' => $this->scanNamedBinding(),
-            $char === '@' => $this->scanContextRef(),
+            $char === '@' => $this->scanAtRef(),
             $char === "'" => $this->scanString(),
             $this->isDigit($char) => $this->scanNumber(),
             $char === '-' => $this->scanNumber(),
@@ -101,7 +102,12 @@ final class Lexer
         return new Token(TokenType::NAMED_BINDING, ':' . $name, $startOffset, $startLine, $startCol, $name);
     }
 
-    private function scanContextRef(): Token
+    /**
+     * Scan an `@`-prefixed reference: `@context` (a check-time context value) or
+     * `@column` (a schema-qualified database column). The word after `@` selects
+     * which; the identifier(s) that follow are separate tokens the parser reads.
+     */
+    private function scanAtRef(): Token
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
@@ -110,21 +116,21 @@ final class Lexer
         $this->advance(); // consume '@'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
-            throw $this->errorAt("Expected 'context' after '@'.", $startOffset, $startLine, $startCol);
+            throw $this->errorAt("Expected 'context' or 'column' after '@'.", $startOffset, $startLine, $startCol);
         }
 
         $word = $this->consumeIdentifier();
 
-        if ($word !== 'context') {
-            throw $this->errorAt(
-                sprintf("Expected 'context' after '@', got '%s'.", $word),
+        return match ($word) {
+            'context' => new Token(TokenType::CONTEXT_REF, '@context', $startOffset, $startLine, $startCol),
+            'column' => new Token(TokenType::COLUMN_REF, '@column', $startOffset, $startLine, $startCol),
+            default => throw $this->errorAt(
+                sprintf("Expected 'context' or 'column' after '@', got '%s'.", $word),
                 $startOffset,
                 $startLine,
                 $startCol,
-            );
-        }
-
-        return new Token(TokenType::CONTEXT_REF, '@context', $startOffset, $startLine, $startCol);
+            ),
+        };
     }
 
     private function scanString(): Token

@@ -5,7 +5,9 @@ namespace Warrant\RuleSyntaxTree;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
+use OutOfBoundsException;
 use RuntimeException;
 use Warrant\WarrantManager;
 
@@ -286,9 +288,7 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $value instanceof ContextRef
-                ? ($ctx->checkContext[$value->key] ?? null)
-                : $value;
+            $bContext[$key] = $this->resolveArgValue($parent, $value, $ctx->checkContext);
         }
 
         $bRuleSet = $bSchema->resolvedRuleSet($ctx->user);
@@ -299,9 +299,7 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($parent, $bModel, $node->schemaKey);
 
-            $rowId = $node->boundRow instanceof ContextRef
-                ? ($ctx->checkContext[$node->boundRow->key] ?? null)
-                : $node->boundRow;
+            $rowId = $this->resolveArgValue($parent, $node->boundRow, $ctx->checkContext);
 
             $bSubquery = $parent->newQuery()
                 ->from($bModel->getTable())
@@ -366,9 +364,7 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $value instanceof ContextRef
-                ? ($ctx->checkContext[$value->key] ?? null)
-                : $value;
+            $bContext[$key] = $this->resolveArgValue($parent, $value, $ctx->checkContext);
         }
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
@@ -380,9 +376,7 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($parent, $bModel, $node->schemaKey);
 
-            $rowId = $node->boundRow instanceof ContextRef
-                ? ($ctx->checkContext[$node->boundRow->key] ?? null)
-                : $node->boundRow;
+            $rowId = $this->resolveArgValue($parent, $node->boundRow, $ctx->checkContext);
 
             $bSubquery = $parent->newQuery()
                 ->from($bModel->getTable())
@@ -438,6 +432,75 @@ final class RuleSetCompiler
         }
     }
 
+    /**
+     * Resolve one symbolic DSL argument to its concrete value for compilation.
+     * A {@see ContextRef} is filled from the check-time context (absent → null); a
+     * {@see ColumnRef} becomes a grammar-wrapped {@see Expression} for a real table
+     * column. Any already-concrete value (literals, resolved bindings) passes
+     * straight through. Shared by condition parameters and the cross-schema handle
+     * row selector / `with` map so all three resolve identically.
+     *
+     * @param array<string, mixed> $checkContext
+     */
+    private function resolveArgValue(Builder $query, mixed $value, array $checkContext): mixed
+    {
+        if ($value instanceof ContextRef) {
+            return $checkContext[$value->key] ?? null;
+        }
+
+        if ($value instanceof ColumnRef) {
+            return $this->resolveColumnRef($query, $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Resolve a `@column <schema>.<column>` reference to an {@see Expression} of
+     * the grammar-wrapped `<realTable>.<column>` identifier (e.g.
+     * `` `timesheets`.`pay_period_id` ``). The schema key is mapped to its model's
+     * real table via the registry — the key is not always the table name — and the
+     * identifier is quoted with the query's own grammar so it is emitted verbatim,
+     * never re-wrapped or bound as a value.
+     *
+     * It is the rule author's responsibility that the referenced table is in scope
+     * in the surrounding SQL (the owning schema's own filter, or the outer query of
+     * a `check(...)`/`can(...)` correlated subquery); an unrelated table yields a
+     * SQL error at execution.
+     */
+    private function resolveColumnRef(Builder $query, ColumnRef $ref): Expression
+    {
+        if ($this->manager === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Resolving a @column reference to schema [%s] requires the schema registry; '
+                    .'construct RuleSetCompiler with a WarrantManager.',
+                $ref->schemaKey,
+            ));
+        }
+
+        try {
+            $schemaClass = $this->manager->getSchemaForKey($ref->schemaKey);
+        } catch (OutOfBoundsException $e) {
+            throw new InvalidArgumentException(
+                sprintf('A @column reference targets unknown schema [%s].', $ref->schemaKey),
+                previous: $e,
+            );
+        }
+
+        if ($schemaClass::model === '') {
+            throw new InvalidArgumentException(sprintf(
+                'A @column reference targets schema [%s], which has no model and therefore no table; '
+                    .'@column can only reference a model-backed schema.',
+                $ref->schemaKey,
+            ));
+        }
+
+        /** @var Model $model */
+        $model = new ($schemaClass::model);
+
+        return new Expression($query->getGrammar()->wrap($model->getTable() . '.' . $ref->column));
+    }
+
     private function applyCondition(Builder $parent, ConditionNode $node, CompilationContext $ctx): void
     {
         // A row condition cannot be evaluated without a row; force it false
@@ -448,21 +511,17 @@ final class RuleSetCompiler
             return;
         }
 
-        // Resolve any @context placeholder against the check-time context. An
-        // absent key (only ever a non-required one — required keys are enforced
-        // before compilation) resolves to null and is passed to the condition as
-        // that argument's value, leaving the condition to decide what null means
-        // (rather than the compiler forcing the whole leaf false). Conditions that
-        // read a possibly-absent @context arg must therefore tolerate null.
+        // Resolve any symbolic argument placeholder. A @context ref is filled from
+        // the check-time context — an absent key (only ever a non-required one;
+        // required keys are enforced before compilation) resolves to null and is
+        // passed to the condition as that argument's value, leaving the condition
+        // to decide what null means (rather than the compiler forcing the whole
+        // leaf false), so conditions reading a possibly-absent @context arg must
+        // tolerate null. A @column ref is resolved to a grammar-wrapped Expression
+        // for the referenced schema's real table column.
         $parameters = [];
         foreach ($node->parameters as $parameter) {
-            if ($parameter instanceof ContextRef) {
-                $parameters[] = $ctx->checkContext[$parameter->key] ?? null;
-
-                continue;
-            }
-
-            $parameters[] = $parameter;
+            $parameters[] = $this->resolveArgValue($parent, $parameter, $ctx->checkContext);
         }
 
         $conditionQuery = $parent->newQuery();

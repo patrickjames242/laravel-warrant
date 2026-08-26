@@ -67,10 +67,15 @@ class WarrantLexer : LexerBase() {
             }
             c == '\'' -> scanString(pos)
             c == '@' -> {
-                // @context (tolerant: any @word). Lexer.php requires exactly
-                // "context", but for colouring we accept and highlight the @word.
+                // @context / @column (tolerant: any @word). Lexer.php requires
+                // exactly "context" or "column"; for colouring we accept the @word
+                // and pick the token by which keyword it is (default: context).
                 tokenEnd = consumeWhile(pos + 1) { isIdentPart(it) }
-                tokenType = WarrantTokenTypes.CONTEXT_REF
+                tokenType = if (buffer.subSequence(pos, tokenEnd).toString() == "@column") {
+                    WarrantTokenTypes.COLUMN_REF
+                } else {
+                    WarrantTokenTypes.CONTEXT_REF
+                }
             }
             c == ':' -> {
                 if (pos + 1 < endOffset && isIdentStart(buffer[pos + 1])) {
@@ -87,6 +92,7 @@ class WarrantLexer : LexerBase() {
             c == '(' || c == ')' -> single(pos, WarrantTokenTypes.PARENS)
             c == '{' || c == '}' -> single(pos, WarrantTokenTypes.BRACES)
             c == ',' -> single(pos, WarrantTokenTypes.COMMA)
+            c == '.' -> single(pos, WarrantTokenTypes.DOT)
             c == '!' || c == '*' || c == '?' || c == '=' -> single(pos, WarrantTokenTypes.OPERATOR)
             else -> single(pos, TokenType.BAD_CHARACTER)
         }

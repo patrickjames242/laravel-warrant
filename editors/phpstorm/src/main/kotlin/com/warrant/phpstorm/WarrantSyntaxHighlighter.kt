@@ -31,11 +31,13 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
             WarrantTokenTypes.NUMBER -> NUMBER
             WarrantTokenTypes.COMMENT -> COMMENT
             WarrantTokenTypes.CONTEXT_REF -> CONTEXT_REF
+            WarrantTokenTypes.COLUMN_REF -> COLUMN_REF
             WarrantTokenTypes.NAMED_BINDING -> NAMED_BINDING
             WarrantTokenTypes.OPERATOR -> OPERATOR
             WarrantTokenTypes.PARENS -> PARENS
             WarrantTokenTypes.BRACES -> BRACES
             WarrantTokenTypes.COMMA -> COMMA
+            WarrantTokenTypes.DOT -> DOT
             TokenType.BAD_CHARACTER -> BAD_CHARACTER
             else -> null
         }
@@ -50,11 +52,13 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
         val NUMBER = createTextAttributesKey("WARRANT_NUMBER", DefaultLanguageHighlighterColors.NUMBER)
         val COMMENT = createTextAttributesKey("WARRANT_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
         val CONTEXT_REF = createTextAttributesKey("WARRANT_CONTEXT_REF", DefaultLanguageHighlighterColors.METADATA)
+        val COLUMN_REF = createTextAttributesKey("WARRANT_COLUMN_REF", DefaultLanguageHighlighterColors.METADATA)
         val NAMED_BINDING = createTextAttributesKey("WARRANT_NAMED_BINDING", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
         val OPERATOR = createTextAttributesKey("WARRANT_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN)
         val PARENS = createTextAttributesKey("WARRANT_PARENS", DefaultLanguageHighlighterColors.PARENTHESES)
         val BRACES = createTextAttributesKey("WARRANT_BRACES", DefaultLanguageHighlighterColors.BRACES)
         val COMMA = createTextAttributesKey("WARRANT_COMMA", DefaultLanguageHighlighterColors.COMMA)
+        val DOT = createTextAttributesKey("WARRANT_DOT", DefaultLanguageHighlighterColors.DOT)
         val BAD_CHARACTER = createTextAttributesKey("WARRANT_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
     }
 }

@@ -27,11 +27,13 @@ enum TokenType
     case COMMA;
     case STAR;   // wildcard ability `*`
     case EQUALS; // `=` in a cross-schema `with` map
+    case DOT;    // `.` separating a schema key from a column in `@column schema.column`
 
     // Bindings.
     case NAMED_BINDING;  // :name
     case POSITIONAL;     // ?
     case CONTEXT_REF;    // @context (followed by the key identifier)
+    case COLUMN_REF;     // @column (followed by `<schema> . <column>`)
 
     // Names and literals.
     case IDENTIFIER; // condition or ability name

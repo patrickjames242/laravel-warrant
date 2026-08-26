@@ -2,6 +2,7 @@
 
 use Warrant\RuleSyntaxTree\BoundSyntax;
 use Warrant\RuleSyntaxTree\ConditionNode;
+use Warrant\RuleSyntaxTree\ColumnRef;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 use Warrant\RuleSyntaxTree\WarrantRule;
@@ -231,6 +232,35 @@ it('keeps a context ref out of the positional binding stream', function () {
     expect($reparsed->conditions->parameters[0])->toBe('x');
     expect($reparsed->conditions->parameters[1])->toBeInstanceOf(ContextRef::class);
     expect($reparsed->conditions->parameters[1]->key)->toBe('year');
+});
+
+// -- column references (@column) ----------------------------------------------
+
+it('renders a column ref as @column <schema>.<column>, inline and bound alike', function () {
+    $rule = WarrantRule::fromSyntax('if is_teacher(@column timesheets.pay_period_id) they can view');
+
+    expect($rule->toSyntax())->toBe("if is_teacher(@column timesheets.pay_period_id)\nthey can view");
+
+    // Bound form: the ref is NOT a runtime value, so it renders the same and
+    // consumes no positional binding.
+    $bound = $rule->toBoundSyntax();
+    expect($bound->syntax)->toBe("if is_teacher(@column timesheets.pay_period_id)\nthey can view");
+    expect($bound->bindings)->toBe([]);
+});
+
+it('keeps a column ref out of the positional binding stream', function () {
+    $rule = WarrantRule::fromSyntax("if is_teacher('x', @column timesheets.id) they can view");
+
+    $bound = $rule->toBoundSyntax();
+    expect($bound->syntax)->toBe("if is_teacher(?, @column timesheets.id)\nthey can view");
+    expect($bound->bindings)->toBe(['x']);
+
+    // Re-parsing the bound form restores the same value + ref shape.
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
+    expect($reparsed->conditions->parameters[0])->toBe('x');
+    expect($reparsed->conditions->parameters[1])->toBeInstanceOf(ColumnRef::class);
+    expect($reparsed->conditions->parameters[1]->schemaKey)->toBe('timesheets');
+    expect($reparsed->conditions->parameters[1]->column)->toBe('id');
 });
 
 // -- round-trip ---------------------------------------------------------------

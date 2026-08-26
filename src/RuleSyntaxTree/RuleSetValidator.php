@@ -144,6 +144,8 @@ final class RuleSetValidator
                 $node->schemaKey,
             ));
         }
+
+        $this->assertColumnRefsResolve([$node->boundRow, ...array_values($node->contextMap)]);
     }
 
     /**
@@ -190,6 +192,8 @@ final class RuleSetValidator
                 $node->schemaKey,
             ));
         }
+
+        $this->assertColumnRefsResolve([$node->boundRow, ...array_values($node->contextMap)]);
 
         $this->assertCheckPredicateValid($node->predicate, $node, new $targetClass);
     }
@@ -248,6 +252,7 @@ final class RuleSetValidator
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
+        $this->assertColumnRefsResolve($node->parameters);
     }
 
     private function assertConditionExists(ConditionNode $node): void
@@ -261,6 +266,7 @@ final class RuleSetValidator
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
+        $this->assertColumnRefsResolve($node->parameters);
 
         /* Context keys need no declaration: a rule may reference any `@context`
            key. An absent key simply makes its condition false at compile time
@@ -286,6 +292,44 @@ final class RuleSetValidator
                 $required,
                 $supplied,
             ));
+        }
+    }
+
+    /**
+     * Eagerly validate every `@column <schema>.<column>` reference among a set of
+     * argument values: its schema key must be registered and model-backed (so it
+     * has a real table). This mirrors the compiler's resolution
+     * ({@see RuleSetCompiler::resolveColumnRef}) so a bad reference fails loudly at
+     * validation time, before compilation. Non-{@see ColumnRef} values are ignored.
+     * The column name itself is not checked — there is no column introspection —
+     * and a reference to the owning schema is allowed (unlike can(...)/check(...),
+     * referencing your own table's column is the primary use case).
+     *
+     * @param array<int, mixed> $values
+     */
+    private function assertColumnRefsResolve(array $values): void
+    {
+        foreach ($values as $value) {
+            if (! $value instanceof ColumnRef) {
+                continue;
+            }
+
+            try {
+                $targetClass = Warrant::getSchemaForKey($value->schemaKey);
+            } catch (OutOfBoundsException $e) {
+                throw new InvalidArgumentException(
+                    sprintf('A @column reference targets unknown schema [%s].', $value->schemaKey),
+                    previous: $e,
+                );
+            }
+
+            if ($targetClass::model === '') {
+                throw new InvalidArgumentException(sprintf(
+                    'A @column reference targets schema [%s], which has no model and therefore no table; '
+                        .'@column can only reference a model-backed schema.',
+                    $value->schemaKey,
+                ));
+            }
         }
     }
 }

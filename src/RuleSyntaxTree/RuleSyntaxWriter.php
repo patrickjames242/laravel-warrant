@@ -292,6 +292,12 @@ final class RuleSyntaxWriter
             return '@context ' . $value->key;
         }
 
+        // A column ref is likewise a compile-time reference, not a runtime value —
+        // same rule: render identically in both modes and consume no `?` binding.
+        if ($value instanceof ColumnRef) {
+            return '@column ' . $value->schemaKey . '.' . $value->column;
+        }
+
         if ($this->bound) {
             $this->bindings[] = $value;
 

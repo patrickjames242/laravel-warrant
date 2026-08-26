@@ -5,6 +5,7 @@ namespace Warrant\RuleSyntaxTree\Parsing;
 use Closure;
 use Warrant\RuleSyntaxTree\AndNode;
 use Warrant\RuleSyntaxTree\CannotClause;
+use Warrant\RuleSyntaxTree\ColumnRef;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
@@ -44,8 +45,9 @@ use Warrant\RuleSyntaxTree\WarrantSyntaxException;
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
- *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref
+ *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref | column_ref
  *   context_ref := '@context' IDENTIFIER
+ *   column_ref  := '@column' IDENTIFIER '.' IDENTIFIER   -- schema key, then column
  */
 final class WarrantParser
 {
@@ -610,7 +612,10 @@ final class WarrantParser
             TokenType::NAMED_BINDING => $this->bindings->resolveNamed($this->advance()),
             TokenType::POSITIONAL => $this->bindings->resolvePositional($this->advance()),
             TokenType::CONTEXT_REF => $this->parseContextRef(),
-            default => throw $this->errorAtCurrent('Expected an argument: a literal, a binding (:name or ?), or @context <key>.'),
+            TokenType::COLUMN_REF => $this->parseColumnRef(),
+            default => throw $this->errorAtCurrent(
+                'Expected an argument: a literal, a binding (:name or ?), @context <key>, or @column <schema>.<column>.'
+            ),
         };
     }
 
@@ -629,6 +634,32 @@ final class WarrantParser
         }
 
         return new ContextRef($this->advance()->lexeme);
+    }
+
+    /**
+     * Parse a `@column <schema>.<column>` reference into a symbolic
+     * {@see ColumnRef}. Like {@see parseContextRef} it bypasses {@see BindingState}
+     * — it is neither a named nor a positional binding — and stays symbolic until
+     * {@see \Warrant\RuleSyntaxTree\RuleSetCompiler} resolves the schema key to a
+     * real table and quotes it through the grammar.
+     */
+    private function parseColumnRef(): ColumnRef
+    {
+        $this->advance(); // consume '@column'
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->errorAtCurrent("Expected a schema key after '@column'.");
+        }
+
+        $schemaKey = $this->advance()->lexeme;
+
+        $this->expect(TokenType::DOT, "Expected '.' after the schema key in '@column <schema>.<column>'.");
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->errorAtCurrent("Expected a column name after '@column {$schemaKey}.'.");
+        }
+
+        return new ColumnRef($schemaKey, $this->advance()->lexeme);
     }
 
     // -- token helpers --------------------------------------------------------

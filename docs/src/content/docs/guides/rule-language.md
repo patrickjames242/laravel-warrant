@@ -195,6 +195,51 @@ if scoped_to('projects', @context project_id, :region) they can view
 Full behaviour — required vs. optional keys, and how a missing optional key fails
 closed — is covered in [Check-time context](/guides/context/).
 
+## Column references (`@column`)
+
+Sometimes an argument needs to be a **database column**, not a value — most often
+to correlate a subquery against the row being checked. Write `@column
+<schema>.<column>`, using a **schema key** (not a raw table name):
+
+```text
+if pay_period_matches(@column timesheets.pay_period_id) they can view
+```
+
+At compile time the schema key is resolved to its model's real table and the
+identifier is quoted through the connection's grammar, so the condition receives
+an `Illuminate\Database\Query\Expression` — e.g. `` `timesheets`.`pay_period_id` ``
+on MySQL, `"timesheets"."pay_period_id"` on Postgres/SQLite. Because it is an
+`Expression`, a condition can drop it straight into the query builder
+(`->where(...)`, `->whereColumn(...)`) and it is emitted verbatim — never
+re-quoted, never bound as a value.
+
+Like `@context`, a `@column` reference carries no value at parse time, so it is
+exempt from the binding rules, may sit alongside literals and bindings, and never
+consumes a positional `?`. It is most useful as a cross-schema row selector, where
+it correlates the outer table into the subquery:
+
+```text
+# grants view on a timesheet when its pay period is open
+if check(is_open for pay_periods(@column timesheets.pay_period_id)) they can view
+```
+
+This compiles to `... exists (select * from pay_periods where pay_periods.id =
+timesheets.pay_period_id and (...))`. It works identically as a `can(...)` row
+selector and as a `with` map value.
+
+The referenced schema must be registered and model-backed; an unknown schema key
+or a modelless (capability) schema is rejected at validation time. Unlike
+`can(...)` / `check(...)` handles, a `@column` reference **may** name the owning
+schema — pointing at your own table's column is the common case.
+
+:::caution
+A `@column` reference emits a bare qualified identifier into the SQL. It is your
+responsibility that the referenced table is actually in scope in the surrounding
+query — the schema's own filter, or the outer query of a `check(...)` / `can(...)`
+correlated subquery. Referencing an unrelated table produces a SQL error at
+execution.
+:::
+
 ## Whitespace, multiple rules, reserved words
 
 - **Whitespace is insignificant.** Newlines are cosmetic; an entire rule set can
@@ -238,8 +283,9 @@ and         = not ( "and" not )* ;
 not         = ( "not" | "!" ) not | primary ;
 primary     = "(" expr ")" | condition ;
 condition   = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
-arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF ;
+arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF | COLUMN_REF ;
 CONTEXT_REF = "@context" IDENTIFIER ;
+COLUMN_REF  = "@column" IDENTIFIER "." IDENTIFIER ;
 ```
 
 ## Syntax errors

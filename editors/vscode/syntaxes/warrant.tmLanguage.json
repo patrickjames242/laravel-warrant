@@ -2,10 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Warrant",
   "scopeName": "source.warrant",
-  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/RuleSyntaxTree/Parsing). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector. If the DSL grows new tokens/keywords, add matching patterns here.",
+  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/RuleSyntaxTree/Parsing). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector. Arguments may be literals, :name / ? bindings, @context <key>, or @column <schema>.<column> (a schema-qualified database column). If the DSL grows new tokens/keywords, add matching patterns here.",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#column-ref" },
     { "include": "#context-ref" },
     { "include": "#named-binding" },
     { "include": "#schema-target" },
@@ -37,6 +38,16 @@
           "name": "constant.character.escape.warrant"
         }
       ]
+    },
+    "column-ref": {
+      "comment": "`@column <schema>.<column>` — a schema-qualified database column reference, resolved to a grammar-wrapped column at compile time. Highlights `@column`, then the schema key as a namespace and the column as a property (same line only).",
+      "match": "(@column)\\b(?:\\s+([A-Za-z_][A-Za-z0-9_-]*)\\s*(\\.)\\s*([A-Za-z_][A-Za-z0-9_-]*))?",
+      "captures": {
+        "1": { "name": "variable.language.column.warrant" },
+        "2": { "name": "entity.name.namespace.warrant" },
+        "3": { "name": "punctuation.separator.warrant" },
+        "4": { "name": "variable.other.property.warrant" }
+      }
     },
     "context-ref": {
       "match": "@context\\b",

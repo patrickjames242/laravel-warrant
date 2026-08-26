@@ -1,6 +1,7 @@
 <?php
 
 use Warrant\RuleSyntaxTree\AndNode;
+use Warrant\RuleSyntaxTree\ColumnRef;
 use Warrant\RuleSyntaxTree\ConditionNode;
 use Warrant\RuleSyntaxTree\ContextRef;
 use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
@@ -217,6 +218,76 @@ it('errors on a bad context sigil or a missing key', function (string $syntax, s
 })->with([
     'not context'  => ['if is_teacher(@year) they can view', "Expected 'context'"],
     'missing key'  => ['if is_teacher(@context) they can view', 'Expected a context key'],
+]);
+
+// -- Column references (@column) ----------------------------------------------
+
+it('parses @column <schema>.<column> into a symbolic ColumnRef, not a value', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@column timesheets.pay_period_id) they can view', 'timesheets');
+
+    $params = $set->rules[0]->conditions->parameters;
+    expect($params)->toHaveCount(1);
+    expect($params[0])->toBeInstanceOf(ColumnRef::class);
+    expect($params[0]->schemaKey)->toBe('timesheets');
+    expect($params[0]->column)->toBe('pay_period_id');
+});
+
+it('mixes a column ref with literals, context refs, and bindings in one condition', function () {
+    $set = WarrantRuleSet::fromSyntax(
+        "if is_teacher('x', @column timesheets.id, @context year, :b) they can view",
+        'timesheets',
+        ['b' => 42],
+    );
+
+    $params = $set->rules[0]->conditions->parameters;
+    expect($params[0])->toBe('x');
+    expect($params[1])->toEqual(new ColumnRef('timesheets', 'id'));
+    expect($params[2])->toEqual(new ContextRef('year'));
+    expect($params[3])->toBe(42);
+});
+
+it('exempts a column ref from binding finalize (no "unused binding" error)', function () {
+    // Like @context, a bare @column ref with an empty bindings array must not trip
+    // the all-bindings-used / mixing checks — it is resolved later, at compile time.
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@column timesheets.id) they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters[0])->toBeInstanceOf(ColumnRef::class);
+});
+
+it('parses a @column row selector in a can(...) handle', function () {
+    $rules = WarrantParser::parse('if can(manage for departments(@column timesheets.department_id)) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->boundRow)->toEqual(new ColumnRef('timesheets', 'department_id'));
+});
+
+it('parses a @column row selector in a check(...) handle', function () {
+    $rules = WarrantParser::parse(
+        'if check(is_open for pay_periods(@column timesheets.pay_period_id)) they can update'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->boundRow)->toEqual(new ColumnRef('timesheets', 'pay_period_id'));
+});
+
+it('parses a @column value in a with-map', function () {
+    $rules = WarrantParser::parse(
+        'if can(create for billing_plans with plan_id = @column timesheets.plan_id) they can create'
+    );
+
+    expect($rules[0]->conditions->contextMap)->toEqual(['plan_id' => new ColumnRef('timesheets', 'plan_id')]);
+});
+
+it('errors on a bad @-sigil or a malformed @column reference', function (string $syntax, string $needle) {
+    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, $needle);
+})->with([
+    'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context' or 'column'"],
+    'missing dot'  => ['if is_teacher(@column timesheets) they can view', "Expected '.'"],
+    'missing col'  => ['if is_teacher(@column timesheets.) they can view', 'Expected a column name'],
+    'missing all'  => ['if is_teacher(@column) they can view', "Expected a schema key after '@column'"],
 ]);
 
 // -- Wildcards ----------------------------------------------------------------

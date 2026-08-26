@@ -21,9 +21,11 @@ object WarrantTokenTypes {
     @JvmField val NUMBER = WarrantTokenType("WARRANT_NUMBER")            // 42, -3.5
     @JvmField val COMMENT = WarrantTokenType("WARRANT_COMMENT")          // # ...
     @JvmField val CONTEXT_REF = WarrantTokenType("WARRANT_CONTEXT_REF")  // @context
+    @JvmField val COLUMN_REF = WarrantTokenType("WARRANT_COLUMN_REF")    // @column
     @JvmField val NAMED_BINDING = WarrantTokenType("WARRANT_NAMED_BINDING") // :name
     @JvmField val OPERATOR = WarrantTokenType("WARRANT_OPERATOR")        // ! * ? =
     @JvmField val PARENS = WarrantTokenType("WARRANT_PARENS")            // ( )
     @JvmField val BRACES = WarrantTokenType("WARRANT_BRACES")            // { }
     @JvmField val COMMA = WarrantTokenType("WARRANT_COMMA")              // ,
+    @JvmField val DOT = WarrantTokenType("WARRANT_DOT")                  // . in @column schema.column
 }
