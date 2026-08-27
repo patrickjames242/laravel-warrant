@@ -8,8 +8,10 @@ use Warrant\RuleSyntaxTree\ConditionResolver;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\AbilityMatchMode;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\WarrantGate;
 
 /**
  * A tiny user carrying just a role, enough for the fake conditions below.
@@ -97,6 +99,30 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
     return $query->orderBy('id')->pluck('id')->all();
 }
 
+/**
+ * Compile a whole gate (abilities + match mode) through compileGate and return
+ * the matching doc ids — the compiler-level equivalent of filterQuery.
+ *
+ * @param list<string> $abilities
+ */
+function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $matchMode, ?string $role = 'role-1'): array
+{
+    $compiler = new RuleSetCompiler(new FakeConditionResolver);
+    $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs');
+
+    $query = DB::table('docs');
+    $predicate = $compiler->compileGate(
+        new CompilerTestUser($role),
+        $query,
+        new WarrantGate($abilities, $matchMode),
+        $ruleSet,
+        'docs.id',
+    );
+    $query->addNestedWhereQuery($predicate);
+
+    return $query->orderBy('id')->pluck('id')->all();
+}
+
 beforeEach(function () {
     Schema::create('docs', function ($table) {
         $table->string('id');
@@ -150,6 +176,28 @@ it('applies deny-overrides: a conditional cannot subtracts from a grant', functi
 
 it('applies deny-overrides: an unconditional cannot denies everything', function () {
     expect(compileDocIds('they can view they cannot view', 'view'))->toBe([]);
+});
+
+it('compileGate ANY ORs the per-ability predicates (union of rows)', function () {
+    // view → {doc-9, teacher:role-1}; edit → {doc-9, other}.
+    $syntax = "if id_is('doc-9') they can view\n"
+        . "if id_is('teacher:role-1') they can view\n"
+        . "if id_is('doc-9') they can edit\n"
+        . "if id_is('other') they can edit";
+
+    expect(compileGateDocIds($syntax, ['view', 'edit'], AbilityMatchMode::ANY))
+        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+});
+
+it('compileGate ALL ANDs the per-ability predicates (intersection of rows)', function () {
+    // Same rules: the only row granted BOTH view and edit is doc-9.
+    $syntax = "if id_is('doc-9') they can view\n"
+        . "if id_is('teacher:role-1') they can view\n"
+        . "if id_is('doc-9') they can edit\n"
+        . "if id_is('other') they can edit";
+
+    expect(compileGateDocIds($syntax, ['view', 'edit'], AbilityMatchMode::ALL))
+        ->toBe(['doc-9']);
 });
 
 it('expands a wildcard can to every declared ability', function () {

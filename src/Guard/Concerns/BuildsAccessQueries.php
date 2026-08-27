@@ -7,6 +7,7 @@ use RuntimeException;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\WarrantGate;
 
 /**
  * The SQL runtime: turns this guard's resolved {@see WarrantRuleSet} into
@@ -42,33 +43,21 @@ trait BuildsAccessQueries
 
         $context = $this->schema->resolveEffectiveContext($context);
         $this->schema::assertAbilitiesHaveRequiredContext($abilities, $context);
-        $ruleSet = $this->resolvedRuleSet();
 
-        return $query->where(function (Builder $outerWhereClause) use (
-            $abilities,
-            $matchMode,
-            $query,
-            $targetSqlId,
-            $ruleSet,
-            $context,
-        ) {
-            foreach ($abilities as $ability) {
-                $abilityConditionQuery = $this->buildAbilityConditionQuery(
-                    query: $query,
-                    targetSqlId: $targetSqlId,
-                    ability: $ability,
-                    ruleSet: $ruleSet,
-                    context: $context,
-                );
-
-                if ($matchMode === AbilityMatchMode::ALL) {
-                    $outerWhereClause->addNestedWhereQuery($abilityConditionQuery);
-                } else {
-                    $outerWhereClause->addNestedWhereQuery($abilityConditionQuery, 'or');
-                }
-
-            }
-        });
+        // The compiler owns the ANY/ALL combination: it returns one predicate for
+        // the whole gate, which we splice onto the host query. Splicing via
+        // addNestedWhereQuery reproduces the same parenthesized group the old
+        // per-ability loop here emitted, so the SQL is unchanged.
+        return $query->addNestedWhereQuery(
+            $this->compiler()->compileGate(
+                $this->user,
+                $query,
+                new WarrantGate($abilities, $matchMode),
+                $this->resolvedRuleSet(),
+                $targetSqlId,
+                $context,
+            ),
+        );
     }
 
     /**

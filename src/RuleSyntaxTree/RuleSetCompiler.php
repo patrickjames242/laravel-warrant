@@ -9,14 +9,21 @@ use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
 use OutOfBoundsException;
 use RuntimeException;
+use Warrant\AbilityMatchMode;
+use Warrant\WarrantGate;
 use Warrant\WarrantManager;
 
 /**
  * Compiles a {@see WarrantRuleSet} into SQL predicates.
  *
- * The unit of output is one nested {@see Builder} predicate per ability, ready
- * to be attached to a host query (directly for row filtering, or inside a
- * correlated subquery for per-row ability selection).
+ * There are two units of output, both nested {@see Builder} predicates ready to
+ * be attached to a host query (directly for row filtering, or inside a correlated
+ * subquery for per-row ability selection):
+ *   - {@see compileAbility} — the predicate for one ability;
+ *   - {@see compileGate} — a whole gate (a set of requested abilities plus a
+ *     match mode) combined into one predicate: `ANY` → OR of each ability's
+ *     predicate, `ALL` → AND. This is the single place that knows about
+ *     {@see AbilityMatchMode}; the combination is no longer the caller's job.
  *
  * Per ability A the predicate is:
  *
@@ -62,9 +69,49 @@ final class RuleSetCompiler
     }
 
     /**
-     * Build the predicate for a single ability as a nested query on $query.
+     * Build the predicate for a whole gate — the requested abilities combined
+     * under the gate's match mode — as a single nested query on $query.
+     *
+     * Each ability is compiled independently by {@see compileAbility} and the
+     * results are joined here: `ALL` ANDs them (every ability must hold for a
+     * row), `ANY` ORs them (any one is enough). This is the only method that
+     * consults {@see AbilityMatchMode}; splicing this predicate is equivalent to
+     * the old per-ability loop that lived in the guard's `filterQuery`, so the
+     * emitted SQL is unchanged.
+     *
+     * An empty gate (no abilities) yields an empty predicate — no where clauses,
+     * i.e. a match-all — but callers normally short-circuit that case upstream.
+     *
+     * @param list<string> $visited The `(schema, ability)` frames already on the
+     *   cross-schema compile path; threaded into each ability's compile so a cycle
+     *   back to any of them is detected. All abilities in one gate share the same
+     *   incoming path (they are siblings, not nested references).
      */
+    public function compileGate(
+        Authenticatable $user,
+        Builder $query,
+        WarrantGate $gate,
+        WarrantRuleSet $ruleSet,
+        ?string $targetSqlId = null,
+        array $context = [],
+        array $visited = [],
+    ): Builder {
+        $predicate = $query->newQuery();
+        $connector = $gate->matchMode === AbilityMatchMode::ALL ? 'and' : 'or';
+
+        foreach ($gate->abilities as $ability) {
+            $predicate->addNestedWhereQuery(
+                $this->compileAbility($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited),
+                $connector,
+            );
+        }
+
+        return $predicate;
+    }
+
     /**
+     * Build the predicate for a single ability as a nested query on $query.
+     *
      * @param list<string> $visited The `(schema, ability)` frames already on the
      *   cross-schema compile path; a recursive call threads its parent's frames
      *   in so a cycle back to any of them is detected.
