@@ -118,7 +118,7 @@ trait ResolvesConditions
      *
      * @return array<int, string>
      */
-    protected function normalizeAbilities(string|array $abilities): array
+    public function normalizeAbilities(string|array $abilities): array
     {
         $abilities = collect(is_array($abilities) ? $abilities : [$abilities])
             ->filter(fn(mixed $ability) => is_string($ability) && $ability !== '')

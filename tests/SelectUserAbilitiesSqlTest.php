@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -46,8 +48,7 @@ function assertWarrantAbilitiesSql(
     ?array $onlyAbilities = null,
     string $selectedAbilitiesKey = 'abilities',
 ): void {
-    $sql = (new WarrantTestSchema)->selectUserAbilitiesInQuery(
-        makeWarrantTestUser('teacher-role'),
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->selectAbilitiesInQuery(
         warrantTestQuery(),
         'course_sections.id',
         $selectedAbilitiesKey,

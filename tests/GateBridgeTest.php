@@ -1,5 +1,7 @@
 <?php
 
+use Warrant\Facades\Warrant;
+
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Auth\Access\AuthorizationException;
@@ -133,7 +135,7 @@ it('agrees with the model check for a targeted ability', function () {
     $user = makeWarrantTestUser('teacher-role');
     $row = gateTeacherRow();
 
-    expect(Gate::forUser($user)->allows('view', $row))->toBe($row->userHasAbility('view', $user));
+    expect(Gate::forUser($user)->allows('view', $row))->toBe(Warrant::can('view', $row, user: $user));
 });
 
 // -- ALL / ANY across abilities (native Laravel) ------------------------------

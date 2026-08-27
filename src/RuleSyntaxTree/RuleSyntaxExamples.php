@@ -2,6 +2,7 @@
 
 namespace Warrant\RuleSyntaxTree;
 
+
 /**
  * Living reference for Warrant rule syntax.
  *

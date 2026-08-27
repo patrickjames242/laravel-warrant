@@ -1,20 +1,19 @@
 <?php
 
-namespace Warrant\Schema\Concerns;
+namespace Warrant\Guard\Concerns;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
-use InvalidArgumentException;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\RuleSetCompiler;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\WarrantManager;
 
 /**
- * The SQL runtime: turns the resolved {@see WarrantRuleSet} into access-control
- * predicates and attaches them to entity queries (row filtering and per-row
- * ability selection). All condition SQL is produced by the {@see RuleSetCompiler}.
+ * The SQL runtime: turns this guard's resolved {@see WarrantRuleSet} into
+ * access-control predicates and attaches them to entity queries (row filtering
+ * and per-row ability selection). All condition SQL is produced by the
+ * {@see RuleSetCompiler}, which dispatches condition emission back into the
+ * schema (the {@see \Warrant\RuleSyntaxTree\ConditionResolver}).
  *
  * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
  * denial into a message lives in {@see DiagnosesDenials}.
@@ -22,13 +21,12 @@ use Warrant\WarrantManager;
 trait BuildsAccessQueries
 {
     /**
-     * Restricts the provided entity query to rows the current user can access.
+     * Restricts the provided entity query to rows the guard's user can access.
      *
      * `AbilityMatchMode::ALL` requires every requested ability to match for a row.
      * `AbilityMatchMode::ANY` allows a row through if any requested ability matches.
      */
     public function filterQuery(
-        Authenticatable $currentUser,
         Builder $query,
         string $targetSqlId,
         string|array $abilities,
@@ -36,20 +34,19 @@ trait BuildsAccessQueries
         array $context = []
     ): Builder
     {
-        $abilities = $this->normalizeAbilities($abilities);
+        $abilities = $this->schema->normalizeAbilities($abilities);
 
         if ($abilities === []) {
             return $query;
         }
 
-        $context = $this->resolveEffectiveContext($context);
-        static::assertAbilitiesHaveRequiredContext($abilities, $context);
-        $ruleSet = $this->resolveRuleSet($currentUser);
+        $context = $this->schema->resolveEffectiveContext($context);
+        $this->schema::assertAbilitiesHaveRequiredContext($abilities, $context);
+        $ruleSet = $this->resolvedRuleSet();
 
         return $query->where(function (Builder $outerWhereClause) use (
             $abilities,
             $matchMode,
-            $currentUser,
             $query,
             $targetSqlId,
             $ruleSet,
@@ -57,7 +54,6 @@ trait BuildsAccessQueries
         ) {
             foreach ($abilities as $ability) {
                 $abilityConditionQuery = $this->buildAbilityConditionQuery(
-                    currentUser: $currentUser,
                     query: $query,
                     targetSqlId: $targetSqlId,
                     ability: $ability,
@@ -78,7 +74,7 @@ trait BuildsAccessQueries
     /**
      * Adds a computed abilities column to every row in the provided entity query.
      *
-     * The computed column contains a JSON array of abilities the current user has
+     * The computed column contains a JSON array of abilities the guard's user has
      * for that specific row. The base row selection is preserved by ensuring `*`
      * is selected when needed.
      *
@@ -88,8 +84,7 @@ trait BuildsAccessQueries
      *   attached subquery grows one UNION branch per ability, so narrowing it from
      *   all abilities to one is a large per-row cost reduction on list endpoints.
      */
-    public function selectUserAbilitiesInQuery(
-        Authenticatable $currentUser,
+    public function selectAbilitiesInQuery(
         Builder $query,
         string $targetSqlId,
         string $selectedAbilitiesKey = 'abilities',
@@ -102,27 +97,26 @@ trait BuildsAccessQueries
         }
 
         if ($onlyAbilities === null) {
-            $abilities = static::abilityNames();
+            $abilities = $this->schema::abilityNames();
         } else {
-            $abilities = static::normalizeAbilities($onlyAbilities);
+            $abilities = $this->schema->normalizeAbilities($onlyAbilities);
         }
 
         if ($abilities === []) {
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
         }
 
-        $context = $this->resolveEffectiveContext($context);
+        $context = $this->schema->resolveEffectiveContext($context);
 
         /* A per-row list enumerates abilities, so any whose per-ability required
            context wasn't supplied is skipped rather than throwing. */
-        $abilities = static::partitionAbilitiesByContext($abilities, $context)['satisfied'];
+        $abilities = $this->schema::partitionAbilitiesByContext($abilities, $context)['satisfied'];
 
         if ($abilities === []) {
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
         }
 
         $abilitySelectQuery = $this->buildAvailableAbilitiesQuery(
-            currentUser: $currentUser,
             query: $query,
             abilities: $abilities,
             targetSqlId: $targetSqlId,
@@ -155,7 +149,7 @@ trait BuildsAccessQueries
     }
 
     /**
-     * Returns the abilities the current user can perform without a target.
+     * Returns the abilities the guard's user can perform without a target.
      *
      * The evaluation uses only conditions that do not require a target SQL id
      * (targeted conditions are forced false). When abilities are provided
@@ -165,7 +159,6 @@ trait BuildsAccessQueries
      * @return array<int, string>
      */
     public function getAbilitiesWithoutTarget(
-        Authenticatable $currentUser,
         string|array|null $abilities = null,
         AbilityMatchMode $matchMode = AbilityMatchMode::ANY,
         array $context = []
@@ -174,26 +167,26 @@ trait BuildsAccessQueries
         /* Enumeration ($abilities === null): every declared ability the user holds,
            skipping (never throwing) any whose per-ability required context is absent. */
         if ($abilities === null) {
-            $context = $this->resolveEffectiveContext($context);
+            $context = $this->schema->resolveEffectiveContext($context);
 
-            $declared = static::partitionAbilitiesByContext(static::abilityNames(), $context)['satisfied'];
+            $declared = $this->schema::partitionAbilitiesByContext($this->schema::abilityNames(), $context)['satisfied'];
 
             return $declared === []
                 ? []
-                : $this->runNoTargetAbilityQuery($currentUser, $declared, $context);
+                : $this->runNoTargetAbilityQuery($declared, $context);
         }
 
         /* Explicit named abilities: a missing per-ability requirement throws. */
-        $requestedAbilities = $this->normalizeAbilities($abilities);
+        $requestedAbilities = $this->schema->normalizeAbilities($abilities);
 
         if ($requestedAbilities === []) {
             return [];
         }
 
-        $context = $this->resolveEffectiveContext($context);
-        static::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
+        $context = $this->schema->resolveEffectiveContext($context);
+        $this->schema::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
 
-        $allowedAbilities = $this->runNoTargetAbilityQuery($currentUser, $requestedAbilities, $context);
+        $allowedAbilities = $this->runNoTargetAbilityQuery($requestedAbilities, $context);
 
         if (
             $matchMode === AbilityMatchMode::ALL
@@ -212,18 +205,17 @@ trait BuildsAccessQueries
      * @param array<int, string> $abilities
      * @return array<int, string>
      */
-    private function runNoTargetAbilityQuery(Authenticatable $currentUser, array $abilities, array $context): array
+    private function runNoTargetAbilityQuery(array $abilities, array $context): array
     {
         /* A connection to evaluate the ability predicates on (rule-set lookup
            itself is the resolver's job, on its own connection). No-target
            conditions may reference tenant tables, so a capability schema uses
            the default connection — the current tenant under tenancy. */
-        $connection = static::model !== ''
-            ? (new (static::model))->getConnection()
+        $connection = $this->schema::model !== ''
+            ? (new ($this->schema::model))->getConnection()
             : app('db')->connection();
         $baseQuery = $connection->query();
         $allowedAbilityQuery = $this->buildAvailableAbilitiesQuery(
-            currentUser: $currentUser,
             query: $baseQuery,
             abilities: $abilities,
             context: $context
@@ -237,14 +229,13 @@ trait BuildsAccessQueries
 
     protected function compiler(): RuleSetCompiler
     {
-        return new RuleSetCompiler($this, app(WarrantManager::class));
+        return new RuleSetCompiler($this->schema, $this->manager);
     }
 
     /**
      * @param array<int, string> $abilities
      */
     protected function buildAvailableAbilitiesQuery(
-        Authenticatable $currentUser,
         Builder $query,
         array $abilities,
         ?string $targetSqlId = null,
@@ -252,14 +243,13 @@ trait BuildsAccessQueries
     ): Builder
     {
         $abilitySelectQuery = null;
-        $ruleSet = $this->resolveRuleSet($currentUser);
+        $ruleSet = $this->resolvedRuleSet();
 
         foreach ($abilities as $ability) {
             $singleAbilitySelectQuery = $query->newQuery()
                 ->selectRaw('? as "ability"', [$ability]);
 
             $abilityConditionQuery = $this->buildAbilityConditionQuery(
-                currentUser: $currentUser,
                 query: $query,
                 targetSqlId: $targetSqlId,
                 ability: $ability,
@@ -283,7 +273,6 @@ trait BuildsAccessQueries
     }
 
     protected function buildAbilityConditionQuery(
-        Authenticatable $currentUser,
         Builder $query,
         string $ability,
         WarrantRuleSet $ruleSet,
@@ -292,68 +281,12 @@ trait BuildsAccessQueries
     ): Builder
     {
         return $this->compiler()->compileAbility(
-            $currentUser,
+            $this->user,
             $query,
             $ability,
             $ruleSet,
             $targetSqlId,
             $context,
         );
-    }
-
-    /**
-     * Merge the explicitly-passed context over the schema's {@see defaultContext},
-     * then enforce that every schema-wide required context key is present. Explicit
-     * values win over defaults; partial explicit context is allowed. Throws when a
-     * `#[RequiredContext]` key is missing from the effective context — for every
-     * check on the schema, so a required frame can never be silently skipped (which
-     * would lift a context-gated `cannot`). Per-ability requirements are enforced
-     * separately by {@see assertAbilitiesHaveRequiredContext}.
-     *
-     * @param array<string, mixed> $context
-     * @return array<string, mixed>
-     */
-    protected function resolveEffectiveContext(array $context): array
-    {
-        $effective = array_merge($this->defaultContext(), $context);
-
-        $missing = array_values(array_diff(static::requiredContextKeys(), array_keys($effective)));
-
-        if ($missing !== []) {
-            throw new InvalidArgumentException(sprintf(
-                'Schema [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().',
-                static::class,
-                implode(', ', $missing),
-            ));
-        }
-
-        return $effective;
-    }
-
-    /**
-     * Throw when a *named* ability's per-ability required context (declared via
-     * `#[Ability(requiredContext: [...])]`) is missing from the effective context. Used
-     * by the assertion paths (a targeted check / an explicit no-target check);
-     * enumeration paths skip such abilities instead via
-     * {@see \Warrant\Schema\Concerns\ReflectsSchemaDefinition::partitionAbilitiesByContext}.
-     *
-     * @param array<int, string> $abilities
-     * @param array<string, mixed> $context
-     */
-    protected static function assertAbilitiesHaveRequiredContext(array $abilities, array $context): void
-    {
-        $missing = static::partitionAbilitiesByContext($abilities, $context)['missing'];
-
-        if ($missing === []) {
-            return;
-        }
-
-        $ability = array_key_first($missing);
-
-        throw new InvalidArgumentException(sprintf(
-            'Ability [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().',
-            $ability,
-            implode(', ', $missing[$ability]),
-        ));
     }
 }

@@ -2,20 +2,13 @@
 
 namespace Warrant\Schema;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use InvalidArgumentException;
-use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\ConditionResolver;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\Schema\Concerns\AnalyzesReachability;
-use Warrant\Schema\Concerns\BuildsAccessQueries;
-use Warrant\Schema\Concerns\DiagnosesDenials;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
-use Warrant\Schema\Concerns\ResolvesRuleSets;
-use Warrant\WarrantAuthorizationException;
+use Warrant\Schema\Concerns\ResolvesContext;
 use Warrant\WarrantDenialContext;
 use Warrant\WarrantUngrantedContext;
 
@@ -23,28 +16,29 @@ use Warrant\WarrantUngrantedContext;
  * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
  * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
- * rules live — those come from the {@see RuleResolver} as a
+ * rules live — those come from the {@see \Warrant\RuleResolver} as a
  * {@see \Warrant\RuleSyntaxTree\WarrantRuleSet}, compiled against this schema.
  *
- * The implementation is split across concerns:
+ * The schema is pure definition: it holds no user and performs no authorization.
+ * Every user-scoped operation — checks, query filtering, ability listing, denial
+ * diagnosis, reachability — lives on {@see \Warrant\WarrantGuardForSchema}, which
+ * is constructed with a schema instance plus a user and reads the definition from
+ * here. Reach a guard through the {@see \Warrant\Facades\Warrant} facade
+ * (`Warrant::forSchema(...)`).
+ *
+ * The definition is split across concerns:
  *  - {@see ReflectsSchemaDefinition} — discovering abilities/conditions via reflection;
  *  - {@see ResolvesConditions}       — the ConditionResolver seam + ability validation;
- *  - {@see ResolvesRuleSets}         — resolving the ordered rule set (resolver + implicit rules);
- *  - {@see BuildsAccessQueries}      — turning a rule set into SQL access predicates;
- *  - {@see DiagnosesDenials}         — turning a denied check into a denial message/exception;
- *  - {@see AnalyzesReachability}     — the structural "could they ever?" analysis.
+ *  - {@see ResolvesContext}          — merging/enforcing the schema's context policy.
  *
  * This class itself carries the configuration constants, the instance lifecycle,
- * and the static entry points callers reach for.
+ * and the author-facing override hooks the engine consults.
  */
 abstract class WarrantSchema implements ConditionResolver
 {
     use ReflectsSchemaDefinition;
     use ResolvesConditions;
-    use ResolvesRuleSets;
-    use BuildsAccessQueries;
-    use DiagnosesDenials;
-    use AnalyzesReachability;
+    use ResolvesContext;
 
     /**
      * @var class-string<Model>
@@ -78,7 +72,7 @@ abstract class WarrantSchema implements ConditionResolver
      * fully-formed {@see WarrantRuleSet} for this schema:
      *
      * ```php
-     * protected function implicitRules(): array|WarrantRuleSet
+     * public function implicitRules(): array|WarrantRuleSet
      * {
      *     return [
      *         WarrantRule::fromSyntax('if is_super_admin they can *'),
@@ -89,7 +83,7 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * @return array<int, WarrantRule>|WarrantRuleSet
      */
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|WarrantRuleSet
     {
         return [];
     }
@@ -98,9 +92,8 @@ abstract class WarrantSchema implements ConditionResolver
      * Default check-time context for this schema, merged *under* any context
      * passed explicitly to a check (explicit values win; partial explicit context
      * is allowed). Override to source the frame from the request/tenant/container
-     * so that param-less entry points — route middleware and the
-     * `userHasAbility` / `selectUserAbilities` query scopes — receive context
-     * without a `context:` argument:
+     * so that param-less entry points — route middleware and the query scopes —
+     * receive context without a `context:` argument:
      *
      * ```php
      * protected function defaultContext(): array
@@ -116,164 +109,6 @@ abstract class WarrantSchema implements ConditionResolver
         return [];
     }
 
-    public static function userHasAbilities(
-        string|array $abilities,
-        Model|string|null $target = null,
-        ?Authenticatable $user = null,
-        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-        array $context = []
-    ): bool
-    {
-        $user ??= auth()->user();
-
-        if (!$user instanceof Authenticatable) {
-            throw new InvalidArgumentException(
-                sprintf('Schema [%s] requires an authenticated user or an explicit user instance.', static::class)
-            );
-        }
-
-        $schema = new static;
-        $target = $schema->resolveCheckTarget($target);
-        $abilities = $schema->normalizeAbilities($abilities);
-
-        if ($target !== null) {
-            static::assertSupportsTargetedChecks();
-
-            /** @var Model $model */
-            $model = new (static::model);
-            $targetId = $target instanceof Model ? $target->getKey() : $target;
-
-            return $schema->filterQuery(
-                currentUser: $user,
-                query: $model->newQuery()->whereKey($targetId)->getQuery(),
-                targetSqlId: $model->getQualifiedKeyName(),
-                abilities: $abilities,
-                matchMode: $matchMode,
-                context: $context,
-            )->exists();
-        }
-
-        /* No target: evaluate to the subset the user holds (under ANY, so it yields
-           the held subset rather than an all-or-nothing result), then apply the
-           match mode across the whole requested set. */
-        return static::noTargetCheckPasses($abilities, $schema->heldNoTargetAbilities($user, $abilities, $context), $matchMode);
-    }
-
-    /**
-     * Assert the user holds the abilities, throwing on denial instead of
-     * returning a bool. The throwing sibling of {@see userHasAbilities}.
-     *
-     * The denial is diagnosed and the first message source that speaks wins: the
-     * responsible `cannot` rule's own message, then the schema's
-     * {@see forbiddenDenialMessage} (a forbid with no rule message), then
-     * {@see ungrantedDenialMessage} (no grant), then a generic
-     * {@see WarrantAuthorizationException} (403). Diagnosis works for a singular
-     * target (a `Model` or key) and for a no-target check — in the latter only
-     * global/unconditional `cannot` rules can be the cause, since a targeted
-     * condition cannot fire without a row.
-     *
-     * @param string|array<int, string> $abilities
-     * @throws \Throwable
-     */
-    public static function authorize(
-        string|array $abilities,
-        Model|string|null $target = null,
-        ?Authenticatable $user = null,
-        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-        array $context = []
-    ): void
-    {
-        $user ??= auth()->user();
-
-        if (!$user instanceof Authenticatable) {
-            throw new InvalidArgumentException(
-                sprintf('Schema [%s] requires an authenticated user or an explicit user instance.', static::class)
-            );
-        }
-
-        $schema = new static;
-        $target = $schema->resolveCheckTarget($target);
-        $abilities = $schema->normalizeAbilities($abilities);
-
-        if (static::userHasAbilities($abilities, $target, $user, $matchMode, $context)) {
-            return;
-        }
-
-        /* Both the targeted and no-target denials are diagnosed from the rules,
-           differing only in whether a row (target) is in play. */
-        throw $schema->diagnoseDenial($user, $abilities, $target, $matchMode, $context)
-            ?? new WarrantAuthorizationException;
-    }
-
-    /**
-     * Normalize the `$target` argument of a check into either a concrete row
-     * (a `Model` instance or a key string) or `null` (a no-target check).
-     *
-     * A **class-string** is not a row: naming this schema's own model class — or the
-     * schema class itself — is how a no-target check is expressed positionally
-     * (mirroring the Gate bridge, so `Schema::userHasAbilities('create', Model::class)`
-     * reads the same as `can('create', Model::class)`); it resolves to `null`. A
-     * class-string for a *different* `Model`/`WarrantSchema` is a mistake — the ability
-     * belongs to another schema — and throws. Any other string is a target key and is
-     * left untouched for the row path.
-     *
-     * `null` and a `Model` instance pass straight through.
-     */
-    private function resolveCheckTarget(Model|string|null $target): Model|string|null
-    {
-        if ($target === null || $target instanceof Model) {
-            return $target;
-        }
-
-        if ((static::model !== '' && is_a($target, static::model, true)) || is_a($target, static::class, true)) {
-            return null;
-        }
-
-        if (is_a($target, Model::class, true) || is_a($target, self::class, true)) {
-            throw new InvalidArgumentException(sprintf(
-                'Target [%s] does not belong to schema [%s]%s; pass this schema\'s model or schema class for a no-target check, or an instance/key for a row check.',
-                $target,
-                static::class,
-                static::model !== '' ? sprintf(' (model [%s])', static::model) : '',
-            ));
-        }
-
-        return $target;
-    }
-
-    /**
-     * The subset of the requested abilities the user holds without a target. Runs
-     * under `ANY` so it yields the held subset rather than an all-or-nothing result;
-     * the match mode is applied across the full request by {@see noTargetCheckPasses}.
-     *
-     * @param array<int, string> $abilities
-     * @return array<int, string>
-     */
-    private function heldNoTargetAbilities(Authenticatable $user, array $abilities, array $context): array
-    {
-        return $abilities === []
-            ? []
-            : $this->getAbilitiesWithoutTarget($user, $abilities, AbilityMatchMode::ANY, $context);
-    }
-
-    /**
-     * Whether a no-target check passes given the held subset. An empty request never
-     * passes. `ALL` requires every requested ability held; `ANY` requires at least one.
-     *
-     * @param array<int, string> $abilities
-     * @param array<int, string> $held
-     */
-    private static function noTargetCheckPasses(array $abilities, array $held, AbilityMatchMode $matchMode): bool
-    {
-        if ($abilities === []) {
-            return false;
-        }
-
-        return $matchMode === AbilityMatchMode::ALL
-            ? count($held) === count($abilities)
-            : $held !== [];
-    }
-
     /**
      * The schema-level fallback message for a *forbidden* denial — a matching
      * `cannot` rule blocked the check but carried no {@see \Warrant\RuleSyntaxTree\WarrantRule::$message}
@@ -282,11 +117,11 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * The {@see WarrantDenialContext} carries the responsible `rule` and the gate
      * abilities it blocked. Return a string (wrapped in a
-     * {@see WarrantAuthorizationException} → 403), a `Throwable` (thrown as-is), or
+     * {@see \Warrant\WarrantAuthorizationException} → 403), a `Throwable` (thrown as-is), or
      * null to fall through (to {@see ungrantedDenialMessage} if some ability was
      * also ungranted, otherwise the generic 403).
      */
-    protected function forbiddenDenialMessage(WarrantDenialContext $context): string|\Throwable|null
+    public function forbiddenDenialMessage(WarrantDenialContext $context): string|\Throwable|null
     {
         return null;
     }
@@ -297,87 +132,14 @@ abstract class WarrantSchema implements ConditionResolver
      * from being forbidden: a `cannot` that blocks the check is handled by a
      * rule's own message or {@see forbiddenDenialMessage}, never here.
      *
-     * Return a string (wrapped in a {@see WarrantAuthorizationException} → 403), a
+     * Return a string (wrapped in a {@see \Warrant\WarrantAuthorizationException} → 403), a
      * `Throwable` (thrown as-is), or null to keep the generic default. The
      * {@see WarrantUngrantedContext} carries the gate and the ungranted abilities,
      * so the message can speak to the whole request (e.g. "you need at least one
      * of …" under `ANY`).
      */
-    protected function ungrantedDenialMessage(WarrantUngrantedContext $context): string|\Throwable|null
+    public function ungrantedDenialMessage(WarrantUngrantedContext $context): string|\Throwable|null
     {
         return null;
     }
-
-    /**
-     * @return array<int, string>
-     */
-    public static function getUserAbilities(
-        Model|string|null $target = null,
-        ?Authenticatable $user = null,
-        array $context = []
-    ): array
-    {
-        $user ??= auth()->user();
-
-        if (!$user instanceof Authenticatable) {
-            throw new InvalidArgumentException(
-                sprintf('Schema [%s] requires an authenticated user or an explicit user instance.', static::class)
-            );
-        }
-
-        $schema = new static;
-        $target = $schema->resolveCheckTarget($target);
-
-        if ($target === null) {
-            return $schema->getAbilitiesWithoutTarget($user, context: $context);
-        }
-
-        static::assertSupportsTargetedChecks();
-
-        /** @var Model $model */
-        $model = new (static::model);
-        $targetId = $target instanceof Model ? $target->getKey() : $target;
-
-        // selectUserAbilitiesInQuery adds the abilities list via selectSub aliased
-        // AS abilities — NOT a real column on the underlying table. Using
-        // ->value('abilities') here would call Laravel's first(['abilities']),
-        // whose onceWithColumns mechanism replaces the SELECT clause with
-        // ['abilities'], wiping the selectSub and yielding null. Read the
-        // hydrated row instead so the alias survives.
-        $row = (array)$schema->selectUserAbilitiesInQuery(
-            currentUser: $user,
-            query: $model->newQuery()->whereKey($targetId)->getQuery(),
-            targetSqlId: $model->getQualifiedKeyName(),
-            context: $context,
-        )->first();
-        $selectedAbilities = $row['abilities'] ?? null;
-
-        if (is_array($selectedAbilities)) {
-            return $selectedAbilities;
-        }
-
-        if (!is_string($selectedAbilities) || $selectedAbilities === '') {
-            return [];
-        }
-
-        $decodedSelectedAbilities = json_decode($selectedAbilities, true);
-
-        return is_array($decodedSelectedAbilities) ? $decodedSelectedAbilities : [];
-    }
-
-    /**
-     * Returns the no-target access-control bag using the same nested shape as
-     * resource helpers.
-     *
-     * @return array<string, array{schema_key: string, abilities: array<int, string>, target: null}>
-     */
-    public static function getNoTargetAbilitiesBag(?Authenticatable $user = null): array
-    {
-        return [
-            'schema_key' => static::schemaKey(),
-            'abilities' => static::getUserAbilities(null, $user),
-            'target' => null,
-        ];
-    }
-
 }

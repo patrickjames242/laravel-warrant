@@ -48,7 +48,7 @@ final class WarrantGateBridge
 
             try {
                 /* Reuse Warrant's own diagnose-and-throw path. */
-                $schemaClass::authorize($ability, $target, $user, context: $context);
+                $this->manager->guard($user)->forSchema($schemaClass)->authorize($ability, $target, context: $context);
 
                 return true; // granted (final — the policy is skipped)
             } catch (AuthorizationException $e) {

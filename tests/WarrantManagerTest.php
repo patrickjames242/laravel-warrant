@@ -53,16 +53,3 @@ it('throws on the first unknown name across a validateAll batch', function () {
         WarrantRuleSet::fromSyntax('they can fly', 'course_sections'),
     ))->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 });
-
-it('builds a combined no-target abilities bag keyed by schema key', function () {
-    bindWarrantRules('they can publish, view');
-
-    expect(Warrant::getNoTargetAbilitiesBag(makeWarrantTestUser('teacher-role'), WarrantTestSchema::class))
-        ->toBe([
-            'course_sections' => [
-                'schema_key' => 'course_sections',
-                'abilities' => ['publish', 'view'],
-                'target' => null,
-            ],
-        ]);
-});

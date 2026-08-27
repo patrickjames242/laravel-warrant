@@ -10,9 +10,9 @@ class Ability
     /**
      * @param array<int, string> $requiredContext Context keys that must be present
      *   whenever this ability is checked. When the ability is named in a yes/no
-     *   check (userHasAbilities/authorize/@can) and a key is missing, the check
+     *   check (can/canAny/authorize/@can) and a key is missing, the check
      *   throws; when the ability is merely enumerated (selectUserAbilities /
-     *   getUserAbilities), it is skipped instead.
+     *   abilities), it is skipped instead.
      */
     public function __construct(public array $requiredContext = []) {}
 }

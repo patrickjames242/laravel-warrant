@@ -1,9 +1,8 @@
 <?php
 
-namespace Warrant\Schema\Concerns;
+namespace Warrant\Guard\Concerns;
 
 use Closure;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
@@ -16,7 +15,7 @@ use Warrant\WarrantUngrantedContext;
 
 /**
  * Diagnosing *why* a denied check failed and turning that into the exception to
- * throw — the denial-message feature behind {@see \Warrant\Schema\WarrantSchema::authorize()}.
+ * throw — the denial-message feature behind {@see \Warrant\WarrantGuardForSchema::authorize()}.
  *
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
@@ -57,27 +56,26 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     protected function diagnoseDenial(
-        Authenticatable $currentUser,
         string|array $abilities,
         Model|string|null $target,
         AbilityMatchMode $matchMode,
         array $context = []
     ): ?Throwable
     {
-        $abilities = $this->normalizeAbilities($abilities);
+        $abilities = $this->schema->normalizeAbilities($abilities);
 
         if ($abilities === []) {
             return null;
         }
 
         $gate = new WarrantGate($abilities, $matchMode);
-        $context = $this->resolveEffectiveContext($context);
-        $ruleSet = $this->resolveRuleSet($currentUser);
+        $context = $this->schema->resolveEffectiveContext($context);
+        $ruleSet = $this->resolvedRuleSet();
         $compiler = $this->compiler();
 
         if ($target !== null) {
             /** @var Model $model */
-            $model = new (static::model);
+            $model = new ($this->schema::model);
             $targetId = $target instanceof Model ? $target->getKey() : $target;
             $targetSqlId = $model->getQualifiedKeyName();
             $baseQuery = fn (): Builder => $model->newQueryWithoutScopes()->whereKey($targetId)->getQuery();
@@ -94,8 +92,8 @@ trait DiagnosesDenials
             // No target: evaluate the ability/condition predicates against a bare
             // one-row query on the entity's connection, exactly like the no-target
             // check does. targetSqlId is null, so targeted conditions force false.
-            $connection = static::model !== ''
-                ? (new (static::model))->getConnection()
+            $connection = $this->schema::model !== ''
+                ? (new ($this->schema::model))->getConnection()
                 : app('db')->connection();
             $targetSqlId = null;
             $baseQuery = fn (): Builder => $connection->query();
@@ -107,7 +105,6 @@ trait DiagnosesDenials
         foreach ($abilities as $ability) {
             $query = $baseQuery();
             $predicate = $this->buildAbilityConditionQuery(
-                currentUser: $currentUser,
                 query: $query,
                 targetSqlId: $targetSqlId,
                 ability: $ability,
@@ -145,7 +142,7 @@ trait DiagnosesDenials
 
                 $query = $baseQuery();
                 $predicate = $compiler->matchesCondition(
-                    $currentUser,
+                    $this->user,
                     $query,
                     $rule->conditions,
                     $targetSqlId,
@@ -164,7 +161,7 @@ trait DiagnosesDenials
                 $message = $rule->messageFor($ability);
 
                 if ($message !== null) {
-                    return $this->buildDenialException($rule, $ability, $message, $currentUser, $targetModel, $gate, $context);
+                    return $this->buildDenialException($rule, $ability, $message, $targetModel, $gate, $context);
                 }
 
                 $anyCannotFired = true;
@@ -180,7 +177,7 @@ trait DiagnosesDenials
         // so the schema forbidden hook is consulted first; only if it declines does
         // an ungranted ability fall to the ungranted hook.
         if ($forbiddenRule !== null) {
-            $forbidden = $this->buildForbiddenException($forbiddenRule, $currentUser, $targetModel, $gate, $context);
+            $forbidden = $this->buildForbiddenException($forbiddenRule, $targetModel, $gate, $context);
 
             if ($forbidden !== null) {
                 return $forbidden;
@@ -188,7 +185,7 @@ trait DiagnosesDenials
         }
 
         if ($ungrantedAbilities !== []) {
-            return $this->buildUngrantedException($currentUser, $targetModel, $gate, $ungrantedAbilities, $context);
+            return $this->buildUngrantedException($targetModel, $gate, $ungrantedAbilities, $context);
         }
 
         return null;
@@ -245,16 +242,15 @@ trait DiagnosesDenials
         WarrantRule $rule,
         string $ability,
         string|Closure $message,
-        Authenticatable $currentUser,
         ?Model $targetModel,
         WarrantGate $gate,
         array $context,
     ): ?Throwable
     {
         $denialContext = new WarrantDenialContext(
-            user: $currentUser,
+            user: $this->user,
             target: $targetModel,
-            schema: static::class,
+            schema: $this->schema::class,
             context: $context,
             gate: $gate,
             rule: $rule,
@@ -288,23 +284,22 @@ trait DiagnosesDenials
      */
     private function buildForbiddenException(
         WarrantRule $rule,
-        Authenticatable $currentUser,
         ?Model $targetModel,
         WarrantGate $gate,
         array $context,
     ): ?Throwable
     {
         $denialContext = new WarrantDenialContext(
-            user: $currentUser,
+            user: $this->user,
             target: $targetModel,
-            schema: static::class,
+            schema: $this->schema::class,
             context: $context,
             gate: $gate,
             rule: $rule,
             deniedAbilities: $this->abilitiesBlockedByRule($rule, $gate->abilities),
         );
 
-        $result = $this->forbiddenDenialMessage($denialContext);
+        $result = $this->schema->forbiddenDenialMessage($denialContext);
 
         if ($result instanceof Throwable) {
             return $result;
@@ -323,17 +318,16 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildUngrantedException(
-        Authenticatable $currentUser,
         ?Model $targetModel,
         WarrantGate $gate,
         array $ungrantedAbilities,
         array $context,
     ): ?Throwable
     {
-        $result = $this->ungrantedDenialMessage(new WarrantUngrantedContext(
-            user: $currentUser,
+        $result = $this->schema->ungrantedDenialMessage(new WarrantUngrantedContext(
+            user: $this->user,
             target: $targetModel,
-            schema: static::class,
+            schema: $this->schema::class,
             context: $context,
             gate: $gate,
             ungrantedAbilities: $ungrantedAbilities,

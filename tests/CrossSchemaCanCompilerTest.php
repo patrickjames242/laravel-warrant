@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
@@ -106,8 +108,7 @@ function assertXcFilterSql(
 ): void {
     bindCrossSchemaRules(['xc_docs' => $docSyntax, ...$otherSyntax]);
 
-    $sql = (new XcDocSchema)->filterQuery(
-        makeWarrantTestUser($roleId),
+    $sql = Warrant::guard(makeWarrantTestUser($roleId))->forSchema((new XcDocSchema))->filterQuery(
         warrantTestQuery('xc_docs'),
         'xc_docs.id',
         $abilities,
@@ -264,8 +265,7 @@ it('throws while compiling when two schemas reference each other in a cycle', fu
 
     // The cross-schema recursion runs while filterQuery builds its where-clause,
     // so the cycle is detected at compile time, before any SQL executes.
-    expect(fn () => (new XcDocSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    expect(fn () => Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new XcDocSchema))->filterQuery(
         warrantTestQuery('xc_docs'),
         'xc_docs.id',
         'view',

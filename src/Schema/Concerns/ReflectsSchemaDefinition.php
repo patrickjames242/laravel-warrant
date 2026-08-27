@@ -184,7 +184,7 @@ trait ReflectsSchemaDefinition
      * paths so they fail with a clear message instead of `new ('')` fataling as
      * "Class \"\" not found".
      */
-    protected static function assertSupportsTargetedChecks(): void
+    public static function assertSupportsTargetedChecks(): void
     {
         if (static::model === '') {
             throw new InvalidArgumentException(

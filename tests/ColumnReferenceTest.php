@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
@@ -75,8 +77,7 @@ it('resolves a @column arg to the real table column, grammar-wrapped and unbound
     // no double-wrapping — while role-1 binds normally.
     bindColRules('if pay_period_matches(@column timesheets.pay_period_id) they can view', 'timesheets');
 
-    $sql = (new ColTsSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
         warrantTestQuery('col_timesheets'),
         'col_timesheets.id',
         'view',
@@ -97,8 +98,7 @@ it('correlates a check(...) subquery to the outer table via a @column row select
     // B's exists-subquery correlates `col_targets.id = col_docs.target_id`.
     bindColRules('if check(is_open for col_targets(@column col_docs.target_id)) they can view', 'col_docs');
 
-    $sql = (new ColDocSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
         'col_docs.id',
         'view',
@@ -131,8 +131,7 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
         }
     });
 
-    $sql = (new ColDocSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
         'col_docs.id',
         'view',
@@ -156,8 +155,7 @@ it('filters rows through a @column-correlated check subquery', function () {
 
     bindColRules('if check(is_open for col_targets(@column col_docs.target_id)) they can view', 'col_docs');
 
-    $ids = (new ColDocSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $ids = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
         'col_docs.id',
         'view',

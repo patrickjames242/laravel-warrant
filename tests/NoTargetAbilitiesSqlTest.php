@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Support\Facades\DB;
@@ -48,7 +50,7 @@ function capturedNoTargetSql(string|array|null $abilities): string
     $connection->flushQueryLog();
     $connection->enableQueryLog();
 
-    (new WarrantTestSchema)->getAbilitiesWithoutTarget(makeWarrantTestUser('teacher-role'), $abilities);
+    Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->getAbilitiesWithoutTarget($abilities);
 
     $connection->disableQueryLog();
 

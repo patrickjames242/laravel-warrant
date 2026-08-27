@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
@@ -67,8 +69,7 @@ it('resolves a @sql arg to a parenthesized raw expression, unbound', function ()
     // pair of parens — as the comparison operand, with no extra binding.
     bindSqlRules('if value_matches(@sql "select 1") they can view', 'sql_items');
 
-    $sql = (new SqlItemSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
         'sql_items.id',
         'view',
@@ -85,8 +86,7 @@ it('resolves a @sql arg to a parenthesized raw expression, unbound', function ()
 it('always parenthesizes, even when the author already wrapped the body', function () {
     bindSqlRules('if value_matches(@sql "(select 1)") they can view', 'sql_items');
 
-    $sql = (new SqlItemSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
         'sql_items.id',
         'view',
@@ -114,8 +114,7 @@ it('filters rows through a @sql scalar-subquery comparison', function () {
         'sql_items',
     );
 
-    $ids = (new SqlItemSchema)->filterQuery(
-        makeWarrantTestUser('role-1'),
+    $ids = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
         'sql_items.id',
         'view',

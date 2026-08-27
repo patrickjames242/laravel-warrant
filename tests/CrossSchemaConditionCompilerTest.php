@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
@@ -92,8 +94,7 @@ function assertChkFilterSql(
 ): void {
     bindCheckDocRules($docSyntax);
 
-    $sql = (new ChkDocSchema)->filterQuery(
-        makeWarrantTestUser($roleId),
+    $sql = Warrant::guard(makeWarrantTestUser($roleId))->forSchema((new ChkDocSchema))->filterQuery(
         warrantTestQuery('chk_docs'),
         'chk_docs.id',
         'view',

@@ -292,7 +292,7 @@ final class RuleSetCompiler
             $bContext[$key] = $this->resolveArgValue($parent, $value, $ctx->checkContext);
         }
 
-        $bRuleSet = $bSchema->resolvedRuleSet($ctx->user);
+        $bRuleSet = $this->manager->guard($ctx->user)->forSchema($bClass)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
         if ($node->isRowBound) {

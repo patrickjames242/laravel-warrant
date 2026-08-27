@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\AbilityMatchMode;
@@ -48,8 +50,7 @@ function assertWarrantFilterSql(
     string $expectedSql,
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
 ): void {
-    $sql = (new WarrantTestSchema)->filterQuery(
-        makeWarrantTestUser('teacher-role'),
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
         'course_sections.id',
         $abilities,
@@ -135,8 +136,7 @@ it('inlines a relational condition written as a correlated whereExists', functio
 it('throws when a condition emits a top-level join instead of a where clause', function () {
     bindWarrantRules('if via_bad_join they can view');
 
-    expect(fn () => (new WarrantJoinConditionSchema)->filterQuery(
-        makeWarrantTestUser('teacher-role'),
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantJoinConditionSchema))->filterQuery(
         warrantTestQuery(),
         'course_sections.id',
         'view',

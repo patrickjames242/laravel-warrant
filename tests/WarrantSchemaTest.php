@@ -1,5 +1,7 @@
 <?php
 
+
+use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Support\Facades\DB;
@@ -8,6 +10,7 @@ use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\WarrantAuthorizationException;
 
 function createCourseSectionsTable(): void
 {
@@ -31,8 +34,7 @@ function seedCourseSections(): void
  */
 function filteredSectionIds(string|array $abilities, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): array
 {
-    return (new WarrantTestSchema)
-        ->filterQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id', $abilities, $matchMode)
+    return Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', $abilities, $matchMode)
         ->orderBy('id')
         ->pluck('id')
         ->all();
@@ -109,32 +111,28 @@ it('keeps an unconditional grant winning in ANY match mode', function () {
 });
 
 it('leaves the query unchanged when abilities are empty', function () {
-    $sql = (new WarrantTestSchema)
-        ->filterQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id', [])
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', [])
         ->toSql();
 
     expect($sql)->toBe('select * from "course_sections"');
 });
 
 it('throws when an ability is not defined on the schema', function () {
-    expect(fn () => (new WarrantTestSchema)
-        ->filterQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id', 'destroy'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'destroy'))
         ->toThrow(InvalidArgumentException::class, 'Ability [destroy] is not defined on schema');
 });
 
 it('throws when the rule set names an undeclared ability', function () {
     bindWarrantRules('they can teleport', schemaKey: 'course_sections');
 
-    expect(fn () => (new WarrantTestSchema)
-        ->filterQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id', 'view'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'view'))
         ->toThrow(InvalidArgumentException::class, 'Ability [teleport] is not declared by the schema');
 });
 
 it('throws when the rule set names an undeclared condition', function () {
     bindWarrantRules('if is_wizard they can view');
 
-    expect(fn () => (new WarrantTestSchema)
-        ->filterQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id', 'view'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
 });
 
@@ -147,9 +145,9 @@ it('always applies implicit rules, even when the resolver returns nothing', func
     $user = makeWarrantTestUser('teacher-role');
 
     // `publish` comes solely from the schema's implicitRules().
-    expect(WarrantImplicitRulesSchema::userHasAbilities('publish', 'teacher:teacher-role', $user))->toBeTrue();
-    expect(WarrantImplicitRulesSchema::userHasAbilities('publish', 'other-section', $user))->toBeTrue();
-    expect(WarrantImplicitRulesSchema::userHasAbilities('view', 'teacher:teacher-role', $user))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeFalse();
 });
 
 it('merges implicit rules with resolver rules', function () {
@@ -159,9 +157,9 @@ it('merges implicit rules with resolver rules', function () {
     $user = makeWarrantTestUser('teacher-role');
 
     // view from the resolver (teacher row only), publish from implicit rules (every row).
-    expect(WarrantImplicitRulesSchema::userHasAbilities('view', 'teacher:teacher-role', $user))->toBeTrue();
-    expect(WarrantImplicitRulesSchema::userHasAbilities('view', 'other-section', $user))->toBeFalse();
-    expect(WarrantImplicitRulesSchema::userHasAbilities('publish', 'other-section', $user))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'other-section'))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
 });
 
 it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list', function () {
@@ -172,9 +170,9 @@ it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list',
 
     // Identical behaviour to the array-returning variant: view from the resolver,
     // publish from the implicit rule set, archive denied by the implicit set.
-    expect(WarrantImplicitRuleSetSchema::userHasAbilities('view', 'teacher:teacher-role', $user))->toBeTrue();
-    expect(WarrantImplicitRuleSetSchema::userHasAbilities('publish', 'other-section', $user))->toBeTrue();
-    expect(WarrantImplicitRuleSetSchema::userHasAbilities('archive', 'teacher:teacher-role', $user))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
 });
 
 it('lets an implicit unconditional cannot override a resolver grant (deny-overrides)', function () {
@@ -184,7 +182,7 @@ it('lets an implicit unconditional cannot override a resolver grant (deny-overri
     $user = makeWarrantTestUser('teacher-role');
 
     // implicitRules() has `they cannot archive`, which wins.
-    expect(WarrantImplicitRulesSchema::userHasAbilities('archive', 'teacher:teacher-role', $user))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
 });
 
 // -- reflection helpers -------------------------------------------------------
@@ -287,8 +285,7 @@ it('computes per-row abilities as a json column', function () {
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
-    $rows = (new WarrantTestSchema)
-        ->selectUserAbilitiesInQuery(makeWarrantTestUser('teacher-role'), warrantTestQuery(), 'course_sections.id')
+    $rows = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->selectAbilitiesInQuery(warrantTestQuery(), 'course_sections.id')
         ->orderBy('id')
         ->get();
 
@@ -306,10 +303,10 @@ it('returns abilities the user can perform without a target in one query', funct
     $schema = new WarrantTestSchema;
     $user = makeWarrantTestUser('advisor');
 
-    expect($schema->getAbilitiesWithoutTarget($user))->toBe(['create', 'publish', 'view']);
-    expect($schema->getAbilitiesWithoutTarget($user, ['create', 'publish'], AbilityMatchMode::ALL))
+    expect(Warrant::guard($user)->forSchema($schema)->getAbilitiesWithoutTarget())->toBe(['create', 'publish', 'view']);
+    expect(Warrant::guard($user)->forSchema($schema)->getAbilitiesWithoutTarget(['create', 'publish'], AbilityMatchMode::ALL))
         ->toBe(['create', 'publish']);
-    expect($schema->getAbilitiesWithoutTarget($user, ['create', 'publish', 'archive'], AbilityMatchMode::ALL))
+    expect(Warrant::guard($user)->forSchema($schema)->getAbilitiesWithoutTarget(['create', 'publish', 'archive'], AbilityMatchMode::ALL))
         ->toBe([]);
 });
 
@@ -318,8 +315,8 @@ it('grants an ability when a global boolean condition evaluates true, denies whe
 
     $schema = new WarrantBooleanConditionSchema;
 
-    expect($schema->getAbilitiesWithoutTarget(makeWarrantTestUser('super-role')))->toBe(['view']);
-    expect($schema->getAbilitiesWithoutTarget(makeWarrantTestUser('other-role')))->toBe([]);
+    expect(Warrant::guard(makeWarrantTestUser('super-role'))->forSchema($schema)->getAbilitiesWithoutTarget())->toBe(['view']);
+    expect(Warrant::guard(makeWarrantTestUser('other-role'))->forSchema($schema)->getAbilitiesWithoutTarget())->toBe([]);
 });
 
 // -- static entry points ------------------------------------------------------
@@ -333,11 +330,11 @@ it('checks abilities statically for a target instance, id, or none', function ()
     $target->id = 'teacher:teacher-role';
     $target->exists = true;
 
-    expect(WarrantTestSchema::userHasAbilities('view', $target, $user))->toBeTrue();
-    expect(WarrantTestSchema::userHasAbilities(['view', 'update'], 'teacher:teacher-role', $user))->toBeTrue();
-    expect(WarrantTestSchema::userHasAbilities('view', 'other-section', $user))->toBeFalse();
-    expect(WarrantTestSchema::userHasAbilities('publish', null, $user, AbilityMatchMode::ANY))->toBeTrue();
-    expect(WarrantTestSchema::userHasAbilities(['create', 'publish'], null, $user, AbilityMatchMode::ALL))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantTestSchema::class)->can('view', $target))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantTestSchema::class)->can(['view', 'update'], 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantTestSchema::class)->can('view', 'other-section'))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantTestSchema::class)->canAny('publish', null))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantTestSchema::class)->can(['create', 'publish'], null))->toBeFalse();
 });
 
 it('forwards static ability helpers through the model trait', function () {
@@ -346,8 +343,8 @@ it('forwards static ability helpers through the model trait', function () {
 
     $user = makeWarrantTestUser('teacher-role');
 
-    expect(WarrantScopedModel::userHasAbilities('view', 'teacher:teacher-role', $user))->toBeTrue();
-    expect(WarrantScopedModel::getUserAbilities(null, $user))->toBe(['publish']);
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->abilities(null))->toBe(['publish']);
 });
 
 it('checks abilities against a model instance through the trait', function () {
@@ -359,13 +356,55 @@ it('checks abilities against a model instance through the trait', function () {
     $granted = WarrantScopedModel::query()->find('teacher:teacher-role');
     $denied = WarrantScopedModel::query()->find('other-section');
 
-    expect($granted->userHasAbility('view', $user))->toBeTrue();
-    expect($denied->userHasAbility('view', $user))->toBeFalse();
-    expect($granted->userHasAbility(['view', 'create'], $user))->toBeFalse();
-    expect($granted->userHasAbility(['view', 'create'], $user, AbilityMatchMode::ANY))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->can('view', $granted))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->can('view', $denied))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->can(['view', 'create'], $granted))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->canAny(['view', 'create'], $granted))->toBeTrue();
 });
 
 it('throws when the model returns a schema for a different host model', function () {
     expect(fn () => WarrantMismatchedScopedModel::query()->userHasAbility('view', makeWarrantTestUser('teacher-role'))->toRawSql())
         ->toThrow(LogicException::class, 'must manage model');
+});
+
+// -- schema-less facade + tuple targets ---------------------------------------
+
+it('resolves schema-less checks through the registry via model class, instance, and tuple', function () {
+    useWarrantSchemas([WarrantTestSchema::class]);
+    seedCourseSections();
+    bindWarrantRules('they can publish if is_teacher they can view');
+
+    $user = makeWarrantTestUser('teacher-role');
+
+    $target = new WarrantTestModel;
+    $target->id = 'teacher:teacher-role';
+    $target->exists = true;
+
+    // model instance names the schema and the row
+    expect(Warrant::can('view', $target, user: $user))->toBeTrue();
+
+    // [ModelClass, id] and [SchemaClass, id] tuples select a row by key
+    expect(Warrant::can('view', [WarrantTestModel::class, 'teacher:teacher-role'], user: $user))->toBeTrue();
+    expect(Warrant::can('view', [WarrantTestSchema::class, 'other-section'], user: $user))->toBeFalse();
+
+    // model/schema class-string = no-target check
+    expect(Warrant::can('publish', WarrantTestModel::class, user: $user))->toBeTrue();
+    expect(Warrant::canAny(['create', 'publish'], WarrantTestSchema::class, user: $user))->toBeTrue();
+});
+
+it('authorize and authorizeAny throw on denial through the facade', function () {
+    useWarrantSchemas([WarrantTestSchema::class]);
+    seedCourseSections();
+    bindWarrantRules('if is_teacher they can view');
+
+    $user = makeWarrantTestUser('teacher-role');
+
+    // granted — no throw
+    Warrant::authorize('view', [WarrantTestModel::class, 'teacher:teacher-role'], user: $user);
+
+    expect(fn () => Warrant::authorize('view', [WarrantTestModel::class, 'other-section'], user: $user))
+        ->toThrow(WarrantAuthorizationException::class);
+
+    expect(fn () => Warrant::authorizeAny(['view'], [WarrantTestModel::class, 'other-section'], user: $user))
+        ->toThrow(WarrantAuthorizationException::class);
 });

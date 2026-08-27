@@ -226,7 +226,7 @@ class WarrantScopedModelSchema extends WarrantTestSchema
 
 class WarrantImplicitRulesSchema extends WarrantTestSchema
 {
-    protected function implicitRules(): array
+    public function implicitRules(): array
     {
         return [
             // Always grant publish, and never allow archive, regardless of the resolver.
@@ -238,7 +238,7 @@ class WarrantImplicitRulesSchema extends WarrantTestSchema
 
 class WarrantImplicitRuleSetSchema extends WarrantTestSchema
 {
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|WarrantRuleSet
     {
         // Same baseline as WarrantImplicitRulesSchema, but returned as a rule set.
         return WarrantRuleSet::fromSyntax(
