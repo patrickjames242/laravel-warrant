@@ -34,26 +34,17 @@ final class WarrantGuard
     }
 
     /**
-     * The engine for one schema and this guard's user.
-     *
-     * A {@see WarrantSchema} instance or subclass class-string is used directly
-     * (its own identity is authoritative); a `Model` reference or a schema key is
-     * resolved through the registry.
+     * The engine for one schema and this guard's user. The schema may be named any
+     * way the registry understands: a {@see WarrantSchema} instance or class-string,
+     * a `Model` instance or class-string, or a schema key.
      */
     public function forSchema(Model|WarrantSchema|string $schema): WarrantGuardForSchema
     {
-        if ($schema instanceof WarrantSchema) {
-            $schemaInstance = $schema;
-        } elseif (is_string($schema) && is_a($schema, WarrantSchema::class, true)) {
-            $schemaInstance = new $schema;
-        } else {
-            /** @var class-string<WarrantSchema> $schemaClass */
-            $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($schema);
-            $schemaInstance = new $schemaClass;
-        }
+        /** @var class-string<WarrantSchema> $schemaClass */
+        $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($schema);
 
-        return $this->schemaGuards[$schemaInstance::schemaKey()] ??= new WarrantGuardForSchema(
-            $schemaInstance,
+        return $this->schemaGuards[$schemaClass::schemaKey()] ??= new WarrantGuardForSchema(
+            new $schemaClass,
             $this->user,
             $this->manager,
         );
