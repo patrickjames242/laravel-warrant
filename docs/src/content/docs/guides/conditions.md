@@ -88,7 +88,7 @@ public function isAdmin(GlobalConditionContext $c): bool
 ### Why the split matters
 
 Some checks run with **no row** — [no-target checks](/guides/checking-access/#no-target-checks)
-and `getUserAbilities()` with no target. In that context a row condition
+and `Warrant::abilities(Document::class)` with no target. In that context a row condition
 can't be evaluated, so Warrant treats it as **false** (and therefore
 `not <row-condition>` as **true**). Global conditions still evaluate normally. This is
 why a no-model schema should only use global conditions.

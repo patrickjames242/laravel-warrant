@@ -15,13 +15,14 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 
 - `const model` — managed Eloquent model (or `''` for a schema with no model)
 - `const schemaKey` — optional schema-key override (**required** with no model)
-- `#[Ability] const X = '...'` — declare an ability
-- `#[ContextKey] const X = '...'` — declare a check-time context key (required by default; `required: false` to opt out)
+- `#[Ability] const X = '...'` — declare an ability (add `requiredContext: [...]` for per-ability required context keys)
+- `#[RequiredContext] const X = '...'` — mark a context key required on every check (context keys need no declaration to be *used*)
 - `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions
-- `protected function implicitRules(): array|WarrantRuleSet` — always-on rules
+- `public function implicitRules(): array|WarrantRuleSet` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
-- `protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied
-- `protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when nothing granted
+- `public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied
+- `public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when nothing granted
+- `Schema::guard($user)` — schema-bound engine for this schema (= `Warrant::forSchema(Schema::class, $user)`)
 
 ## Build rules
 
@@ -45,29 +46,35 @@ Implement `Warrant\RuleResolver` — see [Providing rules](/guides/resolvers/).
 
 ## Check access
 
-`use Warrant\HasWarrantSchema` on the model — see [Checking API](/reference/checking-api/).
+Reach the engine three ways — see [Checking API](/reference/checking-api/). Checks
+live on the engine, not the model/schema.
 
-- `Model::userHasAbilities($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): bool`
-- `Model::authorize($abilities, $target = null, $user = null, $matchMode = ALL, $context = []): void` — throwing sibling; 403 on denial ([denial messages](/guides/denial-messages/))
-- `Model::getUserAbilities($target = null, $user = null, $context = []): array`
-- `->userHasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — instance method **and** query scope (`scopeUserHasAbility`)
-- `->selectUserAbilities($user = null, $selectedAbilitiesKey = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope
-- `$model->loadUserAbilities($user = null, $selectedAbilitiesKey = 'abilities', $context = [])` — attach the ability list to an instance
+- Facade (target names the schema): `Warrant::can($abilities, $target, $context = [], $user = null): bool`
+- `Warrant::canAny(...)` — ANY (ALL is `can`; there is **no** `matchMode` argument)
+- `Warrant::cannot(...)`, `Warrant::authorize(...): void`, `Warrant::authorizeAny(...): void` — throwing; 403 on denial ([denial messages](/guides/denial-messages/))
+- `Warrant::abilities($target, $context = [], $user = null): array`
+- target forms: `$model` (row), `[Model::class|Schema::class, $id]` (row by key), `Model::class` / `Schema::class` / `'schema_key'` (no-target)
+- User-bound guard: `Warrant::guard($user)` or `$user->warrant()` (`use Warrant\AuthorizesWithWarrant`) → `WarrantGuard` (`->can/canAny/cannot/authorize/authorizeAny/abilities`, `->forSchema(...)`)
+- Schema-bound guard: `Warrant::forSchema($schemaOrModel, $user)` or `Schema::guard($user)` → `WarrantGuardForSchema` (same methods; target is just the row or `null`)
+- Model query helpers (`use Warrant\HasWarrantSchema`) — these **keep** `AbilityMatchMode`:
+  - `->userHasAbility($abilities, $user = null, $matchMode = ALL, $context = [])` — query scope
+  - `->selectUserAbilities($user = null, $selectedAbilitiesKey = 'abilities', ?array $onlyAbilities = null, $context = [])` — query scope
+  - `$model->loadUserAbilities($user = null, $selectedAbilitiesKey = 'abilities', $context = [])` — attach the ability list to an instance
 - `context:` — values for the rules' `@context` keys, merged over `defaultContext()`
-- `Warrant\AbilityMatchMode::ALL | ANY`
+- `Warrant\AbilityMatchMode::ALL | ANY` — used by scopes, middleware, and the lower-level query methods
 - Laravel Gate — `$user->can($ability, $target)`, `Gate::authorize`, `@can`, and `can:` route middleware resolve Warrant abilities ([details](/guides/checking-access/#laravels-gate)); toggle with `register_gate`
 
 ## Reachability
 
-Structural check — no conditions, no SQL, no `context:` (user still required). See [Reachability](/guides/reachability/).
+Structural check — no conditions, no SQL, no `context:` (user still required); schema comes first, no `matchMode` (use `*Any`). See [Reachability](/guides/reachability/).
 
-- `Model::abilityReachability($ability, $user = null): Reachability`
-- `Model::userCouldEverHave($abilities, $user = null, $matchMode = ALL): bool` — `!== NEVER`
-- `Model::userAlwaysHas($abilities, $user = null, $matchMode = ALL): bool` — `=== ALWAYS`
-- `Model::userNeverHas($abilities, $user = null, $matchMode = ALL): bool` — `=== NEVER`
-- `Model::getUserPossibleAbilities($user = null) / getUserGuaranteedAbilities(...) / getUserImpossibleAbilities(...): array`
+- `Warrant::reachabilityOf($schema, $ability, $user = null): Reachability`
+- `Warrant::couldEverHave($schema, $abilities, $user = null): bool` — `!== NEVER` (+ `couldEverHaveAny`)
+- `Warrant::alwaysHas($schema, $abilities, $user = null): bool` — `=== ALWAYS` (+ `alwaysHasAny`)
+- `Warrant::neverHas($schema, $abilities, $user = null): bool` — `=== NEVER` (+ `neverHasAny`)
+- `Warrant::possibleAbilities($schema, $user = null) / guaranteedAbilities(...) / impossibleAbilities(...): array`
+- also on `Warrant::guard($user)->...` (schema-first) and `Warrant::forSchema($schema, $user)->...` (no schema arg)
 - `Warrant\Reachability::NEVER | MAYBE | ALWAYS`
-- facade form: `Warrant::userCouldEverHave('documents', 'update', $user)`
 
 ## Middleware
 

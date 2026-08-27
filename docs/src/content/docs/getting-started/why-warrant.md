@@ -151,15 +151,12 @@ Once that's done, here's what Warrant gives you, automagically 😱😱 (once yo
 Every check defaults to the currently authenticated user, but you can pass any user explicitly to check on their behalf.
 
 ```php
+use Warrant\Facades\Warrant;
 
 // A single boolean value representing whether or not the current user can
 // view this document
-$document->userHasAbility('view');
-$document->userHasAbility('view', $user);
-
-// The same check as a static call, passing the target explicitly
-Document::userHasAbilities('view', $document);
-Document::userHasAbilities('view', $document, $user);
+Warrant::can('view', $document);
+Warrant::can('view', $document, user: $user);
 
 // A scope that filters a list of documents by whether or not the user has the
 // ability to view them
@@ -172,12 +169,12 @@ Document::query()->selectUserAbilities()->get();
 Document::query()->selectUserAbilities($user)->get();
 
 // A no-target check: can the user create documents unconditionally? (no specific row)
-Document::userHasAbilities('create');
-Document::userHasAbilities('create', user: $user); // named arg skips the target
+Warrant::can('create', Document::class);
+Warrant::can('create', Document::class, user: $user);
 
 // Every no-target ability the user has unconditionally, e.g. ['create']
-Document::getUserAbilities();
-Document::getUserAbilities(user: $user);
+Warrant::abilities(Document::class);
+Warrant::abilities(Document::class, user: $user);
 
 // middleware to guard your routes (uses the request's authenticated user)
 WarrantMiddleware::guard('document', 'view', function () {
@@ -270,10 +267,10 @@ WarrantRuleSet::fromRules('documents',
 );
 ```
 
-Then call `authorize` instead of `userHasAbility`:
+Then call `authorize` instead of `can`:
 
 ```php
-Document::authorize('update', $document);
+Warrant::authorize('update', $document);
 // throws a 403 with "This document is locked and can no longer be edited.",
 // but only when the locked rule is the one that blocked the check.
 ```

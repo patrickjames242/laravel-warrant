@@ -7,21 +7,22 @@ sidebar:
   order: 7
 ---
 
-`userHasAbilities` answers yes or no. When a denial should **say why**, reach for
-`authorize` — its throwing sibling — and attach a message to the rule that does
-the forbidding.
+`Warrant::can` answers yes or no. When a denial should **say why**, reach for
+`Warrant::authorize` — its throwing sibling — and attach a message to the rule
+that does the forbidding.
 
 ```php
-Document::authorize('update', $document); // returns void, or throws on denial
+Warrant::authorize('update', $document); // returns void, or throws on denial
 ```
 
 On success it returns nothing; on failure it throws a
 `Warrant\WarrantAuthorizationException`, which extends Laravel's
 `Illuminate\Auth\Access\AuthorizationException` — so the framework renders it as a
 **403** carrying the message, with no handler wiring. `authorize` takes the same
-arguments as [`userHasAbilities`](/guides/checking-access/#boolean-checks): an
-ability (or list), an optional target, user, [match mode](/guides/checking-access/#match-modes),
-and [context](/guides/context/).
+arguments as [`Warrant::can`](/guides/checking-access/#boolean-checks): an
+ability (or list), an optional target, [context](/guides/context/), and user.
+Use `authorizeAny` when *any* of several abilities should satisfy the check
+(`authorize` requires all).
 
 ## Attaching a message to a rule
 
@@ -176,7 +177,7 @@ use Warrant\WarrantUngrantedContext;
 
 class DocumentSchema extends WarrantSchema
 {
-    protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
+    public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
     {
         return match (true) {
             in_array('approve', $c->ungrantedAbilities, true) => 'You need an approver role.',
@@ -201,7 +202,7 @@ catch, `forbiddenDenialMessage`, for a single default across many message-less
 `cannot` rules:
 
 ```php
-protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
 {
     return "You cannot {$c->deniedAbilities[0]} this document.";
 }

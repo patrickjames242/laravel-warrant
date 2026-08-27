@@ -196,11 +196,11 @@ And every question traces back to that one rule — no second copy to keep in sy
 ```php
 // A single boolean value representing whether or not the current user can
 // view this document
-$document->userHasAbility('view');
+Warrant::can('view', $document);
 
 // The throwing sibling — aborts with a 403 (and the rule's denial message)
 // if the user can't view it
-Document::authorize('view', $document);
+Warrant::authorize('view', $document);
 
 // A scope that filters a list of documents by whether or not the user has the
 // ability to view them

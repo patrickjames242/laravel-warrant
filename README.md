@@ -214,7 +214,7 @@ if is_admin they can *
 $editable = Timesheet::query()->userHasAbility('update')->get();
 
 // Can this user approve this specific timesheet?
-if (Timesheet::userHasAbilities('approve', $timesheet)) { /* ... */ }
+if (Warrant::can('approve', $timesheet)) { /* ... */ }
 
 // Attach the per-row ability list, e.g. for rendering buttons.
 $rows = Timesheet::query()->selectUserAbilities()->get();

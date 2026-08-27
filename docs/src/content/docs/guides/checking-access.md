@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Once schema, resolver, and rules are in place, you never touch the compiler
-directly. You ask questions through the model, query scopes, static helpers, or
+directly. You ask questions through the authorization engine, query scopes, or
 [middleware](/guides/middleware/).
 
 ## Set up the model
@@ -36,27 +36,93 @@ The schema's `const model` must match the model that returns it. If
 Warrant throws `Schema [...] must manage model [...]`.
 :::
 
-## Boolean checks
+## The authorization engine
 
-Run as a scoped `EXISTS` query — no records are loaded:
+Every yes/no check runs through the same engine, reached three ways. Pick
+whichever reads best where you are:
 
-```php
-Document::userHasAbilities('update', $document);           // a model instance
-Document::userHasAbilities('update', $documentId);         // a key
-Document::userHasAbilities(['view', 'update'], $document); // several at once
-Document::userHasAbilities('create');                       // no-target
+- **The `Warrant` facade** — schema-less; the target names the schema:
 
-// Instance form (checks $this):
-$document->userHasAbility('update');
-```
+  ```php
+  Warrant::can('update', $document);
+  ```
+- **A user-bound guard** — `Warrant::guard($user)`, or `$user->warrant()` when the
+  user model uses the [`AuthorizesWithWarrant`](#the-authorizeswithwarrant-trait)
+  trait:
 
-Each accepts an optional `$user` (defaults to `auth()->user()`) and, for
-`userHasAbilities`, an [`AbilityMatchMode`](#match-modes).
+  ```php
+  $user->warrant()->can('update', $document);
+  ```
+- **A schema-bound guard** — `Warrant::forSchema($schemaOrModel, $user)`, or the
+  `guard()` static every schema inherits:
+
+  ```php
+  DocumentSchema::guard($user)->can('update', $document);
+  ```
+
+`$user` is always optional and defaults to `auth()->user()`.
+
+:::tip[Reaching for a plain check?]
+For an everyday yes/no check you don't need any of these — Laravel's Gate resolves
+Warrant abilities, so `$user->can('view', $document)` just works (see
+[Laravel's Gate](#laravels-gate)). Reach for the engine directly when you need to
+pass `context:`, use `canAny`, enumerate `abilities()`, or check no-target access.
+:::
 
 :::note
 If no user is authenticated and none is passed, these throw
 *"requires an authenticated user or an explicit user instance."* — a loud failure
 rather than a silent deny.
+:::
+
+### The `AuthorizesWithWarrant` trait
+
+Add the `AuthorizesWithWarrant` trait to your user model for the `->warrant()`
+shortcut — it returns the same user-bound guard as `Warrant::guard($this)`:
+
+```php
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Warrant\AuthorizesWithWarrant;
+
+class User extends Authenticatable
+{
+    use AuthorizesWithWarrant;
+}
+
+$user->warrant()->can('approve', $document, context: ['region' => 'us']);
+$user->warrant()->forSchema(Document::class)->abilities();
+```
+
+For a plain yes/no check with no context, prefer Laravel's Gate —
+`$user->can('view', $document)` resolves the same ability (see
+[Laravel's Gate](#laravels-gate)). Reach for `$user->warrant()` when you need to
+pass `context:`, check with `canAny`, or ask the same schema repeatedly.
+
+## Boolean checks
+
+Checks run as a scoped `EXISTS` query — no records are loaded. On the facade, the
+target names both the schema and, optionally, the row:
+
+```php
+Warrant::can('update', $document);                    // a model instance (row)
+Warrant::can('update', [Document::class, $documentId]); // a row by key
+Warrant::can(['view', 'update'], $document);          // ALL of several at once
+Warrant::canAny(['view', 'update'], $document);       // ANY of several
+Warrant::can('create', Document::class);              // no-target
+Warrant::cannot('delete', $document);                 // the negation
+
+// Same checks through a bound guard — the target is just the row:
+DocumentSchema::guard($user)->can('update', $document);
+$user->warrant()->forSchema(Document::class)->can('create');
+```
+
+There is no `matchMode:` argument on these helpers: `can` requires **all** listed
+abilities, `canAny` requires **any** one.
+
+:::note[Throwing variants]
+`Warrant::authorize($abilities, $target)` and `Warrant::authorizeAny(...)` mirror
+`can`/`canAny` but throw a `403` carrying the responsible rule's message instead of
+returning `false`. See [Denial messages](/guides/denial-messages/).
 :::
 
 ## Laravel's Gate
@@ -149,7 +215,7 @@ model:
 Document::query()->selectUserAbilities(selectedAbilitiesKey: 'perms')->get();
 
 $document->loadUserAbilities();      // sets $document->abilities
-$document->getUserAbilities($document); // ['view', 'update'] — static form
+Warrant::abilities($document);       // ['view', 'update'] — via the engine
 ```
 
 :::caution[Driver support]
@@ -167,14 +233,20 @@ requests simply get no abilities column).
 
 ## Match modes
 
-When you check several abilities at once, `AbilityMatchMode` decides how they
-combine:
+When you check several abilities at once, the two modes decide how they combine:
 
-- **`AbilityMatchMode::ALL`** — the row/user must satisfy *every* listed ability.
-- **`AbilityMatchMode::ANY`** — *any* one is enough.
+- **ALL** — the row/user must satisfy *every* listed ability.
+- **ANY** — *any* one is enough.
+
+The engine's boolean helpers pick the mode by method name — `can` is ALL,
+`canAny` is ANY — so they take no match-mode argument. Query scopes and
+[middleware](/guides/middleware/), by contrast, take an explicit
+`AbilityMatchMode`:
 
 ```php
 use Warrant\AbilityMatchMode;
+
+Warrant::canAny(['view', 'approve'], $document);   // engine: ANY via the method name
 
 Document::query()->userHasAbility(['view', 'approve'], matchMode: AbilityMatchMode::ANY)->get();
 ```
@@ -191,11 +263,14 @@ Not every check is about a row. "Can this user *create* documents?" or "can they
 access *settings*?" name no target. Nothing about the ability itself is
 target-free — a no-target check just asks whether the user holds it without naming
 a row, so only rules whose conditions don't need a row (global or unconditional)
-can grant it. Pass `null` as the target (or omit it):
+can grant it. On the facade, name the schema class as the target; on a bound
+guard, omit the row:
 
 ```php
-Document::userHasAbilities('create');   // target defaults to null
-DocumentSchema::getUserAbilities();     // all no-target abilities
+Warrant::can('create', Document::class);     // no-target boolean check
+Warrant::abilities(Document::class);         // all no-target abilities
+
+DocumentSchema::guard($user)->can('create'); // bound guard: omit the row
 ```
 
 For a section with no model at all, define a
@@ -212,14 +287,16 @@ keys the rules reference. See [Check-time context](/guides/context/#passing-cont
 
 | Call | Question |
 |---|---|
-| `Model::userHasAbilities($abilities, $target, $user, $matchMode, $context)` | Can they? (bool) |
-| `$model->userHasAbility($abilities, $user, $matchMode, $context)` | Can they, for this instance? |
-| `Model::getUserAbilities($target, $user, $context)` | What can they do to this? (array) |
+| `Warrant::can($abilities, $target, $context, $user)` | Can they? — every ability (bool) |
+| `Warrant::canAny($abilities, $target, $context, $user)` | Can they? — any one ability (bool) |
+| `Warrant::cannot($abilities, $target, $context, $user)` | The negation of `can` (bool) |
+| `Warrant::abilities($target, $context, $user)` | What can they do to this? (array) |
+| `Warrant::authorize($abilities, $target, $context, $user)` | Can they? — throws a 403 with a message |
+| `Warrant::authorizeAny($abilities, $target, $context, $user)` | Any one? — throws a 403 with a message |
 | `->userHasAbility(...)` scope | Which rows? |
 | `->selectUserAbilities(...)` scope | What per row? |
 | `$model->loadUserAbilities(...)` | Attach abilities to an instance |
-| `Model::authorize($abilities, $target, $user, $matchMode, $context)` | Can they? — throws a 403 with a message |
-| `Model::userCouldEverHave($abilities, $user, $matchMode)` | Could they *ever*? (bool) |
+| `Warrant::couldEverHave($schema, $abilities, $user)` | Could they *ever*? (bool) |
 
 Full signatures are in the [Checking API reference](/reference/checking-api/).
 

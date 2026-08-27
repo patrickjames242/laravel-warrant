@@ -16,7 +16,7 @@ catalogue.
 | Stage | What's checked |
 |---|---|
 | **Parse time** | Rule syntax, binding consistency (`WarrantSyntaxException`) |
-| **Compile / validate time** | Ability / condition / context-key names exist on the schema |
+| **Compile / validate time** | Ability / condition names exist on the schema |
 | **Check time** | Requested ability exists; required context present; user available |
 | **Boot / reflection** | Schema registry uniqueness; condition method signatures |
 
@@ -60,7 +60,9 @@ Thrown when a rule set is validated/compiled against a schema:
 - `Ability [%s] is not declared by the schema.`
 - `Condition [%s] is not declared by the schema.`
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
-- `Context key [%s] is not declared by the schema.`
+
+Context keys need **no** declaration to be referenced in a rule (`@context <key>`)
+or read in a condition, so there is no "unknown context key" validation error.
 
 Attaching a denial message to a rule that has no `theyCannot` clause is also
 rejected here — only a `cannot` rule may carry one, whether it was set with
@@ -76,8 +78,8 @@ rejected here — only a `cannot` rule may carry one, whether it was set with
 The message above (*"is not declared by the schema"*) comes from validating a
 **rule set**. A *different* one — *"Ability [%s] is not defined on schema [%s]."* —
 is thrown at **check time** when the ability you *request* (e.g.
-`userHasAbilities('destroy')`) isn't declared. Same root cause, different call
-site.
+`Warrant::can('destroy', $document)`) isn't declared. Same root cause, different
+call site.
 :::
 
 ## Condition / reflection errors → `InvalidArgumentException`
@@ -109,16 +111,15 @@ See [Check-time context](/guides/context/#required-vs-optional). Note that an
 throw — it's passed to its condition as `null` (standard SQL logic then applies,
 which is fail-closed).
 
-## Registry errors → `WarrantManager`
+## Registry errors → `SchemaRegistry`
 
-- `InvalidArgumentException` — `Duplicate schema for schema key ...` / `Duplicate schema for model ...` (when the registry is first resolved from the container)
-- `OutOfBoundsException` — `No Warrant schema registered for model [%s].`
-- `OutOfBoundsException` — `No Warrant schema registered for schema key [%s].`
+- `InvalidArgumentException` — `Duplicate schema for schema key ...` / `Duplicate schema for model ...` (when the registry is first built from the container)
+- `OutOfBoundsException` — `No Warrant %s registered for reference [%s].` — where `%s` is the coordinate being resolved (`schema` or `model`) and the reference is the class name or key that failed to resolve (e.g. `No Warrant schema registered for reference [documents].`)
 
 ## Authorization failures → `WarrantAuthorizationException`
 
-Thrown by [`authorize()`](/reference/checking-api/#static-helpers) when a check is
-denied. It extends `Illuminate\Auth\Access\AuthorizationException`, so Laravel
+Thrown by [`authorize()` / `authorizeAny()`](/reference/checking-api/#the-warrant-facade)
+when a check is denied. It extends `Illuminate\Auth\Access\AuthorizationException`, so Laravel
 renders it as HTTP **403** automatically.
 
 ```php
@@ -157,13 +158,12 @@ the Middleware API errors table.
 
 ## "No authenticated user" → depends on the entry point
 
-The message `... requires an authenticated user or an explicit user instance.` is
-thrown by two different exception classes depending on where you hit it:
+When no user is passed and none is authenticated, the failure surfaces two ways:
 
-- `InvalidArgumentException` — from the static check helpers
-  (`userHasAbilities`, `getUserAbilities`, `authorize`, `getNoTargetAbilitiesBag`)
-  and the reachability helpers (`abilityReachability`, `userCouldEverHave`,
-  `userAlwaysHas`, `userNeverHas`, and the `getUser*Abilities` bags).
+- `InvalidArgumentException` — `Warrant requires an authenticated user or an
+  explicit user instance.` — from the engine entry points (`Warrant::guard()`,
+  `Warrant::forSchema()`, and every facade check / reachability helper that
+  resolves the current user).
 - `LogicException` — from the query scopes / instance helpers that need a user
   but weren't given one (`scopeUserHasAbility`, `scopeSelectUserAbilities`,
   `loadUserAbilities`).

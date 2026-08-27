@@ -48,7 +48,7 @@ Test against real data, the way your app queries it:
 - **Per-row abilities** — assert `->selectUserAbilities()->get()->first()->abilities`
   equals the expected list (remember it's in
   [declaration order](/guides/schemas/#abilities)).
-- **Boolean checks** — assert `Model::userHasAbilities(...)` is `true` / `false`
+- **Boolean checks** — assert `Warrant::can(...)` is `true` / `false`
   for specific targets and users.
 - **A `cannot` wins** — add a `cannot` rule and assert it subtracts the right rows.
 - **Context** — pass a `context:` array and assert the frame filters correctly;
@@ -62,7 +62,7 @@ compiling them against the schema in a test. `WarrantRuleSet::validate()` (and
 
 ```php
 WarrantRuleSet::fromSyntax($storedRuleString, 'documents')->validate();
-// throws if the string names an unknown ability, condition, or context key
+// throws if the string names an unknown ability or condition
 ```
 
 This turns "a typo in a stored rule silently grants/denies" into a failing test.

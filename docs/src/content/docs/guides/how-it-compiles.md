@@ -217,8 +217,8 @@ doesn't touch a row at all: the compiler evaluates it in PHP and drops in a bare
 
 ## Row conditions with no row
 
-In a no-target check (for example `getUserAbilities()` with no target),
-a row condition has no row to correlate against, so the compiler forces it to
+In a no-target check (for example `Warrant::abilities(Document::class)` with no
+target), a row condition has no row to correlate against, so the compiler forces it to
 `1 = 0` (false) — and, under negation, `1 = 1` (true). Global conditions still
 evaluate normally. (Separately, an absent optional
 [`@context`](/guides/context/) value is passed to the condition as `null`, and
@@ -315,7 +315,7 @@ delete. (The JSON aggregate differs by driver — see [below](#per-row-aggregati
   subqueries producing a JSON column
   ([`selectUserAbilities`](/guides/checking-access/#per-row-abilities)).
 - **"Can they?"** — the predicate runs as a scoped `EXISTS`
-  ([`userHasAbilities`](/guides/checking-access/#boolean-checks)).
+  ([`Warrant::can`](/guides/checking-access/#boolean-checks)).
 
 Because everything is one compiler, the yes/no check, the filtered list, and the
 per-row abilities can never disagree.
@@ -339,5 +339,5 @@ real cost saving on wide lists.
 
 Compilation validates every ability and condition name against the schema; an
 unknown name is a hard error, so a typo in a stored rule fails loudly rather than
-silently granting or denying. Context-key references are validated the same way.
+silently granting or denying.
 See [Errors & exceptions](/reference/errors/).

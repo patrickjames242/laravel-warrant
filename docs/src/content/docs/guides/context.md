@@ -12,24 +12,36 @@ resolver builds the rules — they're known only at the moment of the check: the
 current tenant, an academic year, an as-of date, an impersonated user. These are
 **context keys**.
 
-## Declaring context keys
+## Using context keys
 
-Declare each with `#[ContextKey]`, mirroring `#[Ability]` — the constant's
-*value* is the key string; its name is irrelevant to Warrant:
+A context key needs **no declaration to be used**. A rule may reference any key
+with `@context <key>`, and a condition may read `$c->context['<key>']` freely —
+neither requires the key to be declared anywhere on the schema.
+
+Declaration is *only* about making a key **required** — forcing it to be present
+at check time. There are two ways to do that.
+
+A **schema-wide** required key with `#[RequiredContext]` — no check on this
+resource resolves without the frame. The constant's *value* is the key string;
+its name is irrelevant to Warrant:
 
 ```php
-use Warrant\ContextKey;
+use Warrant\RequiredContext;
 
-// Required by default: no check on this resource resolves without the frame.
-#[ContextKey] public const WORKSPACE = 'workspace_id';
+#[RequiredContext] public const WORKSPACE = 'workspace_id';
+```
 
-// Opt out for a frame that only gates grants.
-#[ContextKey(required: false)] public const AS_OF = 'as_of_date';
+A **per-ability** required key with `#[Ability(requiredContext: [...])]` — the
+key is required only when *that* ability is checked:
+
+```php
+use Warrant\Ability;
+
+#[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
 ```
 
 ```php
-DocumentSchema::declaredContextKeys(); // ['workspace_id', 'as_of_date']
-DocumentSchema::requiredContextKeys(); // ['workspace_id']
+DocumentSchema::requiredContextKeys(); // ['workspace_id']  (the #[RequiredContext] values)
 ```
 
 ## Two ways a condition reads context
@@ -53,8 +65,9 @@ public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
 }
 ```
 
-An **undeclared** `@context` reference is a compile-time error, exactly like an
-unknown condition name. Unlike `:name` / `?` bindings, a `@context` reference is
+A `@context` reference needs no declaration — any key name is accepted, and a key
+that isn't in the effective context simply arrives as `null`. Unlike `:name` / `?`
+bindings, a `@context` reference is
 **not** subject to the parse-time "every binding used / no mixing" rules — it
 carries no value at parse time, may sit alongside literals and bindings, and never
 consumes a positional `?`:
@@ -100,12 +113,12 @@ way you want.
 
 ## Passing context to a check
 
-Every check API takes an optional `context:` array. It threads through the model
-helpers, the query scopes, and the no-target checks alike:
+Every check API takes a context array. It threads through the facade checks, the
+query scopes, and the no-target checks alike:
 
 ```php
-// Boolean check:
-Document::userHasAbilities('update', $document, context: ['workspace_id' => $id]);
+// Boolean check (context is the third argument):
+Warrant::can('update', $document, ['workspace_id' => $id]);
 
 // Row filtering:
 Document::query()->userHasAbility('update', context: ['workspace_id' => $id])->paginate();
@@ -135,8 +148,10 @@ throws.
 
 ## Required vs. optional
 
-**Keys are required by default.** Any check on the schema throws unless the key is
-present in the effective context (explicit + defaults):
+**Keys are optional by default** — a check runs fine with the key absent. Mark a
+key required (schema-wide with `#[RequiredContext]`, or per-ability with
+`#[Ability(requiredContext: [...])]`) and any check that needs it throws unless
+the key is present in the effective context (explicit + defaults):
 
 ```text
 Schema [...] requires context key(s) [workspace_id]; supply them at the check
@@ -147,7 +162,7 @@ That loud failure is a feature — a required frame is never silently skipped.
 
 ## Missing optional context
 
-`#[ContextKey(required: false)]` lets a frame be absent at check time. When an
+An unmarked key is optional and may be absent at check time. When an
 optional `@context` key is missing, Warrant passes it to the condition as `null`
 and standard SQL logic takes over — a comparison against `null` is `UNKNOWN`.
 

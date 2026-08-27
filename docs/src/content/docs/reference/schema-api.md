@@ -11,6 +11,12 @@ Reference for `Warrant\Schema\WarrantSchema` and the attributes and context
 objects that go with it. Conceptual coverage is in [Schemas](/guides/schemas/)
 and [Conditions](/guides/conditions/).
 
+A schema is **pure definition** — it declares vocabulary and configuration and
+holds no user. Every user-scoped operation (checks, ability listing, query
+filtering, denial diagnosis, reachability) lives on the engine; see the
+[Checking API](/reference/checking-api/). The only user-facing entry point on the
+schema itself is the static `guard()` shortcut.
+
 ## `WarrantSchema` (abstract)
 
 ### Constants
@@ -20,59 +26,34 @@ public const model = '';        // class-string of the managed Model; '' = no mo
 public const schemaKey = null;  // explicit key override; null = derive from model table
 ```
 
-### Static entry points
+### Static guard shortcut
 
 ```php
-public static function userHasAbilities(
-    string|array $abilities,
-    Model|string|null $target = null,
-    ?Authenticatable $user = null,
-    AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-    array $context = [],
-): bool;
-
-public static function getUserAbilities(
-    Model|string|null $target = null,
-    ?Authenticatable $user = null,
-    array $context = [],
-): array;
-
-public static function authorize(
-    string|array $abilities,
-    Model|string|null $target = null,
-    ?Authenticatable $user = null,
-    AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-    array $context = [],
-): void;
-
-public static function getNoTargetAbilitiesBag(?Authenticatable $user = null): array;
+public static function guard(?Authenticatable $user = null): WarrantGuardForSchema;
+// === Warrant::forSchema(static::class, $user)
 ```
 
-- `$user` defaults to `auth()->user()`; these entry points throw
-  `InvalidArgumentException` if no user is available.
-- `$target` may be a `Model` (its `getKey()` is used) or a scalar id. `null` uses
-  the no-target path.
-- `authorize()` mirrors `userHasAbilities()` but returns `void` and throws
-  [`WarrantAuthorizationException`](/reference/errors/#authorization-failures--warrantauthorizationexception)
-  (HTTP **403**) on denial. See [Denial messages](/guides/denial-messages/).
+Every concrete schema inherits it: `DocumentSchema::guard($user)->can('view', $document)`.
+See the [Checking API](/reference/checking-api/) for the returned guard's methods.
 
 ### Reflection
 
 ```php
-public static function schemaKey(): string;            // const or (new model)->getTable()
-public static function declaredAbilities(): array;     // declaration order (NOT sorted)
-public static function conditionKeys(): array;         // sorted
-public static function rowConditionKeys(): array;      // sorted
-public static function globalConditionKeys(): array;   // sorted
-public static function declaredContextKeys(): array;   // declaration order
-public static function requiredContextKeys(): array;
+public static function schemaKey(): string;         // const or (new model)->getTable()
+public static function abilityNames(): array;        // declaration order (NOT sorted)
+public static function abilityDefinitions(): array;  // AbilityDefinition[] { name, requiredContext }
+public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinition;
+public static function conditionKeys(): array;        // sorted
+public static function rowConditionKeys(): array;     // sorted
+public static function globalConditionKeys(): array;  // sorted
+public static function requiredContextKeys(): array;  // schema-wide required keys (#[RequiredContext])
 ```
 
 ### Overridable hooks
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
-protected function defaultContext(): array;  // default []; merged UNDER explicit context
+public function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
+protected function defaultContext(): array;              // default []; merged UNDER explicit context
 ```
 
 ### Denial-message hooks
@@ -83,8 +64,8 @@ returns `string|Throwable|null` (return `null` to fall through). See
 [Denial messages](/guides/denial-messages/).
 
 ```php
-protected function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null;   // a matching `cannot` denied, but carried no message
-protected function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null; // nothing granted the ability
+public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null;   // a matching `cannot` denied, but carried no message
+public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null; // nothing granted the ability
 ```
 
 Message-source precedence (first non-null wins): (1) the matching `cannot` rule's
@@ -94,28 +75,29 @@ Message-source precedence (first non-null wins): (1) the matching `cannot` rule'
 ### Reachability
 
 Structural analysis of the resolved rule set — evaluates no conditions, runs no
-SQL, takes no `context:`. See [Checking API](/reference/checking-api/#reachability)
-for full signatures and [Reachability](/guides/reachability/) for concepts.
-
-```php
-public static function abilityReachability(string $ability, ?Authenticatable $user = null): Reachability;
-public static function userCouldEverHave(string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-public static function userAlwaysHas(string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-public static function userNeverHas(string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-public static function getUserPossibleAbilities(?Authenticatable $user = null): array;
-public static function getUserGuaranteedAbilities(?Authenticatable $user = null): array;
-public static function getUserImpossibleAbilities(?Authenticatable $user = null): array;
-```
+SQL, takes no `context:`. It lives on the engine, not the schema: see
+[Checking API → Reachability](/reference/checking-api/#reachability) for the full
+surface (`Warrant::reachabilityOf`, `couldEverHave`, `alwaysHas`, `neverHas`,
+`possibleAbilities`, …) and [Reachability](/guides/reachability/) for concepts.
 
 ## Attributes
 
 ### `#[Ability]`
 
-Marks a class constant as an ability. No arguments. The constant's **value** is
-the ability name; its name is ignored (discovery is by attribute).
+Marks a class constant as an ability. The constant's **value** is the ability
+name; its name is ignored (discovery is by attribute).
 
 ```php
 #[Ability] public const VIEW = 'view';
+```
+
+An optional `requiredContext` names context keys that must be present whenever
+**this** ability is checked. A yes/no check (`can` / `authorize` / `@can`) throws
+if a key is missing; enumeration (`abilities` / `selectUserAbilities`) skips the
+ability instead.
+
+```php
+#[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
 ```
 
 ### `#[RowCondition]` / `#[GlobalCondition]`
@@ -140,15 +122,21 @@ A condition may only add **where clauses** to `$c->query` (including `whereExist
 subquery to reach another table. A `#[GlobalCondition]` may instead return a
 `bool`, evaluated in PHP.
 
-### `#[ContextKey]`
+### `#[RequiredContext]`
 
-Marks a class constant as a check-time context key. `required` defaults to `true`.
-The constant's **value** is the key string.
+Marks a class constant's **value** as a context key that is required on **every**
+check against the schema. Any check whose effective context (explicit or from
+`defaultContext()`) omits the key throws up front.
 
 ```php
-#[ContextKey] public const WORKSPACE = 'workspace_id';
-#[ContextKey(required: false)] public const AS_OF = 'as_of_date';
+#[RequiredContext] public const WORKSPACE = 'workspace_id';
 ```
+
+Context keys do **not** need declaring to be *used* — a rule may reference any
+`@context <key>` and a condition may read `$c->context['<key>']` freely. This
+attribute is only about making a key mandatory schema-wide; for a key mandatory
+only when a particular ability is checked, use `#[Ability(requiredContext: [...])]`.
+See [Context](/guides/context/).
 
 ## Condition context objects
 
@@ -190,9 +178,13 @@ AbilityMatchMode::ANY; // 'any' — any one ability is enough
 AbilityMatchMode::ALL; // 'all' — every listed ability required
 ```
 
+Used by the query scopes, the lower-level query/reachability methods, and the
+middleware. The facade/guard check helpers express the mode through the method name
+instead (`can` vs `canAny`).
+
 ### `Reachability`
 
-Pure enum (not backed) returned by the [reachability](#reachability) API.
+Pure enum (not backed) returned by the [reachability](/reference/checking-api/#reachability) API.
 
 ```php
 Reachability::NEVER;  // no rule shape can ever grant it
@@ -218,30 +210,37 @@ StandardAbilities::ARCHIVE; // 'archive'
 
 ## The `Warrant` facade / `WarrantManager`
 
-The `Warrant` facade exposes the schema registry:
+The facade's full check and reachability surface is documented in the
+[Checking API](/reference/checking-api/). For schema resolution it exposes the
+registry:
 
 ```php
-Warrant::getSchemaForModelClass(string $modelClass): string;
-Warrant::getSchemaForKey(string $schemaKey): string;
-Warrant::resolveSchemaKey(Model|WarrantSchema|string $schema): string;
-Warrant::getNoTargetAbilitiesBag(?Authenticatable $user = null, string ...$schemaClassesOrSchemaKeys): array;
-Warrant::registeredSchemas(): array;
+Warrant::registry(): SchemaRegistry;
 ```
 
-Of these, only `resolveSchemaKey()` accepts a model instance or model class;
-`getNoTargetAbilitiesBag()` and the reachability proxies below take a schema key
-or a schema class-string (a model class is **not** accepted and throws
-`OutOfBoundsException`).
-
-It also proxies the [reachability](#reachability) statics; the first argument is a
-schema key or a schema class-string:
+`SchemaRegistry` normalizes any accepted reference — a model class or instance, a
+schema key, a schema class or instance, or `null` — to a coordinate. Each
+coordinate has an `OrNull` resolver (returns `null` for a null/unregistered
+reference) and an `OrFail` resolver (throws `OutOfBoundsException` instead; a
+`$passThroughNull` flag lets a null reference pass back as null while a non-null
+still throws):
 
 ```php
-Warrant::abilityReachability(string $schemaClassOrKey, string $ability, ?Authenticatable $user = null): Reachability;
-Warrant::userCouldEverHave(string $schemaClassOrKey, string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-Warrant::userAlwaysHas(string $schemaClassOrKey, string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-Warrant::userNeverHas(string $schemaClassOrKey, string|array $abilities, ?Authenticatable $user = null, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): bool;
-// e.g. Warrant::userCouldEverHave('documents', 'update', $user)
+Warrant::registry()->resolveSchemaClassOrNull(Model|WarrantSchema|string|null $ref): ?string;
+Warrant::registry()->resolveSchemaClassOrFail(Model|WarrantSchema|string|null $ref, bool $passThroughNull = false): ?string;
+Warrant::registry()->resolveModelOrNull(...): ?string;
+Warrant::registry()->resolveModelOrFail(...): ?string;
+Warrant::registry()->resolveSchemaKeyOrNull(...): ?string;
+Warrant::registry()->resolveSchemaKeyOrFail(...): ?string;
+Warrant::registry()->registeredSchemas(): array;
 ```
 
-Unknown key/schema lookups throw `OutOfBoundsException`.
+A `WarrantSchema` (class or instance) resolves to itself / its own key; a bare
+string is treated as a literal schema key (and need not be registered to resolve as
+a key); only a model reference requires a registry lookup. The source of truth for
+the model↔schema link is the schema's `const model`, never a model's
+`HasWarrantSchema` trait.
+
+To list a user's no-target abilities for a schema, use
+`Warrant::abilities(Document::class, $context, $user)` — see the
+[Checking API](/reference/checking-api/).

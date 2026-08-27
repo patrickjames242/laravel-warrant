@@ -119,14 +119,12 @@ the currently authenticated user, but you can pass any user explicitly to check 
 their behalf:
 
 ```php
+use Warrant\Facades\Warrant;
+
 // A single boolean value representing whether or not the current user can
 // view this document
-$document->userHasAbility('view');
-$document->userHasAbility('view', $user);
-
-// The same check as a static call, passing the target explicitly
-Document::userHasAbilities('view', $document);
-Document::userHasAbilities('view', $document, $user);
+Warrant::can('view', $document);
+Warrant::can('view', $document, user: $user);
 
 // A scope that filters a list of documents by whether or not the user has the
 // ability to view them
@@ -139,12 +137,12 @@ Document::query()->selectUserAbilities()->get();
 Document::query()->selectUserAbilities($user)->get();
 
 // A no-target check: can the user create documents unconditionally? (no specific row)
-Document::userHasAbilities('create');
-Document::userHasAbilities('create', user: $user); // named arg skips the target
+Warrant::can('create', Document::class);
+Warrant::can('create', Document::class, user: $user);
 
 // Every no-target ability the user has unconditionally, e.g. ['create']
-Document::getUserAbilities();
-Document::getUserAbilities(user: $user);
+Warrant::abilities(Document::class);
+Warrant::abilities(Document::class, user: $user);
 
 // middleware to guard your routes (uses the request's authenticated user)
 WarrantMiddleware::guard('document', 'view', function () {
@@ -152,9 +150,30 @@ WarrantMiddleware::guard('document', 'view', function () {
 });
 ```
 
-Warrant also fully integrates with Laravel's Gate, so `$user->can('view', $document)`,
-`Gate::authorize`, `@can`, and the `can:` route middleware resolve these same
-abilities. See [Checking access](/guides/checking-access/#laravels-gate).
+For everyday yes/no checks, reach for Laravel's Gate — Warrant integrates with it,
+so the calls you already know just work:
+
+```php
+$user->can('view', $document);          // and $user->cannot(), canAny()
+Gate::authorize('view', $document);     // throws Warrant's denial message
+```
+
+`@can` and the `can:` route middleware go through the same hook. See
+[Checking access](/guides/checking-access/#laravels-gate).
+
+When you need to pass [context](/guides/context/), or you're checking the same
+schema over and over, a bound guard reads better. Add the `AuthorizesWithWarrant`
+trait to your `User` model for `$user->warrant()`, or call the schema's own
+`guard()` static:
+
+```php
+// user-bound guard (requires `use Warrant\AuthorizesWithWarrant;` on the User model)
+$user->warrant()->can('approve', $document, context: ['region' => 'us']);
+
+// schema-bound guard — the target is just the row
+DocumentSchema::guard($user)->can('view', $document);
+DocumentSchema::guard($user)->abilities($document); // ['view', 'update']
+```
 
 That's the whole loop. From here:
 

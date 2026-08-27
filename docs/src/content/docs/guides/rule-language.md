@@ -184,7 +184,9 @@ symbolic in the rule and is filled from a `context:` array at check time:
 if in_workspace(@context workspace_id) they can view, edit
 ```
 
-The key must be [declared on the schema](/guides/context/) with `#[ContextKey]`.
+A `@context` key needs [no declaration](/guides/context/) to be referenced — any
+key name is accepted and filled from the `context:` array (mark a key
+`#[RequiredContext]` only if it must be present on every check).
 Unlike `:name` / `?` bindings, a `@context` reference is **not** subject to the
 parse-time "every binding used / no mixing" rules — it carries no value at parse
 time, may sit alongside literals and bindings, and never consumes a positional

@@ -47,26 +47,32 @@ source of truth; reachability just tells you whether it's worth asking.
 
 ## Asking the question
 
+Reachability lives on the same [authorization
+engine](/guides/checking-access/#the-authorization-engine) as every other check.
+On the `Warrant` facade the first argument names the schema — a schema/model class
+or a schema key:
+
 ```php
 use Warrant\Reachability;
 
 // One ability, three-valued:
-Document::abilityReachability('update');            // Reachability::NEVER | MAYBE | ALWAYS
+Warrant::reachabilityOf(Document::class, 'update');   // Reachability::NEVER | MAYBE | ALWAYS
 
 // The boolean questions:
-Document::userCouldEverHave('update');              // reachability !== NEVER
-Document::userAlwaysHas('view');                    // reachability === ALWAYS
-Document::userNeverHas('delete');                   // reachability === NEVER
+Warrant::couldEverHave(Document::class, 'update');    // reachability !== NEVER
+Warrant::alwaysHas(Document::class, 'view');          // reachability === ALWAYS
+Warrant::neverHas(Document::class, 'delete');         // reachability === NEVER
 
 // Whole-schema lists (over every declared ability):
-Document::getUserPossibleAbilities();               // ['view', 'update', 'approve']
-Document::getUserGuaranteedAbilities();             // ['view']
-Document::getUserImpossibleAbilities();             // ['delete']
+Warrant::possibleAbilities(Document::class);          // ['view', 'update', 'approve']
+Warrant::guaranteedAbilities(Document::class);        // ['view']
+Warrant::impossibleAbilities(Document::class);        // ['delete']
 ```
 
-Every method takes an optional `$user` (defaults to `auth()->user()`), and the
-boolean forms take an [`AbilityMatchMode`](/guides/checking-access/#match-modes) —
-`ALL` (default) needs every listed ability to qualify, `ANY` needs one.
+Every method takes an optional `$user` (defaults to `auth()->user()`). To ask
+about several abilities at once, the boolean forms have `*Any` variants —
+`couldEverHave`/`alwaysHas`/`neverHas` require **every** listed ability to qualify,
+while `couldEverHaveAny`/`alwaysHasAny`/`neverHasAny` require **any** one.
 
 :::note[No `context:`, but a user is still required]
 There is **no** `context:` argument: [`@context`](/guides/context/) only ever feeds
@@ -74,11 +80,12 @@ condition evaluation, which reachability never does. The user *is* still needed,
 because the resolver may hand a different rule set to each user, role, or tenant.
 :::
 
-The same helpers live on the schema and the `Warrant` facade too:
+The same helpers are also reachable through the two bound guards, where the schema
+is already fixed — drop the first argument:
 
 ```php
-DocumentSchema::userCouldEverHave('update', $user);
-Warrant::userCouldEverHave('documents', 'update', $user);   // by schema key or class
+DocumentSchema::guard($user)->couldEverHave('update');     // schema-bound guard
+$user->warrant()->couldEverHave(Document::class, 'update'); // user-bound guard
 ```
 
 ## Rendering UI without a query per link
@@ -89,7 +96,7 @@ touch a row:
 ```php
 use Warrant\Reachability;
 
-match (Document::abilityReachability('update')) {
+match (Warrant::reachabilityOf(Document::class, 'update')) {
     Reachability::NEVER  => /* omit the Edit link entirely */,
     Reachability::ALWAYS => /* show it, enabled */,
     Reachability::MAYBE  => /* show it; the per-row check decides per document */,

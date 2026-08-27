@@ -207,10 +207,11 @@ Think an active tenant, an academic year, or an as-of date that the caller choos
 per check. Those come in as **context keys**: named values you pass to the check,
 which a rule (or a condition) can then use.
 
-First declare the key on the schema, alongside your abilities:
+Context keys need no declaration to be *used* — but you can mark one **required**
+on the schema, so a check throws if the value is missing:
 
 ```php
-#[ContextKey] public const WORKSPACE = 'workspace_id';
+#[RequiredContext] public const WORKSPACE = 'workspace_id';
 ```
 
 Then supply it when you check — the value lives on the request, not in the rule:
@@ -234,16 +235,17 @@ missing value behaves; see [Check-time context](/guides/context/).
 ## Checking access
 
 Once your model uses the `HasWarrantSchema` trait, you ask about the current user's
-access through one API:
+access through the `Warrant` facade (or the `$user->warrant()` /
+`DocumentSchema::guard($user)` guards):
 
 ```php
 // A single boolean value representing whether or not the current user can
 // view this document
-$document->userHasAbility('view');
+Warrant::can('view', $document);
 
 // The throwing sibling — aborts with a 403 (and the rule's denial message)
 // if the user can't view it
-Document::authorize('view', $document);
+Warrant::authorize('view', $document);
 
 // A scope that filters a list of documents to just the ones the user may view
 Document::query()
@@ -284,7 +286,7 @@ structural question used to hide UI that's impossible for a user, without a quer
 per link:
 
 ```php
-Document::abilityReachability('update'); // Reachability::NEVER | MAYBE | ALWAYS
+Warrant::reachabilityOf(Document::class, 'update'); // Reachability::NEVER | MAYBE | ALWAYS
 ```
 
 See [Reachability](/guides/reachability/).

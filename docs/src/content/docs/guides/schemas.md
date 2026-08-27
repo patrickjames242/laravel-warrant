@@ -59,11 +59,11 @@ use Warrant\Ability;
 ```
 
 ```php
-DocumentSchema::declaredAbilities(); // ['view', 'approve', ...]
+DocumentSchema::abilityNames(); // ['view', 'approve', ...]
 ```
 
 :::note[Declaration order is preserved]
-`declaredAbilities()` returns abilities in **declaration order**, not sorted. This
+`abilityNames()` returns abilities in **declaration order**, not sorted. This
 order is also the order they appear in the per-row `abilities` JSON column from
 [`selectUserAbilities`](/guides/checking-access/#per-row-abilities). Condition keys, by
 contrast, come back sorted.
@@ -94,8 +94,11 @@ Conditions are the predicates a rule may test. Each is a public method marked
 
 ## Context keys
 
-For values known only at check time (the current tenant, an as-of date), a schema
-declares `#[ContextKey]` constants. See [Check-time context](/guides/context/).
+For values known only at check time (the current tenant, an as-of date), a rule
+references `@context <key>` and conditions read `$c->context` — no declaration
+needed. To *require* a key, mark it `#[RequiredContext]` (schema-wide) or
+`#[Ability(requiredContext: [...])]` (per ability). See
+[Check-time context](/guides/context/).
 
 ## Schemas with no model
 
@@ -127,7 +130,7 @@ Targeted checks against a model-less schema throw; use
 
 | Hook | Purpose |
 |---|---|
-| `protected function implicitRules(): array\|WarrantRuleSet` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
+| `public function implicitRules(): array\|WarrantRuleSet` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
 | `protected function defaultContext(): array` | Default check-time context, merged *under* explicit values. See [Check-time context](/guides/context/). |
 
 ## Registering the schema
