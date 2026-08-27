@@ -2,7 +2,9 @@
 
 namespace Warrant\Schema;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\Facades\Warrant;
 use Warrant\RuleSyntaxTree\ConditionResolver;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
@@ -10,6 +12,7 @@ use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
 use Warrant\WarrantDenialContext;
+use Warrant\WarrantGuardForSchema;
 use Warrant\WarrantUngrantedContext;
 
 /**
@@ -59,6 +62,16 @@ abstract class WarrantSchema implements ConditionResolver
     public function __construct()
     {
         $this->abilityLookup = array_fill_keys(static::abilityNames(), true);
+    }
+
+    /**
+     * The schema-bound engine for this schema and a user (defaults to the current
+     * user). Sugar for `Warrant::forSchema(static::class, $user)`, e.g.
+     * `PostSchema::guard($user)->can('publish', $post)`.
+     */
+    public static function guard(?Authenticatable $user = null): WarrantGuardForSchema
+    {
+        return Warrant::forSchema(static::class, $user);
     }
 
     /**
