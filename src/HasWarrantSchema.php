@@ -12,7 +12,7 @@ use Warrant\Schema\WarrantSchema;
  * Attaches a model to its {@see WarrantSchema} and exposes the query-time
  * conveniences that belong on the model: two access-control scopes and an
  * attribute loader. Every user-scoped check now lives on the Warrant guard —
- * reach it with `Warrant::guard($user)->forSchema($model)` (or via the facade's
+ * reach it with `Warrant::forSchema($model, $user)` (or via the facade's
  * check helpers) — so it is deliberately absent here.
  */
 trait HasWarrantSchema
@@ -35,7 +35,7 @@ trait HasWarrantSchema
         array $context = []
     ): EloquentBuilder
     {
-        Warrant::guard($user)->forSchema($this->validatedWarrantSchema())->filterQuery(
+        Warrant::forSchema($this->validatedWarrantSchema(), $user)->filterQuery(
             query: $query->getQuery(),
             targetSqlId: $this->getQualifiedKeyName(),
             abilities: $abilities,
@@ -58,7 +58,7 @@ trait HasWarrantSchema
         array $context = []
     ): EloquentBuilder
     {
-        Warrant::guard($user)->forSchema($this->validatedWarrantSchema())->selectAbilitiesInQuery(
+        Warrant::forSchema($this->validatedWarrantSchema(), $user)->selectAbilitiesInQuery(
             query: $query->getQuery(),
             targetSqlId: $this->getQualifiedKeyName(),
             selectedAbilitiesKey: $selectedAbilitiesKey,
@@ -80,7 +80,7 @@ trait HasWarrantSchema
         array $context = []
     ): array
     {
-        $abilities = Warrant::guard($user)->forSchema($this->validatedWarrantSchema())->abilities($this, $context);
+        $abilities = Warrant::forSchema($this->validatedWarrantSchema(), $user)->abilities($this, $context);
 
         $this->setAttribute($selectedAbilitiesKey, $abilities);
 

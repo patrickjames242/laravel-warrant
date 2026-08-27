@@ -361,7 +361,7 @@ class WarrantMiddleware
 
         // Throws on denial — a message-bearing `cannot` rule surfaces its message
         // (or custom exception); otherwise a generic 403.
-        $guard = Warrant::guard($user)->forSchema($schemaClass);
+        $guard = Warrant::forSchema($schemaClass, $user);
 
         if ($abilityMatchMode === AbilityMatchMode::ANY) {
             $guard->authorizeAny($abilities, $resolvedTarget);

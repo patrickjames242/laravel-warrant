@@ -7,7 +7,8 @@ use Warrant\WarrantManager;
 
 /**
  * @method static \Warrant\SchemaRegistry registry()
- * @method static \Warrant\WarrantGuard|\Warrant\WarrantGuardForSchema guard(\Illuminate\Contracts\Auth\Authenticatable|\Illuminate\Database\Eloquent\Model|\Warrant\Schema\WarrantSchema|string|null $schemaOrUser = null)
+ * @method static \Warrant\WarrantGuard guard(\Illuminate\Contracts\Auth\Authenticatable|null $user = null)
+ * @method static \Warrant\WarrantGuardForSchema forSchema(\Illuminate\Database\Eloquent\Model|\Warrant\Schema\WarrantSchema|string $schema, \Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static bool can(string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, array $context = [], \Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static bool canAny(string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, array $context = [], \Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static bool cannot(string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, array $context = [], \Illuminate\Contracts\Auth\Authenticatable|null $user = null)

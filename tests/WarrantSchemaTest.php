@@ -423,19 +423,19 @@ it('forSchema resolves a schema key, model class, schema class, and instance', f
     }
 });
 
-it('guard() accepts a schema/model/key and returns a schema-bound guard for the current user', function () {
+it('forSchema on the manager resolves a schema/model/key for a user (defaulting to current)', function () {
     useWarrantSchemas([WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
-    $this->actingAs(makeWarrantTestUser('teacher-role'));
+    $user = makeWarrantTestUser('teacher-role');
 
-    expect(Warrant::guard('course_sections'))->toBeInstanceOf(\Warrant\WarrantGuardForSchema::class);
-    expect(Warrant::guard('course_sections')->can('view', 'teacher:teacher-role'))->toBeTrue();
-    expect(Warrant::guard(WarrantTestModel::class)->can('view', 'other-section'))->toBeFalse();
-    expect(Warrant::guard(WarrantTestSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    // explicit user, schema-first / user-second
+    expect(Warrant::forSchema('course_sections', $user))->toBeInstanceOf(\Warrant\WarrantGuardForSchema::class);
+    expect(Warrant::forSchema('course_sections', $user)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::forSchema(WarrantTestModel::class, $user)->can('view', 'other-section'))->toBeFalse();
 
-    // an Authenticatable (or nothing) still returns the schema-less guard
-    expect(Warrant::guard())->toBeInstanceOf(\Warrant\WarrantGuard::class);
-    expect(Warrant::guard(makeWarrantTestUser('teacher-role')))->toBeInstanceOf(\Warrant\WarrantGuard::class);
+    // defaults to the current user
+    $this->actingAs($user);
+    expect(Warrant::forSchema(WarrantTestSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
 });

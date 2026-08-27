@@ -34,23 +34,21 @@ class WarrantManager
     }
 
     /**
-     * The authorization engine for the current user (or an explicit one).
-     *
-     * As a shortcut, pass a schema instead — a {@see WarrantSchema} instance or
-     * class-string, a `Model` instance or class-string, or a schema key — to get
-     * the schema-bound engine for the current user directly, equivalent to
-     * `guard()->forSchema($schema)`. An `Authenticatable` (or null) selects the
-     * user and returns the schema-less {@see WarrantGuard}.
-     *
-     * @return ($schemaOrUser is Authenticatable ? WarrantGuard : ($schemaOrUser is null ? WarrantGuard : WarrantGuardForSchema))
+     * The authorization engine for a user (defaults to the current user).
      */
-    public function guard(Authenticatable|Model|WarrantSchema|string|null $schemaOrUser = null): WarrantGuard|WarrantGuardForSchema
+    public function guard(?Authenticatable $user = null): WarrantGuard
     {
-        if ($schemaOrUser === null || $schemaOrUser instanceof Authenticatable) {
-            return new WarrantGuard($this->resolveUser($schemaOrUser), $this);
-        }
+        return new WarrantGuard($this->resolveUser($user), $this);
+    }
 
-        return $this->guard()->forSchema($schemaOrUser);
+    /**
+     * The schema-bound engine for a schema and a user (defaults to the current user).
+     * The schema may be named any way the registry understands: a {@see WarrantSchema}
+     * instance or class-string, a `Model` instance or class-string, or a schema key.
+     */
+    public function forSchema(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): WarrantGuardForSchema
+    {
+        return $this->guard($user)->forSchema($schema);
     }
 
     /**

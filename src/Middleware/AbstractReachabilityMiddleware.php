@@ -63,7 +63,7 @@ abstract class AbstractReachabilityMiddleware
             );
         }
 
-        $satisfied = Warrant::guard($user)->forSchema($schemaClass)->reachabilitySatisfies(
+        $satisfied = Warrant::forSchema($schemaClass, $user)->reachabilitySatisfies(
             $abilities,
             fn (Reachability $reachability): bool => $this->passes($reachability),
             $this->matchMode(),
