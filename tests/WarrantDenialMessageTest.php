@@ -481,12 +481,12 @@ it('surfaces a because message written directly in the DSL', function () {
 
 it('surfaces per-clause because messages for distinct abilities in one if', function () {
     seedDenialSections();
-    bindDenialRules(WarrantParser::parse(<<<'DSL'
+    bindDenialRules(WarrantParser::parse(<<<'WARRANT'
         they can update, archive
         if is_teacher
         they cannot update because 'Cannot update a teacher row.'
         they cannot archive because 'Cannot archive a teacher row.'
-        DSL));
+        WARRANT));
     $user = makeWarrantTestUser('teacher-role');
 
     expect(fn () => Warrant::guard($user)->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))

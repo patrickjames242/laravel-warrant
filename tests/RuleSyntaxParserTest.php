@@ -35,11 +35,11 @@ it('resolves bindings through Parser::parse', function () {
 // -- Basics -------------------------------------------------------------------
 
 it('parses a single rule with can and cannot clauses', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_self
         they can edit, view, delete
         they cannot approve, deny
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->schemaKey)->toBe('timesheets');
     expect($set->rules)->toHaveCount(1);
@@ -52,13 +52,13 @@ it('parses a single rule with can and cannot clauses', function () {
 });
 
 it('parses multiple rules in one string', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_self
         they can edit
 
         if has_access_control_level
         they can view
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->rules)->toHaveCount(2);
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
@@ -66,10 +66,10 @@ it('parses multiple rules in one string', function () {
 });
 
 it('parses an unconditional rule (no if) with null conditions', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         they can view
         they cannot delete
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->rules)->toHaveCount(1);
     expect($set->rules[0]->conditions)->toBeNull();
@@ -182,10 +182,10 @@ it('allows escaping either quote regardless of the delimiter', function () {
 // -- Bindings -----------------------------------------------------------------
 
 it('resolves named bindings inline, reused and order-independent', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_specific_user(:user_id, :user_id, :list)
         they cannot edit
-        DSL, 'timesheets', [
+        WARRANT, 'timesheets', [
         'list' => [1, null, false, 'x'],
         'user_id' => 'some-user-id',
     ]);
@@ -430,13 +430,13 @@ it('errors when @sql is not followed by a quoted string', function (string $synt
 // -- Wildcards ----------------------------------------------------------------
 
 it('parses wildcard abilities on can and cannot', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_admin
         they can *
 
         if is_suspended
         they cannot *
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->rules[0]->canAbilities)->toBe(['*']);
     expect($set->rules[1]->cannotAbilities())->toBe(['*']);
@@ -503,10 +503,10 @@ it('rejects non-rule elements inside a fromRules array', function () {
 // -- Denial messages (because) ------------------------------------------------
 
 it('parses a string denial message after a cannot clause', function () {
-    $rule = WarrantRule::fromSyntax(<<<'DSL'
+    $rule = WarrantRule::fromSyntax(<<<'WARRANT'
         if is_locked
         they cannot edit because 'This row is locked.'
-        DSL);
+        WARRANT);
 
     expect($rule->cannotAbilities())->toBe(['edit']);
     expect($rule->messageFor('edit'))->toBe('This row is locked.');
@@ -544,10 +544,10 @@ it('accepts a closure resolved from a binding as the message', function () {
 });
 
 it('keeps a can clause and a message-bearing cannot in one rule', function () {
-    $rule = WarrantRule::fromSyntax(<<<'DSL'
+    $rule = WarrantRule::fromSyntax(<<<'WARRANT'
         they can view
         they cannot edit because 'locked'
-        DSL);
+        WARRANT);
 
     expect($rule->canAbilities)->toBe(['view']);
     expect($rule->cannotAbilities())->toBe(['edit']);
@@ -644,11 +644,11 @@ it('reports the position of a syntax error', function () {
 // -- Comments -----------------------------------------------------------------
 
 it('ignores a full-line comment', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         # only the owner may touch their own timesheet
         if is_self
         they can edit
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->rules)->toHaveCount(1);
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
@@ -656,11 +656,11 @@ it('ignores a full-line comment', function () {
 });
 
 it('ignores a trailing comment on a line', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_self   # the author
         they can edit   # but see the cannot below
         they cannot approve
-        DSL, 'timesheets');
+        WARRANT, 'timesheets');
 
     expect($set->rules[0]->conditions->conditionKey)->toBe('is_self');
     expect($set->rules[0]->canAbilities)->toBe(['edit']);

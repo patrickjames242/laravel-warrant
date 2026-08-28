@@ -58,13 +58,13 @@ it('takes a rule set schema from a braceless `for` header', function () {
 });
 
 it('takes a rule set schema from a braced `for` block', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'DSL'
+    $set = WarrantRuleSet::fromSyntax(<<<WARRANT
         for timesheets {
             they can view
 
             if is_self they can edit
         }
-        DSL);
+        WARRANT);
 
     expect($set->schemaKey)->toBe('timesheets');
     expect($set->rules)->toHaveCount(2);
@@ -127,7 +127,7 @@ it('refuses to merge rule sets for different schemas', function () {
 // -- RuleSetGroup::fromSyntax -------------------------------------------------
 
 it('parses a group of multiple for-blocks', function () {
-    $group = RuleSetGroup::fromSyntax(<<<'DSL'
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for some_schema {
             they can view
 
@@ -137,7 +137,7 @@ it('parses a group of multiple for-blocks', function () {
         for some_other_schema {
             they can view
         }
-        DSL);
+        WARRANT);
 
     expect($group)->toHaveCount(2);
     expect($group->schemaKeys())->toBe(['some_schema', 'some_other_schema']);
@@ -147,11 +147,11 @@ it('parses a group of multiple for-blocks', function () {
 });
 
 it('merges same-schema blocks in a group, preserving order', function () {
-    $group = RuleSetGroup::fromSyntax(<<<'DSL'
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for timesheets { they can view }
         for documents { they can view }
         for timesheets { if is_self they can edit }
-        DSL);
+        WARRANT);
 
     expect($group)->toHaveCount(2);                       // one set per distinct schema
     expect($group->schemaKeys())->toBe(['timesheets', 'documents']);
@@ -180,10 +180,10 @@ it('parses an empty group', function () {
 });
 
 it('resolves bindings across a group', function () {
-    $group = RuleSetGroup::fromSyntax(<<<'DSL'
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if owns(:id) they can edit }
-        DSL, ['id' => 'x-1']);
+        WARRANT, ['id' => 'x-1']);
 
     expect($group->forSchema('a')->rules[0]->conditions->parameters)->toBe(['x-1']);
     expect($group->forSchema('b')->rules[0]->conditions->parameters)->toBe(['x-1']);
@@ -217,7 +217,7 @@ it('builds a group from rule sets, merging same-schema ones', function () {
 
 it('reads a group from a .warrant file', function () {
     $path = tempnam(sys_get_temp_dir(), 'warrant') . '.warrant';
-    file_put_contents($path, <<<'DSL'
+    file_put_contents($path, <<<'WARRANT'
         for timesheets {
             if is_self they can view, edit
         }
@@ -225,7 +225,7 @@ it('reads a group from a .warrant file', function () {
         for documents {
             they can view
         }
-        DSL);
+        WARRANT);
 
     try {
         $group = RuleSetGroup::fromFile($path);
@@ -245,7 +245,7 @@ it('throws when the .warrant file is missing', function () {
 // -- Round-trip ---------------------------------------------------------------
 
 it('round-trips a group through toSyntax', function () {
-    $group = RuleSetGroup::fromSyntax(<<<'DSL'
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for timesheets {
             they can view
 
@@ -256,7 +256,7 @@ it('round-trips a group through toSyntax', function () {
         for documents {
             they can view
         }
-        DSL);
+        WARRANT);
 
     $reparsed = RuleSetGroup::fromSyntax($group->toSyntax());
 
@@ -289,10 +289,10 @@ it('round-trips a single rule with its schema header', function () {
 });
 
 it('round-trips a group losslessly through bound syntax', function () {
-    $group = RuleSetGroup::fromSyntax(<<<'DSL'
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if in(:list) they can edit }
-        DSL, ['id' => 'x-1', 'list' => [1, 2, 3]]);
+        WARRANT, ['id' => 'x-1', 'list' => [1, 2, 3]]);
 
     $bound = $group->toBoundSyntax();
     $reparsed = RuleSetGroup::fromSyntax($bound->syntax, $bound->bindings);
