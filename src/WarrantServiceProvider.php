@@ -57,10 +57,45 @@ final class WarrantServiceProvider extends ServiceProvider
             }
         });
 
+        $this->flushGuardsBetweenRequests();
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/warrant.php' => $this->app->configPath('warrant.php'),
             ], 'warrant-config');
+        }
+    }
+
+    /**
+     * Drop Warrant's memoized guards at every long-lived-process boundary.
+     *
+     * The manager memoizes a guard per user, and each guard memoizes the rule set
+     * it resolved. Under PHP-FPM that memo dies with the request; under Octane or
+     * a queue worker the container is reused, so without this a worker would keep
+     * answering from rules resolved for an earlier request — long after a role
+     * change should have taken effect.
+     *
+     * The Octane events are named by class constant even though Warrant does not
+     * depend on Octane: `::class` on a fully-qualified name is resolved at compile
+     * time and never autoloads, so naming an absent class is safe — it yields the
+     * string the dispatcher matches on, and no listener ever fires. The manager is
+     * flushed only if something actually resolved it.
+     */
+    private function flushGuardsBetweenRequests(): void
+    {
+        $events = [
+            \Laravel\Octane\Events\RequestTerminated::class,
+            \Laravel\Octane\Events\TaskTerminated::class,
+            \Illuminate\Queue\Events\JobProcessed::class,
+            \Illuminate\Queue\Events\JobFailed::class,
+        ];
+
+        foreach ($events as $event) {
+            $this->app['events']->listen($event, function (): void {
+                if ($this->app->resolved(WarrantManager::class)) {
+                    $this->app->make(WarrantManager::class)->flush();
+                }
+            });
         }
     }
 }
