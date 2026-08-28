@@ -53,6 +53,7 @@ live on the engine, not the model/schema.
 - `Warrant::canAny(...)` — ANY (ALL is `can`; there is **no** `matchMode` argument)
 - `Warrant::cannot(...)`, `Warrant::authorize(...): void`, `Warrant::authorizeAny(...): void` — throwing; 403 on denial ([denial messages](/guides/denial-messages/))
 - `Warrant::abilities($target, $context = [], $user = null): array`
+- `Warrant::flush($user = null): void` — drop memoized rule sets for one user, or (with no argument) all of them ([resolution lifetime](/guides/resolvers/#resolution-lifetime))
 - target forms: `$model` (row), `[Model::class|Schema::class, $id]` (row by key), `Model::class` / `Schema::class` / `'schema_key'` (no-target)
 - User-bound guard: `Warrant::guard($user)` or `$user->warrant()` (`use Warrant\AuthorizesWithWarrant`) → `WarrantGuard` (`->can/canAny/cannot/authorize/authorizeAny/abilities`, `->forSchema(...)`)
 - Schema-bound guard: `Warrant::forSchema($schemaOrModel, $user)` or `Schema::guard($user)` → `WarrantGuardForSchema` (same methods; target is just the row or `null`)

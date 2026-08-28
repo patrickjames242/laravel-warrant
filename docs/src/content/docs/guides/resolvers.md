@@ -175,3 +175,60 @@ return [
     ],
 ];
 ```
+
+## Resolution lifetime
+
+Your resolver is **not** called once per check. Warrant memoizes a guard per user
+for the life of the request, and each guard memoizes the rule set it resolved, so
+`resolve()` runs at most once per (user, schema) — no matter how many checks
+follow:
+
+```php
+Warrant::can('view', $documentA);      // resolve() runs
+Warrant::can('update', $documentB);    // memoized — no resolver call
+Warrant::abilities($documentC);        // memoized
+```
+
+The rule set is also **validated** once, not once per check. This matters most on
+list endpoints and Blade loops, where a `@can` inside a `@foreach` would otherwise
+hit your rule store once per row.
+
+### When the memo is dropped
+
+Automatically, wherever a process moves on to unrelated work:
+
+| Runtime | Dropped when |
+| --- | --- |
+| PHP-FPM | The process ends — the memo never outlives one request. |
+| Octane | `RequestTerminated`, `TaskTerminated` |
+| Queue workers | `JobProcessed`, `JobFailed` |
+
+Without this, a long-lived worker would keep answering from rules resolved for an
+earlier request, long after a role change should have taken effect.
+
+### Flushing manually
+
+The memo is keyed by user identity, not by rule content, so it cannot notice that
+you changed someone's permissions mid-request. Flush after a write that must take
+effect immediately:
+
+```php
+$user->roles()->attach($editorRole);
+
+Warrant::flush($user);   // just this user
+Warrant::flush();        // every user
+```
+
+`Warrant::flush($user)` matches on the auth identifier, so any instance of that
+user works — you don't need the object you ran the original check with.
+
+:::caution[A bare `flush()` means *everyone*]
+Unlike the check methods, `flush()`'s `$user` argument does **not** fall back to
+the authenticated user. That's deliberate: the usual reason to flush is a rule
+change affecting many users, and silently narrowing `flush()` to the current user
+would leave every other memo stale.
+:::
+
+If your resolver reads from a store that changes rarely, this in-request
+memoization may be all the caching you need. Anything longer-lived — surviving
+across requests — belongs in your resolver, where you control invalidation.

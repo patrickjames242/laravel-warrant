@@ -39,6 +39,13 @@ expect($visible)
     ->not->toContain($othersDocument->id);
 ```
 
+:::note[Rebinding a resolver mid-test]
+Warrant memoizes each user's rule set for the life of the request — and a test
+*is* one long-lived request. If you swap the resolver, or change a user's roles,
+after a check has already run, call `Warrant::flush()` so the next check picks up
+the new rules. See [Resolution lifetime](/guides/resolvers/#resolution-lifetime).
+:::
+
 ## What to assert
 
 Test against real data, the way your app queries it:

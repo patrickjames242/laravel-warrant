@@ -71,6 +71,8 @@ Warrant::cannot(string|array $abilities, Model|string|array $target, array $cont
 Warrant::authorize(string|array $abilities, Model|string|array $target, array $context = [], ?Authenticatable $user = null): void;      // throws 403 (ALL)
 Warrant::authorizeAny(string|array $abilities, Model|string|array $target, array $context = [], ?Authenticatable $user = null): void;   // throws 403 (ANY)
 Warrant::abilities(Model|string|array $target, array $context = [], ?Authenticatable $user = null): array;
+
+Warrant::flush(?Authenticatable $user = null): void;   // drop memoized rules — one user, or all
 ```
 
 - **There is no `matchMode:` argument.** ALL is `can`; ANY is `canAny`. Likewise
@@ -81,6 +83,9 @@ Warrant::abilities(Model|string|array $target, array $context = [], ?Authenticat
   (rendered as HTTP **403**) on denial, carrying a diagnosed denial context (see
   [Denial messages](/guides/denial-messages/)).
 - `context:` is a separate argument, merged over the schema's `defaultContext()`.
+- `flush()` drops the per-request memo so the next check re-runs your resolver.
+  Its `$user` does **not** default to the current user — omitting it flushes
+  *everyone*. See [Resolution lifetime](/guides/resolvers/#resolution-lifetime).
 
 ### Target forms
 
