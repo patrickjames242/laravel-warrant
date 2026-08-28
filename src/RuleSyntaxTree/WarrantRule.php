@@ -40,7 +40,14 @@ readonly class WarrantRule
         public array $cannotClauses,
         Model|WarrantSchema|string|null $schema = null,
     ) {
-        $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema, passThroughNull: true);
+        /* A null schema resolves to a null key without consulting the registry, so
+           short-circuit rather than reaching through the facade for it. The parser
+           always constructs rules schema-less (a `for` header is applied afterwards
+           via withSchemaKey()), and this keeps parsing usable outside a booted
+           application — e.g. from editor tooling. */
+        $this->schemaKey = $schema === null
+            ? null
+            : Warrant::registry()->resolveSchemaKeyOrFail($schema, passThroughNull: true);
     }
 
     /**
