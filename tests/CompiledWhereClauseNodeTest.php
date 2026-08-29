@@ -103,16 +103,22 @@ it('flips a negated bool operand', function () {
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd(true, negated: true)))->toBeFalse();
 });
 
-it('treats a leaf that added no where clause as true', function () {
-    nodeExpect(
+it('rejects a leaf that added no where clause', function () {
+    // Such a leaf contributes nothing to the SQL, so keeping it would silently
+    // mean "match everything". Saying that on purpose takes a literal true.
+    expect(fn () => nodeSql(
         (new CompiledWhereClauseNode)->addAnd(nodeEmptyLeaf())->addAnd(nodeLeaf('a = 1')),
-        'select * from "course_sections" where (a = 1)',
-    );
+    ))->toThrow(InvalidArgumentException::class, 'holds no where clause');
+
+    expect(fn () => nodeSql(
+        (new CompiledWhereClauseNode)->addAnd(nodeEmptyLeaf(), negated: true),
+    ))->toThrow(InvalidArgumentException::class, 'holds no where clause');
 });
 
-it('treats a negated empty leaf as false', function () {
+it('does not reach a leaf inside an and-group already decided by a false', function () {
+    // The false short-circuits the group, so the empty leaf is never resolved.
     expect(nodeSql(
-        (new CompiledWhereClauseNode)->addAnd(nodeEmptyLeaf(), negated: true)->addAnd(nodeLeaf('a = 1')),
+        (new CompiledWhereClauseNode)->addAnd(false)->addAnd(nodeEmptyLeaf()),
     ))->toBeFalse();
 });
 

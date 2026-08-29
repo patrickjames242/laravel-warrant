@@ -25,8 +25,10 @@ use InvalidArgumentException;
  *   - a `false` inside an `and` (or a `true` inside an `or`) decides the whole
  *     group, and a `true` inside an `and` (or a `false` inside an `or`) changes
  *     nothing and is dropped;
- *   - a leaf builder that added no where clause matched everything, so it *is*
- *     `true` (`false` when negated) and simplifies away with the rest;
+ *   - a leaf builder holding no where clause is rejected: it would contribute
+ *     nothing to the SQL and so silently mean "match everything", which is
+ *     almost never what an empty leaf was meant to say. Add `true` as a literal
+ *     operand to mean that on purpose;
  *   - a group left holding one operand is that operand — no wrapper, no parens;
  *   - an unnegated child sharing its parent's connector is merged into it, since
  *     `a and (b and c)` is `a and b and c`;
@@ -165,9 +167,8 @@ final class CompiledWhereClauseNode
      *     [a, false]       ->  false
      *     [true, true]     ->  true         nothing left to and together
      *     [a]              ->  a            returned bare, no group built
-     *     [<empty>, a]     ->  a            a builder with no where clause is true
-     *     [!<empty>, a]    ->  false        and negated, it is false
      *     [!or[x, y]]      ->  and[!x, !y]  the negation is pushed inwards
+     *     [<empty>, a]     ->  throws       a leaf must hold a where clause
      *
      * @param  list<CompiledWhereClauseOperand>  $andGroup
      */
@@ -180,12 +181,19 @@ final class CompiledWhereClauseNode
 
             // Resolve the operand, pushing its negation inwards: a `bool` flips,
             // a child node is negated as a whole, and a leaf builder keeps the
-            // flag (it emits as `not (...)`). A builder holding no where clause
-            // matched every row, so it *is* true.
+            // flag (it emits as `not (...)`).
             if (is_bool($value)) {
                 $simplified = $operand->negated ? ! $value : $value;
             } elseif ($value instanceof Builder) {
-                $simplified = $value->wheres === [] ? ! $operand->negated : $operand;
+                if ($value->wheres === []) {
+                    throw new InvalidArgumentException(
+                        'A leaf query holds no where clause, so it contributes nothing to the SQL '
+                            .'and cannot be spliced as a boolean; add a where clause to it, or add '
+                            .'a literal true/false operand to decide the outcome outright.',
+                    );
+                }
+
+                $simplified = $operand;
             } else {
                 $inner = $value->simplify();
 

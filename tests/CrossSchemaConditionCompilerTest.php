@@ -31,14 +31,17 @@ use Warrant\Schema\WarrantSchema;
 | set (the check leaves call B's condition methods directly), builds the query, and
 | compares the normalized, bindings-substituted SQL against a hand-written shape.
 |
-| How a check(...) reference is shaped (from RuleSetCompiler::applyCrossSchemaCheck):
+| How a check(...) reference is shaped (from RuleSetCompiler::crossSchemaCheckLeaf):
 |   - a ROW-BOUND reference `check(<pred> for <schema>(<row>))` compiles the
 |     predicate against B's table and embeds it as
 |     `exists (select * from <B> where <B>.id = <row> and (<predicate>))`;
 |     under a `cannot`/`not` it embeds as `not exists (...)`.
 |   - an UNBOUND reference `check(<pred> for <schema>)` compiles the predicate with
-|     no target and splices it inline; a global condition returning a bool collapses
-|     to `1 = 1` / `1 = 0`, one returning SQL splices its where-group verbatim.
+|     no target and splices its tree inline, so a predicate that decides outright
+|     folds into A's rather than stopping at a literal. A global condition
+|     returning a bool therefore only shows up as `1 = 1` / `1 = 0` when it
+|     decides the *whole* predicate; one returning SQL splices its where-group
+|     verbatim.
 |   - B sees only the explicit `with` map as its context — never A's ambient bag.
 |
 | Fixture conditions (defined at the foot of this file), with the acting user's
@@ -124,18 +127,17 @@ it('embeds a row-bound predicate as an exists over the referenced table', functi
 });
 
 it('embeds a row-bound predicate under a cannot as not exists', function () {
+    // The unconditional grant's always-true term folds away, leaving the deny.
     assertChkFilterSql(
         'they can view if check(is_owner for chk_targets(@context tid)) they cannot view',
         ['tid' => 'f-owned'],
         <<<SQL
             select * from "chk_docs" where (
-                (1 = 1)
-                and
-                (not exists (
+                not exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
                         and (chk_targets.owner = 'role-1')
-                ))
+                )
             )
         SQL,
     );
@@ -152,9 +154,9 @@ it('compiles a complex boolean predicate of conditions inside the exists', funct
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
                         and (
-                            (chk_targets.owner = 'role-1')
+                            chk_targets.owner = 'role-1'
                             or (
-                                (chk_targets.owner = 'role-9')
+                                chk_targets.owner = 'role-9'
                                 and not (chk_targets.owner = 'role-1')
                             )
                         )
@@ -198,14 +200,13 @@ it('splices an unbound predicate of a SQL-emitting global condition inline', fun
 });
 
 it('splices an unbound boolean predicate of several global conditions inline', function () {
-    // is_super (false → 1 = 0) OR tenant_ok (SQL), spliced as one boolean group.
+    // is_super returns false and tenant_ok returns SQL; the false side of the OR
+    // is dropped rather than emitted as a `1 = 0` operand.
     assertChkFilterSql(
         'if check(is_super or tenant_ok for chk_capability) they can view',
         [],
         <<<SQL
-            select * from "chk_docs" where (
-                1 = 0 or ('tenant' = 'role-1')
-            )
+            select * from "chk_docs" where ('tenant' = 'role-1')
         SQL,
     );
 });

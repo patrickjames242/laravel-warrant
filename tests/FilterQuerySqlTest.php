@@ -21,14 +21,22 @@ use Warrant\AbilityMatchMode;
 |
 | How the SQL is shaped (from RuleSetCompiler + BuildsAccessQueries):
 |   - filterQuery wraps everything in one outer `where (...)`; inside it, one
-|     nested predicate per ability, joined by `and` (ALL) or `or` (ANY).
+|     predicate per ability, joined by `and` (ALL) or `or` (ANY).
 |   - per ability: `( OR of each granting rule's condition )` then, ANDed, one
-|     `(not <cannot condition>)` group per conditional `cannot` rule.
-|   - an unconditional `can` contributes `1 = 1`; an unconditional `cannot`, or
-|     an ability with no `can` rule at all, collapses the predicate to `1 = 0`.
-|   - every condition leaf is applied inline as a nested where-group; a negated
-|     leaf lands as `not (...)` (no EXISTS wrapping). Reaching another table is
-|     the condition author's own `whereExists`, which splices in as-is.
+|     `not <cannot condition>` per conditional `cannot` rule.
+|   - the compiler builds a CompiledWhereClauseNode before emitting, so the
+|     always-true term an unconditional `can` contributes is folded away rather
+|     than written out: `1 = 1` survives only when the whole predicate is true,
+|     and `1 = 0` only when it is false (an unconditional `cannot`, or an
+|     ability with no `can` rule at all). An ANY gate with one always-true
+|     ability is therefore just `1 = 1`.
+|   - that same node drops the parentheses a group does not need: a condition
+|     that emitted a single where clause is spliced in bare, and a group holding
+|     one operand is not wrapped. Duplicate leaves are *not* deduplicated, so an
+|     ALL gate over two abilities granted by one rule emits that rule twice.
+|   - every condition leaf is applied inline; a negated leaf lands as
+|     `not (...)` (no EXISTS wrapping). Reaching another table is the condition
+|     author's own `whereExists`, which splices in as-is.
 |   - the target id is injected raw by the fixture conditions (isTeacher writes
 |     `course_sections.id = ?`), while the base table is grammar-quoted.
 |
@@ -108,9 +116,9 @@ it('ORs two inlined condition leaves for an or-expression', function () {
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
-            ('advisor' = 'teacher-role')
+            'advisor' = 'teacher-role'
             or
-            (course_sections.id = 'teacher:teacher-role')
+            course_sections.id = 'teacher:teacher-role'
         )
     SQL);
 });
@@ -154,14 +162,11 @@ it('ANDs an inline negated leaf for a conditional cannot', function () {
 
     // The cannot compiles to `AND NOT(condition)` inline — no NOT EXISTS wrapper.
     // A NULL target column therefore follows SQL's three-valued logic and the row
-    // is excluded (fail-closed), rather than being kept as NOT EXISTS would.
+    // is excluded (fail-closed), rather than being kept as NOT EXISTS would. The
+    // unconditional grant's always-true term folds away, leaving only the deny.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
-        where (
-            (1 = 1)
-            and
-            (not (course_sections.id = 'teacher:teacher-role'))
-        )
+        where (not (course_sections.id = 'teacher:teacher-role'))
     SQL);
 });
 
@@ -179,12 +184,14 @@ it('emits 1 = 0 for an unconditional cannot regardless of grants', function () {
 it('ANDs every ability predicate under ALL match mode', function () {
     bindWarrantRules('if is_teacher they can view, update');
 
+    // Both abilities come from the one rule, so the same leaf is emitted twice —
+    // there is no dedup pass.
     assertWarrantFilterSql(['view', 'update'], <<<SQL
         select * from "course_sections"
         where (
-            (course_sections.id = 'teacher:teacher-role')
+            course_sections.id = 'teacher:teacher-role'
             and
-            (course_sections.id = 'teacher:teacher-role')
+            course_sections.id = 'teacher:teacher-role'
         )
     SQL, AbilityMatchMode::ALL);
 });
@@ -192,13 +199,11 @@ it('ANDs every ability predicate under ALL match mode', function () {
 it('ORs every ability predicate under ANY match mode', function () {
     bindWarrantRules('they can view if is_teacher they can update');
 
+    // `view` is granted unconditionally, so under ANY the whole gate is true and
+    // the `update` predicate is folded away rather than ORed against a `1 = 1`.
     assertWarrantFilterSql(['view', 'update'], <<<SQL
         select * from "course_sections"
-        where (
-            (1 = 1)
-            or
-            (course_sections.id = 'teacher:teacher-role')
-        )
+        where (1 = 1)
     SQL, AbilityMatchMode::ANY);
 });
 

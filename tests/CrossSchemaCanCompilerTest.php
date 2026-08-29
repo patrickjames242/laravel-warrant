@@ -34,15 +34,17 @@ use Warrant\Schema\WarrantSchema;
 | — are irrelevant; only tokens, literals, operators, and genuine parenthesised
 | structure must match.
 |
-| How a can(...) reference is shaped (from RuleSetCompiler::applyCrossSchemaCan):
+| How a can(...) reference is shaped (from RuleSetCompiler::crossSchemaCanLeaf):
 |   - a ROW-BOUND reference `can(<ab> for <schema>(<row>))` compiles schema B's
 |     ability predicate against B's table and embeds it as
 |     `exists (select * from <B> where <B>.id = <row> and (<B's predicate>))`;
 |     under a `cannot` it embeds as `not exists (...)`.
 |   - an UNBOUND reference `can(<ab> for <schema>)` compiles B with no target
-|     (row conditions forced false) and splices B's boolean predicate inline;
-|     a global condition returning a bool collapses to `1 = 1` / `1 = 0`, one
-|     returning SQL splices its where-group verbatim.
+|     (row conditions forced false) and splices B's boolean tree inline, so a B
+|     that decides outright folds into A's predicate rather than stopping at a
+|     literal. A global condition returning a bool therefore only shows up as
+|     `1 = 1` / `1 = 0` when it decides the *whole* predicate; one returning SQL
+|     splices its where-group verbatim.
 |   - B sees only the explicit `with` map as its context — never A's ambient bag.
 |
 | Fixture conditions (defined at the foot of this file), with the acting user's
@@ -142,8 +144,9 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
 });
 
 it('embeds a row-bound reference under a cannot as not exists', function () {
-    // `they can view` contributes the always-true grant; the conditional cannot
-    // that references B's `manage` ability compiles to `and not exists (...)`.
+    // `they can view` contributes an always-true grant, which the compiler folds
+    // away; the conditional cannot that references B's `manage` ability is all
+    // that is left, compiling to `not exists (...)`.
     assertXcFilterSql(
         'they can view if can(manage for xc_folders(@context folder_id)) they cannot view',
         ['xc_folders' => 'if is_owner they can view, manage'],
@@ -151,13 +154,11 @@ it('embeds a row-bound reference under a cannot as not exists', function () {
         ['folder_id' => 'f-owned'],
         <<<SQL
             select * from "xc_docs" where (
-                (1 = 1)
-                and
-                (not exists (
+                not exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
                         and (xc_folders.owner = 'role-1')
-                ))
+                )
             )
         SQL,
     );

@@ -9,11 +9,15 @@ use Illuminate\Contracts\Auth\Authenticatable;
  *
  * It bundles the check-time invariants that never change during a single compile
  * (the user, the target SQL id, the effective check-time context bag) together
- * with the position-dependent state that a recursive step derives for its
- * children: the boolean connector a predicate attaches under, and whether the
- * current subtree is negated (flipped by De Morgan at each `not`).
+ * with the one piece of position-dependent state a recursive step derives for
+ * its children: whether the current subtree is negated, flipped at each `not` so
+ * that negation lands on the leaves.
  *
- * Immutable: the `with*` helpers return a modified copy, so a step can derive a
+ * The connector a predicate attaches under is not here — the walk builds a
+ * {@see \Warrant\Compiler\CompiledWhereClauseNode} whose operands each carry
+ * their own connector, so position no longer has to be threaded through.
+ *
+ * Immutable: {@see negated} returns a modified copy, so a step can derive a
  * child context without disturbing its own.
  */
 final readonly class CompilationContext
@@ -29,25 +33,9 @@ final readonly class CompilationContext
         public Authenticatable $user,
         public ?string $targetSqlId,
         public array $checkContext,
-        public string $boolean = 'and',
         public bool $negate = false,
         public array $visited = [],
     ) {
-    }
-
-    /**
-     * Derive a copy that attaches its predicate under a different connector.
-     */
-    public function withBoolean(string $boolean): self
-    {
-        return new self(
-            user: $this->user,
-            targetSqlId: $this->targetSqlId,
-            checkContext: $this->checkContext,
-            boolean: $boolean,
-            negate: $this->negate,
-            visited: $this->visited,
-        );
     }
 
     /**
@@ -59,7 +47,6 @@ final readonly class CompilationContext
             user: $this->user,
             targetSqlId: $this->targetSqlId,
             checkContext: $this->checkContext,
-            boolean: $this->boolean,
             negate: ! $this->negate,
             visited: $this->visited,
         );

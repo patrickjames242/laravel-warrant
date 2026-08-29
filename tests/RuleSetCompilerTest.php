@@ -38,7 +38,7 @@ final class CompilerTestUser implements Authenticatable
  */
 final class FakeConditionResolver implements ConditionResolver
 {
-    private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true];
+    private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true, 'adds_nothing' => true];
 
     public static function schemaKey(): string
     {
@@ -75,10 +75,14 @@ final class FakeConditionResolver implements ConditionResolver
             // Matches a row whose id equals the (context- or literal-supplied) argument.
             'id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
             // Like id_is, but a null argument means "match every row" — proves the
-            // condition (not the compiler) decides what an absent @context key means.
+            // condition (not the compiler) decides what an absent @context key
+            // means. It has to say so with a literal true: returning the query
+            // untouched is an error (see adds_nothing).
             'id_is_optional' => $parameters[0] === null
-                ? $whereClause
+                ? true
                 : $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
+            // Returns its query without adding anything — always an error.
+            'adds_nothing' => $whereClause,
             // Reads the ambient context bag directly (no @context arg in the rule).
             'ctx_id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$context['doc_id'] ?? '__missing__']),
             'is_admin' => $user->role === 'admin',
@@ -284,6 +288,13 @@ it('passes an absent context key to the condition as null, letting it decide', f
     // A supplied value still narrows to the matching row.
     expect(compileDocIds('if id_is_optional(@context doc_id) they can view', 'view', 'role-1', [], ['doc_id' => 'doc-9']))
         ->toBe(['doc-9']);
+});
+
+it('rejects a condition that adds no where clause', function () {
+    // Emitting nothing would silently mean "match every row"; a condition that
+    // really decides the outcome has to return a bool instead.
+    expect(fn () => compileDocIds('if adds_nothing they can view', 'view'))
+        ->toThrow(InvalidArgumentException::class, 'added no where clause');
 });
 
 it('accepts a rule referencing any context key without declaration', function () {
