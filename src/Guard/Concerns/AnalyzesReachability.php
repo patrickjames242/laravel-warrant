@@ -3,8 +3,8 @@
 namespace Warrant\Guard\Concerns;
 
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Compiling\ReachabilityAnalyzer;
 use Warrant\Reachability;
-use Warrant\RuleSyntaxTree\ReachabilityAnalyzer;
 
 /**
  * Structural "could they ever?" analysis for the guard's user — answered from the

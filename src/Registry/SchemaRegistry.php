@@ -184,7 +184,7 @@ final class SchemaRegistry
      *
      * A bare string is already a schema key and is returned unchanged, without
      * consulting the index. That is deliberate: rule syntax must parse and write
-     * without a registry — see {@see \Warrant\RuleSyntaxTree\WarrantRule::__construct()}
+     * without a registry — see {@see \Warrant\Rules\WarrantRule::__construct()}
      * — so a key stays an opaque token until something actually needs the schema
      * behind it, at which point {@see resolveSchemaClassOrFail} rejects it.
      * Only a model reference needs resolving here, and an unregistered model

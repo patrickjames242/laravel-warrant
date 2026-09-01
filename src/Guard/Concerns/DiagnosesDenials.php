@@ -7,11 +7,11 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 use Warrant\AbilityMatchMode;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\WarrantAuthorizationException;
+use Warrant\Rules\WarrantRule;
 use Warrant\Schema\WarrantDenialContext;
-use Warrant\WarrantGate;
 use Warrant\Schema\WarrantUngrantedContext;
+use Warrant\WarrantAuthorizationException;
+use Warrant\WarrantGate;
 
 /**
  * Diagnosing *why* a denied check failed and turning that into the exception to

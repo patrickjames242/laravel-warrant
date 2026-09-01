@@ -1,13 +1,11 @@
 <?php
 
-use Warrant\RuleSyntaxTree\BoundSyntax;
-use Warrant\RuleSyntaxTree\ConditionNode;
-use Warrant\RuleSyntaxTree\ColumnRef;
-use Warrant\RuleSyntaxTree\ContextRef;
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
-use Warrant\RuleSyntaxTree\SqlRef;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
+use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\Writing\BoundSyntax;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
 
 // -- formatting ---------------------------------------------------------------
 

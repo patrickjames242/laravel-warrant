@@ -77,12 +77,12 @@ if scoped_to('projects', @context project_id, :region) they can view
 ```
 
 When you build rules with the [fluent builder](/guides/rule-builder/) instead of
-the string DSL, pass a `Warrant\RuleSyntaxTree\ContextRef` in the condition's
+the string DSL, pass a `Warrant\DSL\Parsing\ASTNodes\ContextRef` in the condition's
 parameters wherever the DSL would write `@context <key>`. It stays symbolic in the
 compiled rule and is filled per check, exactly like the `@context` form:
 
 ```php
-use Warrant\RuleSyntaxTree\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 
 WarrantRule::build()
     ->if('scoped_to', ['projects', new ContextRef('project_id'), $region])

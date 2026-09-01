@@ -5,12 +5,12 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\HasWarrantSchema;
+use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
-use Warrant\Schema\GlobalCondition;
-use Warrant\Schema\RowCondition;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
 /**

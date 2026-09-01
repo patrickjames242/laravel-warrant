@@ -16,9 +16,9 @@ Implement one method. Given a context, return the `WarrantRuleSet` that governs
 this user's access to that resource:
 
 ```php
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
@@ -76,7 +76,7 @@ list *or* a single array (it flattens a mix of both), accepts builders directly,
 and takes no bindings (the rules are already resolved):
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Rules\WarrantRule;
 
 $own      = WarrantRule::fromSyntax('if is_self they can view, update');
 $noDelete = WarrantRule::fromSyntax('they cannot delete');
@@ -101,7 +101,7 @@ WarrantRuleSet::build('documents', function ($rule) {
 If you want the parsed rules without a rule set:
 
 ```php
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantParser;
 
 $rules = WarrantParser::parse('if is_self they can view', $bindings = []); // WarrantRule[]
 $one   = WarrantParser::parseSingleRule('they cannot delete');            // WarrantRule
@@ -116,7 +116,7 @@ parser does, and nothing is serialized to a string, so arbitrary PHP values in
 condition parameters survive untouched:
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Rules\WarrantRule;
 
 $rule = WarrantRule::build()
     ->if('is_self')
@@ -138,7 +138,7 @@ exactly like resolver rules — and, like every rule, they're still
 evaluated against the *current* user via their conditions:
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Rules\WarrantRule;
 
 class DocumentSchema extends WarrantSchema
 {

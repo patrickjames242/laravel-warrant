@@ -17,7 +17,7 @@ identical validation and compilation. Nothing is serialized to a string, so
 arbitrary PHP values in condition parameters survive untouched.
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Rules\WarrantRule;
 
 $rule = WarrantRule::build()
     ->if('is_self')
@@ -120,7 +120,7 @@ factory: **each `$rule()` call starts a fresh rule** — with every connective a
 each one for you.
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\WarrantRuleSet;
 
 $set = WarrantRuleSet::build('documents', function ($rule) {
     $rule()->if('is_self')->theyCan('view', 'update');

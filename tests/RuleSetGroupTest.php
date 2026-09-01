@@ -1,9 +1,9 @@
 <?php
 
-use Warrant\RuleSyntaxTree\RuleSetGroup;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\RuleSyntaxTree\WarrantSyntaxException;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\Rules\RuleSetGroup;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
 
 // -- WarrantRule::fromSyntax schema source ------------------------------------
 

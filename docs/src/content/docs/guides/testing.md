@@ -18,9 +18,9 @@ Bind an anonymous `RuleResolver` for the test so you control exactly which rules
 apply, independent of your production rule store:
 
 ```php
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRuleSet;
 
 app()->instance(RuleResolver::class, new class implements RuleResolver {
     public function resolve(RuleResolutionContext $context): WarrantRuleSet

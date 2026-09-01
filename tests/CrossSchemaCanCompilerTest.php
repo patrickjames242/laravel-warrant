@@ -1,24 +1,22 @@
 <?php
 
-
-use Warrant\Facades\Warrant;
-require_once __DIR__.'/Support/TestSupport.php';
-
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Schema\Ability;
 use Warrant\AbilityMatchMode;
-use Warrant\Schema\GlobalCondition;
+use Warrant\DSL\Compiling\CrossSchemaCycleException;
+use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Schema\RowCondition;
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
-use Warrant\RuleSyntaxTree\CrossSchemaCycleException;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRuleSet;
+use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+require_once __DIR__.'/Support/TestSupport.php';
 
 /*
 |------------------------------------------------------------------------------

@@ -1,15 +1,12 @@
 <?php
 
-
+use Illuminate\Support\Facades\DB;
 use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
-
-use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 });
-
 
 /*
 |------------------------------------------------------------------------------

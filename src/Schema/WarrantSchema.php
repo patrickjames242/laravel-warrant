@@ -4,21 +4,21 @@ namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\DSL\ConditionResolver;
 use Warrant\Facades\Warrant;
-use Warrant\RuleSyntaxTree\ConditionResolver;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Guard\WarrantGuardForSchema;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
-use Warrant\Guard\WarrantGuardForSchema;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
  * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
- * rules live — those come from the {@see \Warrant\RuleResolver} as a
- * {@see \Warrant\RuleSyntaxTree\WarrantRuleSet}, compiled against this schema.
+ * rules live — those come from the {@see \Warrant\Rules\RuleResolver} as a
+ * {@see \Warrant\Rules\WarrantRuleSet}, compiled against this schema.
  *
  * The schema is pure definition: it holds no user and performs no authorization.
  * Every user-scoped operation — checks, query filtering, ability listing, denial
@@ -116,7 +116,7 @@ abstract class WarrantSchema implements ConditionResolver
 
     /**
      * The schema-level fallback message for a *forbidden* denial — a matching
-     * `cannot` rule blocked the check but carried no {@see \Warrant\RuleSyntaxTree\WarrantRule::$message}
+     * `cannot` rule blocked the check but carried no {@see \Warrant\Rules\WarrantRule::$message}
      * of its own. Consulted after a rule's own message and before the generic 403,
      * so it catches every message-less `cannot`.
      *

@@ -2,9 +2,7 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Warrant\AuthorizesWithWarrant;
-use Warrant\Schema\WarrantSchema;
 use Warrant\Guard\WarrantGuard;
 use Warrant\Guard\WarrantGuardForSchema;
 

@@ -4,8 +4,8 @@ namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\Rules\WarrantRule;
 use Warrant\WarrantGate;
-use Warrant\RuleSyntaxTree\WarrantRule;
 
 /**
  * The context handed to a rule's denial-message closure when that `cannot` rule

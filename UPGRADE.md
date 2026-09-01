@@ -132,6 +132,47 @@ the reachability middleware in `Warrant\Middleware\*`. The `Warrant` facade,
 `Warrant::guard()`, `Warrant::forSchema()`, and the `warrant:` route-middleware
 aliases are all unchanged, so this only affects code that names the classes.
 
+### 7. Update namespaces for the rule DSL, if you import it explicitly
+
+The rule language now lives under `Warrant\DSL`, split by phase. The classes a
+consumer actually names are the rule structures and the parser:
+
+| Before | After |
+|---|---|
+| `Warrant\RuleSyntaxTree\WarrantRuleSet` | `Warrant\Rules\WarrantRuleSet` |
+| `Warrant\RuleSyntaxTree\WarrantRule` | `Warrant\Rules\WarrantRule` |
+| `Warrant\RuleSyntaxTree\RuleSetGroup` | `Warrant\Rules\RuleSetGroup` |
+| `Warrant\RuleSyntaxTree\CannotClause` | `Warrant\Rules\CannotClause` |
+| `Warrant\RuleSyntaxTree\Parsing\WarrantParser` | `Warrant\DSL\Parsing\WarrantParser` |
+| `Warrant\RuleSyntaxTree\WarrantSyntaxException` | `Warrant\DSL\Parsing\WarrantSyntaxException` |
+| `Warrant\RuleSyntaxTree\ContextRef` / `ColumnRef` / `SqlRef` | `Warrant\DSL\Parsing\ASTNodes\…` |
+| `Warrant\RuleSyntaxTree\WarrantRuleBuilder` | `Warrant\Builders\WarrantRuleBuilder` |
+| `Warrant\RuleResolver` | `Warrant\Rules\RuleResolver` |
+| `Warrant\RuleResolutionContext` | `Warrant\Rules\RuleResolutionContext` |
+| `Warrant\RuleSyntaxTree\ConditionResolver` | `Warrant\DSL\ConditionResolver` |
+| `Warrant\RuleSyntaxTree\SchemaVocabulary` | `Warrant\DSL\SchemaVocabulary` |
+| `Warrant\RuleSyntaxTree\RuleSetCompiler` | `Warrant\DSL\Compiling\RuleSetCompiler` |
+| `Warrant\Compiler\CompiledWhereClauseNode` | `Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode` |
+
+`Warrant\DSL` is organised by phase: `DSL/Lexing` (source text to tokens),
+`DSL/Parsing` (tokens to an AST, with `ASTNodes/`, `Writing/`, `Validation/`), and
+`DSL/Compiling` (AST to SQL, with `WhereClause/`). The two contracts a schema
+satisfies — `SchemaVocabulary` for validation and `ConditionResolver` for
+compilation — sit at the `DSL` root, since each is needed by a different phase.
+
+The rule model itself is *not* under `DSL`, because it is not specific to the
+string syntax: `Warrant\Rules` holds the resolved rule structures plus rule
+resolution (`RuleResolver` and `RuleResolutionContext`), and `Warrant\Builders`
+holds the fluent builders. The DSL depends on `Warrant\Rules` — parsing produces
+those structures and compiling consumes them — not the other way round.
+
+`RuleResolver` is the one every application implements, so this is the row most
+likely to affect you — update the `implements` clause and the import; the interface
+itself is unchanged.
+
+**The rule syntax itself is unchanged.** This is a namespace move only; no rule
+string, resolver return value, or `.warrant` file needs editing.
+
 ### What you get in return
 
 Registering a schema is now a string-to-string entry. A schema class and its model

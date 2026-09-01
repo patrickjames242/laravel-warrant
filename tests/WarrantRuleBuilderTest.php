@@ -4,16 +4,16 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warrant\RuleSyntaxTree\AndNode;
-use Warrant\RuleSyntaxTree\BooleanNode;
-use Warrant\RuleSyntaxTree\ConditionNode;
-use Warrant\RuleSyntaxTree\ConditionResolver;
-use Warrant\RuleSyntaxTree\NotNode;
-use Warrant\RuleSyntaxTree\OrNode;
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
-use Warrant\RuleSyntaxTree\RuleSetCompiler;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Compiling\RuleSetCompiler;
+use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 
@@ -147,8 +147,8 @@ it('hands a group closure a bare condition builder with no clause methods', func
         ->theyCan('view')
         ->toRule();
 
-    expect($received)->toBeInstanceOf(\Warrant\RuleSyntaxTree\WarrantConditionBuilder::class);
-    expect($received)->not->toBeInstanceOf(\Warrant\RuleSyntaxTree\WarrantRuleBuilder::class);
+    expect($received)->toBeInstanceOf(\Warrant\Builders\WarrantConditionBuilder::class);
+    expect($received)->not->toBeInstanceOf(\Warrant\Builders\WarrantRuleBuilder::class);
     expect(method_exists($received, 'theyCan'))->toBeFalse();
 });
 

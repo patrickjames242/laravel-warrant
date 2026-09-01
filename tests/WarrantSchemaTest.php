@@ -1,21 +1,17 @@
 <?php
 
-
-use Warrant\Facades\Warrant;
-require_once __DIR__.'/Support/TestSupport.php';
-
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
-use Warrant\RuleSyntaxTree\RuleSetValidator;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\Facades\Warrant;
+use Warrant\Rules\WarrantRuleSet;
 use Warrant\WarrantAuthorizationException;
+require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 });
-
 
 function createCourseSectionsTable(): void
 {
@@ -44,8 +40,6 @@ function filteredSectionIds(string|array $abilities, AbilityMatchMode $matchMode
         ->pluck('id')
         ->all();
 }
-
-
 
 // -- filterQuery (behavioral) -------------------------------------------------
 

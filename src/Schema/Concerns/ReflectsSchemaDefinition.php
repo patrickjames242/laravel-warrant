@@ -2,22 +2,21 @@
 
 namespace Warrant\Schema\Concerns;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
-use Warrant\Schema\Ability;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\GlobalCondition;
-use Warrant\Schema\RequiredContext;
-use Warrant\Schema\RowCondition;
+use Warrant\Schema\Ability;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\RequiredContext;
+use Warrant\Schema\RowCondition;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`

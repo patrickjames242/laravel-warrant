@@ -332,7 +332,7 @@ SQL_REF     = "@sql" ( STRING | NAMED_BINDING | POSITIONAL ) ;
 
 ## Syntax errors
 
-Malformed syntax throws `Warrant\RuleSyntaxTree\WarrantSyntaxException` eagerly,
+Malformed syntax throws `Warrant\DSL\Parsing\WarrantSyntaxException` eagerly,
 with the line, column, and a caret pointing at the offending token — debuggable
 even when the whole rule set is one line:
 

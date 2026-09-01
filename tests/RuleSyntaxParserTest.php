@@ -1,19 +1,18 @@
 <?php
 
-use Warrant\RuleSyntaxTree\AndNode;
-use Warrant\RuleSyntaxTree\ColumnRef;
-use Warrant\RuleSyntaxTree\ConditionNode;
-use Warrant\RuleSyntaxTree\ContextRef;
-use Warrant\RuleSyntaxTree\CrossSchemaCanNode;
-use Warrant\RuleSyntaxTree\CrossSchemaConditionNode;
-use Warrant\RuleSyntaxTree\NotNode;
-use Warrant\RuleSyntaxTree\OrNode;
-use Warrant\RuleSyntaxTree\SqlRef;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\RuleSyntaxTree\WarrantSyntaxException;
-
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
 
 // -- Parser::parse (rules, not a rule set) ------------------------------------
 

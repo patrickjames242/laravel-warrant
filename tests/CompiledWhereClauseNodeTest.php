@@ -3,7 +3,7 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Query\Builder;
-use Warrant\Compiler\CompiledWhereClauseNode;
+use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 
 /*
 |------------------------------------------------------------------------------

@@ -58,7 +58,7 @@ return [
 
 :::caution
 There is no built-in resolver. Until you set `rule_resolver` to a class that
-implements `Warrant\RuleResolver`, checks cannot run. Writing that class is the
+implements `Warrant\Rules\RuleResolver`, checks cannot run. Writing that class is the
 [Quick start](/getting-started/quick-start/).
 :::
 

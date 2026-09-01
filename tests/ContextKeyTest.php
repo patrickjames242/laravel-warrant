@@ -1,26 +1,23 @@
 <?php
 
-
-use Warrant\Facades\Warrant;
-require_once __DIR__.'/Support/TestSupport.php';
-
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Schema\Ability;
 use Warrant\AbilityMatchMode;
+use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Schema\RequiredContext;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\WarrantRuleSet;
+use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
+use Warrant\Schema\WarrantSchema;
+require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
     useWarrantSchemas(['context_docs' => ContextDocSchema::class]);
 });
-
 
 class ContextDoc extends Model
 {

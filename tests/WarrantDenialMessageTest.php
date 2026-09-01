@@ -1,27 +1,25 @@
 <?php
 
-
-use Warrant\HasWarrantSchema;
-use Warrant\Facades\Warrant;
-require_once __DIR__.'/Support/TestSupport.php';
-
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Schema\Ability;
 use Warrant\AbilityMatchMode;
-use Warrant\Schema\GlobalCondition;
-use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\Facades\Warrant;
+use Warrant\HasWarrantSchema;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
+use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\WarrantSchema;
-use Warrant\WarrantAuthorizationException;
+use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\WarrantSchema;
 use Warrant\Schema\WarrantUngrantedContext;
+use Warrant\WarrantAuthorizationException;
+require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
     useWarrantSchemas([
@@ -36,7 +34,6 @@ beforeEach(function () {
         'denial_both' => DenialBothSchema::class,
     ]);
 });
-
 
 // -- fixtures -----------------------------------------------------------------
 
@@ -284,7 +281,7 @@ function seedDenialSections(): void
 }
 
 /**
- * @param  array<int, WarrantRule|\Warrant\RuleSyntaxTree\WarrantRuleBuilder>  $rules
+ * @param  array<int, WarrantRule|\Warrant\Builders\WarrantRuleBuilder>  $rules
  */
 function bindDenialRules(array $rules, string $schema = WarrantTestSchema::class): void
 {

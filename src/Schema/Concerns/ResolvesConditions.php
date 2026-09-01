@@ -11,7 +11,7 @@ use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 
 /**
- * The vocabulary seam the compiler dispatches into (the {@see \Warrant\RuleSyntaxTree\ConditionResolver}
+ * The vocabulary seam the compiler dispatches into (the {@see \Warrant\DSL\ConditionResolver}
  * implementation): validating ability names and applying a named condition's SQL
  * predicate to a builder.
  */

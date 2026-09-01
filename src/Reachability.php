@@ -13,7 +13,7 @@ namespace Warrant;
  *  - any *conditional* rule is a "maybe" — whether it fires depends on a
  *    condition we deliberately do not evaluate here.
  *
- * @see \Warrant\RuleSyntaxTree\ReachabilityAnalyzer for the decision table.
+ * @see \Warrant\DSL\Compiling\ReachabilityAnalyzer for the decision table.
  */
 enum Reachability
 {

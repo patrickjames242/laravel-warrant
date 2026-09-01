@@ -73,7 +73,7 @@ separate calls give separate abilities separate messages, and abilities passed
 together share one message:
 
 ```php
-use Warrant\RuleSyntaxTree\WarrantRule;
+use Warrant\Rules\WarrantRule;
 
 WarrantRule::build()
     ->if('is_locked')

@@ -3,10 +3,10 @@
 namespace Warrant\Guard\Concerns;
 
 use InvalidArgumentException;
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
-use Warrant\RuleSyntaxTree\RuleSetValidator;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRuleSet;
 
 /**
  * Resolving the ordered {@see WarrantRuleSet} that governs this guard's user's

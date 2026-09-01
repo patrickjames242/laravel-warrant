@@ -12,6 +12,7 @@ use RuntimeException;
 use Warrant\Gate\WarrantGateBridge;
 use Warrant\Middleware\WarrantMiddleware;
 use Warrant\Registry\SchemaRegistry;
+use Warrant\Rules\RuleResolver;
 
 final class WarrantServiceProvider extends ServiceProvider
 {

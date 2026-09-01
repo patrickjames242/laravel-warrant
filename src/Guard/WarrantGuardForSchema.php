@@ -21,7 +21,7 @@ use Warrant\WarrantManager;
  * conditions, context policy, and the author override hooks).
  *
  * Because the guard is fixed to one user and one schema, no method takes a user
- * and none takes a schema, and the resolved {@see \Warrant\RuleSyntaxTree\WarrantRuleSet}
+ * and none takes a schema, and the resolved {@see \Warrant\Rules\WarrantRuleSet}
  * is memoized once for the instance. Reach one through the facade:
  * `Warrant::forSchema($schemaOrModel[, $user])`.
  *

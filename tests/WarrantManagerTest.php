@@ -3,8 +3,8 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\Facades\Warrant;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Registry\SchemaRegistry;
+use Warrant\Rules\WarrantRuleSet;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);

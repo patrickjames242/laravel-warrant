@@ -2,11 +2,10 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
-use Warrant\AbilityMatchMode;
+use Warrant\DSL\Compiling\ReachabilityAnalyzer;
 use Warrant\Facades\Warrant;
 use Warrant\Reachability;
-use Warrant\RuleSyntaxTree\ReachabilityAnalyzer;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\WarrantRuleSet;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);

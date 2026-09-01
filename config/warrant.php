@@ -2,7 +2,7 @@
 
 return [
     /*
-     * The rule resolver: a class implementing Warrant\RuleResolver.
+     * The rule resolver: a class implementing Warrant\Rules\RuleResolver.
      *
      * Warrant ships no default — you must provide one. It maps the current user
      * to the WarrantRuleSet that governs their access to an entity, built from

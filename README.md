@@ -173,9 +173,9 @@ class TimesheetSchema extends WarrantSchema
 ```php
 namespace App\Warrant;
 
-use Warrant\RuleResolutionContext;
-use Warrant\RuleResolver;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {

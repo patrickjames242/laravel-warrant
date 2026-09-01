@@ -5,8 +5,8 @@ namespace Warrant\Guard\Concerns;
 use Illuminate\Contracts\Database\Query\Builder;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
-use Warrant\RuleSyntaxTree\RuleSetCompiler;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\DSL\Compiling\RuleSetCompiler;
+use Warrant\Rules\WarrantRuleSet;
 use Warrant\WarrantGate;
 
 /**
@@ -14,7 +14,7 @@ use Warrant\WarrantGate;
  * access-control predicates and attaches them to entity queries (row filtering
  * and per-row ability selection). All condition SQL is produced by the
  * {@see RuleSetCompiler}, which dispatches condition emission back into the
- * schema (the {@see \Warrant\RuleSyntaxTree\ConditionResolver}).
+ * schema (the {@see \Warrant\DSL\ConditionResolver}).
  *
  * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
  * denial into a message lives in {@see DiagnosesDenials}.

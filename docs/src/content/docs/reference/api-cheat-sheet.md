@@ -38,7 +38,7 @@ See [Rule-building API](/reference/rule-building-api/).
 
 ## Provide rules
 
-Implement `Warrant\RuleResolver` — see [Providing rules](/guides/resolvers/).
+Implement `Warrant\Rules\RuleResolver` — see [Providing rules](/guides/resolvers/).
 
 - `resolve(RuleResolutionContext $context): WarrantRuleSet`
 - context: `->user`, `->schemaKey`, `->schema`, `->model`
@@ -89,6 +89,6 @@ Structural check — no conditions, no SQL, no `context:` (user still required);
 
 ## Config — `config/warrant.php`
 
-- `rule_resolver` — class implementing `Warrant\RuleResolver` (no default; required)
+- `rule_resolver` — class implementing `Warrant\Rules\RuleResolver` (no default; required)
 - `schemas` — array of schema class-strings (registration is mandatory)
 - `register_gate` — register the `Gate::before` hook so abilities resolve through Laravel's Gate (default `true`)

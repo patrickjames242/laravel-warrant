@@ -201,5 +201,5 @@ Thrown by `toSyntax()` when a rule can't be rendered as inline DSL — use
 
 ## Configuration & driver errors → `RuntimeException`
 
-- `No Warrant rule resolver configured. Set warrant.rule_resolver to a class implementing Warrant\RuleResolver.`
+- `No Warrant rule resolver configured. Set warrant.rule_resolver to a class implementing Warrant\Rules\RuleResolver.`
 - `Warrant ability selection does not support the [%s] database driver.` (a driver other than PostgreSQL, MySQL/MariaDB, or SQLite for the per-row abilities column)

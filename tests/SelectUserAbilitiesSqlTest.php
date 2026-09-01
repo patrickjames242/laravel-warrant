@@ -1,13 +1,11 @@
 <?php
 
-
 use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 });
-
 
 /*
 |------------------------------------------------------------------------------

@@ -1,24 +1,23 @@
 <?php
 
-use Warrant\Facades\Warrant;
-
-require_once __DIR__.'/Support/TestSupport.php';
-
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Schema\Ability;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\RuleSyntaxTree\WarrantRule;
-use Warrant\RuleSyntaxTree\WarrantRuleSet;
+use Warrant\Rules\WarrantRule;
+use Warrant\Rules\WarrantRuleSet;
+use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
+use Warrant\Schema\WarrantSchema;
+
+require_once __DIR__.'/Support/TestSupport.php';
 
 // -- fixtures -----------------------------------------------------------------
 
