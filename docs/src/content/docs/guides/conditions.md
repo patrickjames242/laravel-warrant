@@ -37,7 +37,7 @@ Mutate `$c->query` to add the `WHERE` fragment and return the builder:
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\RowCondition;
+use Warrant\Schema\RowCondition;
 
 #[RowCondition]
 public function isSelf(RowConditionContext $c): Builder
@@ -81,7 +81,7 @@ Its context is a `GlobalConditionContext` (no `row()`). It may mutate
 `$c->query` like a row condition, or simply **return a `bool`**:
 
 ```php
-use Warrant\GlobalCondition;
+use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 
 #[GlobalCondition]

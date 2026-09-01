@@ -11,9 +11,7 @@ use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
-use Warrant\WarrantDenialContext;
 use Warrant\WarrantGuardForSchema;
-use Warrant\WarrantUngrantedContext;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one

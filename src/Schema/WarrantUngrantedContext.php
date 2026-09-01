@@ -1,9 +1,10 @@
 <?php
 
-namespace Warrant;
+namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\WarrantGate;
 
 /**
  * The context handed to a schema's {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()}

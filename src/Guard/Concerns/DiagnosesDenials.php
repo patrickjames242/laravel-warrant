@@ -9,9 +9,9 @@ use Throwable;
 use Warrant\AbilityMatchMode;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\WarrantAuthorizationException;
-use Warrant\WarrantDenialContext;
+use Warrant\Schema\WarrantDenialContext;
 use Warrant\WarrantGate;
-use Warrant\WarrantUngrantedContext;
+use Warrant\Schema\WarrantUngrantedContext;
 
 /**
  * Diagnosing *why* a denied check failed and turning that into the exception to

@@ -26,7 +26,7 @@ resource resolves without the frame. The constant's *value* is the key string;
 its name is irrelevant to Warrant:
 
 ```php
-use Warrant\RequiredContext;
+use Warrant\Schema\RequiredContext;
 
 #[RequiredContext] public const WORKSPACE = 'workspace_id';
 ```
@@ -35,7 +35,7 @@ A **per-ability** required key with `#[Ability(requiredContext: [...])]` — the
 key is required only when *that* ability is checked:
 
 ```php
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 
 #[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
 ```

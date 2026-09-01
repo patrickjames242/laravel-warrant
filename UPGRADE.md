@@ -98,6 +98,27 @@ alongside the concern that owns the model<->schema cross-check
 the class directly — `Warrant::registry()` is unchanged — so this only matters if you
 type-hint or instantiate it.
 
+### 5. Update namespaces for the schema vocabulary, if you import it explicitly
+
+Everything a schema class declares with now lives under `Warrant\Schema`, beside
+`WarrantSchema` itself:
+
+| Before | After |
+|---|---|
+| `Warrant\Ability` | `Warrant\Schema\Ability` |
+| `Warrant\RowCondition` | `Warrant\Schema\RowCondition` |
+| `Warrant\GlobalCondition` | `Warrant\Schema\GlobalCondition` |
+| `Warrant\RequiredContext` | `Warrant\Schema\RequiredContext` |
+| `Warrant\StandardAbilities` | `Warrant\Schema\StandardAbilities` |
+| `Warrant\WarrantDenialContext` | `Warrant\Schema\WarrantDenialContext` |
+| `Warrant\WarrantUngrantedContext` | `Warrant\Schema\WarrantUngrantedContext` |
+
+The two denial contexts move because they are the parameter types of the schema's
+own `forbiddenDenialMessage()` and `ungrantedDenialMessage()` hooks. `WarrantGate`
+and `HasWarrantSchema` stay where they are: the first is shared check-time
+vocabulary used by the guard and compiler too, and the second is applied to models
+rather than used inside a schema.
+
 ### What you get in return
 
 Registering a schema is now a string-to-string entry. A schema class and its model

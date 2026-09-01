@@ -4,7 +4,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
 use Warrant\HasWarrantSchema;
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\WarrantSchema;
 

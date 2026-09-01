@@ -1,9 +1,10 @@
 <?php
 
-namespace Warrant;
+namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\WarrantGate;
 use Warrant\RuleSyntaxTree\WarrantRule;
 
 /**

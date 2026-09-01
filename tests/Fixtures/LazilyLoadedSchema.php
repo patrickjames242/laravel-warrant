@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Warrant\Tests\Fixtures;
 
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
 
 /**

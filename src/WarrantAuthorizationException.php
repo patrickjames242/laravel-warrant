@@ -3,6 +3,7 @@
 namespace Warrant;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Warrant\Schema\WarrantDenialContext;
 
 /**
  * Thrown when a singular-target authorization check fails.

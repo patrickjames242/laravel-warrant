@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use Warrant\Facades\Warrant;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 use Warrant\Schema\WarrantSchema;
-use Warrant\WarrantDenialContext;
+use Warrant\Schema\WarrantDenialContext;
 
 readonly class WarrantRule
 {

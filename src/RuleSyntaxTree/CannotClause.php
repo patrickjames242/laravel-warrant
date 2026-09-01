@@ -3,7 +3,7 @@
 namespace Warrant\RuleSyntaxTree;
 
 use Closure;
-use Warrant\WarrantDenialContext;
+use Warrant\Schema\WarrantDenialContext;
 
 /**
  * One `they cannot <abilities> [because <message>]` clause of a {@see WarrantRule}.

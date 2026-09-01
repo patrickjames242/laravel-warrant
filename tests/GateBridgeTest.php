@@ -10,15 +10,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Ability;
-use Warrant\GlobalCondition;
+use Warrant\Schema\Ability;
+use Warrant\Schema\GlobalCondition;
 use Warrant\HasWarrantSchema;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\RowCondition;
+use Warrant\Schema\RowCondition;
 
 // -- fixtures -----------------------------------------------------------------
 

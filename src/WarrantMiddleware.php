@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\StandardAbilities;
 
 class WarrantMiddleware
 {

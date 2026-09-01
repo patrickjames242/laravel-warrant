@@ -8,14 +8,14 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 use Warrant\AbilityMatchMode;
 use Warrant\HasWarrantSchema;
-use Warrant\RequiredContext;
+use Warrant\Schema\RequiredContext;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\RowCondition;
+use Warrant\Schema\RowCondition;
 
 beforeEach(function () {
     useWarrantSchemas(['context_docs' => ContextDocSchema::class]);

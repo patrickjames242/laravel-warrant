@@ -4,7 +4,7 @@ namespace Warrant\RuleSyntaxTree;
 
 use Closure;
 use LogicException;
-use Warrant\WarrantDenialContext;
+use Warrant\Schema\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole

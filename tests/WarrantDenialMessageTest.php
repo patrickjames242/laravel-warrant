@@ -11,17 +11,17 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 use Warrant\AbilityMatchMode;
-use Warrant\GlobalCondition;
+use Warrant\Schema\GlobalCondition;
 use Warrant\RuleSyntaxTree\Parsing\WarrantParser;
 use Warrant\RuleSyntaxTree\WarrantRule;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantAuthorizationException;
-use Warrant\WarrantDenialContext;
-use Warrant\WarrantUngrantedContext;
+use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\WarrantUngrantedContext;
 
 beforeEach(function () {
     useWarrantSchemas([

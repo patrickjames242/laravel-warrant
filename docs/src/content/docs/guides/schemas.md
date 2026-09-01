@@ -59,7 +59,7 @@ in rules; the constant's *name* is irrelevant to Warrant (discovery is by
 attribute, not by naming).
 
 ```php
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 
 #[Ability] public const VIEW    = 'view';
 #[Ability] public const APPROVE = 'approve';
@@ -82,7 +82,7 @@ messages (one at rule-set validation, one at check time).
 
 ### Standard abilities
 
-Warrant ships `Warrant\StandardAbilities` with common names if you want a shared
+Warrant ships `Warrant\Schema\StandardAbilities` with common names if you want a shared
 vocabulary:
 
 ```php

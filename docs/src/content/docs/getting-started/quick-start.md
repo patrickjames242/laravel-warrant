@@ -22,10 +22,10 @@ namespace App\Warrant;
 
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\Ability;
+use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
-use Warrant\RowCondition;
+use Warrant\Schema\RowCondition;
 
 class DocumentSchema extends WarrantSchema
 {

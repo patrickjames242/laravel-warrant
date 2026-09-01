@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant;
+namespace Warrant\Schema;
 
 use Attribute;
 

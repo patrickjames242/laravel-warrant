@@ -114,7 +114,7 @@ The message may also be a **closure**, receiving a `WarrantDenialContext` and
 returning either a string, or a `Throwable` to throw as-is:
 
 ```php
-use Warrant\WarrantDenialContext;
+use Warrant\Schema\WarrantDenialContext;
 
 ->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
 ->withDenialMessage(fn (WarrantDenialContext $c) => new DocumentLockedException($c->target))
@@ -173,7 +173,7 @@ either. There's no rule to point at, so that message lives on the schema, in
 `ungrantedDenialMessage`:
 
 ```php
-use Warrant\WarrantUngrantedContext;
+use Warrant\Schema\WarrantUngrantedContext;
 
 class DocumentSchema extends WarrantSchema
 {
