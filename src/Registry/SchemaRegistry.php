@@ -1,13 +1,14 @@
 <?php
 
-namespace Warrant;
+namespace Warrant\Registry;
 
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use LogicException;
 use OutOfBoundsException;
-use ReflectionMethod;
+use Warrant\HasWarrantSchema;
+use Warrant\Registry\Concerns\VerifiesSchemaModelPairs;
 use Warrant\Schema\WarrantSchema;
+use Warrant\WarrantManager;
 
 /**
  * The schema index: the one mapping Warrant cannot derive, plus the resolvers that
@@ -31,10 +32,10 @@ use Warrant\Schema\WarrantSchema;
  *  - model class -> schema:  the model's {@see HasWarrantSchema::warrantSchema()};
  *  - schema/model -> key:    a reverse lookup in the index, built lazily.
  *
- * That makes the trait authoritative for the model->schema direction, which it was
- * deliberately *not* before. The two declarations must therefore agree, and
- * {@see assertSchemaAndModelNameEachOther()} checks the declaration the caller did not
- * start from, the first time each reference is resolved.
+ * That makes the {@see HasWarrantSchema} trait authoritative for the model->schema
+ * direction, which it was deliberately *not* before. The two declarations must
+ * therefore agree; {@see VerifiesSchemaModelPairs} owns that cross-check and the
+ * reading of a model's declaration.
  *
  * ## Nothing is loaded until it is used
  *
@@ -48,6 +49,8 @@ use Warrant\Schema\WarrantSchema;
  */
 final class SchemaRegistry
 {
+    use VerifiesSchemaModelPairs;
+
     /**
      * @var array<string, class-string<WarrantSchema>>
      */
@@ -62,28 +65,11 @@ final class SchemaRegistry
     private ?array $keysBySchema = null;
 
     /**
-     * References {@see assertSchemaAndModelNameEachOther()} has already checked,
-     * keyed by the class handed in — a schema class or a model class.
-     *
-     * @var array<class-string<WarrantSchema>|class-string<Model>, true>
-     */
-    private array $verified = [];
-
-    /**
-     * Model classes whose warrantSchema() has been confirmed static. Separate from
-     * $verified because it is checked before the static call that resolution needs,
-     * which is earlier than the cross-check itself.
-     *
-     * @var array<class-string<Model>, true>
-     */
-    private array $staticChecked = [];
-
-    /**
      * @param  array<string, class-string<WarrantSchema>>  $schemasByKey  Schema
      *   classes keyed by schema key. Values are not validated here: confirming a
      *   value is a WarrantSchema would autoload it, defeating the point of the
-     *   index. That check happens in {@see assertSchemaAndModelNameEachOther()}
-     *   on first resolution.
+     *   index. That check happens in {@see VerifiesSchemaModelPairs} on first
+     *   resolution.
      */
     public function __construct(array $schemasByKey)
     {
@@ -172,7 +158,7 @@ final class SchemaRegistry
             return null;
         }
 
-        $this->assertSchemaAndModelNameEachOther($reference);
+        $this->assertSchemaAndModelNameEachOther($reference, $this->keysBySchema()[$reference] ?? null);
 
         return $schemaClass;
     }
@@ -248,28 +234,6 @@ final class SchemaRegistry
     }
 
     /**
-     * The schema a model class declares through {@see HasWarrantSchema}, or null
-     * when the model does not use the trait.
-     *
-     * @param  class-string<Model>  $modelClass
-     * @return class-string<WarrantSchema>|null
-     */
-    private function schemaDeclaredBy(string $modelClass): ?string
-    {
-        /* method_exists, not is_callable: Eloquent defines __callStatic, so
-           is_callable() is true for every model regardless. */
-        if (!method_exists($modelClass, 'warrantSchema')) {
-            return null;
-        }
-
-        /* Before the static call below, so a non-static declaration gets this
-           explanation rather than PHP's "cannot be called statically". */
-        $this->assertWarrantSchemaIsStatic($modelClass);
-
-        return $modelClass::warrantSchema();
-    }
-
-    /**
      * The reverse index, built once on first use.
      *
      * @return array<class-string<WarrantSchema>, string>
@@ -277,160 +241,6 @@ final class SchemaRegistry
     private function keysBySchema(): array
     {
         return $this->keysBySchema ??= array_flip($this->schemasByKey);
-    }
-
-    /**
-     * Assert that a schema and its model name each other, starting from whichever
-     * end of the pair the caller was given.
-     *
-     * The relationship is declared twice — the schema's {@see WarrantSchema::model}
-     * constant and the model's {@see HasWarrantSchema::warrantSchema()} — because
-     * each direction has to be answerable from the reference in hand, without an
-     * index. Two declarations can disagree, so this checks the one the caller did
-     * not start from.
-     *
-     * Direction matters, and is taken from the reference rather than inferred:
-     *
-     *  - given a **schema**, the model it names must name that schema back;
-     *  - given a **model**, the schema it names must name that model back.
-     *
-     * They are not interchangeable. A model subclass inherits `warrantSchema()`, so
-     * `PublishedPost extends Post` names `PostSchema` while `PostSchema` names
-     * `Post` — consistent read from the schema end, wrong from the model end. Only
-     * the model direction catches it, which is why the reference decides.
-     *
-     * Runs once per reference (memoized) at the moment that class is first resolved
-     * — which is the moment it gets loaded anyway — so nothing here is paid at boot.
-     *
-     * @param  class-string<WarrantSchema>|class-string<Model>  $reference
-     */
-    private function assertSchemaAndModelNameEachOther(string $reference): void
-    {
-        if (isset($this->verified[$reference])) {
-            return;
-        }
-
-        $registeredAs = $this->keysBySchema()[$reference] ?? null;
-        $isSchema = is_a($reference, WarrantSchema::class, true);
-
-        /* Anything in the index claims to be a schema. The claim could not be
-           checked when the index was built, because checking it loads the class. */
-        if ($registeredAs !== null && !$isSchema) {
-            throw new LogicException(sprintf(
-                'Schema key [%s] is registered to [%s], which is not a %s.',
-                $registeredAs,
-                $reference,
-                WarrantSchema::class,
-            ));
-        }
-
-        $isSchema
-            ? $this->assertSchemasModelNamesItBack($reference)
-            : $this->assertModelsSchemaNamesItBack($reference);
-
-        $this->verified[$reference] = true;
-    }
-
-    /**
-     * The schema direction: the model named by `$schemaClass::model` must name
-     * `$schemaClass` back. A capability schema names no model, so there is no pair
-     * to check.
-     *
-     * @param  class-string<WarrantSchema>  $schemaClass
-     */
-    private function assertSchemasModelNamesItBack(string $schemaClass): void
-    {
-        $modelClass = $schemaClass::model;
-
-        if ($modelClass === '') {
-            return;
-        }
-
-        if (!is_a($modelClass, Model::class, true)) {
-            throw new LogicException(sprintf(
-                'Schema [%s] names model [%s], which is not an Eloquent model.',
-                $schemaClass,
-                $modelClass,
-            ));
-        }
-
-        if (!method_exists($modelClass, 'warrantSchema')) {
-            throw new LogicException(sprintf(
-                'Schema [%s] names model [%s], but that model does not use the %s trait, '
-                    .'so Warrant cannot resolve the model back to its schema.',
-                $schemaClass,
-                $modelClass,
-                HasWarrantSchema::class,
-            ));
-        }
-
-        $this->assertWarrantSchemaIsStatic($modelClass);
-
-        $declaredSchema = $modelClass::warrantSchema();
-
-        if ($declaredSchema !== $schemaClass) {
-            throw new LogicException(sprintf(
-                'Schema [%s] names model [%s], but that model names schema [%s]; '
-                    .'a schema and its model must name each other.',
-                $schemaClass,
-                $modelClass,
-                $declaredSchema,
-            ));
-        }
-    }
-
-    /**
-     * The model direction: the schema named by `$modelClass::warrantSchema()` must
-     * name `$modelClass` back. This is the direction that catches a model subclass
-     * inheriting its parent's schema.
-     *
-     * @param  class-string<Model>  $modelClass
-     */
-    private function assertModelsSchemaNamesItBack(string $modelClass): void
-    {
-        /* Reached only via schemaDeclaredBy(), which has already confirmed the
-           method exists and is static. */
-        $schemaClass = $modelClass::warrantSchema();
-
-        if (!is_a($schemaClass, WarrantSchema::class, true)) {
-            throw new LogicException(sprintf(
-                'Model [%s] must name a %s, but names [%s].',
-                $modelClass,
-                WarrantSchema::class,
-                $schemaClass,
-            ));
-        }
-
-        if ($schemaClass::model !== $modelClass) {
-            throw new LogicException(sprintf(
-                'Model [%s] names schema [%s], but that schema names model [%s]; '
-                    .'a schema and its model must name each other.',
-                $modelClass,
-                $schemaClass,
-                $schemaClass::model === '' ? 'none' : $schemaClass::model,
-            ));
-        }
-    }
-
-    /**
-     * @param  class-string<Model>  $modelClass
-     */
-    private function assertWarrantSchemaIsStatic(string $modelClass): void
-    {
-        if (isset($this->staticChecked[$modelClass])) {
-            return;
-        }
-
-        $this->staticChecked[$modelClass] = true;
-
-        /* A model written against the pre-static trait declares warrantSchema()
-           as an instance method, which cannot be called statically. */
-        if (!(new ReflectionMethod($modelClass, 'warrantSchema'))->isStatic()) {
-            throw new LogicException(sprintf(
-                'Model [%s] must declare warrantSchema() as `public static`.',
-                $modelClass,
-            ));
-        }
     }
 
     private function unresolvableMessage(string $coordinate, Model|WarrantSchema|string|null $ref): string

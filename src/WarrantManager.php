@@ -5,6 +5,7 @@ namespace Warrant;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\Registry\SchemaRegistry;
 use Warrant\Schema\WarrantSchema;
 
 /**

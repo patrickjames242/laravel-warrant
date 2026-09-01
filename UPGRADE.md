@@ -90,6 +90,14 @@ cross-check just before handing the schema to the guard, which then re-checked i
 in the registry; the query helpers now pass the model and let the registry check it
 once, from the model end.
 
+### 4. Update the `SchemaRegistry` namespace, if you reference it
+
+The class moved from `Warrant\SchemaRegistry` to `Warrant\Registry\SchemaRegistry`,
+alongside the concern that owns the model<->schema cross-check
+(`Warrant\Registry\Concerns\VerifiesSchemaModelPairs`). Most applications never name
+the class directly — `Warrant::registry()` is unchanged — so this only matters if you
+type-hint or instantiate it.
+
 ### What you get in return
 
 Registering a schema is now a string-to-string entry. A schema class and its model

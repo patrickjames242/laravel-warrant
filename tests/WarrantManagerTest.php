@@ -4,7 +4,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\Facades\Warrant;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
-use Warrant\SchemaRegistry;
+use Warrant\Registry\SchemaRegistry;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
