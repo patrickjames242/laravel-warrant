@@ -24,10 +24,15 @@ merge rules from a resolver, implicit rules, and multiple clauses in any order.
 
 | Situation | Compiles to | Meaning |
 |---|---|---|
-| Unconditional `cannot` | `AND NOT(true)` → `1 = 0` | This user can *never* have the ability, on any row |
-| No `can` rule for the ability | `1 = 0` | Denied by default — silence is not permission |
-| Unconditional `can` | `1 = 1` term | This user has the ability on every row |
+| Unconditional `cannot` | `AND NOT(true)` → `false` | This user can *never* have the ability, on any row |
+| No `can` rule for the ability | `false` | Denied by default — silence is not permission |
+| Unconditional `can` | an always-true term | This user has the ability on every row |
 | Conditional `cannot` | `AND NOT(condition)` | Subtracts matching rows from the grant |
+
+Those constants are real booleans during compilation, so they
+[fold into the surrounding branch](/guides/how-it-compiles/#constants-fold-away)
+rather than appearing in the SQL. You only see a literal `1 = 1` / `1 = 0` when
+the constant decides the entire predicate.
 
 ## A `cannot` is an absolute veto
 

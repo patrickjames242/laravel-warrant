@@ -53,12 +53,18 @@ public function isSelf(RowConditionContext $c): Builder
 Your predicate may reference any column of the entity's table; it's evaluated
 correlated to the row under test.
 
-:::caution[Conditions may only add `where` clauses]
+:::caution[Conditions may only add `where` clauses — and must add at least one]
 A condition must compile to a boolean that Warrant can `AND`/`OR`/`NOT` together,
 so it may only add `where` clauses (including `whereExists`, `whereIn`, `whereRaw`)
 to `$c->query`. Calling `join()`, `groupBy()`, `having()`, an aggregate, or
 `union()` throws — those change the query's row shape and can't be spliced or
-negated in place. To reach another table, use a correlated
+negated in place.
+
+Returning `$c->query` without adding anything throws too: it contributes no SQL
+and so would silently mean "match every row", which is almost always a forgotten
+branch. To mean that on purpose, return `true` instead.
+
+To reach another table, use a correlated
 `whereExists()`/`whereNotExists()` instead of a join:
 
 ```php

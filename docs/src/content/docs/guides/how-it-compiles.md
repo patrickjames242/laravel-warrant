@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: How it compiles to SQL
-description: Why Warrant's semantics are what they are — inline conditions, De Morgan, and how can/cannot combine.
+description: Why Warrant's semantics are what they are — inline conditions, constant folding, De Morgan, and how can/cannot combine.
 sidebar:
   order: 11
 ---
@@ -67,7 +67,7 @@ So each condition contributes this fragment of SQL:
 | `is_self` (row)           | `documents.user_id = 42`                                                         |
 | `manages_team` (row)      | `documents.team_id in (7, 12)`                                                   |
 | `is_locked` (row)         | `documents.locked = 1`                                                           |
-| `is_admin` (global)       | `1 = 1` — a `bool` evaluated in PHP, baked in as a constant (`1 = 0` when false) |
+| `is_admin` (global)       | none — a `bool` evaluated in PHP, folded into the branch around it |
 
 **The rules** ([resolved](/guides/rules/) for the current user):
 
@@ -77,9 +77,10 @@ if is_locked and not is_admin they cannot update
 if is_admin they can *
 ```
 
-For the SQL below, assume the current user **is** an admin — so `is_admin`
-evaluates to `true` in PHP and compiles to the constant `1 = 1`. (For a non-admin
-it would be `1 = 0`.)
+For the SQL below, assume the current user is **not** an admin — so `is_admin`
+evaluates to `false` in PHP. The admin's case is worth seeing on its own, because
+a `true` swallows whole branches; it's
+[at the end](#when-a-constant-decides-everything).
 
 ## One predicate per ability
 
@@ -95,15 +96,19 @@ predicate(ability) =
     AND ( AND of NOT(each `cannot` rule's if-expression) )
 ```
 
-A few cases collapse to constants at the edges of that formula:
+A few cases resolve to a constant at the edges of that formula:
 
-- An **unconditional `cannot`** negates to `AND NOT(true)`, i.e. `1 = 0`, which
+- An **unconditional `cannot`** negates to `AND NOT(true)`, i.e. `false`, which
   zeroes out the whole predicate — the ability is gone on every row, no matter what
   any `can` rule says.
-- An ability with **no `can` rule** at all has an empty `OR`, so it's `1 = 0` too:
+- An ability with **no `can` rule** at all has an empty `OR`, so it's `false` too:
   denied by default.
-- An **unconditional `can`** contributes an always-true `1 = 1` term, granting the
+- An **unconditional `can`** contributes an always-true term, granting the
   ability on every row.
+
+These are real booleans while the predicate is being assembled, not `1 = 1` /
+`1 = 0` text — which is what lets them [fold away](#constants-fold-away) instead
+of sitting in the emitted SQL.
 
 See [Grants and denials](/guides/grants-and-denials/) for how this plays out in practice.
 
@@ -115,29 +120,46 @@ together, and `AND`'s the negated `cannot` rules. For `update`, that's roughly:
 ```sql
 select * from documents
 where (
-    documents.user_id = 42             -- is_self
-    or documents.team_id in (7, 12)    -- manages_team
-    or 1 = 1                           -- is_admin (a global bool, true for this user)
-)
-and not (
-    documents.locked = 1               -- is_locked
-    and not 1 = 1                      -- ...and not is_admin
+    (
+        documents.user_id = 42             -- is_self
+        or documents.team_id in (7, 12)    -- manages_team
+    )
+    and not (documents.locked = 1)         -- not is_locked
 )
 ```
 
 That's very close to what Warrant actually emits — each condition really is
-spliced straight into the `WHERE` like this. The next section covers the two
-refinements: relational conditions reach other tables through a `whereExists`
-subquery, and `NULL` columns follow SQL's own logic rather than being normalized
-away.
+spliced straight into the `WHERE` like this. The next sections cover the
+refinements: constants are folded away before any SQL is emitted, relational
+conditions reach other tables through a `whereExists` subquery, and `NULL`
+columns follow SQL's own logic rather than being normalized away.
 
-:::note[Work in progress]
-I'm currently working on collapsing redundant branches like the `1 = 1` above.
-When a bool global condition resolves to a constant, the branch it sits in can
-often be simplified away — an `... or 1 = 1` makes the whole `OR` true, and an
-`and not 1 = 1` makes the whole `AND` false — so the compiled SQL will get tighter
-in a future release.
-:::
+## Constants fold away
+
+Warrant assembles the whole predicate as a tree and only then emits SQL, so a
+branch that is provably `true` or `false` is a real boolean it can simplify —
+not text it is stuck with. The ordinary identities apply:
+
+| Branch | Folds to |
+|---|---|
+| `false AND x` | `false` — the rest of the `AND` never reaches the SQL |
+| `true AND x` | `x` — the `true` is dropped |
+| `true OR x` | `true` — the rest of the `OR` never reaches the SQL |
+| `false OR x` | `x` — the `false` is dropped |
+
+That is why `is_admin` leaves no trace in the `update` predicate above. For a
+non-admin the wildcard `they can *` rule contributes `false` to the grant `OR`
+and is dropped, and the `and not is_admin` inside the `cannot` De-Morgan's into
+an `or is_admin` that is `false` and is dropped too.
+
+A `1 = 1` or `1 = 0` therefore reaches the SQL **only when a constant decides the
+whole predicate** — at that point there is nothing left for it to fold into.
+Everywhere else it disappears.
+
+The same pass drops parentheses that carry no meaning: a group holding a single
+branch is not wrapped, and a condition that emitted one `where` clause is spliced
+in bare rather than nested in a group of its own. Nesting you see in the emitted
+SQL reflects real boolean structure.
 
 ## Conditions compile inline
 
@@ -145,7 +167,7 @@ The rough shape above is essentially the real output: each condition is spliced
 directly into the `WHERE` as a nested predicate — there's no `EXISTS` wrapper. Two
 things are worth understanding about how that works.
 
-**1. A condition may only add `where` clauses.**
+**1. A condition may only add `where` clauses — and must add at least one.**
 
 A condition method is handed a query builder, but whatever it emits has to be a
 boolean the compiler can drop into an `OR`, `AND` together, and wrap in `NOT`. A
@@ -153,6 +175,13 @@ boolean the compiler can drop into an `OR`, `AND` together, and wrap in `NOT`. A
 `join`, `groupBy`, `having`, aggregate, or `union` is not: it changes the query's
 row shape and can't be spliced into an `OR` branch or negated in place, so
 emitting one throws.
+
+Returning the query untouched throws as well. It contributes nothing to the SQL
+and so silently means "match every row" — almost always a forgotten branch rather
+than an intent to grant everything. A condition that really does decide the
+outcome says so by
+[returning a `bool`](/guides/conditions/#globalcondition--about-the-user-or-the-world)
+instead.
 
 To reach another table, use a correlated `whereExists` / `whereNotExists` instead
 of a join — it stays a boolean and never multiplies rows:
@@ -212,14 +241,15 @@ Boolean structure (`and` / `or` / `not`) becomes nested `WHERE` groups, with
 **negation pushed to the leaves via De Morgan** — so a `not` lands on a single
 condition (`not (documents.locked = 1)`, or `not exists (…)` for a `whereExists`),
 never on a whole group. A global condition like `is_admin` that returns a `bool`
-doesn't touch a row at all: the compiler evaluates it in PHP and drops in a bare
-`1 = 1` or `1 = 0`.
+doesn't touch a row at all: the compiler evaluates it in PHP and folds the result
+into the branch around it, so it usually vanishes from the SQL entirely.
 
 ## Row conditions with no row
 
 In a no-target check (for example `Warrant::abilities(Document::class)` with no
 target), a row condition has no row to correlate against, so the compiler forces it to
-`1 = 0` (false) — and, under negation, `1 = 1` (true). Global conditions still
+`false` — and, under negation, `true`. Like any other constant it then folds into
+the branch around it rather than being emitted. Global conditions still
 evaluate normally. (Separately, an absent optional
 [`@context`](/guides/context/) value is passed to the condition as `null`, and
 standard SQL logic applies from there.)
@@ -228,28 +258,25 @@ standard SQL logic applies from there.)
 
 Now compile [the example](#the-example)'s rule set, one ability at a time. Each
 ability gets its own predicate, and its shape comes entirely from which rules
-mention it. Our user is an admin, so the wildcard `is_admin` rule folds a `1 = 1`
-into every grant — for a non-admin that term would be `1 = 0` and the condition
-predicates would decide instead.
+mention it. Our user is not an admin, so the wildcard `is_admin` rule contributes
+`false` to every grant — dropped by the fold, leaving the row conditions to decide.
 
 **`delete`** is the simplest — only the wildcard `is_admin they can *` grants it,
-and no `cannot` mentions it. `is_admin` is a global `bool`, `1 = 1` for this admin,
-so the whole predicate is that one constant:
+and no `cannot` mentions it. `is_admin` is `false` for this user, so the grant `OR`
+has nothing left in it and the constant is the whole predicate:
 
 ```sql
-select * from documents where 1 = 1
+select * from documents where (1 = 0)
 ```
 
 **`view`** is granted by three sources — `is_self`, `manages_team`, and the
 wildcard `is_admin` — `OR`'d together, with nothing denying it. The `is_admin` term
-is `1 = 1`, so for this admin the `OR` is already true; the two condition predicates
-are what would decide it for a non-admin:
+is `false` and drops out, leaving the two conditions:
 
 ```sql
 select * from documents where (
     documents.user_id = 42                 -- is_self
     or documents.team_id in (7, 12)        -- manages_team
-    or 1 = 1                               -- is_admin (from `they can *`)
 )
 ```
 
@@ -257,24 +284,23 @@ select * from documents where (
 `cannot` — so its predicate `AND`s a deny side onto the grant:
 
 ```sql
-select * from documents where
-  (
-    -- grant side: the two-part first rule, OR the wildcard `is_admin` rule
-    documents.user_id = 42                 -- is_self
-    or documents.team_id in (7, 12)        -- manages_team
-    or 1 = 1                               -- is_admin (from `they can *`)
-  )
-  and (
+select * from documents where (
+    (
+        -- grant side: the two-part first rule (the wildcard's `false` dropped out)
+        documents.user_id = 42             -- is_self
+        or documents.team_id in (7, 12)    -- manages_team
+    )
     -- deny side: NOT(is_locked and not is_admin), De-Morgan'd onto the leaves
-    not (documents.locked = 1)             -- not is_locked
-    or 1 = 1                               -- or is_admin
-  )
+    and not (documents.locked = 1)         -- not is_locked
+)
 ```
 
 The `cannot update` guarded by `is_locked and not is_admin` becomes
 `NOT(is_locked AND NOT is_admin)`, which De Morgan turns into
 `(NOT is_locked OR is_admin)` — negation always lands on a leaf (a single
-condition, or a constant for a global `bool`), never on a group.
+condition, or a constant for a global `bool`), never on a group. `is_admin` is
+`false` for this user, so that `OR` branch drops and only `NOT is_locked` is
+emitted.
 
 **Several abilities at once** combine per the [match mode](/guides/checking-access/#match-modes).
 `userHasAbility(['view', 'update'], matchMode: ALL)` `AND`s the `view` and `update`
@@ -285,6 +311,10 @@ select * from documents where
       ( /* the view predicate */ )
   and ( /* the update predicate */ )
 ```
+
+Folding crosses the ability boundary too: under `ANY`, one ability the user holds
+unconditionally makes the whole gate `1 = 1` and the others are never emitted;
+under `ALL`, one ability they can never hold makes it `1 = 0`.
 
 **Per-row abilities** ([`selectUserAbilities`](/guides/checking-access/#per-row-abilities))
 run each ability's predicate as a correlated subquery per row — one
@@ -306,6 +336,22 @@ from documents
 Each row's `abilities` column ends up holding just the abilities whose predicate
 held for that row — e.g. `["view"]` for a document the user owns but can't
 delete. (The JSON aggregate differs by driver — see [below](#per-row-aggregation-is-driver-specific).)
+
+## When a constant decides everything
+
+Run the same rule set for an **admin** and `is_admin` is `true` instead. The
+wildcard rule's `true` now swallows the grant `OR` for every ability, and on
+`update` the De-Morgan'd `or is_admin` swallows the deny side too. All three
+predicates reduce to the same thing:
+
+```sql
+select * from documents where (1 = 1)
+```
+
+The `is_self`, `manages_team` and `is_locked` conditions are not merely `OR`'d
+against a true constant — they are absent from the query, and their condition
+methods' SQL is never used. This is the case where a `1 = 1` survives: the
+constant *is* the whole predicate, so there is nothing for it to fold into.
 
 ## One compiler behind every check
 
