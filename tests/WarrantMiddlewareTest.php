@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
-use Warrant\WarrantMiddleware;
+use Warrant\Middleware\WarrantMiddleware;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);

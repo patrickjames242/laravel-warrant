@@ -458,7 +458,7 @@ it('forSchema on the manager resolves a schema/model/key for a user (defaulting 
     $user = makeWarrantTestUser('teacher-role');
 
     // explicit user, schema-first / user-second
-    expect(Warrant::forSchema('course_sections', $user))->toBeInstanceOf(\Warrant\WarrantGuardForSchema::class);
+    expect(Warrant::forSchema('course_sections', $user))->toBeInstanceOf(\Warrant\Guard\WarrantGuardForSchema::class);
     expect(Warrant::forSchema('course_sections', $user)->can('view', 'teacher:teacher-role'))->toBeTrue();
     expect(Warrant::forSchema(WarrantTestModel::class, $user)->can('view', 'other-section'))->toBeFalse();
 
@@ -476,7 +476,7 @@ it('static guard() returns the schema-bound guard for a user', function () {
 
     $guard = WarrantTestSchema::guard($user);
 
-    expect($guard)->toBeInstanceOf(\Warrant\WarrantGuardForSchema::class)
+    expect($guard)->toBeInstanceOf(\Warrant\Guard\WarrantGuardForSchema::class)
         ->and($guard->schema())->toBeInstanceOf(WarrantTestSchema::class)
         ->and($guard->user())->toBe($user)
         ->and($guard->can('view', 'teacher:teacher-role'))->toBeTrue();

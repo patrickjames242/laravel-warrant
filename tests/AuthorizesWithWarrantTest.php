@@ -5,8 +5,8 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Illuminate\Contracts\Auth\Authenticatable;
 use Warrant\AuthorizesWithWarrant;
 use Warrant\Schema\WarrantSchema;
-use Warrant\WarrantGuard;
-use Warrant\WarrantGuardForSchema;
+use Warrant\Guard\WarrantGuard;
+use Warrant\Guard\WarrantGuardForSchema;
 
 class WarrantTraitUser extends WarrantTestUser
 {

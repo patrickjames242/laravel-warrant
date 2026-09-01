@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Warrant registers a `warrant` route middleware. You rarely write the raw string
-yourself — build it with `Warrant\WarrantMiddleware`.
+yourself — build it with `Warrant\Middleware\WarrantMiddleware`.
 
 :::note[Laravel's `can:` middleware works too]
 Because Warrant [integrates with the Gate](/guides/checking-access/#laravels-gate),
@@ -23,7 +23,7 @@ reachability guards on top of that.
 Gate a route by schema key — no model involved:
 
 ```php
-use Warrant\WarrantMiddleware;
+use Warrant\Middleware\WarrantMiddleware;
 
 Route::post('/documents', [DocumentController::class, 'store'])
     ->middleware(WarrantMiddleware::canCreate('documents'));

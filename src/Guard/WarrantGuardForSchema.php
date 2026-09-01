@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warrant;
+namespace Warrant\Guard;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Warrant\Guard\Concerns\AnalyzesReachability;
@@ -11,6 +11,7 @@ use Warrant\Guard\Concerns\ChecksAbilities;
 use Warrant\Guard\Concerns\DiagnosesDenials;
 use Warrant\Guard\Concerns\ResolvesRuleSets;
 use Warrant\Schema\WarrantSchema;
+use Warrant\WarrantManager;
 
 /**
  * The Warrant authorization engine bound to one (schema, user) pair. Everything

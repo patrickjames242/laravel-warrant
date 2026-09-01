@@ -3,6 +3,7 @@
 namespace Warrant;
 
 use Warrant\Facades\Warrant;
+use Warrant\Guard\WarrantGuard;
 
 /**
  * Add to an Authenticatable user model to reach that user's Warrant engine

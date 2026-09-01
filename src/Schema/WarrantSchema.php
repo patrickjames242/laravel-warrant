@@ -11,7 +11,7 @@ use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
-use Warrant\WarrantGuardForSchema;
+use Warrant\Guard\WarrantGuardForSchema;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
@@ -22,7 +22,7 @@ use Warrant\WarrantGuardForSchema;
  *
  * The schema is pure definition: it holds no user and performs no authorization.
  * Every user-scoped operation — checks, query filtering, ability listing, denial
- * diagnosis, reachability — lives on {@see \Warrant\WarrantGuardForSchema}, which
+ * diagnosis, reachability — lives on {@see \Warrant\Guard\WarrantGuardForSchema}, which
  * is constructed with a schema instance plus a user and reads the definition from
  * here. Reach a guard through the {@see \Warrant\Facades\Warrant} facade
  * (`Warrant::forSchema(...)`).

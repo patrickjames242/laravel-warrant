@@ -7,7 +7,7 @@ sidebar:
   order: 5
 ---
 
-Reference for `Warrant\WarrantMiddleware`. Conceptual coverage is in
+Reference for `Warrant\Middleware\WarrantMiddleware`. Conceptual coverage is in
 [Route middleware](/guides/middleware/).
 
 The `$target` throughout is either a **schema key** (no-model check)

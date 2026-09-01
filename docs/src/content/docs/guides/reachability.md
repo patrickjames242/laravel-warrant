@@ -110,7 +110,7 @@ gate a section by whether the user *could ever* act, or short-circuit a route to
 those who provably never can:
 
 ```php
-use Warrant\WarrantMiddleware;
+use Warrant\Middleware\WarrantMiddleware;
 
 // Only reachable if the user could ever view a document — otherwise 403:
 Route::get('/documents', ...)->middleware(WarrantMiddleware::couldEver('documents', 'view'));

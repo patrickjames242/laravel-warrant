@@ -10,6 +10,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use Warrant\Gate\WarrantGateBridge;
+use Warrant\Middleware\WarrantMiddleware;
 use Warrant\Registry\SchemaRegistry;
 
 final class WarrantServiceProvider extends ServiceProvider

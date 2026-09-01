@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant;
+namespace Warrant\Middleware;
 
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
+use Warrant\AbilityMatchMode;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\StandardAbilities;
 

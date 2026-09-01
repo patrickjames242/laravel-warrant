@@ -79,7 +79,7 @@ Structural check — no conditions, no SQL, no `context:` (user still required);
 
 ## Middleware
 
-`Warrant\WarrantMiddleware` — see [Middleware API](/reference/middleware-api/).
+`Warrant\Middleware\WarrantMiddleware` — see [Middleware API](/reference/middleware-api/).
 
 - `::string($target, $abilities, $matchMode = ALL)`
 - `::guard($target, $abilities, Closure $routes, $matchMode = ALL)`

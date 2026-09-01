@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Warrant;
+namespace Warrant\Guard;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\Reachability;
 use Warrant\Schema\WarrantSchema;
+use Warrant\WarrantManager;
 
 /**
  * The Warrant authorization engine bound to a user but not to a schema. Every

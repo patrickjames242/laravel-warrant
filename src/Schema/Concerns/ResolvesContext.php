@@ -8,7 +8,7 @@ use InvalidArgumentException;
  * Schema-side context policy: merging the schema's {@see \Warrant\Schema\WarrantSchema::defaultContext()}
  * under an explicit check context and enforcing the schema's required-context
  * rules. This is pure schema configuration — it takes no user — so it stays on
- * the schema (the definition), and the {@see \Warrant\WarrantGuardForSchema}
+ * the schema (the definition), and the {@see \Warrant\Guard\WarrantGuardForSchema}
  * engine calls into it when evaluating a check.
  */
 trait ResolvesContext

@@ -119,6 +119,19 @@ and `HasWarrantSchema` stay where they are: the first is shared check-time
 vocabulary used by the guard and compiler too, and the second is applied to models
 rather than used inside a schema.
 
+### 6. Update namespaces for the guards and the middleware, if you import them
+
+| Before | After |
+|---|---|
+| `Warrant\WarrantGuard` | `Warrant\Guard\WarrantGuard` |
+| `Warrant\WarrantGuardForSchema` | `Warrant\Guard\WarrantGuardForSchema` |
+| `Warrant\WarrantMiddleware` | `Warrant\Middleware\WarrantMiddleware` |
+
+Each now sits with the concerns it is built from — `Warrant\Guard\Concerns\*` and
+the reachability middleware in `Warrant\Middleware\*`. The `Warrant` facade,
+`Warrant::guard()`, `Warrant::forSchema()`, and the `warrant:` route-middleware
+aliases are all unchanged, so this only affects code that names the classes.
+
 ### What you get in return
 
 Registering a schema is now a string-to-string entry. A schema class and its model

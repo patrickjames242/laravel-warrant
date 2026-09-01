@@ -15,7 +15,7 @@ use Warrant\Schema\WarrantUngrantedContext;
 
 /**
  * Diagnosing *why* a denied check failed and turning that into the exception to
- * throw — the denial-message feature behind {@see \Warrant\WarrantGuardForSchema::authorize()}.
+ * throw — the denial-message feature behind {@see \Warrant\Guard\WarrantGuardForSchema::authorize()}.
  *
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
