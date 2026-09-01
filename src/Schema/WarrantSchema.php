@@ -49,12 +49,6 @@ abstract class WarrantSchema implements ConditionResolver
     public const model = '';
 
     /**
-     * Explicit schema key to override the default. When null the schema key is
-     * derived from the model table.
-     */
-    public const schemaKey = null;
-
-    /**
      * @var array<string, true>
      */
     private array $abilityLookup;

@@ -47,9 +47,10 @@ class WarrantMiddleware
 
     /**
      * Normalize a guard target to a schema key. Accepts a schema class, a model
-     * class, or a bare schema key; the registry is the sole authority for the
-     * model->schema mapping (a model's own {@see \Warrant\HasWarrantSchema} trait
-     * is deliberately not consulted). A bare key passes through unchanged.
+     * class, or a bare schema key. A model resolves through its own
+     * {@see \Warrant\HasWarrantSchema} trait, and a bare key is checked against the
+     * schema index rather than passed through, so an unregistered target fails here
+     * instead of at check time.
      */
     private static function normalizeTarget(
         string $target

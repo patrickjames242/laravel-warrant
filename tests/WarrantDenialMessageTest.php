@@ -1,6 +1,7 @@
 <?php
 
 
+use Warrant\HasWarrantSchema;
 use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -22,13 +23,46 @@ use Warrant\WarrantAuthorizationException;
 use Warrant\WarrantDenialContext;
 use Warrant\WarrantUngrantedContext;
 
+beforeEach(function () {
+    useWarrantSchemas([
+        'course_sections' => WarrantTestSchema::class,
+        'denial_implicit' => DenialImplicitSchema::class,
+        'denial_context' => DenialContextSchema::class,
+        'denial_scoped' => DenialScopedSchema::class,
+        'denial_ungranted' => DenialUngrantedSchema::class,
+        'denial_ungranted_throw' => DenialUngrantedThrowSchema::class,
+        'denial_forbidden' => DenialForbiddenSchema::class,
+        'denial_forbidden_throw' => DenialForbiddenThrowSchema::class,
+        'denial_both' => DenialBothSchema::class,
+    ]);
+});
+
+
 // -- fixtures -----------------------------------------------------------------
 
 class DenialCustomException extends RuntimeException {}
 
 /** A schema whose implicit rules carry a message-bearing cannot. */
+class DenialImplicitModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialImplicitSchema::class;
+    }
+}
+
 class DenialImplicitSchema extends WarrantTestSchema
 {
+    public const model = DenialImplicitModel::class;
+
     public function implicitRules(): array
     {
         return [
@@ -40,6 +74,8 @@ class DenialImplicitSchema extends WarrantTestSchema
 /** A model with a global scope that hides the `other-section` row. */
 class DenialScopedModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'course_sections';
 
     public $incrementing = false;
@@ -50,6 +86,11 @@ class DenialScopedModel extends Model
     {
         static::addGlobalScope('hide', fn ($q) => $q->where('course_sections.id', '!=', 'other-section'));
     }
+
+    public static function warrantSchema(): string
+    {
+        return DenialScopedSchema::class;
+    }
 }
 
 class DenialScopedSchema extends WarrantTestSchema
@@ -58,9 +99,25 @@ class DenialScopedSchema extends WarrantTestSchema
 }
 
 /** A schema with a global condition that reads the context bag. */
+class DenialContextModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialContextSchema::class;
+    }
+}
+
 class DenialContextSchema extends WarrantSchema
 {
-    public const model = WarrantTestModel::class;
+    public const model = DenialContextModel::class;
 
     #[Ability]
     public const UPDATE = 'update';
@@ -75,8 +132,26 @@ class DenialContextSchema extends WarrantSchema
 }
 
 /** A schema whose ungranted hook returns a string echoing the gate + subset. */
+class DenialUngrantedModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialUngrantedSchema::class;
+    }
+}
+
 class DenialUngrantedSchema extends WarrantTestSchema
 {
+    public const model = DenialUngrantedModel::class;
+
     public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
     {
         return 'Not permitted: '.implode(',', $c->ungrantedAbilities).' ('.$c->gate->matchMode->name.')';
@@ -84,8 +159,26 @@ class DenialUngrantedSchema extends WarrantTestSchema
 }
 
 /** A schema whose ungranted hook throws a custom exception. */
+class DenialUngrantedThrowModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialUngrantedThrowSchema::class;
+    }
+}
+
 class DenialUngrantedThrowSchema extends WarrantTestSchema
 {
+    public const model = DenialUngrantedThrowModel::class;
+
     public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
     {
         return new DenialCustomException('no grant for '.$c->ungrantedAbilities[0]);
@@ -93,8 +186,26 @@ class DenialUngrantedThrowSchema extends WarrantTestSchema
 }
 
 /** A schema that catches message-less forbids with a string. */
+class DenialForbiddenModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialForbiddenSchema::class;
+    }
+}
+
 class DenialForbiddenSchema extends WarrantTestSchema
 {
+    public const model = DenialForbiddenModel::class;
+
     public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
     {
         return 'Forbidden: '.implode(',', $c->deniedAbilities);
@@ -102,8 +213,26 @@ class DenialForbiddenSchema extends WarrantTestSchema
 }
 
 /** A schema whose forbidden hook throws a custom exception. */
+class DenialForbiddenThrowModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialForbiddenThrowSchema::class;
+    }
+}
+
 class DenialForbiddenThrowSchema extends WarrantTestSchema
 {
+    public const model = DenialForbiddenThrowModel::class;
+
     public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
     {
         return new DenialCustomException('forbidden '.$c->deniedAbilities[0]);
@@ -111,8 +240,26 @@ class DenialForbiddenThrowSchema extends WarrantTestSchema
 }
 
 /** A schema that catches both forbidden and ungranted denials. */
+class DenialBothModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialBothSchema::class;
+    }
+}
+
 class DenialBothSchema extends WarrantTestSchema
 {
+    public const model = DenialBothModel::class;
+
     public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
     {
         return 'forbidden:'.implode(',', $c->deniedAbilities);
@@ -759,7 +906,7 @@ it('rejects an ability duplicated across a rule\'s cannot clauses', function () 
 // -- middleware integration ---------------------------------------------------
 
 it('surfaces a rule message through the middleware', function () {
-    useWarrantSchemas([WarrantScopedModelSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
     Schema::create('course_sections', fn ($table) => $table->string('id'));
     DB::table('course_sections')->insert([['id' => 'teacher:teacher-role']]);
 

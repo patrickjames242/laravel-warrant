@@ -25,9 +25,12 @@ final readonly class CompilationContext
     /**
      * @param array<string, mixed> $checkContext The effective check-time context.
      * @param list<string> $visited The `(schema, ability)` frames on the current
-     *   cross-schema compile path (each `"schemaKey\0ability"`), for cycle
-     *   detection. Path-scoped: a frame added descending into a referenced schema
-     *   never leaks to a sibling branch, since each step derives a fresh copy.
+     *   cross-schema compile path (each `"schemaClass\0ability"`), for cycle
+     *   detection. Framed by class string so no schema-key lookup is needed on the
+     *   compile path; {@see RuleSetCompiler::describeFrame()} maps them back to keys
+     *   for the cycle message. Path-scoped: a frame added descending into a
+     *   referenced schema never leaks to a sibling branch, since each step derives
+     *   a fresh copy.
      */
     public function __construct(
         public Authenticatable $user,

@@ -12,12 +12,22 @@ return [
     'rule_resolver' => null,
 
     /*
-     * The Warrant schemas registered with the application. Registration is
-     * explicit: every schema that governs a resource must be listed here. A
-     * schema that is not listed is unknown to access checks and lookups.
+     * The Warrant schemas registered with the application, keyed by schema key.
+     *
+     * The array key *is* the schema key: the short, stable identifier that
+     * appears in rule strings (`for posts { ... }`, `can(view for posts)`,
+     * `@column posts.author_id`) and in the RuleResolutionContext handed to your
+     * rule resolver. It is the only place a schema key is declared, so treat it
+     * like a database identifier — renaming one changes the meaning of every
+     * rule string that already references it.
+     *
+     * Registration is explicit: a schema that is not listed here is unknown to
+     * access checks and lookups. Nothing in this array is loaded until a schema
+     * is actually used, so listing hundreds of schemas costs one array of
+     * strings, not hundreds of class loads.
      */
     'schemas' => [
-        // App\Schemas\PostSchema::class,
+        // 'posts' => App\Schemas\PostSchema::class,
     ],
 
     /*

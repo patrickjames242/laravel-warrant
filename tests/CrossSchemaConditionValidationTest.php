@@ -4,6 +4,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\HasWarrantSchema;
 use Warrant\Ability;
 use Warrant\GlobalCondition;
 use Warrant\RowCondition;
@@ -21,9 +22,9 @@ use Warrant\Schema\WarrantSchema;
  */
 beforeEach(function () {
     useWarrantSchemas([
-        XcvOwnerSchema::class,
-        XcvTargetSchema::class,
-        XcvCapabilitySchema::class,
+        'xcv_owner' => XcvOwnerSchema::class,
+        'xcv_target' => XcvTargetSchema::class,
+        'xcv_capability' => XcvCapabilitySchema::class,
     ]);
 });
 
@@ -110,16 +111,22 @@ it('rejects a specified row target from a binding that resolved to null', functi
 
 class XcvOwnerModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'xcv_owners';
 
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return XcvOwnerSchema::class;
+    }
 }
 
 class XcvOwnerSchema extends WarrantSchema
 {
-    public const schemaKey = 'xcv_owner';
 
     public const model = XcvOwnerModel::class;
 
@@ -135,16 +142,22 @@ class XcvOwnerSchema extends WarrantSchema
 
 class XcvTargetModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'xcv_targets';
 
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return XcvTargetSchema::class;
+    }
 }
 
 class XcvTargetSchema extends WarrantSchema
 {
-    public const schemaKey = 'xcv_target';
 
     public const model = XcvTargetModel::class;
 
@@ -172,7 +185,6 @@ class XcvTargetSchema extends WarrantSchema
 
 class XcvCapabilitySchema extends WarrantSchema
 {
-    public const schemaKey = 'xcv_capability';
 
     #[Ability]
     public const A_ACCESS = 'access';

@@ -43,7 +43,9 @@ final class WarrantGuard
         /** @var class-string<WarrantSchema> $schemaClass */
         $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($schema);
 
-        return $this->schemaGuards[$schemaClass::schemaKey()] ??= new WarrantGuardForSchema(
+        /* Keyed by class string, not schema key: the class is already a unique
+           identifier, so this needs no reverse lookup in the schema index. */
+        return $this->schemaGuards[$schemaClass] ??= new WarrantGuardForSchema(
             new $schemaClass,
             $this->user,
             $this->manager,

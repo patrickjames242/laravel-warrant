@@ -60,7 +60,7 @@ beforeEach(function () {
         $table->string('owner');
     });
 
-    useWarrantSchemas([ChkDocSchema::class, ChkTargetSchema::class, ChkCapabilitySchema::class]);
+    useWarrantSchemas(['chk_docs' => ChkDocSchema::class, 'chk_targets' => ChkTargetSchema::class, 'chk_capability' => ChkCapabilitySchema::class]);
 });
 
 /**
@@ -252,7 +252,7 @@ class ChkDoc extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ChkDocSchema::class;
     }
@@ -260,7 +260,6 @@ class ChkDoc extends Model
 
 class ChkDocSchema extends WarrantSchema
 {
-    public const schemaKey = 'chk_docs';
     public const model = ChkDoc::class;
 
     #[Ability]
@@ -275,7 +274,7 @@ class ChkTarget extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ChkTargetSchema::class;
     }
@@ -283,7 +282,6 @@ class ChkTarget extends Model
 
 class ChkTargetSchema extends WarrantSchema
 {
-    public const schemaKey = 'chk_targets';
     public const model = ChkTarget::class;
 
     #[Ability]
@@ -305,7 +303,6 @@ class ChkTargetSchema extends WarrantSchema
 
 class ChkCapabilitySchema extends WarrantSchema
 {
-    public const schemaKey = 'chk_capability';
 
     #[GlobalCondition]
     public function isSuper(GlobalConditionContext $c): bool

@@ -32,7 +32,7 @@ class GateTestModel extends Model
 
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return GateTestSchema::class;
     }
@@ -103,7 +103,7 @@ function seedGateSections(): void
 /** Register GateTestSchema and bind a standard rule set the tests share. */
 function bootGateSchema(): void
 {
-    useWarrantSchemas([GateTestSchema::class]);
+    useWarrantSchemas(['course_sections' => GateTestSchema::class]);
     bindWarrantRules('they can publish if is_teacher they can view if region_allowed they can approve');
 }
 
@@ -232,7 +232,7 @@ it('does not resolve Warrant abilities when register_gate is false', function ()
 
 it('carries the Warrant denial message through inspect/authorize', function () {
     seedGateSections();
-    useWarrantSchemas([GateTestSchema::class]);
+    useWarrantSchemas(['course_sections' => GateTestSchema::class]);
     bindWarrantRuleSet(WarrantRuleSet::fromRules(GateTestSchema::class, [
         WarrantRule::build()->theyCan('view')->toRule(),
         WarrantRule::build()->if('is_teacher')

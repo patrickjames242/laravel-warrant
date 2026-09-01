@@ -47,7 +47,7 @@ return [
 
     // Every schema Warrant should know about.
     'schemas' => [
-        App\Warrant\DocumentSchema::class,
+        'documents' => App\Warrant\DocumentSchema::class,
     ],
 
     // Resolve Warrant abilities through Laravel's Gate ($user->can(), @can,

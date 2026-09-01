@@ -2,6 +2,11 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
+});
+
+
 /*
 |------------------------------------------------------------------------------
 | SQL surface tests — Stage 3: model query scopes

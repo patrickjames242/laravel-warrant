@@ -6,6 +6,11 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Support\Facades\DB;
 
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+});
+
+
 /*
 |------------------------------------------------------------------------------
 | SQL surface tests — Stage 4: getAbilitiesWithoutTarget()

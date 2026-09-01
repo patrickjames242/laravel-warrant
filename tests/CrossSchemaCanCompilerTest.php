@@ -65,7 +65,7 @@ beforeEach(function () {
         $table->string('owner');
     });
 
-    useWarrantSchemas([XcDocSchema::class, XcFolderSchema::class, XcCapabilitySchema::class]);
+    useWarrantSchemas(['xc_docs' => XcDocSchema::class, 'xc_folders' => XcFolderSchema::class, 'xc_capability' => XcCapabilitySchema::class]);
 });
 
 /**
@@ -286,7 +286,7 @@ class XcDoc extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return XcDocSchema::class;
     }
@@ -294,7 +294,6 @@ class XcDoc extends Model
 
 class XcDocSchema extends WarrantSchema
 {
-    public const schemaKey = 'xc_docs';
     public const model = XcDoc::class;
 
     #[Ability]
@@ -309,7 +308,7 @@ class XcFolder extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return XcFolderSchema::class;
     }
@@ -317,7 +316,6 @@ class XcFolder extends Model
 
 class XcFolderSchema extends WarrantSchema
 {
-    public const schemaKey = 'xc_folders';
     public const model = XcFolder::class;
 
     #[Ability]
@@ -342,7 +340,6 @@ class XcFolderSchema extends WarrantSchema
 
 class XcCapabilitySchema extends WarrantSchema
 {
-    public const schemaKey = 'xc_capability';
 
     #[Ability]
     public const ACCESS = 'access';

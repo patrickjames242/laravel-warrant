@@ -16,32 +16,39 @@ use Warrant\Schema\WarrantSchema;
 
 class DocumentSchema extends WarrantSchema
 {
-    public const model = Document::class;    // the Eloquent model this governs
-    // public const schemaKey = 'documents'; // optional override
+    public const model = Document::class; // the Eloquent model this governs
 }
 ```
 
 ## The model constant
 
-`const model` binds the schema to an Eloquent model class. Warrant uses it to
-resolve a schema from a model (and vice versa) and to derive the schema key.
+`const model` binds the schema to an Eloquent model class, and the model names the
+schema back through the [`HasWarrantSchema`](/guides/checking-access/) trait. Warrant checks
+that the two agree the first time it resolves the schema, and throws if they don't.
+
+A schema and its model must name **each other**, so one model has exactly one
+schema. A base schema may still be extended, but each concrete schema needs its own
+model.
 
 ## The schema key
 
-The **schema key** identifies the resource in rules, lookups, and middleware. By
-default it's derived from the model's table name:
+The **schema key** identifies the resource in rules, lookups, and middleware. It is
+not declared on the schema: it is the key the schema is registered under in
+`config/warrant.php`, which is its single source of truth. Read it back with:
 
 ```php
 public static function schemaKey(): string; // 'documents'
 ```
 
-Override it with the `schemaKey` constant when you want a stable key independent
-of the table name.
+Because the key lives in the config index, that method is a lookup and needs a
+booted application.
 
-:::caution[Deriving the key instantiates the model]
-When `schemaKey` isn't set, Warrant computes the key as `(new model)->getTable()`.
-That means a **schema with no model** (`const model = ''`) *must* set
-the `schemaKey` constant — otherwise Warrant tries to instantiate `''` and fatals.
+:::tip[Why the key isn't derived]
+Warrant used to derive the key from the model's table, which meant building the
+schema index instantiated every registered model — loading and *booting* hundreds
+of Eloquent models on the first check of every request. Declaring the key in config
+makes registration a plain array of strings, so nothing is loaded until a schema is
+actually used.
 :::
 
 ## Abilities
@@ -108,8 +115,7 @@ A schema may govern a "section" with no model at all — for gating things like
 ```php
 class SettingsSchema extends WarrantSchema
 {
-    public const model = '';              // no model
-    public const schemaKey = 'settings';  // REQUIRED when there's no model
+    public const model = ''; // no model
 
     #[Ability] public const MANAGE = 'manage';
 
@@ -135,18 +141,28 @@ Targeted checks against a model-less schema throw; use
 
 ## Registering the schema
 
-Every schema must be listed in `config/warrant.php`. Unlisted schemas are unknown
-to lookups and middleware:
+Every schema must be listed in `config/warrant.php`, keyed by its schema key.
+Unlisted schemas are unknown to checks, lookups, and middleware:
 
 ```php
 'schemas' => [
-    App\Warrant\DocumentSchema::class,
-    App\Warrant\SettingsSchema::class,
+    'documents' => App\Warrant\DocumentSchema::class,
+    'settings'  => App\Warrant\SettingsSchema::class,
 ],
 ```
 
-:::caution[Duplicate keys throw]
-Two schemas that resolve to the same schema key — or claim the same model — throw
-(`Duplicate schema for schema key ...`) when the schema registry is first
-resolved from the container. Keys must be unique across the registry.
+The array key *is* the schema key — the identifier that appears in your rule
+strings and in the `RuleResolutionContext` handed to your resolver. Treat it like a
+database identifier: renaming one changes the meaning of every stored rule that
+references it.
+
+Listing a schema does not load it. The index is a plain string-to-string map, so
+registering hundreds of schemas costs one array; a schema class and its model are
+loaded the first time that schema is used.
+
+:::caution[One key per schema]
+Registering the same schema under two keys throws when the index is built — a
+schema needs a single key to write back into rule syntax. Deferred checks (the
+value really is a `WarrantSchema`, and its model names it back) throw the first
+time that schema is resolved, not at boot.
 :::

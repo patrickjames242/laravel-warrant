@@ -47,7 +47,7 @@ beforeEach(function () {
         $table->string('state');
     });
 
-    useWarrantSchemas([ColTsSchema::class, ColDocSchema::class, ColTargetSchema::class, ColCapSchema::class]);
+    useWarrantSchemas(['timesheets' => ColTsSchema::class, 'col_docs' => ColDocSchema::class, 'col_targets' => ColTargetSchema::class, 'col_cap' => ColCapSchema::class]);
 });
 
 /**
@@ -199,7 +199,7 @@ class ColTs extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ColTsSchema::class;
     }
@@ -208,7 +208,6 @@ class ColTs extends Model
 class ColTsSchema extends WarrantSchema
 {
     // Key deliberately differs from the table name, to prove key → table resolution.
-    public const schemaKey = 'timesheets';
     public const model = ColTs::class;
 
     #[Ability]
@@ -232,7 +231,7 @@ class ColDoc extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ColDocSchema::class;
     }
@@ -240,7 +239,6 @@ class ColDoc extends Model
 
 class ColDocSchema extends WarrantSchema
 {
-    public const schemaKey = 'col_docs';
     public const model = ColDoc::class;
 
     #[Ability]
@@ -255,7 +253,7 @@ class ColTarget extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ColTargetSchema::class;
     }
@@ -263,7 +261,6 @@ class ColTarget extends Model
 
 class ColTargetSchema extends WarrantSchema
 {
-    public const schemaKey = 'col_targets';
     public const model = ColTarget::class;
 
     #[Ability]
@@ -279,7 +276,6 @@ class ColTargetSchema extends WarrantSchema
 class ColCapSchema extends WarrantSchema
 {
     // A modelless capability schema — no table, so @column cannot reference it.
-    public const schemaKey = 'col_cap';
 
     #[GlobalCondition]
     public function always(GlobalConditionContext $c): bool

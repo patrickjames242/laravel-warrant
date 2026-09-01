@@ -105,7 +105,7 @@ class Timesheet extends Model
 {
     use HasWarrantSchema;
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return \App\Warrant\TimesheetSchema::class;
     }
@@ -204,7 +204,7 @@ if is_admin they can *
 
 ```php
 'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
-'schemas' => [App\Warrant\TimesheetSchema::class],
+'schemas' => ['timesheets' => App\Warrant\TimesheetSchema::class],
 ```
 
 **5. Check access** — every call is a single SQL query:

@@ -180,16 +180,18 @@ class Document extends Model
 {
     use HasWarrantSchema;
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return \App\Warrant\DocumentSchema::class;
     }
 }
 ```
 
-The trait declares `warrantSchema(): string` abstract. The returned schema's
-`const model` must equal this model's class, or Warrant throws `LogicException`
-(`Schema [...] must manage model [...]`) when a scope resolves the schema.
+The trait declares `warrantSchema(): string` abstract **and static**. The returned
+schema's `const model` must equal this model's class, or Warrant throws
+`LogicException` (`Model [...] names schema [...], but that schema names model [...]`)
+when a scope resolves the schema. Because `warrantSchema()` is inherited, a model
+subclass fails this check unless it declares its own schema.
 
 ### Query scopes
 

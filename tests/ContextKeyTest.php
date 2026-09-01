@@ -17,6 +17,11 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
 use Warrant\RowCondition;
 
+beforeEach(function () {
+    useWarrantSchemas(['context_docs' => ContextDocSchema::class]);
+});
+
+
 class ContextDoc extends Model
 {
     use HasWarrantSchema;
@@ -25,7 +30,7 @@ class ContextDoc extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return ContextDocSchema::class;
     }
@@ -57,8 +62,26 @@ class ContextDocSchema extends WarrantSchema
 
 // Same schema, but with a default frame — feeds param-less paths and lets a
 // check omit the required key.
+class ContextDocWithDefaultsModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'context_docs';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return ContextDocWithDefaults::class;
+    }
+}
+
 class ContextDocWithDefaults extends ContextDocSchema
 {
+    public const model = ContextDocWithDefaultsModel::class;
+
     protected function defaultContext(): array
     {
         return ['workspace_id' => 'w-1'];
@@ -144,6 +167,8 @@ it('lets defaultContext() satisfy a required key', function () {
     $user = makeWarrantTestUser();
 
     // No explicit context: the schema default (w-1) supplies workspace_id.
+    useWarrantSchemas(['context_docs' => ContextDocWithDefaults::class]);
+
     expect(Warrant::guard($user)->forSchema(ContextDocWithDefaults::class)->can('view', 'd1'))->toBeTrue();
 });
 
@@ -151,6 +176,8 @@ it('lets explicit context win over defaults (partial merge)', function () {
     $user = makeWarrantTestUser();
 
     // Explicit w-2 overrides the default w-1, so d1 (in w-1) no longer matches.
+    useWarrantSchemas(['context_docs' => ContextDocWithDefaults::class]);
+
     expect(Warrant::guard($user)->forSchema(ContextDocWithDefaults::class)->can('view', 'd1', ['workspace_id' => 'w-2']))
         ->toBeFalse();
 });

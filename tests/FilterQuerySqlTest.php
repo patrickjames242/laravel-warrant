@@ -6,6 +6,11 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\AbilityMatchMode;
 
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+});
+
+
 /*
 |------------------------------------------------------------------------------
 | SQL surface tests — Stage 1: filterQuery()
@@ -142,6 +147,7 @@ it('inlines a relational condition written as a correlated whereExists', functio
 });
 
 it('throws when a condition emits a top-level join instead of a where clause', function () {
+    useWarrantSchemas(['course_sections' => WarrantJoinConditionSchema::class]);
     bindWarrantRules('if via_bad_join they can view');
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantJoinConditionSchema))->filterQuery(

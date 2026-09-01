@@ -40,7 +40,7 @@ beforeEach(function () {
         $table->integer('threshold');
     });
 
-    useWarrantSchemas([SqlItemSchema::class]);
+    useWarrantSchemas(['sql_items' => SqlItemSchema::class]);
 });
 
 /**
@@ -134,7 +134,7 @@ class SqlItem extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return SqlItemSchema::class;
     }
@@ -142,7 +142,6 @@ class SqlItem extends Model
 
 class SqlItemSchema extends WarrantSchema
 {
-    public const schemaKey = 'sql_items';
     public const model = SqlItem::class;
 
     #[Ability]

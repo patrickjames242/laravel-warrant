@@ -10,6 +10,7 @@ use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Ability;
+use Warrant\Facades\Warrant;
 use Warrant\GlobalCondition;
 use Warrant\RequiredContext;
 use Warrant\RowCondition;
@@ -26,15 +27,17 @@ use Warrant\Schema\Conditions\RowConditionContext;
 trait ReflectsSchemaDefinition
 {
     /**
-     * Returns the schema key for this schema — the namespace prefix used in
-     * rules and lookups.
+     * Returns the schema key for this schema — the short, stable identifier used
+     * in rule strings and lookups.
      *
-     * The value is derived from the table name of the model referenced by `static::model`.
-     * That makes the prefix deterministic and keeps rules aligned with the
-     * managed entity in storage.
+     * The key is not declared on the schema: it is the key this schema is
+     * registered under in the `warrant.schemas` config, which is its sole source
+     * of truth. This method is therefore a reverse lookup in the schema index and
+     * requires a booted application; it throws if the schema is not registered.
      *
      * Example:
      * ```php
+     * // 'course_sections' => CourseSectionSchema::class
      * CourseSectionSchema::schemaKey();
      * ```
      *
@@ -45,16 +48,7 @@ trait ReflectsSchemaDefinition
      */
     public static function schemaKey(): string
     {
-        if (static::schemaKey !== null) {
-            return static::schemaKey;
-        }
-
-        $modelClass = static::model;
-
-        /** @var Model $model */
-        $model = new $modelClass;
-
-        return $model->getTable();
+        return Warrant::registry()->resolveSchemaKeyOrFail(static::class);
     }
 
     /**

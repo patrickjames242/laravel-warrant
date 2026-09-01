@@ -9,7 +9,7 @@ use Warrant\RuleSyntaxTree\ReachabilityAnalyzer;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 
 beforeEach(function () {
-    useWarrantSchemas([WarrantScopedModelSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
 });
 
 /*
@@ -119,7 +119,7 @@ it('lists abilities by reachability bucket', function () {
 });
 
 it('honours implicit rules in the analysis', function () {
-    useWarrantSchemas([WarrantImplicitRulesSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
     // Resolver grants nothing; the schema's implicit rules grant publish, deny archive.
     bindWarrantRules('');
     $user = makeWarrantTestUser();

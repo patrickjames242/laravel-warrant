@@ -23,17 +23,22 @@ class Document extends Model
 {
     use HasWarrantSchema;
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return \App\Warrant\DocumentSchema::class;
     }
 }
 ```
 
-:::caution
-The schema's `const model` must match the model that returns it. If
-`Document::warrantSchema()` returns a schema whose `model` is `Invoice::class`,
-Warrant throws `Schema [...] must manage model [...]`.
+:::caution[A schema and its model must name each other]
+`Document::warrantSchema()` must name a schema whose `const model` is
+`Document::class`. If it names a schema for something else, Warrant throws
+`Model [...] names schema [...], but that schema names model [...]`.
+
+The same applies to a **subclass**. `warrantSchema()` is inherited, so
+`PublishedDocument extends Document` names `DocumentSchema`, whose `model` is
+`Document` — not the subclass — and Warrant throws. A subclass that needs its own
+authorization needs its own schema.
 :::
 
 ## The authorization engine

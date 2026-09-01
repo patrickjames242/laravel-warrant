@@ -57,11 +57,18 @@ class WarrantTestUser implements Authenticatable
 
 class WarrantTestModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'course_sections';
 
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantTestSchema::class;
+    }
 }
 
 class WarrantTestSchema extends WarrantSchema
@@ -110,9 +117,25 @@ class WarrantTestSchema extends WarrantSchema
     }
 }
 
+class WarrantJoinConditionModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantJoinConditionSchema::class;
+    }
+}
+
 class WarrantJoinConditionSchema extends WarrantSchema
 {
-    public const model = WarrantTestModel::class;
+    public const model = WarrantJoinConditionModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -128,9 +151,25 @@ class WarrantJoinConditionSchema extends WarrantSchema
     }
 }
 
+class WarrantBooleanConditionModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantBooleanConditionSchema::class;
+    }
+}
+
 class WarrantBooleanConditionSchema extends WarrantSchema
 {
-    public const model = WarrantTestModel::class;
+    public const model = WarrantBooleanConditionModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -142,9 +181,25 @@ class WarrantBooleanConditionSchema extends WarrantSchema
     }
 }
 
+class MistypedConditionModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return MistypedConditionSchema::class;
+    }
+}
+
 class MistypedConditionSchema extends WarrantSchema
 {
-    public const model = WarrantTestModel::class;
+    public const model = MistypedConditionModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -157,9 +212,25 @@ class MistypedConditionSchema extends WarrantSchema
     }
 }
 
+class ParameterizedConditionModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return ParameterizedConditionSchema::class;
+    }
+}
+
 class ParameterizedConditionSchema extends WarrantSchema
 {
-    public const model = WarrantTestModel::class;
+    public const model = ParameterizedConditionModel::class;
 
     #[Ability]
     public const ABILITY_VIEW = 'view';
@@ -187,6 +258,15 @@ class ParameterizedConditionSchema extends WarrantSchema
     }
 }
 
+/**
+ * A model subclass that inherits warrantSchema() from its parent, so it names a
+ * schema that names the *parent* back. Consistent read from the schema end, wrong
+ * from the model end — the case the model direction of the cross-check catches.
+ */
+class WarrantSubclassedModel extends WarrantTestModel
+{
+}
+
 class WarrantScopedModel extends Model
 {
     use HasWarrantSchema;
@@ -197,7 +277,7 @@ class WarrantScopedModel extends Model
 
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return WarrantScopedModelSchema::class;
     }
@@ -213,7 +293,7 @@ class WarrantMismatchedScopedModel extends Model
 
     protected $keyType = 'string';
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return WarrantTestSchema::class;
     }
@@ -224,8 +304,26 @@ class WarrantScopedModelSchema extends WarrantTestSchema
     public const model = WarrantScopedModel::class;
 }
 
+class WarrantImplicitRulesModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantImplicitRulesSchema::class;
+    }
+}
+
 class WarrantImplicitRulesSchema extends WarrantTestSchema
 {
+    public const model = WarrantImplicitRulesModel::class;
+
     public function implicitRules(): array
     {
         return [
@@ -236,8 +334,26 @@ class WarrantImplicitRulesSchema extends WarrantTestSchema
     }
 }
 
+class WarrantImplicitRuleSetModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantImplicitRuleSetSchema::class;
+    }
+}
+
 class WarrantImplicitRuleSetSchema extends WarrantTestSchema
 {
+    public const model = WarrantImplicitRuleSetModel::class;
+
     public function implicitRules(): array|WarrantRuleSet
     {
         // Same baseline as WarrantImplicitRulesSchema, but returned as a rule set.
@@ -259,7 +375,8 @@ class FakeWarrantRuleResolver implements RuleResolver
 }
 
 /**
- * @param  array<int, class-string<WarrantSchema>>  $schemas
+ * @param  array<string, class-string<WarrantSchema>>  $schemas  Schema classes
+ *   keyed by schema key, exactly as `warrant.schemas` is configured.
  */
 function useWarrantSchemas(array $schemas): void
 {
@@ -409,4 +526,57 @@ function normalizeWarrantSql(string $sql): string
     }
 
     return $out;
+}
+
+/**
+ * A schema whose model names a different schema — the back-reference the registry
+ * rejects on first resolution.
+ */
+class MismatchedBackReferenceSchema extends WarrantSchema
+{
+    public const model = WarrantMismatchedScopedModel::class;
+
+    #[Ability]
+    public const ABILITY_VIEW = 'view';
+}
+
+/**
+ * A model that does not use HasWarrantSchema, so nothing can resolve it back to
+ * a schema.
+ */
+class TraitlessModel extends Model
+{
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+}
+
+class TraitlessModelSchema extends WarrantSchema
+{
+    public const model = TraitlessModel::class;
+
+    #[Ability]
+    public const ABILITY_VIEW = 'view';
+}
+
+/**
+ * Declares warrantSchema() as an instance method, the way a model written against
+ * the pre-static trait did. It cannot use the trait — PHP rejects overriding an
+ * abstract static with an instance method at compile time — so this stands in for
+ * the shape the registry has to report clearly rather than fatal on.
+ */
+class NonStaticWarrantSchemaModel extends Model
+{
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public function warrantSchema(): string
+    {
+        return WarrantTestSchema::class;
+    }
 }

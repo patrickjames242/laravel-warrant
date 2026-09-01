@@ -170,8 +170,8 @@ return [
     'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
 
     'schemas' => [
-        App\Warrant\DocumentSchema::class,
-        App\Warrant\ProjectSchema::class,
+        'documents' => App\Warrant\DocumentSchema::class,
+        'projects' => App\Warrant\ProjectSchema::class,
     ],
 ];
 ```

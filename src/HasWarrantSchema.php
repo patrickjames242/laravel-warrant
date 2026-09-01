@@ -4,7 +4,6 @@ namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
-use LogicException;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\WarrantSchema;
 
@@ -18,9 +17,26 @@ use Warrant\Schema\WarrantSchema;
 trait HasWarrantSchema
 {
     /**
+     * The {@see WarrantSchema} class that governs this model.
+     *
+     * Static because this is the authoritative model->schema direction: Warrant
+     * resolves it from a bare model class-string (a no-target check, a Gate call
+     * like `can('create', Post::class)`, or the registry's cross-reference check),
+     * and an instance method would force a model to be constructed — and booted —
+     * just to answer it.
+     *
      * @return class-string<WarrantSchema>
      */
-    abstract public function warrantSchema(): string;
+    abstract public static function warrantSchema(): string;
+
+    /*
+     * The helpers below hand the guard `static::class` — the model — rather than
+     * the schema, so the registry resolves the pair from the model end and
+     * cross-checks it in that direction. That is what catches a subclass which
+     * inherited warrantSchema() from its parent: the parent's schema names the
+     * parent, not the subclass. Passing the schema instead would check the pair
+     * from the schema end, where that mismatch is invisible.
+     */
 
     /**
      * Scope the query to rows the user can act on with the given ability(ies).
@@ -35,7 +51,7 @@ trait HasWarrantSchema
         array $context = []
     ): EloquentBuilder
     {
-        Warrant::forSchema($this->validatedWarrantSchema(), $user)->filterQuery(
+        Warrant::forSchema(static::class, $user)->filterQuery(
             query: $query->getQuery(),
             targetSqlId: $this->getQualifiedKeyName(),
             abilities: $abilities,
@@ -58,7 +74,7 @@ trait HasWarrantSchema
         array $context = []
     ): EloquentBuilder
     {
-        Warrant::forSchema($this->validatedWarrantSchema(), $user)->selectAbilitiesInQuery(
+        Warrant::forSchema(static::class, $user)->selectAbilitiesInQuery(
             query: $query->getQuery(),
             targetSqlId: $this->getQualifiedKeyName(),
             selectedAbilitiesKey: $selectedAbilitiesKey,
@@ -80,35 +96,10 @@ trait HasWarrantSchema
         array $context = []
     ): array
     {
-        $abilities = Warrant::forSchema($this->validatedWarrantSchema(), $user)->abilities($this, $context);
+        $abilities = Warrant::forSchema(static::class, $user)->abilities($this, $context);
 
         $this->setAttribute($selectedAbilitiesKey, $abilities);
 
         return $abilities;
-    }
-
-    /**
-     * The model's {@see WarrantSchema} class, validated to actually manage this
-     * model. Returned as a class-string for the guard to resolve.
-     *
-     * @return class-string<WarrantSchema>
-     */
-    protected function validatedWarrantSchema(): string
-    {
-        $schemaClass = $this->warrantSchema();
-
-        if (! is_a($schemaClass, WarrantSchema::class, true)) {
-            throw new LogicException(
-                sprintf('Model [%s] must return a WarrantSchema class string, got [%s].', static::class, $schemaClass)
-            );
-        }
-
-        if ($schemaClass::model !== static::class) {
-            throw new LogicException(
-                sprintf('Schema [%s] must manage model [%s], got [%s].', $schemaClass, static::class, $schemaClass::model)
-            );
-        }
-
-        return $schemaClass;
     }
 }

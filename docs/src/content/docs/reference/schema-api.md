@@ -22,8 +22,7 @@ schema itself is the static `guard()` shortcut.
 ### Constants
 
 ```php
-public const model = '';        // class-string of the managed Model; '' = no model
-public const schemaKey = null;  // explicit key override; null = derive from model table
+public const model = '';  // class-string of the managed Model; '' = no model
 ```
 
 ### Static guard shortcut
@@ -39,7 +38,7 @@ See the [Checking API](/reference/checking-api/) for the returned guard's method
 ### Reflection
 
 ```php
-public static function schemaKey(): string;         // const or (new model)->getTable()
+public static function schemaKey(): string;          // the config key; needs a booted app
 public static function abilityNames(): array;        // declaration order (NOT sorted)
 public static function abilityDefinitions(): array;  // AbilityDefinition[] { name, requiredContext }
 public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinition;
@@ -117,10 +116,12 @@ the condition's DSL arguments positionally (parameter #2 → `argument[0]`, and 
 on); a variadic tail collects the rest, and a parameter with a default is optional.
 
 A condition may only add **where clauses** to `$c->query` (including `whereExists`,
-`whereIn`, `whereRaw`). Emitting a `join`, `groupBy`, `having`, aggregate, or
-`union` throws at compile time — use a correlated `whereExists()`/`whereNotExists()`
-subquery to reach another table. A `#[GlobalCondition]` may instead return a
-`bool`, evaluated in PHP.
+`whereIn`, `whereRaw`), and must add **at least one**. Emitting a `join`, `groupBy`,
+`having`, aggregate, or `union` throws at compile time — use a correlated
+`whereExists()`/`whereNotExists()` subquery to reach another table. Returning the
+query untouched throws too, since it would silently mean "match every row"; return
+`true` to mean that. A `#[GlobalCondition]` may instead return a `bool`, evaluated
+in PHP.
 
 ### `#[RequiredContext]`
 
@@ -235,11 +236,20 @@ Warrant::registry()->resolveSchemaKeyOrFail(...): ?string;
 Warrant::registry()->registeredSchemas(): array;
 ```
 
-A `WarrantSchema` (class or instance) resolves to itself / its own key; a bare
-string is treated as a literal schema key (and need not be registered to resolve as
-a key); only a model reference requires a registry lookup. The source of truth for
-the model↔schema link is the schema's `const model`, never a model's
-`HasWarrantSchema` trait.
+A `WarrantSchema` (class or instance) resolves to itself, but must be registered —
+an unregistered schema has no schema key, so nothing can name it in rule syntax or
+in a `RuleResolutionContext`. A model reference resolves through the model's own
+`HasWarrantSchema::warrantSchema()`. A bare string is treated as a literal schema
+key and is returned unchanged by the `resolveSchemaKey*` pair, so rule syntax still
+parses and writes without a registry; it is `resolveSchemaClass*` that rejects an
+unregistered key.
+
+Two declarations describe the model↔schema link, and both are authoritative in one
+direction: the schema's `const model`, and the model's `warrantSchema()`. The
+registry cross-checks that they name each other the first time it resolves a
+schema, and throws (`LogicException`) if they disagree, if the model does not use
+the trait, or if the registered class is not a `WarrantSchema`. These checks are
+deferred rather than run at boot because each one requires loading a class.
 
 To list a user's no-target abilities for a schema, use
 `Warrant::abilities(Document::class, $context, $user)` — see the

@@ -38,7 +38,7 @@ function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can pu
 }
 
 beforeEach(function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 });
 
 it('returns the same guard for the same user', function () {

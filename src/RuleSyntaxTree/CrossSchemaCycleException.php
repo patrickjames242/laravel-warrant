@@ -13,8 +13,8 @@ use RuntimeException;
 final class CrossSchemaCycleException extends RuntimeException
 {
     /**
-     * @param list<string> $path The visited frames, each "schemaKey:ability",
-     *   in order, with the repeated frame appended.
+     * @param list<string> $path The visited frames, each already rendered as
+     *   "schemaKey:ability", in order, with the repeated frame appended.
      */
     public static function forPath(array $path): self
     {

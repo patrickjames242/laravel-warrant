@@ -100,6 +100,11 @@ From the condition resolver:
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target SQL id.` (a row condition run with no target)
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (fewer arguments than the condition's required parameters)
 
+From the compiler, on what a condition emitted:
+
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; ...` (a `join`, `groupBy`, `having`, aggregate, or `union` — none of which can be spliced into an `OR` or negated in place)
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] added no where clause; a condition must add at least one where clause, or return true/false to decide the outcome outright.` (a condition that returned its query untouched — see [How it compiles](/guides/how-it-compiles/#conditions-compile-inline))
+
 ## Context errors → `InvalidArgumentException`
 
 ```text
@@ -113,8 +118,24 @@ which is fail-closed).
 
 ## Registry errors → `SchemaRegistry`
 
-- `InvalidArgumentException` — `Duplicate schema for schema key ...` / `Duplicate schema for model ...` (when the registry is first built from the container)
+- `InvalidArgumentException` — `Schema [...] is registered under more than one schema key [...]` (when the index is first built from the container)
 - `OutOfBoundsException` — `No Warrant %s registered for reference [%s].` — where `%s` is the coordinate being resolved (`schema` or `model`) and the reference is the class name or key that failed to resolve (e.g. `No Warrant schema registered for reference [documents].`)
+
+These fire the first time a schema is **resolved**, not at boot — checking any of
+them requires loading the schema class, which is exactly what the index defers:
+
+- `LogicException` — `Schema key [...] is registered to [...], which is not a Warrant\Schema\WarrantSchema.`
+- `LogicException` — `Schema [...] names model [...], which is not an Eloquent model.`
+- `LogicException` — `Schema [...] names model [...], but that model does not use the Warrant\HasWarrantSchema trait, ...`
+- `LogicException` — `Model [...] must declare warrantSchema() as \`public static\`.`
+- `LogicException` — `Schema [...] names model [...], but that model names schema [...]; a schema and its model must name each other.`
+
+The same pair is checked from the model end when the reference *is* a model — a
+row check, a query scope, or `loadUserAbilities()`. That direction is the one that
+catches a subclass inheriting `warrantSchema()` from its parent:
+
+- `LogicException` — `Model [...] must name a Warrant\Schema\WarrantSchema, but names [...].`
+- `LogicException` — `Model [...] names schema [...], but that schema names model [...]; a schema and its model must name each other.`
 
 ## Authorization failures → `WarrantAuthorizationException`
 
@@ -167,11 +188,6 @@ When no user is passed and none is authenticated, the failure surfaces two ways:
 - `LogicException` — from the query scopes / instance helpers that need a user
   but weren't given one (`scopeUserHasAbility`, `scopeSelectUserAbilities`,
   `loadUserAbilities`).
-
-## Trait errors → `LogicException`
-
-- `Model [%s] must return a WarrantSchema class string, got [%s].`
-- `Schema [%s] must manage model [%s], got [%s].`
 
 ## Writer errors → `LogicException`
 

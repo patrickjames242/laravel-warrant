@@ -104,7 +104,7 @@ class Document extends Model
 {
     use HasWarrantSchema;
 
-    public function warrantSchema(): string
+    public static function warrantSchema(): string
     {
         return \App\Warrant\DocumentSchema::class;
     }

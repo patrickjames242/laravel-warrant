@@ -10,7 +10,7 @@ use Warrant\AbilityMatchMode;
 use Warrant\WarrantMiddleware;
 
 beforeEach(function () {
-    useWarrantSchemas([WarrantScopedModelSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
 });
 
 function registerWarrantTestRoute(string $uri, string $middleware): void

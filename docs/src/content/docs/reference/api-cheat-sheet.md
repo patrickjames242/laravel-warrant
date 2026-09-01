@@ -13,8 +13,8 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 
 `extends Warrant\Schema\WarrantSchema` — see [Schema API](/reference/schema-api/).
 
-- `const model` — managed Eloquent model (or `''` for a schema with no model)
-- `const schemaKey` — optional schema-key override (**required** with no model)
+- `const model` — managed Eloquent model (or `''` for a schema with no model); the model must name the schema back via `HasWarrantSchema`
+- schema key — declared as the array key in `config/warrant.php`, not on the class
 - `#[Ability] const X = '...'` — declare an ability (add `requiredContext: [...]` for per-ability required context keys)
 - `#[RequiredContext] const X = '...'` — mark a context key required on every check (context keys need no declaration to be *used*)
 - `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions

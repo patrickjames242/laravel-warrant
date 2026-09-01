@@ -335,11 +335,14 @@ final class RuleSetCompiler
      */
     private function enterFrame(array $visited, string $ability): array
     {
-        $frame = $this->conditions::schemaKey() . "\0" . $ability;
+        /* Framed by class string rather than schema key: the class identifies the
+           schema without a reverse lookup. forPath() maps them back to keys when
+           it builds the message. */
+        $frame = $this->conditions::class . "\0" . $ability;
 
         if (in_array($frame, $visited, true)) {
             throw CrossSchemaCycleException::forPath(
-                array_map(fn (string $f): string => str_replace("\0", ':', $f), [...$visited, $frame]),
+                array_map($this->describeFrame(...), [...$visited, $frame]),
             );
         }
 
@@ -353,6 +356,20 @@ final class RuleSetCompiler
         }
 
         return $visited;
+    }
+
+    /**
+     * Render a `(schema class, ability)` frame as `schemaKey:ability` for the cycle
+     * message. Falls back to the class string when there is no registry to ask —
+     * a compiler built without a manager cannot have crossed schemas anyway.
+     */
+    private function describeFrame(string $frame): string
+    {
+        [$schemaClass, $ability] = explode("\0", $frame, 2);
+
+        $schemaKey = $this->manager?->registry()->resolveSchemaKeyOrFail($schemaClass) ?? $schemaClass;
+
+        return $schemaKey . ':' . $ability;
     }
 
     /**

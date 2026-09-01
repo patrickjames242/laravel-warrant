@@ -12,6 +12,11 @@ use Warrant\RuleSyntaxTree\RuleSetValidator;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\WarrantAuthorizationException;
 
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+});
+
+
 function createCourseSectionsTable(): void
 {
     Schema::create('course_sections', function ($table) {
@@ -139,6 +144,7 @@ it('throws when the rule set names an undeclared condition', function () {
 // -- implicit rules -----------------------------------------------------------
 
 it('always applies implicit rules, even when the resolver returns nothing', function () {
+    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
     seedCourseSections();
     bindWarrantRules(''); // resolver contributes no rules
 
@@ -151,6 +157,7 @@ it('always applies implicit rules, even when the resolver returns nothing', func
 });
 
 it('merges implicit rules with resolver rules', function () {
+    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -163,6 +170,7 @@ it('merges implicit rules with resolver rules', function () {
 });
 
 it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list', function () {
+    useWarrantSchemas(['course_sections' => WarrantImplicitRuleSetSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -176,6 +184,7 @@ it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list',
 });
 
 it('lets an implicit unconditional cannot override a resolver grant (deny-overrides)', function () {
+    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
     seedCourseSections();
     bindWarrantRules('they can archive'); // resolver grants archive unconditionally
 
@@ -209,6 +218,7 @@ it('rejects a condition method typed with the wrong context', function () {
 });
 
 it('binds DSL arguments to declared condition parameters positionally', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $filtered = (new ParameterizedConditionSchema)->applyConditionFilter(
         'is_specific_user',
         makeWarrantTestUser('teacher-role'),
@@ -221,6 +231,7 @@ it('binds DSL arguments to declared condition parameters positionally', function
 });
 
 it('allows more arguments than declared parameters, leaving the extras on $c->arguments', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     // hasExtraArgs declares one parameter ($first) but is called with two args;
     // $first binds arg[0] and the extra 'b' stays reachable via $c->arguments.
     $result = (new ParameterizedConditionSchema)->applyConditionFilter(
@@ -235,6 +246,7 @@ it('allows more arguments than declared parameters, leaving the extras on $c->ar
 });
 
 it('falls back to a parameter default when the argument is omitted', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $result = (new ParameterizedConditionSchema)->applyConditionFilter(
         'role_is',
         makeWarrantTestUser('guest'),
@@ -245,6 +257,7 @@ it('falls back to a parameter default when the argument is omitted', function ()
 });
 
 it('rejects a condition invoked with fewer arguments than its required parameters', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     expect(fn () => (new ParameterizedConditionSchema)->applyConditionFilter(
         'is_specific_user',
         makeWarrantTestUser('teacher-role'),
@@ -255,6 +268,7 @@ it('rejects a condition invoked with fewer arguments than its required parameter
 });
 
 it('rejects a rule that supplies fewer condition arguments than required, during validation', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
     $ruleSet = WarrantRuleSet::fromSyntax('if is_specific_user they can view', $schema);
 
@@ -263,6 +277,7 @@ it('rejects a rule that supplies fewer condition arguments than required, during
 });
 
 it('accepts a rule that supplies the required condition arguments, during validation', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
     $ruleSet = WarrantRuleSet::fromSyntax("if is_specific_user('u-1') they can view", $schema);
 
@@ -313,6 +328,7 @@ it('returns abilities the user can perform without a target in one query', funct
 it('grants an ability when a global boolean condition evaluates true, denies when false', function () {
     bindWarrantRules('if is_super_user they can view');
 
+    useWarrantSchemas(['course_sections' => WarrantBooleanConditionSchema::class]);
     $schema = new WarrantBooleanConditionSchema;
 
     expect(Warrant::guard(makeWarrantTestUser('super-role'))->forSchema($schema)->getAbilitiesWithoutTarget())->toBe(['view']);
@@ -338,6 +354,7 @@ it('checks abilities statically for a target instance, id, or none', function ()
 });
 
 it('forwards static ability helpers through the model trait', function () {
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
@@ -348,6 +365,7 @@ it('forwards static ability helpers through the model trait', function () {
 });
 
 it('checks abilities against a model instance through the trait', function () {
+    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
@@ -364,13 +382,22 @@ it('checks abilities against a model instance through the trait', function () {
 
 it('throws when the model returns a schema for a different host model', function () {
     expect(fn () => WarrantMismatchedScopedModel::query()->userHasAbility('view', makeWarrantTestUser('teacher-role'))->toRawSql())
-        ->toThrow(LogicException::class, 'must manage model');
+        ->toThrow(LogicException::class, 'a schema and its model must name each other');
+});
+
+it('throws when a model subclass inherits its parent\'s schema', function () {
+    // WarrantSubclassedModel inherits warrantSchema() from WarrantTestModel, so it
+    // names WarrantTestSchema — which names WarrantTestModel, not the subclass.
+    // Only the model direction of the cross-check sees this; read from the schema
+    // end the pair is perfectly consistent.
+    expect(fn () => WarrantSubclassedModel::query()->userHasAbility('view', makeWarrantTestUser('teacher-role'))->toRawSql())
+        ->toThrow(LogicException::class, 'Model [WarrantSubclassedModel] names schema [WarrantTestSchema], but that schema names model [WarrantTestModel]');
 });
 
 // -- schema-less facade + tuple targets ---------------------------------------
 
 it('resolves schema-less checks through the registry via model class, instance, and tuple', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
@@ -393,7 +420,7 @@ it('resolves schema-less checks through the registry via model class, instance, 
 });
 
 it('authorize and authorizeAny throw on denial through the facade', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -412,7 +439,7 @@ it('authorize and authorizeAny throw on denial through the facade', function () 
 // -- forSchema / guard() schema resolution ------------------------------------
 
 it('forSchema resolves a schema key, model class, schema class, and instance', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -424,7 +451,7 @@ it('forSchema resolves a schema key, model class, schema class, and instance', f
 });
 
 it('forSchema on the manager resolves a schema/model/key for a user (defaulting to current)', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -441,7 +468,7 @@ it('forSchema on the manager resolves a schema/model/key for a user (defaulting 
 });
 
 it('static guard() returns the schema-bound guard for a user', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
@@ -456,7 +483,7 @@ it('static guard() returns the schema-bound guard for a user', function () {
 });
 
 it('static guard() defaults to the current user', function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 

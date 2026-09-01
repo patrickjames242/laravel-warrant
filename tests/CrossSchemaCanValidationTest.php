@@ -3,6 +3,7 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
+use Warrant\HasWarrantSchema;
 use Warrant\Ability;
 use Warrant\RuleSyntaxTree\WarrantRuleSet;
 use Warrant\Schema\WarrantSchema;
@@ -16,9 +17,9 @@ use Warrant\Schema\WarrantSchema;
  */
 beforeEach(function () {
     useWarrantSchemas([
-        XsOwnerSchema::class,
-        XsTargetSchema::class,
-        XsCapabilitySchema::class,
+        'xs_owner' => XsOwnerSchema::class,
+        'xs_target' => XsTargetSchema::class,
+        'xs_capability' => XsCapabilitySchema::class,
     ]);
 });
 
@@ -93,16 +94,22 @@ it('validates a can reference nested inside a boolean expression', function () {
 
 class XsOwnerModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'xs_owners';
 
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return XsOwnerSchema::class;
+    }
 }
 
 class XsOwnerSchema extends WarrantSchema
 {
-    public const schemaKey = 'xs_owner';
 
     public const model = XsOwnerModel::class;
 
@@ -115,16 +122,22 @@ class XsOwnerSchema extends WarrantSchema
 
 class XsTargetModel extends Model
 {
+    use HasWarrantSchema;
+
     protected $table = 'xs_targets';
 
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return XsTargetSchema::class;
+    }
 }
 
 class XsTargetSchema extends WarrantSchema
 {
-    public const schemaKey = 'xs_target';
 
     public const model = XsTargetModel::class;
 
@@ -137,7 +150,6 @@ class XsTargetSchema extends WarrantSchema
 
 class XsCapabilitySchema extends WarrantSchema
 {
-    public const schemaKey = 'xs_capability';
 
     #[Ability]
     public const A_ACCESS = 'access';

@@ -14,7 +14,7 @@ class WarrantTraitUser extends WarrantTestUser
 }
 
 beforeEach(function () {
-    useWarrantSchemas([WarrantTestSchema::class]);
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 });
 
 it('returns a WarrantGuard from ->warrant()', function () {
