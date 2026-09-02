@@ -5,6 +5,9 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\HasWarrantSchema;
+use Warrant\Builders\Ref;
+use Warrant\Builders\WarrantRuleBuilder;
+use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -31,6 +34,11 @@ beforeEach(function () {
 function validateOwnerCheckSyntax(string $syntax): void
 {
     WarrantRuleSet::fromSyntax($syntax, 'xcv_owner')->validate();
+}
+
+function validateOwnerCheckRule(WarrantRuleBuilder $rule): void
+{
+    WarrantRuleSet::fromRules('xcv_owner', $rule)->validate();
 }
 
 it('accepts an unbound reference with a global condition', function () {
@@ -105,6 +113,45 @@ it('rejects a specified row target from a binding that resolved to null', functi
         ['pp' => null],
     )->validate())
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
+});
+
+// -- built references validate identically ------------------------------------
+
+it('accepts a builder-built unbound reference with a global condition', function () {
+    validateOwnerCheckRule(WarrantRule::build()->ifCheck('is_open', 'xcv_capability')->theyCan('edit'));
+    expect(true)->toBeTrue();
+});
+
+it('accepts a builder-built row-bound reference with a row condition', function () {
+    validateOwnerCheckRule(
+        WarrantRule::build()->ifCheck('is_published', 'xcv_target', Ref::context('id'))->theyCan('edit')
+    );
+    expect(true)->toBeTrue();
+});
+
+it('rejects a builder-built predicate leaf the target does not declare', function () {
+    expect(fn () => validateOwnerCheckRule(WarrantRule::build()->ifCheck('is_bogus', 'xcv_target')->theyCan('edit')))
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
+});
+
+it('rejects a builder-built row condition on an unbound handle', function () {
+    expect(fn () => validateOwnerCheckRule(
+        WarrantRule::build()->ifCheck(fn ($p) => $p->if('is_open')->orIf('is_published'), 'xcv_target')->theyCan('edit')
+    ))->toThrow(InvalidArgumentException::class, 'is a row condition and needs a specific row');
+});
+
+it('rejects a nested can(...) inside a builder-built predicate', function () {
+    // The predicate closure gets a full condition builder, so this is buildable;
+    // the validator is what rejects it, with the same message the DSL gets.
+    expect(fn () => validateOwnerCheckRule(
+        WarrantRule::build()->ifCheck(fn ($p) => $p->ifCan('view', 'xcv_target'), 'xcv_target', Ref::context('id'))->theyCan('edit')
+    ))->toThrow(InvalidArgumentException::class, 'may only reference that schema\'s conditions');
+});
+
+it('rejects a builder-built row-bound reference with an explicit null row', function () {
+    expect(fn () => validateOwnerCheckRule(
+        WarrantRule::build()->ifCheck('is_published', 'xcv_target', null)->theyCan('edit')
+    ))->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
 });
 
 // -- fixtures -----------------------------------------------------------------

@@ -4,6 +4,9 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
 use Warrant\HasWarrantSchema;
+use Warrant\Builders\Ref;
+use Warrant\Builders\WarrantRuleBuilder;
+use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
@@ -26,6 +29,11 @@ beforeEach(function () {
 function validateOwnerSyntax(string $syntax): void
 {
     WarrantRuleSet::fromSyntax($syntax, 'xs_owner')->validate();
+}
+
+function validateOwnerRule(WarrantRuleBuilder $rule): void
+{
+    WarrantRuleSet::fromRules('xs_owner', $rule)->validate();
 }
 
 it('accepts an unbound reference to a capability (no-model) schema', function () {
@@ -80,6 +88,40 @@ it('rejects a specified row target from a binding that resolved to null', functi
         ['folder' => null],
     )->validate())
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
+});
+
+// -- built references validate identically ------------------------------------
+
+it('accepts a builder-built unbound reference to a capability schema', function () {
+    validateOwnerRule(WarrantRule::build()->ifCan('access', 'xs_capability')->theyCan('edit'));
+    expect(true)->toBeTrue();
+});
+
+it('accepts a builder-built row-bound reference', function () {
+    validateOwnerRule(WarrantRule::build()->ifCan('manage', 'xs_target', Ref::context('id'))->theyCan('edit'));
+    expect(true)->toBeTrue();
+});
+
+it('rejects a builder-built reference to its own schema', function () {
+    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('view', 'xs_owner')->theyCan('edit')))
+        ->toThrow(InvalidArgumentException::class, 'cannot target its own schema [xs_owner]');
+});
+
+it('rejects a builder-built row-bound reference with an explicit null row', function () {
+    // What NoRow buys: omitting the selector asks a schema-wide question, while a
+    // null id stays row-bound and fails here instead of silently widening.
+    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('manage', 'xs_target', null)->theyCan('edit')))
+        ->toThrow(InvalidArgumentException::class, 'row target that is null');
+});
+
+it('rejects a builder-built row-bound reference to a capability schema', function () {
+    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('access', 'xs_capability', Ref::context('id'))->theyCan('edit')))
+        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+});
+
+it('rejects a builder-built ability the target schema does not declare', function () {
+    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('nope', 'xs_target')->theyCan('edit')))
+        ->toThrow(InvalidArgumentException::class, 'is not declared by schema [xs_target]');
 });
 
 it('validates a can reference nested inside a boolean expression', function () {

@@ -94,6 +94,115 @@ author the readable part as text, compose the rest structurally:
 ->ifRaw('is_admin or is_owner', $bindings = [])->andIf('in_region')
 ```
 
+## Cross-schema `can` and `check`
+
+The rule language's two cross-schema builtins — `can(...)` and `check(...)` — are
+reachable structurally too. This is where the builder earns its keep most often,
+because a row selector or a `with` value is usually a runtime value rather than
+something you'd write into a string.
+
+| Method | DSL equivalent |
+| --- | --- |
+| `ifCan` / `andIfCan` | `and can(...)` |
+| `orIfCan` | `or can(...)` |
+| `ifCheck` / `andIfCheck` | `and check(...)` |
+| `orIfCheck` | `or check(...)` |
+
+```php
+use Warrant\Builders\Ref;
+use Warrant\Rules\WarrantRule;
+
+WarrantRule::build()
+    ->if('is_author')
+    ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
+    ->andIfCheck(
+        fn ($p) => $p->if('is_open')->andIfNot('is_locked'),
+        'pay_periods',
+        Ref::column('timesheets', 'pay_period_id'),
+    )
+    ->theyCan('submit')
+    ->toRule();
+```
+
+That builds the same rule as:
+
+```text
+if is_author
+    or can(approve for pay_periods(@context period_id))
+    and check(is_open and not is_locked for pay_periods(@column timesheets.pay_period_id))
+they can submit
+```
+
+The schema may be given as a schema key, a schema instance or class-string, or a
+model instance or class-string — the same references `WarrantRuleSet::fromRules()`
+accepts.
+
+### There are no negated variants
+
+Negate a cross-schema term with a **group**, exactly as you would any other
+sub-expression:
+
+```php
+->ifNot(fn ($c) => $c->ifCan('manage', 'departments', Ref::context('department_id')))
+```
+
+### Omitting the row means unbound
+
+`can(view for folders)` asks a schema-wide question; `can(view for folders(<row>))`
+asks about one row. Omit `$row` for the first — its default is a `NoRow` sentinel,
+not `null`:
+
+```php
+->ifCan('access', 'billing')                      // can(access for billing)
+->ifCan('view', 'folders', $folder->id)           // can(view for folders('f-1'))
+->ifCan('view', 'folders', row: null)             // row-bound, and rejected by validate()
+```
+
+An explicit `null` stays **row-bound**, so a missing id (a `$folder?->id` that came
+back null) fails loudly at validation instead of quietly widening the question. When
+you're composing dynamically and want the unbound form as a fallback, say so:
+`row: $id ?? new NoRow`.
+
+A row selector may be a key, the target schema's own model, a `Ref`, a `BackedEnum`
+or a `DateTimeInterface` — see
+[what a row selector may be](/guides/rule-language/#what-a-row-selector-may-be).
+
+### The `check` predicate
+
+A string predicate is one condition of the **target** schema:
+
+```php
+->ifCheck('is_open', 'pay_periods', Ref::context('period_id'))
+```
+
+A closure receives a bare condition builder, for a boolean tree — and it's also the
+form to use when a leaf takes parameters:
+
+```php
+->ifCheck(fn ($p) => $p->if('in_region', ['west'])->orIf('is_global'), 'pay_periods')
+```
+
+The closure must add at least one term. Unlike a group an empty predicate can't fall
+back to `false` — a `check(...)` predicate may not contain a constant — so it throws
+a `LogicException` instead.
+
+## Symbolic references (`Ref`)
+
+`Warrant\Builders\Ref` builds the DSL's three symbolic references, for use anywhere
+the builder takes an argument value — a condition parameter, a row selector, or a
+`with` map value:
+
+| Factory | DSL |
+| --- | --- |
+| `Ref::context('year')` | [`@context year`](/guides/rule-language/#check-time-context-context) |
+| `Ref::column('timesheets', 'pay_period_id')` | [`@column timesheets.pay_period_id`](/guides/rule-language/#column-references-column) |
+| `Ref::sql('select id from pay_periods where closed = 0')` | `@sql "..."` |
+
+They stay symbolic in the AST and resolve at compile time: a context ref per check,
+a column ref against the registry and the query's grammar, a SQL ref verbatim. That
+last one is emitted as written, so table scoping and injection are entirely yours —
+see [raw SQL references](/guides/rule-language/#raw-sql-references-sql).
+
 ## A rule needs a clause
 
 `toRule()` throws a `LogicException` if you call neither `theyCan` nor

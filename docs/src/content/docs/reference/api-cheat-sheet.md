@@ -34,7 +34,7 @@ See [Rule-building API](/reference/rule-building-api/).
 - `WarrantRule::fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = [])`
 - `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
 - `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
-- `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->theyCan/theyCannot`, `->toRule()`
+- `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->ifCan/->ifCheck` (+ `and`/`or` forms, with `Ref::context/column/sql`), `->theyCan/theyCannot`, `->toRule()`
 
 ## Provide rules
 

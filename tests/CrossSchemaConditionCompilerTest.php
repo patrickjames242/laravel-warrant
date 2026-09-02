@@ -4,10 +4,12 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Ref;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -65,9 +67,9 @@ beforeEach(function () {
  * Bind a resolver that returns schema A's rule set. The referenced schema's
  * conditions are dispatched directly, so only A needs a rule set here.
  */
-function bindCheckDocRules(string $docSyntax): void
+function bindCheckDocRules(string|WarrantRuleSet $docSyntax): void
 {
-    $set = WarrantRuleSet::fromSyntax($docSyntax, 'chk_docs');
+    $set = $docSyntax instanceof WarrantRuleSet ? $docSyntax : WarrantRuleSet::fromSyntax($docSyntax, 'chk_docs');
 
     app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
         public function __construct(private WarrantRuleSet $set) {}
@@ -88,7 +90,7 @@ function bindCheckDocRules(string $docSyntax): void
  * @param array<string, mixed> $context
  */
 function assertChkFilterSql(
-    string $docSyntax,
+    string|WarrantRuleSet $docSyntax,
     array $context,
     string $expectedSql,
     ?string $roleId = 'role-1',
@@ -111,6 +113,27 @@ function assertChkFilterSql(
 it('embeds a row-bound predicate as an exists over the referenced table', function () {
     assertChkFilterSql(
         'if check(is_owner for chk_targets(@context tid)) they can view',
+        ['tid' => 'f-owned'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and (chk_targets.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('compiles a builder-built row-bound predicate to the same SQL as the DSL', function () {
+    assertChkFilterSql(
+        WarrantRuleSet::fromRules(
+            'chk_docs',
+            WarrantRule::build()
+                ->ifCheck(fn ($p) => $p->if('is_owner'), 'chk_targets', Ref::context('tid'))
+                ->theyCan('view'),
+        ),
         ['tid' => 'f-owned'],
         <<<SQL
             select * from "chk_docs" where (

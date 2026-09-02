@@ -9,14 +9,23 @@ use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\Builders\NoRow;
+use Warrant\Builders\Ref;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+
+require_once __DIR__.'/Support/TestSupport.php';
 
 final class BuilderTestUser implements Authenticatable
 {
@@ -53,13 +62,56 @@ function treeToString(?object $node): string
         $node === null => 'null',
         $node instanceof ConditionNode => $node->conditionKey . ($node->parameters === []
             ? ''
-            : '(' . implode(',', array_map(fn ($p) => var_export($p, true), $node->parameters)) . ')'),
+            : '(' . implode(',', array_map(fn ($p) => argToString($p), $node->parameters)) . ')'),
+        $node instanceof CrossSchemaCanNode => 'can(' . $node->ability . ' for ' . handleToString($node) . ')',
+        $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
         $node instanceof NotNode => '!' . treeToString($node->operand),
         $node instanceof AndNode => '(' . treeToString($node->leftSide) . ' and ' . treeToString($node->rightSide) . ')',
         $node instanceof OrNode => '(' . treeToString($node->leftSide) . ' or ' . treeToString($node->rightSide) . ')',
         $node instanceof BooleanNode => $node->value ? 'true' : 'false',
         default => throw new RuntimeException('unexpected node ' . $node::class),
     };
+}
+
+/**
+ * Render an argument value — a scalar, or one of the DSL's symbolic references,
+ * which must stay distinguishable (a ContextRef would otherwise var_export to
+ * NULL, making every ref look alike).
+ */
+function argToString(mixed $value): string
+{
+    return match (true) {
+        $value instanceof ContextRef => '@context ' . $value->key,
+        $value instanceof ColumnRef => '@column ' . $value->schemaKey . '.' . $value->column,
+        $value instanceof SqlRef => '@sql ' . $value->sql,
+        default => var_export($value, true),
+    };
+}
+
+/**
+ * Render a cross-schema handle: the schema, its row selector when the reference
+ * is row-bound (an unbound handle has no parens at all — the distinction NoRow
+ * exists to preserve), and any `with` map.
+ */
+function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): string
+{
+    $out = $node->schemaKey;
+
+    if ($node->isRowBound) {
+        $out .= '(' . argToString($node->boundRow) . ')';
+    }
+
+    if ($node->contextMap !== []) {
+        $entries = [];
+
+        foreach ($node->contextMap as $key => $value) {
+            $entries[] = $key . ' = ' . argToString($value);
+        }
+
+        $out .= ' with ' . implode(', ', $entries);
+    }
+
+    return $out;
 }
 
 // -- structure ----------------------------------------------------------------
@@ -197,6 +249,69 @@ it('produces the identical tree to the equivalent DSL expression', function (str
     'explicit grouping'  => ['(a or b) and c', fn () => WarrantRule::build()->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->theyCan('x')],
     'leading not'        => ['not a and b', fn () => WarrantRule::build()->ifNot('a')->andIf('b')->theyCan('x')],
     'or not group'       => ['a or not (b and c)', fn () => WarrantRule::build()->if('a')->orIfNot(fn ($g) => $g->if('b')->andIf('c'))->theyCan('x')],
+
+    // Cross-schema leaves. A plain schema key needs no registration — the registry
+    // returns an unrecognized key unchanged, so these stay parser-only comparisons.
+    'can unbound' => [
+        'can(access for xs_capability)',
+        fn () => WarrantRule::build()->ifCan('access', 'xs_capability')->theyCan('x'),
+    ],
+    'can row-bound by @context' => [
+        'can(manage for xs_target(@context id))',
+        fn () => WarrantRule::build()->ifCan('manage', 'xs_target', Ref::context('id'))->theyCan('x'),
+    ],
+    'can row-bound by literal' => [
+        "can(manage for xs_target('t-1'))",
+        fn () => WarrantRule::build()->ifCan('manage', 'xs_target', 't-1')->theyCan('x'),
+    ],
+    'can with map' => [
+        'can(create for xs_target(@context id) with tenant = @context t, plan = 3)',
+        fn () => WarrantRule::build()
+            ->ifCan('create', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t'), 'plan' => 3])
+            ->theyCan('x'),
+    ],
+    'can with a @column selector' => [
+        'is_self and can(manage for xs_target(@column docs.target_id))',
+        fn () => WarrantRule::build()
+            ->if('is_self')
+            ->andIfCan('manage', 'xs_target', Ref::column('docs', 'target_id'))
+            ->theyCan('x'),
+    ],
+    'can with a @sql selector' => [
+        'can(manage for xs_target(@sql "select 1"))',
+        fn () => WarrantRule::build()->ifCan('manage', 'xs_target', Ref::sql('select 1'))->theyCan('x'),
+    ],
+    'can negated through a group' => [
+        'a or not can(view for xs_target)',
+        fn () => WarrantRule::build()->if('a')->orIfNot(fn ($g) => $g->ifCan('view', 'xs_target'))->theyCan('x'),
+    ],
+    'check with a string predicate' => [
+        'check(is_open for xs_target)',
+        fn () => WarrantRule::build()->ifCheck('is_open', 'xs_target')->theyCan('x'),
+    ],
+    'check predicate precedence' => [
+        'check(a or b and not c for xs_target(@context id))',
+        fn () => WarrantRule::build()
+            ->ifCheck(fn ($p) => $p->if('a')->orIf('b')->andIfNot('c'), 'xs_target', Ref::context('id'))
+            ->theyCan('x'),
+    ],
+    'check or-joined with a with map' => [
+        'is_self or check(is_published for xs_target(@context id) with tenant = @context t)',
+        fn () => WarrantRule::build()
+            ->if('is_self')
+            ->orIfCheck('is_published', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t')])
+            ->theyCan('x'),
+    ],
+    'check predicate leaf with parameters' => [
+        "check(is_open('maintenance') for xs_target)",
+        fn () => WarrantRule::build()->ifCheck(fn ($p) => $p->if('is_open', ['maintenance']), 'xs_target')->theyCan('x'),
+    ],
+    'check predicate with a nested group' => [
+        'check((a or b) and c for xs_target)',
+        fn () => WarrantRule::build()
+            ->ifCheck(fn ($p) => $p->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c'), 'xs_target')
+            ->theyCan('x'),
+    ],
 ]);
 
 // -- when() -------------------------------------------------------------------
@@ -241,6 +356,149 @@ it('treats an empty group as false', function () {
 
     // false contributes nothing to the OR.
     expect(treeToString($tree))->toBe('(is_self or false)');
+});
+
+// -- cross-schema handles -----------------------------------------------------
+
+it('leaves a cross-schema reference unbound when no row selector is given', function () {
+    $can = WarrantRule::build()->ifCan('access', 'xs_capability')->buildConditions();
+    $check = WarrantRule::build()->ifCheck('is_open', 'xs_capability')->buildConditions();
+
+    foreach ([$can, $check] as $node) {
+        expect($node->isRowBound)->toBeFalse();
+        expect($node->boundRow)->toBeNull();
+    }
+});
+
+it('keeps an explicit null row selector row-bound so validation can reject it', function () {
+    // The whole point of NoRow: a missing id must fail loudly, not quietly widen
+    // a row question into a schema-wide one.
+    $can = WarrantRule::build()->ifCan('manage', 'xs_target', null)->buildConditions();
+    $check = WarrantRule::build()->ifCheck('is_open', 'xs_target', null)->buildConditions();
+
+    foreach ([$can, $check] as $node) {
+        expect($node->isRowBound)->toBeTrue();
+        expect($node->boundRow)->toBeNull();
+    }
+});
+
+it('treats an explicitly passed NoRow as an unbound handle', function () {
+    $id = null;
+    $node = WarrantRule::build()->ifCan('manage', 'xs_target', $id ?? new NoRow)->buildConditions();
+
+    expect($node->isRowBound)->toBeFalse();
+});
+
+it('passes a model row selector through untouched', function () {
+    $model = (new WarrantTestModel)->forceFill(['id' => 't-1']);
+    $node = WarrantRule::build()->ifCan('manage', 'xs_target', $model)->buildConditions();
+
+    expect($node->isRowBound)->toBeTrue();
+    expect($node->boundRow)->toBe($model);
+});
+
+it('preserves the with map insertion order', function () {
+    $node = WarrantRule::build()
+        ->ifCan('manage', 'xs_target', 't-1', ['zebra' => 1, 'apple' => 2, 'mango' => 3])
+        ->buildConditions();
+
+    expect(array_keys($node->contextMap))->toBe(['zebra', 'apple', 'mango']);
+});
+
+it('rejects an empty check(...) predicate closure', function (string $method) {
+    expect(fn () => WarrantRule::build()->{$method}(function ($p) {}, 'xs_target'))
+        ->toThrow(LogicException::class, 'predicate cannot be empty');
+})->with(['ifCheck', 'andIfCheck', 'orIfCheck']);
+
+it('normalizes a model or schema reference to its schema key', function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+
+    $keys = array_map(
+        fn ($schema) => WarrantRule::build()->ifCan('view', $schema)->buildConditions()->schemaKey,
+        [WarrantTestModel::class, new WarrantTestModel, WarrantTestSchema::class, new WarrantTestSchema, 'course_sections'],
+    );
+
+    expect($keys)->toBe(array_fill(0, 5, 'course_sections'));
+});
+
+it('throws when a class-string reference resolves to no registered schema', function () {
+    useWarrantSchemas([]);
+
+    // A plain *key* string passes through unresolved by design — the builder stays
+    // usable without a warm registry, and a typo'd key is caught by validate().
+    expect(WarrantRule::build()->ifCan('view', 'never_registered')->buildConditions()->schemaKey)
+        ->toBe('never_registered');
+
+    expect(fn () => WarrantRule::build()->ifCan('view', WarrantTestModel::class))
+        ->toThrow(OutOfBoundsException::class);
+});
+
+// -- round-tripping cross-schema terms back to DSL text -----------------------
+
+it('renders a built can/check back to DSL text that re-parses identically', function () {
+    $rule = WarrantRule::build()
+        ->if('is_self')
+        ->andIfCan('manage', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t')])
+        ->orIfCheck(fn ($p) => $p->if('is_published')->andIfNot('is_locked'), 'xs_other', Ref::column('xs_owner', 'other_id'))
+        ->theyCan('update')
+        ->toRule();
+
+    $syntax = $rule->toSyntax();
+
+    expect($syntax)->toContain('can(manage for xs_target(@context id) with tenant = @context t)');
+    expect($syntax)->toContain('check(is_published and not is_locked for xs_other(@column xs_owner.other_id))');
+    expect(treeToString(WarrantRule::fromSyntax($syntax)->conditions))->toBe(treeToString($rule->conditions));
+});
+
+it('renders a built unbound handle without a row selector', function () {
+    // The NoRow distinction has to survive the writer too: an unbound handle has
+    // no parens at all, where a row-bound one always does.
+    $rule = WarrantRule::build()
+        ->ifCan('access', 'xs_capability')
+        ->orIfCheck('is_open', 'xs_capability')
+        ->theyCan('view')
+        ->toRule();
+
+    expect($rule->toSyntax())->toContain('can(access for xs_capability) or check(is_open for xs_capability)');
+});
+
+it('renders built literal and @sql row selectors', function () {
+    $rule = WarrantRule::build()
+        ->ifCan('manage', 'xs_target', 't-1')
+        ->orIfCan('manage', 'xs_target', 42)
+        ->orIfCheck('is_open', 'xs_target', Ref::sql('select id from xs_targets limit 1'))
+        ->theyCan('update')
+        ->toRule();
+
+    $syntax = $rule->toSyntax();
+
+    expect($syntax)->toContain("can(manage for xs_target('t-1'))");
+    expect($syntax)->toContain('can(manage for xs_target(42))');
+    // The writer quotes an @sql body in its own literal style; the lexer takes
+    // either quote, so it re-parses regardless.
+    expect($syntax)->toContain("check(is_open for xs_target(@sql 'select id from xs_targets limit 1'))");
+    expect(treeToString(WarrantRule::fromSyntax($syntax)->conditions))->toBe(treeToString($rule->conditions));
+});
+
+it('carries a non-inlinable row selector as a binding in bound syntax', function () {
+    $rule = WarrantRule::build()
+        ->ifCan('manage', 'xs_target', (new WarrantTestModel)->forceFill(['id' => 't-1']))
+        ->theyCan('update')
+        ->toRule();
+
+    // Same contract as a condition parameter with no literal form.
+    expect(fn () => $rule->toSyntax())->toThrow(LogicException::class);
+
+    $bound = $rule->toBoundSyntax();
+
+    expect($bound->syntax)->toContain('can(manage for xs_target(?))');
+    expect($bound->bindings)->toHaveCount(1);
+
+    // The round-trip only closes if the binding refills the selector.
+    $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
+
+    expect($reparsed->conditions->boundRow)->toBe($bound->bindings[0]);
+    expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));
 });
 
 // -- ifRaw bridge -------------------------------------------------------------

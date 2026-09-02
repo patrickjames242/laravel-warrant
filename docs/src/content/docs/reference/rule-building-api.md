@@ -95,6 +95,30 @@ parenthesized group):
 ->when(mixed $condition, Closure $callback): static // Laravel-style conditional
 ```
 
+### Cross-schema methods (from `WarrantConditionBuilder`)
+
+```php
+->ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [])
+->andIfCan(...)   // alias of ifCan
+->orIfCan(...)    // `or can(...)`
+
+->ifCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [])
+->andIfCheck(...) // alias of ifCheck
+->orIfCheck(...)  // `or check(...)`
+```
+
+### `NoRow` and `Ref`
+
+```php
+new Warrant\Builders\NoRow                        // the default $row: an unbound handle
+Warrant\Builders\Ref::context(string $key): ContextRef            // @context <key>
+Warrant\Builders\Ref::column(string $schemaKey, string $column): ColumnRef  // @column <schema>.<column>
+Warrant\Builders\Ref::sql(string $sql): SqlRef                    // @sql "<sql>"
+```
+
+A `Ref` is valid anywhere the builder takes an argument value: a condition
+parameter, a cross-schema row selector, or a `with` map value.
+
 ### Clause methods (from `WarrantRuleBuilder`)
 
 ```php
@@ -115,6 +139,17 @@ receives and where the message surfaces.
   `WarrantConditionBuilder` (no `theyCan`/`theyCannot`).
 - An **empty group folds to `false`** — nothing in an `or`, a veto in an `and`.
 - Condition parameters may be **any PHP value** — nothing is stringified.
+- `can` and `check` have **no negated variants** — negate one with a group,
+  `->ifNot(fn ($c) => $c->ifCan(...))`.
+- Omitting `$row` gives an **unbound handle**; an explicit `row: null` stays
+  row-bound and is rejected by `validate()`, so a missing id fails loudly instead
+  of widening a row question into a schema-wide one.
+- An **empty `check` predicate closure throws `LogicException`** — unlike a group
+  it cannot fall back to `false`, because a predicate may not contain a constant.
+- `$schema` is normalized to a schema key through the registry, so a model or
+  schema class-string that resolves to nothing throws `OutOfBoundsException` at
+  build time. A plain unregistered *key* string passes through, and a typo'd key is
+  caught by `validate()`.
 
 ## `WarrantParser` (final)
 
@@ -132,4 +167,6 @@ identically. `toSyntax()` can only render parameters that are expressible as
 or a float needing exponent notation throws a `LogicException` — use
 `toBoundSyntax()`, which extracts every parameter as a positional binding.
 `@context` references render as `@context <key>` in both forms and never consume a
-positional binding.
+positional binding, and so do `@column` and `@sql`. A built `can`/`check` renders
+as `can(<ability> for <schema>(<row>) with <k> = <v>)`, so a builder-authored
+cross-schema rule round-trips like any other.

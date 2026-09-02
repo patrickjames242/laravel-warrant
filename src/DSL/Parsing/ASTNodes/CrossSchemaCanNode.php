@@ -20,8 +20,8 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * {@see ColumnRef} for a `@column <schema>.<column>` reference (resolved to a
  * grammar-wrapped column Expression at compile time).
  *
- * NOTE: only parsing is implemented. Validation and compilation of this node are
- * not yet wired up — compiling a rule that uses it currently throws.
+ * Validated by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator::assertCrossSchemaCanValid()}
+ * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCanLeaf()}.
  */
 readonly class CrossSchemaCanNode implements IBooleanExpressionNode
 {

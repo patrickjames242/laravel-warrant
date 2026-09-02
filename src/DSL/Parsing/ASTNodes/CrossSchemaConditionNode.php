@@ -25,6 +25,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * grammar-wrapped column Expression at compile time). The condition
  * leaves inside {@see $predicate} are validated against — and compiled with — the
  * *target* schema's vocabulary, not the owning schema's.
+ *
+ * Validated by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator::assertCrossSchemaConditionValid()}
+ * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCheckLeaf()}.
  */
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {

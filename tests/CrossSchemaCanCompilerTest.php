@@ -4,11 +4,13 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
+use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -75,7 +77,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key);
+        $sets[$key] = $syntax instanceof WarrantRuleSet ? $syntax : WarrantRuleSet::fromSyntax($syntax, $key);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
@@ -98,7 +100,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
  * @param array<string, mixed>        $context
  */
 function assertXcFilterSql(
-    string $docSyntax,
+    string|WarrantRuleSet $docSyntax,
     array $otherSyntax,
     string|array $abilities,
     array $context,
@@ -126,6 +128,29 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
     // predicate is compiled against B's table inside the EXISTS subquery.
     assertXcFilterSql(
         'if can(view for xc_folders(@context folder_id)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder_id' => 'f-owned'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+// -- the fluent builder produces the same reference ---------------------------
+
+it('compiles a builder-built row-bound reference to the same SQL as the DSL', function () {
+    assertXcFilterSql(
+        WarrantRuleSet::fromRules(
+            'xc_docs',
+            WarrantRule::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view'),
+        ),
         ['xc_folders' => 'if is_owner they can view'],
         'view',
         ['folder_id' => 'f-owned'],
