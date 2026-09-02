@@ -16,11 +16,19 @@ use Warrant\WarrantGate;
  * {@see RuleSetCompiler}, which dispatches condition emission back into the
  * schema (the {@see \Warrant\DSL\ConditionResolver}).
  *
+ * Producing a predicate and attaching one are separate steps here:
+ * {@see compileGateWhereClause} returns the compiled where clause folded, which is a
+ * literal `true`/`false` whenever the rules settled the gate without a row.
+ * {@see filterQuery} is one consumer of that — it always wants SQL — while a
+ * boolean check reads the literal and skips the database entirely.
+ *
  * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
  * denial into a message lives in {@see DiagnosesDenials}.
  */
 trait BuildsAccessQueries
 {
+    private ?RuleSetCompiler $compiler = null;
+
     /**
      * Restricts the provided entity query to rows the guard's user can access.
      *
@@ -41,23 +49,67 @@ trait BuildsAccessQueries
             return $query;
         }
 
+        /* The compiler owns the ANY/ALL combination: one predicate for the whole
+           gate, spliced onto the host query as a single parenthesized group. A
+           gate that folded to a constant is spelled out as `1 = 1` / `1 = 0`,
+           since a row filter still has to say something out loud — reach for
+           compileGateWhereClause() directly when the constant is the answer you want. */
+        return $this->spliceWhereClauseIntoQuery(
+            $query,
+            $this->compileGateWhereClause($query, $targetSqlId, $abilities, $matchMode, $context),
+        );
+    }
+
+    /**
+     * The gate's compiled where clause, folded but not yet written as SQL —
+     * either a literal `true`/`false` when the rules settled the outcome on
+     * their own, or the {@see Builder} carrying the predicate.
+     *
+     * This is the decision {@see filterQuery} throws away: a predicate spliced
+     * into a host query has to spell a constant out as `1 = 1` / `1 = 0`, so a
+     * caller that only wants a yes/no answer would send SQL to be told what the
+     * compiler already knew. Read the literal here and you can skip the query
+     * (see {@see ChecksAbilities}); hand whatever you get to
+     * {@see spliceWhereClauseIntoQuery} when you do need the SQL, and nothing is
+     * compiled twice.
+     *
+     * Validation matches `filterQuery` exactly — abilities are normalized and
+     * their required context asserted — so folding never skips an error a query
+     * would have raised. An **empty ability set folds to `true`**, the match-all
+     * an empty gate has always meant; callers that treat "nothing requested" as
+     * a failure (a boolean check does) handle that before calling.
+     *
+     * @param string|array<int, string> $abilities
+     */
+    public function compileGateWhereClause(
+        Builder $query,
+        ?string $targetSqlId,
+        string|array $abilities,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+        array $context = []
+    ): bool|Builder
+    {
+        $abilities = $this->schema->normalizeAbilities($abilities);
         $context = $this->schema->resolveEffectiveContext($context);
         $this->schema::assertAbilitiesHaveRequiredContext($abilities, $context);
 
-        // The compiler owns the ANY/ALL combination: it returns one predicate for
-        // the whole gate, which we splice onto the host query. Splicing via
-        // addNestedWhereQuery reproduces the same parenthesized group the old
-        // per-ability loop here emitted, so the SQL is unchanged.
-        return $query->addNestedWhereQuery(
-            $this->compiler()->compileGate(
-                $this->user,
-                $query,
-                new WarrantGate($abilities, $matchMode),
-                $this->resolvedRuleSet(),
-                $targetSqlId,
-                $context,
-            ),
-        );
+        return $this->compiler()->gateWhereClauseNode(
+            $this->user,
+            $query,
+            new WarrantGate($abilities, $matchMode),
+            $this->resolvedRuleSet(),
+            $targetSqlId,
+            $context,
+        )->buildWhereClause($query);
+    }
+
+    /**
+     * Attach a where clause from {@see compileGateWhereClause} to its host query
+     * as one parenthesized group — the single place a folded gate becomes SQL.
+     */
+    protected function spliceWhereClauseIntoQuery(Builder $query, bool|Builder $whereClause): Builder
+    {
+        return $query->addNestedWhereQuery($this->compiler()->materializeWhereClause($query, $whereClause));
     }
 
     /**
@@ -204,21 +256,58 @@ trait BuildsAccessQueries
             ? (new ($this->schema::model))->getConnection()
             : app('db')->connection();
         $baseQuery = $connection->query();
-        $allowedAbilityQuery = $this->buildAvailableAbilitiesQuery(
-            query: $baseQuery,
-            abilities: $abilities,
-            context: $context
-        );
+        $ruleSet = $this->resolvedRuleSet();
 
-        return $baseQuery->newQuery()
-            ->fromSub($allowedAbilityQuery, 'available_abilities')
+        /* Without a row to consult, a great many abilities fold outright — every
+           targeted condition is forced false, so anything gated on one is settled
+           here. Sort those out before building the union: a folded ability needs no
+           branch, and with none left there is nothing to ask the database. */
+        $held = [];
+        $branches = [];
+
+        foreach ($abilities as $ability) {
+            $whereClause = $this->compiler()->abilityWhereClauseNode(
+                $this->user,
+                $baseQuery,
+                $ability,
+                $ruleSet,
+                null,
+                $context,
+            )->buildWhereClause($baseQuery);
+
+            if ($whereClause === true) {
+                $held[] = $ability;
+            } elseif ($whereClause !== false) {
+                $branches[] = [$ability, $whereClause];
+            }
+        }
+
+        if ($branches === []) {
+            return $held;
+        }
+
+        $queriedAbilities = $baseQuery->newQuery()
+            ->fromSub($this->unionAbilityBranches($baseQuery, $branches), 'available_abilities')
             ->pluck('ability')
             ->all();
+
+        /* Merge the two sources back into the order asked for — the caller sees
+           one list and cannot tell which abilities took a query to decide. */
+        $allowed = [...$held, ...$queriedAbilities];
+
+        return array_values(array_filter(
+            $abilities,
+            fn (string $ability): bool => in_array($ability, $allowed, true),
+        ));
     }
 
+    /**
+     * Memoized for the guard's lifetime: a single check now compiles through it
+     * more than once (folding, then materializing), and it is stateless anyway.
+     */
     protected function compiler(): RuleSetCompiler
     {
-        return new RuleSetCompiler($this->schema, $this->manager);
+        return $this->compiler ??= new RuleSetCompiler($this->schema, $this->manager);
     }
 
     /**
@@ -231,23 +320,48 @@ trait BuildsAccessQueries
         array $context = []
     ): Builder
     {
-        $abilitySelectQuery = null;
         $ruleSet = $this->resolvedRuleSet();
+        $branches = [];
 
         foreach ($abilities as $ability) {
-            $singleAbilitySelectQuery = $query->newQuery()
-                ->selectRaw('? as "ability"', [$ability]);
-
-            $abilityConditionQuery = $this->buildAbilityConditionQuery(
+            $branches[] = [$ability, $this->buildAbilityConditionQuery(
                 query: $query,
                 targetSqlId: $targetSqlId,
                 ability: $ability,
                 ruleSet: $ruleSet,
                 context: $context,
-            );
+            )];
+        }
+
+        return $this->unionAbilityBranches($query, $branches);
+    }
+
+    /**
+     * Assemble one `select '<ability>' as "ability" where (<predicate>)` branch
+     * per entry, UNION ALL'd into a single query — the row set both no-target
+     * callers read the held abilities out of.
+     *
+     * Taking the predicates already built lets the no-target path compile once:
+     * it folds each ability to decide whether a branch is needed at all, and
+     * passes only the survivors here.
+     *
+     * At least one branch is required — a union of nothing is not a query. Both
+     * callers have already established that: the per-row path rejects an empty
+     * ability set upstream, and the no-target path returns its folded answer
+     * before getting here.
+     *
+     * @param list<array{string, Builder}> $branches Ability name with its predicate.
+     */
+    private function unionAbilityBranches(Builder $query, array $branches): Builder
+    {
+        $abilitySelectQuery = null;
+
+        foreach ($branches as [$ability, $predicate]) {
+            $singleAbilitySelectQuery = $query->newQuery()
+                ->selectRaw('? as "ability"', [$ability]);
 
             $singleAbilitySelectQuery->where(
-                fn(Builder $abilityWhereClause) => $abilityWhereClause->addNestedWhereQuery($abilityConditionQuery)
+                fn(Builder $abilityWhereClause) => $abilityWhereClause->addNestedWhereQuery($predicate)
             );
 
             if ($abilitySelectQuery === null) {
@@ -255,7 +369,6 @@ trait BuildsAccessQueries
             } else {
                 $abilitySelectQuery->unionAll($singleAbilitySelectQuery);
             }
-
         }
 
         return $abilitySelectQuery;

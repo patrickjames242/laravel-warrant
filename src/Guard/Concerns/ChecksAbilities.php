@@ -135,14 +135,31 @@ trait ChecksAbilities
             /** @var Model $model */
             $model = new ($this->schema::model);
             $targetId = $target instanceof Model ? $target->getKey() : $target;
+            $query = $model->newQuery()->whereKey($targetId)->getQuery();
 
-            return $this->filterQuery(
-                query: $model->newQuery()->whereKey($targetId)->getQuery(),
+            /* Read the gate's decision before spending a query on it: the rules
+               often settle a check without looking at the row at all. */
+            $whereClause = $this->compileGateWhereClause(
+                query: $query,
                 targetSqlId: $model->getQualifiedKeyName(),
                 abilities: $abilities,
                 matchMode: $matchMode,
                 context: $context,
-            )->exists();
+            );
+
+            // Nothing the row could say would let it through.
+            if ($whereClause === false) {
+                return false;
+            }
+
+            /* An always-true gate leaves only "is the row there?" — which a
+               loaded instance has already answered, but a bare key has not, so
+               a key still goes to the database for the existence check alone. */
+            if ($whereClause === true && $target instanceof Model) {
+                return true;
+            }
+
+            return $this->spliceWhereClauseIntoQuery($query, $whereClause)->exists();
         }
 
         /* No target: evaluate to the subset the user holds (under ANY, so it yields

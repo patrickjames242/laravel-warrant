@@ -53,9 +53,11 @@ use Warrant\WarrantManager;
  * query builder as it goes, so a subtree that is provably true or false is a
  * real `bool` the tree can fold away — an unconditional `cannot` no longer has
  * to be frozen into a `1 = 0` that a sibling is then ANDed against. Only the
- * three public methods materialize, turning a tree that folded to a literal into
- * `1 = 1`/`1 = 0` and everything else into a nested predicate; the node drops
- * the parentheses that a direct-to-builder walk is forced to emit.
+ * `compile*`/`matchesCondition` entrypoints materialize, turning a tree that
+ * folded to a literal into `1 = 1`/`1 = 0` and everything else into a nested
+ * predicate; the node drops the parentheses that a direct-to-builder walk is
+ * forced to emit. The `*WhereClauseNode` methods hand back the unmaterialized
+ * tree instead, for a caller that wants the decision rather than the SQL.
  *
  * Every condition leaf is applied inline as a nested where-group and negated
  * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
@@ -94,7 +96,7 @@ final class RuleSetCompiler
      * Build the predicate for a whole gate — the requested abilities combined
      * under the gate's match mode — as a single nested query on $query.
      *
-     * Each ability is compiled independently by {@see abilityNode} and the
+     * Each ability is compiled independently by {@see abilityWhereClauseNode} and the
      * results are joined here: `ALL` ANDs them (every ability must hold for a
      * row), `ANY` ORs them (any one is enough). This is the only method that
      * consults {@see AbilityMatchMode}. Joining trees rather than finished
@@ -119,16 +121,43 @@ final class RuleSetCompiler
         array $context = [],
         array $visited = [],
     ): Builder {
+        return $this->toPredicate(
+            $query,
+            $this->gateWhereClauseNode($user, $query, $gate, $ruleSet, $targetSqlId, $context, $visited),
+        );
+    }
+
+    /**
+     * The tree for a whole gate, before it is materialized — the form a caller
+     * reaches for when it wants the gate's *decision* rather than its SQL.
+     *
+     * {@see CompiledWhereClauseNode::buildWhereClause()} folds this to the literal
+     * `true`/`false` whenever the rules settled the outcome without consulting a
+     * row, which is what lets a boolean check answer without a query. Materializing
+     * through {@see compileGate} erases that, since a spliceable predicate has to
+     * spell a constant out as `1 = 1` / `1 = 0`.
+     *
+     * @param list<string> $visited See {@see compileGate}.
+     */
+    public function gateWhereClauseNode(
+        Authenticatable $user,
+        Builder $query,
+        WarrantGate $gate,
+        WarrantRuleSet $ruleSet,
+        ?string $targetSqlId = null,
+        array $context = [],
+        array $visited = [],
+    ): CompiledWhereClauseNode {
         $gateNode = new CompiledWhereClauseNode;
         $requireAll = $gate->matchMode === AbilityMatchMode::ALL;
 
         foreach ($gate->abilities as $ability) {
-            $abilityNode = $this->abilityNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited);
+            $abilityNode = $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited);
 
             $requireAll ? $gateNode->addAnd($abilityNode) : $gateNode->addOr($abilityNode);
         }
 
-        return $this->toPredicate($query, $gateNode);
+        return $gateNode;
     }
 
     /**
@@ -149,7 +178,7 @@ final class RuleSetCompiler
     ): Builder {
         return $this->toPredicate(
             $query,
-            $this->abilityNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited),
+            $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited),
         );
     }
 
@@ -160,7 +189,7 @@ final class RuleSetCompiler
      *
      * @param list<string> $visited
      */
-    private function abilityNode(
+    public function abilityWhereClauseNode(
         Authenticatable $user,
         Builder $query,
         string $ability,
@@ -243,15 +272,15 @@ final class RuleSetCompiler
     ): Builder {
         return $this->toPredicate(
             $query,
-            $this->conditionNode($user, $query, $condition, $targetSqlId, $context),
+            $this->conditionWhereClauseNode($user, $query, $condition, $targetSqlId, $context),
         );
     }
 
     /**
      * The tree for a standalone condition, before it is materialized — see
-     * {@see abilityNode} for why the unmaterialized form is worth having.
+     * {@see abilityWhereClauseNode} for why the unmaterialized form is worth having.
      */
-    private function conditionNode(
+    public function conditionWhereClauseNode(
         Authenticatable $user,
         Builder $query,
         ?IBooleanExpressionNode $condition,
@@ -270,19 +299,31 @@ final class RuleSetCompiler
     }
 
     /**
-     * Materialize a tree into the nested predicate the public API returns.
+     * Materialize a folded where clause into the nested predicate the public API
+     * returns.
      *
-     * A tree that folded to a literal becomes `1 = 1`/`1 = 0`: callers splice
+     * A clause that folded to a literal becomes `1 = 1`/`1 = 0`: callers splice
      * the result with `addNestedWhereQuery`, which skips a query holding no
      * where clause, so an always-true predicate has to say so out loud.
+     *
+     * Public because a caller that folded a node itself — to read the decision
+     * before deciding whether SQL is needed at all — still has to be able to
+     * spell the result out when it turns out SQL *is* needed, without compiling
+     * the tree a second time.
      */
-    private function toPredicate(Builder $query, CompiledWhereClauseNode $node): Builder
+    public function materializeWhereClause(Builder $query, bool|Builder $whereClause): Builder
     {
-        $whereClause = $node->buildWhereClause($query);
-
         return is_bool($whereClause)
             ? $query->newQuery()->whereRaw($whereClause ? '1 = 1' : '1 = 0')
             : $whereClause;
+    }
+
+    /**
+     * Fold a tree and materialize whatever it decided.
+     */
+    private function toPredicate(Builder $query, CompiledWhereClauseNode $node): Builder
+    {
+        return $this->materializeWhereClause($query, $node->buildWhereClause($query));
     }
 
     /**
@@ -452,7 +493,7 @@ final class RuleSetCompiler
         // a correlation-free boolean tree spliced inline (negation-aware), so a B
         // that decides outright folds into A instead of stopping at a `1 = 0`.
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->abilityNode(
+            $bCompiler->abilityWhereClauseNode(
                 $ctx->user,
                 $host,
                 $node->ability,
@@ -497,7 +538,7 @@ final class RuleSetCompiler
         }
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
-        // B's SQL. conditionNode() walks an expression subtree in isolation.
+        // B's SQL. conditionWhereClauseNode() walks an expression subtree in isolation.
         $bCompiler = new self($bSchema, $this->manager);
 
         if ($node->isRowBound) {
@@ -533,7 +574,7 @@ final class RuleSetCompiler
         // already forbids them here); the result is a correlation-free boolean
         // tree spliced inline (negation-aware).
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->conditionNode($ctx->user, $host, $node->predicate, null, $bContext),
+            $bCompiler->conditionWhereClauseNode($ctx->user, $host, $node->predicate, null, $bContext),
             negated: $ctx->negate,
         );
     }

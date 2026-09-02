@@ -168,6 +168,39 @@ public function getAbilitiesWithoutTarget(
 default. For the common case, prefer `Warrant::abilities(Document::class)` /
 `->abilities()`.
 
+### The compiled where clause, before it becomes SQL
+
+`filterQuery()` is a consumer of one lower-level step: compiling the gate into a
+where clause. That clause is often not a clause at all — an unconditional
+`cannot`, an ability no rule grants, an unconditional `can`, or (with no target)
+anything gated on a row condition all settle the gate without reference to a
+row. `compileGateWhereClause()` hands you that result:
+
+```php
+public function compileGateWhereClause(
+    Builder $query,                 // the host the clause is built off
+    ?string $targetSqlId,           // null for a no-target compile
+    string|array $abilities,
+    AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+    array $context = [],
+): bool|Builder;                    // a literal decision, or the where clause
+```
+
+A `bool` means the rules decided the gate outright. A `Builder` carries the
+where clause; hand either back to `spliceWhereClauseIntoQuery($query, $clause)`
+when you do need it as SQL, and nothing is compiled twice.
+
+`filterQuery()` always needs SQL, so it spells a constant out as `1 = 1` /
+`1 = 0` — a row filter has to say something. The boolean checks do not: `can()`,
+`canAny()`, `cannot()` and the `authorize*()` pair read the literal and **return
+without querying at all**. The one exception is a targeted check given a bare
+key rather than a loaded model: `exists()` was also confirming the row is there,
+so a key still costs a lookup even when the gate folded to `true`.
+
+An empty ability set folds to `true` — the match-all an empty gate has always
+meant. Callers that treat "nothing requested" as a failure handle that
+themselves.
+
 ## `HasWarrantSchema` — model query helpers
 
 The model trait no longer carries any static check methods. What remains are the
