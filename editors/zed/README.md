@@ -35,6 +35,12 @@ knows more than a regex can: a positional `?` is highlighted as the binding it
 is rather than as a generic operator, and a `@context` key is a property rather
 than falling through to the bare-identifier rule.
 
+One thing goes further than the TextMate grammar can: the body of an
+`@sql "..."` reference is injected as SQL, so it is highlighted as real SQL
+rather than as an opaque string. Zed does not bundle SQL — it comes from a
+community extension — so with none installed the body simply stays coloured as
+an ordinary string. Nothing breaks either way.
+
 ## Developing
 
 The grammar's revision is pinned by commit SHA, so a change to the grammar is

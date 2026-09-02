@@ -51,6 +51,9 @@ that multiplication from growing any further.
   Works automatically in VS Code, and in Zed — Zed's PHP extension injects
   whatever language a heredoc's closing label names. In PhpStorm it needs
   Language Injection (see `phpstorm/README.md`).
+- **SQL inside `@sql "..."`** — Zed only, and only when a SQL extension is
+  installed. The tree-sitter grammar can address a string's body as a node,
+  which a TextMate grammar cannot, so the SQL is highlighted as SQL.
 
 ## Roadmap
 

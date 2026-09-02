@@ -55,7 +55,8 @@ they cannot edit because :msg
             left: (condition
               name: (identifier)
               arguments: (argument_list
-                (string)))
+                (string
+                  (string_content))))
             right: (not_expression
               operand: (condition
                 name: (identifier))))

@@ -15,8 +15,10 @@ they can view
       condition: (condition
         name: (identifier)
         arguments: (argument_list
-          (string)
-          (string)
+          (string
+            (string_content))
+          (string
+            (string_content))
           (integer)
           (integer)
           (float)
@@ -31,7 +33,8 @@ they can view
             schema: (identifier)
             column: (identifier))
           (sql_ref
-            sql: (string)))))
+            sql: (string
+              (string_content))))))
     (can_clause
       abilities: (ability_list
         (ability
@@ -62,6 +65,29 @@ they can view
           arguments: (argument_list
             (sql_ref
               sql: (positional))))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+=============================================================
+an @sql body, which injections.scm hands to the SQL grammar
+=============================================================
+
+if named(@sql "select id from users where deleted_at is null limit 1")
+they can view
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)
+        arguments: (argument_list
+          (sql_ref
+            sql: (string
+              (string_content))))))
     (can_clause
       abilities: (ability_list
         (ability

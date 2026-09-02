@@ -34,7 +34,8 @@ for documents { they can view }
             (ability
               (identifier)))
           denial: (because_clause
-            message: (string))))))
+            message: (string
+              (string_content)))))))
   (schema_block
     (schema_header
       schema: (identifier))

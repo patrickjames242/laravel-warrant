@@ -222,18 +222,19 @@ module.exports = grammar({
     // -- terminals -----------------------------------------------------------
 
     // Only \' \" and \\ are legal escapes; the closing quote must match the opener.
+    //
+    // The body is one addressable `string_content` node spanning everything
+    // between the quotes, which is what lets injections.scm hand an @sql body
+    // to the SQL grammar. The double-quoted variant is hidden and aliased, so
+    // both quote styles produce the same node name.
     string: $ => choice(
-      seq(
-        "'",
-        repeat(choice($.escape_sequence, token.immediate(/[^'\\]+/))),
-        "'",
-      ),
-      seq(
-        '"',
-        repeat(choice($.escape_sequence, token.immediate(/[^"\\]+/))),
-        '"',
-      ),
+      seq("'", optional($.string_content), "'"),
+      seq('"', optional(alias($._double_quoted_content, $.string_content)), '"'),
     ),
+
+    string_content: $ => repeat1(choice($.escape_sequence, token.immediate(/[^'\\]+/))),
+
+    _double_quoted_content: $ => repeat1(choice($.escape_sequence, token.immediate(/[^"\\]+/))),
 
     escape_sequence: _ => token.immediate(/\\['"\\]/),
 

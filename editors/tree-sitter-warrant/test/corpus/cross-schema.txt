@@ -61,7 +61,8 @@ they cannot update because 'Payroll for this pay period is already published.'
         (ability
           (identifier)))
       denial: (because_clause
-        message: (string)))))
+        message: (string
+          (string_content))))))
 
 ========================================
 an unbound handle with no row selector

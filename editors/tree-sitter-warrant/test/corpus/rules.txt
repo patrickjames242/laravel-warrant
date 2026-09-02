@@ -115,7 +115,8 @@ they cannot delete because 'Locked.'
         (ability
           (identifier)))
       denial: (because_clause
-        message: (string)))))
+        message: (string
+          (string_content))))))
 
 =====================================================
 strings, escapes and a literal hash inside a string
@@ -135,11 +136,13 @@ they cannot delete because "don't"
         name: (identifier)
         arguments: (argument_list
           (string
-            (escape_sequence)
-            (escape_sequence)))))
+            (string_content
+              (escape_sequence)
+              (escape_sequence))))))
     (cannot_clause
       abilities: (ability_list
         (ability
           (identifier)))
       denial: (because_clause
-        message: (string)))))
+        message: (string
+          (string_content))))))
