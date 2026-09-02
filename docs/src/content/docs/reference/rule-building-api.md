@@ -124,12 +124,16 @@ parameter, a cross-schema row selector, or a `with` map value.
 ```php
 ->theyCan(string ...$abilities): static     // additive
 ->theyCannot(string ...$abilities): static  // additive
-->withDenialMessage(string|Closure $message): static // message for the cannot clause
+->theyCannotBecause(string|list<string> $abilities, string|Closure $message): static // deny with a message
 ->toRule(): WarrantRule                      // throws LogicException if no clause set
 ```
 
-See [Denial messages](/guides/denial-messages/) for what a message closure
-receives and where the message surfaces.
+`theyCannotBecause()` adds one clause per call, so separate calls give separate
+abilities separate messages; abilities passed together share one message. To
+attach a message to an existing rule instead, use
+[`WarrantRule::withDenialMessage()`](#warrantrule-readonly). See
+[Denial messages](/guides/denial-messages/) for what a message closure receives
+and where the message surfaces.
 
 ### Semantics
 

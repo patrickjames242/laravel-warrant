@@ -210,16 +210,21 @@ see [raw SQL references](/guides/rule-language/#raw-sql-references-sql).
 
 ## Attaching a denial message
 
-`withDenialMessage()` is available mid-chain, to explain a `cannot` when it fires:
+`theyCannotBecause()` denies and explains in one call, for when the `cannot`
+fires. Each call adds one clause, so separate calls give separate abilities
+separate messages, while abilities passed together share one:
 
 ```php
 WarrantRule::build()
-    ->if('is_locked')->theyCannot('update')
-    ->withDenialMessage('This document is locked and can no longer be edited.')
+    ->if('is_locked')
+    ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
+    ->theyCannotBecause(['publish', 'delete'], 'Locked documents are read-only.')
     ->toRule();
 ```
 
-See [Denial messages](/guides/denial-messages/) for the full behaviour.
+To add a message to a rule you already have — one parsed from the DSL, say — use
+`WarrantRule::withDenialMessage()`, which returns a copy. See
+[Denial messages](/guides/denial-messages/) for the full behaviour.
 
 ## Building a whole rule set
 
@@ -234,8 +239,8 @@ use Warrant\Rules\WarrantRuleSet;
 $set = WarrantRuleSet::build('documents', function ($rule) {
     $rule()->if('is_self')->theyCan('view', 'update');
 
-    $rule()->if('is_locked')->theyCannot('update')
-        ->withDenialMessage('This document is locked and can no longer be edited.');
+    $rule()->if('is_locked')
+        ->theyCannotBecause('update', 'This document is locked and can no longer be edited.');
 
     $rule()->if('is_admin')->theyCan('view', 'update', 'delete');
 });
