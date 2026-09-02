@@ -157,12 +157,23 @@ trait BuildsAccessQueries
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
         }
 
-        $abilitySelectQuery = $this->buildAvailableAbilitiesQuery(
-            query: $query,
-            abilities: $abilities,
-            targetSqlId: $targetSqlId,
-            context: $context
-        );
+        /* One branch per ability, each compiled against the target row. Unlike the
+           no-target path, nothing is folded away here: a per-row list has to name
+           every ability it was asked about, and a constant is per-row too. */
+        $ruleSet = $this->resolvedRuleSet();
+        $branches = [];
+
+        foreach ($abilities as $ability) {
+            $branches[] = [$ability, $this->buildAbilityConditionQuery(
+                query: $query,
+                targetSqlId: $targetSqlId,
+                ability: $ability,
+                ruleSet: $ruleSet,
+                context: $context,
+            )];
+        }
+
+        $abilitySelectQuery = $this->unionAbilityBranches($query, $branches);
 
         /* The JSON aggregate function differs per driver; default to an empty
            array (json_agg/json_arrayagg yield null over an empty set). */
@@ -311,35 +322,10 @@ trait BuildsAccessQueries
     }
 
     /**
-     * @param array<int, string> $abilities
-     */
-    protected function buildAvailableAbilitiesQuery(
-        Builder $query,
-        array $abilities,
-        ?string $targetSqlId = null,
-        array $context = []
-    ): Builder
-    {
-        $ruleSet = $this->resolvedRuleSet();
-        $branches = [];
-
-        foreach ($abilities as $ability) {
-            $branches[] = [$ability, $this->buildAbilityConditionQuery(
-                query: $query,
-                targetSqlId: $targetSqlId,
-                ability: $ability,
-                ruleSet: $ruleSet,
-                context: $context,
-            )];
-        }
-
-        return $this->unionAbilityBranches($query, $branches);
-    }
-
-    /**
      * Assemble one `select '<ability>' as "ability" where (<predicate>)` branch
-     * per entry, UNION ALL'd into a single query — the row set both no-target
-     * callers read the held abilities out of.
+     * per entry, UNION ALL'd into a single query — the row set an ability list is
+     * read out of, whether per-row ({@see selectAbilitiesInQuery}) or with no
+     * target at all ({@see getAbilitiesWithoutTarget}).
      *
      * Taking the predicates already built lets the no-target path compile once:
      * it folds each ability to decide whether a branch is needed at all, and
