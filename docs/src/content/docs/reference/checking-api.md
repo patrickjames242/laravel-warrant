@@ -208,9 +208,20 @@ when you do need it as SQL, and nothing is compiled twice.
 `filterQuery()` always needs SQL, so it spells a constant out as `1 = 1` /
 `1 = 0` — a row filter has to say something. The boolean checks do not: `can()`,
 `canAny()`, `cannot()` and the `authorize*()` pair read the literal and **return
-without querying at all**. The one exception is a targeted check given a bare
-key rather than a loaded model: `exists()` was also confirming the row is there,
-so a key still costs a lookup even when the gate folded to `true`.
+without querying at all**.
+
+A folded `false` always short-circuits — no row could pass. A folded `true` is
+one step short of an answer on a *targeted* check, because `exists()` was also
+confirming the row is there. Only a hydrated model has already established that
+(`Model::$exists`, which Eloquent sets on retrieval or insert and clears on
+delete), so it alone short-circuits. Everything whose existence is unproven —
+a bare key, an unsaved model, a deleted one — still costs one lookup:
+
+```php
+$guard->can('view', $documentFromQuery);   // no query
+$guard->can('view', 42);                   // one query, for existence
+$guard->can('view', new Document);         // one query, for existence
+```
 
 An empty ability set folds to `true` — the match-all an empty gate has always
 meant. Callers that treat "nothing requested" as a failure handle that

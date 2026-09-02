@@ -153,9 +153,13 @@ trait ChecksAbilities
             }
 
             /* An always-true gate leaves only "is the row there?" — which a
-               loaded instance has already answered, but a bare key has not, so
-               a key still goes to the database for the existence check alone. */
-            if ($whereClause === true && $target instanceof Model) {
+               hydrated instance has already answered, so it can be trusted for
+               that and nothing else. Anything whose existence is unproven —
+               a bare key, an unsaved model, one that has since been deleted —
+               still goes to the database for the existence check alone.
+               Model::$exists is Eloquent's own record of this: set when a row is
+               hydrated or inserted, cleared on delete. */
+            if ($whereClause === true && $target instanceof Model && $target->exists) {
                 return true;
             }
 

@@ -27,8 +27,10 @@ beforeEach(function () {
 | These tests assert the query *count* alongside the answer, since the answer
 | alone cannot tell the two paths apart. The one place a folded `true` is not
 | the whole story is a targeted check: `exists()` was also confirming the row is
-| there. A loaded model has already established that; a bare key has not, so a
-| key still pays for the lookup. That asymmetry is pinned below.
+| there. Only a *hydrated* model has established that, which is Model::$exists,
+| not `instanceof Model` — an unsaved or deleted model is an instance whose row
+| may never have existed. Anything unproven still pays for the lookup. That
+| asymmetry is pinned below.
 |
 */
 
@@ -157,6 +159,52 @@ it("keeps denying a key that is not in the table", function () {
 
 	expect(
 		measureQueries(fn() => shortCircuitGuard()->can("view", "no-such-section")),
+	)->toBe([false, 1]);
+});
+
+/**
+ * A model instance carrying $id that has never been near the database, so
+ * Model::$exists is false.
+ */
+function unsavedSection(string $id): WarrantTestModel
+{
+	$section = new WarrantTestModel();
+	$section->id = $id;
+
+	return $section;
+}
+
+it("does not trust an unsaved model to prove its row exists", function () {
+	seedShortCircuitSections();
+	bindWarrantRules("they can view");
+	$ghost = unsavedSection("ghost-section");
+
+	// The gate folds to true, so only existence is left to settle — and an
+	// unsaved instance has settled nothing, so this must cost a lookup.
+	expect(measureQueries(fn() => shortCircuitGuard()->can("view", $ghost)))->toBe(
+		[false, 1],
+	);
+});
+
+it("looks up an unsaved model whose row does happen to exist", function () {
+	seedShortCircuitSections();
+	bindWarrantRules("they can view");
+	$unsaved = unsavedSection("teacher:teacher-role");
+
+	expect(
+		measureQueries(fn() => shortCircuitGuard()->can("view", $unsaved)),
+	)->toBe([true, 1]);
+});
+
+it("stops trusting a model once it has been deleted", function () {
+	seedShortCircuitSections();
+	bindWarrantRules("they can view");
+	$section = loadedSection();
+	$section->delete();
+
+	// delete() clears Model::$exists, so the instance is no longer evidence.
+	expect(
+		measureQueries(fn() => shortCircuitGuard()->can("view", $section)),
 	)->toBe([false, 1]);
 });
 
