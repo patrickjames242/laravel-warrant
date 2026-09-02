@@ -1,5 +1,38 @@
 # Upgrade guide
 
+## Row conditions can be handed the target model
+
+`RowConditionContext` gains `?Model $model` — the loaded row a check named, when
+it named exactly one. A condition given it may return a `bool` and decide the
+outcome in PHP, which folds away without reaching the database:
+
+```php
+#[RowCondition]
+public function isSelf(RowConditionContext $c): Builder|bool
+{
+    if ($c->model !== null) {
+        return $c->model->user_id === $c->user->getAuthIdentifier();
+    }
+
+    return $c->query->whereRaw('documents.user_id = ?', [$c->user->getAuthIdentifier()]);
+}
+```
+
+**Existing conditions need no change.** `model` is a new trailing constructor
+parameter, and a condition that ignores it behaves exactly as before — the SQL
+Warrant emits is unchanged.
+
+`model` is null unless the check named one specific row *and* the caller passed a
+hydrated model (`Model::$exists`). Filtering a query, listing per-row abilities,
+or naming the row by key all leave it null, so a row condition must always keep
+its query branch.
+
+**Breaking for custom `ConditionResolver` implementations.**
+`ConditionResolver::applyCondition()` gains a trailing
+`?Model $targetModel = null`, so any class implementing that interface outside the
+package must add the parameter. Schemas themselves implement it through
+`WarrantSchema` and need no change; this only affects a hand-written resolver.
+
 ## Integer check targets
 
 The schema-bound guard now accepts an `int` row key directly, alongside a `Model`

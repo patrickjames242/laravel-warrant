@@ -3,6 +3,7 @@
 namespace Warrant\DSL;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 
 /**
@@ -24,12 +25,16 @@ interface ConditionResolver extends SchemaVocabulary
 
     /**
      * Apply a condition's predicate to $whereClause (mutating it) and return the
-     * builder, OR return a boolean for conditions that decide the outcome
-     * outright (a true/false global condition).
+     * builder, OR return a boolean for a condition that decides the outcome
+     * outright — a global condition evaluated in PHP, or a row condition handed
+     * the row it is judging.
      *
      * @param array<int, mixed> $parameters The resolved DSL arguments.
      * @param array<string, mixed> $context The effective check-time context,
      *   exposed to every condition (regardless of `@context` usage).
+     * @param Model|null $targetModel The loaded target row, when the check named a
+     *   hydrated one. Reaches a row condition as `$c->model`, which is how it can
+     *   answer without SQL; null whenever more than one row is in play.
      */
     public function applyCondition(
         string $conditionKey,
@@ -38,5 +43,6 @@ interface ConditionResolver extends SchemaVocabulary
         ?string $targetSqlId,
         array $parameters,
         array $context = [],
+        ?Model $targetModel = null,
     ): Builder|bool;
 }

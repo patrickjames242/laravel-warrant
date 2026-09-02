@@ -254,6 +254,18 @@ evaluate normally. (Separately, an absent optional
 [`@context`](/guides/context/) value is passed to the condition as `null`, and
 standard SQL logic applies from there.)
 
+## Row conditions with the row in hand
+
+The mirror image: when a check names one specific row and the caller passed the
+loaded model — `$guard->can('update', $document)` — that model reaches the
+condition as `$c->model`. A condition written to use it can
+[answer in PHP](/guides/conditions/#answering-in-php-when-you-already-hold-the-row),
+returning a `bool` that folds exactly like a global condition's, so a rule whose
+conditions all answer this way compiles to a constant and the check never queries
+at all. Anything the compiler covers with more than one row — `filterQuery`, the
+per-row ability list — has no single model to pass, so those conditions emit
+their SQL as always.
+
 ## Worked examples
 
 Now compile [the example](#the-example)'s rule set, one ability at a time. Each

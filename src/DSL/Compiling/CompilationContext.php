@@ -3,12 +3,14 @@
 namespace Warrant\DSL\Compiling;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The state {@see RuleSetCompiler} threads as it walks a boolean expression tree.
  *
  * It bundles the check-time invariants that never change during a single compile
- * (the user, the target SQL id, the effective check-time context bag) together
+ * (the user, the target SQL id, the target model when one was supplied, the
+ * effective check-time context bag) together
  * with the one piece of position-dependent state a recursive step derives for
  * its children: whether the current subtree is negated, flipped at each `not` so
  * that negation lands on the leaves.
@@ -31,6 +33,10 @@ final readonly class CompilationContext
      *   for the cycle message. Path-scoped: a frame added descending into a
      *   referenced schema never leaks to a sibling branch, since each step derives
      *   a fresh copy.
+     * @param Model|null $targetModel The loaded row the check was aimed at, when the
+     *   caller supplied a hydrated one. Lets a row condition answer in PHP instead of
+     *   emitting SQL; null whenever the compile covers more than one row (or none),
+     *   which every row condition must still handle by returning its predicate.
      */
     public function __construct(
         public Authenticatable $user,
@@ -38,6 +44,7 @@ final readonly class CompilationContext
         public array $checkContext,
         public bool $negate = false,
         public array $visited = [],
+        public ?Model $targetModel = null,
     ) {
     }
 
@@ -52,6 +59,7 @@ final readonly class CompilationContext
             checkContext: $this->checkContext,
             negate: ! $this->negate,
             visited: $this->visited,
+            targetModel: $this->targetModel,
         );
     }
 }

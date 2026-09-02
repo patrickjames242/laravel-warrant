@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -36,7 +37,7 @@ final class BuilderFakeResolver implements ConditionResolver
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
 
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = []): Builder|bool
+    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
     {
         return $whereClause->whereRaw("{$targetSqlId} = ?", ["teacher:{$user->role}"]);
     }

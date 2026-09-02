@@ -120,8 +120,9 @@ A condition may only add **where clauses** to `$c->query` (including `whereExist
 `having`, aggregate, or `union` throws at compile time — use a correlated
 `whereExists()`/`whereNotExists()` subquery to reach another table. Returning the
 query untouched throws too, since it would silently mean "match every row"; return
-`true` to mean that. A `#[GlobalCondition]` may instead return a `bool`, evaluated
-in PHP.
+`true` to mean that. A condition may instead return a `bool`, evaluated in PHP: a
+`#[GlobalCondition]` always may, and a `#[RowCondition]` may whenever it was handed
+the row itself as `$c->model`. It must still emit SQL when `$c->model` is `null`.
 
 ### `#[RequiredContext]`
 
@@ -154,8 +155,9 @@ public function __construct(
 
 ### `RowConditionContext` (readonly)
 
-Same as above, plus the target row's `table` and `keyColumn`, and a `row()` helper
-that qualifies a column against the target table (always present for a row condition):
+Same as above, plus the target row's `table` and `keyColumn`, a `row()` helper that
+qualifies a column against the target table (always present for a row condition),
+and `model` — the loaded target row when the check named one:
 
 ```php
 public function __construct(
@@ -165,10 +167,17 @@ public function __construct(
     public string $keyColumn,    // e.g. "id"
     public array $arguments = [],
     public array $context = [],
+    public ?Model $model = null, // the loaded target row, or null
 );
 
 public function row(?string $column = null): string; // row() => "documents.id"; row('user_id') => "documents.user_id"
 ```
+
+`model` is set only when the check named one specific, hydrated row
+(`can('view', $document)`); it is `null` when filtering a query, listing per-row
+abilities, or when the row was named by key or is unsaved or deleted. A condition
+handed it may answer in PHP by returning a `bool` — see
+[Answering in PHP when you already hold the row](/guides/conditions/#answering-in-php-when-you-already-hold-the-row).
 
 ## Enums & helpers
 

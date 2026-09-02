@@ -88,6 +88,15 @@ trait DiagnosesDenials
             $targetModel = $target instanceof Model
                 ? $target
                 : $model->newQueryWithoutScopes()->whereKey($targetId)->first();
+
+            /* What the *check* would have handed to a row condition, which is not
+               the same thing as $targetModel above: that one is fetched when the
+               caller passed only a key, and is for the message hooks. Diagnosis
+               has to reproduce the decision, not improve on it — compile with the
+               row a condition actually saw, or a condition that answered in PHP
+               would be re-asked in SQL and could disagree, leaving nothing to
+               blame and a generic 403 in place of the rule's own message. */
+            $conditionModel = $target instanceof Model && $target->exists ? $target : null;
         } else {
             // No target: evaluate the ability/condition predicates against a bare
             // one-row query on the entity's connection, exactly like the no-target
@@ -98,6 +107,7 @@ trait DiagnosesDenials
             $targetSqlId = null;
             $baseQuery = fn (): Builder => $connection->query();
             $targetModel = null;
+            $conditionModel = null;
         }
 
         // Which requested abilities individually fail on this row?
@@ -110,6 +120,7 @@ trait DiagnosesDenials
                 ability: $ability,
                 ruleSet: $ruleSet,
                 context: $context,
+                targetModel: $conditionModel,
             );
 
             $granted = $query
@@ -146,6 +157,7 @@ trait DiagnosesDenials
                     $query,
                     $rule->conditions,
                     $targetSqlId,
+                    $conditionModel,
                     $context,
                 );
 

@@ -46,25 +46,6 @@ function seedShortCircuitSections(): void
 	]);
 }
 
-/**
- * Run $check with the query log on, returning its result and the number of
- * queries it took to get there.
- *
- * @return array{mixed, int}
- */
-function measureQueries(Closure $check): array
-{
-	$connection = DB::connection();
-	$connection->flushQueryLog();
-	$connection->enableQueryLog();
-
-	$result = $check();
-
-	$connection->disableQueryLog();
-
-	return [$result, count($connection->getQueryLog())];
-}
-
 function shortCircuitGuard(string $role = "teacher-role"): WarrantGuardForSchema
 {
 	return Warrant::guard(makeWarrantTestUser($role))->forSchema(

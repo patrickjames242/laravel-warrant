@@ -3,6 +3,7 @@
 namespace Warrant\Guard\Concerns;
 
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\RuleSetCompiler;
@@ -80,13 +81,18 @@ trait BuildsAccessQueries
      * a failure (a boolean check does) handle that before calling.
      *
      * @param string|array<int, string> $abilities
+     * @param Model|null $targetModel The loaded row the check names, when there is
+     *   exactly one and the caller supplied it. Reaches a row condition as
+     *   `$c->model`, letting it answer in PHP; every caller filtering more than one
+     *   row leaves this null.
      */
     public function compileGateWhereClause(
         Builder $query,
         ?string $targetSqlId,
         string|array $abilities,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-        array $context = []
+        array $context = [],
+        ?Model $targetModel = null
     ): bool|Builder
     {
         $abilities = $this->schema->normalizeAbilities($abilities);
@@ -99,6 +105,7 @@ trait BuildsAccessQueries
             new WarrantGate($abilities, $matchMode),
             $this->resolvedRuleSet(),
             $targetSqlId,
+            $targetModel,
             $context,
         )->buildWhereClause($query);
     }
@@ -283,6 +290,7 @@ trait BuildsAccessQueries
                 $ability,
                 $ruleSet,
                 null,
+                null,
                 $context,
             )->buildWhereClause($baseQuery);
 
@@ -365,7 +373,8 @@ trait BuildsAccessQueries
         string $ability,
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
-        array $context = []
+        array $context = [],
+        ?Model $targetModel = null
     ): Builder
     {
         return $this->compiler()->compileAbility(
@@ -374,6 +383,7 @@ trait BuildsAccessQueries
             $ability,
             $ruleSet,
             $targetSqlId,
+            $targetModel,
             $context,
         );
     }

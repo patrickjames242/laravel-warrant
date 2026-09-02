@@ -118,12 +118,13 @@ final class RuleSetCompiler
         WarrantGate $gate,
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
         array $visited = [],
     ): Builder {
         return $this->toPredicate(
             $query,
-            $this->gateWhereClauseNode($user, $query, $gate, $ruleSet, $targetSqlId, $context, $visited),
+            $this->gateWhereClauseNode($user, $query, $gate, $ruleSet, $targetSqlId, $targetModel, $context, $visited),
         );
     }
 
@@ -145,6 +146,7 @@ final class RuleSetCompiler
         WarrantGate $gate,
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
         array $visited = [],
     ): CompiledWhereClauseNode {
@@ -152,7 +154,7 @@ final class RuleSetCompiler
         $requireAll = $gate->matchMode === AbilityMatchMode::ALL;
 
         foreach ($gate->abilities as $ability) {
-            $abilityNode = $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited);
+            $abilityNode = $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $targetModel, $context, $visited);
 
             $requireAll ? $gateNode->addAnd($abilityNode) : $gateNode->addOr($abilityNode);
         }
@@ -173,12 +175,13 @@ final class RuleSetCompiler
         string $ability,
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
         array $visited = [],
     ): Builder {
         return $this->toPredicate(
             $query,
-            $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $context, $visited),
+            $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $targetModel, $context, $visited),
         );
     }
 
@@ -195,6 +198,7 @@ final class RuleSetCompiler
         string $ability,
         WarrantRuleSet $ruleSet,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
         array $visited = [],
     ): CompiledWhereClauseNode {
@@ -229,7 +233,7 @@ final class RuleSetCompiler
             return $abilityNode->addAnd(false);
         }
 
-        $grantCtx = new CompilationContext($user, $targetSqlId, $context, visited: $visited);
+        $grantCtx = new CompilationContext($user, $targetSqlId, $context, visited: $visited, targetModel: $targetModel);
 
         // Grant side: OR of every can-expression (null => always-true term).
         $grantGroup = new CompiledWhereClauseNode;
@@ -243,7 +247,7 @@ final class RuleSetCompiler
         $abilityNode->addAnd($grantGroup);
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, visited: $visited);
+        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, visited: $visited, targetModel: $targetModel);
 
         foreach ($denies as $denyExpression) {
             $abilityNode->addAnd($this->expression($denyExpression, $denyCtx, $query));
@@ -268,11 +272,12 @@ final class RuleSetCompiler
         Builder $query,
         ?IBooleanExpressionNode $condition,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
     ): Builder {
         return $this->toPredicate(
             $query,
-            $this->conditionWhereClauseNode($user, $query, $condition, $targetSqlId, $context),
+            $this->conditionWhereClauseNode($user, $query, $condition, $targetSqlId, $targetModel, $context),
         );
     }
 
@@ -285,6 +290,7 @@ final class RuleSetCompiler
         Builder $query,
         ?IBooleanExpressionNode $condition,
         ?string $targetSqlId = null,
+        ?Model $targetModel = null,
         array $context = [],
     ): CompiledWhereClauseNode {
         $conditionNode = new CompiledWhereClauseNode;
@@ -294,7 +300,7 @@ final class RuleSetCompiler
         }
 
         return $conditionNode->addAnd(
-            $this->expression($condition, new CompilationContext($user, $targetSqlId, $context), $query),
+            $this->expression($condition, new CompilationContext($user, $targetSqlId, $context, targetModel: $targetModel), $query),
         );
     }
 
@@ -468,12 +474,17 @@ final class RuleSetCompiler
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
+            /* No target model crosses the boundary: A's row is not B's row, and
+               B's is named here only by id, never loaded. B's row conditions
+               therefore compile to SQL against the correlated subquery, exactly
+               as they did before a model could be passed at all. */
             $predicate = $bCompiler->compileAbility(
                 $ctx->user,
                 $bSubquery,
                 $node->ability,
                 $bRuleSet,
                 $bModel->getQualifiedKeyName(),
+                null,
                 $bContext,
                 $ctx->visited,
             );
@@ -498,6 +509,7 @@ final class RuleSetCompiler
                 $host,
                 $node->ability,
                 $bRuleSet,
+                null,
                 null,
                 $bContext,
                 $ctx->visited,
@@ -552,11 +564,13 @@ final class RuleSetCompiler
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
+            // As in a row-bound can(...): A's model never crosses into B.
             $predicate = $bCompiler->matchesCondition(
                 $ctx->user,
                 $bSubquery,
                 $node->predicate,
                 $bModel->getQualifiedKeyName(),
+                null,
                 $bContext,
             );
 
@@ -574,7 +588,7 @@ final class RuleSetCompiler
         // already forbids them here); the result is a correlation-free boolean
         // tree spliced inline (negation-aware).
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->conditionWhereClauseNode($ctx->user, $host, $node->predicate, null, $bContext),
+            $bCompiler->conditionWhereClauseNode($ctx->user, $host, $node->predicate, null, null, $bContext),
             negated: $ctx->negate,
         );
     }
@@ -706,9 +720,12 @@ final class RuleSetCompiler
             $ctx->targetSqlId,
             $parameters,
             $ctx->checkContext,
+            $ctx->targetModel,
         );
 
-        // A no-target condition may decide the outcome outright.
+        /* A condition may decide the outcome outright rather than constrain the
+           query: a global one evaluated in PHP, or a row one handed the very row
+           it is judging. Either way the literal folds into the tree around it. */
         if (is_bool($result)) {
             return (new CompiledWhereClauseNode)->addAnd($result, negated: $ctx->negate);
         }

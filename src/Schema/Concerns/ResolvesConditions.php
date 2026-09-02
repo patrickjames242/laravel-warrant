@@ -5,6 +5,7 @@ namespace Warrant\Schema\Concerns;
 use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -38,7 +39,8 @@ trait ResolvesConditions
         Builder $whereClause,
         ?string $targetSqlId = null,
         array $arguments = [],
-        array $context = []
+        array $context = [],
+        ?Model $targetModel = null
     ): mixed
     {
         $conditionDefinition = static::conditionDefinitionForKey($conditionKey);
@@ -75,6 +77,10 @@ trait ResolvesConditions
                 );
             }
 
+            /* Table and key come from the schema's own model, never from
+               $targetModel: they are the same values, and the SQL identity a
+               condition builds must not depend on whether a caller happened to
+               supply an instance. */
             $modelClass = static::model;
             $model = new $modelClass;
 
@@ -85,6 +91,7 @@ trait ResolvesConditions
                 $model->getKeyName(),
                 $arguments,
                 $context,
+                $targetModel,
             );
         } else {
             $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context);
@@ -106,10 +113,19 @@ trait ResolvesConditions
         \Illuminate\Database\Query\Builder $whereClause,
         ?string $targetSqlId,
         array $parameters,
-        array $context = []
+        array $context = [],
+        ?Model $targetModel = null
     ): \Illuminate\Database\Query\Builder|bool
     {
-        return $this->applyConditionFilter($conditionKey, $user, $whereClause, $targetSqlId, $parameters, $context);
+        return $this->applyConditionFilter(
+            $conditionKey,
+            $user,
+            $whereClause,
+            $targetSqlId,
+            $parameters,
+            $context,
+            $targetModel,
+        );
     }
 
     /**

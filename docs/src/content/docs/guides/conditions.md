@@ -75,6 +75,42 @@ return $c->query->whereExists(fn ($sub) => $sub
 ```
 :::
 
+#### Answering in PHP when you already hold the row
+
+A check aimed at one specific row often already has that row loaded —
+`$guard->can('update', $document)`. In that case `$c->model` **is** that model,
+and the condition may decide outright instead of describing the row in SQL.
+Return a `bool` and Warrant folds it like any other constant, so a check whose
+conditions all answer this way never reaches the database:
+
+```php
+#[RowCondition]
+public function isSelf(RowConditionContext $c): Builder|bool
+{
+    if ($c->model !== null) {
+        return $c->model->user_id === $c->user->getAuthIdentifier();
+    }
+
+    return $c->query->whereRaw('documents.user_id = ?', [$c->user->getAuthIdentifier()]);
+}
+```
+
+`$c->model` is `null` whenever one row is not enough — filtering a query,
+listing per-row abilities — or when the row is unproven: a check given a bare
+key, or an unsaved or deleted model. Warrant only passes a model Eloquent
+regards as hydrated (`Model::$exists`), since anything else describes a row that
+may not be there. **So the SQL branch is never optional** — it is the only form
+that can filter, and it still runs for every check that names a row by key.
+
+:::caution[Both branches must agree]
+The two branches are the same rule, and Warrant does not check that they match.
+If they disagree, the same user gets different answers depending on how the check
+was reached — `can('view', $document)` one way, a `filterQuery` listing the other.
+Keep the logic in one place if you can, and be wary of reading a relation in the
+PHP branch: an unloaded one lazy-loads (a query you didn't expect), and a stale
+one answers from memory rather than from the database.
+:::
+
 ### `#[GlobalCondition]` — about the user or the world
 
 Its context is a `GlobalConditionContext` (no `row()`). It may mutate
@@ -102,8 +138,9 @@ why a no-model schema should only use global conditions.
 ## The context object
 
 Every condition method takes the **context object as its first parameter** and
-returns `Builder` (mutated) or, for a global condition, a `bool`. The object
-carries:
+returns `Builder` (mutated) or a `bool` that decides the outcome outright — for a
+global condition always, and for a row condition when it was handed `$c->model`.
+The object carries:
 
 | Property          | Type                      | Present on    |
 | ----------------- | ------------------------- | ------------- |
@@ -112,6 +149,7 @@ carries:
 | `$c->arguments`   | `array`                   | both          |
 | `$c->context`     | `array`                   | both          |
 | `$c->row()`       | `string` (method)         | row only      |
+| `$c->model`       | `?Model`                  | row only      |
 
 :::caution[The context is always the first parameter, of the matching type]
 The first parameter's type must match the attribute — `RowConditionContext` for

@@ -406,6 +406,28 @@ function bindWarrantRuleSet(WarrantRuleSet $ruleSet): void
     app()->instance(RuleResolver::class, new FakeWarrantRuleResolver($ruleSet));
 }
 
+/**
+ * Run $check with the query log on, returning its result and the number of
+ * queries it took to get there.
+ *
+ * The count is the point: an answer alone cannot tell whether it came from the
+ * database or was decided in PHP, so any test about folding has to assert both.
+ *
+ * @return array{mixed, int}
+ */
+function measureQueries(Closure $check): array
+{
+    $connection = DB::connection();
+    $connection->flushQueryLog();
+    $connection->enableQueryLog();
+
+    $result = $check();
+
+    $connection->disableQueryLog();
+
+    return [$result, count($connection->getQueryLog())];
+}
+
 function makeWarrantTestUser(?string $roleId = 'role-1'): Authenticatable
 {
     return new WarrantTestUser($roleId);

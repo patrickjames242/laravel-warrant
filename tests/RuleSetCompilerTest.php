@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -67,7 +68,7 @@ final class FakeConditionResolver implements ConditionResolver
         return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
     }
 
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = []): Builder|bool
+    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
     {
         return match ($name) {
             'is_teacher' => $whereClause->whereRaw("{$targetSqlId} = ?", ["teacher:{$user->role}"]),
@@ -97,7 +98,7 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
     $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs', $bindings);
 
     $query = DB::table('docs');
-    $predicate = $compiler->compileAbility(new CompilerTestUser($role), $query, $ability, $ruleSet, 'docs.id', $context);
+    $predicate = $compiler->compileAbility(new CompilerTestUser($role), $query, $ability, $ruleSet, 'docs.id', context: $context);
     $query->addNestedWhereQuery($predicate);
 
     return $query->orderBy('id')->pluck('id')->all();

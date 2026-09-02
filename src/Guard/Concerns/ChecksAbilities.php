@@ -138,13 +138,17 @@ trait ChecksAbilities
             $query = $model->newQuery()->whereKey($targetId)->getQuery();
 
             /* Read the gate's decision before spending a query on it: the rules
-               often settle a check without looking at the row at all. */
+               often settle a check without looking at the row at all. A hydrated
+               target goes down with it, so a row condition can judge the row in
+               PHP rather than describe it in SQL — the same instance the
+               existence short-circuit below is willing to trust. */
             $whereClause = $this->compileGateWhereClause(
                 query: $query,
                 targetSqlId: $model->getQualifiedKeyName(),
                 abilities: $abilities,
                 matchMode: $matchMode,
                 context: $context,
+                targetModel: $this->trustedTargetModel($target),
             );
 
             // Nothing the row could say would let it through.
@@ -159,7 +163,7 @@ trait ChecksAbilities
                still goes to the database for the existence check alone.
                Model::$exists is Eloquent's own record of this: set when a row is
                hydrated or inserted, cleared on delete. */
-            if ($whereClause === true && $target instanceof Model && $target->exists) {
+            if ($whereClause === true && $this->trustedTargetModel($target) !== null) {
                 return true;
             }
 
@@ -223,6 +227,21 @@ trait ChecksAbilities
         return $matchMode === AbilityMatchMode::ALL
             ? count($held) === count($abilities)
             : $held !== [];
+    }
+
+    /**
+     * The target as a model whose row is known to be there — the only form worth
+     * trusting without a query, and so the only one handed to a row condition or
+     * accepted as proof of existence.
+     *
+     * A bare key names a row nobody has looked up; an unsaved model describes one
+     * that may never have been written; a deleted one describes a row that is
+     * gone. {@see \Illuminate\Database\Eloquent\Model::$exists} is Eloquent's own
+     * record of the difference.
+     */
+    private function trustedTargetModel(Model|string|int|null $target): ?Model
+    {
+        return $target instanceof Model && $target->exists ? $target : null;
     }
 
     /**
