@@ -1,0 +1,20 @@
+{
+  "name": "tree-sitter-warrant",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the Warrant authorization rule DSL",
+  "license": "MIT",
+  "author": "Patrick Hanna",
+  "main": "bindings/node",
+  "files": [
+    "grammar.js",
+    "queries/*",
+    "src/**"
+  ],
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.25.0"
+  }
+}

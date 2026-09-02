@@ -1,0 +1,15 @@
+name = "Warrant"
+grammar = "warrant"
+path_suffixes = ["warrant"]
+line_comments = ["# "]
+autoclose_before = ",)}"
+# Identifiers may contain dashes, so treat `-` as a word character; otherwise a
+# double-click on `is-self` selects only part of the name.
+word_characters = ["-"]
+
+brackets = [
+  { start = "(", end = ")", close = true, newline = false },
+  { start = "{", end = "}", close = true, newline = true },
+  { start = "'", end = "'", close = true, newline = false, not_in = ["string", "comment"] },
+  { start = "\"", end = "\"", close = true, newline = false, not_in = ["string", "comment"] },
+]

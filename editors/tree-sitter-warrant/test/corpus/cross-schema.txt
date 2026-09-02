@@ -1,0 +1,87 @@
+============================================
+can with a row-bound handle and a with map
+============================================
+
+if can(create_timesheet for users(@context user_id))
+    and can(create_timesheet for pay_periods(@context pay_period_id) with user_id = @context user_id)
+they can create
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (and_expression
+        left: (can_expression
+          ability: (identifier)
+          target: (handle
+            schema: (identifier)
+            row: (context_ref
+              key: (identifier))))
+        right: (can_expression
+          ability: (identifier)
+          target: (handle
+            schema: (identifier)
+            row: (context_ref
+              key: (identifier)))
+          context: (with_clause
+            (with_entry
+              key: (identifier)
+              value: (context_ref
+                key: (identifier)))))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+===============================================
+check with a predicate over the target schema
+===============================================
+
+if check(is_payroll_published_for_user(@context user_id) for pay_periods(@context pay_period_id))
+they cannot update because 'Payroll for this pay period is already published.'
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (check_expression
+        predicate: (condition
+          name: (identifier)
+          arguments: (argument_list
+            (context_ref
+              key: (identifier))))
+        target: (handle
+          schema: (identifier)
+          row: (context_ref
+            key: (identifier)))))
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))
+      denial: (because_clause
+        message: (string)))))
+
+========================================
+an unbound handle with no row selector
+========================================
+
+if can(access_payroll for payroll_admin)
+they can view, export
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (can_expression
+        ability: (identifier)
+        target: (handle
+          schema: (identifier))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))
+        (ability
+          (identifier))))))

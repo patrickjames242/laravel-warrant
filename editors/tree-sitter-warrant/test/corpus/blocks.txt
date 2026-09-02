@@ -1,0 +1,88 @@
+=================================
+a group of braced schema blocks
+=================================
+
+for timesheets {
+    they can *
+    if is_self they can edit
+    they cannot delete because 'Locked.'
+}
+for documents { they can view }
+
+---
+
+(source_file
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body
+      (rule
+        (can_clause
+          abilities: (ability_list
+            (ability
+              (wildcard)))))
+      (rule
+        (condition_clause
+          condition: (condition
+            name: (identifier)))
+        (can_clause
+          abilities: (ability_list
+            (ability
+              (identifier))))
+        (cannot_clause
+          abilities: (ability_list
+            (ability
+              (identifier)))
+          denial: (because_clause
+            message: (string))))))
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body
+      (rule
+        (can_clause
+          abilities: (ability_list
+            (ability
+              (identifier))))))))
+
+==================================
+a bare for header with no braces
+==================================
+
+for timesheets
+they can view
+if is_self they can edit
+
+---
+
+(source_file
+  (schema_header
+    schema: (identifier))
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))))
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+==============================
+an empty block
+==============================
+
+for timesheets {
+}
+
+---
+
+(source_file
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body)))

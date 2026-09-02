@@ -1,0 +1,145 @@
+===================================
+consecutive clauses form one rule
+===================================
+
+they can view, delete
+they cannot touch, fight
+
+---
+
+(source_file
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))
+        (ability
+          (identifier))))
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (identifier))
+        (ability
+          (identifier))))))
+
+==============================================
+an if guard shared by every following clause
+==============================================
+
+if is_self
+they can edit, view, delete
+they cannot approve, deny
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))
+        (ability
+          (identifier))
+        (ability
+          (identifier))))
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (identifier))
+        (ability
+          (identifier))))))
+
+==============================
+each if begins a new rule
+==============================
+
+they can view
+if is_self they can edit
+if is_manager they can approve
+
+---
+
+(source_file
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))))
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))))
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+==============================
+the wildcard ability
+==============================
+
+they can *
+
+---
+
+(source_file
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (wildcard))))))
+
+========================================================================
+a denial message as a string literal
+========================================================================
+
+they cannot delete because 'Locked.'
+
+---
+
+(source_file
+  (rule
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))
+      denial: (because_clause
+        message: (string)))))
+
+=====================================================
+strings, escapes and a literal hash inside a string
+=====================================================
+
+# escapes and a literal # inside a string
+if named('it\'s "quoted" and \\ escaped # not a comment')
+they cannot delete because "don't"
+
+---
+
+(source_file
+  (comment)
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)
+        arguments: (argument_list
+          (string
+            (escape_sequence)
+            (escape_sequence)))))
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))
+      denial: (because_clause
+        message: (string)))))

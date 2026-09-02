@@ -1,0 +1,22 @@
+id = "warrant"
+name = "Warrant"
+version = "0.1.0"
+schema_version = 1
+authors = ["Patrick Hanna"]
+description = "Syntax highlighting for the Warrant authorization rule DSL"
+repository = "https://github.com/patrickjames242/laravel-warrant"
+
+# The grammar lives in this same repository, under editors/tree-sitter-warrant,
+# so the language definition stays next to the PHP parser that defines the
+# language. Zed always fetches a grammar from git, never from the extension's
+# own files, so `commit` must name a commit that already exists.
+#
+#   - To test locally before pushing, point `repository` at your checkout with a
+#     file:// URL and pin the local commit that added the grammar.
+#   - To publish, use the GitHub URL below and a pushed commit SHA.
+#
+# See editors/zed/README.md for the exact commands.
+[grammars.warrant]
+repository = "https://github.com/patrickjames242/laravel-warrant"
+commit = "0000000000000000000000000000000000000000" # TODO: replace with a real SHA
+path = "editors/tree-sitter-warrant"

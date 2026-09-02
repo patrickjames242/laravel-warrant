@@ -1,0 +1,26 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "warrant",
+      "camelcase": "Warrant",
+      "scope": "source.warrant",
+      "path": ".",
+      "file-types": ["warrant"],
+      "injection-regex": "^warrant$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for the Warrant authorization rule DSL",
+    "authors": [
+      {
+        "name": "Patrick Hanna"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/patrickjames242/laravel-warrant"
+    }
+  }
+}

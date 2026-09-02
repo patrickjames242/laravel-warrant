@@ -1,0 +1,68 @@
+==================================
+every literal and reference form
+==================================
+
+# every argument form the parser accepts, with a named binding
+if all_of("a string", 'single', 42, -7, 3.14, -0.5, true, false, null, :named, @context tenant_id, @column users.deleted_at, @sql "select 1")
+they can view
+
+---
+
+(source_file
+  (comment)
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)
+        arguments: (argument_list
+          (string)
+          (string)
+          (integer)
+          (integer)
+          (float)
+          (float)
+          (boolean)
+          (boolean)
+          (null)
+          (named_binding)
+          (context_ref
+            key: (identifier))
+          (column_ref
+            schema: (identifier)
+            column: (identifier))
+          (sql_ref
+            sql: (string)))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+============================================================
+positional bindings, which cannot be mixed with named ones
+============================================================
+
+# positional bindings, which cannot be mixed with named ones
+if between(?, ?) and named(@sql ?)
+they can view
+
+---
+
+(source_file
+  (comment)
+  (rule
+    (condition_clause
+      condition: (and_expression
+        left: (condition
+          name: (identifier)
+          arguments: (argument_list
+            (positional)
+            (positional)))
+        right: (condition
+          name: (identifier)
+          arguments: (argument_list
+            (sql_ref
+              sql: (positional))))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
