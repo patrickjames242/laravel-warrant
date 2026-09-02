@@ -18,5 +18,5 @@ repository = "https://github.com/patrickjames242/laravel-warrant"
 # See editors/zed/README.md for the exact commands.
 [grammars.warrant]
 repository = "https://github.com/patrickjames242/laravel-warrant"
-commit = "0000000000000000000000000000000000000000" # TODO: replace with a real SHA
+commit = "6c269770008c46330aa573f6e99239d7a11e1792"
 path = "editors/tree-sitter-warrant"
