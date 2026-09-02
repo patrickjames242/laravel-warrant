@@ -9,6 +9,7 @@ use Warrant\Guard\Concerns\AnalyzesReachability;
 use Warrant\Guard\Concerns\BuildsAccessQueries;
 use Warrant\Guard\Concerns\ChecksAbilities;
 use Warrant\Guard\Concerns\DiagnosesDenials;
+use Warrant\Guard\Concerns\ResolvesCheckTargets;
 use Warrant\Guard\Concerns\ResolvesRuleSets;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantManager;
@@ -27,6 +28,7 @@ use Warrant\WarrantManager;
  *
  * The engine is split across concerns mirroring the schema's own layout:
  *  - {@see ChecksAbilities}     — can/canAny/cannot/authorize/authorizeAny/abilities;
+ *  - {@see ResolvesCheckTargets}— reading the caller's `$target` argument;
  *  - {@see ResolvesRuleSets}    — resolving + memoizing the ordered rule set;
  *  - {@see BuildsAccessQueries} — turning the rule set into SQL access predicates;
  *  - {@see DiagnosesDenials}    — turning a denied check into a message/exception;
@@ -35,6 +37,7 @@ use Warrant\WarrantManager;
 final class WarrantGuardForSchema
 {
     use ChecksAbilities;
+    use ResolvesCheckTargets;
     use ResolvesRuleSets;
     use BuildsAccessQueries;
     use DiagnosesDenials;

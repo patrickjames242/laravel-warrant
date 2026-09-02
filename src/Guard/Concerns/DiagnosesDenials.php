@@ -95,8 +95,9 @@ trait DiagnosesDenials
                has to reproduce the decision, not improve on it — compile with the
                row a condition actually saw, or a condition that answered in PHP
                would be re-asked in SQL and could disagree, leaving nothing to
-               blame and a generic 403 in place of the rule's own message. */
-            $conditionModel = $target instanceof Model && $target->exists ? $target : null;
+               blame and a generic 403 in place of the rule's own message. Hence
+               the shared rule rather than a second copy of it. */
+            $conditionModel = $this->trustedTargetModel($target);
         } else {
             // No target: evaluate the ability/condition predicates against a bare
             // one-row query on the entity's connection, exactly like the no-target
