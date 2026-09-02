@@ -1,5 +1,33 @@
 # Upgrade guide
 
+## Models as cross-schema row selectors
+
+The row selector in a `can(... for schema(<row>))` / `check(... for schema(<row>))`
+handle now accepts the referenced schema's own model:
+
+```text
+if can(view for folders(@context folder)) they can view
+```
+
+```php
+$user->warrant()->can('view', $document, ['folder' => $folder]);
+```
+
+Previously this compiled to `where "folders"."id" = '{"id":"f-1"}'` — PDO has no
+rule for a model, so PHP fell back to `Model::__toString()`, which is `toJson()`.
+No error was raised; the rule simply matched nothing and denied. If you worked
+around that by passing `$folder->getKey()` yourself, that keeps working
+unchanged.
+
+When the model is hydrated it is also handed to the referenced schema's row
+conditions as `$c->model`, so a reference whose conditions all answer in PHP
+compiles to a constant and its `EXISTS` subquery disappears.
+
+**Two new errors**, both replacing a query that used to match nothing silently:
+a model belonging to a *different* schema is rejected, and so is any other object
+with no meaning as a row key. Strings, ints, floats, null, `BackedEnum`,
+`DateTimeInterface`, and `@column` / `@sql` references are all unaffected.
+
 ## Row conditions can be handed the target model
 
 `RowConditionContext` gains `?Model $model` — the loaded row a check named, when

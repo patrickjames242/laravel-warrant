@@ -124,6 +124,36 @@ it('embeds a row-bound predicate as an exists over the referenced table', functi
     );
 });
 
+it('binds a model row selector by its key, and rejects a foreign one', function () {
+    // check(...) resolves its row selector exactly as can(...) does; see
+    // CrossSchemaCanCompilerTest for why a raw model used to compile to JSON.
+    $target = new ChkTarget;
+    $target->id = 'f-owned';
+
+    assertChkFilterSql(
+        'if check(is_owner for chk_targets(@context tid)) they can view',
+        ['tid' => $target],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and (chk_targets.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+
+    $doc = new ChkDoc;
+    $doc->id = 'd-1';
+
+    expect(fn () => assertChkFilterSql(
+        'if check(is_owner for chk_targets(@context tid)) they can view',
+        ['tid' => $doc],
+        'unused',
+    ))->toThrow(InvalidArgumentException::class, 'is not that schema\'s model');
+});
+
 it('embeds a row-bound predicate under a cannot as not exists', function () {
     // The unconditional grant's always-true term folds away, leaving the deny.
     assertChkFilterSql(

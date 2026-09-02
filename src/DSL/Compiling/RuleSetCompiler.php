@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Compiling;
 
+use BackedEnum;
+use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -385,6 +387,74 @@ final class RuleSetCompiler
         throw new InvalidArgumentException(sprintf('Unsupported expression node [%s].', $node::class));
     }
 
+
+    /**
+     * Read a cross-schema handle's row selector into the key to bind and, when
+     * the caller named the row by handing over the row itself, the model to
+     * evaluate B's row conditions against.
+     *
+     * The selector is whatever a binding or `@context` supplied, and nothing has
+     * validated it: it lands verbatim as the bound value of
+     * `where <b>.<key> = ?`. A database driver only takes scalars, so an object
+     * with no defined meaning there reaches PDO and is stringified by whatever
+     * `__toString()` it happens to have — for an Eloquent model that is
+     * `toJson()`, which compiles to `where "folders"."id" = '{"id":"f-1"}'` and
+     * quietly matches no row at all. Rejecting those is the point of this method:
+     * a rule that cannot work should say so rather than silently deny.
+     *
+     * A model of B's own class is the case worth having. It names the row by
+     * being it, so its key is bound — and if Eloquent regards it as hydrated it
+     * is also handed to B's row conditions, which may then answer in PHP. A model
+     * of any *other* class is a mistake worth catching: its key would be compared
+     * against the wrong table, which is exactly the silent non-match this method
+     * exists to end.
+     *
+     * Three object types pass through because they already mean something as a
+     * binding: an {@see Expression} is `@column` / `@sql` splicing raw SQL rather
+     * than binding at all, and Laravel resolves a {@see BackedEnum} through
+     * `castBinding()` and a {@see DateTimeInterface} through `prepareBindings()`.
+     *
+     * @param class-string<Model>|string $bModelClass B's model class ('' for a
+     *   capability schema, which validation already forbids from being row-bound).
+     * @return array{0: mixed, 1: ?Model} The value to bind, and the model to
+     *   thread into B's compile (null unless a hydrated one was supplied).
+     */
+    private function resolveBoundRow(mixed $value, string $bSchemaKey, string $bModelClass): array
+    {
+        if ($value instanceof Model) {
+            if ($bModelClass === '' || ! $value instanceof $bModelClass) {
+                throw new InvalidArgumentException(sprintf(
+                    'The row selector for schema [%s] is a [%s], which is not that schema\'s model [%s]; '
+                        .'pass that schema\'s own model or a row key.',
+                    $bSchemaKey,
+                    $value::class,
+                    $bModelClass === '' ? 'none' : $bModelClass,
+                ));
+            }
+
+            /* Hydrated only, as at the guard: an unsaved or deleted instance
+               still names a key, but proves nothing about the row being there,
+               so it must not let a condition answer from memory. */
+            return [$value->getKey(), $value->exists ? $value : null];
+        }
+
+        if (
+            is_object($value)
+            && ! $value instanceof Expression
+            && ! $value instanceof BackedEnum
+            && ! $value instanceof DateTimeInterface
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'The row selector for schema [%s] is a [%s], which cannot identify a row; '
+                    .'pass a key, that schema\'s model, or a @column/@sql reference.',
+                $bSchemaKey,
+                $value::class,
+            ));
+        }
+
+        return [$value, null];
+    }
+
     /**
      * Push this compile's `(schema, ability)` frame onto the visited path,
      * detecting a cross-schema cycle (the frame already present) and enforcing
@@ -468,28 +538,40 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($host, $bModel, $node->schemaKey);
 
-            $rowId = $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext);
+            [$rowId, $bTargetModel] = $this->resolveBoundRow(
+                $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext),
+                $node->schemaKey,
+                $bClass::model,
+            );
 
             $bSubquery = $host->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
-            /* No target model crosses the boundary: A's row is not B's row, and
-               B's is named here only by id, never loaded. B's row conditions
-               therefore compile to SQL against the correlated subquery, exactly
-               as they did before a model could be passed at all. */
-            $predicate = $bCompiler->compileAbility(
+            /* A's model never crosses the boundary — A's row is not B's row — but
+               the *selector* may itself have been B's row, in which case B compiles
+               against it and B's row conditions can answer in PHP. */
+            $bWhereClause = $bCompiler->abilityWhereClauseNode(
                 $ctx->user,
                 $bSubquery,
                 $node->ability,
                 $bRuleSet,
                 $bModel->getQualifiedKeyName(),
-                null,
+                $bTargetModel,
                 $bContext,
                 $ctx->visited,
-            );
+            )->buildWhereClause($bSubquery);
 
-            $bSubquery->addNestedWhereQuery($predicate);
+            /* A folded B, with B's row already known to be there, leaves the
+               subquery nothing to ask: the exists only ever meant "does that row
+               exist, and does B grant it?", and a hydrated model settled the first
+               half before we started. Without a model the constant still has to go
+               to SQL, because existence is exactly what has not been established. */
+            if ($bTargetModel !== null && is_bool($bWhereClause)) {
+                return (new CompiledWhereClauseNode)->addAnd($bWhereClause, negated: $ctx->negate);
+            }
+
+            $bSubquery->addNestedWhereQuery($bCompiler->materializeWhereClause($bSubquery, $bWhereClause));
 
             // The exists goes on a leaf of its own, already carrying its negation,
             // so it is a one-clause leaf the tree lifts back out without adding a
@@ -558,23 +640,33 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($host, $bModel, $node->schemaKey);
 
-            $rowId = $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext);
+            [$rowId, $bTargetModel] = $this->resolveBoundRow(
+                $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext),
+                $node->schemaKey,
+                $bClass::model,
+            );
 
             $bSubquery = $host->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
-            // As in a row-bound can(...): A's model never crosses into B.
-            $predicate = $bCompiler->matchesCondition(
+            // As in a row-bound can(...): A's model never crosses into B, but the
+            // selector may have been B's own row.
+            $bWhereClause = $bCompiler->conditionWhereClauseNode(
                 $ctx->user,
                 $bSubquery,
                 $node->predicate,
                 $bModel->getQualifiedKeyName(),
-                null,
+                $bTargetModel,
                 $bContext,
-            );
+            )->buildWhereClause($bSubquery);
 
-            $bSubquery->addNestedWhereQuery($predicate);
+            // See the row-bound can(...) branch for why a model is required here.
+            if ($bTargetModel !== null && is_bool($bWhereClause)) {
+                return (new CompiledWhereClauseNode)->addAnd($bWhereClause, negated: $ctx->negate);
+            }
+
+            $bSubquery->addNestedWhereQuery($bCompiler->materializeWhereClause($bSubquery, $bWhereClause));
 
             // As in a row-bound can(...): the exists is its own one-clause leaf,
             // already negated, so the tree lifts it back out without a group.
@@ -606,8 +698,8 @@ final class RuleSetCompiler
 
         if ($parentConnection !== $bConnection) {
             throw new InvalidArgumentException(sprintf(
-                'Cannot compile can(... for %s): that schema is on database connection [%s] but the '
-                    .'query runs on [%s]; cross-connection can(...) is not supported.',
+                'Cannot compile a reference to schema [%s]: that schema is on database connection [%s] '
+                    .'but the query runs on [%s]; a cross-connection reference is not supported.',
                 $bSchemaKey,
                 $bConnection,
                 $parentConnection,

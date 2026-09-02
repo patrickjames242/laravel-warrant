@@ -141,6 +141,116 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
     );
 });
 
+// -- what a row selector may be ----------------------------------------------
+
+it('binds a model row selector by its key', function () {
+    /* Passing the row itself is the obvious thing to reach for. Before this was
+       handled, the model reached PDO and was stringified by Model::__toString(),
+       i.e. toJson() — compiling to `"xc_folders"."id" = '{"id":"f-owned"}'`, a
+       comparison that silently matched nothing. */
+    $folder = new XcFolder;
+    $folder->id = 'f-owned';
+
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder' => $folder],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('binds a backed enum and a date row selector', function () {
+    // Laravel resolves both on its own — castBinding() unwraps a BackedEnum and
+    // prepareBindings() formats a DateTimeInterface — so neither is rejected.
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder' => XcFolderId::Owned],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder' => new DateTimeImmutable('2026-01-02 03:04:05')],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = '2026-01-02 03:04:05'
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('splices a @column row selector as raw SQL, not a binding', function () {
+    /* @column resolves to an Expression, which is spliced rather than bound — it
+       correlates B's row to A's. This is the reason the object rejection below
+       carves out Expression: a blanket "objects cannot identify a row" would
+       break this form outright. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@column xc_docs.id)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = "xc_docs"."id"
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('rejects a model belonging to a different schema', function () {
+    // Its key would be compared against the wrong table — the same silent
+    // non-match, just harder to spot.
+    $doc = new XcDoc;
+    $doc->id = 'd-1';
+
+    expect(fn () => assertXcFilterSql(
+        'if can(view for xc_folders(@context folder)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder' => $doc],
+        'unused',
+    ))->toThrow(InvalidArgumentException::class, 'is not that schema\'s model');
+});
+
+it('rejects an object that cannot identify a row', function () {
+    expect(fn () => assertXcFilterSql(
+        'if can(view for xc_folders(@context folder)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        ['folder' => new stdClass],
+        'unused',
+    ))->toThrow(InvalidArgumentException::class, 'cannot identify a row');
+});
+
 it('embeds a row-bound reference under a cannot as not exists', function () {
     // `they can view` contributes an always-true grant, which the compiler folds
     // away; the conditional cannot that references B's `manage` ability is all
@@ -275,6 +385,11 @@ it('throws while compiling when two schemas reference each other in a cycle', fu
 });
 
 // -- fixtures -----------------------------------------------------------------
+
+enum XcFolderId: string
+{
+    case Owned = 'f-owned';
+}
 
 class XcDoc extends Model
 {

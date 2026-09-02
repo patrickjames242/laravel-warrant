@@ -105,6 +105,18 @@ From the compiler, on what a condition emitted:
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; ...` (a `join`, `groupBy`, `having`, aggregate, or `union` — none of which can be spliced into an `OR` or negated in place)
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] added no where clause; a condition must add at least one where clause, or return true/false to decide the outcome outright.` (a condition that returned its query untouched — see [How it compiles](/guides/how-it-compiles/#conditions-compile-inline))
 
+## Cross-schema row selectors → `InvalidArgumentException`
+
+From the compiler, on the value inside a `can(... for schema(<row>))` or
+`check(... for schema(<row>))` handle. Both replace what used to be a query that
+silently matched no row:
+
+- `The row selector for schema [%s] is a [%s], which is not that schema's model [%s]; pass that schema's own model or a row key.`
+- `The row selector for schema [%s] is a [%s], which cannot identify a row; pass a key, that schema's model, or a @column/@sql reference.`
+
+See [What a row selector may be](/guides/rule-language/#what-a-row-selector-may-be)
+for the accepted values.
+
 ## Context errors → `InvalidArgumentException`
 
 ```text

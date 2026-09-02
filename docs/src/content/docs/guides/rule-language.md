@@ -244,6 +244,38 @@ correlated subquery. Referencing an unrelated table produces a SQL error at
 execution.
 :::
 
+## What a row selector may be
+
+The value inside a `can(... for schema(<row>))` or `check(... for schema(<row>))`
+handle identifies one row of the referenced schema. It is bound into
+`where <table>.<key> = ?`, so it must be something a database can compare against
+a key. Warrant accepts:
+
+| Value | What happens |
+| --- | --- |
+| a string, int, float, or null | bound as written |
+| **the referenced schema's own model** | its key is bound — and if the model is hydrated, the referenced schema's row conditions also receive it as `$c->model` and may [answer in PHP](/guides/conditions/#answering-in-php-when-you-already-hold-the-row) |
+| a `BackedEnum` | Laravel unwraps it to its scalar `value` |
+| a `DateTimeInterface` | Laravel formats it for the connection |
+| `@column` / `@sql` | spliced as raw SQL rather than bound (see above) |
+
+Passing the model is often the most direct thing to write, since you usually have
+it already:
+
+```text
+if can(view for folders(@context folder)) they can view
+```
+
+```php
+$user->warrant()->can('view', $document, ['folder' => $folder]);
+```
+
+A model of a **different** schema is rejected — its key would be compared against
+the wrong table, which matches nothing and looks like a permission problem rather
+than a mistake. Any other object is rejected for the same reason: it has no
+meaning as a row key, and left alone it would reach the database as whatever its
+`__toString()` produces.
+
 ## Raw SQL references (`@sql`)
 
 When a column reference is not enough — you need a scalar subquery, a function

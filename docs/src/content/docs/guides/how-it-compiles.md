@@ -254,6 +254,22 @@ evaluate normally. (Separately, an absent optional
 [`@context`](/guides/context/) value is passed to the condition as `null`, and
 standard SQL logic applies from there.)
 
+## Cross-schema references with the row in hand
+
+The same idea reaches across a schema boundary. A row-bound
+`can(view for folders(@context folder))` normally compiles to an `EXISTS` over
+the referenced table, which asks two things at once: does that row exist, and
+does the other schema grant the ability on it?
+
+Hand the *row itself* to the selector — a hydrated model rather than a key — and
+both halves can be settled without the subquery. The referenced schema's row
+conditions receive it as `$c->model` and may fold to a constant, and
+`Model::$exists` already answered whether the row is there. The whole reference
+then becomes a literal and the `EXISTS` is never built.
+
+A key alone cannot do this: the constant still has to be asked in SQL, because
+whether the row exists is exactly what a key has not established.
+
 ## Row conditions with the row in hand
 
 The mirror image: when a check names one specific row and the caller passed the
