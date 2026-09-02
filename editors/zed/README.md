@@ -91,6 +91,26 @@ then choose this `editors/zed` directory.
 
 ## Publishing
 
+Submission is a pull request to Zed's registry, and it is **reviewed by
+maintainers rather than merged automatically** — per their guidelines,
+"submitting your extension is the first step, not a guarantee." The
+prerequisites this extension has to satisfy, from
+<https://zed.dev/docs/extensions/publishing/prerequisites>:
+
+- A unique, kebab-cased id that contains neither `zed` nor `extension`.
+  `warrant` qualifies, and nothing in the registry claims it (`authzed` is an
+  unrelated SpiceDB extension).
+- An accepted license **inside this directory** — a license at the repository
+  root does not count, which is why `editors/zed/LICENSE` exists alongside the
+  root one. MIT is on the accepted list.
+- Functionality not already in the registry, all user-facing text in English,
+  and, for a language extension, a grammar per language and no unnecessary Rust
+  code. This extension ships no Rust at all.
+- Tested manually in Zed **at the exact commit being submitted**, so re-check it
+  after pushing rather than relying on a local `file://` install.
+
+Then:
+
 1. Push the repository, with the grammar committed.
 2. Set the grammar's `repository` back to the GitHub URL and `commit` to the
    pushed SHA.
