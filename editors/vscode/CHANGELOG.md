@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Highlight a positional `?` as the binding it is, scoped like a `:name`
+  binding, rather than as a generic operator. The two binding forms now look
+  alike, and `?` no longer reads as punctuation.
+
 ## 0.5.0
 
 - Highlight `@sql "<sql>"` raw SQL references — an arbitrary SQL fragment usable
