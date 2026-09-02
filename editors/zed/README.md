@@ -89,6 +89,31 @@ then choose this `editors/zed` directory.
   and move the cursor around. That view is the fastest way to tell a grammar
   problem from a query problem.
 
+## Giving it to a teammate without publishing
+
+There is no Zed equivalent of a `.vsix`: no install-from-file, no way to hand
+someone a bundle. Zipping this directory does not work either, because Zed's
+builder always checks out the pinned grammar commit from git before it decides
+whether to compile — a prebuilt `grammars/warrant.wasm` only lets it skip the
+clang step, not the fetch.
+
+So a teammate does this:
+
+1. Clone this repository (it is public, so no access setup) and check out a
+   branch where the grammar commit is **pushed** — the pin in `extension.toml`
+   must resolve on GitHub.
+2. Run **zed: install dev extension** and select `editors/zed`.
+
+On their first extension build Zed downloads the wasi-sdk to get a wasm-capable
+clang — about 99 MB — then shallow-checks-out the pinned commit and compiles
+`parser.c`. That download is once per machine, not once per extension.
+
+The ongoing cost is that a dev extension does not update itself. After a grammar
+change they have to pull and press **Rebuild**. If more than one or two people
+want this, publishing is worth it for that reason alone rather than for
+discoverability: a registry install is prebuilt, so it needs no wasi-sdk, no git
+fetch and no compile, and it updates on its own.
+
 ## Publishing
 
 Submission is a pull request to Zed's registry, and it is **reviewed by
