@@ -201,7 +201,7 @@ final class WarrantGuard
      *  - a model/schema class-string (or schema key) names the schema, no row.
      *
      * @param Model|string|array<int, mixed> $target
-     * @return array{0: Model|WarrantSchema|string, 1: Model|string|null}
+     * @return array{0: Model|WarrantSchema|string, 1: Model|string|int|null}
      */
     private function splitTarget(Model|string|array $target): array
     {
@@ -222,7 +222,9 @@ final class WarrantGuard
                 throw new InvalidArgumentException('A tuple target key must be a string or integer id.');
             }
 
-            return [$schemaOrModelClass, (string) $id];
+            /* Handed on as written — an int id stays an int, so it reaches
+               whereKey() without the database having to coerce a bound string. */
+            return [$schemaOrModelClass, $id];
         }
 
         return [$target, null];

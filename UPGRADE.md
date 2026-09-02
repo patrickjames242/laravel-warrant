@@ -1,5 +1,29 @@
 # Upgrade guide
 
+## Integer check targets
+
+The schema-bound guard now accepts an `int` row key directly, alongside a `Model`
+instance and a string key:
+
+```php
+Warrant::forSchema(Document::class)->can('update', 42);
+```
+
+This was previously typed `Model|string|null`, so an int worked only from a file
+without `declare(strict_types=1)` — where PHP silently coerced it — and was a
+`TypeError` from a strict-typed caller. Nothing needs to change; calls that
+already worked keep working.
+
+The facade and `WarrantGuard` still take **no bare int**, because at that level a
+bare scalar names the *schema*, not a row. Name a row schema-lessly with the
+`[Document::class, $id]` tuple, which has always accepted an integer id.
+
+One observable change: an integer key is no longer stringified on its way to the
+query. `Warrant::can('view', [Document::class, 42])` used to bind `'42'` and now
+binds `42`, so an integer primary key is compared as an integer instead of
+relying on the database to coerce a bound string. This only affects code
+inspecting query bindings — the rows matched are the same.
+
 ## Lazy schema resolution (breaking)
 
 The schema registry no longer builds itself from the schemas it registers. It used

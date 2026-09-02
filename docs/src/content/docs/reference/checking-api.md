@@ -99,6 +99,12 @@ Warrant::can('create', DocumentSchema::class);      // schema class — no-targe
 Warrant::can('create', 'documents');                // schema key — no-target
 ```
 
+A bare scalar here names the *schema*, never a row — which is why the facade and
+`WarrantGuard` take no bare int: an int could not identify a schema. Use the
+`[Document::class, $id]` tuple to name a row schema-lessly (its id may be a
+string or an int), or reach for the schema-bound guard, where a bare key is
+unambiguous.
+
 ## `WarrantGuard` (user-bound)
 
 Reached with `Warrant::guard($user)` or `$user->warrant()`. Same target forms as
@@ -121,15 +127,24 @@ Reachability methods (schema-first) are listed under [Reachability](#reachabilit
 
 Reached with `Warrant::forSchema($schemaOrModel, $user)`, `DocumentSchema::guard($user)`,
 or `$user->warrant()->forSchema(...)`. The schema is fixed, so the **target is
-just the row** (or `null` for a no-target check).
+just the row** (or `null` for a no-target check). A row is named by instance or
+by key, and a key may be a string **or an int**:
 
 ```php
-public function can(string|array $abilities, Model|string|null $target = null, array $context = []): bool;
-public function canAny(string|array $abilities, Model|string|null $target = null, array $context = []): bool;
-public function cannot(string|array $abilities, Model|string|null $target = null, array $context = []): bool;
-public function authorize(string|array $abilities, Model|string|null $target = null, array $context = []): void;
-public function authorizeAny(string|array $abilities, Model|string|null $target = null, array $context = []): void;
-public function abilities(Model|string|null $target = null, array $context = []): array;
+$guard->can('update', $document);   // Model instance
+$guard->can('update', 42);          // int key
+$guard->can('update', 'doc-9');     // string key
+$guard->can('create');              // no target
+$guard->can('create', Document::class);   // no target, named positionally
+```
+
+```php
+public function can(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool;
+public function canAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool;
+public function cannot(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool;
+public function authorize(string|array $abilities, Model|string|int|null $target = null, array $context = []): void;
+public function authorizeAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): void;
+public function abilities(Model|string|int|null $target = null, array $context = []): array;
 
 public function schema(): WarrantSchema;
 public function user(): Authenticatable;

@@ -14,8 +14,8 @@ use Warrant\WarrantAuthorizationException;
  * throwing siblings, diagnosing a denial into a message-bearing exception.
  *
  * `$target` is optional and, when present, must belong to this guard's schema: a
- * `Model` instance, a scalar key, or null / the model|schema class-string for a
- * no-target check.
+ * `Model` instance, a key (string or int), or null / the model|schema
+ * class-string for a no-target check.
  */
 trait ChecksAbilities
 {
@@ -24,7 +24,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function can(string|array $abilities, Model|string|null $target = null, array $context = []): bool
+    public function can(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
     {
         return $this->hasAbilities($abilities, $target, AbilityMatchMode::ALL, $context);
     }
@@ -34,7 +34,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function canAny(string|array $abilities, Model|string|null $target = null, array $context = []): bool
+    public function canAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
     {
         return $this->hasAbilities($abilities, $target, AbilityMatchMode::ANY, $context);
     }
@@ -44,7 +44,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function cannot(string|array $abilities, Model|string|null $target = null, array $context = []): bool
+    public function cannot(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
     {
         return ! $this->can($abilities, $target, $context);
     }
@@ -56,7 +56,7 @@ trait ChecksAbilities
      * @param string|array<int, string> $abilities
      * @throws \Throwable
      */
-    public function authorize(string|array $abilities, Model|string|null $target = null, array $context = []): void
+    public function authorize(string|array $abilities, Model|string|int|null $target = null, array $context = []): void
     {
         $this->assertHasAbilities($abilities, $target, AbilityMatchMode::ALL, $context);
     }
@@ -67,7 +67,7 @@ trait ChecksAbilities
      * @param string|array<int, string> $abilities
      * @throws \Throwable
      */
-    public function authorizeAny(string|array $abilities, Model|string|null $target = null, array $context = []): void
+    public function authorizeAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): void
     {
         $this->assertHasAbilities($abilities, $target, AbilityMatchMode::ANY, $context);
     }
@@ -77,7 +77,7 @@ trait ChecksAbilities
      *
      * @return array<int, string>
      */
-    public function abilities(Model|string|null $target = null, array $context = []): array
+    public function abilities(Model|string|int|null $target = null, array $context = []): array
     {
         $target = $this->resolveCheckTarget($target);
 
@@ -122,7 +122,7 @@ trait ChecksAbilities
      */
     private function hasAbilities(
         string|array $abilities,
-        Model|string|null $target,
+        Model|string|int|null $target,
         AbilityMatchMode $matchMode,
         array $context
     ): bool {
@@ -174,7 +174,7 @@ trait ChecksAbilities
      */
     private function assertHasAbilities(
         string|array $abilities,
-        Model|string|null $target,
+        Model|string|int|null $target,
         AbilityMatchMode $matchMode,
         array $context
     ): void {
@@ -223,7 +223,14 @@ trait ChecksAbilities
 
     /**
      * Normalize the `$target` argument of a check into either a concrete row
-     * (a `Model` instance or a key string) or `null` (a no-target check).
+     * (a `Model` instance or a key) or `null` (a no-target check).
+     *
+     * An **int** is always a row key — there is nothing else it could name — so it
+     * returns as-is and takes the row path. It is deliberately *not* stringified:
+     * the key reaches `whereKey()` as the caller wrote it, so an integer primary
+     * key is compared as an integer rather than relying on the database to coerce
+     * a bound string. Returning early also keeps an int away from the `is_a()`
+     * class-string checks below, which expect an object or a string.
      *
      * A **class-string** is not a row: naming this schema's own model class — or the
      * schema class itself — is how a no-target check is expressed positionally; it
@@ -233,9 +240,9 @@ trait ChecksAbilities
      *
      * `null` and a `Model` instance pass straight through.
      */
-    private function resolveCheckTarget(Model|string|null $target): Model|string|null
+    private function resolveCheckTarget(Model|string|int|null $target): Model|string|int|null
     {
-        if ($target === null || $target instanceof Model) {
+        if ($target === null || $target instanceof Model || is_int($target)) {
             return $target;
         }
 

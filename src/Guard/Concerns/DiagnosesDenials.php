@@ -57,7 +57,7 @@ trait DiagnosesDenials
      */
     protected function diagnoseDenial(
         string|array $abilities,
-        Model|string|null $target,
+        Model|string|int|null $target,
         AbilityMatchMode $matchMode,
         array $context = []
     ): ?Throwable
