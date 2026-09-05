@@ -97,7 +97,9 @@ author the readable part as text, compose the rest structurally:
 ## Cross-schema `can` and `check`
 
 The rule language's two cross-schema builtins — `can(...)` and `check(...)` — are
-reachable structurally too. This is where the builder earns its keep most often,
+reachable structurally too. What they mean, and what they compile to, is covered in
+[Cross-schema checks](/guides/cross-schema-checks/); this section is the builder
+surface for them. This is where the builder earns its keep most often,
 because a row selector or a `with` value is usually a runtime value rather than
 something you'd write into a string.
 

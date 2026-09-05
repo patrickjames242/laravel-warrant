@@ -247,7 +247,9 @@ execution.
 ## What a row selector may be
 
 The value inside a `can(... for schema(<row>))` or `check(... for schema(<row>))`
-handle identifies one row of the referenced schema. It is bound into
+handle identifies one row of the referenced schema. (Both builtins — handles, the
+`with` map, and the SQL they compile to — have their own page:
+[Cross-schema checks](/guides/cross-schema-checks/).) It is bound into
 `where <table>.<key> = ?`, so it must be something a database can compare against
 a key. Warrant accepts:
 
@@ -333,8 +335,9 @@ in the surrounding query and that the fragment is valid SQL for your connection.
   clauses attach to the most recent `if` above them. Clauses before any `if` form
   a single leading unconditional rule.
 
-- **Reserved words** — `if`, `they`, `can`, `cannot`, `because`, `and`, `or`,
-  `not` — cannot be used as an *exact* condition or ability name. A name may
+- **Reserved words** — `if`, `they`, `can`, `cannot`, `because`, `check`, `and`,
+  `or`, `not`, `for`, `with` — cannot be used as an *exact* condition or ability
+  name, and neither can the literals `true`, `false`, and `null`. A name may
   *contain* or *start with* one, though: `canonical`, `cannot_publish`,
   `is_and_something` are all fine.
 
@@ -354,8 +357,12 @@ expr        = or ;
 or          = and ( "or" and )* ;
 and         = not ( "and" not )* ;
 not         = ( "not" | "!" ) not | primary ;
-primary     = "(" expr ")" | condition ;
+primary     = "(" expr ")" | can_ref | check_ref | condition ;
 condition   = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
+can_ref     = "can" "(" IDENTIFIER "for" handle ( "with" with_map )? ")" ;
+check_ref   = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
+handle      = IDENTIFIER ( "(" arg ")" )? ;
+with_map    = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF | COLUMN_REF | SQL_REF ;
 CONTEXT_REF = "@context" IDENTIFIER ;
 COLUMN_REF  = "@column" IDENTIFIER "." IDENTIFIER ;
