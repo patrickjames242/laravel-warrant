@@ -182,6 +182,153 @@ it('emits 1 = 0 for an unconditional cannot regardless of grants', function () {
     SQL);
 });
 
+// -- de morgan ----------------------------------------------------------------
+//
+// A `not` never survives as a wrapper around a group the compiler built. It is
+// pushed to the leaves as the walk descends (CompilationContext::$negate,
+// flipped at each NotNode and consumed by whichever leaf it reaches), so a
+// negated `or` emits as an `and` of negated leaves and vice versa.
+
+it('pushes a not over an or down to an and of negated leaves', function () {
+    bindWarrantRules('if not (is_advisor or is_teacher) they can view');
+
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            not ('advisor' = 'teacher-role')
+            and
+            not (course_sections.id = 'teacher:teacher-role')
+        )
+    SQL);
+});
+
+it('pushes a not over an and down to an or of negated leaves', function () {
+    bindWarrantRules('if not (is_advisor and is_teacher) they can view');
+
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            not ('advisor' = 'teacher-role')
+            or
+            not (course_sections.id = 'teacher:teacher-role')
+        )
+    SQL);
+});
+
+it('emits the same SQL for a negated group and its hand-written expansion', function () {
+    bindWarrantRules('if not (is_advisor or is_teacher) they can view');
+
+    $pushed = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
+        warrantTestQuery(),
+        'course_sections.id',
+        'view',
+    )->toRawSql();
+
+    bindWarrantRules('if not is_advisor and not is_teacher they can view');
+
+    $byHand = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
+        warrantTestQuery(),
+        'course_sections.id',
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($pushed))->toBe(normalizeWarrantSql($byHand));
+});
+
+it('cancels a double negation instead of emitting NOT NOT', function () {
+    bindWarrantRules('if not not is_teacher they can view');
+
+    // The flag is parity, not a pending instruction: flipped twice it is back
+    // where it started, so the leaf is built unnegated and no `not` is emitted
+    // and then cleaned up — it never exists.
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (course_sections.id = 'teacher:teacher-role')
+    SQL);
+});
+
+it('cancels an inner not while negating its sibling', function () {
+    bindWarrantRules('if not (is_advisor and not is_teacher) they can view');
+
+    // One flag, opposite outcomes per leaf: is_advisor sits under one `not` and
+    // gains a negation, is_teacher sits under two and loses one.
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            not ('advisor' = 'teacher-role')
+            or
+            course_sections.id = 'teacher:teacher-role'
+        )
+    SQL);
+});
+
+it('negates a relational condition by wrapping the author own exists', function () {
+    bindWarrantRules('if not via_join they can view');
+
+    // The push-down stops at the leaf boundary: via_join's whereExists is the
+    // condition author's SQL, so it is wrapped rather than rewritten into a
+    // `not exists` clause.
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            not (exists (
+                select * from "enrollments"
+                where "enrollments"."section_id" = "course_sections"."id"
+                    and enrollments.user_id = 'teacher-role'
+            ))
+        )
+    SQL);
+});
+
+it('applies de morgan to a cannot whose rule text has no not at all', function () {
+    bindWarrantRules('they can view if is_advisor or is_teacher they cannot view');
+
+    // Nothing here is written negated. The `or` still emits as an `and` of two
+    // negated leaves, because the deny side seeds the context with negate: true
+    // and the same push-down runs — deny-overrides IS a negation.
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (
+            not ('advisor' = 'teacher-role')
+            and
+            not (course_sections.id = 'teacher:teacher-role')
+        )
+    SQL);
+});
+
+it('cancels the deny-side seed against a not written in the cannot', function () {
+    bindWarrantRules('they can view if not is_teacher they cannot view');
+
+    // "cannot view unless a teacher" collapses to plain is_teacher: the seeded
+    // negation and the author's `not` cancel, leaving no negation in the SQL.
+    assertWarrantFilterSql('view', <<<SQL
+        select * from "course_sections"
+        where (course_sections.id = 'teacher:teacher-role')
+    SQL);
+});
+
+it('emits a not-written can identically to the equivalent cannot', function () {
+    // The two routes to a negated leaf — an author's `not` and the deny-side
+    // seed — are the same mechanism, so they must reach identical SQL.
+    bindWarrantRules('if not is_teacher they can view');
+
+    $written = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
+        warrantTestQuery(),
+        'course_sections.id',
+        'view',
+    )->toRawSql();
+
+    bindWarrantRules('they can view if is_teacher they cannot view');
+
+    $seeded = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
+        warrantTestQuery(),
+        'course_sections.id',
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($written))->toBe(normalizeWarrantSql($seeded));
+});
+
 // -- match modes --------------------------------------------------------------
 
 it('ANDs every ability predicate under ALL match mode', function () {

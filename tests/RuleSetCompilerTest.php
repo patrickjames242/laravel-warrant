@@ -238,6 +238,75 @@ it('forces a row condition to false with no target, true under not', function ()
     expect($q2->count())->toBe(3);
 });
 
+// -- de morgan ----------------------------------------------------------------
+//
+// The SQL shape of the push-down is pinned in FilterQuerySqlTest; these assert
+// the law itself — that the rewritten predicate selects the same rows the
+// author's expression means. Seeded rows: teacher:role-1, doc-9, other.
+
+it('selects the same rows for a negated or as for the and of negated leaves', function () {
+    // NOT(a OR b) = NOT a AND NOT b — only `other` is neither.
+    expect(compileDocIds("if is_teacher or is_owner('doc-9') they can view", 'view'))
+        ->toBe(['doc-9', 'teacher:role-1']);
+
+    expect(compileDocIds("if not (is_teacher or is_owner('doc-9')) they can view", 'view'))
+        ->toBe(['other']);
+
+    expect(compileDocIds("if not is_teacher and not is_owner('doc-9') they can view", 'view'))
+        ->toBe(['other']);
+});
+
+it('selects the same rows for a negated and as for the or of negated leaves', function () {
+    // NOT(a AND b) = NOT a OR NOT b. No row is both, so the negation admits all
+    // three — and notably NOT a AND NOT b would wrongly admit only `other`,
+    // which is the mistake the connector flip exists to prevent.
+    expect(compileDocIds("if is_teacher and is_owner('doc-9') they can view", 'view'))
+        ->toBe([]);
+
+    expect(compileDocIds("if not (is_teacher and is_owner('doc-9')) they can view", 'view'))
+        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+
+    expect(compileDocIds("if not is_teacher or not is_owner('doc-9') they can view", 'view'))
+        ->toBe(['doc-9', 'other', 'teacher:role-1']);
+});
+
+it('does not confuse a negated or with a negated and', function () {
+    // The two laws must not collapse into each other: same operands, same `not`,
+    // different connector, genuinely different row sets.
+    expect(compileDocIds("if not (is_teacher or is_owner('doc-9')) they can view", 'view'))
+        ->not->toBe(compileDocIds("if not (is_teacher and is_owner('doc-9')) they can view", 'view'));
+});
+
+it('selects the same rows under a double negation as with none', function () {
+    expect(compileDocIds('if not not is_teacher they can view', 'view'))
+        ->toBe(compileDocIds('if is_teacher they can view', 'view'))
+        ->toBe(['teacher:role-1']);
+});
+
+it('cancels an inner not against an outer one per leaf', function () {
+    // NOT(a AND NOT b) = NOT a OR b: every row except the ones that are the
+    // teacher without being doc-9 — which is teacher:role-1 alone.
+    expect(compileDocIds("if not (is_teacher and not is_owner('doc-9')) they can view", 'view'))
+        ->toBe(['doc-9', 'other']);
+});
+
+it('applies de morgan to a cannot over an or', function () {
+    // Deny-overrides is itself a negation, so `cannot (a or b)` subtracts every
+    // row matching either — the same rows the written-out negation grants.
+    expect(compileDocIds("they can view if is_teacher or is_owner('doc-9') they cannot view", 'view'))
+        ->toBe(['other']);
+
+    expect(compileDocIds("they can view if is_teacher or is_owner('doc-9') they cannot view", 'view'))
+        ->toBe(compileDocIds("if not is_teacher and not is_owner('doc-9') they can view", 'view'));
+});
+
+it('cancels the deny-side negation against a not inside the cannot', function () {
+    // "cannot view unless a teacher" leaves exactly the teacher rows.
+    expect(compileDocIds('they can view if not is_teacher they cannot view', 'view'))
+        ->toBe(compileDocIds('if is_teacher they can view', 'view'))
+        ->toBe(['teacher:role-1']);
+});
+
 // -- @context resolution ------------------------------------------------------
 
 it('resolves a @context value into a condition argument', function () {

@@ -242,6 +242,65 @@ it('folds constants inside a negated child', function () {
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd($inner, negated: true)))->toBeFalse();
 });
 
+it('pushes a negated and-child down to an or of negated leaves', function () {
+    // The mirror of the or-child case above: NOT(a AND b) = NOT a OR NOT b.
+    $inner = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd(nodeLeaf('b = 2'));
+
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd($inner, negated: true),
+        'select * from "course_sections" where (not (a = 1) or not (b = 2))',
+    );
+});
+
+it('recurses de morgan through a negated grandchild', function () {
+    // NOT(b AND (c OR d)) = NOT b OR (NOT c AND NOT d) — the push-down does not
+    // stop at the first level; negatedCopy() recurses into every child node.
+    $grandchild = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('c = 3'))->addOr(nodeLeaf('d = 4'));
+    $inner = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('b = 2'))->addAnd($grandchild);
+
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd($inner, negated: true),
+        'select * from "course_sections" where (not (b = 2) or (not (c = 3) and not (d = 4)))',
+    );
+});
+
+it('emits a negated child identically to the hand-written de morgan form', function () {
+    // The law, asserted as an equivalence rather than a shape: negating a group
+    // and writing out its expansion by hand must reach the same SQL.
+    $negatedOr = (new CompiledWhereClauseNode)->addAnd(
+        (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addOr(nodeLeaf('b = 2')),
+        negated: true,
+    );
+    $byHand = (new CompiledWhereClauseNode)
+        ->addAnd(nodeLeaf('a = 1'), negated: true)
+        ->addAnd(nodeLeaf('b = 2'), negated: true);
+
+    expect(nodeSql($negatedOr))->toBe(nodeSql($byHand));
+
+    $negatedAnd = (new CompiledWhereClauseNode)->addAnd(
+        (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd(nodeLeaf('b = 2')),
+        negated: true,
+    );
+    $byHandOr = (new CompiledWhereClauseNode)
+        ->addAnd(nodeLeaf('a = 1'), negated: true)
+        ->addOr(nodeLeaf('b = 2'), negated: true);
+
+    expect(nodeSql($negatedAnd))->toBe(nodeSql($byHandOr));
+});
+
+it('merges a negated child into its parent once de morgan flipped its connector', function () {
+    // Why the push-down earns its keep: an `or` child cannot merge into an `and`
+    // parent, and a negated child never merges at all — but negating this one
+    // turns it into an unnegated `and`, which then splices in flat. Negation left
+    // sitting on the group would have been an optimization barrier.
+    $inner = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('c = 3'))->addOr(nodeLeaf('d = 4'));
+
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd($inner, negated: true),
+        'select * from "course_sections" where (a = 1 and not (c = 3) and not (d = 4))',
+    );
+});
+
 // -- bindings -----------------------------------------------------------------
 
 it('keeps bindings in order when lifting leaves', function () {
