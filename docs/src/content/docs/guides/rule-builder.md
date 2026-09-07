@@ -12,6 +12,21 @@ fluent **rule builder** is the other. When a rule's shape depends on runtime dat
 — a list of team ids, a feature flag, values that don't belong in a string —
 `WarrantRule::build()` is often clearer than assembling DSL text.
 
+:::tip[One front door]
+Every construct is reachable from the `Warrant` facade, which returns the finished
+thing when given syntax and the builder when given nothing:
+
+```php
+Warrant::condition()   // WarrantConditionBuilder      Warrant::condition('is_owner or is_admin')
+Warrant::rule()        // WarrantRuleBuilder           Warrant::rule('for docs if is_self they can view')
+                       //                              Warrant::ruleSet('for docs { they can view }')
+                       //                              Warrant::group('for docs { … } for people { … }')
+```
+
+`Warrant::rule()` and `WarrantRule::build()` are the same call; use whichever reads
+better where you are. See [the authoring front door](/reference/rule-building-api/#warrant-facade--the-authoring-front-door).
+:::
+
 It produces the **same AST** the parser does, so a built rule flows through
 identical validation and compilation. Nothing is serialized to a string, so
 arbitrary PHP values in condition parameters survive untouched.

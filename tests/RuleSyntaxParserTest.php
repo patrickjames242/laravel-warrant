@@ -883,3 +883,30 @@ it('rejects a duplicate key in a check(...) with-map', function () {
     expect(fn () => WarrantParser::parse('if check(is_open for s with a = 1, a = 2) they can view'))
         ->toThrow(WarrantSyntaxException::class, "Duplicate key 'a'");
 });
+
+// -- parseConditionExpression -------------------------------------------------
+
+it('parses a bare condition expression, with or without a for header', function () {
+    /* The header names the schema whose conditions the expression's names belong
+       to, which is the one thing tooling cannot infer from an expression alone.
+       Nothing here resolves it — an expression has no schema field — so the two
+       forms must parse to the same tree. */
+    expect(WarrantParser::parseConditionExpression('for timesheets is_owner or is_admin'))
+        ->toEqual(WarrantParser::parseConditionExpression('is_owner or is_admin'));
+});
+
+it('resolves bindings in a condition expression behind a for header', function () {
+    $node = WarrantParser::parseConditionExpression('for timesheets is_owner(:id)', ['id' => 'x-1']);
+
+    expect($node->parameters)->toBe(['x-1']);
+});
+
+it('throws when a condition expression header names no schema', function () {
+    expect(fn () => WarrantParser::parseConditionExpression('for is_owner or is_admin'))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+it('throws when a condition expression is only a header', function () {
+    expect(fn () => WarrantParser::parseConditionExpression('for timesheets'))
+        ->toThrow(WarrantSyntaxException::class);
+});

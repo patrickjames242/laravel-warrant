@@ -69,6 +69,19 @@ Parse a string, resolving bindings inline:
 WarrantRuleSet::fromSyntax('if is_self they can view', 'documents', $bindings = []);
 ```
 
+`Warrant::ruleSet()` is the same call from the facade, and it is the one to reach
+for when the rules are stored as text, because it lets the schema live in the
+string's own `for` header:
+
+```php
+Warrant::ruleSet('for documents { if is_self they can view }', bindings: $bindings);
+```
+
+A header travels with the string, so editor tooling reading your source knows which
+schema to check the condition and ability names against. Passing the schema as a PHP
+argument instead leaves the string unchecked — still valid, just unverifiable from
+the outside.
+
 ### From already-parsed rules
 
 Build individual `WarrantRule`s and compose them. `fromRules` takes a variadic

@@ -188,13 +188,25 @@ final class WarrantParser
 
     /**
      * Parse a single boolean condition expression (the part after `if`), for the
-     * fluent builder's `ifRaw()` bridge. No `they can/cannot` clauses.
+     * fluent builder's `ifRaw()` bridge and {@see \Warrant\Facades\Warrant::condition()}.
+     * No `they can/cannot` clauses.
+     *
+     * An optional `for <schema>` header is accepted here as it is for a rule and a
+     * rule set, and then discarded — an expression has no schema field to carry it,
+     * and this parser consults no registry, so nothing could be resolved from it
+     * anyway. It is allowed so that a condition written as a string is as
+     * checkable as every other construct: tooling reading the source learns which
+     * schema's conditions the names belong to, which is the one thing it cannot
+     * infer from an expression alone.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parseConditionExpression(string $source, array $bindings = []): IBooleanExpressionNode
     {
         $parser = new self($source, $bindings);
+
+        $parser->parseOptionalHeader();
+
         $expression = $parser->parseExpression();
         $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
         $parser->bindings->finalize($parser->peek());

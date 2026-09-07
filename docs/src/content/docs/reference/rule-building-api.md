@@ -13,6 +13,48 @@ Reference for constructing rules. Conceptual coverage is in
 The `$schema` parameter throughout is a `Model` instance, a `WarrantSchema`
 instance, a schema/model class-string, or a plain schema-key string.
 
+## `Warrant` facade — the authoring front door
+
+Four entry points, one per construct. Each parses Warrant syntax and takes exactly
+the parameters of the constructor it delegates to.
+
+```php
+use Warrant\Facades\Warrant;
+
+Warrant::condition(?string $syntax = null, array $bindings = []): IBooleanExpressionNode|WarrantConditionBuilder;
+Warrant::rule(?string $syntax = null, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRule|WarrantRuleBuilder;
+Warrant::ruleSet(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRuleSet;
+Warrant::group(string $syntax, array $bindings = []): RuleSetGroup;
+```
+
+Given syntax, each returns the finished construct. Given nothing, `condition()` and
+`rule()` return the builder that composes one — they are the two constructs that
+*are* their fluent chain, so an empty call is meaningful. A rule set and a group are
+collections, so their syntax is required; build those from values you already hold
+with `WarrantRuleSet::fromRules()` or `RuleSetGroup::fromRuleSets()` below.
+
+```php
+Warrant::condition('is_owner or is_admin');                  // IBooleanExpressionNode
+Warrant::condition()->if('is_owner')->orIf('is_admin');      // WarrantConditionBuilder
+Warrant::rule('for documents if is_self they can view');     // WarrantRule
+Warrant::ruleSet('for documents { they can view }');         // WarrantRuleSet
+Warrant::group('for documents { … } for timesheets { … }');  // RuleSetGroup
+```
+
+Prefer naming the schema in the string's own `for` header rather than in the
+`$schema` argument. The header travels with the string, so editor tooling reading
+your source can tell which schema to check the names against; a string with no
+header is simply left unchecked. A header and a `$schema` argument that disagree
+are an error.
+
+The header is accepted on a condition expression too, and discarded — an expression
+has no schema field to carry it, and it exists purely so a condition written as a
+string is as checkable as every other construct:
+
+```php
+Warrant::condition('for documents is_owner or is_admin');    // header parsed, then dropped
+```
+
 ## `WarrantRuleSet` (readonly)
 
 ```php
@@ -52,24 +94,29 @@ but has no `they cannot` clause (`InvalidArgumentException`).
 
 ```php
 public ?IBooleanExpressionNode $conditions; // null = unconditional
+public ?string $schemaKey;                  // null = schema-less
 public array $canAbilities;
-public array $cannotAbilities;
-public string|Closure|null $message;         // denial message; see below
+public array $cannotClauses;                // list<CannotClause>; each carries its own message
 
 public static function fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): self; // exactly one rule
 public static function build(): WarrantRuleBuilder;
 
-public function withDenialMessage(string|Closure $message): self; // returns a copy carrying the message
+public function cannotAbilities(): array;              // every denied ability, flattened
+public function messageFor(string $ability): string|Closure|null;
+public function withDenialMessage(string|Closure $message, ?array $abilities = null): self; // a copy carrying the message
+public function withSchemaKey(?string $schemaKey): self;
 public function toSyntax(): string;
 public function toBoundSyntax(): BoundSyntax;
 ```
 
 `fromSyntax` throws if the string parses to zero or more than one rule.
 
-`$message` is the [denial message](/guides/denial-messages/) surfaced when this
-rule's `cannot` clause is the one that blocks a check. `withDenialMessage()`
-returns a new `WarrantRule` (the class is immutable). The message is **not**
-representable in the string DSL, so `toSyntax()` / `toBoundSyntax()` drop it.
+A [denial message](/guides/denial-messages/) lives on a `cannot` *clause*, not on
+the rule, so one rule can deny two sets of abilities for two different reasons;
+`messageFor()` resolves the message for a given ability. `withDenialMessage()`
+returns a new `WarrantRule` (the class is immutable), attaching the message to the
+named abilities, or to every denied ability when `$abilities` is null. A message is
+**not** representable in the string DSL, so `toSyntax()` / `toBoundSyntax()` drop it.
 
 ## `WarrantRuleBuilder`
 
