@@ -6,7 +6,7 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
-use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\CompilationResult;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
@@ -96,14 +96,14 @@ trait BuildsAccessQueries
         $this->schema::assertAbilitiesHaveRequiredContext($abilities, $context);
 
         return $this->compiler()->compile(
-            CompilationInput::gate(
+            CompilationContext::gate(
                 QueryFactory::for($query),
                 $this->user,
                 new WarrantGate($abilities, $matchMode),
                 $this->resolvedRuleSet(),
             )
                 ->forTargetRow($targetModel)
-                ->withContext($context),
+                ->withCheckContext($context),
         );
     }
 
@@ -161,9 +161,9 @@ trait BuildsAccessQueries
 
         foreach ($abilities as $ability) {
             $branches[] = [$ability, $this->compiler()->compile(
-                CompilationInput::ability($queries, $this->user, $ability, $ruleSet)
+                CompilationContext::ability($queries, $this->user, $ability, $ruleSet)
                     ->forTargetRow()
-                    ->withContext($context),
+                    ->withCheckContext($context),
             )->toQuery()];
         }
 
@@ -273,9 +273,9 @@ trait BuildsAccessQueries
 
         foreach ($abilities as $ability) {
             $result = $this->compiler()->compile(
-                CompilationInput::ability($queries, $this->user, $ability, $ruleSet)
+                CompilationContext::ability($queries, $this->user, $ability, $ruleSet)
                     ->withoutTarget()
-                    ->withContext($context),
+                    ->withCheckContext($context),
             );
 
             match ($result->decision()) {

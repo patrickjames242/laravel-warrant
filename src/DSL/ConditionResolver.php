@@ -5,6 +5,8 @@ namespace Warrant\DSL;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use Warrant\Builders\WarrantConditionBuilder;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 
 /**
  * The seam between a compiled {@see WarrantRuleSet} and the host schema. The
@@ -39,10 +41,19 @@ interface ConditionResolver extends SchemaVocabulary
     public static function modelClass(): string;
 
     /**
-     * Apply a condition's predicate to $whereClause (mutating it) and return the
-     * builder, OR return a boolean for a condition that decides the outcome
-     * outright — a global condition evaluated in PHP, or a row condition handed
-     * the row it is judging.
+     * Dispatch a named condition, which may answer in any of three ways:
+     *
+     *  - Apply its predicate to $whereClause (mutating it) and return the builder.
+     *  - Return a boolean, deciding the outcome outright — a global condition
+     *    evaluated in PHP, or a row condition handed the row it is judging.
+     *  - Return an expression, or the {@see WarrantConditionBuilder} that composes
+     *    one, *deriving* itself from other conditions rather than emitting SQL of
+     *    its own. The compiler walks the result as though the author had written it
+     *    in the rule, so it may name this schema's conditions or, through
+     *    `can(...)` / `check(...)`, another schema's. Such an expansion is bounded
+     *    by the compiler's {@see \Warrant\DSL\Compiling\CallStack} depth budget
+     *    and not by cycle detection: compilation never reads a row, so a condition
+     *    that expands into itself has no base case to reach.
      *
      * @param bool $targeted Whether a target row is in scope. A row condition
      *   needs one and is rejected without it; the row's SQL identity is the
@@ -62,5 +73,5 @@ interface ConditionResolver extends SchemaVocabulary
         array $parameters,
         array $context = [],
         ?Model $targetModel = null,
-    ): Builder|bool;
+    ): Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder;
 }

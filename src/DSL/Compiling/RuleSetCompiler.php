@@ -9,8 +9,8 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
 use OutOfBoundsException;
-use RuntimeException;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\Units\AbilityUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
@@ -33,8 +33,8 @@ use Warrant\WarrantManager;
 /**
  * Compiles a {@see WarrantRuleSet} into SQL predicates.
  *
- * One way in — {@see compile()} — taking a {@see CompilationInput} and returning
- * a {@see CompilationResult}. The input names what to compile (a
+ * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
+ * a {@see CompilationResult}. The context names what to compile (a
  * {@see \Warrant\DSL\Compiling\Units\CompilationUnit}: a gate, one ability, or a
  * bare condition) along with the facts common to all three; the result offers the
  * compile in whichever form the caller needs, folded or as SQL.
@@ -70,14 +70,18 @@ use Warrant\WarrantManager;
  * query at all.
  *
  * Whether a row is in scope is the caller's to say, via
- * {@see CompilationInput::forTargetRow()} — it is the half they genuinely know and
+ * {@see CompilationContext::forTargetRow()} — it is the half they genuinely know and
  * the compiler cannot, since a predicate is detached and where it is eventually
  * spliced is the caller's business. {@see compile()} narrows that answer against
  * {@see ConditionResolver::modelClass()} on the way in, so the walk reads a single
  * already-correct flag. The row's SQL identity is not threaded at all: a
  * condition's table and key column are the resolver's own to derive.
  *
- * Every condition leaf is applied inline as a nested where-group and negated
+ * A condition answers in one of three ways: with a bool it decides outright, with
+ * an expression (or the builder that composes one) it *derives* itself from other
+ * conditions and the compiler walks the result as if the author had written it in
+ * the rule, and otherwise it constrains the builder it was handed. Every condition
+ * leaf of that last kind is applied inline as a nested where-group and negated
  * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
  * There is no EXISTS wrapping and no attempt to normalize SQL's three-valued
  * (NULL) logic: a condition compiles to exactly the SQL it emits, so an unknown
@@ -90,14 +94,6 @@ use Warrant\WarrantManager;
  */
 final class RuleSetCompiler
 {
-    /**
-     * Hard cap on cross-schema `can(...)` nesting depth. The visited-set already
-     * guarantees termination (a finite set of `(schema, ability)` pairs can never
-     * repeat on one path); this is a secondary backstop against a legal but
-     * pathologically deep reference chain producing enormous nested SQL.
-     */
-    private const MAX_CROSS_SCHEMA_DEPTH = 32;
-
     /**
      * @param WarrantManager|null $manager Provides the schema registry (via
      *   {@see WarrantManager::registry()}), required only to compile a
@@ -113,10 +109,10 @@ final class RuleSetCompiler
     /**
      * Compile one unit into a predicate.
      *
-     * The single way in. Which of the three units the input carries decides how
+     * The single way in. Which of the three units the context carries decides how
      * the rules are applied; everything else — the query factory the leaves are
      * built from, the user, whether a row is in scope, the check-time context —
-     * is the same in all three cases and comes off the input unchanged.
+     * is the same in all three cases and is read off the context unchanged.
      *
      * The one thing not taken at face value is the target: a capability schema
      * has no model and therefore no row, so a compile against one is never
@@ -127,24 +123,24 @@ final class RuleSetCompiler
      * cross-schema descent re-enters through a compiler bound to that schema, so
      * the referenced schema is narrowed against its own model too.
      */
-    public function compile(CompilationInput $input): CompilationResult
+    public function compile(CompilationContext $ctx): CompilationResult
     {
-        if ($input->targeted && $this->conditions::modelClass() === '') {
-            $input = $input->withoutTarget();
+        if ($ctx->targeted && $this->conditions::modelClass() === '') {
+            $ctx = $ctx->withoutTarget();
         }
 
-        $unit = $input->unit;
+        $unit = $ctx->unit;
 
         $node = match (true) {
-            $unit instanceof GateUnit => $this->gateNode($input, $unit),
-            $unit instanceof AbilityUnit => $this->abilityNode($input, $unit),
-            $unit instanceof ConditionUnit => $this->conditionNode($input, $unit),
+            $unit instanceof GateUnit => $this->gateNode($ctx, $unit),
+            $unit instanceof AbilityUnit => $this->abilityNode($ctx, $unit),
+            $unit instanceof ConditionUnit => $this->conditionNode($ctx, $unit),
             default => throw new InvalidArgumentException(
                 sprintf('Unsupported compilation unit [%s].', $unit::class),
             ),
         };
 
-        return new CompilationResult($node, $input->queries);
+        return new CompilationResult($node, $ctx->queries);
     }
 
     /**
@@ -165,13 +161,13 @@ final class RuleSetCompiler
      * All abilities in one gate share the same incoming cross-schema path: they
      * are siblings, not nested references.
      */
-    private function gateNode(CompilationInput $input, GateUnit $unit): CompiledWhereClauseNode
+    private function gateNode(CompilationContext $ctx, GateUnit $unit): CompiledWhereClauseNode
     {
         $gateNode = new CompiledWhereClauseNode;
         $requireAll = $unit->gate->matchMode === AbilityMatchMode::ALL;
 
         foreach ($unit->gate->abilities as $ability) {
-            $abilityNode = $this->abilityNode($input, new AbilityUnit($ability, $unit->ruleSet));
+            $abilityNode = $this->abilityNode($ctx, new AbilityUnit($ability, $unit->ruleSet));
 
             $requireAll ? $gateNode->addAnd($abilityNode) : $gateNode->addOr($abilityNode);
         }
@@ -184,15 +180,14 @@ final class RuleSetCompiler
      * cross-schema `can(...)` splices in, so a constant folds across both
      * boundaries instead of stopping at a `1 = 1`.
      */
-    private function abilityNode(CompilationInput $input, AbilityUnit $unit): CompiledWhereClauseNode
+    private function abilityNode(CompilationContext $ctx, AbilityUnit $unit): CompiledWhereClauseNode
     {
         $ability = $unit->ability;
         $ruleSet = $unit->ruleSet;
 
-        /* The frame this ability adds to the compile path rides on the input from
-           here down, so a cross-schema leaf reads it from the same place it reads
-           everything else it hands to CompilationInput::descending(). */
-        $input = $input->withVisited($this->enterFrame($input->visited, $ability));
+        /* Entering the ability is where a cycle back to one already in progress is
+           caught, and it puts the ability on the stack every leaf below reads. */
+        $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
 
         $abilityNode = new CompiledWhereClauseNode;
 
@@ -223,7 +218,7 @@ final class RuleSetCompiler
             return $abilityNode->addAnd(false);
         }
 
-        $grantCtx = $this->context($input);
+        $grantCtx = $ctx;
 
         // Grant side: OR of every can-expression (null => always-true term).
         $grantGroup = new CompiledWhereClauseNode;
@@ -236,8 +231,9 @@ final class RuleSetCompiler
 
         $abilityNode->addAnd($grantGroup);
 
-        // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = $this->context($input, negate: true);
+        /* Deny side: AND NOT(expression) for each conditional `cannot`. A unit is
+           always entered unnegated, so toggling here is setting. */
+        $denyCtx = $ctx->negated();
 
         foreach ($denies as $denyExpression) {
             $abilityNode->addAnd($this->expression($denyExpression, $denyCtx));
@@ -257,7 +253,7 @@ final class RuleSetCompiler
      * inline leaf, targeted-vs-global, and `@context` semantics as
      * {@see abilityNode}, so a re-run agrees exactly with the live check.
      */
-    private function conditionNode(CompilationInput $input, ConditionUnit $unit): CompiledWhereClauseNode
+    private function conditionNode(CompilationContext $ctx, ConditionUnit $unit): CompiledWhereClauseNode
     {
         $conditionNode = new CompiledWhereClauseNode;
 
@@ -266,18 +262,8 @@ final class RuleSetCompiler
         }
 
         return $conditionNode->addAnd(
-            $this->expression($unit->condition, $this->context($input)),
+            $this->expression($unit->condition, $ctx),
         );
-    }
-
-    /**
-     * The walk state for one compile: the input as it stands at this point in the
-     * compile, plus the one thing only the walk knows — whether this subtree sits
-     * under a `not`.
-     */
-    private function context(CompilationInput $input, bool $negate = false): CompilationContext
-    {
-        return new CompilationContext(input: $input, negate: $negate);
     }
 
     /**
@@ -293,7 +279,7 @@ final class RuleSetCompiler
      * lands on the leaves, where a negated leaf is applied inline as `not (…)`
      * (for an author's `whereExists`, that reads as `not exists (…)`).
      *
-     * Leaves are built off `$ctx->input->queries`, which hands out fresh builders and
+     * Leaves are built off `$ctx->queries`, which hands out fresh builders and
      * nothing else; a leaf's own connector is decided by the operand it becomes,
      * not by its position.
      */
@@ -403,53 +389,6 @@ final class RuleSetCompiler
     }
 
     /**
-     * Push this compile's `(schema, ability)` frame onto the visited path,
-     * detecting a cross-schema cycle (the frame already present) and enforcing
-     * the depth cap.
-     *
-     * @param list<string> $visited
-     * @return list<string>
-     */
-    private function enterFrame(array $visited, string $ability): array
-    {
-        /* Framed by class string rather than schema key: the class identifies the
-           schema without a reverse lookup. forPath() maps them back to keys when
-           it builds the message. */
-        $frame = $this->conditions::class . "\0" . $ability;
-
-        if (in_array($frame, $visited, true)) {
-            throw CrossSchemaCycleException::forPath(
-                array_map($this->describeFrame(...), [...$visited, $frame]),
-            );
-        }
-
-        $visited[] = $frame;
-
-        if (count($visited) > self::MAX_CROSS_SCHEMA_DEPTH) {
-            throw new RuntimeException(sprintf(
-                'Cross-schema can(...) nesting exceeded the maximum depth of %d.',
-                self::MAX_CROSS_SCHEMA_DEPTH,
-            ));
-        }
-
-        return $visited;
-    }
-
-    /**
-     * Render a `(schema class, ability)` frame as `schemaKey:ability` for the cycle
-     * message. Falls back to the class string when there is no registry to ask —
-     * a compiler built without a manager cannot have crossed schemas anyway.
-     */
-    private function describeFrame(string $frame): string
-    {
-        [$schemaClass, $ability] = explode("\0", $frame, 2);
-
-        $schemaKey = $this->manager?->registry()->resolveSchemaKeyOrFail($schemaClass) ?? $schemaClass;
-
-        return $schemaKey . ':' . $ability;
-    }
-
-    /**
      * Compile a cross-schema `can(<ability> for <schema>[(<row>)] [with <map>])`
      * by recursively compiling the referenced schema B's ability and embedding it:
      * a row-bound reference wraps B's per-row predicate as `EXISTS` over B's table;
@@ -474,42 +413,46 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->input->queries, $value, $ctx->input->context);
+            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
         }
 
-        $bRuleSet = $this->manager->forSchema($bClass, $ctx->input->user)->resolvedRuleSet();
+        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
         /* B compiles off the same factory as A: it is the same connection and the
            same grammar, and the `from` that distinguishes B's subquery is not
-           something a factory exposes anyway. */
-        $bInput = CompilationInput::descending(
-            $ctx->input->queries,
-            $ctx->input->user,
-            new AbilityUnit($node->ability, $bRuleSet),
-            $bContext,
-            $ctx->input->visited,
+           something a factory exposes anyway. It starts untargeted — A's row is
+           never B's row, so the row-bound branch chains forTargetRow() below — and
+           unnegated, since A's negation applies to the spliced result rather than
+           crossing into B. No call is entered here either: B's own abilityNode()
+           enters one, and that is the call a cycle must be detected against. */
+        $bCtx = new CompilationContext(
+            unit: new AbilityUnit($node->ability, $bRuleSet),
+            queries: $ctx->queries,
+            user: $ctx->user,
+            checkContext: $bContext,
+            callStack: $ctx->callStack,
         );
 
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->input->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->input->queries, $node->boundRow, $ctx->input->context),
+                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->input->queries->newQuery()
+            $bSubquery = $ctx->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
             /* A's model never crosses the boundary — A's row is not B's row — but
                the *selector* may itself have been B's row, in which case B compiles
                against it and B's row conditions can answer in PHP. */
-            $bResult = $bCompiler->compile($bInput->forTargetRow($bTargetModel));
+            $bResult = $bCompiler->compile($bCtx->forTargetRow($bTargetModel));
             $bDecision = $bResult->decision();
 
             /* A folded B, with B's row already known to be there, leaves the
@@ -526,7 +469,7 @@ final class RuleSetCompiler
             // The exists goes on a leaf of its own, already carrying its negation,
             // so it is a one-clause leaf the tree lifts back out without adding a
             // group — `exists (…)` / `not exists (…)`, as before.
-            $existsLeaf = $ctx->input->queries->newQuery();
+            $existsLeaf = $ctx->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -536,7 +479,7 @@ final class RuleSetCompiler
         // a correlation-free boolean tree spliced inline (negation-aware), so a B
         // that decides outright folds into A instead of stopping at a `1 = 0`.
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->compile($bInput)->node(),
+            $bCompiler->compile($bCtx)->node(),
             negated: $ctx->negate,
         );
     }
@@ -545,7 +488,9 @@ final class RuleSetCompiler
      * Compile a cross-schema `check(<predicate> for <schema>[(<row>)] [with <map>])`
      * by dispatching the target schema B's conditions and splicing the emitted SQL.
      * Unlike {@see crossSchemaCanLeaf} it never compiles B's *rules* — it is pure
-     * condition dispatch, so it carries no cycle risk and needs no visited-set. A
+     * condition dispatch, so no ability is entered and no cycle is looked for. It
+     * does enter a {@see Call} of its own, because a check can reach a condition
+     * that expands into another check, and that chain is bounded by depth alone. A
      * row-bound reference wraps B's predicate as `EXISTS` over B's table
      * (`NOT EXISTS` when negated); an unbound reference splices B's boolean predicate
      * inline. The predicate's condition leaves are compiled with B's own resolver,
@@ -569,39 +514,42 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->input->queries, $value, $ctx->input->context);
+            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
         }
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
         $bCompiler = new self($bSchema, $this->manager);
 
-        $bInput = CompilationInput::descending(
-            $ctx->input->queries,
-            $ctx->input->user,
-            new ConditionUnit($node->predicate),
-            $bContext,
-            $ctx->input->visited,
+        /* As in a can(...): B starts untargeted and unnegated. Unlike a can(...),
+           the check is entered here, because nothing below will — this compiles B's
+           conditions, never B's rules. */
+        $bCtx = new CompilationContext(
+            unit: new ConditionUnit($node->predicate),
+            queries: $ctx->queries,
+            user: $ctx->user,
+            checkContext: $bContext,
+            callStack: $ctx->callStack->enter(Call::check($bClass)),
         );
 
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->input->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->input->queries, $node->boundRow, $ctx->input->context),
+                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->input->queries->newQuery()
+            $bSubquery = $ctx->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
             // As in a row-bound can(...): A's model never crosses into B, but the
             // selector may have been B's own row.
-            $bResult = $bCompiler->compile($bInput->forTargetRow($bTargetModel));
+            $bResult = $bCompiler->compile($bCtx->forTargetRow($bTargetModel));
             $bDecision = $bResult->decision();
 
             // See the row-bound can(...) branch for why a model is required here.
@@ -613,7 +561,7 @@ final class RuleSetCompiler
 
             // As in a row-bound can(...): the exists is its own one-clause leaf,
             // already negated, so the tree lifts it back out without a group.
-            $existsLeaf = $ctx->input->queries->newQuery();
+            $existsLeaf = $ctx->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -623,7 +571,7 @@ final class RuleSetCompiler
         // already forbids them here); the result is a correlation-free boolean
         // tree spliced inline (negation-aware).
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->compile($bInput)->node(),
+            $bCompiler->compile($bCtx)->node(),
             negated: $ctx->negate,
         );
     }
@@ -729,7 +677,7 @@ final class RuleSetCompiler
     {
         // A row condition cannot be evaluated without a row; force it false
         // (so `not <row-condition>` becomes true) in a no-target compile.
-        if (! $ctx->input->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
+        if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
             return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
         }
 
@@ -743,19 +691,19 @@ final class RuleSetCompiler
         // for the referenced schema's real table column.
         $parameters = [];
         foreach ($node->parameters as $parameter) {
-            $parameters[] = $this->resolveArgValue($ctx->input->queries, $parameter, $ctx->input->context);
+            $parameters[] = $this->resolveArgValue($ctx->queries, $parameter, $ctx->checkContext);
         }
 
-        $conditionQuery = $ctx->input->queries->newQuery();
+        $conditionQuery = $ctx->queries->newQuery();
 
         $result = $this->conditions->applyCondition(
             $node->conditionKey,
-            $ctx->input->user,
+            $ctx->user,
             $conditionQuery,
-            $ctx->input->targeted,
+            $ctx->targeted,
             $parameters,
-            $ctx->input->context,
-            $ctx->input->targetModel,
+            $ctx->checkContext,
+            $ctx->targetModel,
         );
 
         /* A condition may decide the outcome outright rather than constrain the
@@ -763,6 +711,22 @@ final class RuleSetCompiler
            it is judging. Either way the literal folds into the tree around it. */
         if (is_bool($result)) {
             return (new CompiledWhereClauseNode)->addAnd($result, negated: $ctx->negate);
+        }
+
+        /* Or it may answer with structure instead of SQL — an expression built
+           from other conditions, composed with the same builder an author writes
+           rules with. The tree compiles exactly as if it had been written inline
+           in the rule, negation included: that rides on the context and lands on
+           the leaves, so `not <derived condition>` is De Morgan'd like anything
+           else. Entering a call first is what bounds it — a condition that expands
+           into itself has no base case to reach, since compilation never reads a
+           row — and it is what puts the expansion in the trace when something
+           does run away. */
+        if ($result instanceof WarrantConditionBuilder || $result instanceof IBooleanExpressionNode) {
+            return $this->expression(
+                $this->expandedCondition($result, $node->conditionKey),
+                    $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters)),
+            );
         }
 
         // A condition must be a spliceable boolean, so it may only add where
@@ -778,6 +742,38 @@ final class RuleSetCompiler
         // follows SQL's three-valued logic and an author's whereExists reads as
         // `not exists (…)`.
         return (new CompiledWhereClauseNode)->addAnd($conditionQuery, negated: $ctx->negate);
+    }
+
+    /**
+     * The expression a condition answered with, as a node.
+     *
+     * A {@see WarrantConditionBuilder} is unwrapped to the tree it composed — the
+     * same node type the parser produces, so nothing downstream can tell the two
+     * apart. A builder with no terms is the structural twin of a condition that
+     * added no where clause: it would mean "match everything", which is almost
+     * always a forgotten branch rather than an intent to grant universally.
+     */
+    private function expandedCondition(
+        WarrantConditionBuilder|IBooleanExpressionNode $result,
+        string $conditionKey,
+    ): IBooleanExpressionNode {
+        if ($result instanceof IBooleanExpressionNode) {
+            return $result;
+        }
+
+        $expression = $result->buildConditions();
+
+        if ($expression === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] returned a condition builder with no terms, which would '
+                    .'silently match every row; add at least one term, or return true/false to decide '
+                    .'the outcome outright.',
+                $conditionKey,
+                $this->conditions::class,
+            ));
+        }
+
+        return $expression;
     }
 
     /**

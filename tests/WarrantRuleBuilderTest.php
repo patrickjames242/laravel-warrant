@@ -5,7 +5,7 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
@@ -569,7 +569,7 @@ it('compiles a built rule to SQL that filters rows', function () {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $query = DB::table('docs');
     $compiler->compile(
-        CompilationInput::ability(QueryFactory::for($query), new CompilerTestUser('role-1'), 'view', $ruleSet)
+        CompilationContext::ability(QueryFactory::for($query), new CompilerTestUser('role-1'), 'view', $ruleSet)
             ->forTargetRow(),
     )->spliceInto($query);
 

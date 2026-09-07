@@ -7,6 +7,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\Builders\WarrantConditionBuilder;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -20,6 +22,11 @@ trait ResolvesConditions
 {
     /**
      * Applies a named condition filter to the provided builder.
+     *
+     * A condition method may return the builder it constrained, a bool to decide
+     * the outcome outright, or an expression / {@see WarrantConditionBuilder} to
+     * derive itself from other conditions — see
+     * {@see \Warrant\DSL\ConditionResolver::applyCondition()}.
      *
      * The named condition must correspond to a public method declared on the
      * schema and marked with either `#[RowCondition(...)]` or
@@ -119,7 +126,7 @@ trait ResolvesConditions
         array $parameters,
         array $context = [],
         ?Model $targetModel = null
-    ): \Illuminate\Database\Query\Builder|bool
+    ): \Illuminate\Database\Query\Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder
     {
         return $this->applyConditionFilter(
             $conditionKey,

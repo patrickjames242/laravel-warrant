@@ -6,7 +6,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
-use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
@@ -127,9 +127,9 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
     $query = DB::table('docs');
 
     $compiler->compile(
-        CompilationInput::ability(QueryFactory::for($query), new CompilerTestUser($role), $ability, $ruleSet)
+        CompilationContext::ability(QueryFactory::for($query), new CompilerTestUser($role), $ability, $ruleSet)
             ->forTargetRow()
-            ->withContext($context),
+            ->withCheckContext($context),
     )->spliceInto($query);
 
     return $query->orderBy('id')->pluck('id')->all();
@@ -149,7 +149,7 @@ function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $m
     $query = DB::table('docs');
 
     $compiler->compile(
-        CompilationInput::gate(
+        CompilationContext::gate(
             QueryFactory::for($query),
             new CompilerTestUser($role),
             new WarrantGate($abilities, $matchMode),
@@ -261,7 +261,7 @@ it('forces a row condition to false with no target, true under not', function ()
     $granted = WarrantRuleSet::fromSyntax('if is_teacher they can view', 'docs');
     $q = DB::table('docs');
     $compiler->compile(
-        CompilationInput::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
+        CompilationContext::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
     )->spliceInto($q);
     expect($q->count())->toBe(0);
 
@@ -269,7 +269,7 @@ it('forces a row condition to false with no target, true under not', function ()
     $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
     $q2 = DB::table('docs');
     $compiler->compile(
-        CompilationInput::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
+        CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
     )->spliceInto($q2);
     expect($q2->count())->toBe(3);
 });

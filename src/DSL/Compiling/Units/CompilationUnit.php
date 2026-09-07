@@ -12,7 +12,7 @@ namespace Warrant\DSL\Compiling\Units;
  * rule set be a required constructor argument exactly where it is required,
  * instead of a nullable field that two of the three cases would have to ignore.
  *
- * The unit is carried by a {@see \Warrant\DSL\Compiling\CompilationInput}, which
+ * The unit is carried by a {@see \Warrant\DSL\Compiling\CompilationContext}, which
  * holds everything that is common to all three.
  *
  * @see GateUnit

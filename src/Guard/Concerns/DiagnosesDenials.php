@@ -7,7 +7,7 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 use Warrant\AbilityMatchMode;
-use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\Rules\WarrantRule;
 use Warrant\Schema\WarrantDenialContext;
@@ -122,15 +122,15 @@ trait DiagnosesDenials
            only its connection and grammar are read, never its table or wheres. */
         $queries = QueryFactory::for($baseQuery());
 
-        $forTarget = fn (CompilationInput $input): CompilationInput => $targeted
-            ? $input->forTargetRow($conditionModel)
-            : $input->withoutTarget();
+        $forTarget = fn (CompilationContext $context): CompilationContext => $targeted
+            ? $context->forTargetRow($conditionModel)
+            : $context->withoutTarget();
 
         // Which requested abilities individually fail on this row?
         $failedAbilities = [];
         foreach ($abilities as $ability) {
             $result = $compiler->compile($forTarget(
-                CompilationInput::ability($queries, $this->user, $ability, $ruleSet)->withContext($context),
+                CompilationContext::ability($queries, $this->user, $ability, $ruleSet)->withCheckContext($context),
             ));
 
             $granted = $result->decision()
@@ -160,7 +160,7 @@ trait DiagnosesDenials
                 }
 
                 $result = $compiler->compile($forTarget(
-                    CompilationInput::condition($queries, $this->user, $rule->conditions)->withContext($context),
+                    CompilationContext::condition($queries, $this->user, $rule->conditions)->withCheckContext($context),
                 ));
 
                 $fired = $result->decision()
