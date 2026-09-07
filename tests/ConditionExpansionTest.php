@@ -189,7 +189,7 @@ class DcFolderSchema extends WarrantSchema
     #[RowCondition]
     public function isEditable(RowConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->if('is_owner')->orIf('owner_is', ['role-9']);
+        return WarrantConditionBuilder::build()->if('is_owner')->orIf('owner_is', ['role-9']);
     }
 
     /** Derived, as a bare AST node. */
@@ -202,20 +202,20 @@ class DcFolderSchema extends WarrantSchema
     #[GlobalCondition]
     public function emptyExpansion(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return new WarrantConditionBuilder;
+        return WarrantConditionBuilder::build();
     }
 
     /** Expands into itself with the same arguments: no base case, ever. */
     #[GlobalCondition]
     public function runaway(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->if('runaway');
+        return WarrantConditionBuilder::build()->if('runaway');
     }
 
     /** Closes a can(...) loop from inside a condition. */
     #[GlobalCondition]
     public function derivedCan(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->ifCan('view', DcFolderSchema::class);
+        return WarrantConditionBuilder::build()->ifCan('view', DcFolderSchema::class);
     }
 }

@@ -292,7 +292,7 @@ class CstDocSchema extends WarrantSchema
     #[GlobalCondition]
     public function hopsToFolder(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->ifCheck('back_to_doc', CstFolderSchema::class);
+        return WarrantConditionBuilder::build()->ifCheck('back_to_doc', CstFolderSchema::class);
     }
 }
 
@@ -329,14 +329,14 @@ class CstFolderSchema extends WarrantSchema
     #[RowCondition]
     public function isEditable(RowConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->if('is_owner');
+        return WarrantConditionBuilder::build()->if('is_owner');
     }
 
     /** Closes the loop back to A's ability, from inside B's predicate. */
     #[GlobalCondition]
     public function backToDoc(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->ifCan('view', CstDocSchema::class);
+        return WarrantConditionBuilder::build()->ifCan('view', CstDocSchema::class);
     }
 
     /** Recurs with a literal that decreases, so it reaches a base case. */
@@ -344,8 +344,8 @@ class CstFolderSchema extends WarrantSchema
     public function within(RowConditionContext $c, int $levels): WarrantConditionBuilder
     {
         return $levels <= 0
-            ? (new WarrantConditionBuilder)->if('is_owner')
-            : (new WarrantConditionBuilder)->if('is_owner')->orIf('within', [$levels - 1]);
+            ? WarrantConditionBuilder::build()->if('is_owner')
+            : WarrantConditionBuilder::build()->if('is_owner')->orIf('within', [$levels - 1]);
     }
 }
 
@@ -374,6 +374,6 @@ class CstPingSchema extends WarrantSchema
     #[GlobalCondition]
     public function pong(GlobalConditionContext $c): WarrantConditionBuilder
     {
-        return (new WarrantConditionBuilder)->ifCheck('pong', CstPingSchema::class);
+        return WarrantConditionBuilder::build()->ifCheck('pong', CstPingSchema::class);
     }
 }

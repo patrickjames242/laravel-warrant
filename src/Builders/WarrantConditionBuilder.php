@@ -43,6 +43,29 @@ class WarrantConditionBuilder
     /** @var list<array{boolean: string, node: IBooleanExpressionNode}> */
     private array $terms = [];
 
+    /**
+     * Start a fluent, query-builder-style condition, the way
+     * {@see \Warrant\Rules\WarrantRule::build()} starts a whole rule.
+     *
+     * This is how a schema's own condition composes the expression it derives
+     * itself from, rather than emitting SQL:
+     *
+     * ```php
+     * #[RowCondition]
+     * public function isEditable(RowConditionContext $c): WarrantConditionBuilder
+     * {
+     *     return WarrantConditionBuilder::build()->if('is_owner')->orIf('is_admin');
+     * }
+     * ```
+     *
+     * Late static binding keeps the subclass: {@see WarrantRuleBuilder::build()}
+     * returns a rule builder, clauses and all.
+     */
+    public static function build(): static
+    {
+        return new static;
+    }
+
     // -- condition terms ------------------------------------------------------
 
     /**
