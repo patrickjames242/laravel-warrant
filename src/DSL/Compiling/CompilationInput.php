@@ -41,10 +41,11 @@ use Warrant\WarrantGate;
  * at all, so the compiler folds it to `false` instead of emitting a column
  * reference to a table that is not in the query.
  *
- * The row's SQL identity is *not* part of this. It is derived from the schema's
- * own model by {@see RuleSetCompiler}, which is where
- * {@see \Warrant\Schema\Concerns\ResolvesConditions} independently derives it
- * too — so a caller has nothing useful to say about it and is no longer asked.
+ * The row's SQL identity is *not* part of this, and is not threaded anywhere:
+ * {@see \Warrant\Schema\Concerns\ResolvesConditions} derives a condition's table
+ * and key column from the schema's own model when it builds the
+ * {@see \Warrant\Schema\Conditions\RowConditionContext}, so a caller has nothing
+ * useful to say about it and is not asked.
  *
  * Immutable: every wither returns a modified copy.
  */
@@ -53,6 +54,9 @@ final readonly class CompilationInput
     /**
      * @param bool $targeted Whether the schema's row is in scope where this
      *   predicate will be spliced. See the class docblock.
+     *   {@see RuleSetCompiler::compile()} narrows a `true` to `false` for a schema
+     *   with no model, so what the walk reads is the caller's request already
+     *   reconciled with what the schema can support.
      * @param Model|null $targetModel The loaded target row, when the caller had a
      *   hydrated one. Reaches a row condition as `$c->model`, letting it answer in
      *   PHP rather than in SQL; null whenever the compile covers more than one row.

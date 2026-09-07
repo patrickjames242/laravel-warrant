@@ -97,7 +97,7 @@ Thrown lazily the first time a schema's conditions are reflected:
 From the condition resolver:
 
 - `BadMethodCallException` — `Condition [%s] is not defined on schema [%s].`
-- `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target SQL id.` (a row condition run with no target)
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] requires a target row.` (a row condition run with no target)
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (fewer arguments than the condition's required parameters)
 
 From the compiler, on what a condition emitted:

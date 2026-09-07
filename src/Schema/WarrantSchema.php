@@ -47,8 +47,8 @@ abstract class WarrantSchema implements ConditionResolver
     public const model = '';
 
     /**
-     * The {@see ConditionResolver} view of {@see model}, so the compiler can
-     * derive the target row's SQL identity without being handed it.
+     * The {@see ConditionResolver} view of {@see model}, so the compiler can tell
+     * whether this schema has rows at all without being handed the answer.
      *
      * @return class-string<Model>|''
      */

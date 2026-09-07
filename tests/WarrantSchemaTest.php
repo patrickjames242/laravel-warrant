@@ -217,7 +217,7 @@ it('binds DSL arguments to declared condition parameters positionally', function
         'is_specific_user',
         makeWarrantTestUser('teacher-role'),
         warrantTestQuery(),
-        'course_sections.id',
+        true,
         ['some-user-id'],
     );
 
@@ -232,7 +232,7 @@ it('allows more arguments than declared parameters, leaving the extras on $c->ar
         'has_extra_args',
         makeWarrantTestUser('teacher-role'),
         warrantTestQuery(),
-        null,
+        false,
         ['a', 'b'],
     );
 
@@ -256,7 +256,7 @@ it('rejects a condition invoked with fewer arguments than its required parameter
         'is_specific_user',
         makeWarrantTestUser('teacher-role'),
         warrantTestQuery(),
-        'course_sections.id',
+        true,
         [],
     ))->toThrow(InvalidArgumentException::class, 'requires at least 1 argument');
 });
@@ -280,12 +280,12 @@ it('accepts a rule that supplies the required condition arguments, during valida
     expect(true)->toBeTrue();
 });
 
-it('requires a target sql id for row conditions', function () {
+it('requires a target row for row conditions', function () {
     expect(fn () => (new WarrantTestSchema)->applyConditionFilter(
         'is_teacher',
         makeWarrantTestUser('teacher-role'),
         warrantTestQuery()
-    ))->toThrow(InvalidArgumentException::class, 'requires a target SQL id');
+    ))->toThrow(InvalidArgumentException::class, 'requires a target row');
 });
 
 // -- selectUserAbilitiesInQuery (behavioral) --------------------------------------

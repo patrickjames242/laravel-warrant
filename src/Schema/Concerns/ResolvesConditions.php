@@ -30,6 +30,10 @@ trait ResolvesConditions
      * on); the full argument list also remains available via `$c->arguments`. The
      * builder is mutated in place and also returned for convenience.
      *
+     * @param bool $targeted Whether a target row is in scope. A row condition
+     *   cannot run without one, so it is rejected here rather than emitting a
+     *   predicate about a row that isn't there. The row's table and key column are
+     *   derived from the schema's own model below, never passed in.
      * @param array<int, mixed> $arguments The resolved DSL arguments for the condition.
      * @param array<string, mixed> $context The effective check-time context bag.
      */
@@ -37,7 +41,7 @@ trait ResolvesConditions
         string $conditionKey,
         Authenticatable $currentUser,
         Builder $whereClause,
-        ?string $targetSqlId = null,
+        bool $targeted = false,
         array $arguments = [],
         array $context = [],
         ?Model $targetModel = null
@@ -71,16 +75,16 @@ trait ResolvesConditions
         }
 
         if ($conditionDefinition->isRow) {
-            if ($targetSqlId === null) {
+            if (! $targeted) {
                 throw new InvalidArgumentException(
-                    sprintf('Condition [%s] on schema [%s] requires a target SQL id.', $conditionKey, static::class)
+                    sprintf('Condition [%s] on schema [%s] requires a target row.', $conditionKey, static::class)
                 );
             }
 
             /* Table and key come from the schema's own model, never from
-               $targetModel: they are the same values, and the SQL identity a
-               condition builds must not depend on whether a caller happened to
-               supply an instance. */
+               $targetModel and never from the caller: they are the same values,
+               and the SQL identity a condition builds must not depend on whether a
+               caller happened to supply an instance. */
             $modelClass = static::model;
             $model = new $modelClass;
 
@@ -111,7 +115,7 @@ trait ResolvesConditions
         string $conditionKey,
         Authenticatable $user,
         \Illuminate\Database\Query\Builder $whereClause,
-        ?string $targetSqlId,
+        bool $targeted,
         array $parameters,
         array $context = [],
         ?Model $targetModel = null
@@ -121,7 +125,7 @@ trait ResolvesConditions
             $conditionKey,
             $user,
             $whereClause,
-            $targetSqlId,
+            $targeted,
             $parameters,
             $context,
             $targetModel,

@@ -44,7 +44,7 @@ beforeEach(function () {
 |
 | Fixture conditions (tests/Support/TestSupport.php, WarrantTestSchema), shown
 | here with the fixture user's role ("teacher-role") already substituted:
-|   isTeacher (targeted): whereRaw("<targetSqlId> = ?", ["teacher:teacher-role"])
+|   isTeacher (targeted): whereRaw("{$c->row()} = ?", ["teacher:teacher-role"])
 |   isAdvisor (global):   whereRaw('? = ?', ['advisor', 'teacher-role'])
 |
 */

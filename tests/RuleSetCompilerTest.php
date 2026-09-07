@@ -91,24 +91,28 @@ final class FakeConditionResolver implements ConditionResolver
         return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
     }
 
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, ?string $targetSqlId, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
+    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
     {
+        /* A real schema builds this off its own model (see ResolvesConditions);
+           the fake spells out the same qualified key CompilerDocModel has. */
+        $row = 'docs.id';
+
         return match ($name) {
-            'is_teacher' => $whereClause->whereRaw("{$targetSqlId} = ?", ["teacher:{$user->role}"]),
-            'is_owner' => $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
+            'is_teacher' => $whereClause->whereRaw("{$row} = ?", ["teacher:{$user->role}"]),
+            'is_owner' => $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
             // Matches a row whose id equals the (context- or literal-supplied) argument.
-            'id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
+            'id_is' => $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
             // Like id_is, but a null argument means "match every row" — proves the
             // condition (not the compiler) decides what an absent @context key
             // means. It has to say so with a literal true: returning the query
             // untouched is an error (see adds_nothing).
             'id_is_optional' => $parameters[0] === null
                 ? true
-                : $whereClause->whereRaw("{$targetSqlId} = ?", [$parameters[0]]),
+                : $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
             // Returns its query without adding anything — always an error.
             'adds_nothing' => $whereClause,
             // Reads the ambient context bag directly (no @context arg in the rule).
-            'ctx_id_is' => $whereClause->whereRaw("{$targetSqlId} = ?", [$context['doc_id'] ?? '__missing__']),
+            'ctx_id_is' => $whereClause->whereRaw("{$row} = ?", [$context['doc_id'] ?? '__missing__']),
             'is_admin' => $user->role === 'admin',
             default => throw new RuntimeException("unknown condition {$name}"),
         };

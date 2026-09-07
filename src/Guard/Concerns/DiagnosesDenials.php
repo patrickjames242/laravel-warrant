@@ -108,7 +108,7 @@ trait DiagnosesDenials
         } else {
             // No target: evaluate the ability/condition predicates against a bare
             // one-row query on the entity's connection, exactly like the no-target
-            // check does. targetSqlId is null, so targeted conditions force false.
+            // check does. With no row in scope, row conditions force false.
             $connection = $this->schema::model !== ''
                 ? (new ($this->schema::model))->getConnection()
                 : app('db')->connection();

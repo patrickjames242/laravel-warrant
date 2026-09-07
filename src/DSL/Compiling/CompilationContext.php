@@ -6,16 +6,15 @@ namespace Warrant\DSL\Compiling;
  * The state {@see RuleSetCompiler} threads as it walks a boolean expression tree.
  *
  * It is the {@see CompilationInput} as it stands at this point in the compile,
- * plus the two things the input cannot know:
- *
- *   - {@see targetSqlId}, the target row's SQL identity, which the compiler
- *     derives from the resolver's own model rather than taking from a caller;
- *   - {@see negate}, the one piece of position-dependent state a recursive step
- *     derives for its children — whether the current subtree is negated, flipped
- *     at each `not` so that negation lands on the leaves.
+ * plus {@see negate} — the one piece of position-dependent state a recursive step
+ * derives for its children, flipped at each `not` so that negation lands on the
+ * leaves. That is the whole of what the walk knows and the input does not, which
+ * is why it is the only field here.
  *
  * Everything else a leaf needs is read straight off {@see input}: the user, the
- * query factory the leaves are built from, the effective check-time context bag,
+ * query factory the leaves are built from, whether a row is in scope (already
+ * narrowed against the schema's own model by {@see RuleSetCompiler::compile()},
+ * so there is one such flag and not two), the effective check-time context bag,
  * the loaded target row when there is one, and the cross-schema frames already on
  * this compile path. Holding the input instead of copying its fields is what
  * keeps the two objects from drifting — a leaf descending into another schema
@@ -39,19 +38,12 @@ final readonly class CompilationContext
 {
     /**
      * @param CompilationInput $input The compile as the caller described it,
-     *   refined by the compiler's own recursion (the cross-schema path, and B's
+     *   normalized and then refined by the compiler's own recursion (the target
+     *   narrowed to what the schema can support, the cross-schema path, and B's
      *   unit and context below a schema boundary).
-     * @param string|null $targetSqlId The target row's qualified key, derived by
-     *   the compiler from the schema's own model — null in a no-target compile.
-     *   Its *nullness* is what the walk reads: a row condition cannot be evaluated
-     *   without a row, so {@see RuleSetCompiler::conditionLeaf()} folds one to
-     *   `false` rather than emitting a reference to a table that is not in the
-     *   query. The string itself is passed on to
-     *   {@see \Warrant\DSL\ConditionResolver::applyCondition()} unchanged.
      */
     public function __construct(
         public CompilationInput $input,
-        public ?string $targetSqlId,
         public bool $negate = false,
     ) {
     }
@@ -61,10 +53,6 @@ final readonly class CompilationContext
      */
     public function negated(): self
     {
-        return new self(
-            input: $this->input,
-            targetSqlId: $this->targetSqlId,
-            negate: ! $this->negate,
-        );
+        return new self(input: $this->input, negate: ! $this->negate);
     }
 }

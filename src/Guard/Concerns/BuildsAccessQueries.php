@@ -197,8 +197,8 @@ trait BuildsAccessQueries
     /**
      * Returns the abilities the guard's user can perform without a target.
      *
-     * The evaluation uses only conditions that do not require a target SQL id
-     * (targeted conditions are forced false). When abilities are provided
+     * The evaluation uses only conditions that do not require a target row
+     * (row conditions are forced false). When abilities are provided
      * explicitly, `AbilityMatchMode::ALL` returns an empty array unless every
      * requested ability matches in that context.
      *

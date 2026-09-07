@@ -69,11 +69,13 @@ use Warrant\WarrantManager;
  * reads {@see CompilationResult::decision()} and the constant never becomes a
  * query at all.
  *
- * The target row's SQL identity is derived here, from the resolver's own model
- * ({@see ConditionResolver::modelClass()}) — callers say only *whether* a row is
- * in scope, via {@see CompilationInput::forTargetRow()}. That is the half they
- * genuinely know and the compiler cannot: a predicate is detached, and where it
- * is eventually spliced is the caller's business.
+ * Whether a row is in scope is the caller's to say, via
+ * {@see CompilationInput::forTargetRow()} — it is the half they genuinely know and
+ * the compiler cannot, since a predicate is detached and where it is eventually
+ * spliced is the caller's business. {@see compile()} narrows that answer against
+ * {@see ConditionResolver::modelClass()} on the way in, so the walk reads a single
+ * already-correct flag. The row's SQL identity is not threaded at all: a
+ * condition's table and key column are the resolver's own to derive.
  *
  * Every condition leaf is applied inline as a nested where-group and negated
  * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
@@ -115,9 +117,22 @@ final class RuleSetCompiler
      * the rules are applied; everything else — the query factory the leaves are
      * built from, the user, whether a row is in scope, the check-time context —
      * is the same in all three cases and comes off the input unchanged.
+     *
+     * The one thing not taken at face value is the target: a capability schema
+     * has no model and therefore no row, so a compile against one is never
+     * targeted however the caller asked for it. That is the same conclusion
+     * validation reaches, settled here, on the way in, so that everything below
+     * reads one already-correct flag — and so a row condition folds to `false`
+     * rather than emitting a reference to a table that does not exist. Each
+     * cross-schema descent re-enters through a compiler bound to that schema, so
+     * the referenced schema is narrowed against its own model too.
      */
     public function compile(CompilationInput $input): CompilationResult
     {
+        if ($input->targeted && $this->conditions::modelClass() === '') {
+            $input = $input->withoutTarget();
+        }
+
         $unit = $input->unit;
 
         $node = match (true) {
@@ -257,47 +272,12 @@ final class RuleSetCompiler
 
     /**
      * The walk state for one compile: the input as it stands at this point in the
-     * compile, plus the two things only the walk knows — the target row's SQL
-     * identity, derived from the resolver's own model, and whether this subtree
-     * sits under a `not`.
-     *
-     * A capability schema has no model and therefore no row, so a compile against
-     * one is never targeted no matter what the input asked for — the same
-     * conclusion validation reaches, arrived at here so a row condition folds to
-     * `false` rather than emitting a reference to a table that does not exist.
+     * compile, plus the one thing only the walk knows — whether this subtree sits
+     * under a `not`.
      */
     private function context(CompilationInput $input, bool $negate = false): CompilationContext
     {
-        return new CompilationContext(
-            input: $input,
-            targetSqlId: $this->targetSqlId($input),
-            negate: $negate,
-        );
-    }
-
-    /**
-     * The target row's qualified key, or null when no row is in scope.
-     *
-     * Derived rather than supplied: {@see ResolvesConditions} builds a row
-     * condition's {@see \Warrant\Schema\Conditions\RowConditionContext} from this
-     * same model, so anything a caller passed would be re-derived and discarded.
-     */
-    private function targetSqlId(CompilationInput $input): ?string
-    {
-        if (! $input->targeted) {
-            return null;
-        }
-
-        $modelClass = $this->conditions::modelClass();
-
-        if ($modelClass === '') {
-            return null;
-        }
-
-        /** @var Model $model */
-        $model = new $modelClass;
-
-        return $model->getQualifiedKeyName();
+        return new CompilationContext(input: $input, negate: $negate);
     }
 
     /**
@@ -749,7 +729,7 @@ final class RuleSetCompiler
     {
         // A row condition cannot be evaluated without a row; force it false
         // (so `not <row-condition>` becomes true) in a no-target compile.
-        if ($ctx->targetSqlId === null && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
+        if (! $ctx->input->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
             return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
         }
 
@@ -772,7 +752,7 @@ final class RuleSetCompiler
             $node->conditionKey,
             $ctx->input->user,
             $conditionQuery,
-            $ctx->targetSqlId,
+            $ctx->input->targeted,
             $parameters,
             $ctx->input->context,
             $ctx->input->targetModel,
