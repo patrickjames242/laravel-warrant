@@ -131,6 +131,19 @@ final readonly class CompilationInput
     }
 
     /**
+     * The same compile, one frame deeper on the cross-schema path.
+     *
+     * @internal Threaded by {@see RuleSetCompiler}'s own recursion as it enters an
+     *   ability; never called by a caller.
+     *
+     * @param list<string> $visited
+     */
+    public function withVisited(array $visited): self
+    {
+        return $this->with(visited: $visited);
+    }
+
+    /**
      * @param array<string, mixed> $context
      */
     public function withContext(array $context): self

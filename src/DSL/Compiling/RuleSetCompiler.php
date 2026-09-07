@@ -173,7 +173,11 @@ final class RuleSetCompiler
     {
         $ability = $unit->ability;
         $ruleSet = $unit->ruleSet;
-        $visited = $this->enterFrame($input->visited, $ability);
+
+        /* The frame this ability adds to the compile path rides on the input from
+           here down, so a cross-schema leaf reads it from the same place it reads
+           everything else it hands to CompilationInput::descending(). */
+        $input = $input->withVisited($this->enterFrame($input->visited, $ability));
 
         $abilityNode = new CompiledWhereClauseNode;
 
@@ -204,7 +208,7 @@ final class RuleSetCompiler
             return $abilityNode->addAnd(false);
         }
 
-        $grantCtx = $this->context($input, visited: $visited);
+        $grantCtx = $this->context($input);
 
         // Grant side: OR of every can-expression (null => always-true term).
         $grantGroup = new CompiledWhereClauseNode;
@@ -218,7 +222,7 @@ final class RuleSetCompiler
         $abilityNode->addAnd($grantGroup);
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = $this->context($input, negate: true, visited: $visited);
+        $denyCtx = $this->context($input, negate: true);
 
         foreach ($denies as $denyExpression) {
             $abilityNode->addAnd($this->expression($denyExpression, $denyCtx));
@@ -252,26 +256,22 @@ final class RuleSetCompiler
     }
 
     /**
-     * The walk state for one compile, with the target row's SQL identity derived
-     * from the resolver's own model.
+     * The walk state for one compile: the input as it stands at this point in the
+     * compile, plus the two things only the walk knows — the target row's SQL
+     * identity, derived from the resolver's own model, and whether this subtree
+     * sits under a `not`.
      *
      * A capability schema has no model and therefore no row, so a compile against
      * one is never targeted no matter what the input asked for — the same
      * conclusion validation reaches, arrived at here so a row condition folds to
      * `false` rather than emitting a reference to a table that does not exist.
-     *
-     * @param list<string> $visited
      */
-    private function context(CompilationInput $input, bool $negate = false, array $visited = []): CompilationContext
+    private function context(CompilationInput $input, bool $negate = false): CompilationContext
     {
         return new CompilationContext(
-            user: $input->user,
-            queries: $input->queries,
+            input: $input,
             targetSqlId: $this->targetSqlId($input),
-            checkContext: $input->context,
             negate: $negate,
-            visited: $visited === [] ? $input->visited : $visited,
-            targetModel: $input->targetModel,
         );
     }
 
@@ -313,7 +313,7 @@ final class RuleSetCompiler
      * lands on the leaves, where a negated leaf is applied inline as `not (…)`
      * (for an author's `whereExists`, that reads as `not exists (…)`).
      *
-     * Leaves are built off `$ctx->queries`, which hands out fresh builders and
+     * Leaves are built off `$ctx->input->queries`, which hands out fresh builders and
      * nothing else; a leaf's own connector is decided by the operand it becomes,
      * not by its position.
      */
@@ -494,35 +494,35 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
+            $bContext[$key] = $this->resolveArgValue($ctx->input->queries, $value, $ctx->input->context);
         }
 
-        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
+        $bRuleSet = $this->manager->forSchema($bClass, $ctx->input->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
         /* B compiles off the same factory as A: it is the same connection and the
            same grammar, and the `from` that distinguishes B's subquery is not
            something a factory exposes anyway. */
         $bInput = CompilationInput::descending(
-            $ctx->queries,
-            $ctx->user,
+            $ctx->input->queries,
+            $ctx->input->user,
             new AbilityUnit($node->ability, $bRuleSet),
             $bContext,
-            $ctx->visited,
+            $ctx->input->visited,
         );
 
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->input->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
+                $this->resolveArgValue($ctx->input->queries, $node->boundRow, $ctx->input->context),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->queries->newQuery()
+            $bSubquery = $ctx->input->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
@@ -546,7 +546,7 @@ final class RuleSetCompiler
             // The exists goes on a leaf of its own, already carrying its negation,
             // so it is a one-clause leaf the tree lifts back out without adding a
             // group — `exists (…)` / `not exists (…)`, as before.
-            $existsLeaf = $ctx->queries->newQuery();
+            $existsLeaf = $ctx->input->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -589,7 +589,7 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
+            $bContext[$key] = $this->resolveArgValue($ctx->input->queries, $value, $ctx->input->context);
         }
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
@@ -597,25 +597,25 @@ final class RuleSetCompiler
         $bCompiler = new self($bSchema, $this->manager);
 
         $bInput = CompilationInput::descending(
-            $ctx->queries,
-            $ctx->user,
+            $ctx->input->queries,
+            $ctx->input->user,
             new ConditionUnit($node->predicate),
             $bContext,
-            $ctx->visited,
+            $ctx->input->visited,
         );
 
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->input->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
+                $this->resolveArgValue($ctx->input->queries, $node->boundRow, $ctx->input->context),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->queries->newQuery()
+            $bSubquery = $ctx->input->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
@@ -633,7 +633,7 @@ final class RuleSetCompiler
 
             // As in a row-bound can(...): the exists is its own one-clause leaf,
             // already negated, so the tree lifts it back out without a group.
-            $existsLeaf = $ctx->queries->newQuery();
+            $existsLeaf = $ctx->input->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -763,19 +763,19 @@ final class RuleSetCompiler
         // for the referenced schema's real table column.
         $parameters = [];
         foreach ($node->parameters as $parameter) {
-            $parameters[] = $this->resolveArgValue($ctx->queries, $parameter, $ctx->checkContext);
+            $parameters[] = $this->resolveArgValue($ctx->input->queries, $parameter, $ctx->input->context);
         }
 
-        $conditionQuery = $ctx->queries->newQuery();
+        $conditionQuery = $ctx->input->queries->newQuery();
 
         $result = $this->conditions->applyCondition(
             $node->conditionKey,
-            $ctx->user,
+            $ctx->input->user,
             $conditionQuery,
             $ctx->targetSqlId,
             $parameters,
-            $ctx->checkContext,
-            $ctx->targetModel,
+            $ctx->input->context,
+            $ctx->input->targetModel,
         );
 
         /* A condition may decide the outcome outright rather than constrain the
