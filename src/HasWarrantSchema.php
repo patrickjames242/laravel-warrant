@@ -53,7 +53,6 @@ trait HasWarrantSchema
     {
         Warrant::forSchema(static::class, $user)->filterQuery(
             query: $query->getQuery(),
-            targetSqlId: $this->getQualifiedKeyName(),
             abilities: $abilities,
             matchMode: $matchMode,
             context: $context,
@@ -76,7 +75,6 @@ trait HasWarrantSchema
     {
         Warrant::forSchema(static::class, $user)->selectAbilitiesInQuery(
             query: $query->getQuery(),
-            targetSqlId: $this->getQualifiedKeyName(),
             selectedAbilitiesKey: $selectedAbilitiesKey,
             onlyAbilities: $onlyAbilities,
             context: $context,

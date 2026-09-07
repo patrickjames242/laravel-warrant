@@ -5,6 +5,8 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
@@ -43,6 +45,7 @@ final class BuilderTestUser implements Authenticatable
 final class BuilderFakeResolver implements ConditionResolver
 {
     public static function schemaKey(): string { return 'builder-fake'; }
+    public static function modelClass(): string { return CompilerDocModel::class; }
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
 
@@ -564,9 +567,10 @@ it('compiles a built rule to SQL that filters rows', function () {
 
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $query = DB::table('docs');
-    $query->addNestedWhereQuery(
-        $compiler->compileAbility(new CompilerTestUser('role-1'), $query, 'view', $ruleSet, 'docs.id')
-    );
+    $compiler->compile(
+        CompilationInput::ability(QueryFactory::for($query), new CompilerTestUser('role-1'), 'view', $ruleSet)
+            ->forTargetRow(),
+    )->spliceInto($query);
 
     expect($query->orderBy('id')->pluck('id')->all())->toBe(['teacher:role-1']);
 });

@@ -99,7 +99,6 @@ function assertChkFilterSql(
 
     $sql = Warrant::guard(makeWarrantTestUser($roleId))->forSchema((new ChkDocSchema))->filterQuery(
         warrantTestQuery('chk_docs'),
-        'chk_docs.id',
         'view',
         AbilityMatchMode::ALL,
         $context,

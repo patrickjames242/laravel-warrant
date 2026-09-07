@@ -19,11 +19,12 @@ beforeEach(function () {
 |   - userHasAbility(...)     -> filterQuery(...)
 |   - selectUserAbilities(...) -> selectUserAbilitiesInQuery(...)
 |
-| Both pass `targetSqlId: $model->getQualifiedKeyName()`, which for the fixture
-| model (table `course_sections`, key `id`) is `course_sections.id` — the same
-| raw target the Stage 1/2 tests pass by hand. So the SQL these scopes emit
-| through Eloquent must match the schema-level SQL exactly; these tests confirm
-| the trait's wiring (target derivation, base query) and nothing more.
+| Both compile with the schema's row in scope. The row's SQL identity is derived
+| by the compiler from the schema's own model — for the fixture model (table
+| `course_sections`, key `id`) that is `course_sections.id`, the same target the
+| Stage 1/2 tests exercise. So the SQL these scopes emit through Eloquent must
+| match the schema-level SQL exactly; these tests confirm the trait's wiring
+| (base query, target derivation) and nothing more.
 |
 | WarrantScopedModel uses WarrantScopedModelSchema (extends WarrantTestSchema),
 | so the same create/publish/archive/view/update vocabulary and is_teacher /

@@ -21,7 +21,7 @@ beforeEach(function () {
 | A gate compiles to a where-clause tree, and that tree often folds to a literal
 | before any row is involved: an unconditional `cannot`, an ability no rule
 | grants, an unconditional `can`, or — with no target — anything gated on a row
-| condition. `compileGateWhereClause()` hands the guard that literal, so a check with a
+| condition. `compileGate()` hands the guard that literal via decision(), so a check with a
 | settled answer never reaches the database.
 |
 | These tests assert the query *count* alongside the answer, since the answer

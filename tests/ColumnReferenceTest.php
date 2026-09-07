@@ -77,7 +77,6 @@ it('resolves a @column arg to the real table column, grammar-wrapped and unbound
 
     $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
         warrantTestQuery('col_timesheets'),
-        'col_timesheets.id',
         'view',
         AbilityMatchMode::ALL,
     )->toRawSql();
@@ -98,7 +97,6 @@ it('correlates a check(...) subquery to the outer table via a @column row select
 
     $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
-        'col_docs.id',
         'view',
         AbilityMatchMode::ALL,
     )->toRawSql();
@@ -131,7 +129,6 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
 
     $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
-        'col_docs.id',
         'view',
         AbilityMatchMode::ALL,
     )->toRawSql();
@@ -155,7 +152,6 @@ it('filters rows through a @column-correlated check subquery', function () {
 
     $ids = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColDocSchema))->filterQuery(
         warrantTestQuery('col_docs'),
-        'col_docs.id',
         'view',
         AbilityMatchMode::ALL,
     )->orderBy('id')->pluck('id')->all();

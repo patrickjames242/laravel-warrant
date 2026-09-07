@@ -6,6 +6,8 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
@@ -31,6 +33,22 @@ final class CompilerTestUser implements Authenticatable
 }
 
 /**
+ * The row the fake schema below is about. The compiler derives the target's SQL
+ * identity from this — `docs.id` — rather than being handed it, so the fake needs
+ * a model even though the fixtures are a bare `DB::table('docs')`.
+ */
+final class CompilerDocModel extends EloquentModel
+{
+    protected $table = 'docs';
+
+    protected $primaryKey = 'id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+}
+
+/**
  * Fake schema seam:
  *  - abilities: view, edit, delete, publish
  *  - is_teacher   (targeted)        : id = "teacher:{role}"
@@ -44,6 +62,11 @@ final class FakeConditionResolver implements ConditionResolver
     public static function schemaKey(): string
     {
         return 'docs';
+    }
+
+    public static function modelClass(): string
+    {
+        return CompilerDocModel::class;
     }
 
     public static function abilityNames(): array
@@ -98,8 +121,12 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
     $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs', $bindings);
 
     $query = DB::table('docs');
-    $predicate = $compiler->compileAbility(new CompilerTestUser($role), $query, $ability, $ruleSet, 'docs.id', context: $context);
-    $query->addNestedWhereQuery($predicate);
+
+    $compiler->compile(
+        CompilationInput::ability(QueryFactory::for($query), new CompilerTestUser($role), $ability, $ruleSet)
+            ->forTargetRow()
+            ->withContext($context),
+    )->spliceInto($query);
 
     return $query->orderBy('id')->pluck('id')->all();
 }
@@ -116,14 +143,15 @@ function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $m
     $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs');
 
     $query = DB::table('docs');
-    $predicate = $compiler->compileGate(
-        new CompilerTestUser($role),
-        $query,
-        new WarrantGate($abilities, $matchMode),
-        $ruleSet,
-        'docs.id',
-    );
-    $query->addNestedWhereQuery($predicate);
+
+    $compiler->compile(
+        CompilationInput::gate(
+            QueryFactory::for($query),
+            new CompilerTestUser($role),
+            new WarrantGate($abilities, $matchMode),
+            $ruleSet,
+        )->forTargetRow(),
+    )->spliceInto($query);
 
     return $query->orderBy('id')->pluck('id')->all();
 }
@@ -225,16 +253,20 @@ it('forces a row condition to false with no target, true under not', function ()
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $user = new CompilerTestUser('role-1');
 
-    // No targetSqlId: is_teacher is forced false.
+    // No target row in scope: is_teacher is forced false.
     $granted = WarrantRuleSet::fromSyntax('if is_teacher they can view', 'docs');
     $q = DB::table('docs');
-    $q->addNestedWhereQuery($compiler->compileAbility($user, $q, 'view', $granted, null));
+    $compiler->compile(
+        CompilationInput::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
+    )->spliceInto($q);
     expect($q->count())->toBe(0);
 
     // not is_teacher => true, so every row.
     $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
     $q2 = DB::table('docs');
-    $q2->addNestedWhereQuery($compiler->compileAbility($user, $q2, 'view', $negated, null));
+    $compiler->compile(
+        CompilationInput::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
+    )->spliceInto($q2);
     expect($q2->count())->toBe(3);
 });
 

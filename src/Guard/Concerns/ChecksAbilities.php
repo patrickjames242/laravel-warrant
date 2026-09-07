@@ -97,7 +97,6 @@ trait ChecksAbilities
         // hydrated row instead so the alias survives.
         $row = (array) $this->selectAbilitiesInQuery(
             query: $model->newQuery()->whereKey($targetId)->getQuery(),
-            targetSqlId: $model->getQualifiedKeyName(),
             context: $context,
         )->first();
         $selectedAbilities = $row['abilities'] ?? null;
@@ -140,9 +139,8 @@ trait ChecksAbilities
                target goes down with it, so a row condition can judge the row in
                PHP rather than describe it in SQL — the same instance the
                existence short-circuit below is willing to trust. */
-            $whereClause = $this->compileGateWhereClause(
+            $gate = $this->compileGate(
                 query: $query,
-                targetSqlId: $model->getQualifiedKeyName(),
                 abilities: $abilities,
                 matchMode: $matchMode,
                 context: $context,
@@ -150,7 +148,7 @@ trait ChecksAbilities
             );
 
             // Nothing the row could say would let it through.
-            if ($whereClause === false) {
+            if ($gate->decision() === false) {
                 return false;
             }
 
@@ -161,11 +159,11 @@ trait ChecksAbilities
                still goes to the database for the existence check alone.
                Model::$exists is Eloquent's own record of this: set when a row is
                hydrated or inserted, cleared on delete. */
-            if ($whereClause === true && $this->trustedTargetModel($target) !== null) {
+            if ($gate->decision() === true && $this->trustedTargetModel($target) !== null) {
                 return true;
             }
 
-            return $this->spliceWhereClauseIntoQuery($query, $whereClause)->exists();
+            return $gate->spliceInto($query)->exists();
         }
 
         /* No target: evaluate to the subset the user holds (under ANY, so it yields

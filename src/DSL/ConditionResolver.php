@@ -24,6 +24,20 @@ interface ConditionResolver extends SchemaVocabulary
     public static function schemaKey(): string;
 
     /**
+     * The Eloquent model backing this schema, or `''` for a capability schema
+     * that has no rows at all.
+     *
+     * The compiler derives the target row's SQL identity from this, rather than
+     * being handed it: {@see \Warrant\Schema\Concerns\ResolvesConditions} already
+     * derives the table and key column from the same model when it builds a
+     * {@see \Warrant\Schema\Conditions\RowConditionContext}, so a value supplied
+     * by the caller would only be re-derived and discarded.
+     *
+     * @return class-string<\Illuminate\Database\Eloquent\Model>|''
+     */
+    public static function modelClass(): string;
+
+    /**
      * Apply a condition's predicate to $whereClause (mutating it) and return the
      * builder, OR return a boolean for a condition that decides the outcome
      * outright — a global condition evaluated in PHP, or a row condition handed

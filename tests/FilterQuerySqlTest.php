@@ -62,7 +62,6 @@ function assertWarrantFilterSql(
 ): void {
     $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         $abilities,
         $matchMode,
     )->toRawSql();
@@ -149,7 +148,6 @@ it('throws when a condition emits a top-level join instead of a where clause', f
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantJoinConditionSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         'view',
     )->toRawSql())
         ->toThrow(
@@ -220,7 +218,6 @@ it('emits the same SQL for a negated group and its hand-written expansion', func
 
     $pushed = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         'view',
     )->toRawSql();
 
@@ -228,7 +225,6 @@ it('emits the same SQL for a negated group and its hand-written expansion', func
 
     $byHand = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         'view',
     )->toRawSql();
 
@@ -314,7 +310,6 @@ it('emits a not-written can identically to the equivalent cannot', function () {
 
     $written = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         'view',
     )->toRawSql();
 
@@ -322,7 +317,6 @@ it('emits a not-written can identically to the equivalent cannot', function () {
 
     $seeded = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery(),
-        'course_sections.id',
         'view',
     )->toRawSql();
 

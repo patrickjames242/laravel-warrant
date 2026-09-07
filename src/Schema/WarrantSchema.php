@@ -47,6 +47,17 @@ abstract class WarrantSchema implements ConditionResolver
     public const model = '';
 
     /**
+     * The {@see ConditionResolver} view of {@see model}, so the compiler can
+     * derive the target row's SQL identity without being handed it.
+     *
+     * @return class-string<Model>|''
+     */
+    public static function modelClass(): string
+    {
+        return static::model;
+    }
+
+    /**
      * @var array<string, true>
      */
     private array $abilityLookup;

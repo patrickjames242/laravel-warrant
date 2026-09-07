@@ -4,6 +4,7 @@ namespace Warrant\DSL\Compiling\WhereClause;
 
 use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
+use Warrant\DSL\Compiling\QueryFactory;
 
 /**
  * A boolean where clause tree, built before any SQL is emitted.
@@ -331,7 +332,7 @@ final class CompiledWhereClauseNode
     // -- emitting --------------------------------------------------------------
 
     /**
-     * Simplify, then write whatever survives into a fresh query built off $host.
+     * Simplify, then write whatever survives into a fresh query.
      *
      * Returns the literal `true`/`false` when the tree decided the outcome on
      * its own; what a literal looks like in SQL is the caller's choice, not this
@@ -341,8 +342,14 @@ final class CompiledWhereClauseNode
      *     a and true and b  ->  Builder: `a = 1 and b = 2`
      *     a and (b or c)    ->  Builder: `a = 1 and (b = 2 or c = 3)`
      *     a and false       ->  false, and no query is built at all
+     *
+     * $queries is only ever a source of one blank builder — nothing is read from
+     * it and nothing is written back to it. A {@see QueryFactory} says that
+     * outright; a plain {@see Builder} is accepted too, since a caller holding
+     * one (a test, say) would otherwise have to wrap it just to be unwrapped
+     * again on the next line.
      */
-    public function buildWhereClause(Builder $host): bool|Builder
+    public function buildWhereClause(Builder|QueryFactory $queries): bool|Builder
     {
         $simplified = $this->simplify();
 
@@ -350,8 +357,10 @@ final class CompiledWhereClauseNode
             return $simplified;
         }
 
+        $queries = $queries instanceof QueryFactory ? $queries : QueryFactory::for($queries);
+
         // No wrapper at the root: the returned query *is* the outermost group.
-        $out = $host->newQuery();
+        $out = $queries->newQuery();
         $simplified->writeOperandsInto($out);
 
         return $out;

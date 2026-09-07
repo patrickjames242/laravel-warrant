@@ -69,7 +69,6 @@ it('resolves a @sql arg to a parenthesized raw expression, unbound', function ()
 
     $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
-        'sql_items.id',
         'view',
         AbilityMatchMode::ALL,
     )->toRawSql();
@@ -86,7 +85,6 @@ it('always parenthesizes, even when the author already wrapped the body', functi
 
     $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
-        'sql_items.id',
         'view',
         AbilityMatchMode::ALL,
     )->toRawSql();
@@ -114,7 +112,6 @@ it('filters rows through a @sql scalar-subquery comparison', function () {
 
     $ids = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SqlItemSchema))->filterQuery(
         warrantTestQuery('sql_items'),
-        'sql_items.id',
         'view',
         AbilityMatchMode::ALL,
     )->orderBy('id')->pluck('id')->all();

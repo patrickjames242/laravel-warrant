@@ -4,7 +4,6 @@ namespace Warrant\DSL\Compiling;
 
 use BackedEnum;
 use DateTimeInterface;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
@@ -12,6 +11,9 @@ use InvalidArgumentException;
 use OutOfBoundsException;
 use RuntimeException;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Compiling\Units\AbilityUnit;
+use Warrant\DSL\Compiling\Units\ConditionUnit;
+use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
@@ -26,20 +28,25 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Rules\WarrantRuleSet;
-use Warrant\WarrantGate;
 use Warrant\WarrantManager;
 
 /**
  * Compiles a {@see WarrantRuleSet} into SQL predicates.
  *
- * There are two units of output, both nested {@see Builder} predicates ready to
- * be attached to a host query (directly for row filtering, or inside a correlated
- * subquery for per-row ability selection):
- *   - {@see compileAbility} — the predicate for one ability;
- *   - {@see compileGate} — a whole gate (a set of requested abilities plus a
+ * One way in — {@see compile()} — taking a {@see CompilationInput} and returning
+ * a {@see CompilationResult}. The input names what to compile (a
+ * {@see \Warrant\DSL\Compiling\Units\CompilationUnit}: a gate, one ability, or a
+ * bare condition) along with the facts common to all three; the result offers the
+ * compile in whichever form the caller needs, folded or as SQL.
+ *
+ * The three units:
+ *   - {@see AbilityUnit} — the predicate for one ability;
+ *   - {@see GateUnit} — a whole gate (a set of requested abilities plus a
  *     match mode) combined into one predicate: `ANY` → OR of each ability's
  *     predicate, `ALL` → AND. This is the single place that knows about
  *     {@see AbilityMatchMode}; the combination is no longer the caller's job.
+ *   - {@see ConditionUnit} — an expression tree compiled in isolation, with no
+ *     rules applied at all.
  *
  * Per ability A the predicate is:
  *
@@ -54,12 +61,19 @@ use Warrant\WarrantManager;
  * The walk builds a {@see CompiledWhereClauseNode} rather than writing into a
  * query builder as it goes, so a subtree that is provably true or false is a
  * real `bool` the tree can fold away — an unconditional `cannot` no longer has
- * to be frozen into a `1 = 0` that a sibling is then ANDed against. Only the
- * `compile*`/`matchesCondition` entrypoints materialize, turning a tree that
- * folded to a literal into `1 = 1`/`1 = 0` and everything else into a nested
- * predicate; the node drops the parentheses that a direct-to-builder walk is
- * forced to emit. The `*WhereClauseNode` methods hand back the unmaterialized
- * tree instead, for a caller that wants the decision rather than the SQL.
+ * to be frozen into a `1 = 0` that a sibling is then ANDed against. Nothing here
+ * materializes: {@see CompilationResult} does that, on demand, turning a tree
+ * that folded to a literal into `1 = 1`/`1 = 0` and everything else into a
+ * nested predicate, while the node drops the parentheses that a direct-to-builder
+ * walk is forced to emit. A caller that wants the decision rather than the SQL
+ * reads {@see CompilationResult::decision()} and the constant never becomes a
+ * query at all.
+ *
+ * The target row's SQL identity is derived here, from the resolver's own model
+ * ({@see ConditionResolver::modelClass()}) — callers say only *whether* a row is
+ * in scope, via {@see CompilationInput::forTargetRow()}. That is the half they
+ * genuinely know and the compiler cannot: a predicate is detached, and where it
+ * is eventually spliced is the caller's business.
  *
  * Every condition leaf is applied inline as a nested where-group and negated
  * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
@@ -95,10 +109,34 @@ final class RuleSetCompiler
     }
 
     /**
-     * Build the predicate for a whole gate — the requested abilities combined
-     * under the gate's match mode — as a single nested query on $query.
+     * Compile one unit into a predicate.
      *
-     * Each ability is compiled independently by {@see abilityWhereClauseNode} and the
+     * The single way in. Which of the three units the input carries decides how
+     * the rules are applied; everything else — the query factory the leaves are
+     * built from, the user, whether a row is in scope, the check-time context —
+     * is the same in all three cases and comes off the input unchanged.
+     */
+    public function compile(CompilationInput $input): CompilationResult
+    {
+        $unit = $input->unit;
+
+        $node = match (true) {
+            $unit instanceof GateUnit => $this->gateNode($input, $unit),
+            $unit instanceof AbilityUnit => $this->abilityNode($input, $unit),
+            $unit instanceof ConditionUnit => $this->conditionNode($input, $unit),
+            default => throw new InvalidArgumentException(
+                sprintf('Unsupported compilation unit [%s].', $unit::class),
+            ),
+        };
+
+        return new CompilationResult($node, $input->queries);
+    }
+
+    /**
+     * The tree for a whole gate — the requested abilities combined under the
+     * gate's match mode.
+     *
+     * Each ability is compiled independently by {@see abilityNode} and the
      * results are joined here: `ALL` ANDs them (every ability must hold for a
      * row), `ANY` ORs them (any one is enough). This is the only method that
      * consults {@see AbilityMatchMode}. Joining trees rather than finished
@@ -106,57 +144,19 @@ final class RuleSetCompiler
      * an unconditionally granted ability is just `true`, with the other
      * abilities never appearing in the SQL at all.
      *
-     * An empty gate (no abilities) yields `1 = 1` — a match-all — but callers
+     * An empty gate (no abilities) folds to `true` — a match-all — but callers
      * short-circuit that case upstream (see the guard's `filterQuery`).
      *
-     * @param list<string> $visited The `(schema, ability)` frames already on the
-     *   cross-schema compile path; threaded into each ability's compile so a cycle
-     *   back to any of them is detected. All abilities in one gate share the same
-     *   incoming path (they are siblings, not nested references).
+     * All abilities in one gate share the same incoming cross-schema path: they
+     * are siblings, not nested references.
      */
-    public function compileGate(
-        Authenticatable $user,
-        Builder $query,
-        WarrantGate $gate,
-        WarrantRuleSet $ruleSet,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-        array $visited = [],
-    ): Builder {
-        return $this->toPredicate(
-            $query,
-            $this->gateWhereClauseNode($user, $query, $gate, $ruleSet, $targetSqlId, $targetModel, $context, $visited),
-        );
-    }
-
-    /**
-     * The tree for a whole gate, before it is materialized — the form a caller
-     * reaches for when it wants the gate's *decision* rather than its SQL.
-     *
-     * {@see CompiledWhereClauseNode::buildWhereClause()} folds this to the literal
-     * `true`/`false` whenever the rules settled the outcome without consulting a
-     * row, which is what lets a boolean check answer without a query. Materializing
-     * through {@see compileGate} erases that, since a spliceable predicate has to
-     * spell a constant out as `1 = 1` / `1 = 0`.
-     *
-     * @param list<string> $visited See {@see compileGate}.
-     */
-    public function gateWhereClauseNode(
-        Authenticatable $user,
-        Builder $query,
-        WarrantGate $gate,
-        WarrantRuleSet $ruleSet,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-        array $visited = [],
-    ): CompiledWhereClauseNode {
+    private function gateNode(CompilationInput $input, GateUnit $unit): CompiledWhereClauseNode
+    {
         $gateNode = new CompiledWhereClauseNode;
-        $requireAll = $gate->matchMode === AbilityMatchMode::ALL;
+        $requireAll = $unit->gate->matchMode === AbilityMatchMode::ALL;
 
-        foreach ($gate->abilities as $ability) {
-            $abilityNode = $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $targetModel, $context, $visited);
+        foreach ($unit->gate->abilities as $ability) {
+            $abilityNode = $this->abilityNode($input, new AbilityUnit($ability, $unit->ruleSet));
 
             $requireAll ? $gateNode->addAnd($abilityNode) : $gateNode->addOr($abilityNode);
         }
@@ -165,46 +165,15 @@ final class RuleSetCompiler
     }
 
     /**
-     * Build the predicate for a single ability as a nested query on $query.
-     *
-     * @param list<string> $visited The `(schema, ability)` frames already on the
-     *   cross-schema compile path; a recursive call threads its parent's frames
-     *   in so a cycle back to any of them is detected.
+     * The tree for one ability — the unit a gate ORs or ANDs, and the unit a
+     * cross-schema `can(...)` splices in, so a constant folds across both
+     * boundaries instead of stopping at a `1 = 1`.
      */
-    public function compileAbility(
-        Authenticatable $user,
-        Builder $query,
-        string $ability,
-        WarrantRuleSet $ruleSet,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-        array $visited = [],
-    ): Builder {
-        return $this->toPredicate(
-            $query,
-            $this->abilityWhereClauseNode($user, $query, $ability, $ruleSet, $targetSqlId, $targetModel, $context, $visited),
-        );
-    }
-
-    /**
-     * The tree for one ability, before it is materialized — the unit a gate ORs
-     * or ANDs, and the unit a cross-schema `can(...)` splices in, so a constant
-     * folds across both boundaries instead of stopping at a `1 = 1`.
-     *
-     * @param list<string> $visited
-     */
-    public function abilityWhereClauseNode(
-        Authenticatable $user,
-        Builder $query,
-        string $ability,
-        WarrantRuleSet $ruleSet,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-        array $visited = [],
-    ): CompiledWhereClauseNode {
-        $visited = $this->enterFrame($visited, $ability);
+    private function abilityNode(CompilationInput $input, AbilityUnit $unit): CompiledWhereClauseNode
+    {
+        $ability = $unit->ability;
+        $ruleSet = $unit->ruleSet;
+        $visited = $this->enterFrame($input->visited, $ability);
 
         $abilityNode = new CompiledWhereClauseNode;
 
@@ -235,103 +204,100 @@ final class RuleSetCompiler
             return $abilityNode->addAnd(false);
         }
 
-        $grantCtx = new CompilationContext($user, $targetSqlId, $context, visited: $visited, targetModel: $targetModel);
+        $grantCtx = $this->context($input, visited: $visited);
 
         // Grant side: OR of every can-expression (null => always-true term).
         $grantGroup = new CompiledWhereClauseNode;
 
         foreach ($grants as $grantExpression) {
             $grantGroup->addOr(
-                $grantExpression === null ? true : $this->expression($grantExpression, $grantCtx, $query),
+                $grantExpression === null ? true : $this->expression($grantExpression, $grantCtx),
             );
         }
 
         $abilityNode->addAnd($grantGroup);
 
         // Deny side: AND NOT(expression) for each conditional `cannot`.
-        $denyCtx = new CompilationContext($user, $targetSqlId, $context, negate: true, visited: $visited, targetModel: $targetModel);
+        $denyCtx = $this->context($input, negate: true, visited: $visited);
 
         foreach ($denies as $denyExpression) {
-            $abilityNode->addAnd($this->expression($denyExpression, $denyCtx, $query));
+            $abilityNode->addAnd($this->expression($denyExpression, $denyCtx));
         }
 
         return $abilityNode;
     }
 
     /**
-     * Build a predicate that is true for the target row iff $condition matches —
-     * an expression tree compiled in isolation, without the deny-overrides formula.
+     * The tree for a standalone condition — an expression compiled in isolation,
+     * without the deny-overrides formula, true for the target row iff it matches.
      *
      * Two callers: the singular-target denial diagnostic (does one `cannot` rule's
      * condition fire for the target?), and {@see crossSchemaCheckLeaf}, which uses
      * it to compile a `check(...)` predicate against the *target* schema's resolver.
      * A null condition (an unconditional `cannot`) always matches. Reuses the same
      * inline leaf, targeted-vs-global, and `@context` semantics as
-     * {@see compileAbility}, so a re-run agrees exactly with the live check.
+     * {@see abilityNode}, so a re-run agrees exactly with the live check.
      */
-    public function matchesCondition(
-        Authenticatable $user,
-        Builder $query,
-        ?IBooleanExpressionNode $condition,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-    ): Builder {
-        return $this->toPredicate(
-            $query,
-            $this->conditionWhereClauseNode($user, $query, $condition, $targetSqlId, $targetModel, $context),
-        );
-    }
-
-    /**
-     * The tree for a standalone condition, before it is materialized — see
-     * {@see abilityWhereClauseNode} for why the unmaterialized form is worth having.
-     */
-    public function conditionWhereClauseNode(
-        Authenticatable $user,
-        Builder $query,
-        ?IBooleanExpressionNode $condition,
-        ?string $targetSqlId = null,
-        ?Model $targetModel = null,
-        array $context = [],
-    ): CompiledWhereClauseNode {
+    private function conditionNode(CompilationInput $input, ConditionUnit $unit): CompiledWhereClauseNode
+    {
         $conditionNode = new CompiledWhereClauseNode;
 
-        if ($condition === null) {
+        if ($unit->condition === null) {
             return $conditionNode->addAnd(true);
         }
 
         return $conditionNode->addAnd(
-            $this->expression($condition, new CompilationContext($user, $targetSqlId, $context, targetModel: $targetModel), $query),
+            $this->expression($unit->condition, $this->context($input)),
         );
     }
 
     /**
-     * Materialize a folded where clause into the nested predicate the public API
-     * returns.
+     * The walk state for one compile, with the target row's SQL identity derived
+     * from the resolver's own model.
      *
-     * A clause that folded to a literal becomes `1 = 1`/`1 = 0`: callers splice
-     * the result with `addNestedWhereQuery`, which skips a query holding no
-     * where clause, so an always-true predicate has to say so out loud.
+     * A capability schema has no model and therefore no row, so a compile against
+     * one is never targeted no matter what the input asked for — the same
+     * conclusion validation reaches, arrived at here so a row condition folds to
+     * `false` rather than emitting a reference to a table that does not exist.
      *
-     * Public because a caller that folded a node itself — to read the decision
-     * before deciding whether SQL is needed at all — still has to be able to
-     * spell the result out when it turns out SQL *is* needed, without compiling
-     * the tree a second time.
+     * @param list<string> $visited
      */
-    public function materializeWhereClause(Builder $query, bool|Builder $whereClause): Builder
+    private function context(CompilationInput $input, bool $negate = false, array $visited = []): CompilationContext
     {
-        return is_bool($whereClause)
-            ? $query->newQuery()->whereRaw($whereClause ? '1 = 1' : '1 = 0')
-            : $whereClause;
+        return new CompilationContext(
+            user: $input->user,
+            queries: $input->queries,
+            targetSqlId: $this->targetSqlId($input),
+            checkContext: $input->context,
+            negate: $negate,
+            visited: $visited === [] ? $input->visited : $visited,
+            targetModel: $input->targetModel,
+        );
     }
 
     /**
-     * Fold a tree and materialize whatever it decided.
+     * The target row's qualified key, or null when no row is in scope.
+     *
+     * Derived rather than supplied: {@see ResolvesConditions} builds a row
+     * condition's {@see \Warrant\Schema\Conditions\RowConditionContext} from this
+     * same model, so anything a caller passed would be re-derived and discarded.
      */
-    private function toPredicate(Builder $query, CompiledWhereClauseNode $node): Builder
+    private function targetSqlId(CompilationInput $input): ?string
     {
-        return $this->materializeWhereClause($query, $node->buildWhereClause($query));
+        if (! $input->targeted) {
+            return null;
+        }
+
+        $modelClass = $this->conditions::modelClass();
+
+        if ($modelClass === '') {
+            return null;
+        }
+
+        /** @var Model $model */
+        $model = new $modelClass;
+
+        return $model->getQualifiedKeyName();
     }
 
     /**
@@ -347,21 +313,22 @@ final class RuleSetCompiler
      * lands on the leaves, where a negated leaf is applied inline as `not (…)`
      * (for an author's `whereExists`, that reads as `not exists (…)`).
      *
-     * $host is the query the leaves are built off — never appended to; a leaf's
-     * own connector is decided by the operand it becomes, not by its position.
+     * Leaves are built off `$ctx->queries`, which hands out fresh builders and
+     * nothing else; a leaf's own connector is decided by the operand it becomes,
+     * not by its position.
      */
-    private function expression(IBooleanExpressionNode $node, CompilationContext $ctx, Builder $host): CompiledWhereClauseNode
+    private function expression(IBooleanExpressionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
         if ($node instanceof NotNode) {
-            return $this->expression($node->operand, $ctx->negated(), $host);
+            return $this->expression($node->operand, $ctx->negated());
         }
 
         if ($node instanceof AndNode || $node instanceof OrNode) {
             // NOT(a AND b) = NOT a OR NOT b ; NOT(a OR b) = NOT a AND NOT b.
             $childrenAreOr = $node instanceof OrNode;
 
-            $group = (new CompiledWhereClauseNode)->addAnd($this->expression($node->leftSide, $ctx, $host));
-            $rightSide = $this->expression($node->rightSide, $ctx, $host);
+            $group = (new CompiledWhereClauseNode)->addAnd($this->expression($node->leftSide, $ctx));
+            $rightSide = $this->expression($node->rightSide, $ctx);
 
             return ($childrenAreOr xor $ctx->negate)
                 ? $group->addOr($rightSide)
@@ -369,15 +336,15 @@ final class RuleSetCompiler
         }
 
         if ($node instanceof ConditionNode) {
-            return $this->conditionLeaf($node, $ctx, $host);
+            return $this->conditionLeaf($node, $ctx);
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            return $this->crossSchemaCanLeaf($node, $ctx, $host);
+            return $this->crossSchemaCanLeaf($node, $ctx);
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
-            return $this->crossSchemaCheckLeaf($node, $ctx, $host);
+            return $this->crossSchemaCheckLeaf($node, $ctx);
         }
 
         if ($node instanceof BooleanNode) {
@@ -509,7 +476,7 @@ final class RuleSetCompiler
      * an unbound reference splices B's no-target boolean predicate inline. B sees
      * only the explicit `with` map as its context — never A's ambient context.
      */
-    private function crossSchemaCanLeaf(CrossSchemaCanNode $node, CompilationContext $ctx, Builder $host): CompiledWhereClauseNode
+    private function crossSchemaCanLeaf(CrossSchemaCanNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
         if ($this->manager === null) {
             throw new InvalidArgumentException(sprintf(
@@ -527,56 +494,59 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($host, $value, $ctx->checkContext);
+            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
         }
 
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
+        /* B compiles off the same factory as A: it is the same connection and the
+           same grammar, and the `from` that distinguishes B's subquery is not
+           something a factory exposes anyway. */
+        $bInput = CompilationInput::descending(
+            $ctx->queries,
+            $ctx->user,
+            new AbilityUnit($node->ability, $bRuleSet),
+            $bContext,
+            $ctx->visited,
+        );
+
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($host, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext),
+                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $host->newQuery()
+            $bSubquery = $ctx->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
             /* A's model never crosses the boundary — A's row is not B's row — but
                the *selector* may itself have been B's row, in which case B compiles
                against it and B's row conditions can answer in PHP. */
-            $bWhereClause = $bCompiler->abilityWhereClauseNode(
-                $ctx->user,
-                $bSubquery,
-                $node->ability,
-                $bRuleSet,
-                $bModel->getQualifiedKeyName(),
-                $bTargetModel,
-                $bContext,
-                $ctx->visited,
-            )->buildWhereClause($bSubquery);
+            $bResult = $bCompiler->compile($bInput->forTargetRow($bTargetModel));
+            $bDecision = $bResult->decision();
 
             /* A folded B, with B's row already known to be there, leaves the
                subquery nothing to ask: the exists only ever meant "does that row
                exist, and does B grant it?", and a hydrated model settled the first
                half before we started. Without a model the constant still has to go
                to SQL, because existence is exactly what has not been established. */
-            if ($bTargetModel !== null && is_bool($bWhereClause)) {
-                return (new CompiledWhereClauseNode)->addAnd($bWhereClause, negated: $ctx->negate);
+            if ($bTargetModel !== null && $bDecision !== null) {
+                return (new CompiledWhereClauseNode)->addAnd($bDecision, negated: $ctx->negate);
             }
 
-            $bSubquery->addNestedWhereQuery($bCompiler->materializeWhereClause($bSubquery, $bWhereClause));
+            $bResult->spliceInto($bSubquery);
 
             // The exists goes on a leaf of its own, already carrying its negation,
             // so it is a one-clause leaf the tree lifts back out without adding a
             // group — `exists (…)` / `not exists (…)`, as before.
-            $existsLeaf = $host->newQuery();
+            $existsLeaf = $ctx->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -586,16 +556,7 @@ final class RuleSetCompiler
         // a correlation-free boolean tree spliced inline (negation-aware), so a B
         // that decides outright folds into A instead of stopping at a `1 = 0`.
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->abilityWhereClauseNode(
-                $ctx->user,
-                $host,
-                $node->ability,
-                $bRuleSet,
-                null,
-                null,
-                $bContext,
-                $ctx->visited,
-            ),
+            $bCompiler->compile($bInput)->node(),
             negated: $ctx->negate,
         );
     }
@@ -610,7 +571,7 @@ final class RuleSetCompiler
      * inline. The predicate's condition leaves are compiled with B's own resolver,
      * and B sees only the explicit `with` map as its context — never A's ambient bag.
      */
-    private function crossSchemaCheckLeaf(CrossSchemaConditionNode $node, CompilationContext $ctx, Builder $host): CompiledWhereClauseNode
+    private function crossSchemaCheckLeaf(CrossSchemaConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
         if ($this->manager === null) {
             throw new InvalidArgumentException(sprintf(
@@ -628,49 +589,51 @@ final class RuleSetCompiler
         // context, with no ambient inheritance of A's bag.
         $bContext = [];
         foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($host, $value, $ctx->checkContext);
+            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
         }
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
-        // B's SQL. conditionWhereClauseNode() walks an expression subtree in isolation.
+        // B's SQL. A ConditionUnit walks an expression subtree in isolation.
         $bCompiler = new self($bSchema, $this->manager);
+
+        $bInput = CompilationInput::descending(
+            $ctx->queries,
+            $ctx->user,
+            new ConditionUnit($node->predicate),
+            $bContext,
+            $ctx->visited,
+        );
 
         if ($node->isRowBound) {
             /** @var Model $bModel */
             $bModel = new ($bClass::model);
-            $this->assertSameConnection($host, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($host, $node->boundRow, $ctx->checkContext),
+                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            $bSubquery = $host->newQuery()
+            $bSubquery = $ctx->queries->newQuery()
                 ->from($bModel->getTable())
                 ->where($bModel->getQualifiedKeyName(), '=', $rowId);
 
             // As in a row-bound can(...): A's model never crosses into B, but the
             // selector may have been B's own row.
-            $bWhereClause = $bCompiler->conditionWhereClauseNode(
-                $ctx->user,
-                $bSubquery,
-                $node->predicate,
-                $bModel->getQualifiedKeyName(),
-                $bTargetModel,
-                $bContext,
-            )->buildWhereClause($bSubquery);
+            $bResult = $bCompiler->compile($bInput->forTargetRow($bTargetModel));
+            $bDecision = $bResult->decision();
 
             // See the row-bound can(...) branch for why a model is required here.
-            if ($bTargetModel !== null && is_bool($bWhereClause)) {
-                return (new CompiledWhereClauseNode)->addAnd($bWhereClause, negated: $ctx->negate);
+            if ($bTargetModel !== null && $bDecision !== null) {
+                return (new CompiledWhereClauseNode)->addAnd($bDecision, negated: $ctx->negate);
             }
 
-            $bSubquery->addNestedWhereQuery($bCompiler->materializeWhereClause($bSubquery, $bWhereClause));
+            $bResult->spliceInto($bSubquery);
 
             // As in a row-bound can(...): the exists is its own one-clause leaf,
             // already negated, so the tree lifts it back out without a group.
-            $existsLeaf = $host->newQuery();
+            $existsLeaf = $ctx->queries->newQuery();
             $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
 
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
@@ -680,7 +643,7 @@ final class RuleSetCompiler
         // already forbids them here); the result is a correlation-free boolean
         // tree spliced inline (negation-aware).
         return (new CompiledWhereClauseNode)->addAnd(
-            $bCompiler->conditionWhereClauseNode($ctx->user, $host, $node->predicate, null, null, $bContext),
+            $bCompiler->compile($bInput)->node(),
             negated: $ctx->negate,
         );
     }
@@ -691,9 +654,9 @@ final class RuleSetCompiler
      * the emitted SQL would silently reference a table that isn't there, so reject
      * it with a clear message instead.
      */
-    private function assertSameConnection(Builder $host, Model $bModel, string $bSchemaKey): void
+    private function assertSameConnection(QueryFactory $queries, Model $bModel, string $bSchemaKey): void
     {
-        $parentConnection = $host->getConnection()->getName();
+        $parentConnection = $queries->connectionName();
         $bConnection = $bModel->getConnection()->getName();
 
         if ($parentConnection !== $bConnection) {
@@ -717,14 +680,14 @@ final class RuleSetCompiler
      *
      * @param array<string, mixed> $checkContext
      */
-    private function resolveArgValue(Builder $query, mixed $value, array $checkContext): mixed
+    private function resolveArgValue(QueryFactory $queries, mixed $value, array $checkContext): mixed
     {
         if ($value instanceof ContextRef) {
             return $checkContext[$value->key] ?? null;
         }
 
         if ($value instanceof ColumnRef) {
-            return $this->resolveColumnRef($query, $value);
+            return $this->resolveColumnRef($queries, $value);
         }
 
         if ($value instanceof SqlRef) {
@@ -749,7 +712,7 @@ final class RuleSetCompiler
      * a `check(...)`/`can(...)` correlated subquery); an unrelated table yields a
      * SQL error at execution.
      */
-    private function resolveColumnRef(Builder $query, ColumnRef $ref): Expression
+    private function resolveColumnRef(QueryFactory $queries, ColumnRef $ref): Expression
     {
         if ($this->manager === null) {
             throw new InvalidArgumentException(sprintf(
@@ -779,10 +742,10 @@ final class RuleSetCompiler
         /** @var Model $model */
         $model = new ($schemaClass::model);
 
-        return new Expression($query->getGrammar()->wrap($model->getTable() . '.' . $ref->column));
+        return $queries->wrap($model->getTable() . '.' . $ref->column);
     }
 
-    private function conditionLeaf(ConditionNode $node, CompilationContext $ctx, Builder $host): CompiledWhereClauseNode
+    private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
         // A row condition cannot be evaluated without a row; force it false
         // (so `not <row-condition>` becomes true) in a no-target compile.
@@ -800,10 +763,10 @@ final class RuleSetCompiler
         // for the referenced schema's real table column.
         $parameters = [];
         foreach ($node->parameters as $parameter) {
-            $parameters[] = $this->resolveArgValue($host, $parameter, $ctx->checkContext);
+            $parameters[] = $this->resolveArgValue($ctx->queries, $parameter, $ctx->checkContext);
         }
 
-        $conditionQuery = $host->newQuery();
+        $conditionQuery = $ctx->queries->newQuery();
 
         $result = $this->conditions->applyCondition(
             $node->conditionKey,

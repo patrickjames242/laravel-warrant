@@ -7,6 +7,8 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Compiling\CompilationInput;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\Rules\WarrantRule;
 use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantUngrantedContext;
@@ -77,7 +79,12 @@ trait DiagnosesDenials
             /** @var Model $model */
             $model = new ($this->schema::model);
             $targetId = $target instanceof Model ? $target->getKey() : $target;
-            $targetSqlId = $model->getQualifiedKeyName();
+            $targeted = true;
+
+            /* A closure, not a QueryFactory: each iteration below needs a fresh
+               *seeded* query — one carrying the table and the key filter — to run
+               its own `exists()` against. The factory the compiler wants is the
+               separate, blank one derived from it. */
             $baseQuery = fn (): Builder => $model->newQueryWithoutScopes()->whereKey($targetId)->getQuery();
 
             // Nothing to blame if the row does not exist even without scopes.
@@ -105,29 +112,29 @@ trait DiagnosesDenials
             $connection = $this->schema::model !== ''
                 ? (new ($this->schema::model))->getConnection()
                 : app('db')->connection();
-            $targetSqlId = null;
+            $targeted = false;
             $baseQuery = fn (): Builder => $connection->query();
             $targetModel = null;
             $conditionModel = null;
         }
 
+        /* The compiler's blank-query source, derived once from a seeded query —
+           only its connection and grammar are read, never its table or wheres. */
+        $queries = QueryFactory::for($baseQuery());
+
+        $forTarget = fn (CompilationInput $input): CompilationInput => $targeted
+            ? $input->forTargetRow($conditionModel)
+            : $input->withoutTarget();
+
         // Which requested abilities individually fail on this row?
         $failedAbilities = [];
         foreach ($abilities as $ability) {
-            $query = $baseQuery();
-            $predicate = $this->buildAbilityConditionQuery(
-                query: $query,
-                targetSqlId: $targetSqlId,
-                ability: $ability,
-                ruleSet: $ruleSet,
-                context: $context,
-                targetModel: $conditionModel,
-            );
+            $result = $compiler->compile($forTarget(
+                CompilationInput::ability($queries, $this->user, $ability, $ruleSet)->withContext($context),
+            ));
 
-            $granted = $query
-                ->selectRaw('1')
-                ->where(fn (Builder $where) => $where->addNestedWhereQuery($predicate))
-                ->exists();
+            $granted = $result->decision()
+                ?? $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
 
             if (! $granted) {
                 $failedAbilities[] = $ability;
@@ -152,20 +159,12 @@ trait DiagnosesDenials
                     continue;
                 }
 
-                $query = $baseQuery();
-                $predicate = $compiler->matchesCondition(
-                    $this->user,
-                    $query,
-                    $rule->conditions,
-                    $targetSqlId,
-                    $conditionModel,
-                    $context,
-                );
+                $result = $compiler->compile($forTarget(
+                    CompilationInput::condition($queries, $this->user, $rule->conditions)->withContext($context),
+                ));
 
-                $fired = $query
-                    ->selectRaw('1')
-                    ->where(fn (Builder $where) => $where->addNestedWhereQuery($predicate))
-                    ->exists();
+                $fired = $result->decision()
+                    ?? $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
 
                 if (! $fired) {
                     continue;

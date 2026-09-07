@@ -158,7 +158,6 @@ hold a raw query builder. These **do** take an `AbilityMatchMode`.
 ```php
 public function filterQuery(
     Builder $query,
-    string $targetSqlId,
     string|array $abilities,
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     array $context = [],
@@ -166,7 +165,6 @@ public function filterQuery(
 
 public function selectAbilitiesInQuery(
     Builder $query,
-    string $targetSqlId,
     string $selectedAbilitiesKey = 'abilities',
     ?array $onlyAbilities = null,
     array $context = [],
@@ -189,21 +187,31 @@ default. For the common case, prefer `Warrant::abilities(Document::class)` /
 where clause. That clause is often not a clause at all — an unconditional
 `cannot`, an ability no rule grants, an unconditional `can`, or (with no target)
 anything gated on a row condition all settle the gate without reference to a
-row. `compileGateWhereClause()` hands you that result:
+row. `compileGate()` hands you that result:
 
 ```php
-public function compileGateWhereClause(
+public function compileGate(
     Builder $query,                 // the host the clause is built off
-    ?string $targetSqlId,           // null for a no-target compile
     string|array $abilities,
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     array $context = [],
-): bool|Builder;                    // a literal decision, or the where clause
+    ?Model $targetModel = null,     // the loaded row, when there is exactly one
+): CompilationResult;
 ```
 
-A `bool` means the rules decided the gate outright. A `Builder` carries the
-where clause; hand either back to `spliceWhereClauseIntoQuery($query, $clause)`
-when you do need it as SQL, and nothing is compiled twice.
+`CompilationResult` offers the compile in whichever form you need:
+
+```php
+$gate = $guard->compileGate($query, 'view');
+
+$gate->decision();          // true/false when the rules settled it, else null
+$gate->toQuery();           // the predicate as SQL (a constant becomes 1 = 1 / 1 = 0)
+$gate->spliceInto($query);  // attach it to a host query, returning the host
+```
+
+Read `decision()` first and you can skip the query entirely; call
+`spliceInto()` on the same result when you do need the SQL, and nothing is
+compiled twice.
 
 `filterQuery()` always needs SQL, so it spells a constant out as `1 = 1` /
 `1 = 0` — a row filter has to say something. The boolean checks do not: `can()`,

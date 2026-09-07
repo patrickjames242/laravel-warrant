@@ -112,7 +112,6 @@ function assertXcFilterSql(
 
     $sql = Warrant::guard(makeWarrantTestUser($roleId))->forSchema((new XcDocSchema))->filterQuery(
         warrantTestQuery('xc_docs'),
-        'xc_docs.id',
         $abilities,
         $matchMode,
         $context,
@@ -401,7 +400,6 @@ it('throws while compiling when two schemas reference each other in a cycle', fu
     // so the cycle is detected at compile time, before any SQL executes.
     expect(fn () => Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new XcDocSchema))->filterQuery(
         warrantTestQuery('xc_docs'),
-        'xc_docs.id',
         'view',
         AbilityMatchMode::ALL,
         ['folder_id' => 'f-owned', 'doc_id' => 'doc-1'],

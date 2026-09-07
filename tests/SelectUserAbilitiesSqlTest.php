@@ -53,7 +53,6 @@ function assertWarrantAbilitiesSql(
 ): void {
     $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->selectAbilitiesInQuery(
         warrantTestQuery(),
-        'course_sections.id',
         $selectedAbilitiesKey,
         $onlyAbilities,
     )->toRawSql();

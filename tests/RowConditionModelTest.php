@@ -224,7 +224,7 @@ it('compiles to SQL when filtering a query', function () {
     bindWarrantRules('if is_owner they can view', schemaKey: 'model_sections');
 
     $ids = rowModelGuard()
-        ->filterQuery(DB::table('model_sections'), 'model_sections.id', 'view')
+        ->filterQuery(DB::table('model_sections'), 'view')
         ->orderBy('id')
         ->pluck('id')
         ->all();

@@ -35,7 +35,7 @@ function seedCourseSections(): void
  */
 function filteredSectionIds(string|array $abilities, AbilityMatchMode $matchMode = AbilityMatchMode::ALL): array
 {
-    return Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', $abilities, $matchMode)
+    return Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), $abilities, $matchMode)
         ->orderBy('id')
         ->pluck('id')
         ->all();
@@ -110,28 +110,28 @@ it('keeps an unconditional grant winning in ANY match mode', function () {
 });
 
 it('leaves the query unchanged when abilities are empty', function () {
-    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', [])
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), [])
         ->toSql();
 
     expect($sql)->toBe('select * from "course_sections"');
 });
 
 it('throws when an ability is not defined on the schema', function () {
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'destroy'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'destroy'))
         ->toThrow(InvalidArgumentException::class, 'Ability [destroy] is not defined on schema');
 });
 
 it('throws when the rule set names an undeclared ability', function () {
     bindWarrantRules('they can teleport', schemaKey: 'course_sections');
 
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'view'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view'))
         ->toThrow(InvalidArgumentException::class, 'Ability [teleport] is not declared by the schema');
 });
 
 it('throws when the rule set names an undeclared condition', function () {
     bindWarrantRules('if is_wizard they can view');
 
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'course_sections.id', 'view'))
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
 });
 
@@ -294,7 +294,7 @@ it('computes per-row abilities as a json column', function () {
     seedCourseSections();
     bindWarrantRules('they can publish if is_teacher they can view');
 
-    $rows = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->selectAbilitiesInQuery(warrantTestQuery(), 'course_sections.id')
+    $rows = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->selectAbilitiesInQuery(warrantTestQuery())
         ->orderBy('id')
         ->get();
 
