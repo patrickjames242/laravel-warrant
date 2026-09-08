@@ -30,12 +30,19 @@ use Warrant\Rules\WarrantRuleSet;
  * exist; the referenced schema's *rules* are never consulted here (they are
  * per-user and resolver-owned), so cycle detection is deliberately left to the
  * compiler, not this validator.
+ *
+ * One check is not about names but about *scope*: a `@column` reference may only
+ * name a table the rule can actually see from where it is written. That set grows
+ * as the walk descends into a `check(...)` predicate, mirroring the
+ * {@see \Warrant\DSL\Compiling\AliasScope} the compiler builds, so a reference
+ * to an unrelated table is an error here rather than a SQL error at execution.
  */
 final class RuleSetValidator
 {
     /**
-     * @param string $schemaKey The owning schema's key, used to reject a
-     *   `can(...)` that references its own schema (cross-schema references only).
+     * @param string $schemaKey The owning schema's key: the name its own rows go by
+     *   in a `@column` reference, and the name a `can(...)` may not target (see
+     *   {@see assertCrossSchemaCanValid}).
      */
     public function __construct(
         private readonly SchemaVocabulary $schema,
@@ -61,7 +68,7 @@ final class RuleSetValidator
             $this->assertNoDuplicateCannotAbility($rule);
 
             if ($rule->conditions !== null) {
-                $this->validateConditionNames($rule->conditions);
+                $this->validateConditionNames($rule->conditions, $this->rootInScopeNames());
             }
         }
     }
@@ -90,16 +97,39 @@ final class RuleSetValidator
         }
     }
 
-    private function validateConditionNames(IBooleanExpressionNode $node): void
+    /**
+     * The names a `@column` may use at the top of these rules: the owning schema's
+     * own key, standing for the row being checked.
+     *
+     * A capability schema is the exception — it has no model and so no table, so
+     * its own key names nothing and a `@column` in its rules has nothing in scope
+     * at all. The vocabulary contract does not expose a model, so this asks the
+     * richer {@see ConditionResolver} when it has one and otherwise assumes rows.
+     *
+     * @return list<string>
+     */
+    private function rootInScopeNames(): array
+    {
+        $modelless = $this->schema instanceof ConditionResolver
+            && $this->schema::modelClass() === '';
+
+        return $modelless ? [] : [$this->schemaKey];
+    }
+
+    /**
+     * @param list<string> $inScopeNames The tables in scope where $node is written; see
+     *   {@see assertColumnRefsInScope}.
+     */
+    private function validateConditionNames(IBooleanExpressionNode $node, array $inScopeNames): void
     {
         match (true) {
-            $node instanceof ConditionNode => $this->assertConditionExists($node),
-            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node),
-            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node),
-            $node instanceof NotNode => $this->validateConditionNames($node->operand),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node): void {
-                $this->validateConditionNames($node->leftSide);
-                $this->validateConditionNames($node->rightSide);
+            $node instanceof ConditionNode => $this->assertConditionExists($node, $inScopeNames),
+            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $inScopeNames),
+            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $inScopeNames),
+            $node instanceof NotNode => $this->validateConditionNames($node->operand, $inScopeNames),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $inScopeNames): void {
+                $this->validateConditionNames($node->leftSide, $inScopeNames);
+                $this->validateConditionNames($node->rightSide, $inScopeNames);
             })(),
             default => null,
         };
@@ -111,7 +141,7 @@ final class RuleSetValidator
      * registered, the ability must be declared by it, and a row-bound reference
      * requires a model-backed target (a capability schema has no row to target).
      */
-    private function assertCrossSchemaCanValid(CrossSchemaCanNode $node): void
+    private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void
     {
         if ($node->schemaKey === $this->schemaKey) {
             throw new InvalidArgumentException(sprintf(
@@ -157,7 +187,10 @@ final class RuleSetValidator
             ));
         }
 
-        $this->assertColumnRefsResolve([$node->boundRow, ...array_values($node->contextMap)]);
+        /* The handle's own arguments are written in the enclosing rule, so they see
+           the enclosing scope. The target's *rules* are not validated here at all —
+           they are validated against their own schema, with their own scope. */
+        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $inScopeNames);
     }
 
     /**
@@ -168,7 +201,7 @@ final class RuleSetValidator
      * a condition declared by the *target* schema; on an unbound handle no leaf may
      * be a row condition (it would have no row to run against).
      */
-    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node): void
+    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, array $inScopeNames): void
     {
         if ($node->schemaKey === $this->schemaKey) {
             throw new InvalidArgumentException(sprintf(
@@ -205,9 +238,18 @@ final class RuleSetValidator
             ));
         }
 
-        $this->assertColumnRefsResolve([$node->boundRow, ...array_values($node->contextMap)]);
+        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $inScopeNames);
 
-        $this->assertCheckPredicateValid($node->predicate, $node, new $targetClass);
+        /* Unlike a can(...), the predicate is written right here, in the enclosing
+           rule — so it keeps the enclosing scope and gains the target's frame on
+           top, exactly as the compiler's AliasScope does. A target with no model
+           has no table to add. */
+        $this->assertCheckPredicateValid(
+            $node->predicate,
+            $node,
+            new $targetClass,
+            $targetClass::model === '' ? $inScopeNames : [...$inScopeNames, $node->schemaKey],
+        );
     }
 
     /**
@@ -220,13 +262,14 @@ final class RuleSetValidator
         IBooleanExpressionNode $node,
         CrossSchemaConditionNode $reference,
         ConditionResolver $target,
+        array $inScopeNames,
     ): void {
         match (true) {
-            $node instanceof ConditionNode => $this->assertCheckLeafValid($node, $reference, $target),
-            $node instanceof NotNode => $this->assertCheckPredicateValid($node->operand, $reference, $target),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $reference, $target): void {
-                $this->assertCheckPredicateValid($node->leftSide, $reference, $target);
-                $this->assertCheckPredicateValid($node->rightSide, $reference, $target);
+            $node instanceof ConditionNode => $this->assertCheckLeafValid($node, $reference, $target, $inScopeNames),
+            $node instanceof NotNode => $this->assertCheckPredicateValid($node->operand, $reference, $target, $inScopeNames),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $reference, $target, $inScopeNames): void {
+                $this->assertCheckPredicateValid($node->leftSide, $reference, $target, $inScopeNames);
+                $this->assertCheckPredicateValid($node->rightSide, $reference, $target, $inScopeNames);
             })(),
             default => throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may only reference that schema\'s conditions; it may not contain can(...) or a nested check(...).',
@@ -243,6 +286,7 @@ final class RuleSetValidator
         ConditionNode $node,
         CrossSchemaConditionNode $reference,
         ConditionResolver $target,
+        array $inScopeNames,
     ): void {
         $definition = $target->getConditionDefinition($node->conditionKey);
 
@@ -264,10 +308,10 @@ final class RuleSetValidator
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
-        $this->assertColumnRefsResolve($node->parameters);
+        $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
     }
 
-    private function assertConditionExists(ConditionNode $node): void
+    private function assertConditionExists(ConditionNode $node, array $inScopeNames): void
     {
         $definition = $this->schema->getConditionDefinition($node->conditionKey);
 
@@ -278,7 +322,7 @@ final class RuleSetValidator
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
-        $this->assertColumnRefsResolve($node->parameters);
+        $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
 
         /* Context keys need no declaration: a rule may reference any `@context`
            key. An absent key simply makes its condition false at compile time
@@ -308,40 +352,41 @@ final class RuleSetValidator
     }
 
     /**
-     * Eagerly validate every `@column <schema>.<column>` reference among a set of
-     * argument values: its schema key must be registered and model-backed (so it
-     * has a real table). This mirrors the compiler's resolution
-     * ({@see RuleSetCompiler::resolveColumnRef}) so a bad reference fails loudly at
-     * validation time, before compilation. Non-{@see ColumnRef} values are ignored.
-     * The column name itself is not checked — there is no column introspection —
-     * and a reference to the owning schema is allowed (unlike can(...)/check(...),
-     * referencing your own table's column is the primary use case).
+     * Eagerly validate every `@column <name>.<column>` reference among a set of
+     * argument values: the name must be one of the tables in scope where the
+     * reference is written — the owning schema's own key, or a frame a surrounding
+     * `check(...)` put in scope.
      *
-     * @param array<int, mixed> $values
+     * This mirrors what {@see \Warrant\DSL\Compiling\AliasScope} resolves at
+     * compile time, message and all, so a reference that cannot work fails here
+     * rather than emitting SQL about a table the query never joined. Referencing
+     * your own rows is the ordinary case and always allowed (unlike
+     * `can(...)`/`check(...)`, whose whole point is to leave the schema). The column
+     * name itself is not checked — there is no column introspection.
+     * Non-{@see ColumnRef} values are ignored.
+     *
+     * @param array<int, mixed> $arguments
+     * @param list<string> $inScopeNames The tables in scope, in the order they came
+     *   into scope.
      */
-    private function assertColumnRefsResolve(array $values): void
+    private function assertColumnRefsInScope(array $arguments, array $inScopeNames): void
     {
-        foreach ($values as $value) {
-            if (! $value instanceof ColumnRef) {
+        foreach ($arguments as $argument) {
+            if (! $argument instanceof ColumnRef) {
                 continue;
             }
 
-            try {
-                $targetClass = Warrant::registry()->resolveSchemaClassOrFail($value->schemaKey);
-            } catch (OutOfBoundsException $e) {
-                throw new InvalidArgumentException(
-                    sprintf('A @column reference targets unknown schema [%s].', $value->schemaKey),
-                    previous: $e,
-                );
+            if (in_array($argument->schemaKey, $inScopeNames, true)) {
+                continue;
             }
 
-            if ($targetClass::model === '') {
-                throw new InvalidArgumentException(sprintf(
-                    'A @column reference targets schema [%s], which has no model and therefore no table; '
-                        .'@column can only reference a model-backed schema.',
-                    $value->schemaKey,
-                ));
-            }
+            throw new InvalidArgumentException(sprintf(
+                'A @column reference names [%s], which is not in scope here; %s',
+                $argument->schemaKey,
+                $inScopeNames === []
+                    ? 'no table is in scope at this point.'
+                    : sprintf('the names in scope are [%s].', implode(', ', $inScopeNames)),
+            ));
         }
     }
 }

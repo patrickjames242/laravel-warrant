@@ -161,19 +161,23 @@ it('filters rows through a @column-correlated check subquery', function () {
 
 // -- validation (both layers) --------------------------------------------------
 
-it('rejects a @column reference to an unknown schema at validation time', function () {
+it('rejects a @column reference naming a table that is not in scope', function (string $name) {
+    /* An unknown schema, a registered schema whose table this query never joined,
+       and a capability schema with no table at all are one error now: from these
+       rules, none of those names refers to anything. The message names what *is*
+       in scope, which is the useful half. */
     expect(fn () => WarrantRuleSet::fromSyntax(
-        'if pay_period_matches(@column no_such.col) they can view',
+        "if pay_period_matches(@column {$name}.col) they can view",
         'timesheets',
-    )->validate())->toThrow(InvalidArgumentException::class, 'unknown schema [no_such]');
-});
-
-it('rejects a @column reference to a modelless schema at validation time', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax(
-        'if pay_period_matches(@column col_cap.col) they can view',
-        'timesheets',
-    )->validate())->toThrow(InvalidArgumentException::class, 'has no model');
-});
+    )->validate())->toThrow(
+        InvalidArgumentException::class,
+        "A @column reference names [{$name}], which is not in scope here; the names in scope are [timesheets].",
+    );
+})->with([
+    'unknown schema' => 'no_such',
+    'another schema, not joined here' => 'col_docs',
+    'capability schema, no table' => 'col_cap',
+]);
 
 it('allows a @column reference to the owning schema (self-reference)', function () {
     // Unlike can(...)/check(...), referencing your own table's column is the point.
@@ -181,6 +185,27 @@ it('allows a @column reference to the owning schema (self-reference)', function 
         'if pay_period_matches(@column timesheets.pay_period_id) they can view',
         'timesheets',
     )->validate())->not->toThrow(Exception::class);
+});
+
+it('puts the target of a check(...) in scope for its own predicate, alongside the caller', function () {
+    /* The predicate is written in col_docs' rule text but asks col_targets'
+       questions, so both frames are nameable there — that is what lets one
+       predicate correlate the two. */
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if check(id_matches(@column col_targets.id) and id_matches(@column col_docs.target_id) '
+            .'for col_targets(@column col_docs.target_id)) they can view',
+        'col_docs',
+    )->validate())->not->toThrow(Exception::class);
+});
+
+it('rejects a @column in a check(...) predicate naming neither frame', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if check(id_matches(@column timesheets.id) for col_targets(@column col_docs.target_id)) they can view',
+        'col_docs',
+    )->validate())->toThrow(
+        InvalidArgumentException::class,
+        'the names in scope are [col_docs, col_targets].',
+    );
 });
 
 // -- fixtures -----------------------------------------------------------------
@@ -264,6 +289,14 @@ class ColTargetSchema extends WarrantSchema
     public function isOpen(RowConditionContext $c): BuilderContract
     {
         return $c->query->where($c->row('state'), '=', 'open');
+    }
+
+    /* Takes one operand, so a check(...) predicate can correlate this frame to
+       another one with a @column — `where(<expr>, '=', <expr>)`. */
+    #[RowCondition]
+    public function idMatches(RowConditionContext $c, mixed $column): BuilderContract
+    {
+        return $c->query->where($c->row(), '=', $column);
     }
 }
 
