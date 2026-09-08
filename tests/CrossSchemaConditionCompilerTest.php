@@ -2,6 +2,7 @@
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Ref;
@@ -119,6 +120,26 @@ it('embeds a row-bound predicate as an exists over the referenced table', functi
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
                         and (chk_targets.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('aliases the subquery from and leaves the enclosing frame nameable in the predicate', function () {
+    /* `as t2` renames the rows the exists selects: the correlated key and the
+       target's own row conditions follow it. And because a check(...) predicate is
+       written here, in chk_docs' own rule, `@column chk_docs.id` still means the
+       outer row — which is what lets one predicate span both frames. */
+    assertChkFilterSql(
+        'if check(owner_matches(@column chk_docs.id) and is_owner for chk_targets(@context tid) as t2) they can view',
+        ['tid' => 'f-owned'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets" as "t2"
+                    where "t2"."id" = 'f-owned'
+                        and ("chk_docs"."id" = t2.owner and t2.owner = 'role-1')
                 )
             )
         SQL,
@@ -348,6 +369,15 @@ class ChkTargetSchema extends WarrantSchema
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
         return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+    }
+
+    /* Compares this frame's row to a column of another — how a predicate written
+       over two frames correlates them, and the case an alias exists for. Both
+       operands are expressions, so nothing is bound. */
+    #[RowCondition]
+    public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
+    {
+        return $c->query->where($column, '=', DB::raw($c->row('owner')));
     }
 }
 

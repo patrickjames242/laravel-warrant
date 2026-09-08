@@ -508,8 +508,10 @@ final class RuleSetCompiler
             aliases: $this->aliases($ctx)->enteringRuleSet(
                 $node->schemaKey,
                 /* Only a row-bound hop has a `from` of its own; unbound, B's rows
-                   are talked about but never selected. */
-                $node->isRowBound ? $this->rowQualifierFor($bClass::model) : null,
+                   are talked about but never selected. B's rules name their own
+                   key, so that is what the alias binds *to* — B's author cannot
+                   know what this caller chose to call it. */
+                $node->isRowBound ? $this->hopQualifier($node->alias, $bClass::model) : null,
             ),
         );
 
@@ -533,8 +535,12 @@ final class RuleSetCompiler
             );
 
             $bSubquery = $ctx->queries->newQuery()
-                ->from($bModel->getTable())
-                ->where($bModel->getQualifiedKeyName(), '=', $rowId);
+                ->from($this->hopFrom($node->alias, $bModel->getTable()))
+                ->where(
+                    $this->hopQualifier($node->alias, $bClass::model) . '.' . $bModel->getKeyName(),
+                    '=',
+                    $rowId,
+                );
 
             /* A's model never crosses the boundary — A's row is not B's row — but
                the *selector* may itself have been B's row, in which case B compiles
@@ -625,9 +631,9 @@ final class RuleSetCompiler
             callStack: $ctx->callStack->enter(Call::check($bClass)),
             aliases: $this->aliases($ctx)->enteringPredicate(
                 $node->schemaKey,
-                null,
+                $node->alias,
                 // As in a can(...): no row selector, no `from`, no qualifier.
-                $node->isRowBound ? $this->rowQualifierFor($bClass::model) : null,
+                $node->isRowBound ? $this->hopQualifier($node->alias, $bClass::model) : null,
             ),
         );
 
@@ -651,8 +657,12 @@ final class RuleSetCompiler
             );
 
             $bSubquery = $ctx->queries->newQuery()
-                ->from($bModel->getTable())
-                ->where($bModel->getQualifiedKeyName(), '=', $rowId);
+                ->from($this->hopFrom($node->alias, $bModel->getTable()))
+                ->where(
+                    $this->hopQualifier($node->alias, $bClass::model) . '.' . $bModel->getKeyName(),
+                    '=',
+                    $rowId,
+                );
 
             // As in a row-bound can(...): A's model never crosses into B, but the
             // selector may have been B's own row.
@@ -681,6 +691,29 @@ final class RuleSetCompiler
             $bCompiler->compile($bCtx)->node(),
             negated: $ctx->negate,
         );
+    }
+
+    /**
+     * A hop's `from`: the target's table, aliased when the reference named one.
+     *
+     * Unaliased it is the bare table, which is what a hop has always emitted —
+     * including when the same table is already in scope further out, where SQL's
+     * own shadowing then makes the inner one win. Naming it is how an author opts
+     * out of that and keeps both reachable.
+     */
+    private function hopFrom(?string $alias, string $table): string
+    {
+        return $alias === null ? $table : $table . ' as ' . $alias;
+    }
+
+    /**
+     * What columns of a hop's rows are qualified with: its alias, or the target's
+     * table when it has none. The counterpart of {@see hopFrom} — the two must
+     * agree, or the predicate would name a table the subquery never selected.
+     */
+    private function hopQualifier(?string $alias, string $modelClass): ?string
+    {
+        return $alias ?? $this->rowQualifierFor($modelClass);
     }
 
     /**

@@ -250,6 +250,49 @@ it('splices a @column row selector as raw SQL, not a binding', function () {
     );
 });
 
+// -- handle aliases (as) ------------------------------------------------------
+
+it('aliases the subquery from, and qualifies every B predicate with that alias', function () {
+    /* `as f2` renames the rows the subquery selects, so everything about B has to
+       follow: its correlated key, and its own row conditions — which is the whole
+       point, since B's `is_owner` writes `$c->row('owner')` without knowing what
+       this caller called it. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@column xc_docs.id) as f2) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders" as "f2"
+                    where "f2"."id" = "xc_docs"."id"
+                        and (f2.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('leaves an unaliased hop emitting a bare from, shadowing as SQL does', function () {
+    // No `as`, so no alias in the SQL either — the emitted shape is unchanged.
+    assertXcFilterSql(
+        'if can(view for xc_folders(@column xc_docs.id)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = "xc_docs"."id"
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
 it('rejects a model belonging to a different schema', function () {
     // Its key would be compared against the wrong table — the same silent
     // non-match, just harder to spot.
