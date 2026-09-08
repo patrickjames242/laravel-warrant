@@ -89,7 +89,12 @@ use Warrant\WarrantManager;
  * (NULL) logic: a condition compiles to exactly the SQL it emits, so an unknown
  * (NULL) row contributes no access — it never grants and never lifts a deny (the
  * safe direction; the worst case is a legitimate user blocked, never unauthorized
- * access). Because a leaf must be a spliceable boolean, a condition may only add
+ * access). The compiler holds itself to the same rule for the questions *it*
+ * cannot answer — a row condition with no row, a `@column` about a table this
+ * frame never selected, a row selector that resolved to nothing — each of which
+ * compiles to the third truth value rather than to `false`, which would have
+ * negated into a grant. See {@see Decision} and
+ * {@see \Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode}. Because a leaf must be a spliceable boolean, a condition may only add
  * where clauses to its builder; one that emits a join/group/having/aggregate/union
  * is rejected (see {@see conditionLeaf}) — relational checks use
  * `whereExists()`/`whereNotExists()` with a correlated subquery.
@@ -480,7 +485,7 @@ final class RuleSetCompiler
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
-            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $bContext = array_combine(array_keys($node->contextMap), $bValues);
@@ -525,7 +530,7 @@ final class RuleSetCompiler
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
             if ($selector === null) {
-                return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+                return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
@@ -533,6 +538,18 @@ final class RuleSetCompiler
                 $node->schemaKey,
                 $bClass::model,
             );
+
+            /* A selector that resolved to nothing — an absent `@context`, or a
+               model with no key yet — does not name a row, so this reference is
+               unanswerable. It has to be caught *here*, before the subquery is
+               built, because `exists` is never unknown: it is a row-count
+               question, so it would report a definite `false` and `not exists`
+               would report a definite `true`, lifting a deny off a question we
+               could not answer. Validation rejects a *literal* null selector, but
+               a `@context` one is filled per check and so can only be caught now. */
+            if ($rowId === null) {
+                return (new CompiledWhereClauseNode)->addAnd(null);
+            }
 
             $bSubquery = $ctx->queries->newQuery()
                 ->from($this->hopFrom($node->alias, $bModel->getTable()))
@@ -609,7 +626,7 @@ final class RuleSetCompiler
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
-            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $bContext = array_combine(array_keys($node->contextMap), $bValues);
@@ -647,7 +664,7 @@ final class RuleSetCompiler
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
             if ($selector === null) {
-                return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+                return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
@@ -655,6 +672,18 @@ final class RuleSetCompiler
                 $node->schemaKey,
                 $bClass::model,
             );
+
+            /* A selector that resolved to nothing — an absent `@context`, or a
+               model with no key yet — does not name a row, so this reference is
+               unanswerable. It has to be caught *here*, before the subquery is
+               built, because `exists` is never unknown: it is a row-count
+               question, so it would report a definite `false` and `not exists`
+               would report a definite `true`, lifting a deny off a question we
+               could not answer. Validation rejects a *literal* null selector, but
+               a `@context` one is filled per check and so can only be caught now. */
+            if ($rowId === null) {
+                return (new CompiledWhereClauseNode)->addAnd(null);
+            }
 
             $bSubquery = $ctx->queries->newQuery()
                 ->from($this->hopFrom($node->alias, $bModel->getTable()))
@@ -817,10 +846,14 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        // A row condition cannot be evaluated without a row; force it false
-        // (so `not <row-condition>` becomes true) in a no-target compile.
+        /* A row condition cannot be evaluated without a row, so in a no-target
+           compile the honest answer is unknown rather than false: `false` would
+           negate to `true` under a `cannot`, turning a question we could not
+           answer into a grant. An unknown negates to itself, so it neither grants
+           nor lifts a deny. The negation flag is deliberately not passed on — it
+           would mean nothing to an unknown. */
         if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
-            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         // Resolve any symbolic argument placeholder. A @context ref is filled from
@@ -834,9 +867,10 @@ final class RuleSetCompiler
         $parameters = $this->resolveArgValues($node->parameters, $ctx);
 
         /* A @column about a row that is not in scope here leaves the condition
-           nothing to ask, the same way the row condition above has nothing to ask. */
+           nothing to ask, the same way the row condition above has nothing to ask
+           — and the same answer, for the same reason. */
         if ($parameters === null) {
-            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $conditionQuery = $ctx->queries->newQuery();

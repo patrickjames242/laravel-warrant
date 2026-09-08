@@ -254,11 +254,11 @@ it('resolves a global boolean condition', function () {
     expect(compileDocIds('if is_admin they can view', 'view', 'not-admin'))->toBe([]);
 });
 
-it('forces a row condition to false with no target, true under not', function () {
+it('leaves a row condition unanswered with no target, negated or not', function () {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $user = new CompilerTestUser('role-1');
 
-    // No target row in scope: is_teacher is forced false.
+    // No target row in scope, so is_teacher cannot be evaluated at all.
     $granted = WarrantRuleSet::fromSyntax('if is_teacher they can view', 'docs');
     $q = DB::table('docs');
     $compiler->compile(
@@ -266,13 +266,15 @@ it('forces a row condition to false with no target, true under not', function ()
     )->spliceInto($q);
     expect($q->count())->toBe(0);
 
-    // not is_teacher => true, so every row.
+    /* And `not is_teacher` selects nothing either. Negating an unanswered
+       question leaves it unanswered — where forcing it to `false` would have
+       made the negation `true` and let every row through. */
     $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
     $q2 = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
     )->spliceInto($q2);
-    expect($q2->count())->toBe(3);
+    expect($q2->count())->toBe(0);
 });
 
 // -- de morgan ----------------------------------------------------------------

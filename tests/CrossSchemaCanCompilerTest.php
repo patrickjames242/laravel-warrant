@@ -431,11 +431,48 @@ it('emits two independent exists clauses for sibling references to one schema', 
     );
 });
 
+// -- a selector that resolves to nothing ---------------------------------------
+
+it('folds a reference whose @context row selector is absent, rather than asking for a null row', function () {
+    /* Validation rejects a *literal* null selector, but a `@context` one is filled
+       per check, so an absent key can only be caught here. It has to be: `= null`
+       becomes `is null`, which is a definite comparison, so the exists would
+       report a definite answer about a row nobody named. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id)) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (null)
+        SQL,
+    );
+});
+
+it('does not let an absent row selector lift a cannot', function () {
+    /* The one that matters. `exists` is never unknown, so the old behaviour
+       emitted `not exists (… where "xc_folders"."id" is null …)` — true for every
+       row, so the deny silently stopped firing and everyone kept `view`. */
+    assertXcFilterSql(
+        'they can view if can(manage for xc_folders(@context folder_id)) they cannot view',
+        ['xc_folders' => 'if is_owner they can view, manage'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (null)
+        SQL,
+    );
+});
+
 // -- cycle detection -----------------------------------------------------------
 
 it('throws while compiling when two schemas reference each other in a cycle', function () {
+    /* The `with` map is load-bearing here, not decoration: B sees only what the
+       handle hands it, so without `doc_id` crossing the boundary B's own selector
+       resolves to nothing, the reference is unanswerable, and the recursion stops
+       before it can close the loop. */
     bindCrossSchemaRules([
-        'xc_docs' => 'if can(view for xc_folders(@context folder_id)) they can view',
+        'xc_docs' => 'if can(view for xc_folders(@context folder_id) with doc_id = @context doc_id) they can view',
         'xc_folders' => 'if can(view for xc_docs(@context doc_id)) they can view',
     ]);
 

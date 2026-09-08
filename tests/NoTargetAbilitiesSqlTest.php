@@ -30,8 +30,9 @@ beforeEach(function () {
 | Each branch is `select '<ability>' as "ability" where (<predicate>)`, the
 | predicate being the ability compiled with NO target id. That changes only the
 | condition leaves:
-|   - a *targeted* condition cannot be evaluated without a row, so it is forced
-|     false — or, under negation, true.
+|   - a *targeted* condition cannot be evaluated without a row, so it is
+|     unanswerable: the third truth value, which stays itself under negation
+|     rather than becoming true. Either way the ability is not held.
 |   - a *global* condition compiles to its inline where-clause.
 |
 | Which is why most of what this stage used to assert is now *absent*: a branch
@@ -121,10 +122,24 @@ it('forces a row condition false without a target, and asks nothing', function (
     assertNoTargetQueryless('view', []);
 });
 
-it('forces a negated row condition true without a target, and asks nothing', function () {
+it('leaves a negated row condition unanswered without a target, and asks nothing', function () {
+    /* `not is_teacher` cannot be answered without a row any more than
+       `is_teacher` can. The negation does not turn "we could not tell" into a
+       grant — that is the whole point of the third truth value — so the ability
+       is not held, and no branch is built for it either. */
     bindWarrantRules('if not is_teacher they can view');
 
-    assertNoTargetQueryless('view', ['view']);
+    assertNoTargetQueryless('view', []);
+});
+
+it('leaves an ability unanswered when only a row condition could deny it', function () {
+    /* The grant is unconditional, but the deny turns on a row nobody named. The
+       old behaviour reported `view` as held, because the unanswerable deny folded
+       to false and the `not` around it to true — a deny lifted by a question we
+       could not answer. */
+    bindWarrantRules("they can view\nif is_teacher they cannot view");
+
+    assertNoTargetQueryless('view', []);
 });
 
 it('asks nothing when no rule grants the ability', function () {
