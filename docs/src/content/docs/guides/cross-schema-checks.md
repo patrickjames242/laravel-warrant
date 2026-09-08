@@ -67,19 +67,30 @@ if check((is_open or is_grace_period) and not is_locked for pay_periods(@context
 they can submit
 ```
 
-A predicate may only contain B's conditions. A nested `can(...)` or `check(...)`
-inside one is rejected at validation:
+A predicate is read against **B's** vocabulary, and it is a full expression, not
+just a list of conditions. It may nest another `check(...)`, whose handle is read
+in B's frame, and it may hold a `can(...)`, which asks about one of B's abilities:
 
 ```text
-A check(...) predicate for schema [pay_periods] may only reference that schema's
-conditions; it may not contain can(...) or a nested check(...).
+if check(
+    is_open and check(is_active for tenants(@column tenant_id))
+    for pay_periods(@column pay_period_id)
+) they can submit
 ```
+
+That reads "this timesheet's pay period is open, and *that pay period's* tenant is
+active" — the inner `@column tenant_id` is resolved in the pay period's frame, not
+the timesheet's, which is what makes nesting worth having.
+
+What a predicate may not hold is a **constant**: one that decides itself asks B
+nothing.
 
 :::tip[Which one do I want?]
 Ask what the *other* schema is being asked. If the sentence is "…because the user
 is allowed to X over there", that's `can(...)`. If it's "…because that row is
-open / locked / archived", that's `check(...)` — and it's the cheaper of the two,
-since it never resolves or compiles B's rules.
+open / locked / archived", that's `check(...)` — which asks B's conditions
+directly and, unless its predicate holds a `can(...)`, never resolves or compiles
+B's rules at all.
 :::
 
 ## The handle: one row, or the schema itself
@@ -96,8 +107,9 @@ can(access for billing)                     # unbound: the schema as a whole
   row*, so B's row conditions have something to run against.
 - **Unbound** — the bare `schema` form asks B a question with no row at all,
   exactly like a [no-target check](/guides/checking-access/#no-target-checks). B's
-  row conditions are forced to `false` (`true` under negation), so this form is
-  for [capability schemas](/guides/schemas/) and global conditions.
+  row conditions have nothing to run against, so they are *unanswerable* — they
+  neither grant nor lift a deny — which makes this form one for
+  [capability schemas](/guides/schemas/) and global conditions.
 
 An unbound `check(...)` is stricter than an unbound `can(...)`: naming a row
 condition in the predicate is a validation error rather than a silent `false`,
@@ -140,6 +152,67 @@ supply a row id or a @context reference, or drop the row selector.
 
 That is deliberate. A `$folder?->id` that came back null should fail loudly rather
 than quietly widen a question about one row into a question about the schema.
+
+## Naming a handle's rows with `as`
+
+A handle's rows can be given a name:
+
+```text
+if can(view for documents(@column parent_id) as parent) they can view
+```
+
+Two things follow from it.
+
+In the emitted SQL that name becomes the subquery's alias — `from "documents" as
+"parent"` — which is worth having when the same table appears more than once in
+one query, since the correlation is then readable rather than a numbered guess.
+You never *have* to supply one: two frames over one table always get distinct
+identifiers, and an unnamed one takes the table's own name or, when that is
+already spoken for, the same name with a numeric suffix.
+
+On a `check(...)` it is also a name **the predicate can use**. Naming the inner
+frame leaves the target's schema key still meaning the enclosing one, which is the
+only way a predicate can compare two frames of the same table:
+
+```text
+if check(owner_matches(@column documents.owner_id) for documents(@column parent_id) as parent)
+they can view
+```
+
+An alias needs a row to name, so it is only valid on a row-bound handle.
+
+## `can(<ability>)` — no boundary at all
+
+Leave the `for` clause off and nothing is crossed. It asks about **another ability
+of this schema, over the row this rule is already about**:
+
+```text
+for documents {
+    if is_owner they can read
+    if can(read) they can comment
+    if can(comment) they can share
+}
+```
+
+Because there is no boundary, there is nothing to declare across one: the
+check-time context comes along unchanged, and the form takes no `with` map and no
+`as`. It also emits no subquery — the named ability's predicate is compiled
+straight into the frame the reference sits in, so the whole chain above collapses
+to a single `documents.owner_id = ?`.
+
+:::caution[`for` is what resets the context]
+These two are *not* the same rule:
+
+```text
+if can(read)                                  # keeps the context it was given
+if can(read for documents(@column id))        # a boundary: context starts empty
+```
+
+Both ask about the same ability on the same row, but the second crosses a
+boundary, and a boundary is exactly what the check-time context does not cross.
+Spell out the `for` only when you mean to name a different row or a different
+schema — and pass what B needs with `with`.
+:::
 
 ## The `with` map: context across the boundary
 
@@ -259,7 +332,7 @@ WarrantRule::build()
     ->andIfCheck(
         fn ($p) => $p->if('is_open')->andIfNot('is_locked'),
         'pay_periods',
-        Ref::column('timesheets', 'pay_period_id'),
+        Ref::column('pay_period_id'),
     )
     ->theyCan('submit')
     ->toRule();
@@ -286,26 +359,31 @@ The guard is **path-scoped**, so two sibling references to the same schema are
 fine — only re-entering a frame already on the path is a cycle. Nesting is also
 capped at a depth of 32.
 
-`check(...)` carries no cycle risk at all: it dispatches conditions and never
-touches rules, which is another reason to prefer it when the question is about
-domain state.
+A `check(...)` dispatch touches no rules of its own, so the dispatch itself
+cannot close a loop. A `can(...)` inside its predicate can, and is guarded by the
+same `(schema, ability)` frames — the check adds a layer to the depth budget
+either way.
 
 ## Restrictions, in one place
 
 Validation-time (`InvalidArgumentException`, when the rule set is validated or
 compiled against its schema):
 
-- A reference **may not target its own schema** — `can(...)` and `check(...)` are
-  for *other* schemas; use a plain condition for your own.
 - The target schema must be **registered**, and for `can(...)` it must **declare
-  the ability**.
+  the ability**. A reference **may** target its own schema.
 - A **row-bound handle needs a model-backed** target; a capability schema cannot
   be row-targeted.
-- A row selector that resolves to **`null`** is rejected.
-- A `check(...)` predicate may contain only the **target's conditions** — no
-  `can(...)`, no nested `check(...)`, no constants — and on an unbound handle, no
-  row conditions.
-- A `@column` reference must name a **registered, model-backed** schema.
+- A row selector that resolves to a **literal `null`** is rejected. One that
+  resolves to nothing *at check time* — an absent `@context` — is unanswerable
+  rather than rejected; see [How it compiles](/guides/how-it-compiles/).
+- An **`as <alias>` needs a row to name**; an unbound handle selects none.
+- A `check(...)` predicate is read against the **target's** vocabulary, and may
+  hold that schema's conditions, a `can(...)`, and a nested `check(...)`. It may
+  **not** hold a constant, and on an unbound handle it may not hold a row
+  condition.
+- A `can(<ability>)` with no `for` clause takes no `with` map and no `as` — it
+  crosses nothing, so there is nothing to hand over or to name.
+- A `@column` reference must name a **table in scope** where it is written.
 
 Compile-time (`InvalidArgumentException` / `RuntimeException`):
 
@@ -319,9 +397,9 @@ Compile-time (`InvalidArgumentException` / `RuntimeException`):
 ## Grammar
 
 ```text
-can_ref     = "can" "(" IDENTIFIER "for" handle ( "with" with_map )? ")" ;
+can_ref     = "can" "(" IDENTIFIER ( "for" handle ( "with" with_map )? )? ")" ;
 check_ref   = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
-handle      = IDENTIFIER ( "(" arg ")" )? ;
+handle      = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
 with_map    = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 ```
 

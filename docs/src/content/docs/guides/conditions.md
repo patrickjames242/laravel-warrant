@@ -32,6 +32,9 @@ The distinction is: _does this predicate talk about a specific row?_
 Its context is a `RowConditionContext` exposing `$c->row()` — which returns the
 qualified primary-key SQL id of the row under test (`documents.id`), or the
 qualified name of any column you name (`$c->row('user_id')` → `documents.user_id`).
+Always build column references with it rather than writing the table yourself: the
+name a row answers to is not always the model's table — a caller may have aliased
+the query, and a cross-schema reference gives its rows a name of their own.
 Mutate `$c->query` to add the `WHERE` fragment and return the builder:
 
 ```php
@@ -130,10 +133,13 @@ public function isAdmin(GlobalConditionContext $c): bool
 ### Why the split matters
 
 Some checks run with **no row** — [no-target checks](/guides/checking-access/#no-target-checks)
-and `Warrant::abilities(Document::class)` with no target. In that context a row condition
-can't be evaluated, so Warrant treats it as **false** (and therefore
-`not <row-condition>` as **true**). Global conditions still evaluate normally. This is
-why a no-model schema should only use global conditions.
+and `Warrant::abilities(Document::class)` with no target. In that context a row
+condition can't be evaluated at all, so Warrant treats it as **unanswerable**
+rather than false: it grants nothing, and `not <row-condition>` is unanswerable
+too, so it cannot lift a deny either. See
+[How it compiles](/guides/how-it-compiles/#questions-the-compile-cannot-answer).
+Global conditions still evaluate normally, which is why a no-model schema should
+only use global conditions.
 
 ## The context object
 

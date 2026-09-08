@@ -202,46 +202,73 @@ closed — is covered in [Check-time context](/guides/context/).
 ## Column references (`@column`)
 
 Sometimes an argument needs to be a **database column**, not a value — most often
-to correlate a subquery against the row being checked. Write `@column
-<schema>.<column>`, using a **schema key** (not a raw table name):
+to correlate a subquery against the row being checked. Write `@column <column>`:
 
 ```text
-if pay_period_matches(@column timesheets.pay_period_id) they can view
+if pay_period_matches(@column pay_period_id) they can view
 ```
 
-At compile time the schema key is resolved to its model's real table and the
-identifier is quoted through the connection's grammar, so the condition receives
-an `Illuminate\Database\Query\Expression` — e.g. `` `timesheets`.`pay_period_id` ``
-on MySQL, `"timesheets"."pay_period_id"` on Postgres/SQLite. Because it is an
-`Expression`, a condition can drop it straight into the query builder
-(`->where(...)`, `->whereColumn(...)`) and it is emitted verbatim — never
-re-quoted, never bound as a value.
+That names no table, and deliberately so. It means *the rows this rule is
+already about*, which is decided when the rule is compiled rather than when it is
+written — the schema's own table, the alias a caller used
+(`filterQuery($query->from('timesheets as t'), ...)`), or the frame a
+`can(...)` / `check(...)` hop selected. A reference that names nothing cannot
+name the wrong thing, so this is the form to reach for.
+
+At compile time the frame is resolved to whatever identifier it carries and the
+whole thing is quoted through the connection's grammar, so the condition receives
+an `Illuminate\Database\Query\Expression` — e.g.
+`` `timesheets`.`pay_period_id` `` on MySQL, `"timesheets"."pay_period_id"` on
+Postgres/SQLite. Because it is an `Expression`, a condition can drop it straight
+into the query builder (`->where(...)`, `->whereColumn(...)`) and it is emitted
+verbatim — never re-quoted, never bound as a value.
 
 Like `@context`, a `@column` reference carries no value at parse time, so it is
 exempt from the binding rules, may sit alongside literals and bindings, and never
-consumes a positional `?`. It is most useful as a cross-schema row selector, where
-it correlates the outer table into the subquery:
+consumes a positional `?`.
+
+### Naming a frame
+
+Write `@column <name>.<column>` when a rule can see more than one frame and you
+have to say which:
 
 ```text
 # grants view on a timesheet when its pay period is open
-if check(is_open for pay_periods(@column timesheets.pay_period_id)) they can view
+if check(is_open for pay_periods(@column pay_period_id)) they can view
 ```
 
-This compiles to `... exists (select * from pay_periods where pay_periods.id =
+That row selector is read where it is written — in the timesheet's frame — so it
+compiles to `... exists (select * from pay_periods where pay_periods.id =
 timesheets.pay_period_id and (...))`. It works identically as a `can(...)` row
 selector and as a `with` map value.
 
-The referenced schema must be registered and model-backed; an unknown schema key
-or a modelless (capability) schema is rejected at validation time. Unlike
-`can(...)` / `check(...)` handles, a `@column` reference **may** name the owning
-schema — pointing at your own table's column is the common case.
+Inside a `check(...)` predicate, both frames are in scope: the schema the handle
+named, and the one the rule is written on. Naming them apart is what lets a
+single predicate compare the two:
 
-:::caution
-A `@column` reference emits a bare qualified identifier into the SQL. It is your
-responsibility that the referenced table is actually in scope in the surrounding
-query — the schema's own filter, or the outer query of a `check(...)` / `can(...)`
-correlated subquery. Referencing an unrelated table produces a SQL error at
-execution.
+```text
+if check(owner_matches(@column timesheets.owner_id) for pay_periods(@column pay_period_id))
+they can view
+```
+
+A name may be a **schema key** or an **alias** an enclosing handle introduced with
+`as` (see [Cross-schema checks](/guides/cross-schema-checks/)). Anything else is
+rejected at validation, and the message lists what *is* in scope:
+
+```text
+A @column reference names [folders], which is not in scope here; the names in
+scope are [timesheets, pay_periods].
+```
+
+That check is why an unqualified reference is worth preferring: a name has to
+keep being right everywhere the rule is reached from, and a rule reached through
+a hop sees a different set of names than one at the top of a query.
+
+:::note
+With no row in scope at all — a no-target check like `getAbilitiesWithoutTarget()`
+— there is nothing for a `@column` to point at. The reference is *unanswerable*
+rather than false, so the condition holding it contributes no access and cannot
+be negated into granting any. See [How it compiles](/guides/how-it-compiles/).
 :::
 
 ## What a row selector may be
@@ -336,8 +363,8 @@ in the surrounding query and that the fragment is valid SQL for your connection.
   a single leading unconditional rule.
 
 - **Reserved words** — `if`, `they`, `can`, `cannot`, `because`, `check`, `and`,
-  `or`, `not`, `for`, `with` — cannot be used as an *exact* condition or ability
-  name, and neither can the literals `true`, `false`, and `null`. A name may
+  `or`, `not`, `for`, `with`, `as` — cannot be used as an *exact* condition or
+  ability name, and neither can the literals `true`, `false`, and `null`. A name may
   *contain* or *start with* one, though: `canonical`, `cannot_publish`,
   `is_and_something` are all fine.
 
@@ -359,13 +386,13 @@ and         = not ( "and" not )* ;
 not         = ( "not" | "!" ) not | primary ;
 primary     = "(" expr ")" | can_ref | check_ref | condition ;
 condition   = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
-can_ref     = "can" "(" IDENTIFIER "for" handle ( "with" with_map )? ")" ;
+can_ref     = "can" "(" IDENTIFIER ( "for" handle ( "with" with_map )? )? ")" ;
 check_ref   = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
-handle      = IDENTIFIER ( "(" arg ")" )? ;
+handle      = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
 with_map    = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 arg         = STRING | INT | FLOAT | BOOL | NULL | NAMED_BINDING | POSITIONAL | CONTEXT_REF | COLUMN_REF | SQL_REF ;
 CONTEXT_REF = "@context" IDENTIFIER ;
-COLUMN_REF  = "@column" IDENTIFIER "." IDENTIFIER ;
+COLUMN_REF  = "@column" IDENTIFIER [ "." IDENTIFIER ] ;
 SQL_REF     = "@sql" ( STRING | NAMED_BINDING | POSITIONAL ) ;
 ```
 

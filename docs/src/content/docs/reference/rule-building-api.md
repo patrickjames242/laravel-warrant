@@ -159,7 +159,8 @@ parenthesized group):
 ```php
 new Warrant\Builders\NoRow                        // the default $row: an unbound handle
 Warrant\Builders\Ref::context(string $key): ContextRef            // @context <key>
-Warrant\Builders\Ref::column(string $schemaKey, string $column): ColumnRef  // @column <schema>.<column>
+Warrant\Builders\Ref::column(string $column): ColumnRef                     // @column <column>
+Warrant\Builders\Ref::column(string $frame, string $column): ColumnRef      // @column <name>.<column>
 Warrant\Builders\Ref::sql(string $sql): SqlRef                    // @sql "<sql>"
 ```
 

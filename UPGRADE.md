@@ -1,5 +1,131 @@
 # Upgrade guide
 
+## `@column` references name a frame, not a schema
+
+A `@column` reference now names **the rows a rule is about**, and the qualifier is
+optional:
+
+```text
+if pay_period_matches(@column pay_period_id) they can view
+```
+
+Which table that lands on is decided per compile — the schema's own table, an
+alias the caller's query used, or the frame a `can(...)` / `check(...)` hop
+selected. The two-part `@column <name>.<column>` form still works, and a name may
+now be either a schema key or an alias introduced with `as`.
+
+**The qualified form is checked against what is in scope.** Naming a registered
+schema whose table the query never joined used to be accepted at validation and
+fail as a SQL error at execution; it is now rejected up front, with the names that
+*are* available:
+
+```text
+A @column reference names [folders], which is not in scope here; the names in
+scope are [timesheets, pay_periods].
+```
+
+Unknown schemas and model-less capability schemas produce the same error rather
+than their previous separate messages. Existing rules that reference their own
+schema — the overwhelming majority — are unaffected.
+
+**`@column timesheets` no longer fails to parse.** It used to be a syntax error
+(`Expected '.'`); it is now a reference to a column named `timesheets`. A rule
+that hit that error was already broken, but it now fails later and differently.
+
+`Ref::column()` takes one argument for the unqualified form and two for the
+qualified one, so existing two-argument calls keep working.
+
+## A host query's alias is honoured
+
+`filterQuery()` and friends read the alias off the query you hand them:
+
+```php
+$guard->filterQuery(Document::query()->from('documents as d'), 'view');
+// ... where (d.owner_id = ?)
+```
+
+Predicates previously used the model's table name unconditionally, which named a
+table an aliased query does not have. Unaliased queries are unaffected.
+
+## Unanswerable questions no longer grant
+
+A compile can reach a question it cannot settle: a row condition with no row, a
+`@column` about rows that are not in scope, a row selector that resolved to
+nothing. These were treated as `false`, which **negates to `true`** — so an
+unanswerable `cannot` silently stopped denying.
+
+They are now the third truth value, which negates to itself, so an unknown
+neither grants nor lifts a deny. Where it cannot fold away it reaches the SQL as a
+literal `null`, and the database applies the same rule.
+
+**`getAbilitiesWithoutTarget()` is more conservative as a result.** Given
+
+```text
+they can view
+if is_owner they cannot view
+```
+
+it previously reported `view` as held, because the unanswerable deny folded to
+`false` and the `not` around it to `true`. It now reports nothing: the deny cannot
+be evaluated, so the ability cannot be claimed. `selectAbilitiesInQuery()` and
+targeted checks compile against a row and are unaffected.
+
+If a rule of yours relied on a `cannot` quietly not firing without a row, it will
+now block. That is the direction the rest of the compiler already errs in.
+
+## `CompilationResult::decision()` returns an enum
+
+It answered `?bool`, with `null` meaning "not settled; ask the database" — which
+left nowhere for the third truth value. It now returns a
+`Warrant\DSL\Compiling\Decision`: `True`, `False`, `Unknown`, or `NeedsQuery`.
+
+```php
+// before
+if ($gate->decision() === true) { ... }
+$granted = $gate->decision() ?? $gate->spliceInto($q)->exists();
+
+// after
+if ($gate->decision()->grants()) { ... }
+$decision = $gate->decision();
+$granted = $decision->isConstant() ? $decision->grants() : $gate->spliceInto($q)->exists();
+```
+
+`grants()` is true for `True` alone — both `False` and `Unknown` deny — and
+`isConstant()` is false for `NeedsQuery` alone.
+
+## `ConditionResolver::applyCondition()` takes a row qualifier
+
+The interface method gained a trailing `?string $rowQualifier = null`. **Any class
+implementing `ConditionResolver` directly must add the parameter**, defaulted or
+not, or PHP raises a fatal signature error. Schemas extending `WarrantSchema` need
+no change.
+
+It carries the name the target row answers to where the predicate lands, which is
+not always the model's table: a host query's alias, or a cross-schema hop's. Pass
+it to `RowConditionContext`, falling back to your own table when it is null — which
+is what `ResolvesConditions` does.
+
+## `as` is a reserved word
+
+It introduces a handle alias (`can(view for docs(@column id) as d2)`), so it can no
+longer be an exact condition, ability or schema name. Names that merely contain or
+start with it — `assign`, `as_of` — are unaffected.
+
+## References may target their own schema
+
+`can(...)` and `check(...)` no longer reject a reference to the schema they are
+written on. Two frames over one table get distinct SQL identifiers, so the
+correlation is unambiguous. Recursion is still bounded: an ability that names
+itself is a cycle and is rejected.
+
+## `check(...)` predicates may nest
+
+A predicate is read against the target's vocabulary and may now hold a nested
+`check(...)` or a `can(...)`, not only conditions. A **constant** is still
+rejected. The consequence is that a `check` whose predicate holds a `can` does
+compile the target's rules, so it is no longer free of cycle risk by construction
+— cycles are still caught.
+
 ## Models as cross-schema row selectors
 
 The row selector in a `can(... for schema(<row>))` / `check(... for schema(<row>))`

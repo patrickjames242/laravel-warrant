@@ -204,17 +204,30 @@ public function compileGate(
 ```php
 $gate = $guard->compileGate($query, 'view');
 
-$gate->decision();          // true/false when the rules settled it, else null
-$gate->toQuery();           // the predicate as SQL (a constant becomes 1 = 1 / 1 = 0)
+$gate->decision();          // a Decision: what the rules settled on, if anything
+$gate->toQuery();           // the predicate as SQL (a constant becomes 1 = 1 / 1 = 0 / null)
 $gate->spliceInto($query);  // attach it to a host query, returning the host
 ```
+
+`decision()` returns a `Warrant\DSL\Compiling\Decision`:
+
+| case | meaning |
+| --- | --- |
+| `True` | the rules granted without consulting a row |
+| `False` | the rules denied |
+| `Unknown` | the compile reached a question it could not answer — see [How it compiles](/guides/how-it-compiles/#questions-the-compile-cannot-answer) |
+| `NeedsQuery` | not settled here; the predicate has to be asked in SQL |
+
+`grants()` is true for `True` alone, so a caller wanting a plain yes/no need not
+care which of `False` and `Unknown` it got — both deny. `isConstant()` is false
+for `NeedsQuery` alone.
 
 Read `decision()` first and you can skip the query entirely; call
 `spliceInto()` on the same result when you do need the SQL, and nothing is
 compiled twice.
 
 `filterQuery()` always needs SQL, so it spells a constant out as `1 = 1` /
-`1 = 0` — a row filter has to say something. The boolean checks do not: `can()`,
+`1 = 0` / `null` — a row filter has to say something. The boolean checks do not: `can()`,
 `canAny()`, `cannot()` and the `authorize*()` pair read the literal and **return
 without querying at all**.
 

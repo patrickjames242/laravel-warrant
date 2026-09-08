@@ -135,7 +135,7 @@ WarrantRule::build()
     ->andIfCheck(
         fn ($p) => $p->if('is_open')->andIfNot('is_locked'),
         'pay_periods',
-        Ref::column('timesheets', 'pay_period_id'),
+        Ref::column('pay_period_id'),
     )
     ->theyCan('submit')
     ->toRule();
@@ -212,7 +212,8 @@ the builder takes an argument value — a condition parameter, a row selector, o
 | Factory | DSL |
 | --- | --- |
 | `Ref::context('year')` | [`@context year`](/guides/rule-language/#check-time-context-context) |
-| `Ref::column('timesheets', 'pay_period_id')` | [`@column timesheets.pay_period_id`](/guides/rule-language/#column-references-column) |
+| `Ref::column('pay_period_id')` | [`@column pay_period_id`](/guides/rule-language/#column-references-column) |
+| `Ref::column('timesheets', 'pay_period_id')` | [`@column timesheets.pay_period_id`](/guides/rule-language/#naming-a-frame) |
 | `Ref::sql('select id from pay_periods where closed = 0')` | `@sql "..."` |
 
 They stay symbolic in the AST and resolve at compile time: a context ref per check,

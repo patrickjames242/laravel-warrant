@@ -244,15 +244,40 @@ never on a whole group. A global condition like `is_admin` that returns a `bool`
 doesn't touch a row at all: the compiler evaluates it in PHP and folds the result
 into the branch around it, so it usually vanishes from the SQL entirely.
 
-## Row conditions with no row
+## Questions the compile cannot answer
 
-In a no-target check (for example `Warrant::abilities(Document::class)` with no
-target), a row condition has no row to correlate against, so the compiler forces it to
-`false` — and, under negation, `true`. Like any other constant it then folds into
-the branch around it rather than being emitted. Global conditions still
-evaluate normally. (Separately, an absent optional
-[`@context`](/guides/context/) value is passed to the condition as `null`, and
-standard SQL logic applies from there.)
+SQL answers a yes/no question three ways: **yes**, **no**, and **unknown** — the
+value a comparison against `NULL` produces. A `WHERE` clause keeps a row only on a
+yes, and `not unknown` is unknown again, so an unknown never selects a row and can
+never be negated into selecting one.
+
+The compiler holds itself to the same three answers, because some questions it
+genuinely cannot settle:
+
+- a **row condition with no row** — a no-target check like
+  `Warrant::abilities(Document::class)`;
+- a **`@column`** naming rows that are not in scope, for the same reason;
+- a **row selector that resolves to nothing**, such as an absent `@context` key.
+
+None of those is *false*. `false` is an answer, and negating an answer is
+legitimate — so a `false` under a `cannot` would become `true`, and a question the
+compiler could not answer would silently lift a deny. Each of them compiles to
+**unknown** instead, which negates to itself.
+
+The practical consequences:
+
+- An ability that turns on an unanswerable question is **not granted**, and one
+  denied by an unanswerable `cannot` is **not granted either** — an unknown deny
+  is not a deny that failed to fire.
+- `getAbilitiesWithoutTarget()` is correspondingly conservative. `they can view`
+  plus `if is_owner they cannot view`, asked with no row, reports **nothing**: the
+  deny cannot be evaluated, so the ability cannot be claimed.
+- Where an unknown cannot be folded away it reaches the SQL as a literal `null`,
+  and the database applies the same rules.
+
+Global conditions still evaluate normally. An absent optional
+[`@context`](/guides/context/) *argument* is a separate matter: it is passed to
+the condition as `null`, and the condition decides what that means.
 
 ## Cross-schema references with the row in hand
 
