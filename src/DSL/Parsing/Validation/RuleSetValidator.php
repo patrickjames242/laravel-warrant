@@ -138,8 +138,9 @@ final class RuleSetValidator
     /**
      * Validate a cross-schema `can(<ability> for <schema>[(<row>)])` reference:
      * it must target another schema (never its own), that schema must be
-     * registered, the ability must be declared by it, and a row-bound reference
-     * requires a model-backed target (a capability schema has no row to target).
+     * registered, the ability must be declared by it, a row-bound reference
+     * requires a model-backed target (a capability schema has no row to target),
+     * and an alias requires a row to name.
      */
     private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void
     {
@@ -187,6 +188,8 @@ final class RuleSetValidator
             ));
         }
 
+        $this->assertAliasHasARow('can', $node->schemaKey, $node->isRowBound, $node->alias);
+
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
@@ -196,8 +199,8 @@ final class RuleSetValidator
     /**
      * Validate a cross-schema `check(<predicate> for <schema>[(<row>)])` reference:
      * it must target another schema (never its own), that schema must be
-     * registered, and a row-bound reference requires a model-backed target with a
-     * non-null row. The predicate is a boolean expression whose every leaf must be
+     * registered, a row-bound reference requires a model-backed target with a
+     * non-null row, and an alias requires a row to name. The predicate is a boolean expression whose every leaf must be
      * a condition declared by the *target* schema; on an unbound handle no leaf may
      * be a row condition (it would have no row to run against).
      */
@@ -238,17 +241,24 @@ final class RuleSetValidator
             ));
         }
 
+        $this->assertAliasHasARow('check', $node->schemaKey, $node->isRowBound, $node->alias);
+
         $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $inScopeNames);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
-           top, exactly as the compiler's AliasScope does. A target with no model
-           has no table to add. */
+           top, under its alias when it has one, exactly as the compiler's
+           AliasScope does. Aliasing the target therefore leaves its schema key
+           still meaning the enclosing frame, which is how a predicate over two
+           frames of one table tells them apart. A target with no model has no
+           table to add. */
         $this->assertCheckPredicateValid(
             $node->predicate,
             $node,
             new $targetClass,
-            $targetClass::model === '' ? $inScopeNames : [...$inScopeNames, $node->schemaKey],
+            $targetClass::model === ''
+                ? $inScopeNames
+                : [...$inScopeNames, $node->alias ?? $node->schemaKey],
         );
     }
 
@@ -309,6 +319,32 @@ final class RuleSetValidator
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
         $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
+    }
+
+    /**
+     * An `as <alias>` names the rows a reference selects. An unbound handle selects
+     * none — it emits no `from` at all — so an alias there names nothing, and is
+     * far more likely a forgotten row selector than a deliberate no-op.
+     */
+    private function assertAliasHasARow(
+        string $builtin,
+        string $schemaKey,
+        bool $isRowBound,
+        ?string $alias,
+    ): void {
+        if ($alias === null || $isRowBound) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias names '
+                .'nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
+            $builtin,
+            $schemaKey,
+            $alias,
+            $schemaKey,
+            $alias,
+        ));
     }
 
     private function assertConditionExists(ConditionNode $node, array $inScopeNames): void

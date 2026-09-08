@@ -270,6 +270,43 @@ it('rejects a @column in a check(...) predicate naming neither frame', function 
     );
 });
 
+it('rejects an alias on a handle that selects no row', function (string $syntax, string $builtin) {
+    // An unbound handle emits no `from`, so its alias names nothing.
+    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'col_docs')->validate())->toThrow(
+        InvalidArgumentException::class,
+        "A {$builtin}(...) reference to schema [col_targets] is aliased [as t2] but selects no row, "
+            .'so the alias names nothing',
+    );
+})->with([
+    'can' => ['if can(view for col_targets as t2) they can view', 'can'],
+    'check' => ['if check(is_open for col_targets as t2) they can view', 'check'],
+]);
+
+it('names a check(...) target by its alias, leaving its schema key for the caller', function () {
+    /* Aliasing the inner frame is how a predicate reaches both: `t2` is the
+       target, and `col_targets` — had the caller been col_targets itself — would
+       still mean the enclosing row. Here the caller is col_docs, so both names
+       resolve and neither shadows. */
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if check(id_matches(@column t2.id) for col_targets(@column col_docs.target_id) as t2) they can view',
+        'col_docs',
+    )->validate())->not->toThrow(Exception::class);
+});
+
+it('stops the target schema key naming an aliased check(...) frame', function () {
+    /* With `as t2` the target is bound under `t2` only, so `col_targets` is no
+       longer a name in scope — the whole point, since it is what lets the key go
+       on meaning an outer frame of the same table. */
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if check(id_matches(@column col_targets.id) for col_targets(@column col_docs.target_id) as t2) they can view',
+        'col_docs',
+    )->validate())->toThrow(
+        InvalidArgumentException::class,
+        'A @column reference names [col_targets], which is not in scope here; '
+            .'the names in scope are [col_docs, t2].',
+    );
+});
+
 // -- fixtures -----------------------------------------------------------------
 
 class ColTs extends Model
