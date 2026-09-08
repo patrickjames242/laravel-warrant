@@ -222,6 +222,10 @@ it('produces the identical tree to the equivalent DSL expression', function (str
             ->andIfCan('manage', 'xs_target', Ref::column('docs', 'target_id'))
             ->theyCan('x'),
     ],
+    'can with no schema at all' => [
+        'can(view)',
+        fn () => WarrantRule::build()->ifCan('view')->theyCan('x'),
+    ],
     'can with an alias' => [
         'can(view for xs_target(@context id) as t2)',
         fn () => WarrantRule::build()

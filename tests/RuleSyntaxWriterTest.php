@@ -239,6 +239,12 @@ it('round-trips a bare @column through the writer', function () {
     expect($rule->toSyntax())->toBe("if is_teacher(@column pay_period_id)\nthey can view");
 });
 
+it('round-trips a can with no for clause', function () {
+    $rule = WarrantRule::fromSyntax('if can(do_thing_1) they can do_thing_2');
+
+    expect($rule->toSyntax())->toBe("if can(do_thing_1)\nthey can do_thing_2");
+});
+
 // -- handle aliases (as) ------------------------------------------------------
 
 it('renders an as <alias> tail between the row selector and the with-map', function () {

@@ -624,7 +624,9 @@ function treeToString(?object $node): string
         $node instanceof ConditionNode => $node->conditionKey . ($node->parameters === []
             ? ''
             : '(' . implode(',', array_map(fn ($p) => argToString($p), $node->parameters)) . ')'),
-        $node instanceof CrossSchemaCanNode => 'can(' . $node->ability . ' for ' . handleToString($node) . ')',
+        $node instanceof CrossSchemaCanNode => $node->schemaKey === null
+            ? 'can(' . $node->ability . ')'
+            : 'can(' . $node->ability . ' for ' . handleToString($node) . ')',
         $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
         $node instanceof NotNode => '!' . treeToString($node->operand),
         $node instanceof AndNode => '(' . treeToString($node->leftSide) . ' and ' . treeToString($node->rightSide) . ')',

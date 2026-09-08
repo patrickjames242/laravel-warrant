@@ -3,16 +3,22 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 /**
- * A cross-schema ability check:
+ * An ability check: `can(<ability>)`, or
  * `can(<ability> for <handle> [as <alias>] [with <map>])`.
  *
- * Asks whether the current user holds {@see $ability} on another schema
- * ({@see $schemaKey}) — either on a specific row ({@see $isRowBound} true, the
- * `schema(@context id)` form) or with no row at all ({@see $isRowBound} false,
- * the bare `schema` / capability-schema form). {@see $isRowBound} is tracked
- * separately from {@see $boundRow} because a row selector may itself resolve to
- * `null` (a `null` literal or a `:name` binding), which must stay distinct from
- * an unbound handle.
+ * The `for` clause is a boundary. With one, this asks whether the current user
+ * holds {@see $ability} on another schema ({@see $schemaKey}) — either on a
+ * specific row ({@see $isRowBound} true, the `schema(@context id)` form) or with
+ * no row at all ({@see $isRowBound} false, the bare `schema` / capability-schema
+ * form). {@see $isRowBound} is tracked separately from {@see $boundRow} because a
+ * row selector may itself resolve to `null` (a `null` literal or a `:name`
+ * binding), which must stay distinct from an unbound handle.
+ *
+ * Without a `for` clause ({@see $schemaKey} null) nothing is crossed: it asks
+ * about another ability of the schema the rule is written on, over the row the
+ * rule is already about and under the same check-time context. Only the ability
+ * changes, so there is no handle, no context map, and no subquery — the target
+ * ability's predicate is compiled into the frame the reference sits in.
  *
  * Like {@see ConditionNode::$parameters}, {@see $boundRow} and the values of
  * {@see $contextMap} hold what the parser resolved: concrete scalars for inline
@@ -37,8 +43,12 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
      *   {@see \Warrant\DSL\Compiling\AliasScope}). Only meaningful on a
      *   row-bound handle: an unbound one selects nothing to name.
      */
+    /**
+     * @param string|null $schemaKey The schema this reference crosses to, or null
+     *   for the boundary-free form, which stays on the schema being compiled.
+     */
     public function __construct(
-        public string $schemaKey,
+        public ?string $schemaKey,
         public string $ability,
         public bool $isRowBound = false,
         public mixed $boundRow = null,

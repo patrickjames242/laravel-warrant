@@ -227,6 +227,10 @@ final class RuleSyntaxWriter
 
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
+        if ($node->schemaKey === null) {
+            return 'can(' . $node->ability . ')';
+        }
+
         return 'can(' . $node->ability . ' for '
             . $this->writeHandleAndWith(
                 $node->schemaKey,

@@ -64,6 +64,33 @@ it('accepts a reference to its own schema, unbound or row-bound', function (stri
     'row-bound and aliased' => 'if can(view for xs_owner(@context id) as o2) they can edit',
 ]);
 
+it('accepts a can with no for clause naming a declared ability', function () {
+    validateOwnerSyntax('if can(edit) they can view');
+    expect(true)->toBeTrue();
+});
+
+it('rejects a can with no for clause naming an ability this schema does not declare', function () {
+    expect(fn () => validateOwnerSyntax('if can(fly) they can view'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [fly] is not declared by the schema.');
+});
+
+it('rejects a with map on a can that crosses no boundary', function () {
+    // Nothing is crossed, so the context is already there and cannot be handed over.
+    expect(fn () => validateOwnerSyntax('if can(edit with tenant = 7) they can view'))
+        ->toThrow(
+            InvalidArgumentException::class,
+            'A can(edit) reference carries the context it is already in, so it takes no `with` map',
+        );
+});
+
+it('rejects an alias on a can that selects no rows of its own', function () {
+    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('edit', as: 'e2')->theyCan('view')))
+        ->toThrow(
+            InvalidArgumentException::class,
+            'A can(edit) reference selects no rows of its own, so there is nothing for [as e2] to name',
+        );
+});
+
 it('rejects an unknown target schema', function () {
     expect(fn () => validateOwnerSyntax('if can(view for nope_schema) they can edit'))
         ->toThrow(InvalidArgumentException::class, 'unknown schema [nope_schema]');

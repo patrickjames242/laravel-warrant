@@ -123,8 +123,11 @@ class WarrantConditionBuilder
      * one row. An explicit `row: null` stays row-bound and is rejected at
      * validation; only omitting the argument means "no row".
      *
-     * @param Model|WarrantSchema|string $schema The target schema, as a schema key,
-     *   a schema instance or class-string, or a model instance or class-string.
+     * @param Model|WarrantSchema|string|null $schema The target schema, as a schema
+     *   key, a schema instance or class-string, or a model instance or
+     *   class-string. Null crosses to no schema at all: another ability of the
+     *   schema the rule is written on, over the row and context it already has,
+     *   which takes no $row, $with or $as.
      * @param mixed $row The row selector: a key, the target schema's model, a
      *   {@see Ref}, or {@see NoRow} (the default) for an unbound handle.
      * @param array<string, mixed> $with Explicit boundary context for the target
@@ -133,7 +136,7 @@ class WarrantConditionBuilder
      *   {@see Ref::column()} can tell them apart from a table of the same name
      *   already in scope further out. Requires $row.
      */
-    public function ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
+    public function ifCan(string $ability, Model|WarrantSchema|string|null $schema = null, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
         return $this->addCan('and', $ability, $schema, $row, $with, $as);
     }
@@ -143,7 +146,7 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    public function andIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
+    public function andIfCan(string $ability, Model|WarrantSchema|string|null $schema = null, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
         return $this->addCan('and', $ability, $schema, $row, $with, $as);
     }
@@ -153,7 +156,7 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    public function orIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
+    public function orIfCan(string $ability, Model|WarrantSchema|string|null $schema = null, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
         return $this->addCan('or', $ability, $schema, $row, $with, $as);
     }
@@ -302,8 +305,14 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    private function addCan(string $boolean, string $ability, Model|WarrantSchema|string $schema, mixed $row, array $with, ?string $as): static
+    private function addCan(string $boolean, string $ability, Model|WarrantSchema|string|null $schema, mixed $row, array $with, ?string $as): static
     {
+        /* $with and $as travel even though a schema-less reference has no use for
+           them, so supplying one is answered by validation rather than dropped. */
+        if ($schema === null) {
+            return $this->pushTerm($boolean, new CrossSchemaCanNode(null, $ability, contextMap: $with, alias: $as));
+        }
+
         return $this->pushTerm($boolean, new CrossSchemaCanNode(
             Warrant::registry()->resolveSchemaKeyOrFail($schema),
             $ability,

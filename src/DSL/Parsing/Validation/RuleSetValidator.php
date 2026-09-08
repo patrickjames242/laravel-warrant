@@ -151,6 +151,12 @@ final class RuleSetValidator
      */
     private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void
     {
+        if ($node->schemaKey === null) {
+            $this->assertOwnAbilityValid($node);
+
+            return;
+        }
+
         try {
             $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
         } catch (OutOfBoundsException $e) {
@@ -316,6 +322,42 @@ final class RuleSetValidator
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
         $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
+    }
+
+    /**
+     * Validate a `can(<ability>)` with no `for` clause: the ability has to be one
+     * this schema declares, and nothing may be passed across a boundary that is
+     * not being crossed.
+     *
+     * The registry is not consulted at all. There is no schema key to look up —
+     * the reference stays on the schema being validated, whose vocabulary is
+     * already in hand.
+     */
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node): void
+    {
+        if ($this->schema->getAbilityDefinition($node->ability) === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Ability [%s] is not declared by the schema.',
+                $node->ability,
+            ));
+        }
+
+        if ($node->contextMap !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'A can(%s) reference carries the context it is already in, so it takes no `with` map; '
+                    .'name a schema with `for` if you meant to cross to one.',
+                $node->ability,
+            ));
+        }
+
+        if ($node->alias !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'A can(%s) reference selects no rows of its own, so there is nothing for [as %s] to name; '
+                    .'name a schema with `for` if you meant to cross to one.',
+                $node->ability,
+                $node->alias,
+            ));
+        }
     }
 
     /**

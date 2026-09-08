@@ -41,7 +41,9 @@ use Warrant\Rules\WarrantRule;
  *   and      := not ('and' not)*
  *   not      := ('not'|'!') not | primary
  *   primary  := '(' expr ')' | can_expr | check_expr | condition
- *   can_expr := 'can' '(' IDENTIFIER 'for' handle ( 'with' with_map )? ')'
+ *   can_expr := 'can' '(' IDENTIFIER ( 'for' handle ( 'with' with_map )? )? ')'
+ *              -- without `for` nothing is crossed: another ability of this
+ *                 schema, over the row and context the rule already has
  *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
  *   handle   := IDENTIFIER ( '(' arg ')' )? ( 'as' IDENTIFIER )?
@@ -472,7 +474,7 @@ final class WarrantParser
     }
 
     /**
-     * Parse a cross-schema ability check:
+     * Parse an ability check: `can(<ability>)`, or
      * `can(<ability> for <handle> [as <alias>] [with <map>])`.
      *
      * In expression position `can` is unambiguously this builtin — the clause
@@ -490,7 +492,25 @@ final class WarrantParser
 
         $ability = $this->advance()->lexeme;
 
-        $this->expect(TokenType::FOR, "Expected 'for' after the ability name in 'can(...)'.");
+        /* No `for`, no boundary: the reference stays on this schema and this row,
+           so there is no handle to read. A `with` map is still read, so that
+           handing context to a reference that crosses nothing is answered by
+           validation, where the reason can be given, rather than by a parse error
+           about a missing keyword. */
+        if (! $this->check(TokenType::FOR)) {
+            $contextMap = [];
+
+            if ($this->check(TokenType::WITH)) {
+                $this->advance();
+                $contextMap = $this->parseWithMap();
+            }
+
+            $this->expect(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
+
+            return new CrossSchemaCanNode(null, $ability, contextMap: $contextMap);
+        }
+
+        $this->advance(); // consume 'for'
 
         [$schemaKey, $isRowBound, $boundRow, $alias] = $this->parseHandle();
 

@@ -317,7 +317,9 @@ final class RuleSetCompiler
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            return $this->crossSchemaCanLeaf($node, $ctx);
+            return $node->schemaKey === null
+                ? $this->ownAbilityLeaf($node, $ctx)
+                : $this->crossSchemaCanLeaf($node, $ctx);
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
@@ -455,6 +457,43 @@ final class RuleSetCompiler
         }
 
         return [$value, null];
+    }
+
+    /**
+     * Compile a `can(<ability>)` that names no schema by compiling that ability of
+     * *this* schema into the frame the reference sits in.
+     *
+     * There is no boundary here, so there is nothing for a subquery to do. The
+     * row is the one the enclosing rule is already about and the context is the
+     * one it was already given, so an `exists` over this same table matched on its
+     * own key would ask a question already answered. The ability's predicate is
+     * spliced inline instead, under whatever negation the reference sits under.
+     *
+     * Recursion is bounded exactly as it is for a hop: {@see abilityNode} enters a
+     * {@see Call}, so an ability that names itself is a cycle and everything else
+     * spends the depth budget.
+     */
+    private function ownAbilityLeaf(CrossSchemaCanNode $node, CompilationContext $ctx): CompiledWhereClauseNode
+    {
+        if ($this->manager === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Compiling a can(%s) reference requires this schema\'s rule set, which is resolved through '
+                    .'the manager; construct RuleSetCompiler with a WarrantManager.',
+                $node->ability,
+            ));
+        }
+
+        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->resolvedRuleSet();
+
+        /* A unit is always entered unnegated — {@see abilityNode} sets the deny
+           side's polarity itself — so the reference's own negation rides on the
+           operand rather than on the context it compiles under. */
+        $unnegated = $ctx->negate ? $ctx->negated() : $ctx;
+
+        return (new CompiledWhereClauseNode)->addAnd(
+            $this->abilityNode($unnegated, new AbilityUnit($node->ability, $ruleSet)),
+            negated: $ctx->negate,
+        );
     }
 
     /**

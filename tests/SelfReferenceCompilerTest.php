@@ -54,7 +54,7 @@ beforeEach(function () {
  * Bind one rule set for the fixture schema, build filterQuery for $ability, and
  * assert its normalized, bindings-substituted SQL.
  */
-function assertSelfRefSql(string $syntax, string $ability, string $expectedSql): void
+function assertSelfRefSql(string $syntax, string $ability, string $expectedSql, array $context = []): void
 {
     $set = WarrantRuleSet::fromSyntax($syntax, 'sr_docs');
 
@@ -71,6 +71,7 @@ function assertSelfRefSql(string $syntax, string $ability, string $expectedSql):
         warrantTestQuery('sr_docs'),
         $ability,
         AbilityMatchMode::ALL,
+        $context,
     )->toRawSql();
 
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql($expectedSql));
@@ -193,7 +194,100 @@ it('keeps the author alias as the base when two hops ask for one name', function
     );
 });
 
+// -- can(<ability>), with no boundary to cross ---------------------------------
+
+it('compiles a can with no for clause inline, with no subquery at all', function () {
+    /* Same schema, same row, same context — an `exists` over this table matched
+       on its own key would ask a question the frame has already answered, so the
+       ability's predicate is spliced where the reference sits. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if is_owner they can do_thing_1
+            if can(do_thing_1) they can do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+        SQL,
+    );
+});
+
+it('collapses a whole chain of abilities into one predicate', function () {
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if is_owner they can do_thing_1
+            if can(do_thing_1) they can do_thing_2
+            if can(do_thing_2) they can do_thing_3
+        WARRANT,
+        'do_thing_3',
+        <<<SQL
+            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+        SQL,
+    );
+});
+
+it('carries the check-time context through a can with no for clause', function () {
+    // No boundary is crossed, so nothing has to be declared to cross it.
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if owner_is(@context who) they can do_thing_1
+            if can(do_thing_1) they can do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (sr_docs.owner = 'role-9')
+        SQL,
+        ['who' => 'role-9'],
+    );
+});
+
+it('leaves the context behind once a for clause names a schema', function () {
+    /* The same two rules with the boundary spelled out. `for` is what makes it a
+       boundary, and a boundary is exactly what the context does not cross: B sees
+       only what a `with` map hands it, so `@context who` arrives empty. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if owner_is(@context who) they can do_thing_1
+            if can(do_thing_1 for sr_docs(@column id)) they can do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (
+                exists (
+                    select * from "sr_docs" as "sr_docs_1"
+                    where "sr_docs_1"."id" = "sr_docs"."id" and (sr_docs_1.owner = null)
+                )
+            )
+        SQL,
+        ['who' => 'role-9'],
+    );
+});
+
+it('negates an inlined ability without disturbing its own deny side', function () {
+    /* Under a `cannot` the reference is negated as a whole; the ability inside it
+       still compiles its grants and denies the right way round. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            they can do_thing_2
+            if is_owner they can do_thing_1
+            if can(do_thing_1) they cannot do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (not (sr_docs.owner = 'role-1'))
+        SQL,
+    );
+});
+
 // -- recursion is still bounded ------------------------------------------------
+
+it('rejects a can with no for clause that names the ability being compiled', function () {
+    expect(fn () => assertSelfRefSql(
+        'if can(do_thing_1) they can do_thing_1',
+        'do_thing_1',
+        'unreachable',
+    ))->toThrow(CrossSchemaCycleException::class, 'cycle detected');
+});
 
 it('still rejects a self-reference to the ability being compiled', function () {
     /* Aliasing makes the SQL expressible; it does not make the recursion
@@ -241,6 +335,13 @@ class SrDocSchema extends WarrantSchema
     public function isOwner(RowConditionContext $c): BuilderContract
     {
         return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+    }
+
+    // Owner check driven by an argument, so a @context value can reach it.
+    #[RowCondition]
+    public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
+    {
+        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
     }
 
     /* Compares this frame's owner to a column of another frame — both operands

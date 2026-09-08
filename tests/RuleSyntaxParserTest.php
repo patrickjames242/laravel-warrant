@@ -335,6 +335,26 @@ it('renders a bare @column without a stray dot', function () {
     expect(argToString($set->rules[0]->conditions->parameters[0]))->toBe('@column pay_period_id');
 });
 
+// -- can(<ability>) with no for clause ----------------------------------------
+
+it('parses a can with no for clause, naming no schema', function () {
+    $rules = WarrantParser::parse('if can(do_thing_1) they can do_thing_2');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->schemaKey)->toBeNull();
+    expect($node->ability)->toBe('do_thing_1');
+    expect($node->isRowBound)->toBeFalse();
+    expect($node->contextMap)->toBe([]);
+    expect($node->alias)->toBeNull();
+    expect(treeToString($node))->toBe('can(do_thing_1)');
+});
+
+it('errors on anything but for or a closing paren after the ability', function () {
+    expect(fn () => WarrantParser::parse('if can(do_thing_1 as d2) they can update'))
+        ->toThrow(WarrantSyntaxException::class, "Expected 'for' or ')' after the ability name");
+});
+
 // -- handle aliases (as) ------------------------------------------------------
 
 it('parses an as <alias> tail on a can(...) handle', function () {
