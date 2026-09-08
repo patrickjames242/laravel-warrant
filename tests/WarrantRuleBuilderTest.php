@@ -222,6 +222,18 @@ it('produces the identical tree to the equivalent DSL expression', function (str
             ->andIfCan('manage', 'xs_target', Ref::column('docs', 'target_id'))
             ->theyCan('x'),
     ],
+    'can with an alias' => [
+        'can(view for xs_target(@context id) as t2)',
+        fn () => WarrantRule::build()
+            ->ifCan('view', 'xs_target', Ref::context('id'), as: 't2')
+            ->theyCan('x'),
+    ],
+    'check with an alias' => [
+        'check(is_published for xs_target(@context id) as t2)',
+        fn () => WarrantRule::build()
+            ->ifCheck('is_published', 'xs_target', Ref::context('id'), as: 't2')
+            ->theyCan('x'),
+    ],
     'can with a @sql selector' => [
         'can(manage for xs_target(@sql "select 1"))',
         fn () => WarrantRule::build()->ifCan('manage', 'xs_target', Ref::sql('select 1'))->theyCan('x'),

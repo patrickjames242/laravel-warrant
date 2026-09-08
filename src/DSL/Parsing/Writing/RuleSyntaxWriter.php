@@ -228,27 +228,49 @@ final class RuleSyntaxWriter
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
         return 'can(' . $node->ability . ' for '
-            . $this->writeHandleAndWith($node->schemaKey, $node->isRowBound, $node->boundRow, $node->contextMap);
+            . $this->writeHandleAndWith(
+                $node->schemaKey,
+                $node->isRowBound,
+                $node->boundRow,
+                $node->contextMap,
+                $node->alias,
+            );
     }
 
     private function writeCrossSchemaCheck(CrossSchemaConditionNode $node): string
     {
         return 'check(' . $this->writeExpression($node->predicate) . ' for '
-            . $this->writeHandleAndWith($node->schemaKey, $node->isRowBound, $node->boundRow, $node->contextMap);
+            . $this->writeHandleAndWith(
+                $node->schemaKey,
+                $node->isRowBound,
+                $node->boundRow,
+                $node->contextMap,
+                $node->alias,
+            );
     }
 
     /**
      * Render the shared cross-schema tail: the handle (`schema` or
-     * `schema(<row>)`), an optional `with <map>`, and the closing paren.
+     * `schema(<row>)`), an optional `as <alias>`, an optional `with <map>`, and
+     * the closing paren.
      *
      * @param array<string, mixed> $contextMap
      */
-    private function writeHandleAndWith(string $schemaKey, bool $isRowBound, mixed $boundRow, array $contextMap): string
-    {
+    private function writeHandleAndWith(
+        string $schemaKey,
+        bool $isRowBound,
+        mixed $boundRow,
+        array $contextMap,
+        ?string $alias = null,
+    ): string {
         $out = $schemaKey;
 
         if ($isRowBound) {
             $out .= '(' . $this->arg($boundRow) . ')';
+        }
+
+        if ($alias !== null) {
+            $out .= ' as ' . $alias;
         }
 
         if ($contextMap !== []) {

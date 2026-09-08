@@ -233,6 +233,29 @@ it('keeps a context ref out of the positional binding stream', function () {
     expect($reparsed->conditions->parameters[1]->key)->toBe('year');
 });
 
+// -- handle aliases (as) ------------------------------------------------------
+
+it('renders an as <alias> tail between the row selector and the with-map', function () {
+    $rule = WarrantRule::fromSyntax(
+        'if can(view for docs(@context id) as d2 with tenant = 7) they can update'
+    );
+
+    expect($rule->toSyntax())
+        ->toBe("if can(view for docs(@context id) as d2 with tenant = 7)\nthey can update");
+});
+
+it('round-trips an aliased check(...) handle', function () {
+    $rule = WarrantRule::fromSyntax('if check(is_open for docs(@context id) as d2) they can update');
+
+    expect($rule->toSyntax())->toBe("if check(is_open for docs(@context id) as d2)\nthey can update");
+});
+
+it('renders no as tail for an unaliased handle', function () {
+    $rule = WarrantRule::fromSyntax('if can(view for docs(@context id)) they can update');
+
+    expect($rule->toSyntax())->toBe("if can(view for docs(@context id))\nthey can update");
+});
+
 // -- column references (@column) ----------------------------------------------
 
 it('renders a column ref as @column <schema>.<column>, inline and bound alike', function () {

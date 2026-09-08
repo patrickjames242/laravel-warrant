@@ -114,7 +114,7 @@ class WarrantConditionBuilder
     // -- cross-schema terms ---------------------------------------------------
 
     /**
-     * Add a cross-schema ability check — `can(<ability> for <handle> [with <map>])`
+     * Add a cross-schema ability check — `can(<ability> for <handle> [as <alias>] [with <map>])`
      * — AND-joined to what precedes it: does the user hold $ability on *another*
      * schema? Unlike {@see ifCheck} this consults that schema's whole rule set.
      *
@@ -129,10 +129,13 @@ class WarrantConditionBuilder
      *   {@see Ref}, or {@see NoRow} (the default) for an unbound handle.
      * @param array<string, mixed> $with Explicit boundary context for the target
      *   schema, keyed by its context key names; values are scalars or {@see Ref}s.
+     * @param string|null $as Names the rows this reference selects, so a
+     *   {@see Ref::column()} can tell them apart from a table of the same name
+     *   already in scope further out. Requires $row.
      */
-    public function ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCan('and', $ability, $schema, $row, $with);
+        return $this->addCan('and', $ability, $schema, $row, $with, $as);
     }
 
     /**
@@ -140,9 +143,9 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    public function andIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function andIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCan('and', $ability, $schema, $row, $with);
+        return $this->addCan('and', $ability, $schema, $row, $with, $as);
     }
 
     /**
@@ -150,9 +153,9 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    public function orIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function orIfCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCan('or', $ability, $schema, $row, $with);
+        return $this->addCan('or', $ability, $schema, $row, $with, $as);
     }
 
     /**
@@ -168,15 +171,18 @@ class WarrantConditionBuilder
      * term: unlike a group an empty predicate cannot fold to `false`, because a
      * `check(...)` predicate may not contain a constant, so it throws instead.
      *
-     * $schema, $row and $with behave exactly as in {@see ifCan}.
+     * $schema, $row, $with and $as behave exactly as in {@see ifCan} — with one
+     * addition: on a `check(...)` the alias is a name the predicate itself can
+     * use, which is how a predicate spanning two frames of one table tells them
+     * apart.
      *
      * @param string|Closure(WarrantConditionBuilder):void $predicate
      * @param Model|WarrantSchema|string $schema
      * @param array<string, mixed> $with
      */
-    public function ifCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function ifCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCheck('and', $predicate, $schema, $row, $with);
+        return $this->addCheck('and', $predicate, $schema, $row, $with, $as);
     }
 
     /**
@@ -185,9 +191,9 @@ class WarrantConditionBuilder
      * @param string|Closure(WarrantConditionBuilder):void $predicate
      * @param array<string, mixed> $with
      */
-    public function andIfCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function andIfCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCheck('and', $predicate, $schema, $row, $with);
+        return $this->addCheck('and', $predicate, $schema, $row, $with, $as);
     }
 
     /**
@@ -196,9 +202,9 @@ class WarrantConditionBuilder
      * @param string|Closure(WarrantConditionBuilder):void $predicate
      * @param array<string, mixed> $with
      */
-    public function orIfCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = []): static
+    public function orIfCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [], ?string $as = null): static
     {
-        return $this->addCheck('or', $predicate, $schema, $row, $with);
+        return $this->addCheck('or', $predicate, $schema, $row, $with, $as);
     }
 
     /**
@@ -296,7 +302,7 @@ class WarrantConditionBuilder
      *
      * @param array<string, mixed> $with
      */
-    private function addCan(string $boolean, string $ability, Model|WarrantSchema|string $schema, mixed $row, array $with): static
+    private function addCan(string $boolean, string $ability, Model|WarrantSchema|string $schema, mixed $row, array $with, ?string $as): static
     {
         return $this->pushTerm($boolean, new CrossSchemaCanNode(
             Warrant::registry()->resolveSchemaKeyOrFail($schema),
@@ -304,6 +310,7 @@ class WarrantConditionBuilder
             ! $row instanceof NoRow,
             $row instanceof NoRow ? null : $row,
             $with,
+            $as,
         ));
     }
 
@@ -314,7 +321,7 @@ class WarrantConditionBuilder
      * @param string|Closure(WarrantConditionBuilder):void $predicate
      * @param array<string, mixed> $with
      */
-    private function addCheck(string $boolean, string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row, array $with): static
+    private function addCheck(string $boolean, string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row, array $with, ?string $as): static
     {
         return $this->pushTerm($boolean, new CrossSchemaConditionNode(
             Warrant::registry()->resolveSchemaKeyOrFail($schema),
@@ -322,6 +329,7 @@ class WarrantConditionBuilder
             ! $row instanceof NoRow,
             $row instanceof NoRow ? null : $row,
             $with,
+            $as,
         ));
     }
 
