@@ -8,6 +8,7 @@ use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\CompileDepthException;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -187,9 +188,11 @@ class DcFolderSchema extends WarrantSchema
 
     /** Derived: answers with the expression rather than SQL of its own. */
     #[RowCondition]
-    public function isEditable(RowConditionContext $c): WarrantConditionBuilder
+    public function isEditable(RowConditionContext $c): IBooleanExpressionNode
     {
-        return WarrantConditionBuilder::build()->if('is_owner')->orIf('owner_is', ['role-9']);
+        return Warrant::condition(<<<WARRANT
+            is_owner or owner_is('role-9')
+        WARRANT);
     }
 
     /** Derived, as a bare AST node. */
