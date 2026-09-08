@@ -44,18 +44,20 @@ use Warrant\WarrantGate;
  * at all, so the compiler folds it to `false` instead of emitting a column
  * reference to a table that is not in the query.
  *
- * The row's SQL identity is *not* part of this. It is derived from the schema's
- * own model by {@see \Warrant\Schema\Concerns\ResolvesConditions} when it builds
- * a {@see \Warrant\Schema\Conditions\RowConditionContext} — so a caller has
- * nothing useful to say about it and is no longer asked.
+ * The row's SQL *name* is a separate question from whether a row is in scope, and
+ * it is not the caller's either: {@see aliases} answers it, and
+ * {@see RuleSetCompiler::compile()} fills it in from the schema and the host query
+ * when a caller leaves it null — which every caller does.
  *
  * ## What the walk adds
  *
- * Two things, and both are derived rather than supplied. {@see negate} flips at
- * each `not` so that negation lands on the leaves rather than wrapping groups,
- * and {@see callStack} grows by one {@see Call} at each ability, cross-schema
+ * Three things, and all of them derived rather than supplied. {@see negate} flips
+ * at each `not` so that negation lands on the leaves rather than wrapping groups;
+ * {@see callStack} grows by one {@see Call} at each ability, cross-schema
  * `check(...)`, and expanding condition — which is where a cycle is caught and
- * where the depth budget is spent.
+ * where the depth budget is spent; and {@see aliases} is rebound at each
+ * cross-schema hop, so a `@column` reference means the frame it was reached in
+ * rather than a fixed table. See {@see AliasScope}.
  *
  * What is *not* here is the connector a predicate attaches under: the walk builds
  * a {@see \Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode} whose
@@ -93,6 +95,11 @@ final readonly class CompilationContext
      *   Internal: derived by the walk, never set by a caller.
      * @param CallStack|null $callStack The layers already descended through;
      *   defaults to an empty stack. Threaded by the compiler's own recursion.
+     * @param AliasScope|null $aliases The names a `@column` reference may use here
+     *   and the SQL qualifier each stands for. Null means "not decided yet", which
+     *   {@see RuleSetCompiler::compile()} settles on the way in; the compiler's own
+     *   cross-schema descent passes the derived scope, since only it knows the
+     *   frame it is building.
      */
     public function __construct(
         public CompilationUnit $unit,
@@ -103,6 +110,7 @@ final readonly class CompilationContext
         public array $checkContext = [],
         public bool $negate = false,
         ?CallStack $callStack = null,
+        public ?AliasScope $aliases = null,
     ) {
         $this->callStack = $callStack ?? CallStack::root();
     }
@@ -173,6 +181,15 @@ final readonly class CompilationContext
     }
 
     /**
+     * Name the rows in scope here. Set once, by {@see RuleSetCompiler::compile()},
+     * for a context a caller built without one.
+     */
+    public function withAliases(AliasScope $aliases): self
+    {
+        return $this->with(aliases: $aliases);
+    }
+
+    /**
      * Derive a copy with the negation flag toggled (crossing a `not`).
      */
     public function negated(): self
@@ -205,6 +222,7 @@ final readonly class CompilationContext
         ?array $checkContext = null,
         ?bool $negate = null,
         ?CallStack $callStack = null,
+        ?AliasScope $aliases = null,
     ): self {
         return new self(
             unit: $unit ?? $this->unit,
@@ -217,6 +235,7 @@ final readonly class CompilationContext
             checkContext: $checkContext ?? $this->checkContext,
             negate: $negate ?? $this->negate,
             callStack: $callStack ?? $this->callStack,
+            aliases: $aliases ?? $this->aliases,
         );
     }
 }

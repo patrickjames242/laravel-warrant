@@ -74,8 +74,11 @@ use Warrant\WarrantManager;
  * the compiler cannot, since a predicate is detached and where it is eventually
  * spliced is the caller's business. {@see compile()} narrows that answer against
  * {@see ConditionResolver::modelClass()} on the way in, so the walk reads a single
- * already-correct flag. The row's SQL identity is not threaded at all: a
- * condition's table and key column are the resolver's own to derive.
+ * already-correct flag. What the row is *called* in SQL is settled here too, and
+ * unlike the flag it is nobody else's to know: {@see compile()} seeds an
+ * {@see AliasScope} from the schema and the host query, and each cross-schema hop
+ * rebinds it, so the same rule text compiles against whichever table its frame
+ * actually selects.
  *
  * A condition answers in one of three ways: with a bool it decides outright, with
  * an expression (or the builder that composes one) it *derives* itself from other
@@ -127,6 +130,10 @@ final class RuleSetCompiler
     {
         if ($ctx->targeted && $this->conditions::modelClass() === '') {
             $ctx = $ctx->withoutTarget();
+        }
+
+        if ($ctx->aliases === null) {
+            $ctx = $ctx->withAliases($this->rootAliases($ctx));
         }
 
         $unit = $ctx->unit;
@@ -322,6 +329,65 @@ final class RuleSetCompiler
 
 
     /**
+     * The scope a top-level compile starts from: the schema's own key, standing
+     * for the rows the caller's query is selecting.
+     *
+     * The name is the key, because that is the only name the rules being compiled
+     * can possibly use — their author cannot see the query they will be spliced
+     * into. What it stands for is that query's own `from`, so a caller who wrote
+     * `from('docs as d')` gets predicates about `d`; falling back to the model's
+     * table when the query has no readable `from`, which is what every predicate
+     * was written against before this existed.
+     *
+     * With no row in scope the key is still bound, to nothing: a compile with no
+     * target has rows to talk *about* but no `from` to talk about them *in*, and a
+     * reference to them folds away rather than erroring like an unknown name would.
+     * A schema with no model at all binds nothing — see {@see AliasScope::none()}.
+     */
+    private function rootAliases(CompilationContext $ctx): AliasScope
+    {
+        $modelClass = $this->conditions::modelClass();
+
+        if ($modelClass === '') {
+            return AliasScope::none();
+        }
+
+        return AliasScope::root(
+            $this->conditions::schemaKey(),
+            $ctx->targeted ? $this->rowQualifierFor($modelClass, $ctx->queries) : null,
+        );
+    }
+
+    /**
+     * The SQL name a schema's rows answer to, or null for a schema with no model
+     * and therefore no table at all.
+     *
+     * $queries is consulted only for the frame the host query itself selects; a
+     * cross-schema hop builds its own `from` and passes none.
+     */
+    private function rowQualifierFor(string $modelClass, ?QueryFactory $queries = null): ?string
+    {
+        if ($modelClass === '') {
+            return null;
+        }
+
+        /** @var Model $model */
+        $model = new $modelClass;
+
+        return $queries?->rowQualifier() ?? $model->getTable();
+    }
+
+    /**
+     * The frame's alias scope. {@see compile()} settles it on the way in, so the
+     * walk always has one; falling back to the empty scope means a leaf built
+     * outside a compile reports "nothing in scope" rather than failing on a null.
+     */
+    private function aliases(CompilationContext $ctx): AliasScope
+    {
+        return $ctx->aliases ?? AliasScope::none();
+    }
+
+    /**
      * Read a cross-schema handle's row selector into the key to bind and, when
      * the caller named the row by handing over the row itself, the model to
      * evaluate B's row conditions against.
@@ -425,13 +491,23 @@ final class RuleSetCompiler
            never B's row, so the row-bound branch chains forTargetRow() below — and
            unnegated, since A's negation applies to the spliced result rather than
            crossing into B. No call is entered here either: B's own abilityNode()
-           enters one, and that is the call a cycle must be detected against. */
+           enters one, and that is the call a cycle must be detected against.
+           The alias scope is passed rather than left to B's compile() to seed,
+           because the qualifier is this subquery's `from` and only this frame
+           knows it — and it is a *fresh* scope: B's rules were written without
+           knowing who reached them, so A's names are deliberately not in it. */
         $bCtx = new CompilationContext(
             unit: new AbilityUnit($node->ability, $bRuleSet),
             queries: $ctx->queries,
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack,
+            aliases: $this->aliases($ctx)->enteringRuleSet(
+                $node->schemaKey,
+                /* Only a row-bound hop has a `from` of its own; unbound, B's rows
+                   are talked about but never selected. */
+                $node->isRowBound ? $this->rowQualifierFor($bClass::model) : null,
+            ),
         );
 
         if ($node->isRowBound) {
@@ -523,13 +599,21 @@ final class RuleSetCompiler
 
         /* As in a can(...): B starts untargeted and unnegated. Unlike a can(...),
            the check is entered here, because nothing below will — this compiles B's
-           conditions, never B's rules. */
+           conditions, never B's rules. The alias scope differs from a can(...) too:
+           the predicate is written inline in A's own rule text, so A's names stay
+           in scope for it to correlate back to, and B's frame is added on top. */
         $bCtx = new CompilationContext(
             unit: new ConditionUnit($node->predicate),
             queries: $ctx->queries,
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bClass)),
+            aliases: $this->aliases($ctx)->enteringPredicate(
+                $node->schemaKey,
+                null,
+                // As in a can(...): no row selector, no `from`, no qualifier.
+                $node->isRowBound ? $this->rowQualifierFor($bClass::model) : null,
+            ),
         );
 
         if ($node->isRowBound) {
