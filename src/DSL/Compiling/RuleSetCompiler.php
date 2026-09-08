@@ -492,6 +492,8 @@ final class RuleSetCompiler
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
+        $bQualifier = $this->hopQualifier($node, $bClass::model, $this->aliases($ctx));
+
         /* B compiles off the same factory as A: it is the same connection and the
            same grammar, and the `from` that distinguishes B's subquery is not
            something a factory exposes anyway. It starts untargeted — A's row is
@@ -509,14 +511,10 @@ final class RuleSetCompiler
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack,
-            aliases: $this->aliases($ctx)->enteringRuleSet(
-                $node->schemaKey,
-                /* Only a row-bound hop has a `from` of its own; unbound, B's rows
-                   are talked about but never selected. B's rules name their own
-                   key, so that is what the alias binds *to* — B's author cannot
-                   know what this caller chose to call it. */
-                $node->isRowBound ? $this->hopQualifier($node->alias, $bClass::model) : null,
-            ),
+            /* B's rules name their own key, so that is the name this frame's
+               identifier binds to — B's author cannot know what this caller chose
+               to call it. */
+            aliases: $this->aliases($ctx)->enteringRuleSet($node->schemaKey, $bQualifier),
         );
 
         if ($node->isRowBound) {
@@ -550,12 +548,8 @@ final class RuleSetCompiler
             }
 
             $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($node->alias, $bModel->getTable()))
-                ->where(
-                    $this->hopQualifier($node->alias, $bClass::model) . '.' . $bModel->getKeyName(),
-                    '=',
-                    $rowId,
-                );
+                ->from($this->hopFrom($bModel->getTable(), $bQualifier))
+                ->where($bQualifier . '.' . $bModel->getKeyName(), '=', $rowId);
 
             /* A's model never crosses the boundary — A's row is not B's row — but
                the *selector* may itself have been B's row, in which case B compiles
@@ -633,6 +627,8 @@ final class RuleSetCompiler
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
         $bCompiler = new self($bSchema, $this->manager);
 
+        $bQualifier = $this->hopQualifier($node, $bClass::model, $this->aliases($ctx));
+
         /* As in a can(...): B starts untargeted and unnegated. Unlike a can(...),
            the check is entered here, because nothing below will — this compiles B's
            conditions, never B's rules. The alias scope differs from a can(...) too:
@@ -644,12 +640,7 @@ final class RuleSetCompiler
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bClass)),
-            aliases: $this->aliases($ctx)->enteringPredicate(
-                $node->schemaKey,
-                $node->alias,
-                // As in a can(...): no row selector, no `from`, no qualifier.
-                $node->isRowBound ? $this->hopQualifier($node->alias, $bClass::model) : null,
-            ),
+            aliases: $this->aliases($ctx)->enteringPredicate($node->schemaKey, $node->alias, $bQualifier),
         );
 
         if ($node->isRowBound) {
@@ -683,12 +674,8 @@ final class RuleSetCompiler
             }
 
             $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($node->alias, $bModel->getTable()))
-                ->where(
-                    $this->hopQualifier($node->alias, $bClass::model) . '.' . $bModel->getKeyName(),
-                    '=',
-                    $rowId,
-                );
+                ->from($this->hopFrom($bModel->getTable(), $bQualifier))
+                ->where($bQualifier . '.' . $bModel->getKeyName(), '=', $rowId);
 
             // As in a row-bound can(...): A's model never crosses into B, but the
             // selector may have been B's own row.
@@ -720,25 +707,37 @@ final class RuleSetCompiler
     }
 
     /**
-     * A hop's `from`: the target's table, aliased when the reference named one.
-     *
-     * Unaliased it is the bare table, so when the same table is already in scope
-     * further out, SQL's own shadowing makes the inner one win. Naming it is how
-     * an author opts out of that and keeps both reachable.
+     * A hop's `from`: the target's table, aliased when its rows carry a different
+     * identifier. The counterpart of {@see hopQualifier()} — the two must agree,
+     * or the predicate would name a table the subquery never selected.
      */
-    private function hopFrom(?string $alias, string $table): string
+    private function hopFrom(string $table, string $qualifier): string
     {
-        return $alias === null ? $table : $table . ' as ' . $alias;
+        return $qualifier === $table ? $table : $table . ' as ' . $qualifier;
     }
 
     /**
-     * What columns of a hop's rows are qualified with: its alias, or the target's
-     * table when it has none. The counterpart of {@see hopFrom} — the two must
-     * agree, or the predicate would name a table the subquery never selected.
+     * The identifier a hop's rows carry in the emitted SQL, or null when the hop
+     * selects no rows to name.
+     *
+     * The name the reference asked for — its alias, else the target's table —
+     * suffixed only when that identifier already stands for a frame in this
+     * query, which a hop into a table already in scope does. Chosen once per hop,
+     * because the subquery's `from`, its correlated key and every `@column` that
+     * resolves to the frame all have to agree on it.
      */
-    private function hopQualifier(?string $alias, string $modelClass): ?string
-    {
-        return $alias ?? $this->rowQualifierFor($modelClass);
+    private function hopQualifier(
+        CrossSchemaCanNode|CrossSchemaConditionNode $node,
+        string $modelClass,
+        AliasScope $scope,
+    ): ?string {
+        $table = $this->rowQualifierFor($modelClass);
+
+        if (! $node->isRowBound || $table === null) {
+            return null;
+        }
+
+        return $scope->freeQualifier($node->alias ?? $table);
     }
 
     /**

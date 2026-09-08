@@ -36,9 +36,24 @@ use InvalidArgumentException;
  * target's schema key over any outer binding of that key, so a self-referencing
  * `check(… for documents(…))` reads `@column documents.id` as the *inner* row.
  * Naming the inner frame instead — `as d2` — leaves `documents` meaning the outer
- * row and makes both reachable. Nothing is renamed behind the author's back and
- * nothing is auto-generated: an unaliased hop emits no `as` in its SQL either, so
- * the shadowing in the emitted query is exactly the shadowing in the scope.
+ * row and makes both reachable.
+ *
+ * ## Names and identifiers
+ *
+ * A name is the author's and an identifier is the compiler's; {@see $bindings} is
+ * the map between them. Every frame's identifier has to differ from every other
+ * frame's, or a predicate could not refer to one frame from inside another — so
+ * {@see freeQualifier()} takes the name the author asked for and suffixes it only
+ * when that identifier is already spoken for, keeping their word as the base.
+ *
+ * {@see $usedQualifiers} is what it consults, and unlike {@see $bindings} it
+ * survives {@see enteringRuleSet()}: another schema's rule text starts with a
+ * fresh set of *names*, but its rows are selected into the same query, where the
+ * *identifiers* are still taken.
+ *
+ * The suffixed form is never something an author types. A `check(… as d2)` binds
+ * the name `d2`, and `@column d2.x` resolves through it to whichever identifier
+ * that frame was given.
  *
  * ## A null qualifier
  *
@@ -60,10 +75,14 @@ final readonly class AliasScope
      * @param string|null $current The qualifier for *this* frame's own row — what
      *   an unqualified `@column <column>` means, and the table a row condition
      *   builds its predicate against.
+     * @param list<string> $usedQualifiers Every identifier already standing for a
+     *   frame in the query being built. See the class docblock for why this
+     *   outlives the names in {@see $bindings}.
      */
     private function __construct(
         public array $bindings = [],
         public ?string $current = null,
+        public array $usedQualifiers = [],
     ) {
     }
 
@@ -73,7 +92,7 @@ final readonly class AliasScope
      */
     public static function root(string $schemaKey, ?string $qualifier): self
     {
-        return new self([$schemaKey => $qualifier], $qualifier);
+        return new self([$schemaKey => $qualifier], $qualifier, $qualifier === null ? [] : [$qualifier]);
     }
 
     /**
@@ -93,7 +112,7 @@ final readonly class AliasScope
      */
     public function enteringRuleSet(string $schemaKey, ?string $qualifier): self
     {
-        return new self([$schemaKey => $qualifier], $qualifier);
+        return new self([$schemaKey => $qualifier], $qualifier, $this->including($qualifier));
     }
 
     /**
@@ -107,7 +126,43 @@ final readonly class AliasScope
         return new self(
             array_merge($this->bindings, [$alias ?? $schemaKey => $qualifier]),
             $qualifier,
+            $this->including($qualifier),
         );
+    }
+
+    /**
+     * An identifier the emitted SQL can give a new frame without colliding with
+     * one already in the query: the name asked for, or that name with the lowest
+     * free numeric suffix.
+     */
+    public function freeQualifier(string $preferred): string
+    {
+        if (! in_array($preferred, $this->usedQualifiers, true)) {
+            return $preferred;
+        }
+
+        for ($suffix = 1;; $suffix++) {
+            $candidate = $preferred.'_'.$suffix;
+
+            if (! in_array($candidate, $this->usedQualifiers, true)) {
+                return $candidate;
+            }
+        }
+    }
+
+    /**
+     * This scope's identifiers plus $qualifier, which a frame with no rows in
+     * scope does not have.
+     *
+     * @return list<string>
+     */
+    private function including(?string $qualifier): array
+    {
+        if ($qualifier === null || in_array($qualifier, $this->usedQualifiers, true)) {
+            return $this->usedQualifiers;
+        }
+
+        return [...$this->usedQualifiers, $qualifier];
     }
 
     /**
