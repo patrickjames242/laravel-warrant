@@ -623,6 +623,10 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     'reserved word as ability' => ['they can can', [], "Reserved word 'can' cannot be used"],
     'reserved word as condition' => ['if if they can view', [], "Reserved word 'if' cannot be used"],
     'because reserved as ability' => ['they can because', [], "Reserved word 'because' cannot be used"],
+    // `as` became a keyword for the cross-schema handle alias, so it stopped
+    // being available as a condition, ability or schema name.
+    'as reserved as condition' => ['if as they can view', [], "Reserved word 'as' cannot be used"],
+    'as reserved as ability' => ['they can as', [], "Reserved word 'as' cannot be used"],
     'unterminated string' => ["if is_thing('oops) they can view", [], 'Unterminated string'],
     'unterminated double-quoted string' => ['if is_thing("oops) they can view', [], 'Unterminated string'],
     'invalid escape sequence' => ["if is_thing('a\\nb') they can view", [], 'Invalid escape sequence'],

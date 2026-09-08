@@ -783,6 +783,7 @@ final class WarrantParser
             TokenType::NOT,
             TokenType::FOR,
             TokenType::WITH,
+            TokenType::AS,
         ], true) && ctype_alpha($token->lexeme);
     }
 }

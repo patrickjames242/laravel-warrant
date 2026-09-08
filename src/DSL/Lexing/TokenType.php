@@ -13,6 +13,7 @@ enum TokenType
     case CHECK; // cross-schema condition builtin: check(<predicate> for <handle>)
     case FOR;  // cross-schema handle: can(<ability> for <handle>)
     case WITH; // cross-schema context map: ... with <key> = <value>
+    case AS;   // cross-schema handle alias: ... for <handle> as <alias>
 
     // Boolean operators.
     case AND;
