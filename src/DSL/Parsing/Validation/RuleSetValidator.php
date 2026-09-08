@@ -143,12 +143,10 @@ final class RuleSetValidator
      * capability schema has no row to target), and an alias requires a row to
      * name.
      *
-     * The target may be this schema itself. That used to be rejected outright,
-     * because a nested subquery over the same table emitted the same identifier
-     * as the query around it and nothing could tell the two apart; naming a hop's
-     * rows (`as d2`) is what makes it expressible. Recursion is still bounded —
-     * {@see \Warrant\DSL\Compiling\CallStack} rejects re-entering an ability
-     * already in progress, and the depth budget covers the rest — so a
+     * The target may be this schema itself. Two frames over one table are told
+     * apart by naming the hop's rows (`as d2`), and recursion is bounded by
+     * {@see \Warrant\DSL\Compiling\CallStack}, which rejects re-entering an
+     * ability already in progress and caps depth for everything else — so a
      * self-reference has to name a *different* ability to compile at all.
      */
     private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void

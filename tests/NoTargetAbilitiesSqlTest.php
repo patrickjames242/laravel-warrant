@@ -35,9 +35,9 @@ beforeEach(function () {
 |     rather than becoming true. Either way the ability is not held.
 |   - a *global* condition compiles to its inline where-clause.
 |
-| Which is why most of what this stage used to assert is now *absent*: a branch
-| whose predicate folded to a constant contributes nothing a query could tell us,
-| so runNoTargetAbilityQuery decides that ability in PHP and leaves it out of the
+| Which is why most of what these assert is an *absence*: a branch whose
+| predicate folded to a constant contributes nothing a query could tell us, so
+| runNoTargetAbilityQuery decides that ability in PHP and leaves it out of the
 | union entirely. No branch ever reads `where (1 = 1)` or `where (1 = 0)` here.
 | With every requested ability folded there is no union to build and no query at
 | all — assertNoTargetQueryless() covers those, asserting the abilities returned
@@ -133,10 +133,9 @@ it('leaves a negated row condition unanswered without a target, and asks nothing
 });
 
 it('leaves an ability unanswered when only a row condition could deny it', function () {
-    /* The grant is unconditional, but the deny turns on a row nobody named. The
-       old behaviour reported `view` as held, because the unanswerable deny folded
-       to false and the `not` around it to true — a deny lifted by a question we
-       could not answer. */
+    /* The grant is unconditional, but the deny turns on a row nobody named, so
+       the ability as a whole is unanswered: an unknown deny is not a deny that
+       failed to fire. */
     bindWarrantRules("they can view\nif is_teacher they cannot view");
 
     assertNoTargetQueryless('view', []);

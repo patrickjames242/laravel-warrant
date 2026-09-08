@@ -21,8 +21,9 @@ use Warrant\DSL\Compiling\QueryFactory;
  * A `null` operand is *unknown*: not false, but unanswerable — a row condition
  * with no row in scope, a `@column` about a table this frame never selected. It
  * is a separate value because `false` is an answer and negating an answer is
- * legitimate, whereas negating "could not tell" has to yield itself. Folding a
- * `false` under a `not` is how an unanswerable deny used to become a grant.
+ * legitimate, whereas negating "could not tell" has to yield itself. Keeping the
+ * two apart is what stops a `not` around an unanswerable deny from reporting a
+ * grant.
  *
  * Only two combinations with an unknown are decidable, and both are the ones that
  * make the other operand irrelevant: `unknown and false` is `false`, and

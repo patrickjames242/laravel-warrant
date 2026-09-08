@@ -90,7 +90,7 @@ final readonly class QueryFactory
      * Null when the prototype has no `from` at all (a no-target compile, which has
      * no row anyway) or when it is a raw {@see Expression}, whose rows have no name
      * this can read out. Either way the caller falls back to the schema model's own
-     * table, which is what the compiler did unconditionally before.
+     * table.
      */
     public function rowQualifier(): ?string
     {

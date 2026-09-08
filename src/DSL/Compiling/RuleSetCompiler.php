@@ -92,8 +92,8 @@ use Warrant\WarrantManager;
  * access). The compiler holds itself to the same rule for the questions *it*
  * cannot answer — a row condition with no row, a `@column` about a table this
  * frame never selected, a row selector that resolved to nothing — each of which
- * compiles to the third truth value rather than to `false`, which would have
- * negated into a grant. See {@see Decision} and
+ * compiles to the third truth value, which negates to itself and so neither
+ * grants nor lifts a deny. See {@see Decision} and
  * {@see \Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode}. Because a leaf must be a spliceable boolean, a condition may only add
  * where clauses to its builder; one that emits a join/group/having/aggregate/union
  * is rejected (see {@see conditionLeaf}) — relational checks use
@@ -339,9 +339,8 @@ final class RuleSetCompiler
      * The name is the key, because that is the only name the rules being compiled
      * can possibly use — their author cannot see the query they will be spliced
      * into. What it stands for is that query's own `from`, so a caller who wrote
-     * `from('docs as d')` gets predicates about `d`; falling back to the model's
-     * table when the query has no readable `from`, which is what every predicate
-     * was written against before this existed.
+     * `from('docs as d')` gets predicates about `d`, falling back to the model's
+     * table when the query has no readable `from`.
      *
      * With no row in scope the key is still bound, to nothing: a compile with no
      * target has rows to talk *about* but no `from` to talk about them *in*, and a
@@ -541,12 +540,11 @@ final class RuleSetCompiler
 
             /* A selector that resolved to nothing — an absent `@context`, or a
                model with no key yet — does not name a row, so this reference is
-               unanswerable. It has to be caught *here*, before the subquery is
-               built, because `exists` is never unknown: it is a row-count
-               question, so it would report a definite `false` and `not exists`
-               would report a definite `true`, lifting a deny off a question we
-               could not answer. Validation rejects a *literal* null selector, but
-               a `@context` one is filled per check and so can only be caught now. */
+               unanswerable. It resolves here, before the subquery is built,
+               because `exists` is never unknown: being a row-count question, a
+               subquery can only report a definite answer about a row nobody
+               named. Validation rejects a *literal* null selector; a `@context`
+               one is filled per check, so this is the point at which it is known. */
             if ($rowId === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
@@ -675,12 +673,11 @@ final class RuleSetCompiler
 
             /* A selector that resolved to nothing — an absent `@context`, or a
                model with no key yet — does not name a row, so this reference is
-               unanswerable. It has to be caught *here*, before the subquery is
-               built, because `exists` is never unknown: it is a row-count
-               question, so it would report a definite `false` and `not exists`
-               would report a definite `true`, lifting a deny off a question we
-               could not answer. Validation rejects a *literal* null selector, but
-               a `@context` one is filled per check and so can only be caught now. */
+               unanswerable. It resolves here, before the subquery is built,
+               because `exists` is never unknown: being a row-count question, a
+               subquery can only report a definite answer about a row nobody
+               named. Validation rejects a *literal* null selector; a `@context`
+               one is filled per check, so this is the point at which it is known. */
             if ($rowId === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
@@ -725,10 +722,9 @@ final class RuleSetCompiler
     /**
      * A hop's `from`: the target's table, aliased when the reference named one.
      *
-     * Unaliased it is the bare table, which is what a hop has always emitted —
-     * including when the same table is already in scope further out, where SQL's
-     * own shadowing then makes the inner one win. Naming it is how an author opts
-     * out of that and keeps both reachable.
+     * Unaliased it is the bare table, so when the same table is already in scope
+     * further out, SQL's own shadowing makes the inner one win. Naming it is how
+     * an author opts out of that and keeps both reachable.
      */
     private function hopFrom(?string $alias, string $table): string
     {
@@ -846,12 +842,10 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        /* A row condition cannot be evaluated without a row, so in a no-target
-           compile the honest answer is unknown rather than false: `false` would
-           negate to `true` under a `cannot`, turning a question we could not
-           answer into a grant. An unknown negates to itself, so it neither grants
-           nor lifts a deny. The negation flag is deliberately not passed on — it
-           would mean nothing to an unknown. */
+        /* A row condition cannot be evaluated without a row, so a no-target
+           compile answers it with the third truth value: an unknown negates to
+           itself, so it neither grants nor lifts a deny. The negation flag is
+           deliberately not passed on — it would mean nothing to an unknown. */
         if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
@@ -883,9 +877,8 @@ final class RuleSetCompiler
             $parameters,
             $ctx->checkContext,
             $ctx->targetModel,
-            /* What this frame's row is called where the predicate lands. The
-               resolver falls back to its model's table when this is null, which
-               is what it always used unconditionally. */
+            /* What this frame's row is called where the predicate lands; the
+               resolver falls back to its model's table when it is null. */
             $this->aliases($ctx)->current,
         );
 

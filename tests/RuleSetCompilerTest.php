@@ -266,9 +266,9 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     )->spliceInto($q);
     expect($q->count())->toBe(0);
 
-    /* And `not is_teacher` selects nothing either. Negating an unanswered
-       question leaves it unanswered — where forcing it to `false` would have
-       made the negation `true` and let every row through. */
+    /* And `not is_teacher` selects nothing either: negating an unanswered
+       question leaves it unanswered, and a `where` keeps a row only on a
+       definite yes. */
     $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
     $q2 = DB::table('docs');
     $compiler->compile(

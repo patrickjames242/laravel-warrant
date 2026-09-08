@@ -193,11 +193,9 @@ it('emits a surviving unknown as SQL null rather than folding it away', function
 });
 
 it('keeps false and unknown distinguishable under a not', function () {
-    /* This is what an unknown is *for*. Had the unknown been a `false`, the
-       whole group would have folded to false and the `not` would have made it
-       true — an unanswerable question turned into a yes. Instead the negation
-       lands on the leaf and the unknown rides along untouched, so the row only
-       passes when `a = 1` is genuinely false. */
+    /* This is what an unknown is *for*. The negation lands on the leaf and the
+       unknown rides along untouched, so the row passes only when `a = 1` is
+       genuinely false — an unanswerable question never becomes a yes. */
     $child = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd(null);
 
     nodeExpect(

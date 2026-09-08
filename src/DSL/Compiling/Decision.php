@@ -8,14 +8,14 @@ use LogicException;
  * What a compile settled on: one of SQL's three truth values, or "ask the
  * database".
  *
- * {@see CompilationResult::decision()} used to answer this as a `?bool`, with
- * null standing for "not settled here, so SQL is needed". That left
- * nowhere to put a third truth value, and a compile can genuinely reach one —
- * a row condition with no row, a `@column` about a table this frame never
- * selected, a row selector that resolved to nothing. Those are not `false`; they
- * are questions the compile could not answer, and the difference is observable,
- * because negating an answer is legitimate and negating "could not tell" is not.
- * See {@see \Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode}.
+ * A compile can settle on any of SQL's three truth values, and reach the third
+ * in several ways: a row condition with no row, a `@column` about a table this
+ * frame never selected, a row selector that resolved to nothing. None of those is
+ * `false`; each is a question the compile could not answer, and the difference is
+ * observable, because negating an answer is legitimate and negating "could not
+ * tell" is not. Four cases keep that distinct from the fourth possibility, which
+ * is not a truth value at all: that the answer has to be asked in SQL. See
+ * {@see \Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode}.
  *
  * Only {@see True} grants. Both {@see False} and {@see Unknown} deny — a `WHERE`
  * clause keeps a row only when its predicate is true — so a caller that just

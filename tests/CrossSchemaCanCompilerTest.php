@@ -450,9 +450,9 @@ it('folds a reference whose @context row selector is absent, rather than asking 
 });
 
 it('does not let an absent row selector lift a cannot', function () {
-    /* The one that matters. `exists` is never unknown, so the old behaviour
-       emitted `not exists (… where "xc_folders"."id" is null …)` — true for every
-       row, so the deny silently stopped firing and everyone kept `view`. */
+    /* The one that matters. `exists` is never unknown, so a subquery here could
+       only report a definite answer about a row nobody named — and under a
+       `cannot`, a definite `not exists` is a deny that never fires. */
     assertXcFilterSql(
         'they can view if can(manage for xc_folders(@context folder_id)) they cannot view',
         ['xc_folders' => 'if is_owner they can view, manage'],
