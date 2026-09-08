@@ -29,7 +29,9 @@ use Warrant\Rules\WarrantRuleSet;
  * against the registry (by schema key) to confirm the target schema and ability
  * exist; the referenced schema's *rules* are never consulted here (they are
  * per-user and resolver-owned), so cycle detection is deliberately left to the
- * compiler, not this validator.
+ * compiler, not this validator. That is also why a reference may target the
+ * owning schema: whether it recurses is a question about rules this validator
+ * cannot see.
  *
  * One check is not about names but about *scope*: a `@column` reference may only
  * name a table the rule can actually see from where it is written. That set grows
@@ -40,9 +42,8 @@ use Warrant\Rules\WarrantRuleSet;
 final class RuleSetValidator
 {
     /**
-     * @param string $schemaKey The owning schema's key: the name its own rows go by
-     *   in a `@column` reference, and the name a `can(...)` may not target (see
-     *   {@see assertCrossSchemaCanValid}).
+     * @param string $schemaKey The owning schema's key — the name its own rows go
+     *   by in a `@column` reference.
      */
     public function __construct(
         private readonly SchemaVocabulary $schema,
@@ -136,21 +137,22 @@ final class RuleSetValidator
     }
 
     /**
-     * Validate a cross-schema `can(<ability> for <schema>[(<row>)])` reference:
-     * it must target another schema (never its own), that schema must be
-     * registered, the ability must be declared by it, a row-bound reference
-     * requires a model-backed target (a capability schema has no row to target),
-     * and an alias requires a row to name.
+     * Validate a cross-schema `can(<ability> for <schema>[(<row>)] [as <alias>])`
+     * reference: the target schema must be registered, the ability must be
+     * declared by it, a row-bound reference requires a model-backed target (a
+     * capability schema has no row to target), and an alias requires a row to
+     * name.
+     *
+     * The target may be this schema itself. That used to be rejected outright,
+     * because a nested subquery over the same table emitted the same identifier
+     * as the query around it and nothing could tell the two apart; naming a hop's
+     * rows (`as d2`) is what makes it expressible. Recursion is still bounded —
+     * {@see \Warrant\DSL\Compiling\CallStack} rejects re-entering an ability
+     * already in progress, and the depth budget covers the rest — so a
+     * self-reference has to name a *different* ability to compile at all.
      */
     private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void
     {
-        if ($node->schemaKey === $this->schemaKey) {
-            throw new InvalidArgumentException(sprintf(
-                'A can(...) reference cannot target its own schema [%s]; it may only reference other schemas.',
-                $node->schemaKey,
-            ));
-        }
-
         try {
             $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
         } catch (OutOfBoundsException $e) {
@@ -197,22 +199,19 @@ final class RuleSetValidator
     }
 
     /**
-     * Validate a cross-schema `check(<predicate> for <schema>[(<row>)])` reference:
-     * it must target another schema (never its own), that schema must be
-     * registered, a row-bound reference requires a model-backed target with a
-     * non-null row, and an alias requires a row to name. The predicate is a boolean expression whose every leaf must be
-     * a condition declared by the *target* schema; on an unbound handle no leaf may
+     * Validate a cross-schema
+     * `check(<predicate> for <schema>[(<row>)] [as <alias>])` reference: the
+     * target schema must be registered, a row-bound reference requires a
+     * model-backed target with a non-null row, and an alias requires a row to
+     * name. The predicate is a boolean expression whose every leaf must be a
+     * condition declared by the *target* schema; on an unbound handle no leaf may
      * be a row condition (it would have no row to run against).
+     *
+     * As with `can(...)` the target may be this schema itself, and here it carries
+     * no cycle risk at all: a `check(...)` never reads the target's rules.
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, array $inScopeNames): void
     {
-        if ($node->schemaKey === $this->schemaKey) {
-            throw new InvalidArgumentException(sprintf(
-                'A check(...) reference cannot target its own schema [%s]; it may only reference other schemas.',
-                $node->schemaKey,
-            ));
-        }
-
         try {
             $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
         } catch (OutOfBoundsException $e) {

@@ -51,15 +51,18 @@ it('accepts a row-bound reference to a model-backed schema', function () {
     expect(true)->toBeTrue();
 });
 
-it('rejects a reference to its own schema', function () {
-    expect(fn () => validateOwnerSyntax('if can(view for xs_owner) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'cannot target its own schema [xs_owner]');
-});
-
-it('rejects a reference to its own schema even when row-bound', function () {
-    expect(fn () => validateOwnerSyntax('if can(view for xs_owner(@context id)) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'cannot target its own schema [xs_owner]');
-});
+it('accepts a reference to its own schema, unbound or row-bound', function (string $syntax) {
+    /* Once a hop's rows can be named, a schema referencing itself is expressible
+       — and it is the natural way to say "you may do this if you may do that".
+       Whether such a reference *terminates* is about rules this validator cannot
+       see, so it is left to the compiler's cycle guard. */
+    validateOwnerSyntax($syntax);
+    expect(true)->toBeTrue();
+})->with([
+    'unbound' => 'if can(view for xs_owner) they can edit',
+    'row-bound' => 'if can(view for xs_owner(@context id)) they can edit',
+    'row-bound and aliased' => 'if can(view for xs_owner(@context id) as o2) they can edit',
+]);
 
 it('rejects an unknown target schema', function () {
     expect(fn () => validateOwnerSyntax('if can(view for nope_schema) they can edit'))
@@ -102,9 +105,9 @@ it('accepts a builder-built row-bound reference', function () {
     expect(true)->toBeTrue();
 });
 
-it('rejects a builder-built reference to its own schema', function () {
-    expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('view', 'xs_owner')->theyCan('edit')))
-        ->toThrow(InvalidArgumentException::class, 'cannot target its own schema [xs_owner]');
+it('accepts a builder-built reference to its own schema', function () {
+    validateOwnerRule(WarrantRule::build()->ifCan('view', 'xs_owner')->theyCan('edit'));
+    expect(true)->toBeTrue();
 });
 
 it('rejects a builder-built row-bound reference with an explicit null row', function () {

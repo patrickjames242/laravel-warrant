@@ -61,9 +61,12 @@ it('accepts a global condition on a row-bound handle', function () {
     expect(true)->toBeTrue();
 });
 
-it('rejects a reference to its own schema', function () {
-    expect(fn () => validateOwnerCheckSyntax('if check(is_owner_open for xcv_owner) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'cannot target its own schema [xcv_owner]');
+it('accepts a reference to its own schema', function () {
+    /* A check(...) never reads the target's rules, so a self-reference here has
+       no recursion to bound at all — it just asks this schema's own conditions
+       about another of its rows. */
+    validateOwnerCheckSyntax('if check(is_owner_open for xcv_owner) they can edit');
+    expect(true)->toBeTrue();
 });
 
 it('rejects an unknown target schema', function () {
