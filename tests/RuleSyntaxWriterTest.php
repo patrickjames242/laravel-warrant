@@ -281,7 +281,7 @@ it('keeps a column ref out of the positional binding stream', function () {
     $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
     expect($reparsed->conditions->parameters[0])->toBe('x');
     expect($reparsed->conditions->parameters[1])->toBeInstanceOf(ColumnRef::class);
-    expect($reparsed->conditions->parameters[1]->schemaKey)->toBe('timesheets');
+    expect($reparsed->conditions->parameters[1]->alias)->toBe('timesheets');
     expect($reparsed->conditions->parameters[1]->column)->toBe('id');
 });
 

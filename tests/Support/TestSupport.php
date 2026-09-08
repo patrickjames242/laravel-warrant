@@ -643,7 +643,8 @@ function argToString(mixed $value): string
 {
     return match (true) {
         $value instanceof ContextRef => '@context ' . $value->key,
-        $value instanceof ColumnRef => '@column ' . $value->schemaKey . '.' . $value->column,
+        $value instanceof ColumnRef => '@column '
+            . ($value->alias === null ? '' : $value->alias . '.') . $value->column,
         $value instanceof SqlRef => '@sql ' . $value->sql,
         default => var_export($value, true),
     };

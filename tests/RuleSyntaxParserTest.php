@@ -256,13 +256,13 @@ it('errors on a bad context sigil or a missing key', function (string $syntax, s
 
 // -- Column references (@column) ----------------------------------------------
 
-it('parses @column <schema>.<column> into a symbolic ColumnRef, not a value', function () {
+it('parses @column <name>.<column> into a symbolic ColumnRef, not a value', function () {
     $set = WarrantRuleSet::fromSyntax('if is_teacher(@column timesheets.pay_period_id) they can view', 'timesheets');
 
     $params = $set->rules[0]->conditions->parameters;
     expect($params)->toHaveCount(1);
     expect($params[0])->toBeInstanceOf(ColumnRef::class);
-    expect($params[0]->schemaKey)->toBe('timesheets');
+    expect($params[0]->alias)->toBe('timesheets');
     expect($params[0]->column)->toBe('pay_period_id');
 });
 
@@ -319,10 +319,21 @@ it('errors on a bad @-sigil or a malformed @column reference', function (string 
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
     'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context', 'column', or 'sql'"],
-    'missing dot'  => ['if is_teacher(@column timesheets) they can view', "Expected '.'"],
-    'missing col'  => ['if is_teacher(@column timesheets.) they can view', 'Expected a column name'],
-    'missing all'  => ['if is_teacher(@column) they can view', "Expected a schema key after '@column'"],
+    'trailing dot' => ['if is_teacher(@column timesheets.) they can view', 'Expected a column name'],
+    'missing all'  => ['if is_teacher(@column) they can view', "Expected a column name after '@column'"],
 ]);
+
+it('parses a bare @column <column> with no qualifier at all', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@column pay_period_id) they can view', 'timesheets');
+
+    expect($set->rules[0]->conditions->parameters[0])->toEqual(new ColumnRef(null, 'pay_period_id'));
+});
+
+it('renders a bare @column without a stray dot', function () {
+    $set = WarrantRuleSet::fromSyntax('if is_teacher(@column pay_period_id) they can view', 'timesheets');
+
+    expect(argToString($set->rules[0]->conditions->parameters[0]))->toBe('@column pay_period_id');
+});
 
 // -- handle aliases (as) ------------------------------------------------------
 

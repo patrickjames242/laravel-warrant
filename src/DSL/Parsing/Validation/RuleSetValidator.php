@@ -412,13 +412,13 @@ final class RuleSetValidator
                 continue;
             }
 
-            if (in_array($argument->schemaKey, $inScopeNames, true)) {
+            if (in_array($argument->alias, $inScopeNames, true)) {
                 continue;
             }
 
             throw new InvalidArgumentException(sprintf(
                 'A @column reference names [%s], which is not in scope here; %s',
-                $argument->schemaKey,
+                $argument->alias,
                 $inScopeNames === []
                     ? 'no table is in scope at this point.'
                     : sprintf('the names in scope are [%s].', implode(', ', $inScopeNames)),

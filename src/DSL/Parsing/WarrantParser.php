@@ -53,7 +53,10 @@ use Warrant\Rules\WarrantRule;
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
  *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref | column_ref
  *   context_ref := '@context' IDENTIFIER
- *   column_ref  := '@column' IDENTIFIER '.' IDENTIFIER   -- schema key, then column
+ *   column_ref  := '@column' IDENTIFIER ( '.' IDENTIFIER )?
+ *              -- one name is the column, on the rows the rule is already about;
+ *                 two are a frame name (a schema key, or a handle alias) and then
+ *                 the column
  */
 final class WarrantParser
 {
@@ -652,7 +655,8 @@ final class WarrantParser
             TokenType::COLUMN_REF => $this->parseColumnRef(),
             TokenType::SQL_REF => $this->parseSqlRef(),
             default => throw $this->errorAtCurrent(
-                'Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <schema>.<column>, or @sql "<sql>".'
+                'Expected an argument: a literal, a binding (:name or ?), @context <key>, '
+                    .'@column <column> or @column <name>.<column>, or @sql "<sql>".'
             ),
         };
     }
@@ -675,29 +679,39 @@ final class WarrantParser
     }
 
     /**
-     * Parse a `@column <schema>.<column>` reference into a symbolic
-     * {@see ColumnRef}. Like {@see parseContextRef} it bypasses {@see BindingState}
-     * — it is neither a named nor a positional binding — and stays symbolic until
-     * {@see \Warrant\DSL\Compiling\RuleSetCompiler} resolves the schema key to a
-     * real table and quotes it through the grammar.
+     * Parse a `@column <column>` or `@column <name>.<column>` reference into a
+     * symbolic {@see ColumnRef}. Like {@see parseContextRef} it bypasses
+     * {@see BindingState} — it is neither a named nor a positional binding — and
+     * stays symbolic until {@see \Warrant\DSL\Compiling\RuleSetCompiler} resolves
+     * the frame it names to a table and quotes it through the grammar.
+     *
+     * One name is the column, on whatever rows the enclosing rule is already
+     * about — which is most references, and the form that goes on meaning the
+     * right thing however the rule is reached. Two name a frame and then the
+     * column, for where a rule can see more than one: a `check(...)` predicate
+     * spanning its target and its caller.
      */
     private function parseColumnRef(): ColumnRef
     {
         $this->advance(); // consume '@column'
 
         if (! $this->check(TokenType::IDENTIFIER)) {
-            throw $this->errorAtCurrent("Expected a schema key after '@column'.");
+            throw $this->errorAtCurrent("Expected a column name after '@column'.");
         }
 
-        $schemaKey = $this->advance()->lexeme;
+        $first = $this->advance()->lexeme;
 
-        $this->expect(TokenType::DOT, "Expected '.' after the schema key in '@column <schema>.<column>'.");
+        if (! $this->check(TokenType::DOT)) {
+            return new ColumnRef(null, $first);
+        }
+
+        $this->advance(); // consume '.'
 
         if (! $this->check(TokenType::IDENTIFIER)) {
-            throw $this->errorAtCurrent("Expected a column name after '@column {$schemaKey}.'.");
+            throw $this->errorAtCurrent("Expected a column name after '@column {$first}.'.");
         }
 
-        return new ColumnRef($schemaKey, $this->advance()->lexeme);
+        return new ColumnRef($first, $this->advance()->lexeme);
     }
 
     /**

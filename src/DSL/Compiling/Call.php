@@ -134,7 +134,7 @@ final readonly class Call
         }
 
         if ($value instanceof ColumnRef) {
-            return '@column '.$value->schemaKey.'.'.$value->column;
+            return '@column '.($value->alias === null ? '' : $value->alias.'.').$value->column;
         }
 
         if ($value instanceof SqlRef) {

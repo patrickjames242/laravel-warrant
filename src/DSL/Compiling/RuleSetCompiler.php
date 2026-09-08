@@ -797,7 +797,7 @@ final class RuleSetCompiler
     }
 
     /**
-     * Resolve a `@column <name>.<column>` reference to an {@see Expression} of the
+     * Resolve a `@column [<name>.]<column>` reference to an {@see Expression} of the
      * grammar-wrapped `<qualifier>.<column>` identifier (e.g.
      * `` `timesheets`.`pay_period_id` ``), quoted with the query's own grammar so
      * it is emitted verbatim, never re-wrapped or bound as a value.
@@ -812,7 +812,7 @@ final class RuleSetCompiler
      */
     private function resolveColumnRef(ColumnRef $ref, CompilationContext $ctx): Expression
     {
-        $qualifier = $this->aliases($ctx)->resolve($ref->schemaKey);
+        $qualifier = $this->aliases($ctx)->resolve($ref->alias);
 
         return $ctx->queries->wrap($qualifier . '.' . $ref->column);
     }
@@ -834,7 +834,7 @@ final class RuleSetCompiler
         $resolved = [];
 
         foreach ($arguments as $argument) {
-            if ($argument instanceof ColumnRef && $this->aliases($ctx)->resolve($argument->schemaKey) === null) {
+            if ($argument instanceof ColumnRef && $this->aliases($ctx)->resolve($argument->alias) === null) {
                 return null;
             }
 

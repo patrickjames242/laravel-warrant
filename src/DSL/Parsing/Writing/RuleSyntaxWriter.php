@@ -331,7 +331,7 @@ final class RuleSyntaxWriter
         // A column ref is likewise a compile-time reference, not a runtime value —
         // same rule: render identically in both modes and consume no `?` binding.
         if ($value instanceof ColumnRef) {
-            return '@column ' . $value->schemaKey . '.' . $value->column;
+            return '@column ' . ($value->alias === null ? '' : $value->alias . '.') . $value->column;
         }
 
         // An @sql ref is likewise a compile-time reference, not a runtime value —
