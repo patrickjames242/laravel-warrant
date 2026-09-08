@@ -3,7 +3,8 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 /**
- * A cross-schema condition check: `check(<predicate> for <handle> [with <map>])`.
+ * A cross-schema condition check:
+ * `check(<predicate> for <handle> [as <alias>] [with <map>])`.
  *
  * Delegates a domain question to another schema ({@see $schemaKey}) by evaluating
  * {@see $predicate} — a boolean expression whose leaves are that schema's own
@@ -35,6 +36,15 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
      * @param array<string, mixed> $contextMap Explicit boundary context, keyed by
      *   the target schema's key name; values are scalars, {@see ContextRef}s, or
      *   {@see ColumnRef}s.
+     * @param string|null $alias The SQL name this reference's own subquery gives
+     *   the target's rows — the `as <alias>` tail. Null leaves the subquery's
+     *   `from` unaliased, which is the ordinary case; naming it matters when the
+     *   same table is already in scope further out (see
+     *   {@see \Warrant\DSL\Compiling\AliasScope}). Only meaningful on a
+     *   row-bound handle: an unbound one selects nothing to name.
+     *   On a `check(...)` the alias is also a *name the predicate can use*: it
+     *   leaves the target's schema key still meaning the enclosing frame, so a
+     *   predicate over two frames of one table can tell them apart.
      */
     public function __construct(
         public string $schemaKey,
@@ -42,6 +52,7 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
         public bool $isRowBound = false,
         public mixed $boundRow = null,
         public array $contextMap = [],
+        public ?string $alias = null,
     ) {
     }
 }

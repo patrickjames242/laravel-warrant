@@ -662,6 +662,10 @@ function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): stri
         $out .= '(' . argToString($node->boundRow) . ')';
     }
 
+    if ($node->alias !== null) {
+        $out .= ' as ' . $node->alias;
+    }
+
     if ($node->contextMap !== []) {
         $entries = [];
 

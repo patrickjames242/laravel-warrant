@@ -324,6 +324,68 @@ it('errors on a bad @-sigil or a malformed @column reference', function (string 
     'missing all'  => ['if is_teacher(@column) they can view', "Expected a schema key after '@column'"],
 ]);
 
+// -- handle aliases (as) ------------------------------------------------------
+
+it('parses an as <alias> tail on a can(...) handle', function () {
+    $rules = WarrantParser::parse('if can(view for docs(@context id) as d2) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($node->alias)->toBe('d2');
+    expect($node->isRowBound)->toBeTrue();
+    expect(handleToString($node))->toBe('docs(@context id) as d2');
+});
+
+it('parses an as <alias> tail on a check(...) handle', function () {
+    $rules = WarrantParser::parse('if check(is_open for docs(@context id) as d2) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->alias)->toBe('d2');
+});
+
+it('parses the alias between the row selector and the with-map', function () {
+    $rules = WarrantParser::parse(
+        'if can(view for docs(@context id) as d2 with tenant = 7) they can update'
+    );
+
+    $node = $rules[0]->conditions;
+    expect($node->alias)->toBe('d2');
+    expect($node->contextMap)->toBe(['tenant' => 7]);
+    expect(handleToString($node))->toBe('docs(@context id) as d2 with tenant = 7');
+});
+
+it('leaves the alias null when the handle has no as tail', function () {
+    $rules = WarrantParser::parse('if can(view for docs(@context id)) they can update');
+
+    expect($rules[0]->conditions->alias)->toBeNull();
+});
+
+it('parses an alias on an unbound handle, leaving it for validation to reject', function () {
+    /* The parser's job is the shape; whether an alias makes sense on a handle
+       that selects no row is a coherence question, judged with the rest of them
+       in RuleSetValidator. */
+    $rules = WarrantParser::parse('if can(view for docs as d2) they can update');
+
+    $node = $rules[0]->conditions;
+    expect($node->isRowBound)->toBeFalse();
+    expect($node->alias)->toBe('d2');
+});
+
+it('errors on an as with no alias name, and on a reserved word as one', function (string $syntax, string $needle) {
+    expect(fn () => WarrantParser::parse($syntax))
+        ->toThrow(WarrantSyntaxException::class, $needle);
+})->with([
+    'nothing after as' => [
+        'if can(view for docs(@context id) as) they can update',
+        "Expected an alias name after 'as'",
+    ],
+    'reserved word as an alias' => [
+        'if can(view for docs(@context id) as with) they can update',
+        "Reserved word 'with' cannot be used as a name",
+    ],
+]);
+
 // -- SQL references (@sql) ----------------------------------------------------
 
 it('parses @sql "<sql>" into a symbolic SqlRef, not a value', function () {

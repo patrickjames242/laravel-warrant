@@ -44,7 +44,10 @@ use Warrant\Rules\WarrantRule;
  *   can_expr := 'can' '(' IDENTIFIER 'for' handle ( 'with' with_map )? ')'
  *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
- *   handle   := IDENTIFIER ( '(' arg ')' )?   -- no parens: unbound; one arg: row-bound
+ *   handle   := IDENTIFIER ( '(' arg ')' )? ( 'as' IDENTIFIER )?
+ *              -- no parens: unbound; one arg: row-bound. `as` names the rows this
+ *                 reference selects, so a @column can tell them apart from a table
+ *                 of the same name further out; only a row-bound handle may take one.
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
@@ -466,7 +469,8 @@ final class WarrantParser
     }
 
     /**
-     * Parse a cross-schema ability check: `can(<ability> for <handle> [with <map>])`.
+     * Parse a cross-schema ability check:
+     * `can(<ability> for <handle> [as <alias>] [with <map>])`.
      *
      * In expression position `can` is unambiguously this builtin — the clause
      * keyword in `they can ...` is consumed by {@see parseClausesInto()} and never
@@ -485,7 +489,7 @@ final class WarrantParser
 
         $this->expect(TokenType::FOR, "Expected 'for' after the ability name in 'can(...)'.");
 
-        [$schemaKey, $isRowBound, $boundRow] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundRow, $alias] = $this->parseHandle();
 
         $contextMap = [];
 
@@ -496,12 +500,12 @@ final class WarrantParser
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
-        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundRow, $contextMap);
+        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundRow, $contextMap, $alias);
     }
 
     /**
      * Parse a cross-schema condition check:
-     * `check(<predicate> for <handle> [with <map>])`.
+     * `check(<predicate> for <handle> [as <alias>] [with <map>])`.
      *
      * The predicate is a full boolean expression whose leaves are the target
      * schema's conditions; {@see parseExpression()} consumes it and naturally
@@ -517,7 +521,7 @@ final class WarrantParser
 
         $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 
-        [$schemaKey, $isRowBound, $boundRow] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundRow, $alias] = $this->parseHandle();
 
         $contextMap = [];
 
@@ -528,14 +532,21 @@ final class WarrantParser
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
 
-        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundRow, $contextMap);
+        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundRow, $contextMap, $alias);
     }
 
     /**
      * Parse a cross-schema handle: a schema name with an optional row selector
-     * `schema(<arg>)`. The selector's absence marks an unbound (no-row) handle.
+     * `schema(<arg>)` and an optional `as <alias>`. The selector's absence marks
+     * an unbound (no-row) handle.
      *
-     * @return array{0: string, 1: bool, 2: mixed} [schemaKey, isRowBound, boundRow]
+     * The alias names the rows this reference selects, so that a `@column` can
+     * tell them apart from a table of the same name already in scope further out.
+     * Whether it is *allowed* — an unbound handle selects nothing to name — is
+     * left to {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator}, which is
+     * where the rest of the handle's coherence is judged too.
+     *
+     * @return array{0: string, 1: bool, 2: mixed, 3: ?string} [schemaKey, isRowBound, boundRow, alias]
      */
     private function parseHandle(): array
     {
@@ -547,6 +558,7 @@ final class WarrantParser
 
         $isRowBound = false;
         $boundRow = null;
+        $alias = null;
 
         if ($this->check(TokenType::LPAREN)) {
             $this->advance();
@@ -555,7 +567,17 @@ final class WarrantParser
             $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
         }
 
-        return [$schemaKey, $isRowBound, $boundRow];
+        if ($this->check(TokenType::AS)) {
+            $this->advance();
+
+            if (! $this->check(TokenType::IDENTIFIER)) {
+                throw $this->nameError("an alias name after 'as'");
+            }
+
+            $alias = $this->advance()->lexeme;
+        }
+
+        return [$schemaKey, $isRowBound, $boundRow, $alias];
     }
 
     /**

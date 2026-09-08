@@ -3,7 +3,8 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 /**
- * A cross-schema ability check: `can(<ability> for <handle> [with <map>])`.
+ * A cross-schema ability check:
+ * `can(<ability> for <handle> [as <alias>] [with <map>])`.
  *
  * Asks whether the current user holds {@see $ability} on another schema
  * ({@see $schemaKey}) — either on a specific row ({@see $isRowBound} true, the
@@ -29,6 +30,12 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
      * @param array<string, mixed> $contextMap Explicit boundary context, keyed by
      *   the target schema's key name; values are scalars, {@see ContextRef}s, or
      *   {@see ColumnRef}s.
+     * @param string|null $alias The SQL name this reference's own subquery gives
+     *   the target's rows — the `as <alias>` tail. Null leaves the subquery's
+     *   `from` unaliased, which is the ordinary case; naming it matters when the
+     *   same table is already in scope further out (see
+     *   {@see \Warrant\DSL\Compiling\AliasScope}). Only meaningful on a
+     *   row-bound handle: an unbound one selects nothing to name.
      */
     public function __construct(
         public string $schemaKey,
@@ -36,6 +43,7 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
         public bool $isRowBound = false,
         public mixed $boundRow = null,
         public array $contextMap = [],
+        public ?string $alias = null,
     ) {
     }
 }
