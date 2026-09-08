@@ -7,14 +7,15 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 
 /**
- * A source of blank query builders, plus the connection and grammar metadata
- * that go with them.
+ * A source of blank query builders, plus the connection, grammar and row-name
+ * metadata that go with them.
  *
  * The compiler is handed a query builder by its caller, but it never appends to
  * it — it uses it to make *new* builders on the same connection, to compare
- * connection names, and to quote identifiers with the right grammar. That is the
- * whole of the dependency, and this class is it: the builder it was built from
- * is private, so the only thing reachable through it is a fresh query.
+ * connection names, to quote identifiers with the right grammar, and to read the
+ * name the host query's rows answer to ({@see rowQualifier()}). That is the whole
+ * of the dependency, and this class is it: the builder it was built from is
+ * private, so the only thing reachable through it is a fresh query.
  *
  * The guarantee is narrow and worth stating plainly. This protects the specific
  * builder the caller passed in. Every builder the compiler *creates* is still
@@ -32,8 +33,8 @@ final readonly class QueryFactory
     }
 
     /**
-     * Wrap an existing query builder. Only its connection, grammar and processor
-     * are ever read; its table, wheres and bindings are irrelevant here and are
+     * Wrap an existing query builder. Only its connection, grammar, processor and
+     * `from` are ever read; its wheres and bindings are irrelevant here and are
      * never copied into anything this hands out.
      */
     public static function for(Builder $query): self
@@ -75,6 +76,35 @@ final readonly class QueryFactory
     public function driverName(): string
     {
         return $this->prototype->getConnection()->getDriverName();
+    }
+
+    /**
+     * The SQL name the host query's rows answer to — the qualifier a predicate
+     * about one of those rows has to be written against.
+     *
+     * `from('docs')` gives `docs` and `from('docs as d')` gives `d`, matching
+     * Laravel's own aliasing: a table prefix, if one is configured, is applied to
+     * an alias too ({@see \Illuminate\Database\Grammar::wrapAliasedTable()}), so
+     * the unprefixed name returned here is exactly what {@see wrap()} expects.
+     *
+     * Null when the prototype has no `from` at all (a no-target compile, which has
+     * no row anyway) or when it is a raw {@see Expression}, whose rows have no name
+     * this can read out. Either way the caller falls back to the schema model's own
+     * table, which is what the compiler did unconditionally before.
+     */
+    public function rowQualifier(): ?string
+    {
+        $from = $this->prototype->from;
+
+        if (! is_string($from) || trim($from) === '') {
+            return null;
+        }
+
+        // Same split Laravel's grammar uses, so `AS` and odd spacing agree with it.
+        $segments = preg_split('/\s+as\s+/i', trim($from), 2);
+        $qualifier = trim(end($segments));
+
+        return $qualifier === '' ? null : $qualifier;
     }
 
     /**

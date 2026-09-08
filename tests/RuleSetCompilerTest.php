@@ -425,3 +425,37 @@ it('validates unknown ability and condition names', function () {
     $validator->validate(WarrantRuleSet::fromSyntax('if is_teacher they can view, edit', 'docs'));
     expect(true)->toBeTrue();
 });
+
+// -- QueryFactory::rowQualifier() ---------------------------------------------
+
+/*
+| The name the host query's rows answer to. A predicate about one of those rows
+| has to be written against it, so an aliased `from` has to be read out rather
+| than assumed to be the model's table.
+*/
+
+it('reads the host query row qualifier from a bare or aliased from clause', function () {
+    expect(QueryFactory::for(DB::connection('testing')->table('docs'))->rowQualifier())
+        ->toBe('docs');
+
+    expect(QueryFactory::for(DB::connection('testing')->table('docs as d'))->rowQualifier())
+        ->toBe('d');
+
+    // Laravel's own two-argument form, and its case-insensitive `AS`.
+    expect(QueryFactory::for(DB::connection('testing')->query()->from('docs', 'd'))->rowQualifier())
+        ->toBe('d');
+
+    expect(QueryFactory::for(DB::connection('testing')->table('docs   AS   d'))->rowQualifier())
+        ->toBe('d');
+});
+
+it('has no row qualifier without a from clause, or with an unreadable one', function () {
+    // A no-target compile: a connection, no table in play.
+    expect(QueryFactory::forConnection(DB::connection('testing'))->rowQualifier())
+        ->toBeNull();
+
+    // A raw expression names nothing this can read out; the caller falls back to
+    // the schema model's table.
+    expect(QueryFactory::for(DB::connection('testing')->query()->fromRaw('(select 1) as x'))->rowQualifier())
+        ->toBeNull();
+});
