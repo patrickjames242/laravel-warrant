@@ -6,6 +6,8 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\HasWarrantSchema;
 use Warrant\Builders\Ref;
+use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
@@ -84,9 +86,37 @@ it('rejects an unknown condition nested inside a boolean predicate', function ()
         ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
 });
 
-it('rejects a can(...) leaf inside a check(...) predicate', function () {
-    expect(fn () => validateOwnerCheckSyntax('if check(can(view for xcv_target) for xcv_target(@context id)) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'may only reference that schema\'s conditions');
+it('accepts a can(...) leaf inside a check(...) predicate', function () {
+    validateOwnerCheckSyntax('if check(can(view for xcv_target) for xcv_target(@context id)) they can edit');
+    expect(true)->toBeTrue();
+});
+
+it('accepts a schema-less can(...) inside a predicate, read against the handle\'s schema', function () {
+    /* The predicate is about xcv_target's row, so a `can` naming no schema asks
+       about xcv_target's ability — not the owning schema's. */
+    validateOwnerCheckSyntax('if check(is_open and can(view) for xcv_target(@context id)) they can edit');
+    expect(true)->toBeTrue();
+});
+
+it('rejects a schema-less can(...) in a predicate naming an ability the handle\'s schema lacks', function () {
+    expect(fn () => validateOwnerCheckSyntax('if check(can(edit) for xcv_target(@context id)) they can edit'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [edit] is not declared by the schema.');
+});
+
+it('accepts a nested check(...) inside a check(...) predicate', function () {
+    validateOwnerCheckSyntax(
+        'if check(is_open and check(is_open for xcv_target(@context id)) for xcv_target(@context id)) they can edit'
+    );
+    expect(true)->toBeTrue();
+});
+
+it('rejects a constant inside a check(...) predicate', function () {
+    /* A predicate that decides itself asks the target nothing. The builder refuses
+       to compose one, so this reaches the validator only as a hand-built node. */
+    $node = new CrossSchemaConditionNode('xcv_target', new BooleanNode(true), true, Ref::context('id'));
+
+    expect(fn () => WarrantRuleSet::fromRules('xcv_owner', new WarrantRule($node, ['edit'], []))->validate())
+        ->toThrow(InvalidArgumentException::class, 'may not contain a constant');
 });
 
 it('rejects a row condition on an unbound handle', function () {
@@ -143,12 +173,11 @@ it('rejects a builder-built row condition on an unbound handle', function () {
     ))->toThrow(InvalidArgumentException::class, 'is a row condition and needs a specific row');
 });
 
-it('rejects a nested can(...) inside a builder-built predicate', function () {
-    // The predicate closure gets a full condition builder, so this is buildable;
-    // the validator is what rejects it, with the same message the DSL gets.
-    expect(fn () => validateOwnerCheckRule(
+it('accepts a nested can(...) inside a builder-built predicate', function () {
+    validateOwnerCheckRule(
         WarrantRule::build()->ifCheck(fn ($p) => $p->ifCan('view', 'xcv_target'), 'xcv_target', Ref::context('id'))->theyCan('edit')
-    ))->toThrow(InvalidArgumentException::class, 'may only reference that schema\'s conditions');
+    );
+    expect(true)->toBeTrue();
 });
 
 it('rejects a builder-built row-bound reference with an explicit null row', function () {

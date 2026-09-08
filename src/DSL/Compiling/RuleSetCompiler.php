@@ -628,10 +628,12 @@ final class RuleSetCompiler
     /**
      * Compile a cross-schema `check(<predicate> for <schema>[(<row>)] [with <map>])`
      * by dispatching the target schema B's conditions and splicing the emitted SQL.
-     * Unlike {@see crossSchemaCanLeaf} it never compiles B's *rules* — it is pure
-     * condition dispatch, so no ability is entered and no cycle is looked for. It
-     * does enter a {@see Call} of its own, because a check can reach a condition
-     * that expands into another check, and that chain is bounded by depth alone. A
+     * The dispatch itself enters no ability, so this leaf looks for no cycle of its
+     * own. It does enter a {@see Call}, because the predicate can reach further —
+     * a condition that expands into another expression, a nested `check(...)`, a
+     * `can(...)` whose rules are compiled — and those chains are bounded by the
+     * depth budget, with a `can(...)` among them caught by the ability cycle guard
+     * wherever it is reached from. A
      * row-bound reference wraps B's predicate as `EXISTS` over B's table
      * (`NOT EXISTS` when negated); an unbound reference splices B's boolean predicate
      * inline. The predicate's condition leaves are compiled with B's own resolver,

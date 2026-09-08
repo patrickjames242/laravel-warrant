@@ -279,6 +279,58 @@ it('negates an inlined ability without disturbing its own deny side', function (
     );
 });
 
+// -- nesting ------------------------------------------------------------------
+
+it('nests a check inside a check, resolving each selector in its own frame', function () {
+    /* "you own this doc's parent, and you own that parent's parent." The inner
+       handle's `@column parent_id` is read in the *parent* frame, so the same
+       unqualified text means a different table at each level. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if check(
+                is_owner and check(is_owner for sr_docs(@column parent_id) as gp)
+                for sr_docs(@column parent_id) as parent
+            ) they can do_thing_1
+        WARRANT,
+        'do_thing_1',
+        <<<SQL
+            select * from "sr_docs" where (
+                exists (
+                    select * from "sr_docs" as "parent"
+                    where "parent"."id" = "sr_docs"."parent_id" and (
+                        parent.owner = 'role-1'
+                        and exists (
+                            select * from "sr_docs" as "gp"
+                            where "gp"."id" = "parent"."parent_id" and (gp.owner = 'role-1')
+                        )
+                    )
+                )
+            )
+        SQL,
+    );
+});
+
+it('reads a schema-less can inside a predicate against the frame the predicate is about', function () {
+    /* `can(do_thing_2)` names no schema, so it means the row the predicate is
+       about — the `parent` frame — not the row the rule is about. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if owner_is(@context who) they can do_thing_2
+            if check(can(do_thing_2) for sr_docs(@column parent_id) as parent) they can do_thing_1
+        WARRANT,
+        'do_thing_1',
+        <<<SQL
+            select * from "sr_docs" where (
+                exists (
+                    select * from "sr_docs" as "parent"
+                    where "parent"."id" = "sr_docs"."parent_id" and (parent.owner = null)
+                )
+            )
+        SQL,
+        ['who' => 'role-9'],
+    );
+});
+
 // -- recursion is still bounded ------------------------------------------------
 
 it('rejects a can with no for clause that names the ability being compiled', function () {

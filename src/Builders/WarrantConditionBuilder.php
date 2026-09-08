@@ -163,14 +163,14 @@ class WarrantConditionBuilder
 
     /**
      * Add a cross-schema condition check — `check(<predicate> for <handle> [with
-     * <map>])` — AND-joined to what precedes it: delegate a domain question to
-     * another schema, answered by that schema's own conditions. Unlike
-     * {@see ifCan} it never consults the target's rules, so it carries no cycle
-     * risk.
+     * <map>])` — AND-joined to what precedes it: delegate a question to another
+     * schema, answered against that schema's own vocabulary.
      *
      * The predicate is either one condition name, or a closure that receives a bare
-     * condition builder to compose a boolean tree of the target's conditions — the
-     * form to use when a leaf takes parameters. The closure must add at least one
+     * condition builder to compose a boolean tree — the form to use when a leaf
+     * takes parameters. That tree is read against the *target*, so a `can(...)` in
+     * it names one of the target's abilities and a nested `check(...)` starts from
+     * the target's frame. The closure must add at least one
      * term: unlike a group an empty predicate cannot fold to `false`, because a
      * `check(...)` predicate may not contain a constant, so it throws instead.
      *

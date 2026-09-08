@@ -7,12 +7,16 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * `check(<predicate> for <handle> [as <alias>] [with <map>])`.
  *
  * Delegates a domain question to another schema ({@see $schemaKey}) by evaluating
- * {@see $predicate} — a boolean expression whose leaves are that schema's own
- * declared conditions — either against a specific row ({@see $isRowBound} true,
- * the `schema(@context id)` form) or globally with no row at all
- * ({@see $isRowBound} false, the bare `schema` form). Unlike {@see CrossSchemaCanNode}
- * it never recurses into the target schema's *rules*: it is pure condition
- * dispatch, so it carries no cycle risk.
+ * {@see $predicate} — a boolean expression read against that schema's vocabulary —
+ * either against a specific row ({@see $isRowBound} true, the `schema(@context id)`
+ * form) or globally with no row at all ({@see $isRowBound} false, the bare `schema`
+ * form).
+ *
+ * The predicate is a full expression, not just a list of conditions: it may nest
+ * another `check(...)`, whose handle is read in *this* reference's frame, and it
+ * may hold a `can(...)`, which asks about an ability of the schema this reference
+ * named. What it may not hold is a constant, which would decide the predicate
+ * while asking the target nothing.
  *
  * {@see $isRowBound} is tracked separately from {@see $boundRow} because a row
  * selector may itself resolve to `null` (a `null` literal or a `:name` binding),

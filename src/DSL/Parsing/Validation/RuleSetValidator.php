@@ -69,7 +69,7 @@ final class RuleSetValidator
             $this->assertNoDuplicateCannotAbility($rule);
 
             if ($rule->conditions !== null) {
-                $this->validateConditionNames($rule->conditions, $this->rootInScopeNames());
+                $this->validateExpression($rule->conditions, $this->schema, $this->rootInScopeNames());
             }
         }
     }
@@ -118,21 +118,43 @@ final class RuleSetValidator
     }
 
     /**
-     * @param list<string> $inScopeNames The tables in scope where $node is written; see
-     *   {@see assertColumnRefsInScope}.
+     * Walk one boolean expression, checking every name in it.
+     *
+     * The same walk serves a rule's own expression and a `check(...)` predicate,
+     * which differ only in what they are *about*: a predicate's leaves belong to
+     * the schema its handle names, and its frame may have no row. Both travel as
+     * parameters, so descending into a predicate is the walk calling itself with a
+     * different vocabulary rather than a second walk with its own rules.
+     *
+     * @param SchemaVocabulary $vocabulary Whose conditions and abilities the leaves
+     *   of $node name.
+     * @param list<string> $inScopeNames The tables in scope where $node is written;
+     *   see {@see assertColumnRefsInScope}.
+     * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
+     *   predicate this is, or null for a rule's own expression.
      */
-    private function validateConditionNames(IBooleanExpressionNode $node, array $inScopeNames): void
-    {
+    private function validateExpression(
+        IBooleanExpressionNode $node,
+        SchemaVocabulary $vocabulary,
+        array $inScopeNames,
+        ?CrossSchemaConditionNode $predicateOf = null,
+    ): void {
         match (true) {
-            $node instanceof ConditionNode => $this->assertConditionExists($node, $inScopeNames),
-            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $inScopeNames),
+            $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $inScopeNames, $predicateOf),
+            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $inScopeNames),
             $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $inScopeNames),
-            $node instanceof NotNode => $this->validateConditionNames($node->operand, $inScopeNames),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $inScopeNames): void {
-                $this->validateConditionNames($node->leftSide, $inScopeNames);
-                $this->validateConditionNames($node->rightSide, $inScopeNames);
+            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $inScopeNames, $predicateOf),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $inScopeNames, $predicateOf): void {
+                $this->validateExpression($node->leftSide, $vocabulary, $inScopeNames, $predicateOf);
+                $this->validateExpression($node->rightSide, $vocabulary, $inScopeNames, $predicateOf);
             })(),
-            default => null,
+            /* A rule may be written around a constant; a predicate may not, because
+               a `check(...)` that decides itself asks the target nothing. */
+            default => $predicateOf === null ? null : throw new InvalidArgumentException(sprintf(
+                'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
+                    .'schema something.',
+                $predicateOf->schemaKey,
+            )),
         };
     }
 
@@ -149,10 +171,13 @@ final class RuleSetValidator
      * ability already in progress and caps depth for everything else — so a
      * self-reference has to name a *different* ability to compile at all.
      */
-    private function assertCrossSchemaCanValid(CrossSchemaCanNode $node, array $inScopeNames): void
-    {
+    private function assertCrossSchemaCanValid(
+        CrossSchemaCanNode $node,
+        SchemaVocabulary $vocabulary,
+        array $inScopeNames,
+    ): void {
         if ($node->schemaKey === null) {
-            $this->assertOwnAbilityValid($node);
+            $this->assertOwnAbilityValid($node, $vocabulary);
 
             return;
         }
@@ -207,12 +232,13 @@ final class RuleSetValidator
      * `check(<predicate> for <schema>[(<row>)] [as <alias>])` reference: the
      * target schema must be registered, a row-bound reference requires a
      * model-backed target with a non-null row, and an alias requires a row to
-     * name. The predicate is a boolean expression whose every leaf must be a
-     * condition declared by the *target* schema; on an unbound handle no leaf may
-     * be a row condition (it would have no row to run against).
+     * name. The predicate is a boolean expression read against the *target*
+     * schema's vocabulary — so a `can(...)` in it names one of that schema's
+     * abilities, and a nested `check(...)` starts from that schema's frame. On an
+     * unbound handle no leaf may be a row condition, there being no row to run it
+     * against.
      *
-     * As with `can(...)` the target may be this schema itself, and here it carries
-     * no cycle risk at all: a `check(...)` never reads the target's rules.
+     * As with `can(...)` the target may be this schema itself.
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, array $inScopeNames): void
     {
@@ -255,87 +281,29 @@ final class RuleSetValidator
            still meaning the enclosing frame, which is how a predicate over two
            frames of one table tells them apart. A target with no model has no
            table to add. */
-        $this->assertCheckPredicateValid(
+        $this->validateExpression(
             $node->predicate,
-            $node,
             new $targetClass,
             $targetClass::model === ''
                 ? $inScopeNames
                 : [...$inScopeNames, $node->alias ?? $node->schemaKey],
+            $node,
         );
     }
 
     /**
-     * Walk a `check(...)` predicate, asserting every leaf is a condition of the
-     * target schema and rejecting any other node kind (a nested `can(...)` or
-     * `check(...)`, or a constant boolean) — the predicate may only ask domain
-     * questions of the target.
-     */
-    private function assertCheckPredicateValid(
-        IBooleanExpressionNode $node,
-        CrossSchemaConditionNode $reference,
-        ConditionResolver $target,
-        array $inScopeNames,
-    ): void {
-        match (true) {
-            $node instanceof ConditionNode => $this->assertCheckLeafValid($node, $reference, $target, $inScopeNames),
-            $node instanceof NotNode => $this->assertCheckPredicateValid($node->operand, $reference, $target, $inScopeNames),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $reference, $target, $inScopeNames): void {
-                $this->assertCheckPredicateValid($node->leftSide, $reference, $target, $inScopeNames);
-                $this->assertCheckPredicateValid($node->rightSide, $reference, $target, $inScopeNames);
-            })(),
-            default => throw new InvalidArgumentException(sprintf(
-                'A check(...) predicate for schema [%s] may only reference that schema\'s conditions; it may not contain can(...) or a nested check(...).',
-                $reference->schemaKey,
-            )),
-        };
-    }
-
-    /**
-     * Validate one condition leaf of a `check(...)` predicate: it must be declared
-     * by the target schema, and on an unbound handle it may not be a row condition.
-     */
-    private function assertCheckLeafValid(
-        ConditionNode $node,
-        CrossSchemaConditionNode $reference,
-        ConditionResolver $target,
-        array $inScopeNames,
-    ): void {
-        $definition = $target->getConditionDefinition($node->conditionKey);
-
-        if ($definition === null) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition [%s] is not declared by schema [%s].',
-                $node->conditionKey,
-                $reference->schemaKey,
-            ));
-        }
-
-        if (! $reference->isRowBound && $definition->isRow) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition [%s] on schema [%s] is a row condition and needs a specific row, but the check(...) handle is unbound; add a row selector like %s(@context id).',
-                $node->conditionKey,
-                $reference->schemaKey,
-                $reference->schemaKey,
-            ));
-        }
-
-        $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
-        $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
-    }
-
-    /**
      * Validate a `can(<ability>)` with no `for` clause: the ability has to be one
-     * this schema declares, and nothing may be passed across a boundary that is
-     * not being crossed.
+     * the frame's own schema declares, and nothing may be passed across a boundary
+     * that is not being crossed.
      *
      * The registry is not consulted at all. There is no schema key to look up —
-     * the reference stays on the schema being validated, whose vocabulary is
-     * already in hand.
+     * the reference stays on whichever schema the expression is about, whose
+     * vocabulary arrives as $vocabulary. Inside a `check(...)` predicate that is
+     * the schema the handle named, not the one the rule is written on.
      */
-    private function assertOwnAbilityValid(CrossSchemaCanNode $node): void
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node, SchemaVocabulary $vocabulary): void
     {
-        if ($this->schema->getAbilityDefinition($node->ability) === null) {
+        if ($vocabulary->getAbilityDefinition($node->ability) === null) {
             throw new InvalidArgumentException(sprintf(
                 'Ability [%s] is not declared by the schema.',
                 $node->ability,
@@ -386,14 +354,43 @@ final class RuleSetValidator
         ));
     }
 
-    private function assertConditionExists(ConditionNode $node, array $inScopeNames): void
-    {
-        $definition = $this->schema->getConditionDefinition($node->conditionKey);
+    /**
+     * Validate one condition leaf: the vocabulary it is being read against has to
+     * declare it, it has to be called with at least the arguments it requires, and
+     * its `@column` references have to name tables in scope.
+     *
+     * Inside a `check(...)` predicate there is one more rule. An unbound handle
+     * selects no row, so a row condition there would have nothing to run against;
+     * the message names the handle it belongs to, since that is where the fix goes.
+     *
+     * @param list<string> $inScopeNames
+     */
+    private function assertConditionValid(
+        ConditionNode $node,
+        SchemaVocabulary $vocabulary,
+        array $inScopeNames,
+        ?CrossSchemaConditionNode $predicateOf,
+    ): void {
+        $definition = $vocabulary->getConditionDefinition($node->conditionKey);
 
         if ($definition === null) {
-            throw new InvalidArgumentException(
-                sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey)
-            );
+            throw new InvalidArgumentException($predicateOf === null
+                ? sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey)
+                : sprintf(
+                    'Condition [%s] is not declared by schema [%s].',
+                    $node->conditionKey,
+                    $predicateOf->schemaKey,
+                ));
+        }
+
+        if ($predicateOf !== null && ! $predicateOf->isRowBound && $definition->isRow) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] is a row condition and needs a specific row, but the '
+                    .'check(...) handle is unbound; add a row selector like %s(@context id).',
+                $node->conditionKey,
+                $predicateOf->schemaKey,
+                $predicateOf->schemaKey,
+            ));
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
