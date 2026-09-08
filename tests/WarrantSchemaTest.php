@@ -135,6 +135,21 @@ it('throws when the rule set names an undeclared condition', function () {
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
 });
 
+it('throws when the resolver returns a rule set for a different schema', function () {
+    /* `view` is declared by both schemas, so validation would pass and the foreign
+       rules would compile against this schema's table. The mismatch itself is what
+       makes it an error. */
+    useWarrantSchemas([
+        'course_sections' => WarrantTestSchema::class,
+        'join_sections' => WarrantJoinConditionSchema::class,
+    ]);
+
+    bindWarrantRules('they can view', schemaKey: 'join_sections');
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view'))
+        ->toThrow(InvalidArgumentException::class, 'asked for schema [course_sections] but returned a rule set targeting [join_sections]');
+});
+
 // -- implicit rules -----------------------------------------------------------
 
 it('always applies implicit rules, even when the resolver returns nothing', function () {
