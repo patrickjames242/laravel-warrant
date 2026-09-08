@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
-use OutOfBoundsException;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\Units\AbilityUnit;
@@ -475,12 +474,16 @@ final class RuleSetCompiler
         $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
-        // Explicit boundary context only: resolve each with-map RHS against A's
-        // context, with no ambient inheritance of A's bag.
-        $bContext = [];
-        foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
+        /* Explicit boundary context only: resolve each with-map RHS against A's
+           context and A's frame, with no ambient inheritance of A's bag. A value
+           A cannot resolve here settles the whole reference. */
+        $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
+
+        if ($bValues === null) {
+            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
         }
+
+        $bContext = array_combine(array_keys($node->contextMap), $bValues);
 
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
@@ -515,8 +518,16 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
+            $selector = $this->resolveArgValues([$node->boundRow], $ctx);
+
+            /* The selector names B's row in terms of A's, so a selector A cannot
+               resolve here leaves nothing to correlate against. */
+            if ($selector === null) {
+                return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            }
+
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
+                $selector[0],
                 $node->schemaKey,
                 $bClass::model,
             );
@@ -586,12 +597,16 @@ final class RuleSetCompiler
         $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
-        // Explicit boundary context only: resolve each with-map RHS against A's
-        // context, with no ambient inheritance of A's bag.
-        $bContext = [];
-        foreach ($node->contextMap as $key => $value) {
-            $bContext[$key] = $this->resolveArgValue($ctx->queries, $value, $ctx->checkContext);
+        /* Explicit boundary context only: resolve each with-map RHS against A's
+           context and A's frame, with no ambient inheritance of A's bag. A value
+           A cannot resolve here settles the whole reference. */
+        $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
+
+        if ($bValues === null) {
+            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
         }
+
+        $bContext = array_combine(array_keys($node->contextMap), $bValues);
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
@@ -621,8 +636,16 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
+            $selector = $this->resolveArgValues([$node->boundRow], $ctx);
+
+            /* The selector names B's row in terms of A's, so a selector A cannot
+               resolve here leaves nothing to correlate against. */
+            if ($selector === null) {
+                return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
+            }
+
             [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $this->resolveArgValue($ctx->queries, $node->boundRow, $ctx->checkContext),
+                $selector[0],
                 $node->schemaKey,
                 $bClass::model,
             );
@@ -685,76 +708,78 @@ final class RuleSetCompiler
     /**
      * Resolve one symbolic DSL argument to its concrete value for compilation.
      * A {@see ContextRef} is filled from the check-time context (absent → null); a
-     * {@see ColumnRef} becomes a grammar-wrapped {@see Expression} for a real table
-     * column. Any already-concrete value (literals, resolved bindings) passes
-     * straight through. Shared by condition parameters and the cross-schema handle
-     * row selector / `with` map so all three resolve identically.
-     *
-     * @param array<string, mixed> $checkContext
+     * {@see ColumnRef} becomes a grammar-wrapped {@see Expression} qualified by the
+     * frame it was written in. Any already-concrete value (literals, resolved
+     * bindings) passes straight through. Shared by condition parameters and the
+     * cross-schema handle row selector / `with` map so all three resolve
+     * identically — and all three against the *enclosing* frame, which is where
+     * their text was written.
      */
-    private function resolveArgValue(QueryFactory $queries, mixed $value, array $checkContext): mixed
+    private function resolveArgValue(mixed $argument, CompilationContext $ctx): mixed
     {
-        if ($value instanceof ContextRef) {
-            return $checkContext[$value->key] ?? null;
+        if ($argument instanceof ContextRef) {
+            return $ctx->checkContext[$argument->key] ?? null;
         }
 
-        if ($value instanceof ColumnRef) {
-            return $this->resolveColumnRef($queries, $value);
+        if ($argument instanceof ColumnRef) {
+            return $this->resolveColumnRef($argument, $ctx);
         }
 
-        if ($value instanceof SqlRef) {
+        if ($argument instanceof SqlRef) {
             // Always parenthesize (even if the author already did): a bare
             // `select ...` is then valid as a scalar subquery in a comparison.
-            return new Expression('(' . $value->sql . ')');
+            return new Expression('(' . $argument->sql . ')');
         }
 
-        return $value;
+        return $argument;
     }
 
     /**
-     * Resolve a `@column <schema>.<column>` reference to an {@see Expression} of
-     * the grammar-wrapped `<realTable>.<column>` identifier (e.g.
-     * `` `timesheets`.`pay_period_id` ``). The schema key is mapped to its model's
-     * real table via the registry — the key is not always the table name — and the
-     * identifier is quoted with the query's own grammar so it is emitted verbatim,
-     * never re-wrapped or bound as a value.
+     * Resolve a `@column <name>.<column>` reference to an {@see Expression} of the
+     * grammar-wrapped `<qualifier>.<column>` identifier (e.g.
+     * `` `timesheets`.`pay_period_id` ``), quoted with the query's own grammar so
+     * it is emitted verbatim, never re-wrapped or bound as a value.
      *
-     * It is the rule author's responsibility that the referenced table is in scope
-     * in the surrounding SQL (the owning schema's own filter, or the outer query of
-     * a `check(...)`/`can(...)` correlated subquery); an unrelated table yields a
-     * SQL error at execution.
+     * The qualifier comes from the frame the reference was written in — see
+     * {@see AliasScope} — and not from the registry, because the same rule text
+     * compiles against a different table each time it is reached through a
+     * differently-aliased hop. A name the frame does not bind is an author's
+     * mistake and throws; that the *named* table really is in scope in the
+     * surrounding SQL is now something the scope guarantees, rather than being left
+     * to the author and a SQL error at execution.
      */
-    private function resolveColumnRef(QueryFactory $queries, ColumnRef $ref): Expression
+    private function resolveColumnRef(ColumnRef $ref, CompilationContext $ctx): Expression
     {
-        if ($this->manager === null) {
-            throw new InvalidArgumentException(sprintf(
-                'Resolving a @column reference to schema [%s] requires the schema registry; '
-                    .'construct RuleSetCompiler with a WarrantManager.',
-                $ref->schemaKey,
-            ));
+        $qualifier = $this->aliases($ctx)->resolve($ref->schemaKey);
+
+        return $ctx->queries->wrap($qualifier . '.' . $ref->column);
+    }
+
+    /**
+     * Resolve a whole argument list, or answer null when one of them cannot be
+     * resolved *here at all*: a `@column` naming a row this frame has no `from`
+     * for. That is not an author's mistake — the same rule works where a row is in
+     * scope — so it is not an error either; the leaf holding it simply cannot be
+     * evaluated, exactly like a row condition with no row, and its caller folds it
+     * to `false`. (A name the frame does not bind at all *is* a mistake, and
+     * {@see AliasScope::resolve()} still throws for it.)
+     *
+     * @param array<int, mixed> $arguments
+     * @return array<int, mixed>|null
+     */
+    private function resolveArgValues(array $arguments, CompilationContext $ctx): ?array
+    {
+        $resolved = [];
+
+        foreach ($arguments as $argument) {
+            if ($argument instanceof ColumnRef && $this->aliases($ctx)->resolve($argument->schemaKey) === null) {
+                return null;
+            }
+
+            $resolved[] = $this->resolveArgValue($argument, $ctx);
         }
 
-        try {
-            $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($ref->schemaKey);
-        } catch (OutOfBoundsException $e) {
-            throw new InvalidArgumentException(
-                sprintf('A @column reference targets unknown schema [%s].', $ref->schemaKey),
-                previous: $e,
-            );
-        }
-
-        if ($schemaClass::model === '') {
-            throw new InvalidArgumentException(sprintf(
-                'A @column reference targets schema [%s], which has no model and therefore no table; '
-                    .'@column can only reference a model-backed schema.',
-                $ref->schemaKey,
-            ));
-        }
-
-        /** @var Model $model */
-        $model = new ($schemaClass::model);
-
-        return $queries->wrap($model->getTable() . '.' . $ref->column);
+        return $resolved;
     }
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
@@ -773,9 +798,12 @@ final class RuleSetCompiler
         // leaf false), so conditions reading a possibly-absent @context arg must
         // tolerate null. A @column ref is resolved to a grammar-wrapped Expression
         // for the referenced schema's real table column.
-        $parameters = [];
-        foreach ($node->parameters as $parameter) {
-            $parameters[] = $this->resolveArgValue($ctx->queries, $parameter, $ctx->checkContext);
+        $parameters = $this->resolveArgValues($node->parameters, $ctx);
+
+        /* A @column about a row that is not in scope here leaves the condition
+           nothing to ask, the same way the row condition above has nothing to ask. */
+        if ($parameters === null) {
+            return (new CompiledWhereClauseNode)->addAnd(false, negated: $ctx->negate);
         }
 
         $conditionQuery = $ctx->queries->newQuery();

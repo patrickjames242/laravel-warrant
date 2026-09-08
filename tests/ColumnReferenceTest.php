@@ -88,6 +88,68 @@ it('resolves a @column arg to the real table column, grammar-wrapped and unbound
     SQL));
 });
 
+it('resolves a @column against the host query alias when the caller aliased its from', function () {
+    /* Same rule text, same schema — but the query selects `col_timesheets as t`,
+       so the only name those rows answer to is `t`. Reading the table off the
+       model would emit a reference to a table this query never joined. */
+    bindColRules('if pay_period_matches(@column timesheets.pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_timesheets as t'),
+        'view',
+        AbilityMatchMode::ALL,
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "col_timesheets" as "t" where (
+            "t"."pay_period_id" = 'role-1'
+        )
+    SQL));
+});
+
+// -- a row that is not in scope ------------------------------------------------
+
+it('emits a @column normally when the row is in scope', function () {
+    bindColRules('if column_is_set(@column timesheets.pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_timesheets'),
+        'view',
+        AbilityMatchMode::ALL,
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "col_timesheets" where ("col_timesheets"."pay_period_id" is not null)
+    SQL));
+});
+
+it('folds a @column leaf to false when there is no row in scope to qualify it', function () {
+    /* Same rule, compiled with no target: the condition is global, so it would
+       happily run — but there is no `from` for `timesheets` to hang on, so asking
+       about that column is unanswerable rather than false-in-SQL. The leaf folds,
+       which is also what stops this emitting a reference to a table the query
+       never selected. */
+    bindColRules('if column_is_set(@column timesheets.pay_period_id) they can view', 'timesheets');
+
+    $abilities = Warrant::guard(makeWarrantTestUser('role-1'))
+        ->forSchema((new ColTsSchema))
+        ->getAbilitiesWithoutTarget();
+
+    expect($abilities)->toBe([]);
+});
+
+it('folds a can(...) whose row selector names a row that is not in scope', function () {
+    // The selector correlates B's row to A's, and with no A row there is nothing
+    // to correlate to — so the reference folds instead of emitting a dangling one.
+    bindColRules('if can(view for col_targets(@column col_docs.target_id)) they can view', 'col_docs');
+
+    $abilities = Warrant::guard(makeWarrantTestUser('role-1'))
+        ->forSchema((new ColDocSchema))
+        ->getAbilitiesWithoutTarget();
+
+    expect($abilities)->toBe([]);
+});
+
 // -- correlated subquery via check(...) / can(...) ----------------------------
 
 it('correlates a check(...) subquery to the outer table via a @column row selector', function () {
@@ -239,6 +301,16 @@ class ColTsSchema extends WarrantSchema
     public function payPeriodMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
         return $c->query->where($column, '=', $c->user->role_id);
+    }
+
+    /* A GLOBAL condition that still takes a column operand. It runs with or
+       without a target row, so it is the case where a @column about a row that is
+       not in scope has to be what settles the leaf — a row condition would have
+       folded before ever reaching its arguments. */
+    #[GlobalCondition]
+    public function columnIsSet(GlobalConditionContext $c, mixed $column): BuilderContract
+    {
+        return $c->query->whereNotNull($column);
     }
 }
 
