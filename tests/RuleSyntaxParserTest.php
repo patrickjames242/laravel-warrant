@@ -14,6 +14,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 
+require_once __DIR__.'/Support/TestSupport.php';
+
 // -- Parser::parse (rules, not a rule set) ------------------------------------
 
 it('parses source and bindings into a flat list of rules', function () {
@@ -885,15 +887,123 @@ it('rejects a duplicate key in a check(...) with-map', function () {
 });
 
 // -- parseConditionExpression -------------------------------------------------
+//
+// The entry point behind the builder's ifRaw() bridge and Warrant::condition().
+// It parses the `if` half of a rule and nothing else, which gives it four rules
+// of its own on top of the shared expression grammar: no clauses may follow, the
+// source must be consumed to the end, every binding must be used, and an optional
+// `for <schema>` header is accepted and discarded (it is there so tooling reading
+// a condition string knows which schema's names to resolve, which is the one
+// thing an expression cannot say for itself).
+
+it('parses an expression through the condition entry point', function (string $source, string $expected) {
+    expect(treeToString(WarrantParser::parseConditionExpression($source)))->toBe($expected);
+})->with([
+    'single condition' => ['is_owner', 'is_owner'],
+    'and binds tighter than or' => ['a and b or c', '((a and b) or c)'],
+    'and binds tighter than or, reversed' => ['a or b and c', '(a or (b and c))'],
+    'grouping overrides precedence' => ['(a or b) and c', '((a or b) and c)'],
+    'and is left associative' => ['a and b and c', '((a and b) and c)'],
+    'or is left associative' => ['a or b or c', '((a or b) or c)'],
+    'not binds tighter than and' => ['not a and b', '(!a and b)'],
+    'not over a group' => ['not (a and b)', '!(a and b)'],
+    'double negation is kept' => ['not not a', '!!a'],
+    'redundant parens collapse' => ['((a))', 'a'],
+]);
+
+it('parses condition arguments through the condition entry point', function (string $source, string $expected) {
+    expect(treeToString(WarrantParser::parseConditionExpression($source)))->toBe($expected);
+})->with([
+    'string and int' => ["is_owner('x-1', 3)", "is_owner('x-1',3)"],
+    'bool and null' => ['is_owner(true, null)', 'is_owner(true,NULL)'],
+    'context ref' => ['is_owner(@context id)', 'is_owner(@context id)'],
+    'column ref' => ['is_owner(@column docs.owner)', 'is_owner(@column docs.owner)'],
+    'sql ref' => ['is_owner(@sql "select 1")', 'is_owner(@sql select 1)'],
+]);
+
+it('parses a cross-schema can(...) leaf as a bare expression', function () {
+    $unbound = WarrantParser::parseConditionExpression('can(view for other)');
+
+    expect($unbound)->toBeInstanceOf(CrossSchemaCanNode::class);
+    expect($unbound->ability)->toBe('view');
+    expect($unbound->schemaKey)->toBe('other');
+    expect($unbound->isRowBound)->toBeFalse();
+
+    $bound = WarrantParser::parseConditionExpression('can(view for other(@context id) with t = @context x)');
+
+    expect($bound->isRowBound)->toBeTrue();
+    expect($bound->boundRow)->toBeInstanceOf(ContextRef::class);
+    expect($bound->contextMap)->toHaveKey('t');
+});
+
+it('parses a cross-schema check(...) leaf, predicate and all', function () {
+    $node = WarrantParser::parseConditionExpression('check(a or b for other(@context id))');
+
+    expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
+    expect($node->schemaKey)->toBe('other');
+    expect($node->isRowBound)->toBeTrue();
+    expect(treeToString($node->predicate))->toBe('(a or b)');
+});
+
+it('resolves named and positional bindings in a condition expression', function () {
+    expect(WarrantParser::parseConditionExpression('is_owner(:id)', ['id' => 'x-1'])->parameters)->toBe(['x-1']);
+    expect(WarrantParser::parseConditionExpression('is_owner(?)', ['p-1'])->parameters)->toBe(['p-1']);
+});
+
+// -- what may not follow the expression ---------------------------------------
+
+it('rejects anything after a condition expression', function (string $source) {
+    expect(fn () => WarrantParser::parseConditionExpression($source))
+        ->toThrow(WarrantSyntaxException::class);
+})->with([
+    // A clause is the whole point of the distinction: this entry point parses the
+    // `if` half, and `parseSingleRule` parses the rule.
+    'a they-can clause' => ['is_owner they can view'],
+    'a they-cannot clause' => ['is_owner they cannot view'],
+    'a second condition' => ['is_owner is_admin'],
+    'a stray closing paren' => ['is_owner)'],
+    'an unclosed group' => ['(is_owner or is_admin'],
+    'a braced body' => ['{ is_owner }'],
+]);
+
+it('rejects a condition expression that is empty or incomplete', function (string $source) {
+    expect(fn () => WarrantParser::parseConditionExpression($source))
+        ->toThrow(WarrantSyntaxException::class);
+})->with([
+    'empty' => [''],
+    'whitespace only' => ['   '],
+    'a bare not' => ['not'],
+    'a dangling and' => ['a and'],
+    'a dangling or' => ['a or'],
+]);
+
+it('rejects bindings the condition expression never used', function () {
+    expect(fn () => WarrantParser::parseConditionExpression('is_owner', ['id' => 'x-1']))
+        ->toThrow(WarrantSyntaxException::class, 'never used');
+});
+
+it('rejects a condition expression that mixes named and positional bindings', function () {
+    expect(fn () => WarrantParser::parseConditionExpression('is_owner(:a, ?)', ['a' => 1, 'p']))
+        ->toThrow(WarrantSyntaxException::class);
+});
+
+// -- the optional `for` header ------------------------------------------------
 
 it('parses a bare condition expression, with or without a for header', function () {
-    /* The header names the schema whose conditions the expression's names belong
-       to, which is the one thing tooling cannot infer from an expression alone.
-       Nothing here resolves it — an expression has no schema field — so the two
-       forms must parse to the same tree. */
+    /* Nothing resolves the header — an expression has no schema field to carry it
+       — so the two forms must parse to the same tree. */
     expect(WarrantParser::parseConditionExpression('for timesheets is_owner or is_admin'))
         ->toEqual(WarrantParser::parseConditionExpression('is_owner or is_admin'));
 });
+
+it('accepts a for header ahead of any expression form', function (string $source, string $expected) {
+    expect(treeToString(WarrantParser::parseConditionExpression($source)))->toBe($expected);
+})->with([
+    'a single condition' => ['for timesheets is_owner', 'is_owner'],
+    'a negation' => ['for timesheets not is_owner', '!is_owner'],
+    'a group' => ['for timesheets (a or b)', '(a or b)'],
+    'a can(...) leaf' => ['for timesheets can(view for other)', 'can(view for other)'],
+]);
 
 it('resolves bindings in a condition expression behind a for header', function () {
     $node = WarrantParser::parseConditionExpression('for timesheets is_owner(:id)', ['id' => 'x-1']);
@@ -901,12 +1011,13 @@ it('resolves bindings in a condition expression behind a for header', function (
     expect($node->parameters)->toBe(['x-1']);
 });
 
-it('throws when a condition expression header names no schema', function () {
-    expect(fn () => WarrantParser::parseConditionExpression('for is_owner or is_admin'))
+it('rejects a malformed or misplaced for header', function (string $source) {
+    expect(fn () => WarrantParser::parseConditionExpression($source))
         ->toThrow(WarrantSyntaxException::class);
-});
-
-it('throws when a condition expression is only a header', function () {
-    expect(fn () => WarrantParser::parseConditionExpression('for timesheets'))
-        ->toThrow(WarrantSyntaxException::class);
-});
+})->with([
+    'no schema name' => ['for is_owner or is_admin'],
+    'header only' => ['for timesheets'],
+    'a doubled header' => ['for timesheets for documents is_owner'],
+    'a header mid-expression' => ['is_owner or for timesheets is_admin'],
+    'a braced body after the header' => ['for timesheets { is_owner }'],
+]);

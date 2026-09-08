@@ -56,67 +56,8 @@ final class BuilderFakeResolver implements ConditionResolver
     }
 }
 
-/**
- * Render an expression AST to a canonical, fully-parenthesized string so two
- * trees can be compared for structural equality.
- */
-function treeToString(?object $node): string
-{
-    return match (true) {
-        $node === null => 'null',
-        $node instanceof ConditionNode => $node->conditionKey . ($node->parameters === []
-            ? ''
-            : '(' . implode(',', array_map(fn ($p) => argToString($p), $node->parameters)) . ')'),
-        $node instanceof CrossSchemaCanNode => 'can(' . $node->ability . ' for ' . handleToString($node) . ')',
-        $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
-        $node instanceof NotNode => '!' . treeToString($node->operand),
-        $node instanceof AndNode => '(' . treeToString($node->leftSide) . ' and ' . treeToString($node->rightSide) . ')',
-        $node instanceof OrNode => '(' . treeToString($node->leftSide) . ' or ' . treeToString($node->rightSide) . ')',
-        $node instanceof BooleanNode => $node->value ? 'true' : 'false',
-        default => throw new RuntimeException('unexpected node ' . $node::class),
-    };
-}
-
-/**
- * Render an argument value — a scalar, or one of the DSL's symbolic references,
- * which must stay distinguishable (a ContextRef would otherwise var_export to
- * NULL, making every ref look alike).
- */
-function argToString(mixed $value): string
-{
-    return match (true) {
-        $value instanceof ContextRef => '@context ' . $value->key,
-        $value instanceof ColumnRef => '@column ' . $value->schemaKey . '.' . $value->column,
-        $value instanceof SqlRef => '@sql ' . $value->sql,
-        default => var_export($value, true),
-    };
-}
-
-/**
- * Render a cross-schema handle: the schema, its row selector when the reference
- * is row-bound (an unbound handle has no parens at all — the distinction NoRow
- * exists to preserve), and any `with` map.
- */
-function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): string
-{
-    $out = $node->schemaKey;
-
-    if ($node->isRowBound) {
-        $out .= '(' . argToString($node->boundRow) . ')';
-    }
-
-    if ($node->contextMap !== []) {
-        $entries = [];
-
-        foreach ($node->contextMap as $key => $value) {
-            $entries[] = $key . ' = ' . argToString($value);
-        }
-
-        $out .= ' with ' . implode(', ', $entries);
-    }
-
-    return $out;
-}
+// treeToString() / argToString() / handleToString() live in Support/TestSupport.php,
+// so the parser tests can compare trees with the same renderer.
 
 // -- structure ----------------------------------------------------------------
 
