@@ -144,3 +144,15 @@ for documents {
 	they cannot view because 'Some denial message'
 
 }
+
+
+for sr_docs {
+    if check(
+        is_owner
+            and check(
+                is_owner and can(some_ability)
+                for sr_docs(@column parent_id) as gp
+            )
+        for sr_docs(@column parent_id) as parent
+    ) they can do_thing_1
+}

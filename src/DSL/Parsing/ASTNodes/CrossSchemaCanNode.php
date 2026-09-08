@@ -24,7 +24,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * {@see $contextMap} hold what the parser resolved: concrete scalars for inline
  * literals and `:name` / `?` bindings, a symbolic {@see ContextRef} for a
  * `@context <key>` reference (filled per check at compile time), or a symbolic
- * {@see ColumnRef} for a `@column <schema>.<column>` reference (resolved to a
+ * {@see ColumnRef} for a `@column [<name>.]<column>` reference (resolved to a
  * grammar-wrapped column Expression at compile time).
  *
  * Validated by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator::assertCrossSchemaCanValid()}

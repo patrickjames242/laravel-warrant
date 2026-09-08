@@ -130,19 +130,26 @@ module.exports = grammar({
 
     parenthesized_expression: $ => seq('(', $._expression, ')'),
 
-    // A cross-schema ability check: can(<ability> for <handle> [with <map>]).
+    // An ability check: can(<ability>), or
+    // can(<ability> for <handle> [with <map>]).
+    //
+    // Without the `for` clause nothing is crossed: another ability of the schema
+    // the rule is written on, over the row and context it already has.
     can_expression: $ => seq(
       'can',
       '(',
       field('ability', $.identifier),
-      'for',
-      field('target', $.handle),
+      optional(seq(
+        'for',
+        field('target', $.handle),
+      )),
       optional(field('context', $.with_clause)),
       ')',
     ),
 
     // A cross-schema condition check: check(<predicate> for <handle> [with <map>]).
-    // The predicate is a full boolean tree of the *target* schema's conditions.
+    // The predicate is a full boolean tree read against the *target* schema's
+    // vocabulary, so it may nest another check or hold a can.
     check_expression: $ => seq(
       'check',
       '(',
@@ -153,11 +160,13 @@ module.exports = grammar({
       ')',
     ),
 
-    // A schema name, optionally row-bound by a single selector argument.
-    // Without the selector the handle is unbound (no row involved).
+    // A schema name, optionally row-bound by a single selector argument and
+    // optionally naming the rows it selects. Without the selector the handle is
+    // unbound (no row involved), and an alias needs a row to name.
     handle: $ => seq(
       field('schema', $.identifier),
       optional(seq('(', field('row', $._argument), ')')),
+      optional(seq('as', field('alias', $.identifier))),
     ),
 
     with_clause: $ => seq(
@@ -205,12 +214,20 @@ module.exports = grammar({
       field('key', $.identifier),
     ),
 
-    // A schema-qualified database column, resolved to a real table at compile time.
-    column_ref: $ => seq(
-      '@column',
-      field('schema', $.identifier),
-      '.',
-      field('column', $.identifier),
+    // A database column, resolved to a real table at compile time. One name is the
+    // column, on whatever rows the rule is already about; two name a frame — a
+    // schema key, or an alias a handle introduced — and then the column.
+    column_ref: $ => choice(
+      seq(
+        '@column',
+        field('alias', $.identifier),
+        '.',
+        field('column', $.identifier),
+      ),
+      seq(
+        '@column',
+        field('column', $.identifier),
+      ),
     ),
 
     // An arbitrary SQL fragment, as a literal or a binding resolving to a string.

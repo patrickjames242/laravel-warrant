@@ -30,7 +30,7 @@ they can view
           (context_ref
             key: (identifier))
           (column_ref
-            schema: (identifier)
+            alias: (identifier)
             column: (identifier))
           (sql_ref
             sql: (string

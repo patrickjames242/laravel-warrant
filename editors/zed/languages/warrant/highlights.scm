@@ -18,6 +18,7 @@
   "because"
   "for"
   "with"
+  "as"
   "and"
   "or"
   "not"
@@ -55,7 +56,7 @@
   key: (identifier) @property)
 
 (column_ref
-  schema: (identifier) @type
+  alias: (identifier) @type
   column: (identifier) @property)
 
 ; -- bindings and references -------------------------------------------------

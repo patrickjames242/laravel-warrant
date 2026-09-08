@@ -28,7 +28,7 @@ enum TokenType
     case COMMA;
     case STAR;   // wildcard ability `*`
     case EQUALS; // `=` in a cross-schema `with` map
-    case DOT;    // `.` separating a schema key from a column in `@column schema.column`
+    case DOT;    // `.` separating a frame name from a column in `@column <name>.<column>`
 
     // Bindings.
     case NAMED_BINDING;  // :name

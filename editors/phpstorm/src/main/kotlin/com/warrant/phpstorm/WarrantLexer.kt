@@ -164,7 +164,7 @@ class WarrantLexer : LexerBase() {
         // Mirror of Lexer::KEYWORDS. Keep in sync with the PHP lexer.
         private val KEYWORDS = setOf(
             "if", "they", "can", "cannot", "because",
-            "check", "and", "or", "not", "for", "with",
+            "check", "and", "or", "not", "for", "with", "as",
         )
         private val CONSTANTS = setOf("true", "false", "null")
     }

@@ -240,7 +240,7 @@
       },
       "target": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "handle",
@@ -316,9 +316,9 @@
     "type": "column_ref",
     "named": true,
     "fields": {
-      "column": {
+      "alias": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "identifier",
@@ -326,7 +326,7 @@
           }
         ]
       },
-      "schema": {
+      "column": {
         "multiple": false,
         "required": true,
         "types": [
@@ -400,6 +400,16 @@
     "type": "handle",
     "named": true,
     "fields": {
+      "alias": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
       "row": {
         "multiple": false,
         "required": false,
@@ -709,6 +719,10 @@
   },
   {
     "type": "and",
+    "named": false
+  },
+  {
+    "type": "as",
     "named": false
   },
   {

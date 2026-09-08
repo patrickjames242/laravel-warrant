@@ -28,5 +28,5 @@ object WarrantTokenTypes {
     @JvmField val PARENS = WarrantTokenType("WARRANT_PARENS")            // ( )
     @JvmField val BRACES = WarrantTokenType("WARRANT_BRACES")            // { }
     @JvmField val COMMA = WarrantTokenType("WARRANT_COMMA")              // ,
-    @JvmField val DOT = WarrantTokenType("WARRANT_DOT")                  // . in @column schema.column
+    @JvmField val DOT = WarrantTokenType("WARRANT_DOT")                  // . in @column <name>.<column>
 }
