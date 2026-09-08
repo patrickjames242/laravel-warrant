@@ -3,6 +3,9 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Query\Builder;
+use Warrant\DSL\Compiling\CompilationResult;
+use Warrant\DSL\Compiling\Decision;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 
 /*
@@ -102,6 +105,51 @@ it('folds an all-true and to true, and an all-false or to false', function () {
 it('flips a negated bool operand', function () {
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd(false, negated: true)))->toBeTrue();
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd(true, negated: true)))->toBeFalse();
+});
+
+// -- Decision, the folded outcome ---------------------------------------------
+
+it('reports each folded constant as its Decision, and a real predicate as NeedsQuery', function () {
+    $result = fn (CompiledWhereClauseNode $node) => (new CompilationResult(
+        $node,
+        QueryFactory::for(warrantTestQuery()),
+    ));
+
+    expect($result((new CompiledWhereClauseNode)->addAnd(true))->decision())->toBe(Decision::True);
+    expect($result((new CompiledWhereClauseNode)->addAnd(false))->decision())->toBe(Decision::False);
+    expect($result((new CompiledWhereClauseNode)->addAnd(null))->decision())->toBe(Decision::Unknown);
+    expect($result((new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1')))->decision())
+        ->toBe(Decision::NeedsQuery);
+});
+
+it('grants on True alone, so an unknown denies exactly as a false does', function () {
+    expect(Decision::True->grants())->toBeTrue();
+    expect(Decision::False->grants())->toBeFalse();
+    expect(Decision::Unknown->grants())->toBeFalse();
+    expect(Decision::NeedsQuery->grants())->toBeFalse();
+
+    expect(Decision::Unknown->isConstant())->toBeTrue();
+    expect(Decision::NeedsQuery->isConstant())->toBeFalse();
+});
+
+it('spells each folded constant out in SQL, an unknown as null', function () {
+    $sql = fn (CompiledWhereClauseNode $node) => (new CompilationResult(
+        $node,
+        QueryFactory::for(warrantTestQuery()),
+    ))->toQuery()->toRawSql();
+
+    expect($sql((new CompiledWhereClauseNode)->addAnd(true)))->toContain('1 = 1');
+    expect($sql((new CompiledWhereClauseNode)->addAnd(false)))->toContain('1 = 0');
+    expect($sql((new CompiledWhereClauseNode)->addAnd(null)))->toContain('null');
+});
+
+it('has no operand for NeedsQuery, which is not a truth value', function () {
+    expect(fn () => Decision::NeedsQuery->asOperand())
+        ->toThrow(LogicException::class, 'not a constant and has no where-clause operand');
+
+    expect(Decision::True->asOperand())->toBeTrue();
+    expect(Decision::False->asOperand())->toBeFalse();
+    expect(Decision::Unknown->asOperand())->toBeNull();
 });
 
 // -- the third truth value (unknown) ------------------------------------------

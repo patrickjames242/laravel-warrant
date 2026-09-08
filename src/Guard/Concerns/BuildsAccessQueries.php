@@ -8,6 +8,7 @@ use RuntimeException;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\CompilationResult;
+use Warrant\DSL\Compiling\Decision;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\Rules\WarrantRuleSet;
@@ -21,8 +22,8 @@ use Warrant\WarrantGate;
  * schema (the {@see \Warrant\DSL\ConditionResolver}).
  *
  * Producing a predicate and attaching one are separate steps here:
- * {@see compileGate} returns the compiled gate, whose decision() is a
- * literal `true`/`false` whenever the rules settled the gate without a row.
+ * {@see compileGate} returns the compiled gate, whose decision() is a constant
+ * {@see Decision} whenever the rules settled the gate without a row.
  * {@see filterQuery} is one consumer of that — it always wants SQL — while a
  * boolean check reads the literal and skips the database entirely.
  *
@@ -63,10 +64,10 @@ trait BuildsAccessQueries
     /**
      * The compiled gate, before anything is written as SQL.
      *
-     * {@see CompilationResult::decision()} is the literal `true`/`false` the rules
-     * settled on without consulting a row — the answer {@see filterQuery} throws
-     * away, since a predicate spliced into a host query has to spell a constant
-     * out as `1 = 1` / `1 = 0`. A caller that only wants a yes/no answer reads the
+     * {@see CompilationResult::decision()} is the constant the rules settled on
+     * without consulting a row — the answer {@see filterQuery} throws away, since a
+     * predicate spliced into a host query has to spell a constant out as
+     * `1 = 1` / `1 = 0` / `null`. A caller that only wants a yes/no answer reads the
      * decision and skips the query entirely (see {@see ChecksAbilities}); one that
      * needs the SQL calls {@see CompilationResult::spliceInto()} on the same
      * result, and nothing is compiled twice.
@@ -278,10 +279,12 @@ trait BuildsAccessQueries
                     ->withCheckContext($context),
             );
 
+            /* An unknown denies, exactly as a false does: the ability is not
+               reported, and no branch is built for it. */
             match ($result->decision()) {
-                true => $held[] = $ability,
-                false => null,
-                null => $branches[] = [$ability, $result->toQuery()],
+                Decision::True => $held[] = $ability,
+                Decision::False, Decision::Unknown => null,
+                Decision::NeedsQuery => $branches[] = [$ability, $result->toQuery()],
             };
         }
 

@@ -147,8 +147,10 @@ trait ChecksAbilities
                 targetModel: $this->trustedTargetModel($target),
             );
 
-            // Nothing the row could say would let it through.
-            if ($gate->decision() === false) {
+            /* Nothing the row could say would let it through — the rules either
+               denied outright or reached a question this compile could not
+               answer, and an unanswered question denies just the same. */
+            if ($gate->decision()->isConstant() && ! $gate->decision()->grants()) {
                 return false;
             }
 
@@ -159,7 +161,7 @@ trait ChecksAbilities
                still goes to the database for the existence check alone.
                Model::$exists is Eloquent's own record of this: set when a row is
                hydrated or inserted, cleared on delete. */
-            if ($gate->decision() === true && $this->trustedTargetModel($target) !== null) {
+            if ($gate->decision()->grants() && $this->trustedTargetModel($target) !== null) {
                 return true;
             }
 

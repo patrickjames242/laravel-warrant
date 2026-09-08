@@ -133,8 +133,11 @@ trait DiagnosesDenials
                 CompilationContext::ability($queries, $this->user, $ability, $ruleSet)->withCheckContext($context),
             ));
 
-            $granted = $result->decision()
-                ?? $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
+            $decision = $result->decision();
+
+            $granted = $decision->isConstant()
+                ? $decision->grants()
+                : $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
 
             if (! $granted) {
                 $failedAbilities[] = $ability;
@@ -163,8 +166,11 @@ trait DiagnosesDenials
                     CompilationContext::condition($queries, $this->user, $rule->conditions)->withCheckContext($context),
                 ));
 
-                $fired = $result->decision()
-                    ?? $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
+                $decision = $result->decision();
+
+                $fired = $decision->isConstant()
+                    ? $decision->grants()
+                    : $result->spliceInto($baseQuery()->selectRaw('1'))->exists();
 
                 if (! $fired) {
                     continue;

@@ -553,8 +553,8 @@ final class RuleSetCompiler
                exist, and does B grant it?", and a hydrated model settled the first
                half before we started. Without a model the constant still has to go
                to SQL, because existence is exactly what has not been established. */
-            if ($bTargetModel !== null && $bDecision !== null) {
-                return (new CompiledWhereClauseNode)->addAnd($bDecision, negated: $ctx->negate);
+            if ($bTargetModel !== null && $bDecision->isConstant()) {
+                return (new CompiledWhereClauseNode)->addAnd($bDecision->asOperand(), negated: $ctx->negate);
             }
 
             $bResult->spliceInto($bSubquery);
@@ -670,8 +670,8 @@ final class RuleSetCompiler
             $bDecision = $bResult->decision();
 
             // See the row-bound can(...) branch for why a model is required here.
-            if ($bTargetModel !== null && $bDecision !== null) {
-                return (new CompiledWhereClauseNode)->addAnd($bDecision, negated: $ctx->negate);
+            if ($bTargetModel !== null && $bDecision->isConstant()) {
+                return (new CompiledWhereClauseNode)->addAnd($bDecision->asOperand(), negated: $ctx->negate);
             }
 
             $bResult->spliceInto($bSubquery);

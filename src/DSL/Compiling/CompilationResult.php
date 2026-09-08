@@ -16,10 +16,12 @@ use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
  * once and this offers the three views onto it.
  *
  * The important one is {@see decision()}. A rule set frequently settles a gate
- * without ever consulting a row, and reading that literal is what lets a boolean
- * check skip the database entirely. Materializing through {@see toQuery()}
- * erases it, because a spliceable predicate has to spell a constant out as
- * `1 = 1` / `1 = 0`.
+ * without ever consulting a row, and reading that outcome is what lets a boolean
+ * check skip the database entirely. It is a {@see Decision} rather than a
+ * `?bool`, because a compile can settle on any of SQL's three truth values and
+ * "unknown" must not be confused with either `false` or "ask the database".
+ * Materializing through {@see toQuery()} erases the distinction, because a
+ * spliceable predicate has to spell a constant out as `1 = 1` / `1 = 0` / `null`.
  *
  * Folding is done once and cached. That is not only for speed: folding twice
  * yields two output builders that share the same leaf {@see Builder} instances
@@ -29,7 +31,8 @@ use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
  */
 final class CompilationResult
 {
-    private bool|Builder|null $folded = null;
+    /** The folded compile, or null while it has not been folded yet. */
+    private Decision|Builder|null $folded = null;
 
     public function __construct(
         private readonly CompiledWhereClauseNode $node,
@@ -48,31 +51,45 @@ final class CompilationResult
     }
 
     /**
-     * The literal the rules settled on without consulting a row, or null when the
-     * answer genuinely depends on one and SQL is needed.
+     * What the rules settled outright, or {@see Decision::NeedsQuery} when they
+     * did not and the predicate has to be asked in SQL — which is not only the
+     * row-dependent case: a global condition emitting SQL is the same for every
+     * row and is still not a constant here.
+     *
+     * Both {@see Decision::False} and {@see Decision::Unknown} mean no access, so
+     * a caller wanting a plain yes/no can read {@see Decision::grants()} and
+     * ignore which of the two it was.
      */
-    public function decision(): ?bool
+    public function decision(): Decision
     {
         $folded = $this->fold();
 
-        return is_bool($folded) ? $folded : null;
+        return $folded instanceof Builder ? Decision::NeedsQuery : $folded;
     }
 
     /**
      * The predicate as a detached query, ready to splice.
      *
-     * A compile that folded to a literal is spelled out here as `1 = 1` / `1 = 0`,
-     * because {@see \Illuminate\Database\Query\Builder::addNestedWhereQuery()}
-     * skips a query holding no where clause — an always-true predicate has to say
-     * so out loud or it would silently vanish.
+     * A compile that folded to a constant is spelled out here, because
+     * {@see \Illuminate\Database\Query\Builder::addNestedWhereQuery()} skips a
+     * query holding no where clause — an always-true predicate has to say so out
+     * loud or it would silently vanish. An unknown is spelled `null`, which is the
+     * same value it already was: never true, so it selects no row, and `not null`
+     * is null again, so it cannot be negated into selecting one.
      */
     public function toQuery(): Builder
     {
         $folded = $this->fold();
 
-        return is_bool($folded)
-            ? $this->queries->newQuery()->whereRaw($folded ? '1 = 1' : '1 = 0')
-            : $folded;
+        if ($folded instanceof Builder) {
+            return $folded;
+        }
+
+        return $this->queries->newQuery()->whereRaw(match ($folded) {
+            Decision::True => '1 = 1',
+            Decision::False => '1 = 0',
+            Decision::Unknown => 'null',
+        });
     }
 
     /**
@@ -87,8 +104,15 @@ final class CompilationResult
         return $host->addNestedWhereQuery($this->toQuery());
     }
 
-    private function fold(): bool|Builder
+    private function fold(): Decision|Builder
     {
-        return $this->folded ??= $this->node->buildWhereClause($this->queries);
+        return $this->folded ??= $this->foldNode();
+    }
+
+    private function foldNode(): Decision|Builder
+    {
+        $built = $this->node->buildWhereClause($this->queries);
+
+        return $built instanceof Builder ? $built : Decision::forConstant($built);
     }
 }
