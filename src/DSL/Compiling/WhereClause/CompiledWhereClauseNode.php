@@ -10,11 +10,28 @@ use Warrant\DSL\Compiling\QueryFactory;
  * A boolean where clause tree, built before any SQL is emitted.
  *
  * Operands are added one at a time under a connector, and may be a literal
- * `bool`, a {@see Builder} that a condition augmented (where clauses only), or
- * another node — which is what makes this a tree. Nothing touches a query
- * builder until {@see buildWhereClause}, so {@see simplify} gets to collapse
- * constants and drop the parentheses that a direct-to-builder walk is forced to
- * emit.
+ * `bool`, `null` for a question the compile could not answer, a {@see Builder}
+ * that a condition augmented (where clauses only), or another node — which is
+ * what makes this a tree. Nothing touches a query builder until
+ * {@see buildWhereClause}, so {@see simplify} gets to collapse constants and drop
+ * the parentheses that a direct-to-builder walk is forced to emit.
+ *
+ * ## The third truth value
+ *
+ * A `null` operand is *unknown*: not false, but unanswerable — a row condition
+ * with no row in scope, a `@column` about a table this frame never selected. It
+ * is a separate value because `false` is an answer and negating an answer is
+ * legitimate, whereas negating "could not tell" has to yield itself. Folding a
+ * `false` under a `not` is how an unanswerable deny used to become a grant.
+ *
+ * Only two combinations with an unknown are decidable, and both are the ones that
+ * make the other operand irrelevant: `unknown and false` is `false`, and
+ * `unknown or true` is `true`. Everything else has to *reach the SQL*, as a
+ * literal `null`, because the difference between false and unknown is still
+ * observable through a `not` — `not (unknown and a)` is true for a row where `a`
+ * is false. SQL's own three-valued logic then finishes the job, and since a row
+ * is only selected when the predicate is true, an unknown never grants and never
+ * lifts a deny.
  *
  * A mixed list is read with SQL precedence — `and` binds tighter than `or`, so
  * `a and b or c and d` is `(a and b) or (c and d)`. Simplifying starts by
@@ -26,6 +43,8 @@ use Warrant\DSL\Compiling\QueryFactory;
  *   - a `false` inside an `and` (or a `true` inside an `or`) decides the whole
  *     group, and a `true` inside an `and` (or a `false` inside an `or`) changes
  *     nothing and is dropped;
+ *   - a `null` decides nothing on its own: it survives as an operand, and only
+ *     a group holding nothing else folds to unknown;
  *   - a leaf builder holding no where clause is rejected: it would contribute
  *     nothing to the SQL and so silently mean "match everything", which is
  *     almost never what an empty leaf was meant to say. Add `true` as a literal
@@ -42,7 +61,7 @@ use Warrant\DSL\Compiling\QueryFactory;
  * The examples throughout write `a`, `b`, `c` for leaf builders holding one
  * where clause each, `!a` for a negated operand, and `and[x, y]` / `or[x, y]`
  * for a group with that connector. A literal operand is written out in full as
- * `true` or `false`.
+ * `true`, `false` or `null`.
  */
 final class CompiledWhereClauseNode
 {
@@ -70,9 +89,10 @@ final class CompiledWhereClauseNode
      *     (new Node)->addAnd($a)->addAnd($b)                 // a and b
      *     (new Node)->addAnd($a)->addAnd($b, negated: true)  // a and !b
      *     (new Node)->addAnd($a)->addAnd(false)              // a and false
+     *     (new Node)->addAnd($a)->addAnd(null)               // a and null
      *     (new Node)->addAnd($a)->addAnd($child)             // a and (child)
      */
-    public function addAnd(bool|Builder|self $operand, bool $negated = false): self
+    public function addAnd(bool|Builder|self|null $operand, bool $negated = false): self
     {
         return $this->addOperand(new CompiledWhereClauseOperand('and', $operand, $negated));
     }
@@ -82,7 +102,7 @@ final class CompiledWhereClauseNode
      *
      *     (new Node)->addAnd($a)->addAnd($b)->addOr($c)   // a and b or c
      */
-    public function addOr(bool|Builder|self $operand, bool $negated = false): self
+    public function addOr(bool|Builder|self|null $operand, bool $negated = false): self
     {
         return $this->addOperand(new CompiledWhereClauseOperand('or', $operand, $negated));
     }
@@ -118,11 +138,14 @@ final class CompiledWhereClauseNode
      *     a and false          ->  false       the whole node decided
      *     a or true            ->  true
      *     true and true        ->  true
+     *     null and false       ->  false       the only decidable `and`
+     *     null and true        ->  null        unknown, and it stays unknown
+     *     a or null            ->  or[a, null] neither decides; SQL settles it
      *     a                    ->  and[a]      a lone leaf still needs a group
      *     or[a, b]  (alone)    ->  or[a, b]    a lone child is returned as-is
      *     a and b or c and d   ->  or[and[a, b], and[c, d]]
      */
-    public function simplify(): bool|self
+    public function simplify(): bool|self|null
     {
         if ($this->operands === []) {
             return true;
@@ -130,6 +153,7 @@ final class CompiledWhereClauseNode
 
         // The node is the `or` of its and-groups.
         $survivors = [];
+        $unknown = false;
 
         foreach ($this->splitIntoAndGroups() as $andGroup) {
             $simplified = $this->simplifyAndGroup($andGroup);
@@ -142,7 +166,23 @@ final class CompiledWhereClauseNode
                 continue;       // false changes nothing in an or.
             }
 
+            if ($simplified === null) {
+                /* `unknown or true` was decided above; anything else keeps the
+                   unknown, which has to be emitted rather than folded. */
+                $unknown = true;
+
+                continue;
+            }
+
             $survivors = self::appendOperand($survivors, 'or', $simplified);
+        }
+
+        if ($unknown) {
+            if ($survivors === []) {
+                return null;    // nothing but unknowns: the whole node is unknown.
+            }
+
+            $survivors[] = new CompiledWhereClauseOperand('or', null);
         }
 
         if ($survivors === []) {
@@ -167,23 +207,30 @@ final class CompiledWhereClauseNode
      *     [a, true, b]     ->  and[a, b]    the `true` is dropped
      *     [a, false]       ->  false
      *     [true, true]     ->  true         nothing left to and together
+     *     [null, false]    ->  false        false decides even against unknown
+     *     [null, true]     ->  null         the group is unknown
+     *     [null, a]        ->  and[a, null] unknown survives into the SQL
      *     [a]              ->  a            returned bare, no group built
      *     [!or[x, y]]      ->  and[!x, !y]  the negation is pushed inwards
      *     [<empty>, a]     ->  throws       a leaf must hold a where clause
      *
      * @param  list<CompiledWhereClauseOperand>  $andGroup
      */
-    private function simplifyAndGroup(array $andGroup): bool|CompiledWhereClauseOperand
+    private function simplifyAndGroup(array $andGroup): bool|CompiledWhereClauseOperand|null
     {
         $survivors = [];
+        $unknown = false;
 
         foreach ($andGroup as $operand) {
             $value = $operand->value;
 
             // Resolve the operand, pushing its negation inwards: a `bool` flips,
-            // a child node is negated as a whole, and a leaf builder keeps the
-            // flag (it emits as `not (...)`).
-            if (is_bool($value)) {
+            // an unknown does not (it negates to itself), a child node is negated
+            // as a whole, and a leaf builder keeps the flag (it emits as
+            // `not (...)`).
+            if ($value === null) {
+                $simplified = null;
+            } elseif (is_bool($value)) {
                 $simplified = $operand->negated ? ! $value : $value;
             } elseif ($value instanceof Builder) {
                 if ($value->wheres === []) {
@@ -198,23 +245,44 @@ final class CompiledWhereClauseNode
             } else {
                 $inner = $value->simplify();
 
-                $simplified = is_bool($inner)
-                    ? ($operand->negated ? ! $inner : $inner)
-                    : new CompiledWhereClauseOperand(
+                $simplified = match (true) {
+                    is_bool($inner) => $operand->negated ? ! $inner : $inner,
+                    // A child that came out unknown stays unknown, negated or not.
+                    $inner === null => null,
+                    default => new CompiledWhereClauseOperand(
                         $operand->boolean,
                         $operand->negated ? $inner->negatedCopy() : $inner,
-                    );
+                    ),
+                };
             }
 
             if ($simplified === false) {
-                return false;   // false and anything.
+                return false;   // false and anything — unknown included.
             }
 
             if ($simplified === true) {
                 continue;       // true changes nothing in an and.
             }
 
+            if ($simplified === null) {
+                /* Not decidable unless something else in the group is false, and
+                   that already returned above. Keep it: `unknown and a` is never
+                   true, but it is not false either, and a `not` around it can
+                   still see the difference. */
+                $unknown = true;
+
+                continue;
+            }
+
             $survivors = self::appendOperand($survivors, 'and', $simplified);
+        }
+
+        if ($unknown) {
+            if ($survivors === []) {
+                return null;    // nothing but unknowns: the group is unknown.
+            }
+
+            $survivors[] = new CompiledWhereClauseOperand('and', null);
         }
 
         return match (count($survivors)) {
@@ -297,13 +365,19 @@ final class CompiledWhereClauseNode
      *
      *     and[a, !b]           ->  or[!a, b]
      *     or[a, and[b, c]]     ->  and[!a, or[!b, !c]]
+     *     and[a, null]         ->  or[!a, null]  an unknown negates to itself
      */
     private function negatedCopy(): self
     {
         return self::makeGroup($this->operator === 'and' ? 'or' : 'and', array_map(
-            fn (CompiledWhereClauseOperand $operand): CompiledWhereClauseOperand => $operand->value instanceof self
-                ? new CompiledWhereClauseOperand($operand->boolean, $operand->value->negatedCopy())
-                : $operand->flipNegation(),
+            fn (CompiledWhereClauseOperand $operand): CompiledWhereClauseOperand => match (true) {
+                $operand->value instanceof self => new CompiledWhereClauseOperand(
+                    $operand->boolean,
+                    $operand->value->negatedCopy(),
+                ),
+                $operand->value === null => $operand,
+                default => $operand->flipNegation(),
+            },
             $this->operands,
         ));
     }
@@ -334,14 +408,16 @@ final class CompiledWhereClauseNode
     /**
      * Simplify, then write whatever survives into a fresh query.
      *
-     * Returns the literal `true`/`false` when the tree decided the outcome on
-     * its own; what a literal looks like in SQL is the caller's choice, not this
-     * node's, since only the caller knows whether it is emitting a whole
-     * predicate or a fragment of one.
+     * Returns the literal `true`/`false` when the tree decided the outcome on its
+     * own, or `null` when it came out unknown; what a literal looks like in SQL is
+     * the caller's choice, not this node's, since only the caller knows whether it
+     * is emitting a whole predicate or a fragment of one.
      *
      *     a and true and b  ->  Builder: `a = 1 and b = 2`
      *     a and (b or c)    ->  Builder: `a = 1 and (b = 2 or c = 3)`
+     *     a and null        ->  Builder: `a = 1 and null`
      *     a and false       ->  false, and no query is built at all
+     *     null and true     ->  null, likewise
      *
      * $queries is only ever a source of one blank builder — nothing is read from
      * it and nothing is written back to it. A {@see QueryFactory} says that
@@ -349,11 +425,11 @@ final class CompiledWhereClauseNode
      * one (a test, say) would otherwise have to wrap it just to be unwrapped
      * again on the next line.
      */
-    public function buildWhereClause(Builder|QueryFactory $queries): bool|Builder
+    public function buildWhereClause(Builder|QueryFactory $queries): bool|Builder|null
     {
         $simplified = $this->simplify();
 
-        if (is_bool($simplified)) {
+        if (is_bool($simplified) || $simplified === null) {
             return $simplified;
         }
 
@@ -377,12 +453,24 @@ final class CompiledWhereClauseNode
      *     and (b = 2 or c = 3)       a child group, so parenthesised
      *     and not (d = 4)            negated, so the not binds to a group
      *     and (e = 5 and f = 6)      the leaf held two clauses, so wrapped
+     *     and null                   an unknown, left for SQL to resolve
      */
     private function writeOperandsInto(Builder $parent): void
     {
         foreach ($this->operands as $index => $operand) {
             $boolean = $index === 0 ? 'and' : $this->operator;
             $value = $operand->value;
+
+            /* An unknown goes out as SQL's own `null`, which is the same value
+               and carries the same rules: it is never true, so it never selects
+               a row, and `not null` is null again, so it cannot be negated into
+               one either. Its negation flag is therefore ignored rather than
+               emitted as `not (null)`, which would only add noise. */
+            if ($value === null) {
+                $parent->whereRaw('null', [], $boolean);
+
+                continue;
+            }
 
             if ($value instanceof self) {
                 $parent->where(

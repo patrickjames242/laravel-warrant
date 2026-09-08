@@ -41,15 +41,16 @@ function nodeEmptyLeaf(): Builder
 }
 
 /**
- * Build $node's where clause and return either the literal it simplified to, or
- * the normalized SQL of a host query with that where clause spliced in.
+ * Build $node's where clause and return either the literal it simplified to —
+ * `true`, `false`, or `null` for unknown — or the normalized SQL of a host query
+ * with that where clause spliced in.
  */
-function nodeSql(CompiledWhereClauseNode $node): string|bool
+function nodeSql(CompiledWhereClauseNode $node): string|bool|null
 {
     $host = warrantTestQuery();
     $result = $node->buildWhereClause($host);
 
-    if (is_bool($result)) {
+    if (is_bool($result) || $result === null) {
         return $result;
     }
 
@@ -101,6 +102,60 @@ it('folds an all-true and to true, and an all-false or to false', function () {
 it('flips a negated bool operand', function () {
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd(false, negated: true)))->toBeTrue();
     expect(nodeSql((new CompiledWhereClauseNode)->addAnd(true, negated: true)))->toBeFalse();
+});
+
+// -- the third truth value (unknown) ------------------------------------------
+
+/*
+| A `null` operand is unanswerable, not false. Only two combinations decide
+| anything — `unknown and false` and `unknown or true` — and everything else has
+| to reach the SQL as a literal `null`, because a `not` can still tell false and
+| unknown apart.
+*/
+
+it('lets a false decide an and even against an unknown', function () {
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null)->addAnd(false)))->toBeFalse();
+});
+
+it('lets a true decide an or even against an unknown', function () {
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null)->addOr(true)))->toBeTrue();
+});
+
+it('folds a group of nothing but unknowns to unknown', function () {
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null)->addAnd(true)))->toBeNull();
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null)->addOr(false)))->toBeNull();
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null)->addOr(null)))->toBeNull();
+});
+
+it('never flips an unknown, however it is negated', function () {
+    // ¬unknown is unknown — the whole reason it is not just `false`.
+    expect(nodeSql((new CompiledWhereClauseNode)->addAnd(null, negated: true)))->toBeNull();
+});
+
+it('emits a surviving unknown as SQL null rather than folding it away', function () {
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd(null),
+        'select * from "course_sections" where (a = 1 and null)',
+    );
+
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addOr(null),
+        'select * from "course_sections" where (a = 1 or null)',
+    );
+});
+
+it('keeps false and unknown distinguishable under a not', function () {
+    /* This is what an unknown is *for*. Had the unknown been a `false`, the
+       whole group would have folded to false and the `not` would have made it
+       true — an unanswerable question turned into a yes. Instead the negation
+       lands on the leaf and the unknown rides along untouched, so the row only
+       passes when `a = 1` is genuinely false. */
+    $child = (new CompiledWhereClauseNode)->addAnd(nodeLeaf('a = 1'))->addAnd(null);
+
+    nodeExpect(
+        (new CompiledWhereClauseNode)->addAnd($child, negated: true),
+        'select * from "course_sections" where (not (a = 1) or null)',
+    );
 });
 
 it('rejects a leaf that added no where clause', function () {

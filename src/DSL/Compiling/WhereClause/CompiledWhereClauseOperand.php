@@ -8,11 +8,13 @@ use Illuminate\Database\Query\Builder;
  * One operand of a {@see CompiledWhereClauseNode} — a value, the connector it
  * attaches under, and whether it is negated.
  *
- * The value is a literal `bool`, a {@see Builder} that a condition augmented
- * (where clauses only), or another node. $negated inverts just this operand: it
- * is how a `not` that has been pushed down to a leaf is carried, so a negated
- * leaf emits as `not (...)` rather than needing an `"and not"` connector string
- * threaded through the walk.
+ * The value is a literal `bool`, `null` for the third truth value — a question
+ * the compile could not answer at all — a {@see Builder} that a condition
+ * augmented (where clauses only), or another node. $negated inverts just this
+ * operand: it is how a `not` that has been pushed down to a leaf is carried, so a
+ * negated leaf emits as `not (...)` rather than needing an `"and not"` connector
+ * string threaded through the walk. It is meaningless on an unknown, which
+ * negates to itself.
  *
  * $boolean is only authoritative once the operand sits in a group built by
  * {@see CompiledWhereClauseNode::simplify}, where every operand attaches under
@@ -24,7 +26,7 @@ final readonly class CompiledWhereClauseOperand
 {
     public function __construct(
         public string $boolean,
-        public bool|Builder|CompiledWhereClauseNode $value,
+        public bool|Builder|CompiledWhereClauseNode|null $value,
         public bool $negated = false,
     ) {
     }
