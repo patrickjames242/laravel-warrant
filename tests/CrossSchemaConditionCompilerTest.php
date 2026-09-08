@@ -146,6 +146,29 @@ it('aliases the subquery from and leaves the enclosing frame nameable in the pre
     );
 });
 
+it('folds a predicate whose @context row selector is absent', function () {
+    /* The same rule the can(...) leaf follows, on the other leaf: `exists` is
+       never unknown, so a subquery here could only report a definite answer about
+       a row nobody named. */
+    assertChkFilterSql(
+        'if check(is_owner for chk_targets(@context tid)) they can view',
+        [],
+        <<<SQL
+            select * from "chk_docs" where (null)
+        SQL,
+    );
+});
+
+it('does not let an absent row selector lift a cannot on a check', function () {
+    assertChkFilterSql(
+        'they can view if check(is_owner for chk_targets(@context tid)) they cannot view',
+        [],
+        <<<SQL
+            select * from "chk_docs" where (null)
+        SQL,
+    );
+});
+
 it('compiles a builder-built row-bound predicate to the same SQL as the DSL', function () {
     assertChkFilterSql(
         WarrantRuleSet::fromRules(

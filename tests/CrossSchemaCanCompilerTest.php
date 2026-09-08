@@ -2,6 +2,7 @@
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Ref;
@@ -464,6 +465,73 @@ it('does not let an absent row selector lift a cannot', function () {
     );
 });
 
+it('answers a boolean check false, without a query, when a reference is unanswerable', function () {
+    /* The fail-closed guarantee at the public API: an unanswerable question folds
+       to a constant, and the guard reads that constant rather than asking the
+       database. `folder_id` is absent, so the reference names no row. */
+    bindCrossSchemaRules([
+        'xc_docs' => 'if can(view for xc_folders(@context folder_id)) they can view',
+        'xc_folders' => 'if is_owner they can view',
+    ]);
+
+    $guard = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new XcDocSchema));
+
+    expect(measureQueries(fn () => $guard->can('view', 'doc-1')))->toBe([false, 0]);
+});
+
+it('answers a boolean check false when an unanswerable reference sits under a cannot', function () {
+    // The direction that used to fail open: the deny cannot be evaluated, so the
+    // ability is not held rather than not denied.
+    bindCrossSchemaRules([
+        'xc_docs' => 'they can view if can(manage for xc_folders(@context folder_id)) they cannot view',
+        'xc_folders' => 'if is_owner they can view, manage',
+    ]);
+
+    $guard = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new XcDocSchema));
+
+    expect(measureQueries(fn () => $guard->can('view', 'doc-1')))->toBe([false, 0]);
+});
+
+it('resolves a @column in the target\'s own rules against the alias this caller chose', function () {
+    /* B's rules name B's schema key, because B's author cannot know what any
+       caller called it — so the key is what the hop's identifier binds to. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@column xc_docs.id) as f2) they can view',
+        ['xc_folders' => 'if owner_matches(@column xc_folders.id) they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders" as "f2"
+                    where "f2"."id" = "xc_docs"."id" and ("f2"."id" = f2.owner)
+                )
+            )
+        SQL,
+    );
+});
+
+it('resolves a with-map @column against the frame the handle was written in', function () {
+    /* The map's values belong to A, so they are read where they are written — and
+       a @column arrives at B's condition as an Expression, to splice rather than
+       bind. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id) with owner = @column xc_docs.id) they can view',
+        ['xc_folders' => 'if owner_matches(@context owner) they can view'],
+        'view',
+        ['folder_id' => 'f-owned'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and ("xc_docs"."id" = xc_folders.owner)
+                )
+            )
+        SQL,
+    );
+});
+
 // -- cycle detection -----------------------------------------------------------
 
 it('throws while compiling when two schemas reference each other in a cycle', function () {
@@ -551,6 +619,14 @@ class XcFolderSchema extends WarrantSchema
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
         return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+    }
+
+    /* Takes a column operand and compares this frame's owner to it. Both operands
+       are expressions, so nothing is bound and the emitted qualifiers are visible. */
+    #[RowCondition]
+    public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
+    {
+        return $c->query->where($column, '=', DB::raw($c->row('owner')));
     }
 }
 

@@ -279,6 +279,48 @@ it('negates an inlined ability without disturbing its own deny side', function (
     );
 });
 
+it('suffixes an author alias that collides with the query being filtered', function () {
+    /* The root frame holds `sr_docs`, so an alias asking for that name gets the
+       next one free. The author's word is still the base. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if is_owner they can do_thing_1
+            if can(do_thing_1 for sr_docs(@column id) as sr_docs) they can do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (
+                exists (
+                    select * from "sr_docs" as "sr_docs_1"
+                    where "sr_docs_1"."id" = "sr_docs"."id" and (sr_docs_1.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('leaves an inlined can unanswerable when the frame it inlines into has no row', function () {
+    /* `can(X)` inherits the frame it sits in, targeting included — so with no row
+       the inlined rules are as unanswerable as they would be written inline. */
+    $set = WarrantRuleSet::fromSyntax(
+        "if is_owner they can do_thing_1\nif can(do_thing_1) they can do_thing_2",
+        'sr_docs',
+    );
+
+    app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
+        public function __construct(private WarrantRuleSet $set) {}
+
+        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        {
+            return $this->set;
+        }
+    });
+
+    expect(
+        Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new SrDocSchema))->getAbilitiesWithoutTarget()
+    )->toBe([]);
+});
+
 // -- nesting ------------------------------------------------------------------
 
 it('nests a check inside a check, resolving each selector in its own frame', function () {
@@ -328,6 +370,51 @@ it('reads a schema-less can inside a predicate against the frame the predicate i
             )
         SQL,
         ['who' => 'role-9'],
+    );
+});
+
+it('folds a nested check whose enclosing handle selects no row', function () {
+    /* An unbound outer handle gives the predicate no row, so the inner handle's
+       selector — read in that frame — names nothing and the whole reference is
+       unanswerable. Row conditions are rejected on an unbound handle at
+       validation; this is the other way a predicate can end up with no row. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if check(check(is_owner for sr_docs(@column parent_id)) for sr_docs)
+            they can do_thing_1
+        WARRANT,
+        'do_thing_1',
+        <<<SQL
+            select * from "sr_docs" where (null)
+        SQL,
+    );
+});
+
+it('compiles a crossing can inside a predicate against its own target', function () {
+    /* `can(... for X)` names its target explicitly, so it crosses from inside the
+       predicate exactly as it would from outside — its own frame, its own empty
+       context. */
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if owner_is('role-1') they can do_thing_2
+            if check(can(do_thing_2 for sr_docs(@column id)) for sr_docs(@column parent_id) as parent)
+            they can do_thing_1
+        WARRANT,
+        'do_thing_1',
+        <<<SQL
+            select * from "sr_docs" where (
+                exists (
+                    select * from "sr_docs" as "parent"
+                    where "parent"."id" = "sr_docs"."parent_id" and (
+                        exists (
+                            select * from "sr_docs" as "sr_docs_1"
+                            where "sr_docs_1"."id" = "parent"."id"
+                                and (sr_docs_1.owner = 'role-1')
+                        )
+                    )
+                )
+            )
+        SQL,
     );
 });
 

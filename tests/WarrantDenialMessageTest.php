@@ -404,6 +404,26 @@ it('falls back to a generic exception when denial is only "no grant"', function 
         ->toThrow(WarrantAuthorizationException::class, 'This action is unauthorized.');
 });
 
+it('denies on an unanswerable cannot, but cannot attribute the denial to it', function () {
+    seedDenialSections();
+
+    /* The deny turns on a reference whose row selector is absent, so it cannot be
+       evaluated. The ability is withheld — an unanswerable deny is not a deny that
+       failed to fire — but the diagnostic cannot claim *this* rule blocked the
+       user, so the generic message stands rather than the specific one. */
+    bindDenialRules([
+        WarrantRule::build()->theyCan('update')->toRule(),
+        WarrantRule::build()
+            ->ifCan('view', 'course_sections', \Warrant\Builders\Ref::context('missing'))
+            ->theyCannotBecause('update', 'blocked by a question we could not ask')
+            ->toRule(),
+    ]);
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)
+        ->authorize('update', 'teacher:teacher-role'))
+        ->toThrow(WarrantAuthorizationException::class, 'This action is unauthorized.');
+});
+
 it('fires an unconditional cannot message when the row exists', function () {
     seedDenialSections();
     bindDenialRules([

@@ -38,6 +38,7 @@ beforeEach(function () {
     Schema::create('dc_folders', function ($table) {
         $table->string('id');
         $table->string('owner');
+        $table->string('parent_id')->nullable();
     });
 
     useWarrantSchemas(['dc_folders' => DcFolderSchema::class]);
@@ -54,6 +55,58 @@ function assertDcFilterSql(string $syntax, string $expectedSql): void
 
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql($expectedSql));
 }
+
+// -- a derived condition may expand into a cross-schema reference --------------
+
+it('compiles a check(...) an expansion produced, in the frame the condition sits in', function () {
+    /* The compiler walks an expansion as though it were written inline, and that
+       includes the cross-schema builtins — so a condition can reach a frame its
+       own builder could never have named. */
+    assertDcFilterSql('if parent_is_owned they can view', <<<SQL
+        select * from "dc_folders" where (
+            exists (
+                select * from "dc_folders" as "parent"
+                where "parent"."id" = "dc_folders"."parent_id" and (parent.owner = 'role-1')
+            )
+        )
+    SQL);
+});
+
+it('emits the same SQL for an expanded check as for the hand-written rule', function () {
+    assertDcFilterSql(
+        'if check(is_owner for dc_folders(@column parent_id) as parent) they can view',
+        <<<SQL
+            select * from "dc_folders" where (
+                exists (
+                    select * from "dc_folders" as "parent"
+                    where "parent"."id" = "dc_folders"."parent_id" and (parent.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('expands a condition reached from inside a predicate, in that predicate\'s frame', function () {
+    /* Two levels, one of them produced by PHP: the outer check names a condition
+       of the target, and that condition derives itself into a further check whose
+       selector is read in the *target's* frame, not the rule's. */
+    assertDcFilterSql(
+        'if check(parent_is_owned for dc_folders(@column parent_id) as p) they can view',
+        <<<SQL
+            select * from "dc_folders" where (
+                exists (
+                    select * from "dc_folders" as "p"
+                    where "p"."id" = "dc_folders"."parent_id" and (
+                        exists (
+                            select * from "dc_folders" as "parent"
+                            where "parent"."id" = "p"."parent_id" and (parent.owner = 'role-1')
+                        )
+                    )
+                )
+            )
+        SQL,
+    );
+});
 
 // -- a derived condition compiles as if written inline -------------------------
 
@@ -196,6 +249,22 @@ class DcFolderSchema extends WarrantSchema
     }
 
     /** Derived, as a bare AST node. */
+    /**
+     * Expands into a `check(...)` over another row of this same table — the case
+     * a derived condition cannot express by constraining its own builder, since
+     * the correlated frame is not the one it was handed.
+     */
+    #[RowCondition]
+    public function parentIsOwned(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            'is_owner',
+            DcFolderSchema::class,
+            \Warrant\Builders\Ref::column('parent_id'),
+            as: 'parent',
+        );
+    }
+
     #[GlobalCondition]
     public function alwaysTrue(GlobalConditionContext $c): BooleanNode
     {

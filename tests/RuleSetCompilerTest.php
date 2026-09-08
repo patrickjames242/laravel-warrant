@@ -429,6 +429,22 @@ it('validates unknown ability and condition names', function () {
     expect(true)->toBeTrue();
 });
 
+it('names the rule set, not the registry, when a schema-less can has nowhere to get one', function () {
+    /* A can(...) naming no schema crosses to nothing and looks nothing up, so the
+       message points at the rule set rather than blaming the registry. */
+    $compiler = new RuleSetCompiler(new FakeConditionResolver);
+    $ruleSet = WarrantRuleSet::fromSyntax('if can(edit) they can view', 'docs');
+
+    expect(fn () => $compiler->compile(
+        CompilationContext::ability(
+            QueryFactory::for(DB::table('docs')),
+            new CompilerTestUser('role-1'),
+            'view',
+            $ruleSet,
+        )->forTargetRow(),
+    ))->toThrow(InvalidArgumentException::class, "requires this schema's rule set");
+});
+
 // -- QueryFactory::rowQualifier() ---------------------------------------------
 
 /*

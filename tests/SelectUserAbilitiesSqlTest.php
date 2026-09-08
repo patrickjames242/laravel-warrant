@@ -60,6 +60,31 @@ function assertWarrantAbilitiesSql(
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql($expectedSql));
 }
 
+// -- the host query's own alias -----------------------------------------------
+
+it('qualifies each branch with the host query alias rather than the table', function () {
+    /* The branches are correlated subqueries with no `from` of their own, so the
+       rows they are about are the host query's — under whatever name it gave them. */
+    bindWarrantRules('if is_teacher they can view');
+
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))
+        ->selectAbilitiesInQuery(warrantTestQuery('course_sections as cs'), 'abilities', ['view'])
+        ->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select *, (
+            select coalesce(json_group_array("ability"), json_array())
+            from (
+                select 'view' as "ability"
+                where (
+                    cs.id = 'teacher:teacher-role'
+                )
+            ) as "available_abilities"
+        ) as "abilities"
+        from "course_sections" as "cs"
+    SQL));
+});
+
 // -- single ability -----------------------------------------------------------
 
 it('wraps a single ability branch without a union', function () {
