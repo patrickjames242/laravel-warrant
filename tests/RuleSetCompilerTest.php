@@ -91,11 +91,12 @@ final class FakeConditionResolver implements ConditionResolver
         return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
     }
 
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
+    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
     {
-        /* A real schema builds this off its own model (see ResolvesConditions);
-           the fake spells out the same qualified key CompilerDocModel has. */
-        $row = 'docs.id';
+        /* Qualified the way a real schema does it (see ResolvesConditions): with
+           whatever the compiler says this frame's row is called, falling back to
+           CompilerDocModel's own table. */
+        $row = ($rowQualifier ?? 'docs') . '.id';
 
         return match ($name) {
             'is_teacher' => $whereClause->whereRaw("{$row} = ?", ["teacher:{$user->role}"]),

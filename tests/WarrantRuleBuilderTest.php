@@ -49,10 +49,10 @@ final class BuilderFakeResolver implements ConditionResolver
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
 
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null): Builder|bool
+    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
     {
-        // CompilerDocModel's qualified key, which a real schema derives itself.
-        return $whereClause->whereRaw('docs.id = ?', ["teacher:{$user->role}"]);
+        // Whatever the compiler calls this frame's row, else CompilerDocModel's table.
+        return $whereClause->whereRaw(($rowQualifier ?? 'docs') . '.id = ?', ["teacher:{$user->role}"]);
     }
 }
 

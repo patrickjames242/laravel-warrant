@@ -39,10 +39,13 @@ trait ResolvesConditions
      *
      * @param bool $targeted Whether a target row is in scope. A row condition
      *   cannot run without one, so it is rejected here rather than emitting a
-     *   predicate about a row that isn't there. The row's table and key column are
-     *   derived from the schema's own model below, never passed in.
+     *   predicate about a row that isn't there.
      * @param array<int, mixed> $arguments The resolved DSL arguments for the condition.
      * @param array<string, mixed> $context The effective check-time context bag.
+     * @param string|null $rowQualifier The SQL name the target row answers to where
+     *   this predicate lands — see
+     *   {@see \Warrant\DSL\ConditionResolver::applyCondition()}. Null falls back to
+     *   the schema model's own table.
      */
     public function applyConditionFilter(
         string $conditionKey,
@@ -51,7 +54,8 @@ trait ResolvesConditions
         bool $targeted = false,
         array $arguments = [],
         array $context = [],
-        ?Model $targetModel = null
+        ?Model $targetModel = null,
+        ?string $rowQualifier = null
     ): mixed
     {
         $conditionDefinition = static::conditionDefinitionForKey($conditionKey);
@@ -88,17 +92,19 @@ trait ResolvesConditions
                 );
             }
 
-            /* Table and key come from the schema's own model, never from
-               $targetModel and never from the caller: they are the same values,
-               and the SQL identity a condition builds must not depend on whether a
-               caller happened to supply an instance. */
+            /* The key column comes from the schema's own model, and so does the
+               table *unless* the compiler named the row something closer to the
+               query it is building — a host query's alias, or a cross-schema hop's.
+               Neither ever comes from $targetModel: the SQL identity a condition
+               builds must not depend on whether a caller happened to supply an
+               instance. */
             $modelClass = static::model;
             $model = new $modelClass;
 
             $conditionContext = new RowConditionContext(
                 $currentUser,
                 $whereClause,
-                $model->getTable(),
+                $rowQualifier ?? $model->getTable(),
                 $model->getKeyName(),
                 $arguments,
                 $context,
@@ -125,7 +131,8 @@ trait ResolvesConditions
         bool $targeted,
         array $parameters,
         array $context = [],
-        ?Model $targetModel = null
+        ?Model $targetModel = null,
+        ?string $rowQualifier = null
     ): \Illuminate\Database\Query\Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder
     {
         return $this->applyConditionFilter(
@@ -136,6 +143,7 @@ trait ResolvesConditions
             $parameters,
             $context,
             $targetModel,
+            $rowQualifier,
         );
     }
 

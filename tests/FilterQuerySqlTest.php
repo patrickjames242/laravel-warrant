@@ -351,6 +351,24 @@ it('ORs every ability predicate under ANY match mode', function () {
     SQL, AbilityMatchMode::ANY);
 });
 
+// -- the host query's own alias -----------------------------------------------
+
+it('qualifies a row condition with the host query alias rather than the table', function () {
+    bindWarrantRules('if is_teacher they can view');
+
+    /* isTeacher builds its predicate from $c->row(), which is the row's SQL name
+       and not necessarily the model's table: this query calls those rows `cs`. */
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
+        warrantTestQuery('course_sections as cs'),
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "course_sections" as "cs"
+        where (cs.id = 'teacher:teacher-role')
+    SQL));
+});
+
 // -- empty --------------------------------------------------------------------
 
 it('leaves the query untouched when no abilities are requested', function () {

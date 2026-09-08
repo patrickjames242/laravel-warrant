@@ -816,6 +816,10 @@ final class RuleSetCompiler
             $parameters,
             $ctx->checkContext,
             $ctx->targetModel,
+            /* What this frame's row is called where the predicate lands. The
+               resolver falls back to its model's table when this is null, which
+               is what it always used unconditionally. */
+            $this->aliases($ctx)->current,
         );
 
         /* A condition may decide the outcome outright rather than constrain the

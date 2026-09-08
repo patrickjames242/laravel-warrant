@@ -29,12 +29,11 @@ interface ConditionResolver extends SchemaVocabulary
      * The Eloquent model backing this schema, or `''` for a capability schema
      * that has no rows at all.
      *
-     * The compiler reads it to settle one question: whether this schema has rows
-     * at all. A capability schema does not, so a compile against one is never
-     * targeted however the caller asked for it. Nothing about a row's SQL
-     * identity comes from here — {@see \Warrant\Schema\Concerns\ResolvesConditions}
-     * derives the table and key column from the same model itself when it builds a
-     * {@see \Warrant\Schema\Conditions\RowConditionContext}.
+     * The compiler reads it for two things: whether this schema has rows at all —
+     * a capability schema does not, so a compile against one is never targeted
+     * however the caller asked for it — and the default name those rows go by in
+     * SQL, for when nothing closer to the query says otherwise (see
+     * `$rowQualifier` on {@see applyCondition}).
      *
      * @return class-string<\Illuminate\Database\Eloquent\Model>|''
      */
@@ -56,14 +55,21 @@ interface ConditionResolver extends SchemaVocabulary
      *    that expands into itself has no base case to reach.
      *
      * @param bool $targeted Whether a target row is in scope. A row condition
-     *   needs one and is rejected without it; the row's SQL identity is the
-     *   resolver's own to derive, so it is not passed in.
+     *   needs one and is rejected without it.
      * @param array<int, mixed> $parameters The resolved DSL arguments.
      * @param array<string, mixed> $context The effective check-time context,
      *   exposed to every condition (regardless of `@context` usage).
      * @param Model|null $targetModel The loaded target row, when the check named a
      *   hydrated one. Reaches a row condition as `$c->model`, which is how it can
      *   answer without SQL; null whenever more than one row is in play.
+     * @param string|null $rowQualifier The SQL name the target row answers to where
+     *   this predicate will be spliced, which a row condition qualifies its columns
+     *   with (`$c->row('owner_id')`). It is *not* always the model's table: the same
+     *   rule compiles against `d` for a query the caller wrote as
+     *   `from('docs as d')`, and against a hop's alias when reached through
+     *   `can(… for docs(…) as d2)`. Null means the compiler had nothing closer to
+     *   say than the model, which is then used — so an implementation must fall
+     *   back to its own table rather than treat null as an error.
      */
     public function applyCondition(
         string $conditionKey,
@@ -73,5 +79,6 @@ interface ConditionResolver extends SchemaVocabulary
         array $parameters,
         array $context = [],
         ?Model $targetModel = null,
+        ?string $rowQualifier = null,
     ): Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder;
 }

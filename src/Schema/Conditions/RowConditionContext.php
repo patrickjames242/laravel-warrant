@@ -42,7 +42,11 @@ use Illuminate\Database\Eloquent\Model;
 final readonly class RowConditionContext
 {
     /**
-     * @param string $table The target row's table (or query alias).
+     * @param string $table The name the target row answers to in SQL: the schema
+     *   model's table, or the alias standing in for it — the host query's own
+     *   (`from('docs as d')`), or a cross-schema hop's (`can(… for docs(…) as d2)`).
+     *   Always the right thing to qualify a column with, which is why {@see row()}
+     *   is the only supported way to build one.
      * @param string $keyColumn The target row's primary key column.
      * @param array<int, mixed> $arguments The resolved DSL arguments.
      * @param array<string, mixed> $context The effective check-time context.
