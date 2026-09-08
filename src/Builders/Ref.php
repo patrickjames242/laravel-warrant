@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\SqlRef;
  * ```php
  * ->if('in_period', [Ref::context('year')])
  * ->andIfCan('manage', 'departments', Ref::context('department_id'))
- * ->orIfCheck('is_open', 'pay_periods', Ref::column('timesheets', 'pay_period_id'))
+ * ->orIfCheck('is_open', 'pay_periods', Ref::column('pay_period_id'))
  * ```
  */
 final class Ref
@@ -31,17 +31,31 @@ final class Ref
     }
 
     /**
-     * A database column — `@column <schema>.<column>` in the DSL.
+     * A database column — `@column <column>` or `@column <name>.<column>` in the
+     * DSL. One argument is the column, on whatever rows the rule is already about;
+     * two name a frame and then the column.
      *
-     * The schema key is explicit, as it is in the DSL: it may name the owning
-     * schema, correlating against the row being checked, or another schema. It is
-     * deliberately not resolved here — validation and compilation already reject an
-     * unknown or model-less key with a precise message, which keeps this a pure
-     * value factory.
+     * ```php
+     * Ref::column('pay_period_id')                // @column pay_period_id
+     * Ref::column('timesheets', 'pay_period_id')  // @column timesheets.pay_period_id
+     * ```
+     *
+     * Prefer one argument. The frame a rule is about is decided per compile — the
+     * host query's own table or alias, or a cross-schema hop's — so a reference
+     * that names nothing cannot name the wrong thing, while a qualified one is a
+     * claim that has to keep being true wherever the rule is reached from. Reach
+     * for the two-argument form only where a rule really can see more than one
+     * frame: a `check(...)` predicate correlating its target with its caller.
+     *
+     * Nothing is resolved here. Which table a name refers to is not knowable until
+     * compile time, and both validation and compilation reject a name that is not
+     * in scope with a precise message — which keeps this a pure value factory.
      */
-    public static function column(string $schemaKey, string $column): ColumnRef
+    public static function column(string $columnOrFrame, ?string $column = null): ColumnRef
     {
-        return new ColumnRef($schemaKey, $column);
+        return $column === null
+            ? new ColumnRef(null, $columnOrFrame)
+            : new ColumnRef($columnOrFrame, $column);
     }
 
     /**

@@ -233,6 +233,12 @@ it('keeps a context ref out of the positional binding stream', function () {
     expect($reparsed->conditions->parameters[1]->key)->toBe('year');
 });
 
+it('round-trips a bare @column through the writer', function () {
+    $rule = WarrantRule::fromSyntax('if is_teacher(@column pay_period_id) they can view');
+
+    expect($rule->toSyntax())->toBe("if is_teacher(@column pay_period_id)\nthey can view");
+});
+
 // -- handle aliases (as) ------------------------------------------------------
 
 it('renders an as <alias> tail between the row selector and the with-map', function () {

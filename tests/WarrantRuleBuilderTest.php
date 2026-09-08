@@ -234,6 +234,14 @@ it('produces the identical tree to the equivalent DSL expression', function (str
             ->ifCheck('is_published', 'xs_target', Ref::context('id'), as: 't2')
             ->theyCan('x'),
     ],
+    'condition with a bare @column' => [
+        'is_owner(@column owner_id)',
+        fn () => WarrantRule::build()->if('is_owner', [Ref::column('owner_id')])->theyCan('x'),
+    ],
+    'condition with a qualified @column' => [
+        'is_owner(@column docs.owner_id)',
+        fn () => WarrantRule::build()->if('is_owner', [Ref::column('docs', 'owner_id')])->theyCan('x'),
+    ],
     'can with a @sql selector' => [
         'can(manage for xs_target(@sql "select 1"))',
         fn () => WarrantRule::build()->ifCan('manage', 'xs_target', Ref::sql('select 1'))->theyCan('x'),
