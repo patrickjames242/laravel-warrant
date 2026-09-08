@@ -388,10 +388,17 @@ final class RuleSetValidator
     }
 
     /**
-     * Eagerly validate every `@column <name>.<column>` reference among a set of
-     * argument values: the name must be one of the tables in scope where the
-     * reference is written — the owning schema's own key, or a frame a surrounding
-     * `check(...)` put in scope.
+     * Eagerly validate every qualified `@column <name>.<column>` reference among a
+     * set of argument values: the name must be one of the tables in scope where
+     * the reference is written — the owning schema's own key, or a frame a
+     * surrounding `check(...)` put in scope.
+     *
+     * An *unqualified* `@column <column>` names no frame, so there is nothing here
+     * to be wrong about: it means whichever rows the enclosing rule is already
+     * about, which is settled per compile rather than per rule. Whether those rows
+     * are in scope at all is a compile-time question — a no-target compile has
+     * none — and the compiler answers it by folding the leaf to unknown, not by
+     * erroring, because the same rule works wherever a row *is* in scope.
      *
      * This mirrors what {@see \Warrant\DSL\Compiling\AliasScope} resolves at
      * compile time, message and all, so a reference that cannot work fails here
@@ -409,6 +416,10 @@ final class RuleSetValidator
     {
         foreach ($arguments as $argument) {
             if (! $argument instanceof ColumnRef) {
+                continue;
+            }
+
+            if ($argument->alias === null) {
                 continue;
             }
 

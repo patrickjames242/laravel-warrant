@@ -107,6 +107,48 @@ it('resolves a @column against the host query alias when the caller aliased its 
     SQL));
 });
 
+// -- the unqualified form ------------------------------------------------------
+
+it('resolves an unqualified @column against the rows the rule is about', function () {
+    /* No frame named, so it means "this rule's own rows" — which is what the
+       qualified form was almost always saying the long way round. */
+    bindColRules('if pay_period_matches(@column pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_timesheets'),
+        'view',
+        AbilityMatchMode::ALL,
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "col_timesheets" where ("col_timesheets"."pay_period_id" = 'role-1')
+    SQL));
+});
+
+it('follows the host query alias without being told', function () {
+    /* The payoff of leaving it unqualified: the rule text names no table, so it
+       cannot name the wrong one. */
+    bindColRules('if pay_period_matches(@column pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_timesheets as t'),
+        'view',
+        AbilityMatchMode::ALL,
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "col_timesheets" as "t" where ("t"."pay_period_id" = 'role-1')
+    SQL));
+});
+
+it('needs no schema in scope for an unqualified @column to validate', function () {
+    // Nothing is named, so there is nothing for validation to reject.
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if pay_period_matches(@column pay_period_id) they can view',
+        'timesheets',
+    )->validate())->not->toThrow(Exception::class);
+});
+
 // -- a row that is not in scope ------------------------------------------------
 
 it('emits a @column normally when the row is in scope', function () {
@@ -121,6 +163,17 @@ it('emits a @column normally when the row is in scope', function () {
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
         select * from "col_timesheets" where ("col_timesheets"."pay_period_id" is not null)
     SQL));
+});
+
+it('folds an unqualified @column when the rule has no rows in scope', function () {
+    /* Validation lets it through because it names nothing; the compiler is where
+       "no rows at all" is discovered, and it folds rather than erroring, since
+       the same rule is fine wherever a row *is* in scope. */
+    bindColRules('if column_is_set(@column pay_period_id) they can view', 'timesheets');
+
+    expect(
+        Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->getAbilitiesWithoutTarget()
+    )->toBe([]);
 });
 
 it('folds a @column leaf to false when there is no row in scope to qualify it', function () {
