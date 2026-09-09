@@ -12,6 +12,24 @@ use Illuminate\Database\Eloquent\Model;
  * the check-time context bag, and {@see row()} — the qualified SQL identity of
  * the target row being evaluated.
  *
+ * `query` is an Eloquent builder over the schema's model, so a condition can
+ * spend a scope the model already defines rather than restating its SQL:
+ *
+ *     return $c->query->isAlreadyPaidByPayroll();
+ *
+ * It wraps the where clause the compiler reads back, so a scope's constraints
+ * land exactly where a hand-written `where()` would. The model's global scopes
+ * are deliberately absent: a condition answers the question it was asked. And
+ * the clause is a bare where group, so a scope may only add wheres — one that
+ * joins or groups is rejected, and wants a correlated `whereExists` instead.
+ *
+ * A scope speaks the model's own table, which is not always what the row is
+ * called here — see {@see row()}. Retargeting the model at the alias is not the
+ * fix: `getTable()` would then lie to any scope reading it to build a subquery.
+ * So a scope reached through an alias names a table the query does not have,
+ * failing as it would anywhere else a scope meets an alias, and a condition that
+ * must follow the row's name builds its predicate from `row()` instead.
+ *
  * A row is always present — a row condition is never dispatched without a row to
  * evaluate against, so `row()` is guaranteed to resolve.
  *

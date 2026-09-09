@@ -5,6 +5,7 @@ namespace Warrant\Schema\Concerns;
 use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantConditionBuilder;
@@ -100,11 +101,31 @@ trait ResolvesConditions
                instance. */
             $modelClass = static::model;
             $model = new $modelClass;
+            $rowName = $rowQualifier ?? $model->getTable();
+
+            /* Conditions get an Eloquent builder so they can reuse the scopes
+               their model already defines. It wraps the very where clause the
+               compiler will read back, so a scope's constraints land where a
+               hand-written $c->query->where() would; the compiler still holds
+               the base builder and reads it unchanged. Global scopes are left
+               off: a condition answers the question it was asked, and nothing
+               the model would otherwise volunteer.
+
+               The model keeps its own table, even when the compiler has named
+               this row something else. Retargeting it at the alias would make
+               getTable() lie: a scope reading it to build a subquery would
+               select from a name that is only an alias in the enclosing query.
+               So scopes speak the model's table, and one reached through an
+               alias fails against a name the query does not have — the same
+               way it would anywhere else a scope meets an alias. Conditions
+               that must follow the row's name build their own predicate from
+               {@see RowConditionContext::row()}. */
+            $conditionQuery = $model->newModelQuery()->setQuery($whereClause);
 
             $conditionContext = new RowConditionContext(
                 $currentUser,
-                $whereClause,
-                $rowQualifier ?? $model->getTable(),
+                $conditionQuery,
+                $rowName,
                 $model->getKeyName(),
                 $arguments,
                 $context,
@@ -114,7 +135,13 @@ trait ResolvesConditions
             $conditionContext = new GlobalConditionContext($currentUser, $whereClause, $arguments, $context);
         }
 
-        return $this->{$methodName}($conditionContext, ...$arguments);
+        $result = $this->{$methodName}($conditionContext, ...$arguments);
+
+        /* A condition that constrained the Eloquent wrapper hands it back, since
+           that is what its own calls returned. Callers are promised the query
+           builder, and it is the one the wrapper was built around, so unwrap it
+           rather than widening what everything downstream has to accept. */
+        return $result instanceof EloquentBuilder ? $result->toBase() : $result;
     }
 
     // -- ConditionResolver ----------------------------------------------------
