@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Validation;
 
 use InvalidArgumentException;
 use OutOfBoundsException;
+use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -69,7 +70,7 @@ final class RuleSetValidator
             $this->assertNoDuplicateCannotAbility($rule);
 
             if ($rule->conditions !== null) {
-                $this->validateExpression($rule->conditions, $this->schema, $this->rootInScopeNames());
+                $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
             }
         }
     }
@@ -99,22 +100,21 @@ final class RuleSetValidator
     }
 
     /**
-     * The names a `@column` may use at the top of these rules: the owning schema's
-     * own key, standing for the row being checked.
+     * The scope at the top of these rules: the owning schema's own key, standing
+     * for the row being checked, bound to no qualifier because no query is in
+     * hand here.
      *
      * A capability schema is the exception — it has no model and so no table, so
      * its own key names nothing and a `@column` in its rules has nothing in scope
      * at all. The vocabulary contract does not expose a model, so this asks the
      * richer {@see ConditionResolver} when it has one and otherwise assumes rows.
-     *
-     * @return list<string>
      */
-    private function rootInScopeNames(): array
+    private function rootScope(): AliasScope
     {
         $modelless = $this->schema instanceof ConditionResolver
             && $this->schema::modelClass() === '';
 
-        return $modelless ? [] : [$this->schemaKey];
+        return $modelless ? AliasScope::none() : AliasScope::root($this->schemaKey, null);
     }
 
     /**
@@ -128,25 +128,26 @@ final class RuleSetValidator
      *
      * @param SchemaVocabulary $vocabulary Whose conditions and abilities the leaves
      *   of $node name.
-     * @param list<string> $inScopeNames The tables in scope where $node is written;
-     *   see {@see assertColumnRefsInScope}.
+     * @param AliasScope $scope The frames in scope where $node is written; see
+     *   {@see assertColumnRefsInScope}. Every qualifier in it is null — nothing is
+     *   selected until a compile, and only the names matter here.
      * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
      *   predicate this is, or null for a rule's own expression.
      */
     private function validateExpression(
         IBooleanExpressionNode $node,
         SchemaVocabulary $vocabulary,
-        array $inScopeNames,
+        AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
     ): void {
         match (true) {
-            $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $inScopeNames, $predicateOf),
-            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $inScopeNames),
-            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $inScopeNames),
-            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $inScopeNames, $predicateOf),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $inScopeNames, $predicateOf): void {
-                $this->validateExpression($node->leftSide, $vocabulary, $inScopeNames, $predicateOf);
-                $this->validateExpression($node->rightSide, $vocabulary, $inScopeNames, $predicateOf);
+            $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $scope, $predicateOf),
+            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
+            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $scope),
+            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf): void {
+                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf);
+                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf);
             })(),
             /* A rule may be written around a constant; a predicate may not, because
                a `check(...)` that decides itself asks the target nothing. */
@@ -174,7 +175,7 @@ final class RuleSetValidator
     private function assertCrossSchemaCanValid(
         CrossSchemaCanNode $node,
         SchemaVocabulary $vocabulary,
-        array $inScopeNames,
+        AliasScope $scope,
     ): void {
         if ($node->schemaKey === null) {
             $this->assertOwnAbilityValid($node, $vocabulary);
@@ -224,7 +225,7 @@ final class RuleSetValidator
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $inScopeNames);
+        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $scope);
     }
 
     /**
@@ -241,7 +242,7 @@ final class RuleSetValidator
      *
      * As with `can(...)` the target may be this schema itself.
      */
-    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, array $inScopeNames): void
+    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, AliasScope $scope): void
     {
         try {
             $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
@@ -273,21 +274,25 @@ final class RuleSetValidator
 
         $this->assertAliasHasARow('check', $node->schemaKey, $node->isRowBound, $node->alias);
 
-        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $inScopeNames);
+        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
            top, under its alias when it has one, exactly as the compiler's
            AliasScope does. Aliasing the target therefore leaves its schema key
            still meaning the enclosing frame, which is how a predicate over two
-           frames of one table tells them apart. A target with no model has no
-           table to add. */
+           frames of one table tells them apart.
+
+           A target with no model has no table, so its name is not bound at all
+           rather than bound to nothing: there is no frame for a later compile to
+           put in scope, which makes a `@column` naming it a mistake rather than a
+           row out of reach. */
         $this->validateExpression(
             $node->predicate,
             new $targetClass,
             $targetClass::model === ''
-                ? $inScopeNames
-                : [...$inScopeNames, $node->alias ?? $node->schemaKey],
+                ? $scope
+                : $scope->enteringPredicate($node->schemaKey, $node->alias, null),
             $node,
         );
     }
@@ -369,12 +374,12 @@ final class RuleSetValidator
      * leaf alone. Row-ness is a schema's own implementation detail, invisible in
      * the rule text and free to change, so no rule is written against it.
      *
-     * @param list<string> $inScopeNames
+     * @param AliasScope $scope The frames in scope where $node is written.
      */
     private function assertConditionValid(
         ConditionNode $node,
         SchemaVocabulary $vocabulary,
-        array $inScopeNames,
+        AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
         $definition = $vocabulary->getConditionDefinition($node->conditionKey);
@@ -390,7 +395,7 @@ final class RuleSetValidator
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
-        $this->assertColumnRefsInScope($node->parameters, $inScopeNames);
+        $this->assertColumnRefsInScope($node->parameters, $scope);
 
         /* Context keys need no declaration: a rule may reference any `@context`
            key. An absent key simply makes its condition false at compile time
@@ -432,40 +437,29 @@ final class RuleSetValidator
      * none — and the compiler answers it by folding the leaf to unknown, not by
      * erroring, because the same rule works wherever a row *is* in scope.
      *
-     * This mirrors what {@see \Warrant\DSL\Compiling\AliasScope} resolves at
-     * compile time, message and all, so a reference that cannot work fails here
-     * rather than emitting SQL about a table the query never joined. Referencing
+     * The scope is the compiler's own {@see \Warrant\DSL\Compiling\AliasScope},
+     * carrying names bound to no qualifier, so one implementation answers what is
+     * in scope for both walks and a reference that cannot work fails here rather
+     * than emitting SQL about a table the query never joined. Referencing
      * your own rows is the ordinary case and always allowed (unlike
      * `can(...)`/`check(...)`, whose whole point is to leave the schema). The column
      * name itself is not checked — there is no column introspection.
      * Non-{@see ColumnRef} values are ignored.
      *
      * @param array<int, mixed> $arguments
-     * @param list<string> $inScopeNames The tables in scope, in the order they came
-     *   into scope.
+     * @param AliasScope $scope The frames in scope where these arguments are
+     *   written.
      */
-    private function assertColumnRefsInScope(array $arguments, array $inScopeNames): void
+    private function assertColumnRefsInScope(array $arguments, AliasScope $scope): void
     {
         foreach ($arguments as $argument) {
-            if (! $argument instanceof ColumnRef) {
-                continue;
+            if ($argument instanceof ColumnRef) {
+                /* The scope itself decides, and throws the message: an unbound name
+                   is the mistake, and a name bound to nothing is a frame no compile
+                   selected here, which is not. A null alias asks about this frame's
+                   own rows and is answered without a name at all. */
+                $scope->resolve($argument->alias);
             }
-
-            if ($argument->alias === null) {
-                continue;
-            }
-
-            if (in_array($argument->alias, $inScopeNames, true)) {
-                continue;
-            }
-
-            throw new InvalidArgumentException(sprintf(
-                'A @column reference names [%s], which is not in scope here; %s',
-                $argument->alias,
-                $inScopeNames === []
-                    ? 'no table is in scope at this point.'
-                    : sprintf('the names in scope are [%s].', implode(', ', $inScopeNames)),
-            ));
         }
     }
 }
