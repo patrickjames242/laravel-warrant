@@ -4,6 +4,7 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\CompileDepthException;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
@@ -41,7 +42,15 @@ beforeEach(function () {
         $table->string('parent_id')->nullable();
     });
 
-    useWarrantSchemas(['dc_folders' => DcFolderSchema::class]);
+    Schema::create('dc_files', function ($table) {
+        $table->string('id');
+        $table->string('folder_id')->nullable();
+    });
+
+    useWarrantSchemas([
+        'dc_folders' => DcFolderSchema::class,
+        'dc_files' => DcFileSchema::class,
+    ]);
 });
 
 function assertDcFilterSql(string $syntax, string $expectedSql): void
@@ -54,6 +63,21 @@ function assertDcFilterSql(string $syntax, string $expectedSql): void
         ->toRawSql();
 
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql($expectedSql));
+}
+
+function adjacentExpansionSql(string $conditionKey): string
+{
+    bindWarrantRules(
+        "if check({$conditionKey} for dc_folders(@column parent_id) as p) they can view",
+        schemaKey: 'dc_folders',
+    );
+
+    return normalizeWarrantSql(
+        Warrant::guard(makeWarrantTestUser('role-1'))
+            ->forSchema((new DcFolderSchema))
+            ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])
+            ->toRawSql()
+    );
 }
 
 // -- a derived condition may expand into a cross-schema reference --------------
@@ -204,6 +228,87 @@ it('shows the invisible layers in a cycle trace', function () {
     }
 });
 
+// -- an expansion names its own frame, and only its own frame -----------------
+
+it('reads a qualified @column in an expansion as the frame the condition was asked about', function () {
+    /* The condition's author names their own schema key meaning "my row", and it
+       has to stay that row however the caller reached them — here through a
+       `check(... as p)`, which for the caller's own text would leave the key
+       meaning the caller's row. */
+    assertDcFilterSql(
+        'if check(qualified_parent_owned for dc_folders(@column parent_id) as p) they can view',
+        <<<SQL
+            select * from "dc_folders" where (
+                exists (
+                    select * from "dc_folders" as "p"
+                    where "p"."id" = "dc_folders"."parent_id" and (
+                        exists (
+                            select * from "dc_folders" as "gp"
+                            where "gp"."id" = "p"."parent_id" and (gp.owner = 'role-1')
+                        )
+                    )
+                )
+            )
+        SQL,
+    );
+});
+
+it('emits the same SQL for a qualified expansion as for the unqualified one', function () {
+    $qualified = adjacentExpansionSql('qualified_parent_owned');
+    $unqualified = adjacentExpansionSql('parent_is_owned');
+
+    expect($qualified)->toBe($unqualified);
+});
+
+it('hides the caller\'s names from an expansion, whatever the caller had in scope', function () {
+    /* `p` is the caller's word for a frame, introduced by the caller's handle. A
+       condition reached through that handle is not the text that wrote it and
+       cannot name it, so the reference is reported rather than resolved. */
+    expect(fn () => assertDcFilterSql(
+        'if check(names_callers_alias for dc_folders(@column parent_id) as p) they can view',
+        'unreachable',
+    ))->toThrow(InvalidArgumentException::class, 'names [p], which is not in scope here');
+});
+
+it('names the schema key in an expansion reached from another schema', function () {
+    /* Reached through a hop from dc_files, whose scope binds neither dc_folders
+       nor anything else this condition knows. Its own key still resolves, to the
+       frame the hop selected. */
+    bindWarrantRules(
+        'if check(qualified_parent_owned for dc_folders(@column folder_id) as f) they can view',
+        schemaKey: 'dc_files',
+    );
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))
+        ->forSchema((new DcFileSchema))
+        ->filterQuery(warrantTestQuery('dc_files'), 'view', AbilityMatchMode::ALL, [])
+        ->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "dc_files" where (
+            exists (
+                select * from "dc_folders" as "f"
+                where "f"."id" = "dc_files"."folder_id" and (
+                    exists (
+                        select * from "dc_folders" as "gp"
+                        where "gp"."id" = "f"."parent_id" and (gp.owner = 'role-1')
+                    )
+                )
+            )
+        )
+    SQL));
+});
+
+it('folds a qualified @column in an expansion with no row in scope', function () {
+    /* An untargeted compile binds the schema key to no qualifier at all — a row
+       known but not in scope. The reference folds to an unknown, which grants
+       nothing, rather than throwing or naming a table the query never selects. */
+    bindWarrantRules('if qualified_global they can view', schemaKey: 'dc_folders');
+
+    expect(Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new DcFolderSchema))->can('view'))
+        ->toBeFalse();
+});
+
 // -- fixtures -----------------------------------------------------------------
 
 class DcFolder extends Model
@@ -260,8 +365,50 @@ class DcFolderSchema extends WarrantSchema
         return WarrantConditionBuilder::build()->ifCheck(
             'is_owner',
             DcFolderSchema::class,
-            \Warrant\Builders\Ref::column('parent_id'),
+            Ref::column('parent_id'),
             as: 'parent',
+        );
+    }
+
+    /**
+     * The same expansion, written with the qualified form of the reference — the
+     * author of dc_folders naming dc_folders' rows.
+     */
+    #[RowCondition]
+    public function qualifiedParentOwned(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            'is_owner',
+            DcFolderSchema::class,
+            Ref::column('dc_folders', 'parent_id'),
+            as: 'gp',
+        );
+    }
+
+    /** Names a frame only the calling rule's text could have known about. */
+    #[RowCondition]
+    public function namesCallersAlias(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            'is_owner',
+            DcFolderSchema::class,
+            Ref::column('p', 'parent_id'),
+            as: 'gp',
+        );
+    }
+
+    /**
+     * A global condition — asked without a row — expanding into a reference that
+     * names this schema's rows.
+     */
+    #[GlobalCondition]
+    public function qualifiedGlobal(GlobalConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            'is_owner',
+            DcFolderSchema::class,
+            Ref::column('dc_folders', 'parent_id'),
+            as: 'gp',
         );
     }
 
@@ -290,4 +437,26 @@ class DcFolderSchema extends WarrantSchema
     {
         return WarrantConditionBuilder::build()->ifCan('view', DcFolderSchema::class);
     }
+}
+
+class DcFile extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'dc_files';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DcFileSchema::class;
+    }
+}
+
+class DcFileSchema extends WarrantSchema
+{
+    public const model = DcFile::class;
+
+    #[Ability]
+    public const VIEW = 'view';
 }

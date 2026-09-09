@@ -1036,17 +1036,19 @@ final class RuleSetCompiler
 
         /* Or it may answer with structure instead of SQL — an expression built
            from other conditions, composed with the same builder an author writes
-           rules with. The tree compiles exactly as if it had been written inline
-           in the rule, negation included: that rides on the context and lands on
-           the leaves, so `not <derived condition>` is De Morgan'd like anything
-           else. Entering a call first is what bounds it — a condition that expands
-           into itself has no base case to reach, since compilation never reads a
-           row — and it is what puts the expansion in the trace when something
-           does run away. */
+           rules with. The tree compiles as if it had been written inline in the
+           rule, negation included: that rides on the context and lands on the
+           leaves, so `not <derived condition>` is De Morgan'd like anything else.
+           Entering a call first is what bounds it — a condition that expands into
+           itself has no base case to reach, since compilation never reads a row —
+           and it is what puts the expansion in the trace when something does run
+           away. The names it compiles against are its own; see
+           {@see expansionAliases}. */
         if ($result instanceof WarrantConditionBuilder || $result instanceof IBooleanExpressionNode) {
             return $this->expression(
                 $this->expandedCondition($result, $node->conditionKey),
-                    $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters)),
+                $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters))
+                    ->withAliases($this->expansionAliases($ctx)),
             );
         }
 
@@ -1063,6 +1065,33 @@ final class RuleSetCompiler
         // follows SQL's three-valued logic and an author's whereExists reads as
         // `not exists (…)`.
         return (new CompiledWhereClauseNode)->addAnd($conditionQuery, negated: $ctx->negate);
+    }
+
+    /**
+     * The names a derived condition's expression may use: its own schema's key,
+     * standing for the frame the condition was asked about, and nothing else.
+     *
+     * A condition's body is written by the author of its schema, who cannot see
+     * where it is reached from — the same position another schema's rule set is
+     * in, and so the same scope a `can(...)` hop derives. Every name a caller's
+     * text happens to have in scope goes out of scope here: keeping the caller's
+     * names would let `@column <own key>.<column>` resolve to the caller's row
+     * whenever the caller reached this condition through a `check(… as p)`, since
+     * an aliased hop leaves the schema key bound to the frame it was reached
+     * *from*. The expansion asks about the frame it was handed, so that is the
+     * only frame it can name.
+     *
+     * A schema with no model has no frame to bind its key to, and a `@column`
+     * naming it is a mistake rather than a row out of scope, so that case binds
+     * nothing at all.
+     */
+    private function expansionAliases(CompilationContext $ctx): AliasScope
+    {
+        $scope = $this->aliases($ctx);
+
+        return $this->conditions::modelClass() === ''
+            ? $scope->enteringRowlessRuleSet()
+            : $scope->enteringRuleSet($this->conditions::schemaKey(), $scope->current);
     }
 
     /**

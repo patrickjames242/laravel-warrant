@@ -23,9 +23,11 @@ use InvalidArgumentException;
  * text *can* see both: a `check(...)` predicate, written inline in the enclosing
  * rule. Which is why the two descents differ:
  *
- *  - {@see enteringRuleSet} — a `can(...)` hop, which compiles *another rule set*.
- *    The child scope is fresh: that text can name its own schema key and nothing
- *    else, so binding anything further would only let a typo compile.
+ *  - {@see enteringRuleSet} — a `can(...)` hop, which compiles *another rule set*,
+ *    and equally a condition expanding into an expression of its own. The child
+ *    scope is fresh: that text can name its own schema key and nothing else, so
+ *    binding anything further would only let a typo compile — or, worse, let a
+ *    schema key resolve to a caller's row that happens to be in scope.
  *  - {@see enteringPredicate} — a `check(...)` hop, whose predicate belongs to the
  *    enclosing text. The parent's names stay in scope, so the predicate can
  *    correlate back to the outer row, and the new frame is added on top.
@@ -107,8 +109,10 @@ final readonly class AliasScope
     }
 
     /**
-     * Descend into another rule set — a `can(...)` hop. The child scope is fresh:
-     * see the class docblock for why the target's own key is the only name in it.
+     * Descend into text whose author cannot see the caller — another rule set
+     * through a `can(...)` hop, or the expression a condition derived itself into.
+     * The child scope is fresh: see the class docblock for why the target's own
+     * key is the only name in it.
      */
     public function enteringRuleSet(string $schemaKey, ?string $qualifier): self
     {
