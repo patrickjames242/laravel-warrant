@@ -18,5 +18,5 @@ repository = "https://github.com/patrickjames242/laravel-warrant"
 # See editors/zed/README.md for the exact commands.
 [grammars.warrant]
 repository = "https://github.com/patrickjames242/laravel-warrant"
-commit = "f84424178eb9889f80b89ca92ace219751a33179"
+commit = "2f260c0a802b18729412d4464734659c1feb8a2a"
 path = "editors/tree-sitter-warrant"
