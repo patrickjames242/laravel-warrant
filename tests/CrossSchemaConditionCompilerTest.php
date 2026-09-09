@@ -260,6 +260,46 @@ it('compiles a complex boolean predicate of conditions inside the exists', funct
     );
 });
 
+it('splices an @sql row selector as a parenthesized scalar subquery', function () {
+    /* check(...) resolves its row selector exactly as can(...) does: an @sql ref
+       becomes an Expression, spliced verbatim and always wrapped in one pair of
+       parens, which is what makes a bare `select ...` valid on the right of the
+       key comparison. Nothing reads the body — the table it names is the author's
+       to get right. */
+    assertChkFilterSql(
+        'if check(is_owner for chk_targets(@sql "select target_id from chk_pins limit 1")) they can view',
+        [],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = (select target_id from chk_pins limit 1)
+                        and (chk_targets.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('hands an @sql condition argument to the target as an expression', function () {
+    /* The predicate is written in A's rule but dispatched against B's conditions,
+       so an @sql argument is resolved on A's side and arrives at B already an
+       Expression — spliced into B's comparison rather than bound. */
+    assertChkFilterSql(
+        'if check(owner_matches(@sql "select owner from chk_pins limit 1") for chk_targets(@context tid)) they can view',
+        ['tid' => 'f-owned'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and ((select owner from chk_pins limit 1) = chk_targets.owner)
+                )
+            )
+        SQL,
+    );
+});
+
 // -- unbound check(...) on a capability schema ---------------------------------
 
 it('collapses an unbound predicate of a bool global condition', function () {
@@ -354,6 +394,24 @@ it('feeds the referenced condition a fresh bag built from the with map', functio
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
                         and (chk_targets.owner = 'role-2')
+                )
+            )
+        SQL,
+    );
+});
+
+it('carries an @sql with-map value across the boundary as an expression', function () {
+    // The map's values are resolved on A's side, so @sql reaches B's condition as
+    // the same Expression a directly written argument would be.
+    assertChkFilterSql(
+        'if check(owner_matches(@context picked) for chk_targets(@context tid) with picked = @sql "select owner from chk_pins limit 1") they can view',
+        ['tid' => 'f-owned'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and ((select owner from chk_pins limit 1) = chk_targets.owner)
                 )
             )
         SQL,

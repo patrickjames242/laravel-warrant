@@ -251,6 +251,28 @@ it('splices a @column row selector as raw SQL, not a binding', function () {
     );
 });
 
+it('splices an @sql row selector as a parenthesized scalar subquery', function () {
+    /* @sql resolves to an Expression like @column does, so it is spliced rather
+       than bound — and it is always wrapped in parentheses, which is what makes a
+       bare `select ...` valid on the right of the key comparison. Nothing reads
+       the body: the table it names is the author's to get right. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@sql "select folder_id from xc_pins limit 1")) they can view',
+        ['xc_folders' => 'if is_owner they can view'],
+        'view',
+        [],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = (select folder_id from xc_pins limit 1)
+                        and (xc_folders.owner = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
 // -- handle aliases (as) ------------------------------------------------------
 
 it('aliases the subquery from, and qualifies every B predicate with that alias', function () {
@@ -526,6 +548,27 @@ it('resolves a with-map @column against the frame the handle was written in', fu
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
                         and ("xc_docs"."id" = xc_folders.owner)
+                )
+            )
+        SQL,
+    );
+});
+
+it('resolves a with-map @sql value and hands it to B as an expression', function () {
+    /* A map value is resolved like any other argument, so @sql crosses the
+       boundary as an Expression and B's condition splices it rather than binding
+       it — the same shape a @column takes, without a frame to be read against. */
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id) with owner = @sql "select owner from xc_pins limit 1") they can view',
+        ['xc_folders' => 'if owner_matches(@context owner) they can view'],
+        'view',
+        ['folder_id' => 'f-owned'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and ((select owner from xc_pins limit 1) = xc_folders.owner)
                 )
             )
         SQL,
