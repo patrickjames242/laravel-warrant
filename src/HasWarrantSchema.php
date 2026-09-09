@@ -29,6 +29,56 @@ trait HasWarrantSchema
      */
     abstract public static function warrantSchema(): string;
 
+    /**
+     * The alias the rule being compiled is using for this model's rows, or null
+     * outside a rule.
+     *
+     * Declared rather than dynamic so it stays a real property: an undeclared one
+     * would fall to Eloquent's __set and land in $attributes, where a column of
+     * the same name would collide with it.
+     *
+     * @internal Set by Warrant while a row condition runs.
+     */
+    private ?string $warrantCurrentRuleAlias = null;
+
+    /**
+     * @internal
+     */
+    public function setWarrantCurrentRuleAlias(?string $alias): void
+    {
+        $this->warrantCurrentRuleAlias = $alias;
+    }
+
+    /**
+     * Qualify one of this model's columns with the name its rows answer to.
+     *
+     * Ordinarily that is the table, exactly as {@see qualifyColumn} would give
+     * it. Inside a Warrant row condition it is whatever the compiler has named
+     * the row — a host query's alias, or a cross-schema hop's — so a scope built
+     * on this follows the row instead of writing a table the query never
+     * mentions:
+     *
+     *     ->whereColumn('payroll_users.timesheet_id', $this->warrantQualifyColumn('id'))
+     *
+     * A scope is free to keep using qualifyColumn(); it simply names the table
+     * always, and so cannot be reached through an alias. Warrant does not
+     * override qualifyColumn() to do this, because a trait method beats an
+     * inherited one — a base model's own override would be silently replaced.
+     *
+     * Omit $column for the model's key. A column that already carries a table
+     * prefix is returned untouched, matching qualifyColumn().
+     */
+    public function warrantQualifyColumn(?string $column = null): string
+    {
+        $column ??= $this->getKeyName();
+
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return ($this->warrantCurrentRuleAlias ?? $this->getTable()).'.'.$column;
+    }
+
     /*
      * The helpers below hand the guard `static::class` — the model — rather than
      * the schema, so the registry resolves the pair from the model end and

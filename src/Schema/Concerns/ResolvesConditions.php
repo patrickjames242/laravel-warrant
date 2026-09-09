@@ -120,6 +120,13 @@ trait ResolvesConditions
                way it would anywhere else a scope meets an alias. Conditions
                that must follow the row's name build their own predicate from
                {@see RowConditionContext::row()}. */
+            /* Tell the model what its rows are called here, so a scope built on
+               warrantQualifyColumn() follows the row rather than naming the
+               table. The instance is this call's own, so nothing outlives it. */
+            if (method_exists($model, 'setWarrantCurrentRuleAlias')) {
+                $model->setWarrantCurrentRuleAlias($rowName);
+            }
+
             $conditionQuery = $model->newModelQuery()->setQuery($whereClause);
 
             $conditionContext = new RowConditionContext(

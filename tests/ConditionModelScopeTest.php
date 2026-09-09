@@ -80,6 +80,12 @@ class ConditionScopeModel extends Model
         return $query->where(($as ?? $this->getTable()).'.owner_id', $userId);
     }
 
+    /** Built on warrantQualifyColumn, so it follows whatever the row is called. */
+    public function scopeOwnedByFollowingRow($query, string $userId)
+    {
+        return $query->where($this->warrantQualifyColumn('owner_id'), $userId);
+    }
+
     /** Reads getTable() to build a subquery — the reason it must stay true. */
     public function scopeHasSibling($query)
     {
@@ -125,6 +131,12 @@ class ConditionScopeSchema extends WarrantSchema
     public function isOwnedAliasSafe(RowConditionContext $c): BuilderContract
     {
         return $c->query->ownedByIn($c->user->getAuthIdentifier(), $c->table);
+    }
+
+    #[RowCondition]
+    public function isOwnedFollowingRow(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->ownedByFollowingRow($c->user->getAuthIdentifier());
     }
 }
 
@@ -263,4 +275,61 @@ it('spends a model scope when the per-row ability list is selected', function ()
         ->toRawSql();
 
     expect($sql)->toContain('published');
+});
+
+it('follows the row in a scope built on warrantQualifyColumn', function () {
+    bindWarrantRules('if is_owned_following_row they can view');
+
+    /* The scope takes no extra argument: the model was told what its rows are
+       called before the condition ran. */
+    $sql = Warrant::guard(makeWarrantTestUser('user-7'))->forSchema((new ConditionScopeSchema))->filterQuery(
+        warrantTestQuery('course_sections as cs'),
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "course_sections" as "cs"
+        where ("cs"."owner_id" = 'user-7')
+    SQL));
+});
+
+it('names the table in warrantQualifyColumn when nothing renamed the row', function () {
+    bindWarrantRules('if is_owned_following_row they can view');
+
+    $sql = Warrant::guard(makeWarrantTestUser('user-7'))->forSchema((new ConditionScopeSchema))->filterQuery(
+        warrantTestQuery(),
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "course_sections"
+        where ("course_sections"."owner_id" = 'user-7')
+    SQL));
+});
+
+it('names the table in warrantQualifyColumn outside a condition entirely', function () {
+    /* Nothing has stamped the model, so it answers with the table — the state an
+       ordinary Eloquent caller sees. */
+    expect((new ConditionScopeModel)->warrantQualifyColumn('owner_id'))
+        ->toBe('course_sections.owner_id')
+        ->and((new ConditionScopeModel)->warrantQualifyColumn())
+        ->toBe('course_sections.id')
+        ->and((new ConditionScopeModel)->warrantQualifyColumn('other.owner_id'))
+        ->toBe('other.owner_id');
+});
+
+it('keeps the rule alias off the model\'s attributes', function () {
+    /* The alias lives in a declared property. Were it undeclared, assigning it
+       would fall to Eloquent's __set and land in $attributes — where a column of
+       the same name would collide with it, and where it would ride along into
+       toArray(), fills and saves. Everything above would still pass: __get hands
+       the value straight back, so the feature works by accident right up until
+       something else reads the model. */
+    $model = new ConditionScopeModel;
+    $model->setWarrantCurrentRuleAlias('cs');
+
+    expect((new ReflectionClass($model))->hasProperty('warrantCurrentRuleAlias'))->toBeTrue()
+        ->and($model->getAttributes())->not->toHaveKey('warrantCurrentRuleAlias')
+        ->and($model->toArray())->not->toHaveKey('warrantCurrentRuleAlias')
+        ->and($model->warrantQualifyColumn('owner_id'))->toBe('cs.owner_id');
 });
