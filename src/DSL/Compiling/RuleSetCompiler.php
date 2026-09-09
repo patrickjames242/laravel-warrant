@@ -196,6 +196,13 @@ final class RuleSetCompiler
         $ability = $unit->ability;
         $ruleSet = $unit->ruleSet;
 
+        /* An ability nobody declares is a name that resolves to nothing, which is
+           a different thing from an ability no rule happens to grant — and the two
+           are indistinguishable further down, where both come out as "no grants".
+           Asking here keeps a misspelled name from being answered rather than
+           reported. */
+        $this->assertAbilityDeclared($ability);
+
         /* Entering the ability is where a cycle back to one already in progress is
            caught, and it puts the ability on the stack every leaf below reads. */
         $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
@@ -283,6 +290,32 @@ final class RuleSetCompiler
     private function listsAbility(array $abilities, string $ability): bool
     {
         return in_array($ability, $abilities, true) || in_array('*', $abilities, true);
+    }
+
+    /**
+     * Assert the schema being compiled declares $ability.
+     *
+     * The compiler's own guard against a name that resolves to nothing, held
+     * separately from validation because the two see different things: validation
+     * reads the rule text before a compile, and cannot see an ability a condition
+     * names by deriving itself into a `can(...)` at compile time. Both paths reach
+     * here.
+     *
+     * A rule may still grant an ability with `*`, which is why this asks the schema
+     * rather than the rule set — a wildcard grant would otherwise make any
+     * misspelling look granted.
+     */
+    private function assertAbilityDeclared(string $ability): void
+    {
+        if ($this->conditions->getAbilityDefinition($ability) !== null) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Ability [%s] is not declared by schema [%s].',
+            $ability,
+            $this->conditions::schemaKey(),
+        ));
     }
 
     /**
@@ -517,6 +550,11 @@ final class RuleSetCompiler
         $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
+        /* Before anything is resolved, because a malformed handle stays malformed
+           whatever its arguments turn out to be — and the folds below would
+           otherwise answer the reference before it was ever looked at. */
+        $this->assertHandleIsWellFormed($node, $bClass::model);
+
         /* Explicit boundary context only: resolve each with-map RHS against A's
            context and A's frame, with no ambient inheritance of A's bag. A value
            A cannot resolve here settles the whole reference. */
@@ -653,6 +691,11 @@ final class RuleSetCompiler
         $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
         $bSchema = new $bClass;
 
+        /* Before anything is resolved, because a malformed handle stays malformed
+           whatever its arguments turn out to be — and the folds below would
+           otherwise answer the reference before it was ever looked at. */
+        $this->assertHandleIsWellFormed($node, $bClass::model);
+
         /* Explicit boundary context only: resolve each with-map RHS against A's
            context and A's frame, with no ambient inheritance of A's bag. A value
            A cannot resolve here settles the whole reference. */
@@ -779,6 +822,64 @@ final class RuleSetCompiler
         }
 
         return $scope->freeQualifier($node->alias ?? $table);
+    }
+
+    /**
+     * Assert a hop's handle is one the target could answer at all — the three ways
+     * a handle can be structurally impossible rather than merely unanswerable.
+     *
+     * Each is a claim about the handle as written, decidable without resolving a
+     * single argument, so none of them can be answered with an unknown the way a
+     * missing row or an absent `@context` key is:
+     *
+     *  - a row-bound hop into a schema with no model, which has no rows to select
+     *    and no table to select them from;
+     *  - a row-bound hop whose selector is a literal `null`, which names no row
+     *    (a `@context` selector is a symbol until compile time, so a null *value*
+     *    from one is a different thing, and folds);
+     *  - an alias on a handle that selects no rows, leaving the name standing for
+     *    nothing.
+     *
+     * Validation makes the same three checks over rule text. This is the same
+     * reasoning applied where a handle a condition built by deriving itself also
+     * arrives, which validation never sees.
+     */
+    private function assertHandleIsWellFormed(
+        CrossSchemaCanNode|CrossSchemaConditionNode $node,
+        string $modelClass,
+    ): void {
+        $builtin = $node instanceof CrossSchemaCanNode ? 'can' : 'check';
+
+        if ($node->isRowBound && $modelClass === '') {
+            throw new InvalidArgumentException(sprintf(
+                'A %s(...) reference targets a specific row of schema [%s], but [%s] has no model and '
+                    .'cannot be row-targeted; drop the row selector.',
+                $builtin,
+                $node->schemaKey,
+                $node->schemaKey,
+            ));
+        }
+
+        if ($node->isRowBound && $node->boundRow === null) {
+            throw new InvalidArgumentException(sprintf(
+                'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id '
+                    .'or a @context reference, or drop the row selector.',
+                $builtin,
+                $node->schemaKey,
+            ));
+        }
+
+        if (! $node->isRowBound && $node->alias !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias '
+                    .'names nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
+                $builtin,
+                $node->schemaKey,
+                $node->alias,
+                $node->schemaKey,
+                $node->alias,
+            ));
+        }
     }
 
     /**
