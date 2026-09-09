@@ -106,6 +106,46 @@ it('lists the names in scope when a reference names none of them', function () {
         ->toThrow(InvalidArgumentException::class, 'the names in scope are [docs, f].');
 });
 
+// -- descending into a hop whose target has no rows ---------------------------
+
+it('binds no name for a rowless predicate, while keeping the caller names', function () {
+    /* A capability schema has no table, so there is no frame for its key to name
+       — naming it is a mistake, not a row out of scope — but the predicate is
+       still written in the enclosing text and can correlate back to it. */
+    $scope = AliasScope::root('docs', 'd')->enteringRowlessPredicate();
+
+    expect($scope->resolve('docs'))->toBe('d');
+    expect($scope->names())->toBe(['docs']);
+
+    expect($scope->has('caps'))->toBeFalse();
+    expect(fn () => $scope->resolve('caps'))->toThrow(InvalidArgumentException::class);
+});
+
+it('makes a rowless predicate about nothing, so a bare reference has no frame', function () {
+    // The unqualified form means "the rows this frame is about", and there are none.
+    $scope = AliasScope::root('docs', 'd')->enteringRowlessPredicate();
+
+    expect($scope->current)->toBeNull();
+    expect($scope->resolve(null))->toBeNull();
+});
+
+it('drops the caller names for a rowless rule set, as a row-bearing one does', function () {
+    $scope = AliasScope::root('docs', 'd')->enteringRowlessRuleSet();
+
+    expect($scope->names())->toBe([]);
+    expect($scope->current)->toBeNull();
+    expect(fn () => $scope->resolve('docs'))->toThrow(InvalidArgumentException::class);
+});
+
+it('keeps the identifiers already spoken for, since a rowless hop frees none', function () {
+    /* A target with no table selects nothing, but the frames around it are still
+       in the query being built, so their identifiers stay taken. */
+    $scope = AliasScope::root('docs', 'docs')->enteringRowlessPredicate();
+
+    expect($scope->freeQualifier('docs'))->toBe('docs_1');
+    expect(AliasScope::root('docs', 'docs')->enteringRowlessRuleSet()->freeQualifier('docs'))->toBe('docs_1');
+});
+
 it('names nothing at all for a schema with no rows', function () {
     $scope = AliasScope::none();
 

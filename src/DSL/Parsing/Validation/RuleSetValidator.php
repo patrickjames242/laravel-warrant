@@ -291,7 +291,7 @@ final class RuleSetValidator
             $node->predicate,
             new $targetClass,
             $targetClass::model === ''
-                ? $scope
+                ? $scope->enteringRowlessPredicate()
                 : $scope->enteringPredicate($node->schemaKey, $node->alias, null),
             $node,
         );

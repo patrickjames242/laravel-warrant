@@ -131,6 +131,39 @@ final readonly class AliasScope
     }
 
     /**
+     * Descend into a hop whose target has no rows at all — a capability schema,
+     * which has no table for a frame to be selected from. The counterparts to
+     * {@see enteringRuleSet} and {@see enteringPredicate} for that target, and they
+     * take no arguments because there is nothing to take: no frame to name, and no
+     * qualifier to name it with.
+     *
+     * Both bind nothing. A key bound to null would say the target's rows are out
+     * of scope here, and null is the answer that folds — but the target has no
+     * rows anywhere, in any compile, reached from anywhere, so naming it is a
+     * mistake to report rather than a reference to fold. {@see $current} is null
+     * for the same reason: a bare `@column` in such a frame is about nothing.
+     *
+     * The identifiers already spoken for carry over, as they do for any descent.
+     * A target with no table selects nothing and so frees nothing, and the frames
+     * around it are still in the query being built.
+     *
+     * The two differ exactly as their row-bearing counterparts do: a predicate
+     * belongs to the enclosing text and keeps its names, so it can correlate back
+     * to the frame it was written in; another schema's rule set starts fresh,
+     * because its author cannot see who reached it.
+     */
+    public function enteringRowlessPredicate(): self
+    {
+        return new self($this->bindings, null, $this->usedQualifiers);
+    }
+
+    /** {@see enteringRowlessPredicate} — the `can(...)` half, starting fresh. */
+    public function enteringRowlessRuleSet(): self
+    {
+        return new self([], null, $this->usedQualifiers);
+    }
+
+    /**
      * An identifier the emitted SQL can give a new frame without colliding with
      * one already in the query: the name asked for, or that name with the lowest
      * free numeric suffix.

@@ -590,8 +590,10 @@ final class RuleSetCompiler
             callStack: $ctx->callStack,
             /* B's rules name their own key, so that is the name this frame's
                identifier binds to — B's author cannot know what this caller chose
-               to call it. */
-            aliases: $this->aliases($ctx)->enteringRuleSet($node->schemaKey, $bQualifier),
+               to call it. A B with no table has no frame for its key to name. */
+            aliases: $bClass::model === ''
+                ? $this->aliases($ctx)->enteringRowlessRuleSet()
+                : $this->aliases($ctx)->enteringRuleSet($node->schemaKey, $bQualifier),
         );
 
         if ($node->isRowBound) {
@@ -724,7 +726,9 @@ final class RuleSetCompiler
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bClass)),
-            aliases: $this->aliases($ctx)->enteringPredicate($node->schemaKey, $node->alias, $bQualifier),
+            aliases: $bClass::model === ''
+                ? $this->aliases($ctx)->enteringRowlessPredicate()
+                : $this->aliases($ctx)->enteringPredicate($node->schemaKey, $node->alias, $bQualifier),
         );
 
         if ($node->isRowBound) {

@@ -50,6 +50,19 @@ beforeEach(function () {
     ]);
 });
 
+function compiledDvSql(string $syntax): string
+{
+    bindWarrantRules($syntax, schemaKey: 'dv_docs');
+    Warrant::flush();
+
+    return normalizeWarrantSql(
+        Warrant::guard(makeWarrantTestUser('role-1'))
+            ->forSchema((new DvDocSchema))
+            ->filterQuery(warrantTestQuery('dv_docs'), 'view', AbilityMatchMode::ALL, [])
+            ->toRawSql()
+    );
+}
+
 function compileDvRule(string $syntax): void
 {
     bindWarrantRules($syntax, schemaKey: 'dv_docs');
@@ -161,6 +174,35 @@ it('still folds a row selector whose @context key is absent', function () {
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql('select * from "dv_docs" where (null)'));
 });
 
+// -- a @column in a frame whose schema has no rows -----------------------------
+
+it('rejects a @column naming a model-less schema in rule text', function () {
+    expect(fn () => compileDvRule('if check(cap_col(@column dv_caps.x) for dv_caps) they can view'))
+        ->toThrow(InvalidArgumentException::class, 'A @column reference names [dv_caps], which is not in scope here');
+});
+
+it('rejects a @column naming a model-less schema an expansion built', function () {
+    /* The name resolves to no frame — dv_caps has no table in any compile, reached
+       from anywhere — so it fails the same way as any other name nobody bound,
+       rather than folding as a frame merely out of scope does. */
+    expect(fn () => compileDvRule('if derived_cap_col_own they can view'))
+        ->toThrow(InvalidArgumentException::class, 'A @column reference names [dv_caps], which is not in scope here');
+});
+
+it('still folds a bare @column in a model-less frame, rather than reading it as the caller\'s', function () {
+    /* The unqualified form means the rows this frame is about, and a model-less
+       frame is about none — so it has no answer here. Reading it as the enclosing
+       frame's rows would silently compile a column of the wrong table. */
+    expect(compiledDvSql('if derived_cap_col_bare they can view'))
+        ->toBe(normalizeWarrantSql('select * from "dv_docs" where (null)'));
+});
+
+it('still resolves a @column naming the frame the predicate was written in', function () {
+    // A model-less predicate keeps the caller's names, so it can correlate back.
+    expect(compiledDvSql('if derived_cap_col_caller they can view'))
+        ->toBe(normalizeWarrantSql('select * from "dv_docs" where ("dv_docs"."id" = \'x\')'));
+});
+
 // -- fixtures -----------------------------------------------------------------
 
 class DvDoc extends Model
@@ -195,6 +237,36 @@ class DvDocSchema extends WarrantSchema
     public function hopToMissingAbility(RowConditionContext $c): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('nope', DvDocSchema::class, Ref::column('id'));
+    }
+
+    /** Names the model-less target's own key, which stands for no frame at all. */
+    #[RowCondition]
+    public function derivedCapColOwn(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            fn ($p) => $p->if('cap_col', [Ref::column('dv_caps', 'x')]),
+            DvCapSchema::class,
+        );
+    }
+
+    /** Names no frame, so it means whichever rows the frame is about — none. */
+    #[RowCondition]
+    public function derivedCapColBare(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            fn ($p) => $p->if('cap_col', [Ref::column('x')]),
+            DvCapSchema::class,
+        );
+    }
+
+    /** Correlates back to the frame the predicate was written in. */
+    #[RowCondition]
+    public function derivedCapColCaller(RowConditionContext $c): WarrantConditionBuilder
+    {
+        return WarrantConditionBuilder::build()->ifCheck(
+            fn ($p) => $p->if('cap_col', [Ref::column('dv_docs', 'id')]),
+            DvCapSchema::class,
+        );
     }
 
     /** Asks about another ability of this same frame, naming no schema. */
@@ -236,5 +308,13 @@ class DvCapSchema extends WarrantSchema
     public function isOk(GlobalConditionContext $c): bool
     {
         return true;
+    }
+
+    /* Compares whatever column it is handed against a literal, so the qualifier
+       the reference resolved to is visible in the emitted SQL. */
+    #[GlobalCondition]
+    public function capCol(GlobalConditionContext $c, mixed $col = null): BuilderContract
+    {
+        return $c->query->where($col, '=', DB::raw("'x'"));
     }
 }
