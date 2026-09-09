@@ -17,7 +17,8 @@ final readonly class ConditionDefinition
     /**
      * @param int $requiredArgumentCount The number of DSL arguments the condition
      *   requires — its parameters after the leading context object that have no
-     *   default value. A rule supplying fewer is rejected during validation.
+     *   default value. Supplying fewer is rejected wherever the condition is
+     *   reached, and by validation ahead of that for a rule written as text.
      */
     public function __construct(
         public string $key,

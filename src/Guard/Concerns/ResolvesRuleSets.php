@@ -12,7 +12,15 @@ use Warrant\Rules\WarrantRuleSet;
  * Resolving the ordered {@see WarrantRuleSet} that governs this guard's user's
  * access to the managed entity: asking the bound {@see RuleResolver}, confirming
  * its answer is about the schema it was asked about, prepending the schema's
- * implicit rules, and validating the result before it is compiled.
+ * implicit rules, and running the set past {@see RuleSetValidator} on the way to
+ * the compiler.
+ *
+ * That validation pass reports a mistake in the rule text earlier than the
+ * compiler would, and against every rule in the set rather than the ones a given
+ * check reaches. It is not what makes the set safe to compile — the compiler
+ * rejects a name that resolves to nothing at the lookup that needs it, including
+ * in a tree a condition built by deriving itself, which no pass over rule text
+ * can see.
  *
  * The resolver is an application's own class and may build a rule set however it
  * likes, so which schema it targets is worth checking rather than assuming. The

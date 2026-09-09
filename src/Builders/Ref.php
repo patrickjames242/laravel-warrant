@@ -48,8 +48,11 @@ final class Ref
      * frame: a `check(...)` predicate correlating its target with its caller.
      *
      * Nothing is resolved here. Which table a name refers to is not knowable until
-     * compile time, and both validation and compilation reject a name that is not
-     * in scope with a precise message — which keeps this a pure value factory.
+     * compile time, and a name no frame in scope binds is rejected with a precise
+     * message when it is — by {@see \Warrant\DSL\Compiling\AliasScope}, which
+     * both the compile and the validation walk resolve against, so the answer is
+     * the same whichever reaches the reference first. That keeps this a pure value
+     * factory.
      */
     public static function column(string $columnOrFrame, ?string $column = null): ColumnRef
     {

@@ -232,7 +232,8 @@ class RuleSyntaxExamples
      * than declared parameters is fine — the extras are ignored by the call but stay
      * reachable via the full positional array `$c->arguments`. Passing fewer
      * arguments than a required parameter (one with no default) is a rule-level
-     * error, rejected during validation before compilation.
+     * error, rejected wherever the condition is reached — and by validation ahead
+     * of that, for a rule written as text.
      */
     public function conditionParameterContract(): void
     {

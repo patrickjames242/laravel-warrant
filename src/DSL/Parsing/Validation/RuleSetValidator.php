@@ -22,8 +22,25 @@ use Warrant\Rules\WarrantRuleSet;
 /**
  * Validates every condition and ability name in a {@see WarrantRuleSet} against
  * the schema it targets — including that each condition is called with at least
- * as many arguments as it requires. Runs before compilation so unknown names or
- * arity mistakes fail loudly rather than silently producing an empty predicate.
+ * as many arguments as it requires.
+ *
+ * ## What this is for
+ *
+ * Early feedback, not safety. A name that resolves to nothing is rejected by
+ * {@see \Warrant\DSL\Compiling\RuleSetCompiler} at the lookup that needs it, so
+ * nothing depends on this class having run: skip it and a broken rule still fails
+ * loudly, just later and against a live user and query.
+ *
+ * What it adds is reach in the other direction. It answers from rule text alone —
+ * no database, no user, no query — which is what a language server, a CI check or
+ * {@see WarrantRuleSet::validate()} needs, and it sees every rule in a set rather
+ * than only the paths a particular check happens to compile.
+ *
+ * Its blind spot is the mirror of that. A condition may answer with an expression
+ * instead of SQL, and that expression exists only once the condition has run, so
+ * no amount of reading rule text will find a mistake inside one. The compiler is
+ * the only place such a tree can be checked, which is why correctness lives there
+ * and this class is free to be a pass an author can forget to run.
  *
  * Own-schema checks depend only on the schema's {@see SchemaVocabulary} — name
  * existence, no SQL. A cross-schema `can(...)` reference is additionally resolved
