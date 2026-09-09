@@ -111,16 +111,20 @@ can(access for billing)                     # unbound: the schema as a whole
   neither grant nor lift a deny — which makes this form one for
   [capability schemas](/guides/schemas/) and global conditions.
 
-An unbound `check(...)` is stricter than an unbound `can(...)`: naming a row
-condition in the predicate is a validation error rather than a silent `false`,
-because the predicate would have nothing to decide.
+An unbound `check(...)` behaves the same way, and a predicate may freely mix the
+two kinds of condition — a row condition among them is simply unanswerable, while
+its siblings answer as usual:
 
 ```text
-Condition [is_open] on schema [pay_periods] is a row condition and needs a specific
-row, but the check(...) handle is unbound; add a row selector like pay_periods(@context id).
+if check(tenant_ok or is_open for pay_periods) they can view
 ```
 
-A row-bound handle also requires B to be **model-backed**. A capability schema has
+`tenant_ok` is global and decides what it can; `is_open` reads a column and has
+no row here, so it contributes an unknown. Nothing is rejected, and you never have
+to remember which of a schema's conditions are row conditions and which are
+global — that is the schema's own business, and it is free to change.
+
+A row-bound handle requires B to be **model-backed**. A capability schema has
 no table and no rows, so a row selector on one is rejected.
 
 ### Row selectors

@@ -305,6 +305,30 @@ it('splices an unbound boolean predicate of several global conditions inline', f
     );
 });
 
+it('answers a row condition in an unbound predicate with an unknown, and lets its siblings answer', function () {
+    /* A row condition with no row has no answer, so it contributes an unknown
+       rather than rejecting the rule — and the global beside it still decides
+       what it can. An author never has to know which is which. */
+    assertChkFilterSql(
+        'if check(tenant_ok or is_owner for chk_targets) they can view',
+        [],
+        <<<SQL
+            select * from "chk_docs" where ('tenant' = 'role-1' or null)
+        SQL,
+    );
+});
+
+it('does not let a row condition in an unbound predicate lift a cannot', function () {
+    // The unknown neither grants nor lifts a deny, so the ability is not held.
+    assertChkFilterSql(
+        'they can view if check(is_owner for chk_targets) they cannot view',
+        [],
+        <<<SQL
+            select * from "chk_docs" where (null)
+        SQL,
+    );
+});
+
 it('negates an unbound predicate spliced inline', function () {
     assertChkFilterSql(
         'if not check(tenant_ok for chk_capability) they can view',
@@ -392,6 +416,13 @@ class ChkTargetSchema extends WarrantSchema
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
         return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+    }
+
+    // A global condition on a row-backed schema, so a predicate can mix the two.
+    #[GlobalCondition]
+    public function tenantOk(GlobalConditionContext $c): BuilderContract
+    {
+        return $c->query->whereRaw('? = ?', ['tenant', $c->user->role_id]);
     }
 
     /* Compares this frame's row to a column of another — how a predicate written

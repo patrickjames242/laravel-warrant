@@ -234,9 +234,10 @@ final class RuleSetValidator
      * model-backed target with a non-null row, and an alias requires a row to
      * name. The predicate is a boolean expression read against the *target*
      * schema's vocabulary — so a `can(...)` in it names one of that schema's
-     * abilities, and a nested `check(...)` starts from that schema's frame. On an
-     * unbound handle no leaf may be a row condition, there being no row to run it
-     * against.
+     * abilities, and a nested `check(...)` starts from that schema's frame. An
+     * unbound handle constrains the predicate's leaves not at all: a row condition
+     * among them has no row and so no answer, which the compiler says with an
+     * unknown rather than an error (see {@see assertConditionValid}).
      *
      * As with `can(...)` the target may be this schema itself.
      */
@@ -359,9 +360,14 @@ final class RuleSetValidator
      * declare it, it has to be called with at least the arguments it requires, and
      * its `@column` references have to name tables in scope.
      *
-     * Inside a `check(...)` predicate there is one more rule. An unbound handle
-     * selects no row, so a row condition there would have nothing to run against;
-     * the message names the handle it belongs to, since that is where the fix goes.
+     * Whether the leaf is a row condition is deliberately not checked, even under
+     * a handle that selects no row. A row condition with no row has an undefined
+     * answer, and the compiler gives it one — an unknown, which neither grants nor
+     * lifts a deny. Rejecting it instead would make a predicate's legality depend
+     * on which of its leaves happen to be row conditions, so
+     * `check(is_advisor or is_owner for folders)` would be an error over its second
+     * leaf alone. Row-ness is a schema's own implementation detail, invisible in
+     * the rule text and free to change, so no rule is written against it.
      *
      * @param list<string> $inScopeNames
      */
@@ -381,16 +387,6 @@ final class RuleSetValidator
                     $node->conditionKey,
                     $predicateOf->schemaKey,
                 ));
-        }
-
-        if ($predicateOf !== null && ! $predicateOf->isRowBound && $definition->isRow) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition [%s] on schema [%s] is a row condition and needs a specific row, but the '
-                    .'check(...) handle is unbound; add a row selector like %s(@context id).',
-                $node->conditionKey,
-                $predicateOf->schemaKey,
-                $predicateOf->schemaKey,
-            ));
         }
 
         $this->assertEnoughArguments($node, $definition->requiredArgumentCount);

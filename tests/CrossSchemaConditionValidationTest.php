@@ -22,8 +22,9 @@ use Warrant\Schema\WarrantSchema;
  * Reference validation for the cross-schema `check(<predicate> for <schema>[(<row>)])`
  * builtin: the target schema must exist and may not be the owner; a row-bound
  * reference needs a model-backed target with a non-null row; and every leaf of the
- * predicate must be a condition declared by the *target* schema, with no row
- * condition allowed on an unbound handle. The emitted SQL is out of scope here.
+ * predicate must be a condition declared by the *target* schema. Whether a leaf
+ * is a row condition is not a validation concern — one with no row answers
+ * unknown. The emitted SQL is out of scope here.
  */
 beforeEach(function () {
     useWarrantSchemas([
@@ -119,14 +120,19 @@ it('rejects a constant inside a check(...) predicate', function () {
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');
 });
 
-it('rejects a row condition on an unbound handle', function () {
-    expect(fn () => validateOwnerCheckSyntax('if check(is_published for xcv_target) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_published] on schema [xcv_target] is a row condition and needs a specific row');
+it('accepts a row condition on an unbound handle, leaving it to answer unknown', function () {
+    /* A row condition with no row has an undefined answer, and the compiler gives
+       it one. Rejecting it here would require the author to know that
+       is_published reads a column while is_open does not. */
+    validateOwnerCheckSyntax('if check(is_published for xcv_target) they can edit');
+    expect(true)->toBeTrue();
 });
 
-it('rejects a row condition on an unbound handle even when nested', function () {
-    expect(fn () => validateOwnerCheckSyntax('if check(is_open or is_published for xcv_target) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_published] on schema [xcv_target] is a row condition and needs a specific row');
+it('accepts a predicate mixing a global and a row condition on an unbound handle', function () {
+    /* The case that settles it: is_open can answer, so rejecting the whole rule
+       over the is_published leaf would throw away a predicate that works. */
+    validateOwnerCheckSyntax('if check(is_open or is_published for xcv_target) they can edit');
+    expect(true)->toBeTrue();
 });
 
 it('rejects a row-bound reference to a capability (no-model) schema', function () {
@@ -167,10 +173,11 @@ it('rejects a builder-built predicate leaf the target does not declare', functio
         ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
 });
 
-it('rejects a builder-built row condition on an unbound handle', function () {
-    expect(fn () => validateOwnerCheckRule(
+it('accepts a builder-built row condition on an unbound handle', function () {
+    validateOwnerCheckRule(
         WarrantRule::build()->ifCheck(fn ($p) => $p->if('is_open')->orIf('is_published'), 'xcv_target')->theyCan('edit')
-    ))->toThrow(InvalidArgumentException::class, 'is a row condition and needs a specific row');
+    );
+    expect(true)->toBeTrue();
 });
 
 it('accepts a nested can(...) inside a builder-built predicate', function () {

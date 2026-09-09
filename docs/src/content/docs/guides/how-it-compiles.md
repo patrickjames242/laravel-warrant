@@ -255,7 +255,8 @@ The compiler holds itself to the same three answers, because some questions it
 genuinely cannot settle:
 
 - a **row condition with no row** — a no-target check like
-  `Warrant::abilities(Document::class)`;
+  `Warrant::abilities(Document::class)`, or a row condition inside an unbound
+  `check(... for <schema>)` predicate;
 - a **`@column`** naming rows that are not in scope, for the same reason;
 - a **row selector that resolves to nothing**, such as an absent `@context` key.
 
