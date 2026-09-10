@@ -198,6 +198,37 @@ ability instead.
 #[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
 ```
 
+### `DeclaresAbility`
+
+The interface `#[Ability]` implements, and the one discovery actually looks for:
+any attribute implementing it declares an ability. Write one when the required
+context follows from something you would rather say once than restate as a
+literal list on every constant.
+
+The interface asks only for the required context. An ability's name is the
+constant's value, so it is never the attribute's to answer. An attribute class is
+not an attribute by inheritance, so your implementation carries its own
+`#[Attribute(Attribute::TARGET_CLASS_CONSTANT)]`.
+
+```php
+#[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
+final class TenantAbility implements DeclaresAbility
+{
+    public function __construct(private bool $scopedToBranch = false) {}
+
+    public function requiredContext(): array
+    {
+        return $this->scopedToBranch ? ['tenant_id', 'branch_id'] : ['tenant_id'];
+    }
+}
+
+#[TenantAbility] public const EDIT = 'edit';
+#[TenantAbility(scopedToBranch: true)] public const AUDIT = 'audit';
+```
+
+A constant carries at most one ability attribute; two is an error, since an
+ability has one set of required context.
+
 ### `#[RowCondition]` / `#[GlobalCondition]`
 
 Mark a public method as a condition. Optional key overrides the snake-cased method

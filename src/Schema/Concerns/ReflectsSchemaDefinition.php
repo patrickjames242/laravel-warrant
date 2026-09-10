@@ -4,16 +4,17 @@ namespace Warrant\Schema\Concerns;
 
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\Ability;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\DeclaresAbility;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
@@ -386,9 +387,13 @@ trait ReflectsSchemaDefinition
 
     /**
      * The abilities declared by the schema, resolved to {@see AbilityDefinition}
-     * objects from its `#[Ability]` constants. The single source of truth every
-     * other ability accessor projects from. Throws if a name is declared more
-     * than once.
+     * objects from the constants carrying a {@see DeclaresAbility} attribute — `#[Ability]`,
+     * or an attribute of the author's own implementing the same interface. The
+     * single source of truth every other ability accessor projects from. Throws if
+     * a name is declared more than once.
+     *
+     * The attribute answers only for the required context. An ability's name is
+     * the constant's value, so it is read here rather than asked for.
      *
      * @return array<int, AbilityDefinition>
      */
@@ -398,15 +403,24 @@ trait ReflectsSchemaDefinition
 
         $definitions = collect($reflection->getReflectionConstants())
             ->map(function (ReflectionClassConstant $constant): ?AbilityDefinition {
-                $attributes = $constant->getAttributes(Ability::class);
+                $attributes = $constant->getAttributes(DeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF);
 
                 if ($attributes === []) {
                     return null;
                 }
 
+                if (count($attributes) > 1) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Schema constant [%s::%s] declares more than one ability attribute; '
+                            .'an ability has one set of required context, so only one may be present.',
+                        static::class,
+                        $constant->getName(),
+                    ));
+                }
+
                 return new AbilityDefinition(
                     name: $constant->getValue(),
-                    requiredContext: $attributes[0]->newInstance()->requiredContext,
+                    requiredContext: $attributes[0]->newInstance()->requiredContext(),
                 );
             })
             ->filter()
