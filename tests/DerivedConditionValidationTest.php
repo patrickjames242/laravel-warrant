@@ -126,13 +126,13 @@ it('still denies an ability that is declared but granted by no rule', function (
 
 it('rejects a row-bound hop into a model-less schema in rule text', function () {
     expect(fn () => compileDvRule('if check(is_ok for dv_caps(@column id)) they can view'))
-        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+        ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 it('rejects a row-bound hop into a model-less schema an expansion built', function () {
     // Left unchecked this reaches `new ('')` and fails as `Class "" not found`.
     expect(fn () => compileDvRule('if row_bound_capability they can view'))
-        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+        ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 // -- an alias on a handle that selects no row ----------------------------------

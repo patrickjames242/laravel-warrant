@@ -4,6 +4,7 @@ namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\ConditionResolver;
 use Warrant\Facades\Warrant;
@@ -80,47 +81,84 @@ abstract class WarrantSchema implements ConditionResolver
     }
 
     /**
-     * Narrow a query to the row a handle's arguments name.
+     * The query this schema's rows come from, when they are not simply a model's
+     * table — a database view defined in the schema instead of in DDL.
      *
-     * This is how a row is addressed. Every row-bound reference goes through it —
-     * a `can(... for <schema>(<args>))` or `check(... for <schema>(<args>))` hop,
-     * and a targeted check from PHP — with the arguments the caller supplied
-     * bound positionally after the context, exactly as a condition's are.
-     *
-     * The default addresses a row by its primary key, which is what the single
-     * argument of `documents(@context id)` means. Override it to address rows by
-     * something else — a natural key, or several columns where no single one is
-     * unique:
+     * Null, the default, means the rows are {@see model}'s table.
      *
      * ```php
-     * public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
+     * public static function virtualTable(): ?QueryBuilder
      * {
-     *     return $c->query
-     *         ->where($c->row('tenant_slug'), '=', $tenant)
-     *         ->where($c->row('slug'), '=', $slug);
+     *     return DB::table('teams')
+     *         ->crossJoin('calendar_days')
+     *         ->select(['teams.id as team_id', 'calendar_days.day']);
      * }
      * ```
      *
-     * The override's parameters decide how many arguments a handle must supply,
-     * and validation reports a mismatch against the rule text. Type them loosely:
-     * a `@column` or `@sql` argument arrives as an
-     * {@see \Illuminate\Database\Query\Expression}, not a scalar, so a
-     * `string` parameter would reject the very references a hop correlates with.
+     * It takes no user and no check-time context, deliberately. A virtual table
+     * says what its rows *are*; who may touch them is what the rules are for.
+     * Filtering by the current user here would move an access decision out of the
+     * rule language, where neither the rule text nor reachability analysis can
+     * see it.
      *
-     * **A key must identify at most one row.** Nothing enforces it, and a key
-     * that matches several turns an `exists` from "this row grants it" into "some
-     * row grants it".
-     *
-     * Returning null answers unknown, which neither grants nor lifts a deny — the
-     * safe answer for arguments that name no row. That is why the default returns
-     * null for a null key: an absent `@context` value, or a model with no key
-     * yet, names nothing, and `exists` cannot report unknown once the subquery is
-     * built.
+     * Called afresh wherever the query is needed rather than memoized, so nothing
+     * downstream can mutate a shared builder.
      */
-    public function matchKey(RowConditionContext $c, mixed $key): ?Builder
+    public static function virtualTable(): ?QueryBuilder
     {
-        return $key === null ? null : $c->query->where($c->row(), '=', $key);
+        return null;
     }
+
+    /**
+     * Whether this schema has rows at all, and so whether it answers targeted
+     * checks — from a model's table, or from a {@see virtualTable}. A schema with
+     * neither is a capability schema: it declares abilities about the user and
+     * nothing else.
+     */
+    public static function hasRows(): bool
+    {
+        return static::model !== '' || static::declaresVirtualTable();
+    }
+
+    /**
+     * Whether this schema overrides {@see virtualTable}.
+     *
+     * Read by reflection rather than by calling the method, so asking whether a
+     * schema has rows never builds a query — and so the override stays the single
+     * declaration, with no second flag to contradict it.
+     *
+     * @var array<class-string<self>, bool>
+     */
+    private static array $declaresVirtualTable = [];
+
+    private static function declaresVirtualTable(): bool
+    {
+        return self::$declaresVirtualTable[static::class] ??= (new \ReflectionMethod(static::class, 'virtualTable'))
+            ->getDeclaringClass()
+            ->getName() !== self::class;
+    }
+
+    /*
+     * `matchKey()` — how this schema's rows are addressed.
+     *
+     * Deliberately *not* declared here. PHP forbids an override from adding
+     * required parameters, so a concrete method on this class would make a key of
+     * several parts impossible to write:
+     *
+     *     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
+     *     {
+     *         return $c->query
+     *             ->where($c->row('team_id'), '=', $teamId)
+     *             ->where($c->row('day'), '=', $day);
+     *     }
+     *
+     * Declare it on the schema when its rows are addressed by something other than
+     * a primary key. Omit it and the engine addresses them by their key, which is
+     * what the single argument of `documents(@context id)` means — see
+     * {@see \Warrant\Schema\Concerns\ResolvesConditions::defaultMatchKey()} for
+     * that default, and {@see \Warrant\Schema\Concerns\ReflectsSchemaDefinition::keyDefinition()}
+     * for how the declaration is read.
+     */
 
     /**
      * Rules that are always in force for this schema, regardless of what the

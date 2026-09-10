@@ -127,6 +127,20 @@ trait VerifiesSchemaModelPairs
     {
         $modelClass = $schemaClass::model;
 
+        /* A schema's rows come from a model's table or from a virtual table, and
+           never from both: the two would disagree about what the rows are, and
+           every seam that names them — the hop's `from`, the row's qualifier, a
+           row condition's Eloquent wrapper — would have to pick one. */
+        if ($modelClass !== '' && $schemaClass::virtualTable() !== null) {
+            throw new LogicException(sprintf(
+                'Schema [%s] names model [%s] and also defines a virtualTable(); a schema draws its rows '
+                    .'from one or the other. Drop the model to make it a virtual table, or drop '
+                    .'virtualTable() to keep the model\'s own table.',
+                $schemaClass,
+                $modelClass,
+            ));
+        }
+
         if ($modelClass === '') {
             return;
         }

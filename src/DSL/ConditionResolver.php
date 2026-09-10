@@ -26,6 +26,15 @@ interface ConditionResolver extends SchemaVocabulary
     public static function schemaKey(): string;
 
     /**
+     * The query this schema's rows come from, or null when they are a model's
+     * table. A schema has one or the other, never both.
+     *
+     * The compiler selects a hop's subquery from it, so it is read afresh each
+     * time rather than held.
+     */
+    public static function virtualTable(): ?\Illuminate\Database\Query\Builder;
+
+    /**
      * The Eloquent model backing this schema, or `''` for a capability schema
      * that has no rows at all.
      *

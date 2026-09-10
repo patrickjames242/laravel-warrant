@@ -2,6 +2,7 @@
 
 namespace Warrant\Schema\Conditions;
 
+use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -70,7 +71,9 @@ final readonly class RowConditionContext
      *   (`from('docs as d')`), or a cross-schema hop's (`can(… for docs(…) as d2)`).
      *   Always the right thing to qualify a column with, which is why {@see row()}
      *   is the only supported way to build one.
-     * @param string $keyColumn The target row's primary key column.
+     * @param string|null $keyColumn The target row's primary key column, or null
+     *   for rows that have none of their own — a virtual table's, which are a
+     *   query's output rather than a model's table.
      * @param array<int, mixed> $arguments The resolved DSL arguments.
      * @param array<string, mixed> $context The effective check-time context.
      * @param Model|null $model The loaded target row, or null when the condition is
@@ -80,7 +83,7 @@ final readonly class RowConditionContext
         public Authenticatable $user,
         public Builder $query,
         public string $table,
-        public string $keyColumn,
+        public ?string $keyColumn,
         public array $arguments = [],
         public array $context = [],
         public ?Model $model = null,
@@ -94,9 +97,23 @@ final readonly class RowConditionContext
      * Pass a column name to qualify a different column of the target table
      * (e.g. `row('owner_id')` → `timesheets.owner_id`), so a condition never has
      * to hand-concatenate the table prefix.
+     *
+     * The no-argument form needs a key column, which rows drawn from a virtual
+     * table do not have. Name a column there — and address such rows with a
+     * {@see \Warrant\Schema\WarrantSchema::matchKey()} of the schema's own,
+     * since the default one asks for exactly this key.
      */
     public function row(?string $column = null): string
     {
-        return $this->table . '.' . ($column ?? $this->keyColumn);
+        $column ??= $this->keyColumn;
+
+        if ($column === null) {
+            throw new BadMethodCallException(
+                'These rows have no key column of their own, so row() must be given a column name; '
+                    .'rows drawn from a virtualTable() need a matchKey() that names its own columns.'
+            );
+        }
+
+        return $this->table . '.' . $column;
     }
 }

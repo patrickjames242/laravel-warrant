@@ -94,6 +94,46 @@ trait ResolvesCheckTargets
     }
 
     /**
+     * A fresh query over this schema's rows: its model's table, or the query a
+     * virtual table defines, selected from under the schema's key so its columns
+     * are reachable by that name.
+     *
+     * $withoutScopes concerns a model only. A virtual table has no model and so
+     * volunteers nothing either way.
+     */
+    protected function rowsQuery(bool $withoutScopes = false): \Illuminate\Database\Query\Builder
+    {
+        $virtualTable = $this->schema::virtualTable();
+
+        if ($virtualTable !== null) {
+            return $virtualTable->newQuery()->fromSub($virtualTable, $this->schema::schemaKey());
+        }
+
+        /** @var Model $model */
+        $model = new ($this->schema::model);
+
+        return ($withoutScopes ? $model->newQueryWithoutScopes() : $model->newQuery())->getQuery();
+    }
+
+    /**
+     * The connection this schema's rows live on.
+     *
+     * A schema with no rows at all has none of its own, so it answers on the
+     * default connection — the current tenant under tenancy — since a no-target
+     * condition may still reference a table there.
+     */
+    protected function rowsConnection(): \Illuminate\Database\ConnectionInterface
+    {
+        $modelClass = $this->schema::model;
+
+        if ($modelClass !== '') {
+            return (new $modelClass)->getConnection();
+        }
+
+        return $this->schema::virtualTable()?->getConnection() ?? app('db')->connection();
+    }
+
+    /**
      * The arguments a target names its row with, in the form the schema's row key
      * takes them.
      *

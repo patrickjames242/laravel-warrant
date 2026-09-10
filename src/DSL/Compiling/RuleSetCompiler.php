@@ -133,7 +133,7 @@ final class RuleSetCompiler
      */
     public function compile(CompilationContext $ctx): CompilationResult
     {
-        if ($ctx->targeted && $this->conditions::modelClass() === '') {
+        if ($ctx->targeted && ! $this->conditions::hasRows()) {
             $ctx = $ctx->withoutTarget();
         }
 
@@ -385,15 +385,13 @@ final class RuleSetCompiler
      */
     private function rootAliases(CompilationContext $ctx): AliasScope
     {
-        $modelClass = $this->conditions::modelClass();
-
-        if ($modelClass === '') {
+        if (! $this->conditions::hasRows()) {
             return AliasScope::none();
         }
 
         return AliasScope::root(
             $this->conditions::schemaKey(),
-            $ctx->targeted ? $this->rowQualifierFor($modelClass, $ctx->queries) : null,
+            $ctx->targeted ? $this->rowQualifierFor($this->conditions::class, $ctx->queries) : null,
         );
     }
 
@@ -404,16 +402,29 @@ final class RuleSetCompiler
      * $queries is consulted only for the frame the host query itself selects; a
      * cross-schema hop builds its own `from` and passes none.
      */
-    private function rowQualifierFor(string $modelClass, ?QueryFactory $queries = null): ?string
+    private function rowQualifierFor(string $schemaClass, ?QueryFactory $queries = null): ?string
     {
-        if ($modelClass === '') {
+        if (! $schemaClass::hasRows()) {
             return null;
         }
 
-        /** @var Model $model */
-        $model = new $modelClass;
+        return $queries?->rowQualifier() ?? $this->defaultRowName($schemaClass);
+    }
 
-        return $queries?->rowQualifier() ?? $model->getTable();
+    /**
+     * The SQL name a schema's rows go by when nothing closer to the query says
+     * otherwise: a model's table, or — for a virtual table, whose rows have no
+     * table of their own — the schema's key, which is also what its rules name.
+     *
+     * @param class-string<ConditionResolver> $schemaClass
+     */
+    private function defaultRowName(string $schemaClass): string
+    {
+        $modelClass = $schemaClass::modelClass();
+
+        return $modelClass === ''
+            ? $schemaClass::schemaKey()
+            : (new $modelClass)->getTable();
     }
 
     /**
@@ -587,7 +598,7 @@ final class RuleSetCompiler
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bClass::model);
+        $this->assertHandleIsWellFormed($node, $bClass);
 
         /* Explicit boundary context only: resolve each with-map RHS against A's
            context and A's frame, with no ambient inheritance of A's bag. A value
@@ -603,7 +614,7 @@ final class RuleSetCompiler
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
-        $bQualifier = $this->hopQualifier($node, $bClass::model, $this->aliases($ctx));
+        $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));
 
         /* B compiles off the same factory as A: it is the same connection and the
            same grammar, and the `from` that distinguishes B's subquery is not
@@ -625,15 +636,13 @@ final class RuleSetCompiler
             /* B's rules name their own key, so that is the name this frame's
                identifier binds to — B's author cannot know what this caller chose
                to call it. A B with no table has no frame for its key to name. */
-            aliases: $bClass::model === ''
+            aliases: ! $bClass::hasRows()
                 ? $this->aliases($ctx)->enteringRowlessRuleSet()
                 : $this->aliases($ctx)->enteringRuleSet($node->schemaKey, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            /** @var Model $bModel */
-            $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -649,8 +658,7 @@ final class RuleSetCompiler
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($bModel->getTable(), $bQualifier));
+            $bSubquery = $this->hopFrom($ctx->queries->newQuery(), $bClass, $bQualifier);
 
             /* B says how its own rows are addressed, and the handle's arguments
                are that key's arguments. A key given nothing that names a row
@@ -741,7 +749,7 @@ final class RuleSetCompiler
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bClass::model);
+        $this->assertHandleIsWellFormed($node, $bClass);
 
         /* Explicit boundary context only: resolve each with-map RHS against A's
            context and A's frame, with no ambient inheritance of A's bag. A value
@@ -758,7 +766,7 @@ final class RuleSetCompiler
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
         $bCompiler = new self($bSchema, $this->manager);
 
-        $bQualifier = $this->hopQualifier($node, $bClass::model, $this->aliases($ctx));
+        $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));
 
         /* As in a can(...): B starts untargeted and unnegated. Unlike a can(...),
            the check is entered here, because nothing below will — this compiles B's
@@ -771,15 +779,13 @@ final class RuleSetCompiler
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bClass)),
-            aliases: $bClass::model === ''
+            aliases: ! $bClass::hasRows()
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
                 : $this->aliases($ctx)->enteringPredicate($node->schemaKey, $node->alias, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            /** @var Model $bModel */
-            $bModel = new ($bClass::model);
-            $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -795,8 +801,7 @@ final class RuleSetCompiler
                 $bClass::model,
             );
 
-            $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($bModel->getTable(), $bQualifier));
+            $bSubquery = $this->hopFrom($ctx->queries->newQuery(), $bClass, $bQualifier);
 
             /* B says how its own rows are addressed, and the handle's arguments
                are that key's arguments. A key given nothing that names a row
@@ -851,13 +856,26 @@ final class RuleSetCompiler
     }
 
     /**
-     * A hop's `from`: the target's table, aliased when its rows carry a different
-     * identifier. The counterpart of {@see hopQualifier()} — the two must agree,
-     * or the predicate would name a table the subquery never selected.
+     * Point a hop's subquery at the target's rows: a model's table, or the query a
+     * virtual table defines, selected from as a subquery. Either way the rows are
+     * aliased when they carry a different identifier than their source's own name.
+     *
+     * The counterpart of {@see hopQualifier()} — the two must agree, or the
+     * predicate would name rows the subquery never selected.
+     *
+     * @param class-string<ConditionResolver> $schemaClass
      */
-    private function hopFrom(string $table, string $qualifier): string
+    private function hopFrom(Builder $subquery, string $schemaClass, string $qualifier): Builder
     {
-        return $qualifier === $table ? $table : $table . ' as ' . $qualifier;
+        $virtualTable = $schemaClass::virtualTable();
+
+        if ($virtualTable !== null) {
+            return $subquery->fromSub($virtualTable, $qualifier);
+        }
+
+        $table = $this->defaultRowName($schemaClass);
+
+        return $subquery->from($qualifier === $table ? $table : $table . ' as ' . $qualifier);
     }
 
     /**
@@ -872,10 +890,10 @@ final class RuleSetCompiler
      */
     private function hopQualifier(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
-        string $modelClass,
+        string $schemaClass,
         AliasScope $scope,
     ): ?string {
-        $table = $this->rowQualifierFor($modelClass);
+        $table = $this->rowQualifierFor($schemaClass);
 
         if (! $node->isRowBound || $table === null) {
             return null;
@@ -892,8 +910,8 @@ final class RuleSetCompiler
      * single argument, so none of them can be answered with an unknown the way a
      * missing row or an absent `@context` key is:
      *
-     *  - a row-bound hop into a schema with no model, which has no rows to select
-     *    and no table to select them from;
+     *  - a row-bound hop into a schema with no rows, which has nothing to select
+     *    and no source to select it from;
      *  - a row-bound hop whose selector is a literal `null`, which names no row
      *    (a `@context` selector is a symbol until compile time, so a null *value*
      *    from one is a different thing, and folds);
@@ -906,13 +924,13 @@ final class RuleSetCompiler
      */
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
-        string $modelClass,
+        string $schemaClass,
     ): void {
         $builtin = $node instanceof CrossSchemaCanNode ? 'can' : 'check';
 
-        if ($node->isRowBound && $modelClass === '') {
+        if ($node->isRowBound && ! $schemaClass::hasRows()) {
             throw new InvalidArgumentException(sprintf(
-                'A %s(...) reference targets a specific row of schema [%s], but [%s] has no model and '
+                'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
                 $builtin,
                 $node->schemaKey,
@@ -948,12 +966,12 @@ final class RuleSetCompiler
      * the emitted SQL would silently reference a table that isn't there, so reject
      * it with a clear message instead.
      */
-    private function assertSameConnection(QueryFactory $queries, Model $bModel, string $bSchemaKey): void
+    private function assertSameConnection(QueryFactory $queries, string $bSchemaClass, string $bSchemaKey): void
     {
         $parentConnection = $queries->connectionName();
-        $bConnection = $bModel->getConnection()->getName();
+        $bConnection = $this->connectionNameFor($bSchemaClass);
 
-        if ($parentConnection !== $bConnection) {
+        if ($bConnection !== null && $parentConnection !== $bConnection) {
             throw new InvalidArgumentException(sprintf(
                 'Cannot compile a reference to schema [%s]: that schema is on database connection [%s] '
                     .'but the query runs on [%s]; a cross-connection reference is not supported.',
@@ -962,6 +980,24 @@ final class RuleSetCompiler
                 $parentConnection,
             ));
         }
+    }
+
+    /**
+     * The connection a schema's rows live on — its model's, or the one the query
+     * behind a virtual table was built for. Null when the schema names neither,
+     * which is a capability schema with no rows to be anywhere.
+     *
+     * @param class-string<ConditionResolver> $schemaClass
+     */
+    private function connectionNameFor(string $schemaClass): ?string
+    {
+        $modelClass = $schemaClass::modelClass();
+
+        if ($modelClass !== '') {
+            return (new $modelClass)->getConnection()->getName();
+        }
+
+        return $schemaClass::virtualTable()?->getConnection()->getName();
     }
 
     /**

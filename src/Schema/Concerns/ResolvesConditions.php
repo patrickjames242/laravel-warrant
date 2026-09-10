@@ -153,6 +153,23 @@ trait ResolvesConditions
     }
 
     /**
+     * The row key a schema gets when it declares no `matchKey()` of its own:
+     * equality against the rows' key column.
+     *
+     * A null names no row — an absent `@context` value, or a model with no key
+     * yet — so it answers unknown, which neither grants nor lifts a deny. That is
+     * the only safe answer, because the `exists` this predicate lands in cannot
+     * report unknown once its subquery is built.
+     *
+     * Reached by name through {@see ReflectsSchemaDefinition::keyDefinition()},
+     * never called directly.
+     */
+    protected function defaultMatchKey(RowConditionContext $c, mixed $key): ?Builder
+    {
+        return $key === null ? null : $c->query->where($c->row(), '=', $key);
+    }
+
+    /**
      * Build the context a definition's method expects, call it, and normalize what
      * it answered.
      *
@@ -191,6 +208,25 @@ trait ResolvesConditions
                builds must not depend on whether a caller happened to supply an
                instance. */
             $modelClass = static::model;
+
+            /* A virtual table has no model, so there are no scopes to spend and no
+               key column of its own. Its rows answer to the schema's key unless the
+               compiler named them something closer, and a condition writes its
+               predicate from row('<column>'). */
+            if ($modelClass === '') {
+                $result = $this->{$methodName}(new RowConditionContext(
+                    $currentUser,
+                    $whereClause,
+                    $rowQualifier ?? static::schemaKey(),
+                    null,
+                    $arguments,
+                    $context,
+                    $targetModel,
+                ), ...$arguments);
+
+                return $result instanceof EloquentBuilder ? $result->toBase() : $result;
+            }
+
             $model = new $modelClass;
             $rowName = $rowQualifier ?? $model->getTable();
 

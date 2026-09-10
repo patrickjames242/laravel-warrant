@@ -137,7 +137,7 @@ it('accepts a predicate mixing a global and a row condition on an unbound handle
 
 it('rejects a row-bound reference to a capability (no-model) schema', function () {
     expect(fn () => validateOwnerCheckSyntax('if check(is_open for xcv_capability(@context id)) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+        ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 it('rejects a specified row target that is a null literal', function () {

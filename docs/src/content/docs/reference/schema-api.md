@@ -51,9 +51,12 @@ public static function requiredContextKeys(): array;  // schema-wide required ke
 ### Overridable hooks
 
 ```php
-public function matchKey(RowConditionContext $c, mixed $key): ?Builder;  // default: primary-key equality
+public static function virtualTable(): ?Builder;         // default null; rows come from model's table
 public function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
 protected function defaultContext(): array;              // default []; merged UNDER explicit context
+
+// Declared on your schema when needed; not inherited — see below.
+public function matchKey(RowConditionContext $c, ...): ?Builder;
 ```
 
 #### `matchKey`
@@ -63,8 +66,14 @@ a `can(... for <schema>(<args>))` or `check(... for <schema>(<args>))` hop, and 
 targeted check from PHP — with the caller's arguments bound positionally after the
 context, exactly as a condition's are.
 
-The default addresses a row by its primary key, which is what the single argument
-of `documents(@context id)` means. Override it to address rows by something else:
+Declare it only when the rows are addressed by something other than their key.
+Omit it and the engine addresses them by their key, which is what the single
+argument of `documents(@context id)` means.
+
+It is **not declared on `WarrantSchema`**, deliberately: PHP forbids an override
+from adding required parameters, so an inherited signature would make a key of
+several parts impossible to write. Declare the parameters your key actually
+takes:
 
 ```php
 public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
@@ -93,6 +102,46 @@ public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?B
   wrapper, same alias handling via `$c->row()` — but it is **not** part of the
   schema's vocabulary. No rule can name it, and declaring `#[RowCondition]` on it
   is an error.
+
+#### `virtualTable`
+
+The query this schema's rows come from, when they are not a model's table — a
+database view defined in the schema instead of in DDL. Null, the default, means
+the rows are `model`'s table.
+
+```php
+public static function virtualTable(): ?Builder
+{
+    return DB::table('teams')
+        ->crossJoin('calendar_days')
+        ->select(['teams.id as team_id', 'calendar_days.day']);
+}
+```
+
+A schema draws its rows from **one source or the other, never both**: naming a
+`model` and defining a `virtualTable()` is an error on first resolution. So a
+virtual-table schema is key-addressed only, and gives up everything the model was
+buying beyond the rows themselves:
+
+- no Eloquent scopes to spend from a condition, and `$c->query` is a plain query
+  builder;
+- no hydrated `$c->model`, and `WarrantDenialContext::$target` is null;
+- no primary key, so `$c->row()` needs a column name and the schema must declare
+  a [`matchKey()`](#matchkey) of its own;
+- no model to reach it from, so `Model::userHasAbility()` and route-model binding
+  do not apply. Start from `Warrant::forSchema(...)->query()` instead.
+
+It takes no user and no check-time context, deliberately: a virtual table says
+what its rows *are*, and who may touch them is what the rules are for. Filtering
+by the current user here would move an access decision out of the rule language,
+where neither the rule text nor reachability analysis can see it.
+
+Filtering, per-row ability columns and hops all work unchanged — the compiler
+selects from the query as a subquery aliased to the schema's key:
+
+```sql
+exists (select * from ( … virtualTable … ) as shift_days where …)
+```
 
 ### Denial-message hooks
 

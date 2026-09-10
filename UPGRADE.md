@@ -42,8 +42,20 @@ arguments, the counterpart of `schema()` in rule text. Against the default key i
 fails with an arity error, so a `[]` arriving from a failed lookup is caught rather
 than silently widening the question. Only `null` is a no-target check.
 
+A key of several parts is **declared on your schema**, not overridden from
+`WarrantSchema` — PHP forbids an override from adding required parameters, so
+there is no inherited `matchKey()` to override. Omit it entirely and rows are
+addressed by their key, as before.
+
 If you implement `ConditionResolver` directly rather than extending
-`WarrantSchema`, it gains two members: `getKeyDefinition()` and `applyKey()`.
+`WarrantSchema`, it gains four members: `getKeyDefinition()`, `applyKey()`,
+`hasRows()` and `virtualTable()`.
+
+Two error messages changed wording, since the question they ask is now "does this
+schema have rows" rather than "does it have a model": `has no model and cannot be
+row-targeted` → `has no rows and cannot be row-targeted`, and `is a schema with no
+model and does not support targeted checks` → `has no rows and does not support
+targeted checks`. Only assertions on the text are affected.
 
 ## A condition may answer `null`, and a forgotten `return` now throws
 

@@ -112,6 +112,38 @@ class MkDaySchema extends WarrantSchema
     }
 }
 
+/**
+ * Two required key parameters — the shape PHP would forbid if matchKey() were a
+ * concrete method on WarrantSchema, since an override may not add required
+ * parameters to an inherited signature.
+ */
+class MkStrictSchema extends WarrantSchema
+{
+    public const model = MkStrictModel::class;
+
+    #[Ability]
+    public const VIEW = 'view';
+
+    public function matchKey(RowConditionContext $c, mixed $left, mixed $right): ?BuilderContract
+    {
+        return $c->query
+            ->where($c->row('left_id'), '=', $left)
+            ->where($c->row('right_id'), '=', $right);
+    }
+}
+
+class MkStrictModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'mk_strict';
+
+    public static function warrantSchema(): string
+    {
+        return MkStrictSchema::class;
+    }
+}
+
 /** A variadic key: any number of path segments, including none. */
 class MkPathSchema extends WarrantSchema
 {
@@ -140,6 +172,10 @@ beforeEach(function () {
         $table->integer('is_open');
     });
     Schema::create('mk_paths', fn ($table) => $table->string('path'));
+    Schema::create('mk_strict', function ($table) {
+        $table->string('left_id');
+        $table->string('right_id');
+    });
 
     MkDaySchema::$seenRow = null;
 
@@ -147,6 +183,7 @@ beforeEach(function () {
         'mk_shifts' => MkShiftSchema::class,
         'mk_days' => MkDaySchema::class,
         'mk_paths' => MkPathSchema::class,
+        'mk_strict' => MkStrictSchema::class,
     ]);
 });
 
@@ -279,6 +316,29 @@ it('rejects a handle supplying fewer arguments than the key requires', function 
         'if can(view for mk_shifts()) they can create',
         [],
     ))->toThrow(InvalidArgumentException::class, 'row key requires at least 1');
+});
+
+it('accepts a key declaring two required parameters', function () {
+    expect(mkShiftSql(
+        'if can(view for mk_strict(@column team_id, @column work_date)) they can create',
+        ['mk_strict' => 'they can view'],
+    ))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "mk_shifts" where (
+            exists (
+                select * from "mk_strict"
+                where "mk_strict"."left_id" = "mk_shifts"."team_id"
+                    and "mk_strict"."right_id" = "mk_shifts"."work_date"
+                    and (1 = 1)
+            )
+        )
+    SQL));
+});
+
+it('rejects a handle supplying one argument to a two-part key', function () {
+    expect(fn () => mkShiftSql(
+        'if can(view for mk_strict(@column team_id)) they can create',
+        ['mk_strict' => 'they can view'],
+    ))->toThrow(InvalidArgumentException::class, 'row key requires at least 2');
 });
 
 // -- nulls --------------------------------------------------------------------

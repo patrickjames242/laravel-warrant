@@ -69,6 +69,16 @@ final class FakeConditionResolver implements ConditionResolver
         return CompilerDocModel::class;
     }
 
+    public static function hasRows(): bool
+    {
+        return true;
+    }
+
+    public static function virtualTable(): ?Builder
+    {
+        return null;
+    }
+
     public static function abilityNames(): array
     {
         return ['view', 'edit', 'delete', 'publish'];

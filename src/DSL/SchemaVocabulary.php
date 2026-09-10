@@ -19,6 +19,13 @@ use Warrant\Schema\ConditionDefinition;
 interface SchemaVocabulary
 {
     /**
+     * Whether the schema has rows at all, and so whether it answers targeted
+     * checks. False for a capability schema, which declares abilities about the
+     * user and nothing else.
+     */
+    public static function hasRows(): bool;
+
+    /**
      * The definition for a single ability, or null if the schema declares no such
      * ability.
      */

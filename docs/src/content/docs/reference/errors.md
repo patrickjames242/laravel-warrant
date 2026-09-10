@@ -90,7 +90,7 @@ Thrown lazily the first time a schema's conditions are reflected:
 - `Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].`
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
 - `Condition method [%s::%s] must accept a [%s] as its first parameter.` — a missing or wrong-typed context parameter.
-- `Schema [%s] is a schema with no model and does not support targeted checks; use a no-target check instead.`
+- `Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.`
 
 ## Applying a condition
 
@@ -123,6 +123,14 @@ From the schema's own declaration:
 
 - `Schema [%s] declares a condition attribute on matchKey(), which is the schema's row key and not part of its rule vocabulary; remove the attribute, or move the logic to a condition method of its own.`
 - `Schema [%s] must accept a [%s] as the first parameter of matchKey().`
+
+From a schema declaring both row sources, on first resolution:
+
+- `Schema [%s] names model [%s] and also defines a virtualTable(); a schema draws its rows from one or the other. Drop the model to make it a virtual table, or drop virtualTable() to keep the model's own table.`
+
+From a condition or key over rows with no key column of their own:
+
+- `These rows have no key column of their own, so row() must be given a column name; rows drawn from a virtualTable() need a matchKey() that names its own columns.` (`BadMethodCallException`)
 
 An **empty** argument list is not an error in itself: it addresses a row by a key
 that requires no arguments, exactly as `schema()` does in rule text. It is the

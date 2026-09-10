@@ -179,10 +179,10 @@ trait ReflectsSchemaDefinition
      */
     public static function assertSupportsTargetedChecks(): void
     {
-        if (static::model === '') {
+        if (! static::hasRows()) {
             throw new InvalidArgumentException(
                 sprintf(
-                    'Schema [%s] is a schema with no model and does not support targeted checks; use a no-target check instead.',
+                    'Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.',
                     static::class
                 )
             );
@@ -201,6 +201,14 @@ trait ReflectsSchemaDefinition
      */
     public static function keyDefinition(): ConditionDefinition
     {
+        /* Not declared: the rows are addressed by their key, which is one
+           argument. The default lives on the engine rather than on WarrantSchema
+           because PHP forbids an override from adding required parameters, and a
+           key of several parts has to be able to declare them. */
+        if (! method_exists(static::class, 'matchKey')) {
+            return new ConditionDefinition('matchKey', 'defaultMatchKey', true, 1);
+        }
+
         $method = new ReflectionMethod(static::class, 'matchKey');
 
         if (

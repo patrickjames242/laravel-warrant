@@ -129,13 +129,74 @@ class SettingsSchema extends WarrantSchema
 }
 ```
 
-Targeted checks against a model-less schema throw; use
+Targeted checks against a schema with no rows throw; use
 [no-target checks](/guides/checking-access/#no-target-checks) instead.
+
+## Schemas whose rows come from a query
+
+A schema's rows need not be a table. Return a query from `virtualTable()` and it
+becomes the schema's rows — a database view defined in the schema instead of in
+DDL, which is what you want when the query can't be frozen into a migration:
+
+```php
+class ShiftDaySchema extends WarrantSchema
+{
+    #[Ability] public const VIEW = 'view';
+    #[Ability] public const ASSIGN = 'assign';
+
+    public static function virtualTable(): ?Builder
+    {
+        return DB::table('teams')
+            ->crossJoin('calendar_days')
+            ->leftJoin('shifts', fn ($join) => $join
+                ->on('shifts.team_id', '=', 'teams.id')
+                ->on('shifts.starts_on', '=', 'calendar_days.day'))
+            ->groupBy('teams.id', 'calendar_days.day')
+            ->select([
+                'teams.id as team_id',
+                'calendar_days.day',
+                DB::raw('count(shifts.id) as shift_count'),
+            ]);
+    }
+
+    // No primary key here, so the schema says how a row is addressed.
+    public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
+    {
+        return $c->query
+            ->where($c->row('team_id'), '=', $teamId)
+            ->where($c->row('day'), '=', $day);
+    }
+
+    // A column the query computes, read as if it were stored.
+    #[RowCondition]
+    public function isUnderstaffed(RowConditionContext $c): Builder
+    {
+        return $c->query->where($c->row('shift_count'), '<', 2);
+    }
+}
+```
+
+Rules over it read exactly as they do over a table, and so do hops into it. What
+changes is that there is no model to reach it from, so you start from the guard:
+
+```php
+$guard = Warrant::forSchema(ShiftDaySchema::class);
+
+$rows = $guard->filterQuery($guard->query(), 'view')->get();
+$guard->can('assign', [$team->id, '2026-09-14']);
+```
+
+A schema draws its rows from a model **or** a virtual table, never both — and a
+virtual table gives up everything the model was buying beyond the rows: no
+Eloquent scopes, no hydrated `$c->model`, no primary key. The full list is in the
+[schema API reference](/reference/schema-api/#virtualtable).
 
 ## Overridable hooks
 
 | Hook | Purpose |
 |---|---|
+| `public static function virtualTable(): ?Builder` | The query this schema's rows come from, instead of a model's table. Default `null`. See [above](#schemas-whose-rows-come-from-a-query). |
+| `public function matchKey(RowConditionContext $c, ...): ?Builder` | How a row is addressed. Declare it — it is not inherited — when the rows are not addressed by their key. See [Schema API](/reference/schema-api/#matchkey). |
 | `public function implicitRules(): array\|WarrantRuleSet` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
 | `protected function defaultContext(): array` | Default check-time context, merged *under* explicit values. See [Check-time context](/guides/context/). |
 

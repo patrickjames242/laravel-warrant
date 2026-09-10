@@ -35,6 +35,27 @@ trait BuildsAccessQueries
     private ?RuleSetCompiler $compiler = null;
 
     /**
+     * A fresh query over this schema's rows, to filter or select abilities on.
+     *
+     * A model-backed schema is usually reached through the model instead —
+     * `Timesheet::userHasAbility('view')` — but a schema whose rows come from a
+     * {@see \Warrant\Schema\WarrantSchema::virtualTable()} has no model to hang
+     * that on, so this is how a caller gets a query to start from:
+     *
+     * ```php
+     * $guard = Warrant::forSchema(ShiftDaySchema::class);
+     * $rows = $guard->filterQuery($guard->query(), 'view')->get();
+     * ```
+     *
+     * The rows are selected under the schema's key, so a caller may narrow and
+     * order by the columns the virtual table projects.
+     */
+    public function query(): Builder
+    {
+        return $this->rowsQuery();
+    }
+
+    /**
      * Restricts the provided entity query to rows the guard's user can access.
      *
      * `AbilityMatchMode::ALL` requires every requested ability to match for a row.
@@ -258,9 +279,7 @@ trait BuildsAccessQueries
            itself is the resolver's job, on its own connection). No-target
            conditions may reference tenant tables, so a capability schema uses
            the default connection — the current tenant under tenancy. */
-        $connection = $this->schema::model !== ''
-            ? (new ($this->schema::model))->getConnection()
-            : app('db')->connection();
+        $connection = $this->rowsConnection();
         $queries = QueryFactory::forConnection($connection);
         $baseQuery = $queries->newQuery();
         $ruleSet = $this->resolvedRuleSet();

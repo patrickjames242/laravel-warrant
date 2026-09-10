@@ -128,10 +128,9 @@ final class RuleSetValidator
      */
     private function rootScope(): AliasScope
     {
-        $modelless = $this->schema instanceof ConditionResolver
-            && $this->schema::modelClass() === '';
+        $rowless = ! $this->schema::hasRows();
 
-        return $modelless ? AliasScope::none() : AliasScope::root($this->schemaKey, null);
+        return $rowless ? AliasScope::none() : AliasScope::root($this->schemaKey, null);
     }
 
     /**
@@ -217,9 +216,9 @@ final class RuleSetValidator
             ));
         }
 
-        if ($node->isRowBound && $targetClass::model === '') {
+        if ($node->isRowBound && ! $targetClass::hasRows()) {
             throw new InvalidArgumentException(sprintf(
-                'A can(...) reference targets a specific row of schema [%s], but [%s] has no model and cannot be row-targeted; drop the row selector.',
+                'A can(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
                 $node->schemaKey,
             ));
@@ -273,9 +272,9 @@ final class RuleSetValidator
             );
         }
 
-        if ($node->isRowBound && $targetClass::model === '') {
+        if ($node->isRowBound && ! $targetClass::hasRows()) {
             throw new InvalidArgumentException(sprintf(
-                'A check(...) reference targets a specific row of schema [%s], but [%s] has no model and cannot be row-targeted; drop the row selector.',
+                'A check(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
                 $node->schemaKey,
             ));
@@ -313,7 +312,7 @@ final class RuleSetValidator
         $this->validateExpression(
             $node->predicate,
             new $targetClass,
-            $targetClass::model === ''
+            ! $targetClass::hasRows()
                 ? $scope->enteringRowlessPredicate()
                 : $scope->enteringPredicate($node->schemaKey, $node->alias, null),
             $node,

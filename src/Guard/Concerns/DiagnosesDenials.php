@@ -76,8 +76,6 @@ trait DiagnosesDenials
         $compiler = $this->compiler();
 
         if ($target !== null) {
-            /** @var Model $model */
-            $model = new ($this->schema::model);
             $targeted = true;
             $effectiveContext = $this->schema->resolveEffectiveContext($context);
 
@@ -89,8 +87,8 @@ trait DiagnosesDenials
                Seeded through the schema's own row key, so a schema that addresses
                rows by something other than a primary key is diagnosed about the
                same row the check decided on. */
-            $baseQuery = function () use ($model, $target, $effectiveContext): Builder {
-                $query = $model->newQueryWithoutScopes()->getQuery();
+            $baseQuery = function () use ($target, $effectiveContext): Builder {
+                $query = $this->rowsQuery(withoutScopes: true);
                 $this->narrowQueryToTarget($query, $target, $effectiveContext);
 
                 return $query;
@@ -99,7 +97,7 @@ trait DiagnosesDenials
             /* One seeded query answers both questions below, and asking the key
                once settles which row this is about. A key that answers unknown
                named no row, and there is nothing to blame for a row nobody named. */
-            $seeded = $model->newQueryWithoutScopes()->getQuery();
+            $seeded = $this->rowsQuery(withoutScopes: true);
 
             if (! $this->narrowQueryToTarget($seeded, $target, $effectiveContext)) {
                 return null;
@@ -110,9 +108,16 @@ trait DiagnosesDenials
                 return null;
             }
 
-            $targetModel = $target instanceof Model
-                ? $target
-                : $model->newQueryWithoutScopes()->setQuery($baseQuery())->first();
+            $modelClass = $this->schema::model;
+
+            $targetModel = match (true) {
+                $target instanceof Model => $target,
+                /* A virtual table has nothing to hydrate: its rows are a query's
+                   output, so the message hooks see the arguments that named the
+                   row rather than an instance of it. */
+                $modelClass === '' => null,
+                default => (new $modelClass)->newQueryWithoutScopes()->setQuery($baseQuery())->first(),
+            };
 
             /* What the *check* would have handed to a row condition, which is not
                the same thing as $targetModel above: that one is fetched when the
@@ -127,9 +132,7 @@ trait DiagnosesDenials
             // No target: evaluate the ability/condition predicates against a bare
             // one-row query on the entity's connection, exactly like the no-target
             // check does. With no row in scope, row conditions force false.
-            $connection = $this->schema::model !== ''
-                ? (new ($this->schema::model))->getConnection()
-                : app('db')->connection();
+            $connection = $this->rowsConnection();
             $targeted = false;
             $baseQuery = fn (): Builder => $connection->query();
             $targetModel = null;

@@ -103,7 +103,7 @@ it('rejects an ability not declared by the target schema', function () {
 
 it('rejects a row-bound reference to a capability schema (no row to target)', function () {
     expect(fn () => validateOwnerSyntax('if can(access for xs_capability(@context id)) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+        ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 it('rejects a specified row target that is a null literal', function () {
@@ -146,7 +146,7 @@ it('rejects a builder-built row-bound reference with an explicit null row', func
 
 it('rejects a builder-built row-bound reference to a capability schema', function () {
     expect(fn () => validateOwnerRule(WarrantRule::build()->ifCan('access', 'xs_capability', Ref::context('id'))->theyCan('edit')))
-        ->toThrow(InvalidArgumentException::class, 'has no model and cannot be row-targeted');
+        ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 it('rejects a builder-built ability the target schema does not declare', function () {

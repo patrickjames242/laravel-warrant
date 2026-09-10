@@ -85,9 +85,7 @@ trait ChecksAbilities
 
         $this->schema::assertSupportsTargetedChecks();
 
-        /** @var Model $model */
-        $model = new ($this->schema::model);
-        $query = $model->newQuery()->getQuery();
+        $query = $this->rowsQuery();
 
         /* The row is named by the schema's own key, which may answer unknown —
            arguments that name no row. Nothing to enumerate abilities for then. */
@@ -135,9 +133,7 @@ trait ChecksAbilities
         if ($target !== null) {
             $this->schema::assertSupportsTargetedChecks();
 
-            /** @var Model $model */
-            $model = new ($this->schema::model);
-            $query = $model->newQuery()->getQuery();
+            $query = $this->rowsQuery();
 
             /* An unknown key names no row, and a check about a row nobody named
                has no answer — which grants nothing, the same as a rule that could
