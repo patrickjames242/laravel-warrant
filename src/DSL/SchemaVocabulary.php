@@ -26,6 +26,14 @@ interface SchemaVocabulary
     public static function hasRows(): bool;
 
     /**
+     * Whether one of the schema's rows can be named, and so whether it answers a
+     * check about a single row. False for rows with no key and no way to find one
+     * — a virtual table declaring neither — which are still filterable but not
+     * addressable.
+     */
+    public static function hasRowKey(): bool;
+
+    /**
      * The definition for a single ability, or null if the schema declares no such
      * ability.
      */

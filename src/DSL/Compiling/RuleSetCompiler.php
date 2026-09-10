@@ -912,6 +912,8 @@ final class RuleSetCompiler
      *
      *  - a row-bound hop into a schema with no rows, which has nothing to select
      *    and no source to select it from;
+     *  - a row-bound hop into a schema whose rows cannot be named, which has
+     *    nothing to correlate the subquery against;
      *  - a row-bound hop whose selector is a literal `null`, which names no row
      *    (a `@context` selector is a symbol until compile time, so a null *value*
      *    from one is a different thing, and folds);
@@ -932,6 +934,17 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
+                $builtin,
+                $node->schemaKey,
+                $node->schemaKey,
+            ));
+        }
+
+        if ($node->isRowBound && ! $schemaClass::hasRowKey()) {
+            throw new InvalidArgumentException(sprintf(
+                'A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name '
+                    .'one; declare `const key` for the column its rows are identified by, or a matchKey() '
+                    .'of its own, or drop the row selector.',
                 $builtin,
                 $node->schemaKey,
                 $node->schemaKey,

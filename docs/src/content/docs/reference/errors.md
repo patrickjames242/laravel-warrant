@@ -91,6 +91,7 @@ Thrown lazily the first time a schema's conditions are reflected:
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
 - `Condition method [%s::%s] must accept a [%s] as its first parameter.` — a missing or wrong-typed context parameter.
 - `Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.`
+- `Schema [%s] has rows but no way to name one, so it does not support targeted checks; declare `const key` for the column its rows are identified by, or a matchKey() of its own. Filtering a query and selecting per-row abilities need neither.`
 
 ## Applying a condition
 
@@ -108,13 +109,14 @@ From the compiler, on what a condition emitted:
 
 ## Row keys → `InvalidArgumentException`
 
-From validation, on a handle's argument list against the target schema's
-[`matchKey()`](/reference/schema-api/#matchkey):
+From validation, on a handle against the target schema's row key — and from the
+compiler, which makes the same checks for handles that never pass through the
+parser:
 
+- `A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name one; declare \`const key\` for the column its rows are identified by, or a matchKey() of its own, or drop the row selector.`
 - `A %s(...) reference to schema [%s] supplies %d row-key argument(s), but that schema's row key requires at least %d.`
 
-From the key's own dispatch, which catches handles that never passed through the
-parser — one built with the fluent builder, or one a condition derived itself into:
+From the key's own dispatch:
 
 - `The row key for schema [%s] requires at least %d argument(s), but %d were supplied.`
 - `The row key for schema [%s] must return the query it constrained, or null to answer unknown; it returned a [%s].`

@@ -224,6 +224,7 @@ final class RuleSetValidator
             ));
         }
 
+        $this->assertTargetCanNameARow('can', $node->schemaKey, $targetClass, $node->isRowBound);
         $this->assertKeyArityIsSatisfied('can', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value. A
@@ -280,6 +281,7 @@ final class RuleSetValidator
             ));
         }
 
+        $this->assertTargetCanNameARow('check', $node->schemaKey, $targetClass, $node->isRowBound);
         $this->assertKeyArityIsSatisfied('check', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value; a
@@ -379,6 +381,37 @@ final class RuleSetValidator
             $alias,
             $schemaKey,
             $alias,
+        ));
+    }
+
+    /**
+     * A row-bound handle needs a target whose rows can be named.
+     *
+     * A virtual table may declare neither a key column nor a `matchKey()`, which
+     * leaves its rows filterable but not addressable. Reported here so the rule
+     * says what is wrong with it, rather than failing later on a key column that
+     * was never there. The compiler makes the same check, for the handles that
+     * never pass through the parser.
+     *
+     * @param class-string<\Warrant\Schema\WarrantSchema> $targetClass
+     */
+    private function assertTargetCanNameARow(
+        string $builtin,
+        string $schemaKey,
+        string $targetClass,
+        bool $isRowBound,
+    ): void {
+        if (! $isRowBound || ! $targetClass::hasRows() || $targetClass::hasRowKey()) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name one; '
+                .'declare `const key` for the column its rows are identified by, or a matchKey() of its '
+                .'own, or drop the row selector.',
+            $builtin,
+            $schemaKey,
+            $schemaKey,
         ));
     }
 

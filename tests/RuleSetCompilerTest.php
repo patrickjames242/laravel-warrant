@@ -74,6 +74,11 @@ final class FakeConditionResolver implements ConditionResolver
         return true;
     }
 
+    public static function hasRowKey(): bool
+    {
+        return true;
+    }
+
     public static function virtualTable(): ?Builder
     {
         return null;

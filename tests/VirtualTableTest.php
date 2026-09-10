@@ -354,13 +354,39 @@ it('rejects a schema that names a model and also declares a key', function () {
         ->toThrow(LogicException::class, 'answers for its own key');
 });
 
-it('has no key column, so row() must be given one', function () {
+it('refuses a targeted check against rows it cannot name', function () {
     bindVtRules(['vt_keyless' => 'they can view']);
 
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtKeylessSchema);
 
+    // Refused up front, rather than failing later on a key that was never there.
     expect(fn () => $guard->can('view', 'anything'))
-        ->toThrow(BadMethodCallException::class, 'have no key column of their own');
+        ->toThrow(InvalidArgumentException::class, 'has rows but no way to name one');
+});
+
+it('refuses a row-bound reference to rows it cannot name', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax(
+        'if can(view for vt_keyless(@column id)) they can plan',
+        'vt_teams',
+    )->validate())->toThrow(InvalidArgumentException::class, 'has no way to name one');
+});
+
+it('still filters and lists abilities for rows it cannot name', function () {
+    /* Why a keyless virtual table is allowed at all: neither of these needs to
+       name a row, because both correlate against rows the surrounding query
+       already produced. */
+    seedVtRows();
+    bindVtRules(['vt_keyless' => 'they can view']);
+
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtKeylessSchema);
+
+    expect($guard->filterQuery($guard->query(), 'view')->get())->toHaveCount(2);
+
+    $rows = $guard->selectAbilitiesInQuery($guard->query())->get();
+    expect(json_decode($rows[0]->abilities, true))->toBe(['view']);
+
+    // And a no-target check is unaffected.
+    expect($guard->can('view'))->toBeTrue();
 });
 
 it('rejects a schema that names both a model and a virtual table', function () {

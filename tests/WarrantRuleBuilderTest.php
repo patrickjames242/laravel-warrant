@@ -47,6 +47,7 @@ final class BuilderFakeResolver implements ConditionResolver
     public static function schemaKey(): string { return 'builder-fake'; }
     public static function modelClass(): string { return CompilerDocModel::class; }
     public static function hasRows(): bool { return true; }
+    public static function hasRowKey(): bool { return true; }
     public static function virtualTable(): ?Builder { return null; }
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }

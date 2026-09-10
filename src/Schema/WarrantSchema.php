@@ -144,6 +144,28 @@ abstract class WarrantSchema implements ConditionResolver
     }
 
     /**
+     * Whether one of this schema's rows can be named, and so whether it answers a
+     * check about a single row.
+     *
+     * A model names its rows by their key. A virtual table has no key of its own,
+     * so it says how a row is found — by declaring the column its rows are
+     * identified by ({@see key}), or a `matchKey()` that finds one however it
+     * likes.
+     *
+     * A virtual table may legitimately declare neither: a view with no row
+     * identity is still worth filtering, and still worth carrying a per-row
+     * ability column, because both correlate against rows the surrounding query
+     * already produced. What it cannot do is answer about *one* row, so a targeted
+     * check and a row-bound reference are refused rather than failing later on a
+     * key that was never there.
+     */
+    public static function hasRowKey(): bool
+    {
+        return static::hasRows()
+            && (static::model !== '' || static::key !== '' || method_exists(static::class, 'matchKey'));
+    }
+
+    /**
      * Whether this schema overrides {@see virtualTable}.
      *
      * Read by reflection rather than by calling the method, so asking whether a

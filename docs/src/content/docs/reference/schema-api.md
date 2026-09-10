@@ -136,9 +136,9 @@ buying beyond the rows themselves:
 - no primary key of its own. Declare `const key = '<column>'` and the built-in
   row key addresses rows by it, and `$c->row()` resolves to it with no argument.
   Declare neither that nor a [`matchKey()`](#matchkey) and the schema cannot be
-  asked about one row at all — it is still filtered and still carries per-row
-  ability columns, both of which correlate against rows the outer query already
-  produced, but a targeted check against it fails;
+  asked about one row at all — a targeted check and a row-bound reference are both
+  refused up front. It is still filtered and still carries per-row ability
+  columns, since both correlate against rows the outer query already produced;
 - no model to reach it from, so `Model::userHasAbility()` and route-model binding
   do not apply. Start from `Warrant::forSchema(...)->query()` instead.
 

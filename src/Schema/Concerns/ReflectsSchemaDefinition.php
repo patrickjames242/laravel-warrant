@@ -187,6 +187,17 @@ trait ReflectsSchemaDefinition
                 )
             );
         }
+
+        if (! static::hasRowKey()) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Schema [%s] has rows but no way to name one, so it does not support targeted checks; '
+                        .'declare `const key` for the column its rows are identified by, or a matchKey() '
+                        .'of its own. Filtering a query and selecting per-row abilities need neither.',
+                    static::class
+                )
+            );
+        }
     }
 
     /**
