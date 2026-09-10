@@ -67,6 +67,9 @@ trait HasWarrantSchema
      *
      * Omit $column for the model's key. A column that already carries a table
      * prefix is returned untouched, matching qualifyColumn().
+     *
+     * Also reachable from the builder — `$query->warrantQualifyColumn('id')` — so
+     * a scope may use whichever of the two it has to hand.
      */
     public function warrantQualifyColumn(?string $column = null): string
     {

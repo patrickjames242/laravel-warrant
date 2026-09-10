@@ -13,6 +13,16 @@ use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+/** A plain model, never wired to Warrant — the macro still answers for it. */
+class WarrantSchemalessModel extends Model
+{
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+}
+
 /*
 |------------------------------------------------------------------------------
 | A row condition reusing its model's query scopes
@@ -86,6 +96,12 @@ class ConditionScopeModel extends Model
         return $query->where($this->warrantQualifyColumn('owner_id'), $userId);
     }
 
+    /** The builder spelling, reaching the same helper through the macro. */
+    public function scopeOwnedByFollowingRowViaBuilder($query, string $userId)
+    {
+        return $query->where($query->warrantQualifyColumn('owner_id'), $userId);
+    }
+
     /** Reads getTable() to build a subquery — the reason it must stay true. */
     public function scopeHasSibling($query)
     {
@@ -137,6 +153,12 @@ class ConditionScopeSchema extends WarrantSchema
     public function isOwnedFollowingRow(RowConditionContext $c): BuilderContract
     {
         return $c->query->ownedByFollowingRow($c->user->getAuthIdentifier());
+    }
+
+    #[RowCondition]
+    public function isOwnedViaBuilder(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->ownedByFollowingRowViaBuilder($c->user->getAuthIdentifier());
     }
 }
 
@@ -332,4 +354,27 @@ it('keeps the rule alias off the model\'s attributes', function () {
         ->and($model->getAttributes())->not->toHaveKey('warrantCurrentRuleAlias')
         ->and($model->toArray())->not->toHaveKey('warrantCurrentRuleAlias')
         ->and($model->warrantQualifyColumn('owner_id'))->toBe('cs.owner_id');
+});
+
+it('reaches warrantQualifyColumn from the builder as well as the model', function () {
+    /* A scope holds both the model and the builder, so either spelling is a fair
+       guess. This condition uses the builder one; without the macro the scope
+       throws rather than emitting anything. */
+    bindWarrantRules('if is_owned_via_builder they can view');
+
+    $sql = Warrant::guard(makeWarrantTestUser('user-7'))->forSchema((new ConditionScopeSchema))->filterQuery(
+        warrantTestQuery('course_sections as cs'),
+        'view',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "course_sections" as "cs"
+        where ("cs"."owner_id" = 'user-7')
+    SQL));
+});
+
+it('says so when the builder\'s model has no Warrant schema', function () {
+    /* The macro is global, so it answers for models that never opted in. */
+    expect(fn () => WarrantSchemalessModel::query()->warrantQualifyColumn('id'))
+        ->toThrow(BadMethodCallException::class, 'does not use');
 });

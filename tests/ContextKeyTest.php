@@ -160,6 +160,22 @@ it('throws when a required context key is missing', function () {
         ->toThrow(InvalidArgumentException::class, 'requires context key(s) [workspace_id]');
 });
 
+it('treats a required context key present with a null value as supplied', function () {
+    $user = makeWarrantTestUser();
+
+    // Requirement is presence, not truthiness: an explicit null satisfies the
+    // required key and reaches the condition as null, which no row matches.
+    expect(Warrant::guard($user)->forSchema(ContextDocSchema::class)->can('view', 'd1', ['workspace_id' => null]))
+        ->toBeFalse();
+
+    // And an explicit null overrides a non-null defaultContext() value, rather
+    // than falling back to it.
+    useWarrantSchemas(['context_docs' => ContextDocWithDefaults::class]);
+
+    expect(Warrant::guard($user)->forSchema(ContextDocWithDefaults::class)->can('view', 'd1', ['workspace_id' => null]))
+        ->toBeFalse();
+});
+
 it('lets defaultContext() satisfy a required key', function () {
     $user = makeWarrantTestUser();
 
@@ -222,6 +238,16 @@ it('throws when a named ability is missing its per-ability required context', fu
 
     // Supplying the key lets the named check run.
     expect(Warrant::guard($user)->forSchema(ContextDocSchema::class)->can('audit', 'd1', ['workspace_id' => 'w-1', 'as_of_date' => '2026-01-01']))->toBeTrue();
+});
+
+it('treats a per-ability required context key present with a null value as supplied', function () {
+    $user = makeWarrantTestUser();
+    bindWarrantRuleSet(WarrantRuleSet::fromSyntax('they can audit if in_workspace(@context workspace_id) they can view', 'context_docs'));
+
+    // as_of_date is present, so `audit` is checked rather than rejected; its
+    // null value is simply unused by the rule, which grants audit outright.
+    expect(Warrant::guard($user)->forSchema(ContextDocSchema::class)->can('audit', 'd1', ['workspace_id' => 'w-1', 'as_of_date' => null]))
+        ->toBeTrue();
 });
 
 it('skips an ability missing its required context when enumerating no-target abilities', function () {

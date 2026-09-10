@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Warrant;
 
+use BadMethodCallException;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -61,12 +63,46 @@ final class WarrantServiceProvider extends ServiceProvider
         });
 
         $this->flushGuardsBetweenRequests();
+        $this->macroQualifyColumnOntoTheBuilder();
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/warrant.php' => $this->app->configPath('warrant.php'),
             ], 'warrant-config');
         }
+    }
+
+    /**
+     * Reach {@see HasWarrantSchema::warrantQualifyColumn()} from the builder as
+     * well as the model, since a scope holds both and either spelling is a fair
+     * guess:
+     *
+     *     $query->warrantQualifyColumn('id')   // === $this->warrantQualifyColumn('id')
+     *
+     * Laravel sets the precedent — `Builder::qualifyColumn()` is a proxy to the
+     * model's — and without the pair, the builder spelling fails at run time with
+     * nothing to suggest the one that works.
+     *
+     * The macro is global, so it answers for models that have no schema too. That
+     * case is a mistake rather than a question, and says so.
+     */
+    private function macroQualifyColumnOntoTheBuilder(): void
+    {
+        EloquentBuilder::macro('warrantQualifyColumn', function (?string $column = null): string {
+            /** @var EloquentBuilder $this */
+            $model = $this->getModel();
+
+            if (! method_exists($model, 'warrantQualifyColumn')) {
+                throw new BadMethodCallException(sprintf(
+                    'Model [%s] does not use [%s], so it has no row for Warrant to qualify [%s] with.',
+                    $model::class,
+                    HasWarrantSchema::class,
+                    $column ?? $model->getKeyName(),
+                ));
+            }
+
+            return $model->warrantQualifyColumn($column);
+        });
     }
 
     /**

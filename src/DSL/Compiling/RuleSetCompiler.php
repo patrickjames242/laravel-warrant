@@ -656,8 +656,9 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
         }
 
-        // Unbound / no-target: row conditions in B are forced false; the result is
-        // a correlation-free boolean tree spliced inline (negation-aware), so a B
+        // Unbound / no-target: with no row in scope, a row condition in B folds to
+        // unknown, which neither grants nor lifts a deny. The result is a
+        // correlation-free boolean tree spliced inline (negation-aware), so a B
         // that decides outright folds into A instead of stopping at a `1 = 0`.
         return (new CompiledWhereClauseNode)->addAnd(
             $bCompiler->compile($bCtx)->node(),
@@ -785,9 +786,10 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
         }
 
-        // Unbound / no-target: row conditions in B are forced false (validation
-        // already forbids them here); the result is a correlation-free boolean
-        // tree spliced inline (negation-aware).
+        // Unbound / no-target: as in a can(...), a row condition in B folds to
+        // unknown for want of a row — a predicate may freely mix row and global
+        // leaves, so validation judges no leaf on its row-ness. The result is a
+        // correlation-free boolean tree spliced inline (negation-aware).
         return (new CompiledWhereClauseNode)->addAnd(
             $bCompiler->compile($bCtx)->node(),
             negated: $ctx->negate,
