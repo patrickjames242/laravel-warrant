@@ -235,7 +235,7 @@ final class RuleSyntaxWriter
             . $this->writeHandleAndWith(
                 $node->schemaKey,
                 $node->isRowBound,
-                $node->boundRow,
+                $node->boundKey,
                 $node->contextMap,
                 $node->alias,
             );
@@ -247,7 +247,7 @@ final class RuleSyntaxWriter
             . $this->writeHandleAndWith(
                 $node->schemaKey,
                 $node->isRowBound,
-                $node->boundRow,
+                $node->boundKey,
                 $node->contextMap,
                 $node->alias,
             );
@@ -255,22 +255,27 @@ final class RuleSyntaxWriter
 
     /**
      * Render the shared cross-schema tail: the handle (`schema` or
-     * `schema(<row>)`), an optional `as <alias>`, an optional `with <map>`, and
+     * `schema(<row>, …)`), an optional `as <alias>`, an optional `with <map>`, and
      * the closing paren.
      *
+     * A row-bound handle always carries its parentheses, empty ones included:
+     * `schema()` addresses a row with a key that takes no arguments, and bare
+     * `schema` addresses none, so the parentheses are what tell them apart.
+     *
+     * @param array<int, mixed> $boundKey
      * @param array<string, mixed> $contextMap
      */
     private function writeHandleAndWith(
         string $schemaKey,
         bool $isRowBound,
-        mixed $boundRow,
+        array $boundKey,
         array $contextMap,
         ?string $alias = null,
     ): string {
         $out = $schemaKey;
 
         if ($isRowBound) {
-            $out .= '(' . $this->arg($boundRow) . ')';
+            $out .= '(' . implode(', ', array_map(fn (mixed $argument): string => $this->arg($argument), $boundKey)) . ')';
         }
 
         if ($alias !== null) {

@@ -59,7 +59,7 @@ trait DiagnosesDenials
      */
     protected function diagnoseDenial(
         string|array $abilities,
-        Model|string|int|null $target,
+        Model|string|int|array|null $target,
         AbilityMatchMode $matchMode,
         array $context = []
     ): ?Throwable
@@ -78,23 +78,41 @@ trait DiagnosesDenials
         if ($target !== null) {
             /** @var Model $model */
             $model = new ($this->schema::model);
-            $targetId = $target instanceof Model ? $target->getKey() : $target;
             $targeted = true;
+            $effectiveContext = $this->schema->resolveEffectiveContext($context);
 
             /* A closure, not a QueryFactory: each iteration below needs a fresh
-               *seeded* query — one carrying the table and the key filter — to run
-               its own `exists()` against. The factory the compiler wants is the
-               separate, blank one derived from it. */
-            $baseQuery = fn (): Builder => $model->newQueryWithoutScopes()->whereKey($targetId)->getQuery();
+               *seeded* query — one carrying the table and the row key's filter —
+               to run its own `exists()` against. The factory the compiler wants is
+               the separate, blank one derived from it.
+
+               Seeded through the schema's own row key, so a schema that addresses
+               rows by something other than a primary key is diagnosed about the
+               same row the check decided on. */
+            $baseQuery = function () use ($model, $target, $effectiveContext): Builder {
+                $query = $model->newQueryWithoutScopes()->getQuery();
+                $this->narrowQueryToTarget($query, $target, $effectiveContext);
+
+                return $query;
+            };
+
+            /* One seeded query answers both questions below, and asking the key
+               once settles which row this is about. A key that answers unknown
+               named no row, and there is nothing to blame for a row nobody named. */
+            $seeded = $model->newQueryWithoutScopes()->getQuery();
+
+            if (! $this->narrowQueryToTarget($seeded, $target, $effectiveContext)) {
+                return null;
+            }
 
             // Nothing to blame if the row does not exist even without scopes.
-            if (! $baseQuery()->exists()) {
+            if (! $seeded->exists()) {
                 return null;
             }
 
             $targetModel = $target instanceof Model
                 ? $target
-                : $model->newQueryWithoutScopes()->whereKey($targetId)->first();
+                : $model->newQueryWithoutScopes()->setQuery($baseQuery())->first();
 
             /* What the *check* would have handed to a row condition, which is not
                the same thing as $targetModel above: that one is fetched when the

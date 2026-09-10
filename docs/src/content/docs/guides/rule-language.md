@@ -273,12 +273,26 @@ be negated into granting any. See [How it compiles](/guides/how-it-compiles/).
 
 ## What a row selector may be
 
-The value inside a `can(... for schema(<row>))` or `check(... for schema(<row>))`
-handle identifies one row of the referenced schema. (Both builtins — handles, the
-`with` map, and the SQL they compile to — have their own page:
-[Cross-schema checks](/guides/cross-schema-checks/).) It is bound into
-`where <table>.<key> = ?`, so it must be something a database can compare against
-a key. Warrant accepts:
+The arguments inside a `can(... for schema(<args>))` or
+`check(... for schema(<args>))` handle identify one row of the referenced schema.
+(Both builtins — handles, the `with` map, and the SQL they compile to — have their
+own page: [Cross-schema checks](/guides/cross-schema-checks/).)
+
+They are the arguments of that schema's **row key**, bound positionally exactly as
+a condition's are. By default a schema is addressed by its primary key, so there
+is one argument and it lands in `where <table>.<key> = ?`. A schema that overrides
+[`matchKey()`](/reference/schema-api/#matchkey) is addressed by whatever that
+declares — a natural key, or several columns where no single one is unique:
+
+```text
+if can(assign for shift_days(@column team_id, @column starts_on)) they can create
+```
+
+How many arguments a handle must supply is decided by that key's parameters, and
+supplying too few is reported when the rule is validated.
+
+Each argument must be something a database can compare against a column. Warrant
+accepts:
 
 | Value | What happens |
 | --- | --- |

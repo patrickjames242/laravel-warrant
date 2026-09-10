@@ -49,6 +49,15 @@ final class BuilderFakeResolver implements ConditionResolver
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
 
+    public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', true, 1); }
+
+    public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
+    {
+        return ($arguments[0] ?? null) === null
+            ? null
+            : $whereClause->where(($rowQualifier ?? 'docs').'.id', '=', $arguments[0]);
+    }
+
     public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
     {
         // Whatever the compiler calls this frame's row, else CompilerDocModel's table.
@@ -335,7 +344,7 @@ it('leaves a cross-schema reference unbound when no row selector is given', func
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeFalse();
-        expect($node->boundRow)->toBeNull();
+        expect($node->boundKey)->toBe([]);
     }
 });
 
@@ -347,7 +356,7 @@ it('keeps an explicit null row selector row-bound so validation can reject it', 
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeTrue();
-        expect($node->boundRow)->toBeNull();
+        expect($node->boundKey)->toBe([null]);
     }
 });
 
@@ -363,7 +372,7 @@ it('passes a model row selector through untouched', function () {
     $node = WarrantRule::build()->ifCan('manage', 'xs_target', $model)->buildConditions();
 
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundRow)->toBe($model);
+    expect($node->boundKey)->toBe([$model]);
 });
 
 it('preserves the with map insertion order', function () {
@@ -466,7 +475,7 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
     // The round-trip only closes if the binding refills the selector.
     $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
 
-    expect($reparsed->conditions->boundRow)->toBe($bound->bindings[0]);
+    expect($reparsed->conditions->boundKey)->toBe([$bound->bindings[0]]);
     expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));
 });
 

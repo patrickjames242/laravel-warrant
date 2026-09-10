@@ -653,16 +653,18 @@ function argToString(mixed $value): string
 }
 
 /**
- * Render a cross-schema handle: the schema, its row selector when the reference
- * is row-bound (an unbound handle has no parens at all — the distinction NoRow
- * exists to preserve), and any `with` map.
+ * Render a cross-schema handle: the schema, its row-key arguments when the
+ * reference is row-bound (an unbound handle has no parens at all — the
+ * distinction NoRow exists to preserve, and the reason empty parens are still
+ * rendered for a row-bound handle whose key takes no arguments), and any `with`
+ * map.
  */
 function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): string
 {
     $out = $node->schemaKey;
 
     if ($node->isRowBound) {
-        $out .= '(' . argToString($node->boundRow) . ')';
+        $out .= '(' . implode(', ', array_map(fn ($a) => argToString($a), $node->boundKey)) . ')';
     }
 
     if ($node->alias !== null) {

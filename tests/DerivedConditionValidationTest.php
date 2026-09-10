@@ -294,7 +294,7 @@ class DvDocSchema extends WarrantSchema
     #[RowCondition]
     public function nullRowSelector(RowConditionContext $c): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, row: null);
+        return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, key: null);
     }
 }
 

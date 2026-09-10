@@ -3,6 +3,7 @@
 namespace Warrant\Schema;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\ConditionResolver;
 use Warrant\Facades\Warrant;
@@ -12,6 +13,7 @@ use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
+use Warrant\Schema\Conditions\RowConditionContext;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
@@ -75,6 +77,49 @@ abstract class WarrantSchema implements ConditionResolver
     public static function guard(?Authenticatable $user = null): WarrantGuardForSchema
     {
         return Warrant::forSchema(static::class, $user);
+    }
+
+    /**
+     * Narrow a query to the row a handle's arguments name.
+     *
+     * This is how a row is addressed. Every row-bound reference goes through it —
+     * a `can(... for <schema>(<args>))` or `check(... for <schema>(<args>))` hop,
+     * and a targeted check from PHP — with the arguments the caller supplied
+     * bound positionally after the context, exactly as a condition's are.
+     *
+     * The default addresses a row by its primary key, which is what the single
+     * argument of `documents(@context id)` means. Override it to address rows by
+     * something else — a natural key, or several columns where no single one is
+     * unique:
+     *
+     * ```php
+     * public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
+     * {
+     *     return $c->query
+     *         ->where($c->row('tenant_slug'), '=', $tenant)
+     *         ->where($c->row('slug'), '=', $slug);
+     * }
+     * ```
+     *
+     * The override's parameters decide how many arguments a handle must supply,
+     * and validation reports a mismatch against the rule text. Type them loosely:
+     * a `@column` or `@sql` argument arrives as an
+     * {@see \Illuminate\Database\Query\Expression}, not a scalar, so a
+     * `string` parameter would reject the very references a hop correlates with.
+     *
+     * **A key must identify at most one row.** Nothing enforces it, and a key
+     * that matches several turns an `exists` from "this row grants it" into "some
+     * row grants it".
+     *
+     * Returning null answers unknown, which neither grants nor lifts a deny — the
+     * safe answer for arguments that name no row. That is why the default returns
+     * null for a null key: an absent `@context` value, or a model with no key
+     * yet, names nothing, and `exists` cannot report unknown once the subquery is
+     * built.
+     */
+    public function matchKey(RowConditionContext $c, mixed $key): ?Builder
+    {
+        return $key === null ? null : $c->query->where($c->row(), '=', $key);
     }
 
     /**

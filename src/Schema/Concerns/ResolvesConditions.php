@@ -67,8 +67,6 @@ trait ResolvesConditions
             );
         }
 
-        $methodName = $conditionDefinition->methodName;
-
         /* The context object is always the method's first parameter; any further
            parameters are the condition's DSL arguments, bound positionally
            (parameter #2 -> argument[0], and so on). Supplying more arguments than
@@ -86,10 +84,103 @@ trait ResolvesConditions
             ));
         }
 
-        if ($conditionDefinition->isRow) {
+        return $this->dispatchDefinition(
+            $conditionDefinition,
+            $conditionKey,
+            $currentUser,
+            $whereClause,
+            $targeted,
+            $arguments,
+            $context,
+            $targetModel,
+            $rowQualifier,
+        );
+    }
+
+    /**
+     * Narrow a where clause to the row a handle's arguments name, by dispatching
+     * the schema's {@see \Warrant\Schema\WarrantSchema::matchKey()}.
+     *
+     * The key is no part of the schema's rule vocabulary — no rule names it, and it
+     * carries no condition attribute — but it is dispatched exactly as a row
+     * condition is: the same context object, the same Eloquent wrapper over the
+     * same where clause, the same positional argument binding. So a key may spend
+     * a model scope, follow an alias through {@see RowConditionContext::row()}, and
+     * answer unknown by returning null.
+     *
+     * Always targeted, because a key names a row.
+     *
+     * @param array<int, mixed> $arguments The resolved handle arguments.
+     * @param array<string, mixed> $context The effective check-time context bag.
+     * @param string|null $rowQualifier The SQL name the row answers to where this
+     *   predicate lands. Null falls back to the schema model's own table.
+     */
+    public function applyKeyFilter(
+        Authenticatable $currentUser,
+        Builder $whereClause,
+        array $arguments = [],
+        array $context = [],
+        ?Model $targetModel = null,
+        ?string $rowQualifier = null
+    ): mixed
+    {
+        $keyDefinition = static::keyDefinition();
+
+        /* As for a condition, extra arguments are ignored by the call and stay
+           reachable on $c->arguments, while a required parameter with no argument
+           is a rule-level mistake. Validation reports it against the rule text;
+           this guards every other way a handle reaches the compiler. */
+        if (count($arguments) < $keyDefinition->requiredArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'The row key for schema [%s] requires at least %d argument(s), but %d were supplied.',
+                static::class,
+                $keyDefinition->requiredArgumentCount,
+                count($arguments)
+            ));
+        }
+
+        return $this->dispatchDefinition(
+            $keyDefinition,
+            $keyDefinition->methodName,
+            $currentUser,
+            $whereClause,
+            true,
+            $arguments,
+            $context,
+            $targetModel,
+            $rowQualifier,
+        );
+    }
+
+    /**
+     * Build the context a definition's method expects, call it, and normalize what
+     * it answered.
+     *
+     * Shared by the condition and the key dispatches, which differ only in how they
+     * find their definition and word an arity failure.
+     *
+     * @param string $label How to name this definition in an error.
+     * @param array<int, mixed> $arguments
+     * @param array<string, mixed> $context
+     */
+    private function dispatchDefinition(
+        ConditionDefinition $definition,
+        string $label,
+        Authenticatable $currentUser,
+        Builder $whereClause,
+        bool $targeted,
+        array $arguments,
+        array $context,
+        ?Model $targetModel,
+        ?string $rowQualifier
+    ): mixed
+    {
+        $methodName = $definition->methodName;
+
+        if ($definition->isRow) {
             if (! $targeted) {
                 throw new InvalidArgumentException(
-                    sprintf('Condition [%s] on schema [%s] requires a target row.', $conditionKey, static::class)
+                    sprintf('Condition [%s] on schema [%s] requires a target row.', $label, static::class)
                 );
             }
 
@@ -156,6 +247,39 @@ trait ResolvesConditions
     public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
     {
         return static::conditionDefinitionForKey($conditionKey);
+    }
+
+    public function getKeyDefinition(): ConditionDefinition
+    {
+        return static::keyDefinition();
+    }
+
+    public function applyKey(
+        Authenticatable $user,
+        \Illuminate\Database\Query\Builder $whereClause,
+        array $arguments,
+        array $context = [],
+        ?Model $targetModel = null,
+        ?string $rowQualifier = null,
+    ): ?\Illuminate\Database\Query\Builder
+    {
+        $result = $this->applyKeyFilter($user, $whereClause, $arguments, $context, $targetModel, $rowQualifier);
+
+        /* A key narrows a query or answers unknown, and nothing else. The other
+           shapes a condition may answer with have no meaning here: the predicate
+           this builds lands inside an `exists` about one row, so a key that
+           decided the outcome outright or derived itself into an expression would
+           be answering a different question than the one it was asked. */
+        if ($result !== null && ! $result instanceof \Illuminate\Database\Query\Builder) {
+            throw new InvalidArgumentException(sprintf(
+                'The row key for schema [%s] must return the query it constrained, or null to answer '
+                    .'unknown; it returned a [%s].',
+                static::class,
+                get_debug_type($result),
+            ));
+        }
+
+        return $result;
     }
 
     public function applyCondition(

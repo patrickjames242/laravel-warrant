@@ -18,12 +18,12 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * named. What it may not hold is a constant, which would decide the predicate
  * while asking the target nothing.
  *
- * {@see $isRowBound} is tracked separately from {@see $boundRow} because a row
- * selector may itself resolve to `null` (a `null` literal or a `:name` binding),
- * which must stay distinct from an unbound handle.
+ * {@see $isRowBound} is tracked separately from {@see $boundKey} because an empty
+ * argument list is not an absent handle: `schema()` addresses a row with a key
+ * that requires no arguments, while bare `schema` addresses no row at all.
  *
- * As with {@see CrossSchemaCanNode}, {@see $boundRow} and the values of
- * {@see $contextMap} hold what the parser resolved: concrete scalars for inline
+ * As with {@see CrossSchemaCanNode}, the elements of {@see $boundKey} and the
+ * values of {@see $contextMap} hold what the parser resolved: concrete scalars for inline
  * literals and `:name` / `?` bindings, a symbolic {@see ContextRef} for a
  * `@context <key>` reference (filled per check at compile time), or a symbolic
  * {@see ColumnRef} for a `@column [<name>.]<column>` reference (resolved to a
@@ -37,6 +37,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {
     /**
+     * @param array<int, mixed> $boundKey The handle's row-selector arguments, bound
+     *   positionally to the target schema's row key. Empty on an unbound handle,
+     *   and also on `schema()`, whose key requires no arguments.
      * @param array<string, mixed> $contextMap Explicit boundary context, keyed by
      *   the target schema's key name; values are scalars, {@see ContextRef}s, or
      *   {@see ColumnRef}s.
@@ -54,7 +57,7 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
         public string $schemaKey,
         public IBooleanExpressionNode $predicate,
         public bool $isRowBound = false,
-        public mixed $boundRow = null,
+        public array $boundKey = [],
         public array $contextMap = [],
         public ?string $alias = null,
     ) {

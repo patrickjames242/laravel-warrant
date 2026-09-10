@@ -225,12 +225,15 @@ final class RuleSetValidator
             ));
         }
 
-        // A specified row target must resolve to a value. A literal `null` (or a
-        // `:name`/`?` binding that resolved to null) can never match a row, so it
-        // is a mistake rather than a valid selector; reject it here. A `@context`
-        // reference is a symbolic ContextRef, not null — its value is filled per
-        // check, so its nullability stays a compile-time concern, not a static one.
-        if ($node->isRowBound && $node->boundRow === null) {
+        $this->assertKeyArityIsSatisfied('can', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
+
+        // Every argument of a specified row target must resolve to a value. A
+        // literal `null` (or a `:name`/`?` binding that resolved to null) can
+        // never match a row, so it is a mistake rather than a valid selector;
+        // reject it here, in any position. A `@context` reference is a symbolic
+        // ContextRef, not null — its value is filled per check, so its
+        // nullability stays a compile-time concern, not a static one.
+        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
             throw new InvalidArgumentException(sprintf(
                 'A can(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
                 $node->schemaKey,
@@ -242,7 +245,7 @@ final class RuleSetValidator
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->boundKey, ...array_values($node->contextMap)], $scope);
     }
 
     /**
@@ -278,11 +281,14 @@ final class RuleSetValidator
             ));
         }
 
-        // A specified row target must resolve to a value; a literal `null` (or a
-        // binding that resolved to null) can never match a row. A `@context`
-        // reference is a symbolic ContextRef, not null — filled per check — so its
-        // nullability stays a compile-time concern, not a static one. (Same as can.)
-        if ($node->isRowBound && $node->boundRow === null) {
+        $this->assertKeyArityIsSatisfied('check', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
+
+        // Every argument of a specified row target must resolve to a value; a
+        // literal `null` (or a binding that resolved to null) can never match a
+        // row, in any position. A `@context` reference is a symbolic ContextRef,
+        // not null — filled per check — so its nullability stays a compile-time
+        // concern, not a static one. (Same as can.)
+        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
             throw new InvalidArgumentException(sprintf(
                 'A check(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
                 $node->schemaKey,
@@ -291,7 +297,7 @@ final class RuleSetValidator
 
         $this->assertAliasHasARow('check', $node->schemaKey, $node->isRowBound, $node->alias);
 
-        $this->assertColumnRefsInScope([$node->boundRow, ...array_values($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->boundKey, ...array_values($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
@@ -374,6 +380,48 @@ final class RuleSetValidator
             $alias,
             $schemaKey,
             $alias,
+        ));
+    }
+
+    /**
+     * A row-bound handle must supply every argument the target schema's row key
+     * requires — the parameters of its
+     * {@see \Warrant\Schema\WarrantSchema::matchKey()} that have no default.
+     *
+     * Reported here so a handle written as rule text names its mistake before
+     * anything is compiled. The key's own dispatch makes the same check, for the
+     * handles that never pass through the parser.
+     *
+     * Extra arguments are allowed, exactly as they are for a condition: they are
+     * ignored by the call and stay reachable on `$c->arguments`.
+     *
+     * @param class-string<\Warrant\Schema\WarrantSchema> $targetClass
+     * @param array<int, mixed> $boundKey
+     */
+    private function assertKeyArityIsSatisfied(
+        string $builtin,
+        string $schemaKey,
+        string $targetClass,
+        bool $isRowBound,
+        array $boundKey,
+    ): void {
+        if (! $isRowBound) {
+            return;
+        }
+
+        $required = $targetClass::keyDefinition()->requiredArgumentCount;
+
+        if (count($boundKey) >= $required) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'A %s(...) reference to schema [%s] supplies %d row-key argument(s), but that schema\'s row '
+                .'key requires at least %d.',
+            $builtin,
+            $schemaKey,
+            count($boundKey),
+            $required,
         ));
     }
 

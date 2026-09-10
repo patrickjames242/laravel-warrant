@@ -51,9 +51,48 @@ public static function requiredContextKeys(): array;  // schema-wide required ke
 ### Overridable hooks
 
 ```php
+public function matchKey(RowConditionContext $c, mixed $key): ?Builder;  // default: primary-key equality
 public function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
 protected function defaultContext(): array;              // default []; merged UNDER explicit context
 ```
+
+#### `matchKey`
+
+How this schema's rows are addressed. Every row-bound reference goes through it —
+a `can(... for <schema>(<args>))` or `check(... for <schema>(<args>))` hop, and a
+targeted check from PHP — with the caller's arguments bound positionally after the
+context, exactly as a condition's are.
+
+The default addresses a row by its primary key, which is what the single argument
+of `documents(@context id)` means. Override it to address rows by something else:
+
+```php
+public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
+{
+    return $c->query
+        ->where($c->row('tenant_slug'), '=', $tenant)
+        ->where($c->row('slug'), '=', $slug);
+}
+```
+
+- **Arity comes from the parameters.** Those without a default are required, and a
+  handle supplying too few is rejected when the rule is validated. A variadic tail
+  is never required, so a variadic key accepts any count — including none, which
+  is what makes `schema()` legal (and it stays distinct from bare `schema`, which
+  addresses no row at all).
+- **Type the parameters loosely.** A `@column` or `@sql` argument arrives as an
+  `Illuminate\Database\Query\Expression`, not a scalar, so a `string` parameter
+  would reject the very references a hop correlates with. Use `mixed`.
+- **Returning `null` answers unknown**, which neither grants nor lifts a deny. The
+  default does this for a null key, because an absent `@context` value or a model
+  with no key yet names no row — and an `exists` cannot report unknown once its
+  subquery is built.
+- **A key must identify at most one row.** Nothing enforces it; a key matching
+  several turns an `exists` from "this row grants it" into "some row grants it".
+- It is dispatched like a row condition — same context object, same Eloquent
+  wrapper, same alias handling via `$c->row()` — but it is **not** part of the
+  schema's vocabulary. No rule can name it, and declaring `#[RowCondition]` on it
+  is an error.
 
 ### Denial-message hooks
 

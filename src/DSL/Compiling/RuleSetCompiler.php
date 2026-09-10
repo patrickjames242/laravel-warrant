@@ -452,13 +452,30 @@ final class RuleSetCompiler
      * than binding at all, and Laravel resolves a {@see BackedEnum} through
      * `castBinding()` and a {@see DateTimeInterface} through `prepareBindings()`.
      *
+     * A model is read for its key only when it is the handle's *sole* argument,
+     * which is the case the default key describes — one value, the primary key.
+     * A key of several parts is the schema's own design, so a model among its
+     * arguments is passed through as written and is that key's business.
+     *
+     * @param array<int, mixed> $values The handle's resolved arguments.
      * @param class-string<Model>|string $bModelClass B's model class ('' for a
      *   capability schema, which validation already forbids from being row-bound).
-     * @return array{0: mixed, 1: ?Model} The value to bind, and the model to
-     *   thread into B's compile (null unless a hydrated one was supplied).
+     * @return array{0: array<int, mixed>, 1: ?Model} The arguments to hand the
+     *   key, and the model to thread into B's compile (null unless a hydrated one
+     *   was supplied as the sole argument).
      */
-    private function resolveBoundRow(mixed $value, string $bSchemaKey, string $bModelClass): array
+    private function resolveKeyArguments(array $values, string $bSchemaKey, string $bModelClass): array
     {
+        if (count($values) !== 1) {
+            foreach ($values as $value) {
+                $this->assertKeyArgumentIsBindable($value, $bSchemaKey);
+            }
+
+            return [$values, null];
+        }
+
+        [$value] = $values;
+
         if ($value instanceof Model) {
             if ($bModelClass === '' || ! $value instanceof $bModelClass) {
                 throw new InvalidArgumentException(sprintf(
@@ -473,14 +490,32 @@ final class RuleSetCompiler
             /* Hydrated only, as at the guard: an unsaved or deleted instance
                still names a key, but proves nothing about the row being there,
                so it must not let a condition answer from memory. */
-            return [$value->getKey(), $value->exists ? $value : null];
+            return [[$value->getKey()], $value->exists ? $value : null];
         }
 
+        $this->assertKeyArgumentIsBindable($value, $bSchemaKey);
+
+        return [[$value], null];
+    }
+
+    /**
+     * Reject an argument that could never reach SQL as a value.
+     *
+     * Three object types pass because they already mean something as a binding:
+     * an {@see Expression} is `@column` / `@sql` splicing raw SQL rather than
+     * binding at all, and Laravel resolves a {@see BackedEnum} through
+     * `castBinding()` and a {@see DateTimeInterface} through `prepareBindings()`.
+     * A {@see Model} passes too — as one part of a key of several it is whatever
+     * that key makes of it.
+     */
+    private function assertKeyArgumentIsBindable(mixed $value, string $bSchemaKey): void
+    {
         if (
             is_object($value)
             && ! $value instanceof Expression
             && ! $value instanceof BackedEnum
             && ! $value instanceof DateTimeInterface
+            && ! $value instanceof Model
         ) {
             throw new InvalidArgumentException(sprintf(
                 'The row selector for schema [%s] is a [%s], which cannot identify a row; '
@@ -489,8 +524,6 @@ final class RuleSetCompiler
                 $value::class,
             ));
         }
-
-        return [$value, null];
     }
 
     /**
@@ -602,7 +635,7 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
-            $selector = $this->resolveArgValues([$node->boundRow], $ctx);
+            $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
@@ -610,26 +643,36 @@ final class RuleSetCompiler
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
-            [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $selector[0],
+            [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
+                $selector,
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            /* A selector that resolved to nothing — an absent `@context`, or a
-               model with no key yet — does not name a row, so this reference is
-               unanswerable. It resolves here, before the subquery is built,
-               because `exists` is never unknown: being a row-count question, a
-               subquery can only report a definite answer about a row nobody
-               named. Validation rejects a *literal* null selector; a `@context`
-               one is filled per check, so this is the point at which it is known. */
-            if ($rowId === null) {
+            $bSubquery = $ctx->queries->newQuery()
+                ->from($this->hopFrom($bModel->getTable(), $bQualifier));
+
+            /* B says how its own rows are addressed, and the handle's arguments
+               are that key's arguments. A key given nothing that names a row
+               answers unknown — an absent `@context`, or a model with no key yet
+               — and that settles the reference here, before the subquery is
+               finished, because `exists` is never unknown: being a row-count
+               question, a subquery can only report a definite answer about a row
+               nobody named. Validation rejects a *literal* null selector; a
+               `@context` one is filled per check, so this is the point at which
+               it is known. */
+            $keyed = $bSchema->applyKey(
+                $ctx->user,
+                $bSubquery,
+                $keyArguments,
+                $bContext,
+                $bTargetModel,
+                $bQualifier,
+            );
+
+            if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
-
-            $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($bModel->getTable(), $bQualifier))
-                ->where($bQualifier . '.' . $bModel->getKeyName(), '=', $rowId);
 
             /* A's model never crosses the boundary — A's row is not B's row — but
                the *selector* may itself have been B's row, in which case B compiles
@@ -738,7 +781,7 @@ final class RuleSetCompiler
             $bModel = new ($bClass::model);
             $this->assertSameConnection($ctx->queries, $bModel, $node->schemaKey);
 
-            $selector = $this->resolveArgValues([$node->boundRow], $ctx);
+            $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
@@ -746,26 +789,36 @@ final class RuleSetCompiler
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
-            [$rowId, $bTargetModel] = $this->resolveBoundRow(
-                $selector[0],
+            [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
+                $selector,
                 $node->schemaKey,
                 $bClass::model,
             );
 
-            /* A selector that resolved to nothing — an absent `@context`, or a
-               model with no key yet — does not name a row, so this reference is
-               unanswerable. It resolves here, before the subquery is built,
-               because `exists` is never unknown: being a row-count question, a
-               subquery can only report a definite answer about a row nobody
-               named. Validation rejects a *literal* null selector; a `@context`
-               one is filled per check, so this is the point at which it is known. */
-            if ($rowId === null) {
+            $bSubquery = $ctx->queries->newQuery()
+                ->from($this->hopFrom($bModel->getTable(), $bQualifier));
+
+            /* B says how its own rows are addressed, and the handle's arguments
+               are that key's arguments. A key given nothing that names a row
+               answers unknown — an absent `@context`, or a model with no key yet
+               — and that settles the reference here, before the subquery is
+               finished, because `exists` is never unknown: being a row-count
+               question, a subquery can only report a definite answer about a row
+               nobody named. Validation rejects a *literal* null selector; a
+               `@context` one is filled per check, so this is the point at which
+               it is known. */
+            $keyed = $bSchema->applyKey(
+                $ctx->user,
+                $bSubquery,
+                $keyArguments,
+                $bContext,
+                $bTargetModel,
+                $bQualifier,
+            );
+
+            if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
-
-            $bSubquery = $ctx->queries->newQuery()
-                ->from($this->hopFrom($bModel->getTable(), $bQualifier))
-                ->where($bQualifier . '.' . $bModel->getKeyName(), '=', $rowId);
 
             // As in a row-bound can(...): A's model never crosses into B, but the
             // selector may have been B's own row.
@@ -867,7 +920,7 @@ final class RuleSetCompiler
             ));
         }
 
-        if ($node->isRowBound && $node->boundRow === null) {
+        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id '
                     .'or a @context reference, or drop the row selector.',

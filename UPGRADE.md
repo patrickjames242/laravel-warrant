@@ -1,5 +1,50 @@
 # Upgrade guide
 
+## A handle's row selector is an argument list, and `$row` is now `$key`
+
+A row-bound handle's selector is the argument list of the target schema's **row
+key** — its [`matchKey()`](https://laravel-warrant.dev/reference/schema-api/#matchkey),
+whose default addresses a row by its primary key. So `documents(@context id)`
+means exactly what it always did, and a schema that overrides `matchKey()` can be
+addressed by several columns:
+
+```text
+if can(assign for shift_days(@column team_id, @column starts_on)) they can create
+```
+
+**The breaking part** is the fluent builder's parameter name. `ifCan`, `ifCheck`
+and their `andIf`/`orIf` variants take `$key` where they took `$row`:
+
+```php
+->ifCan('view', 'folders', key: null)      // was: row: null
+->ifCan('view', 'folders', key: $id ?? new NoRow)
+```
+
+Positional calls are unaffected — only named arguments need changing. Search for
+`row:` in your rule-building code.
+
+A key of several parts is passed as a list, bound positionally to `matchKey()`'s
+parameters:
+
+```php
+->ifCan('assign', 'shift_days', [Ref::column('team_id'), Ref::column('starts_on')])
+```
+
+The same list form works as a check target:
+
+```php
+Warrant::forSchema(ShiftDaySchema::class)->can('assign', [$team->id, '2026-09-14']);
+Warrant::can('assign', [ShiftDaySchema::class, [$team->id, '2026-09-14']]);
+```
+
+An **empty** list is still a row target — a row addressed by a key that requires no
+arguments, the counterpart of `schema()` in rule text. Against the default key it
+fails with an arity error, so a `[]` arriving from a failed lookup is caught rather
+than silently widening the question. Only `null` is a no-target check.
+
+If you implement `ConditionResolver` directly rather than extending
+`WarrantSchema`, it gains two members: `getKeyDefinition()` and `applyKey()`.
+
 ## A condition may answer `null`, and a forgotten `return` now throws
 
 A condition has a fourth way to answer: **`null`, meaning unknown** — the question

@@ -22,7 +22,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function can(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
+    public function can(string|array $abilities, Model|string|int|array|null $target = null, array $context = []): bool
     {
         return $this->hasAbilities($abilities, $target, AbilityMatchMode::ALL, $context);
     }
@@ -32,7 +32,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function canAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
+    public function canAny(string|array $abilities, Model|string|int|array|null $target = null, array $context = []): bool
     {
         return $this->hasAbilities($abilities, $target, AbilityMatchMode::ANY, $context);
     }
@@ -42,7 +42,7 @@ trait ChecksAbilities
      *
      * @param string|array<int, string> $abilities
      */
-    public function cannot(string|array $abilities, Model|string|int|null $target = null, array $context = []): bool
+    public function cannot(string|array $abilities, Model|string|int|array|null $target = null, array $context = []): bool
     {
         return ! $this->can($abilities, $target, $context);
     }
@@ -54,7 +54,7 @@ trait ChecksAbilities
      * @param string|array<int, string> $abilities
      * @throws \Throwable
      */
-    public function authorize(string|array $abilities, Model|string|int|null $target = null, array $context = []): void
+    public function authorize(string|array $abilities, Model|string|int|array|null $target = null, array $context = []): void
     {
         $this->assertHasAbilities($abilities, $target, AbilityMatchMode::ALL, $context);
     }
@@ -65,7 +65,7 @@ trait ChecksAbilities
      * @param string|array<int, string> $abilities
      * @throws \Throwable
      */
-    public function authorizeAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): void
+    public function authorizeAny(string|array $abilities, Model|string|int|array|null $target = null, array $context = []): void
     {
         $this->assertHasAbilities($abilities, $target, AbilityMatchMode::ANY, $context);
     }
@@ -75,7 +75,7 @@ trait ChecksAbilities
      *
      * @return array<int, string>
      */
-    public function abilities(Model|string|int|null $target = null, array $context = []): array
+    public function abilities(Model|string|int|array|null $target = null, array $context = []): array
     {
         $target = $this->resolveCheckTarget($target);
 
@@ -87,7 +87,13 @@ trait ChecksAbilities
 
         /** @var Model $model */
         $model = new ($this->schema::model);
-        $targetId = $target instanceof Model ? $target->getKey() : $target;
+        $query = $model->newQuery()->getQuery();
+
+        /* The row is named by the schema's own key, which may answer unknown —
+           arguments that name no row. Nothing to enumerate abilities for then. */
+        if (! $this->narrowQueryToTarget($query, $target, $this->schema->resolveEffectiveContext($context))) {
+            return [];
+        }
 
         // selectAbilitiesInQuery adds the abilities list via selectSub aliased
         // AS abilities — NOT a real column on the underlying table. Using
@@ -96,7 +102,7 @@ trait ChecksAbilities
         // ['abilities'], wiping the selectSub and yielding null. Read the
         // hydrated row instead so the alias survives.
         $row = (array) $this->selectAbilitiesInQuery(
-            query: $model->newQuery()->whereKey($targetId)->getQuery(),
+            query: $query,
             context: $context,
         )->first();
         $selectedAbilities = $row['abilities'] ?? null;
@@ -119,7 +125,7 @@ trait ChecksAbilities
      */
     private function hasAbilities(
         string|array $abilities,
-        Model|string|int|null $target,
+        Model|string|int|array|null $target,
         AbilityMatchMode $matchMode,
         array $context
     ): bool {
@@ -131,8 +137,14 @@ trait ChecksAbilities
 
             /** @var Model $model */
             $model = new ($this->schema::model);
-            $targetId = $target instanceof Model ? $target->getKey() : $target;
-            $query = $model->newQuery()->whereKey($targetId)->getQuery();
+            $query = $model->newQuery()->getQuery();
+
+            /* An unknown key names no row, and a check about a row nobody named
+               has no answer — which grants nothing, the same as a rule that could
+               not be evaluated. */
+            if (! $this->narrowQueryToTarget($query, $target, $this->schema->resolveEffectiveContext($context))) {
+                return false;
+            }
 
             /* Read the gate's decision before spending a query on it: the rules
                often settle a check without looking at the row at all. A hydrated
@@ -180,7 +192,7 @@ trait ChecksAbilities
      */
     private function assertHasAbilities(
         string|array $abilities,
-        Model|string|int|null $target,
+        Model|string|int|array|null $target,
         AbilityMatchMode $matchMode,
         array $context
     ): void {

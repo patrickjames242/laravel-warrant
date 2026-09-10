@@ -166,22 +166,29 @@ sub-expression:
 ### Omitting the row means unbound
 
 `can(view for folders)` asks a schema-wide question; `can(view for folders(<row>))`
-asks about one row. Omit `$row` for the first — its default is a `NoRow` sentinel,
+asks about one row. Omit `$key` for the first — its default is a `NoRow` sentinel,
 not `null`:
 
 ```php
 ->ifCan('access', 'billing')                      // can(access for billing)
 ->ifCan('view', 'folders', $folder->id)           // can(view for folders('f-1'))
-->ifCan('view', 'folders', row: null)             // row-bound, and rejected by validate()
+->ifCan('view', 'folders', key: null)             // row-bound, and rejected by validate()
 ```
 
 An explicit `null` stays **row-bound**, so a missing id (a `$folder?->id` that came
 back null) fails loudly at validation instead of quietly widening the question. When
 you're composing dynamically and want the unbound form as a fallback, say so:
-`row: $id ?? new NoRow`.
+`key: $id ?? new NoRow`.
 
-A row selector may be a key, the target schema's own model, a `Ref`, a `BackedEnum`
-or a `DateTimeInterface` — see
+A schema addressed by a key of several parts takes them as a list, bound
+positionally to its [`matchKey()`](/reference/schema-api/#matchkey) parameters:
+
+```php
+->ifCan('assign', 'shift_days', [Ref::column('team_id'), Ref::column('starts_on')])
+```
+
+A single argument may be a key, the target schema's own model, a `Ref`, a
+`BackedEnum` or a `DateTimeInterface` — see
 [what a row selector may be](/guides/rule-language/#what-a-row-selector-may-be).
 
 ### The `check` predicate

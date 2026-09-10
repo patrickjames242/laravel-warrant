@@ -106,6 +106,29 @@ From the compiler, on what a condition emitted:
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] added no where clause; a condition must add at least one where clause, return true/false to decide the outcome outright, or return null to answer unknown.` (a condition that returned its query untouched — see [How it compiles](/guides/how-it-compiles/#conditions-compile-inline))
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] returned null, answering unknown, but also added a where clause; return the builder it constrained, or answer unknown without constraining it.` (almost always a missing `return` — see [Answering unknown](/guides/conditions/#answering-unknown))
 
+## Row keys → `InvalidArgumentException`
+
+From validation, on a handle's argument list against the target schema's
+[`matchKey()`](/reference/schema-api/#matchkey):
+
+- `A %s(...) reference to schema [%s] supplies %d row-key argument(s), but that schema's row key requires at least %d.`
+
+From the key's own dispatch, which catches handles that never passed through the
+parser — one built with the fluent builder, or one a condition derived itself into:
+
+- `The row key for schema [%s] requires at least %d argument(s), but %d were supplied.`
+- `The row key for schema [%s] must return the query it constrained, or null to answer unknown; it returned a [%s].`
+
+From the schema's own declaration:
+
+- `Schema [%s] declares a condition attribute on matchKey(), which is the schema's row key and not part of its rule vocabulary; remove the attribute, or move the logic to a condition method of its own.`
+- `Schema [%s] must accept a [%s] as the first parameter of matchKey().`
+
+An **empty** argument list is not an error in itself: it addresses a row by a key
+that requires no arguments, exactly as `schema()` does in rule text. It is the
+arity message above that rejects it against a key which does require some. Only
+`null` is a no-target check.
+
 ## Cross-schema row selectors → `InvalidArgumentException`
 
 From the compiler, on the value inside a `can(... for schema(<row>))` or

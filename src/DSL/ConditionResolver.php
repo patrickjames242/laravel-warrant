@@ -87,4 +87,30 @@ interface ConditionResolver extends SchemaVocabulary
         ?Model $targetModel = null,
         ?string $rowQualifier = null,
     ): Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder|null;
+
+    /**
+     * Narrow $whereClause to the row a handle's arguments name, by dispatching the
+     * schema's row key.
+     *
+     * Answers in one of two ways: the constrained builder, or null for *unknown* —
+     * arguments that name no row, such as an absent `@context` value. Unknown is
+     * the only safe answer there, because the `exists` this predicate lands in
+     * cannot report one once it is built.
+     *
+     * @param array<int, mixed> $arguments The resolved handle arguments, bound
+     *   positionally after the context object.
+     * @param array<string, mixed> $context The effective check-time context.
+     * @param Model|null $targetModel The loaded row, when the caller named a
+     *   hydrated one.
+     * @param string|null $rowQualifier The SQL name the row answers to where this
+     *   predicate lands; null means the schema model's own table.
+     */
+    public function applyKey(
+        Authenticatable $user,
+        Builder $whereClause,
+        array $arguments,
+        array $context = [],
+        ?Model $targetModel = null,
+        ?string $rowQualifier = null,
+    ): ?Builder;
 }

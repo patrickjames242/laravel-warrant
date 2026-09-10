@@ -29,4 +29,11 @@ interface SchemaVocabulary
      * condition.
      */
     public function getConditionDefinition(string $conditionKey): ?ConditionDefinition;
+
+    /**
+     * The definition of the schema's row key, which every row-bound handle's
+     * arguments are bound to. Read for its required argument count, so a handle
+     * supplying too few is reported against the rule text.
+     */
+    public function getKeyDefinition(): ConditionDefinition;
 }

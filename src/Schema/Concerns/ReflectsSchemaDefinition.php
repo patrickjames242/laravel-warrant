@@ -189,6 +189,58 @@ trait ReflectsSchemaDefinition
         }
     }
 
+    /**
+     * The definition of this schema's row key — {@see \Warrant\Schema\WarrantSchema::matchKey()}
+     * — read exactly as a condition's is: the parameters after the leading context
+     * object are its arguments, and those without defaults are required. A
+     * variadic tail is never required, so a variadic key accepts any count.
+     *
+     * The key is deliberately not a condition. It carries no attribute, so
+     * {@see conditionDefinitions} never finds it and no rule can name it; a rule
+     * reaches it only as a handle's row selector.
+     */
+    public static function keyDefinition(): ConditionDefinition
+    {
+        $method = new ReflectionMethod(static::class, 'matchKey');
+
+        if (
+            $method->getAttributes(RowCondition::class) !== []
+            || $method->getAttributes(GlobalCondition::class) !== []
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares a condition attribute on matchKey(), which is the schema\'s row key '
+                    .'and not part of its rule vocabulary; remove the attribute, or move the logic to a '
+                    .'condition method of its own.',
+                static::class,
+            ));
+        }
+
+        /* The same first-parameter contract a row condition has, for the same
+           reason: the key is handed a RowConditionContext, so a mismatch is worth
+           reporting at the schema rather than as a TypeError mid-compile. */
+        $parameters = $method->getParameters();
+        $parameterType = ($parameters[0] ?? null)?->getType();
+
+        if (
+            $parameters === []
+            || ! $parameterType instanceof ReflectionNamedType
+            || $parameterType->getName() !== RowConditionContext::class
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] must accept a [%s] as the first parameter of matchKey().',
+                static::class,
+                RowConditionContext::class,
+            ));
+        }
+
+        return new ConditionDefinition(
+            $method->getName(),
+            $method->getName(),
+            true,
+            max(0, $method->getNumberOfRequiredParameters() - 1),
+        );
+    }
+
     protected static function conditionKeyFromMethodName(string $methodName): ?string
     {
         if ($methodName === '') {

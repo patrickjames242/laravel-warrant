@@ -114,7 +114,7 @@ it('accepts a nested check(...) inside a check(...) predicate', function () {
 it('rejects a constant inside a check(...) predicate', function () {
     /* A predicate that decides itself asks the target nothing. The builder refuses
        to compose one, so this reaches the validator only as a hand-built node. */
-    $node = new CrossSchemaConditionNode('xcv_target', new BooleanNode(true), true, Ref::context('id'));
+    $node = new CrossSchemaConditionNode('xcv_target', new BooleanNode(true), true, [Ref::context('id')]);
 
     expect(fn () => WarrantRuleSet::fromRules('xcv_owner', new WarrantRule($node, ['edit'], []))->validate())
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');

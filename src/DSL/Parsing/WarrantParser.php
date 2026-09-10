@@ -512,7 +512,7 @@ final class WarrantParser
 
         $this->advance(); // consume 'for'
 
-        [$schemaKey, $isRowBound, $boundRow, $alias] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle();
 
         $contextMap = [];
 
@@ -523,7 +523,7 @@ final class WarrantParser
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
-        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundRow, $contextMap, $alias);
+        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundKey, $contextMap, $alias);
     }
 
     /**
@@ -544,7 +544,7 @@ final class WarrantParser
 
         $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 
-        [$schemaKey, $isRowBound, $boundRow, $alias] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle();
 
         $contextMap = [];
 
@@ -555,21 +555,24 @@ final class WarrantParser
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
 
-        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundRow, $contextMap, $alias);
+        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias);
     }
 
     /**
      * Parse a cross-schema handle: a schema name with an optional row selector
-     * `schema(<arg>)` and an optional `as <alias>`. The selector's absence marks
-     * an unbound (no-row) handle.
+     * `schema(<arg>, …)` and an optional `as <alias>`. The selector's absence
+     * marks an unbound (no-row) handle.
      *
-     * The alias names the rows this reference selects, so that a `@column` can
-     * tell them apart from a table of the same name already in scope further out.
-     * Whether it is *allowed* — an unbound handle selects nothing to name — is
-     * left to {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator}, which is
-     * where the rest of the handle's coherence is judged too.
+     * The selector's arguments are bound positionally to the target schema's row
+     * key, exactly as a condition's arguments are bound to its parameters — and
+     * they are parsed the same way, {@see parseCondition} included, so
+     * `schema()` parses to an empty list rather than being a syntax error. How
+     * many the target's key actually requires is not knowable here, so arity is
+     * left to {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator}, along
+     * with the rest of the handle's coherence — including whether the alias is
+     * allowed, since an unbound handle selects nothing to name.
      *
-     * @return array{0: string, 1: bool, 2: mixed, 3: ?string} [schemaKey, isRowBound, boundRow, alias]
+     * @return array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string} [schemaKey, isRowBound, boundKey, alias]
      */
     private function parseHandle(): array
     {
@@ -580,13 +583,22 @@ final class WarrantParser
         $schemaKey = $this->advance()->lexeme;
 
         $isRowBound = false;
-        $boundRow = null;
+        $boundKey = [];
         $alias = null;
 
         if ($this->check(TokenType::LPAREN)) {
             $this->advance();
             $isRowBound = true;
-            $boundRow = $this->parseArgument();
+
+            if (! $this->check(TokenType::RPAREN)) {
+                $boundKey[] = $this->parseArgument();
+
+                while ($this->check(TokenType::COMMA)) {
+                    $this->advance();
+                    $boundKey[] = $this->parseArgument();
+                }
+            }
+
             $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
         }
 
@@ -600,7 +612,7 @@ final class WarrantParser
             $alias = $this->advance()->lexeme;
         }
 
-        return [$schemaKey, $isRowBound, $boundRow, $alias];
+        return [$schemaKey, $isRowBound, $boundKey, $alias];
     }
 
     /**

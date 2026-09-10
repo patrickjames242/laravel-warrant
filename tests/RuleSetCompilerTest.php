@@ -91,6 +91,19 @@ final class FakeConditionResolver implements ConditionResolver
         return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
     }
 
+    public function getKeyDefinition(): ConditionDefinition
+    {
+        return new ConditionDefinition('matchKey', 'matchKey', true, 1);
+    }
+
+    /** The default key: primary-key equality, unknown when nothing was named. */
+    public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
+    {
+        return ($arguments[0] ?? null) === null
+            ? null
+            : $whereClause->where(($rowQualifier ?? 'docs').'.id', '=', $arguments[0]);
+    }
+
     public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
     {
         /* Qualified the way a real schema does it (see ResolvesConditions): with

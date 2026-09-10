@@ -145,11 +145,11 @@ parenthesized group):
 ### Cross-schema methods (from `WarrantConditionBuilder`)
 
 ```php
-->ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [])
+->ifCan(string $ability, Model|WarrantSchema|string $schema, mixed $key = new NoRow, array $with = [])
 ->andIfCan(...)   // alias of ifCan
 ->orIfCan(...)    // `or can(...)`
 
-->ifCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $row = new NoRow, array $with = [])
+->ifCheck(string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $key = new NoRow, array $with = [])
 ->andIfCheck(...) // alias of ifCheck
 ->orIfCheck(...)  // `or check(...)`
 ```
@@ -157,7 +157,7 @@ parenthesized group):
 ### `NoRow` and `Ref`
 
 ```php
-new Warrant\Builders\NoRow                        // the default $row: an unbound handle
+new Warrant\Builders\NoRow                        // the default $key: an unbound handle
 Warrant\Builders\Ref::context(string $key): ContextRef            // @context <key>
 Warrant\Builders\Ref::column(string $column): ColumnRef                     // @column <column>
 Warrant\Builders\Ref::column(string $frame, string $column): ColumnRef      // @column <name>.<column>
@@ -193,7 +193,7 @@ and where the message surfaces.
 - Condition parameters may be **any PHP value** — nothing is stringified.
 - `can` and `check` have **no negated variants** — negate one with a group,
   `->ifNot(fn ($c) => $c->ifCan(...))`.
-- Omitting `$row` gives an **unbound handle**; an explicit `row: null` stays
+- Omitting `$key` gives an **unbound handle**; an explicit `key: null` stays
   row-bound and is rejected by `validate()`, so a missing id fails loudly instead
   of widening a row question into a schema-wide one.
 - An **empty `check` predicate closure throws `LogicException`** — unlike a group

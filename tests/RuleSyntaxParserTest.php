@@ -293,7 +293,7 @@ it('parses a @column row selector in a can(...) handle', function () {
 
     $node = $rules[0]->conditions;
     expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
-    expect($node->boundRow)->toEqual(new ColumnRef('timesheets', 'department_id'));
+    expect($node->boundKey)->toEqual([new ColumnRef('timesheets', 'department_id')]);
 });
 
 it('parses a @column row selector in a check(...) handle', function () {
@@ -303,7 +303,7 @@ it('parses a @column row selector in a check(...) handle', function () {
 
     $node = $rules[0]->conditions;
     expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
-    expect($node->boundRow)->toEqual(new ColumnRef('timesheets', 'pay_period_id'));
+    expect($node->boundKey)->toEqual([new ColumnRef('timesheets', 'pay_period_id')]);
 });
 
 it('parses a @column value in a with-map', function () {
@@ -492,7 +492,7 @@ it('parses a @sql row selector in a can(...) handle', function () {
 
     $node = $rules[0]->conditions;
     expect($node)->toBeInstanceOf(CrossSchemaCanNode::class);
-    expect($node->boundRow)->toEqual(new SqlRef('select id from d'));
+    expect($node->boundKey)->toEqual([new SqlRef('select id from d')]);
 });
 
 it('parses a @sql row selector in a check(...) handle', function () {
@@ -502,7 +502,7 @@ it('parses a @sql row selector in a check(...) handle', function () {
 
     $node = $rules[0]->conditions;
     expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
-    expect($node->boundRow)->toEqual(new SqlRef('select id from p'));
+    expect($node->boundKey)->toEqual([new SqlRef('select id from p')]);
 });
 
 it('parses a @sql value in a with-map', function () {
@@ -794,7 +794,7 @@ it('parses an unbound can(...) handle (capability schema, no row)', function () 
     expect($node->schemaKey)->toBe('payroll_admin');
     expect($node->ability)->toBe('access_payroll');
     expect($node->isRowBound)->toBeFalse();
-    expect($node->boundRow)->toBeNull();
+    expect($node->boundKey)->toBe([]);
     expect($node->contextMap)->toBe([]);
     expect($rules[0]->canAbilities)->toBe(['view']);
 });
@@ -807,7 +807,7 @@ it('parses a row-bound can(...) handle with a @context row selector', function (
     expect($node->schemaKey)->toBe('departments');
     expect($node->ability)->toBe('manage');
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundRow)->toEqual(new ContextRef('department_id'));
+    expect($node->boundKey)->toEqual([new ContextRef('department_id')]);
 });
 
 it('parses a can(...) with a with-map of @context values', function () {
@@ -844,7 +844,7 @@ it('resolves a named binding as the row selector', function () {
 
     $node = $rules[0]->conditions;
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundRow)->toBe('dept-1');
+    expect($node->boundKey)->toBe(['dept-1']);
 });
 
 it('resolves positional bindings across the row selector and with-map', function () {
@@ -854,7 +854,7 @@ it('resolves positional bindings across the row selector and with-map', function
     );
 
     $node = $rules[0]->conditions;
-    expect($node->boundRow)->toBe('dept-1');
+    expect($node->boundKey)->toBe(['dept-1']);
     expect($node->contextMap)->toBe(['tenant' => 'tenant-9']);
 });
 
@@ -863,7 +863,7 @@ it('keeps a null literal row selector distinct from an unbound handle', function
 
     $node = $rules[0]->conditions;
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundRow)->toBeNull();
+    expect($node->boundKey)->toBe([null]);
 });
 
 it('throws when the ability is not followed by for', function () {
@@ -890,7 +890,7 @@ it('parses an unbound check(...) handle with a global condition', function () {
     expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
     expect($node->schemaKey)->toBe('tenant_settings');
     expect($node->isRowBound)->toBeFalse();
-    expect($node->boundRow)->toBeNull();
+    expect($node->boundKey)->toBe([]);
     expect($node->contextMap)->toBe([]);
     expect($node->predicate)->toBeInstanceOf(ConditionNode::class);
     expect($node->predicate->conditionKey)->toBe('is_open');
@@ -907,7 +907,7 @@ it('parses a row-bound check(...) handle with a @context row selector', function
     expect($node)->toBeInstanceOf(CrossSchemaConditionNode::class);
     expect($node->schemaKey)->toBe('pay_periods');
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundRow)->toEqual(new ContextRef('id'));
+    expect($node->boundKey)->toEqual([new ContextRef('id')]);
     expect($node->predicate->conditionKey)->toBe('is_payroll_published_for_user');
     expect($node->predicate->parameters)->toEqual([new ContextRef('user_id')]);
 });
@@ -964,7 +964,7 @@ it('resolves positional bindings across a check(...) predicate arg, row selector
 
     $node = $rules[0]->conditions;
     expect($node->predicate->parameters)->toBe(['maintenance']);
-    expect($node->boundRow)->toBe('pp-1');
+    expect($node->boundKey)->toBe(['pp-1']);
     expect($node->contextMap)->toBe(['tenant' => 'tenant-9']);
 });
 
@@ -1029,7 +1029,7 @@ it('parses a cross-schema can(...) leaf as a bare expression', function () {
     $bound = WarrantParser::parseConditionExpression('can(view for other(@context id) with t = @context x)');
 
     expect($bound->isRowBound)->toBeTrue();
-    expect($bound->boundRow)->toBeInstanceOf(ContextRef::class);
+    expect($bound->boundKey[0])->toBeInstanceOf(ContextRef::class);
     expect($bound->contextMap)->toHaveKey('t');
 });
 

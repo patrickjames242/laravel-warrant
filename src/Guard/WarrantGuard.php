@@ -197,11 +197,13 @@ final class WarrantGuard
      * Split a schema-less target into the schema reference and the row target the
      * schema-bound guard understands:
      *  - a `Model` instance names the schema and is the row;
-     *  - a `[ModelClass|SchemaClass, $id]` tuple names the schema and a row by key;
+     *  - a `[ModelClass|SchemaClass, $id]` tuple names the schema and a row by key,
+     *    where `$id` may itself be a list — the arguments a schema's row key takes
+     *    when it has several parts;
      *  - a model/schema class-string (or schema key) names the schema, no row.
      *
      * @param Model|string|array<int, mixed> $target
-     * @return array{0: Model|WarrantSchema|string, 1: Model|string|int|null}
+     * @return array{0: Model|WarrantSchema|string, 1: Model|string|int|array<int, mixed>|null}
      */
     private function splitTarget(Model|string|array $target): array
     {
@@ -218,12 +220,20 @@ final class WarrantGuard
 
             [$schemaOrModelClass, $id] = $target;
 
-            if (! is_string($id) && ! is_int($id)) {
-                throw new InvalidArgumentException('A tuple target key must be a string or integer id.');
+            if (is_array($id)) {
+                /* Empty included: that is a row addressed by a key taking no
+                   arguments, and a key that does require some rejects it itself. */
+                $id = array_values($id);
+            } elseif (! is_string($id) && ! is_int($id)) {
+                throw new InvalidArgumentException(
+                    'A tuple target key must be a string or integer id, or a list of the arguments the '
+                        .'schema\'s row key takes.'
+                );
             }
 
-            /* Handed on as written — an int id stays an int, so it reaches
-               whereKey() without the database having to coerce a bound string. */
+            /* Handed on as written — an int id stays an int, so it reaches the
+               schema's row key without the database having to coerce a bound
+               string. */
             return [$schemaOrModelClass, $id];
         }
 
