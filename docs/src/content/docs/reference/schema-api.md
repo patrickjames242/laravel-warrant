@@ -23,7 +23,12 @@ schema itself is the static `guard()` shortcut.
 
 ```php
 public const model = '';  // class-string of the managed Model; '' = no model
+public const key = '';    // a virtualTable's identifying column; '' = none
 ```
+
+`key` names the column a [`virtualTable()`](#virtualtable)'s rows are identified
+by, which is what lets the built-in row key address them. A model answers this
+itself through `getKeyName()`, so declaring both is rejected.
 
 ### Static guard shortcut
 
@@ -66,9 +71,11 @@ a `can(... for <schema>(<args>))` or `check(... for <schema>(<args>))` hop, and 
 targeted check from PHP — with the caller's arguments bound positionally after the
 context, exactly as a condition's are.
 
-Declare it only when the rows are addressed by something other than their key.
-Omit it and the engine addresses them by their key, which is what the single
-argument of `documents(@context id)` means.
+Declare it only when the rows are addressed by something other than their key —
+a natural key, or several columns where no single one is unique. Omit it and the
+engine addresses them by their key column, which is what the single argument of
+`documents(@context id)` means: a model's `getKeyName()`, or a virtual table's
+[`const key`](#constants).
 
 It is **not declared on `WarrantSchema`**, deliberately: PHP forbids an override
 from adding required parameters, so an inherited signature would make a key of
@@ -126,8 +133,12 @@ buying beyond the rows themselves:
 - no Eloquent scopes to spend from a condition, and `$c->query` is a plain query
   builder;
 - no hydrated `$c->model`, and `WarrantDenialContext::$target` is null;
-- no primary key, so `$c->row()` needs a column name and the schema must declare
-  a [`matchKey()`](#matchkey) of its own;
+- no primary key of its own. Declare `const key = '<column>'` and the built-in
+  row key addresses rows by it, and `$c->row()` resolves to it with no argument.
+  Declare neither that nor a [`matchKey()`](#matchkey) and the schema cannot be
+  asked about one row at all — it is still filtered and still carries per-row
+  ability columns, both of which correlate against rows the outer query already
+  produced, but a targeted check against it fails;
 - no model to reach it from, so `Model::userHasAbility()` and route-model binding
   do not apply. Start from `Warrant::forSchema(...)->query()` instead.
 

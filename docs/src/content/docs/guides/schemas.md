@@ -159,7 +159,10 @@ class ShiftDaySchema extends WarrantSchema
             ]);
     }
 
-    // No primary key here, so the schema says how a row is addressed.
+    // A product-shaped view has no single identifying column, so the schema
+    // says how a row is addressed. A view over one spine table usually does
+    // have one — declare `const key = 'team_id'` instead and the built-in key
+    // handles it, with no matchKey() needed.
     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
     {
         return $c->query
@@ -188,7 +191,9 @@ $guard->can('assign', [$team->id, '2026-09-14']);
 
 A schema draws its rows from a model **or** a virtual table, never both — and a
 virtual table gives up everything the model was buying beyond the rows: no
-Eloquent scopes, no hydrated `$c->model`, no primary key. The full list is in the
+Eloquent scopes, no hydrated `$c->model`, and no key of its own, so it declares
+one (`const key`) or says how a row is found (`matchKey()`). Declare neither and
+it can be filtered but not asked about a single row. The full list is in the
 [schema API reference](/reference/schema-api/#virtualtable).
 
 ## Overridable hooks

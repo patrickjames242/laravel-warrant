@@ -127,6 +127,7 @@ From the schema's own declaration:
 From a schema declaring both row sources, on first resolution:
 
 - `Schema [%s] names model [%s] and also defines a virtualTable(); a schema draws its rows from one or the other. Drop the model to make it a virtual table, or drop virtualTable() to keep the model's own table.`
+- `Schema [%s] names model [%s] and also declares a key [%s]; a model answers for its own key, so drop the constant. It is for a virtual table, whose rows have no key of their own.`
 
 From a condition or key over rows with no key column of their own:
 

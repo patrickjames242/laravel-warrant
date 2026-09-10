@@ -141,6 +141,19 @@ trait VerifiesSchemaModelPairs
             ));
         }
 
+        /* A model names its own key, so a second declaration of it could only
+           disagree. `key` is for a virtual table, whose rows have none. */
+        if ($modelClass !== '' && $schemaClass::key !== '') {
+            throw new LogicException(sprintf(
+                'Schema [%s] names model [%s] and also declares a key [%s]; a model answers for its own '
+                    .'key, so drop the constant. It is for a virtual table, whose rows have no key of '
+                    .'their own.',
+                $schemaClass,
+                $modelClass,
+                $schemaClass::key,
+            ));
+        }
+
         if ($modelClass === '') {
             return;
         }

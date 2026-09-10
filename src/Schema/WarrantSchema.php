@@ -50,6 +50,29 @@ abstract class WarrantSchema implements ConditionResolver
     public const model = '';
 
     /**
+     * The column a {@see virtualTable}'s rows are identified by.
+     *
+     * A model answers this itself, through `getKeyName()`, so this is for a
+     * virtual table — whose rows are a query's output and have no key of their
+     * own. Declaring it is what lets such a schema be addressed without a
+     * `matchKey()`: the built-in key compares against this column, and a
+     * condition may write `$c->row()` with no argument.
+     *
+     * ```php
+     * public const key = 'team_id';
+     * ```
+     *
+     * Leave it unset for a virtual table with no identifying column. Such a
+     * schema is still filtered and still carries per-row ability columns — both
+     * correlate against rows the outer query already produced — but it cannot be
+     * asked about one row, and a targeted check against it fails.
+     *
+     * Declaring it alongside a {@see model} is rejected: the model's own key
+     * already answers, and two declarations could disagree.
+     */
+    public const key = '';
+
+    /**
      * The {@see ConditionResolver} view of {@see model}, so the compiler can tell
      * whether this schema has rows at all without being handed the answer.
      *

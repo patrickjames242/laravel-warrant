@@ -107,7 +107,39 @@ class VtDaySchema extends WarrantSchema
     }
 }
 
-/** A virtual table keeping the default key, so row() has no column to use. */
+/**
+ * A virtual table over a spine table, declaring the column its rows are
+ * identified by. That is all the built-in key needs, so it declares no
+ * matchKey() of its own — and its conditions may write row() bare.
+ */
+class VtSpineSchema extends WarrantSchema
+{
+    public const key = 'team_id';
+
+    #[Ability]
+    public const VIEW = 'view';
+
+    public static function virtualTable(): ?QueryBuilder
+    {
+        return DB::table('vt_teams')
+            ->select(['vt_teams.id as team_id', 'vt_teams.region']);
+    }
+
+    #[RowCondition]
+    public function inMyRegion(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->where($c->row('region'), '=', 'north');
+    }
+
+    /** Names no column, so it leans on the declared key. */
+    #[RowCondition]
+    public function isNamedTeam(RowConditionContext $c, string $id): BuilderContract
+    {
+        return $c->query->where($c->row(), '=', $id);
+    }
+}
+
+/** A virtual table declaring no key, so row() has no column to use. */
 class VtKeylessSchema extends WarrantSchema
 {
     #[Ability]
@@ -135,15 +167,16 @@ beforeEach(function () {
         'vt_teams' => VtTeamSchema::class,
         'vt_days' => VtDaySchema::class,
         'vt_keyless' => VtKeylessSchema::class,
+        'vt_spine' => VtSpineSchema::class,
     ]);
 });
 
 /** @param array<string, string> $syntaxByKey */
-function bindVtRules(array $syntaxByKey): void
+function bindVtRules(array $syntaxByKey, array $bindings = []): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key);
+        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key, $bindings);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver
@@ -282,6 +315,45 @@ it('answers a hop against real rows', function () {
 
 // -- what it gives up ---------------------------------------------------------
 
+// -- a declared key column ----------------------------------------------------
+
+it('addresses rows by a declared key with no matchKey of its own', function () {
+    seedVtRows();
+    bindVtRules(['vt_spine' => 'if in_my_region they can view']);
+
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema);
+
+    expect($guard->can('view', 'north-1'))->toBeTrue();
+    expect($guard->can('view', 'south-1'))->toBeFalse();
+    expect($guard->abilities(['north-1']))->toBe(['view']);
+});
+
+it('compares the declared key column in the emitted SQL', function () {
+    bindVtRules(['vt_spine' => 'if is_named_team(:id) they can view'], ['id' => 'north-1']);
+
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema);
+    $sql = normalizeWarrantSql($guard->filterQuery($guard->query(), 'view')->toRawSql());
+
+    // row() with no argument resolved to the declared key, under the schema key.
+    expect($sql)->toContain('"vt_spine"."team_id" = \'north-1\'');
+});
+
+it('folds a targeted check whose declared key is given nothing', function () {
+    seedVtRows();
+    bindVtRules(['vt_spine' => 'if in_my_region they can view']);
+
+    // The built-in key answers unknown for a null, exactly as over a model.
+    expect(Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema)->can('view', [null]))
+        ->toBeFalse();
+});
+
+it('rejects a schema that names a model and also declares a key', function () {
+    useWarrantSchemas(['vt_keyed_model' => VtKeyedModelSchema::class]);
+
+    expect(fn () => Warrant::registry()->resolveSchemaClassOrFail('vt_keyed_model'))
+        ->toThrow(LogicException::class, 'answers for its own key');
+});
+
 it('has no key column, so row() must be given one', function () {
     bindVtRules(['vt_keyless' => 'they can view']);
 
@@ -318,6 +390,17 @@ class VtBothSchema extends WarrantSchema
     {
         return DB::table('vt_teams');
     }
+}
+
+/** A model and a key both: the model's own key already answers. */
+class VtKeyedModelSchema extends WarrantSchema
+{
+    public const model = VtTeamModel::class;
+
+    public const key = 'id';
+
+    #[Ability]
+    public const VIEW = 'view';
 }
 
 /** Neither source: a capability schema, unchanged by any of this. */

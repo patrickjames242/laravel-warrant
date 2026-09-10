@@ -209,16 +209,18 @@ trait ResolvesConditions
                instance. */
             $modelClass = static::model;
 
-            /* A virtual table has no model, so there are no scopes to spend and no
-               key column of its own. Its rows answer to the schema's key unless the
-               compiler named them something closer, and a condition writes its
-               predicate from row('<column>'). */
+            /* A virtual table has no model, so there are no scopes to spend. Its
+               rows answer to the schema's key unless the compiler named them
+               something closer, and their identifying column is whatever the
+               schema declared as its `key` — null when it declared none, which
+               leaves row() needing a column name and the schema needing a
+               matchKey() of its own. */
             if ($modelClass === '') {
                 $result = $this->{$methodName}(new RowConditionContext(
                     $currentUser,
                     $whereClause,
                     $rowQualifier ?? static::schemaKey(),
-                    null,
+                    static::key === '' ? null : static::key,
                     $arguments,
                     $context,
                     $targetModel,
