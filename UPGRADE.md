@@ -1,5 +1,46 @@
 # Upgrade guide
 
+## A condition may answer `null`, and a forgotten `return` now throws
+
+A condition has a fourth way to answer: **`null`, meaning unknown** — the question
+has no answer here. It compiles to the third truth value, so it grants nothing and
+cannot lift a `cannot`, which is what makes it the safe answer to a question
+nobody can settle. See
+[Answering unknown](https://laravel-warrant.dev/guides/conditions/#answering-unknown).
+
+**The breaking part.** PHP returns `null` from a method with no `return`
+statement, so a condition that constrains the query and then falls off the end is
+indistinguishable from one deliberately answering unknown:
+
+```php
+#[RowCondition]
+public function isOwner(RowConditionContext $c)
+{
+    $c->query->where($c->row('owner_id'), '=', $c->user->getAuthIdentifier());
+    // no return
+}
+```
+
+That used to work, because a non-bool, non-expression return fell through to the
+builder. It now throws:
+
+```
+Condition [is_owner] on schema [App\Warrant\DocumentSchema] returned null,
+answering unknown, but also added a where clause; return the builder it
+constrained, or answer unknown without constraining it.
+```
+
+The fix is to return the builder, which is what the condition meant:
+
+```php
+return $c->query->where($c->row('owner_id'), '=', $c->user->getAuthIdentifier());
+```
+
+It throws rather than being read as unknown deliberately: silently treating it as
+unknown would change what the rule grants, without a word. Search your schemas
+for condition methods with no `return` on their SQL path — the error names the
+condition and the schema, so a failing test points straight at it.
+
 ## `@column` references name a frame, not a schema
 
 A `@column` reference now names **the rows a rule is about**, and the qualifier is

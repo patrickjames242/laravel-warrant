@@ -11,8 +11,9 @@ use Illuminate\Contracts\Database\Query\Builder;
  * arguments, and the check-time context bag.
  *
  * There is no target row — a global condition is about the user or the ambient
- * context, not a specific record. It may mutate the query and return it, or
- * short-circuit by returning a boolean.
+ * context, not a specific record. It may mutate the query and return it,
+ * short-circuit by returning a boolean, or return null to answer unknown, which
+ * neither grants nor lifts a deny.
  *
  * `context` is the effective check-time context (after `defaultContext()` merge),
  * available whether or not the rule passed a value via `@context`. Read it

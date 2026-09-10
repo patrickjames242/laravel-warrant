@@ -48,6 +48,11 @@ use Illuminate\Database\Eloquent\Model;
  *
  *     return $c->query->whereRaw("{$c->row('owner_id')} = ?", [$c->user->getAuthIdentifier()]);
  *
+ * A condition that cannot settle its question either way returns null instead,
+ * answering unknown: it neither grants nor lifts a deny. One that does must leave
+ * `query` untouched, since a null return is also what a missing `return`
+ * statement produces, and the two mean opposite things.
+ *
  * `context` is the effective check-time context (after `defaultContext()` merge),
  * available to every condition whether or not the rule passed a value via
  * `@context`. Read it directly for an ambient frame: `$c->context['tenant_id']`.

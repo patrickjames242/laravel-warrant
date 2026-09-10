@@ -260,6 +260,9 @@ genuinely cannot settle:
 - a **`@column`** naming rows that are not in scope, for the same reason;
 - a **row selector that resolves to nothing**, such as an absent `@context` key.
 
+A condition may reach the same conclusion about its own question and say so, by
+**returning `null`** — see [Conditions](/guides/conditions/#answering-unknown).
+
 None of those is *false*. `false` is an answer, and negating an answer is
 legitimate — so a `false` under a `cannot` would become `true`, and a question the
 compiler could not answer would silently lift a deny. Each of them compiles to

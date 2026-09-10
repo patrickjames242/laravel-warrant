@@ -79,12 +79,13 @@ use Warrant\WarrantManager;
  * rebinds it, so the same rule text compiles against whichever table its frame
  * actually selects.
  *
- * A condition answers in one of three ways: with a bool it decides outright, with
+ * A condition answers in one of four ways: with a bool it decides outright, with
  * an expression (or the builder that composes one) it *derives* itself from other
  * conditions and the compiler walks the result as if the author had written it in
- * the rule, and otherwise it constrains the builder it was handed. Every condition
- * leaf of that last kind is applied inline as a nested where-group and negated
- * inline (`not (…)`, which for an author's `whereExists` is `not exists (…)`).
+ * the rule, with a null it answers unknown, and otherwise it constrains the
+ * builder it was handed. Every condition leaf of that last kind is applied inline
+ * as a nested where-group and negated inline (`not (…)`, which for an author's
+ * `whereExists` is `not exists (…)`).
  * There is no EXISTS wrapping and no attempt to normalize SQL's three-valued
  * (NULL) logic: a condition compiles to exactly the SQL it emits, so an unknown
  * (NULL) row contributes no access — it never grants and never lifts a deny (the
@@ -125,7 +126,7 @@ final class RuleSetCompiler
      * has no model and therefore no row, so a compile against one is never
      * targeted however the caller asked for it. That is the same conclusion
      * validation reaches, settled here, on the way in, so that everything below
-     * reads one already-correct flag — and so a row condition folds to `false`
+     * reads one already-correct flag — and so a row condition answers unknown
      * rather than emitting a reference to a table that does not exist. Each
      * cross-schema descent re-enters through a compiler bound to that schema, so
      * the referenced schema is narrowed against its own model too.
@@ -1029,6 +1030,16 @@ final class RuleSetCompiler
             $this->aliases($ctx)->current,
         );
 
+        /* Or it may answer that the question has no answer here, which is the
+           third truth value: an unknown negates to itself, so it neither grants
+           nor lifts a deny. The negation flag is deliberately not passed on — it
+           would mean nothing to an unknown. */
+        if ($result === null) {
+            $this->assertUnknownAddedNoWhereClause($conditionQuery, $node->conditionKey);
+
+            return (new CompiledWhereClauseNode)->addAnd(null);
+        }
+
         /* A condition may decide the outcome outright rather than constrain the
            query: a global one evaluated in PHP, or a row one handed the very row
            it is judging. Either way the literal folds into the tree around it. */
@@ -1118,8 +1129,8 @@ final class RuleSetCompiler
         if ($expression === null) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] returned a condition builder with no terms, which would '
-                    .'silently match every row; add at least one term, or return true/false to decide '
-                    .'the outcome outright.',
+                    .'silently match every row; add at least one term, return true/false to decide '
+                    .'the outcome outright, or return null to answer unknown.',
                 $conditionKey,
                 $this->conditions::class,
             ));
@@ -1132,7 +1143,8 @@ final class RuleSetCompiler
      * A condition that added no where clause emitted nothing at all, which would
      * silently mean "match every row" — almost always an author's forgotten
      * branch rather than an intent to grant everything. A condition that really
-     * does decide the outcome should say so by returning a bool.
+     * does decide the outcome should say so by returning a bool, and one that
+     * cannot be evaluated at all by returning null.
      */
     private function assertAddedAWhereClause(Builder $conditionQuery, string $conditionKey): void
     {
@@ -1142,7 +1154,31 @@ final class RuleSetCompiler
 
         throw new InvalidArgumentException(sprintf(
             'Condition [%s] on schema [%s] added no where clause; a condition must add at least one '
-                .'where clause, or return true/false to decide the outcome outright.',
+                .'where clause, return true/false to decide the outcome outright, or return null to '
+                .'answer unknown.',
+            $conditionKey,
+            $this->conditions::class,
+        ));
+    }
+
+    /**
+     * A condition answering unknown must leave its builder untouched.
+     *
+     * PHP returns null from a method with no `return` statement, so a condition
+     * that constrained the query and then fell off the end arrives here
+     * indistinguishable from one that deliberately answered unknown — and the two
+     * mean opposite things. The builder settles it: a where clause was added, so
+     * the predicate was the intended answer and the missing return is the bug.
+     */
+    private function assertUnknownAddedNoWhereClause(Builder $conditionQuery, string $conditionKey): void
+    {
+        if ($conditionQuery->wheres === []) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Condition [%s] on schema [%s] returned null, answering unknown, but also added a where '
+                .'clause; return the builder it constrained, or answer unknown without constraining it.',
             $conditionKey,
             $this->conditions::class,
         ));

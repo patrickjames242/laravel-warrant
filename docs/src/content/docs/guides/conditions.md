@@ -141,11 +141,53 @@ too, so it cannot lift a deny either. See
 Global conditions still evaluate normally, which is why a no-model schema should
 only use global conditions.
 
+## Answering unknown
+
+A condition that cannot settle its question — a missing context value, a lookup
+that came back empty, anything whose answer is genuinely absent rather than
+negative — may **return `null`**:
+
+```php
+#[GlobalCondition]
+public function inBillingPeriod(GlobalConditionContext $c): ?bool
+{
+    $period = $c->context['period'] ?? null;
+
+    return $period === null
+        ? null                                  // no answer, rather than "no"
+        : $period === $c->user->billing_period;
+}
+```
+
+`null` is not `false`. It compiles to the third truth value, which negates to
+itself, so it grants nothing **and** cannot lift a `cannot` — the same treatment
+the compiler gives its own unanswerable questions, described in
+[How it compiles](/guides/how-it-compiles/#questions-the-compile-cannot-answer).
+Answering `false` instead would make a missing answer capable of *granting*
+access, because `not false` is `true`.
+
+:::caution
+A condition answering `null` must leave `$c->query` untouched. PHP returns `null`
+from a method with no `return` statement, so a condition that constrained the
+query and then fell off the end is indistinguishable from one deliberately
+answering unknown — and the two mean opposite things. Warrant rejects the
+combination rather than guessing:
+
+```
+Condition [x] on schema [Y] returned null, answering unknown, but also added a
+where clause; return the builder it constrained, or answer unknown without
+constraining it.
+```
+
+If you see that, the fix is almost always a missing `return`.
+:::
+
 ## The context object
 
 Every condition method takes the **context object as its first parameter** and
-returns `Builder` (mutated) or a `bool` that decides the outcome outright — for a
-global condition always, and for a row condition when it was handed `$c->model`.
+returns `Builder` (mutated), a `bool` that decides the outcome outright — for a
+global condition always, and for a row condition when it was handed `$c->model` —
+or `null` to answer unknown.
 The object carries:
 
 | Property          | Type                      | Present on    |

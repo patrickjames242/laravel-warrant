@@ -124,6 +124,12 @@ query untouched throws too, since it would silently mean "match every row"; retu
 `#[GlobalCondition]` always may, and a `#[RowCondition]` may whenever it was handed
 the row itself as `$c->model`. It must still emit SQL when `$c->model` is `null`.
 
+A condition may also return `null`, answering **unknown** — see
+[Answering unknown](/guides/conditions/#answering-unknown). An unknown grants
+nothing and cannot lift a `cannot`. A condition answering `null` must add no where
+clause; doing both throws, because PHP cannot distinguish a deliberate `null` from
+a missing `return`.
+
 ### `#[RequiredContext]`
 
 Marks a class constant's **value** as a context key that is required on **every**

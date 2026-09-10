@@ -25,8 +25,8 @@ trait ResolvesConditions
      * Applies a named condition filter to the provided builder.
      *
      * A condition method may return the builder it constrained, a bool to decide
-     * the outcome outright, or an expression / {@see WarrantConditionBuilder} to
-     * derive itself from other conditions — see
+     * the outcome outright, an expression / {@see WarrantConditionBuilder} to
+     * derive itself from other conditions, or null to answer unknown — see
      * {@see \Warrant\DSL\ConditionResolver::applyCondition()}.
      *
      * The named condition must correspond to a public method declared on the
@@ -167,7 +167,7 @@ trait ResolvesConditions
         array $context = [],
         ?Model $targetModel = null,
         ?string $rowQualifier = null
-    ): \Illuminate\Database\Query\Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder
+    ): \Illuminate\Database\Query\Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder|null
     {
         return $this->applyConditionFilter(
             $conditionKey,

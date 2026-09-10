@@ -103,7 +103,8 @@ From the condition resolver:
 From the compiler, on what a condition emitted:
 
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; ...` (a `join`, `groupBy`, `having`, aggregate, or `union` — none of which can be spliced into an `OR` or negated in place)
-- `InvalidArgumentException` — `Condition [%s] on schema [%s] added no where clause; a condition must add at least one where clause, or return true/false to decide the outcome outright.` (a condition that returned its query untouched — see [How it compiles](/guides/how-it-compiles/#conditions-compile-inline))
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] added no where clause; a condition must add at least one where clause, return true/false to decide the outcome outright, or return null to answer unknown.` (a condition that returned its query untouched — see [How it compiles](/guides/how-it-compiles/#conditions-compile-inline))
+- `InvalidArgumentException` — `Condition [%s] on schema [%s] returned null, answering unknown, but also added a where clause; return the builder it constrained, or answer unknown without constraining it.` (almost always a missing `return` — see [Answering unknown](/guides/conditions/#answering-unknown))
 
 ## Cross-schema row selectors → `InvalidArgumentException`
 
