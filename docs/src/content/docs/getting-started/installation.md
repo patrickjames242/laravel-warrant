@@ -12,11 +12,11 @@ sidebar:
 | | |
 |---|---|
 | **PHP** | 8.2 or newer |
-| **Laravel** | 11 or 12 |
+| **Laravel** | 11, 12, or 13 |
 | **Database** | PostgreSQL, MySQL / MariaDB, or SQLite |
 
 Warrant compiles rules into SQL for those three driver families. Any database
-your app already runs on Laravel 11/12 with one of those drivers will work.
+your app already runs on Laravel 11, 12, or 13 with one of those drivers will work.
 
 ## Install
 

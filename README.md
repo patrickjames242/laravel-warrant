@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta-ff8c2f?style=flat-square" alt="Beta">
   <a href="https://laravel-warrant.dev"><img src="https://img.shields.io/badge/docs-laravel--warrant.dev-ff8c2f?style=flat-square" alt="Documentation"></a>
-  <img src="https://img.shields.io/badge/Laravel-11%20%26%2012-FF2D20?style=flat-square&logo=laravel" alt="Laravel 11 & 12">
+  <img src="https://img.shields.io/badge/Laravel-11%2C%2012%20%26%2013-FF2D20?style=flat-square&logo=laravel" alt="Laravel 11, 12 & 13">
   <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square&logo=php" alt="PHP 8.2+">
   <img src="https://img.shields.io/badge/license-MIT-3da639?style=flat-square" alt="MIT License">
 </p>
@@ -60,7 +60,7 @@ The service provider auto-registers. Publish the config to edit it in place:
 php artisan vendor:publish --tag=warrant-config
 ```
 
-**Requirements:** PHP 8.2+, Laravel 11 or 12. The SQL Warrant generates is
+**Requirements:** PHP 8.2+, Laravel 11, 12, or 13. The SQL Warrant generates is
 supported on PostgreSQL, MySQL/MariaDB, and SQLite.
 
 ## Documentation
