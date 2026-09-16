@@ -15,6 +15,9 @@ sidebar:
 | **Laravel** | 11, 12, or 13 |
 | **Database** | PostgreSQL, MySQL / MariaDB, or SQLite |
 
+Laravel 13 requires PHP 8.3 or newer, so on PHP 8.2 Composer resolves Warrant
+against Laravel 11 or 12.
+
 Warrant compiles rules into SQL for those three driver families. Any database
 your app already runs on Laravel 11, 12, or 13 with one of those drivers will work.
 

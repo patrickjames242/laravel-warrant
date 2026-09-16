@@ -60,8 +60,9 @@ The service provider auto-registers. Publish the config to edit it in place:
 php artisan vendor:publish --tag=warrant-config
 ```
 
-**Requirements:** PHP 8.2+, Laravel 11, 12, or 13. The SQL Warrant generates is
-supported on PostgreSQL, MySQL/MariaDB, and SQLite.
+**Requirements:** PHP 8.2+, Laravel 11, 12, or 13 — Laravel 13 itself requires
+PHP 8.3+. The SQL Warrant generates is supported on PostgreSQL, MySQL/MariaDB,
+and SQLite.
 
 ## Documentation
 
