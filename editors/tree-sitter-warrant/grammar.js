@@ -34,7 +34,7 @@ module.exports = grammar({
     // .warrant file may be any of them.
     source_file: $ => seq(
       optional($.schema_header),
-      repeat(choice($.schema_block, $.rule)),
+      repeat(choice($.schema_block, $.ability_block, $.rule)),
     ),
 
     schema_header: $ => seq(
@@ -47,7 +47,16 @@ module.exports = grammar({
       field('body', $.block_body),
     ),
 
-    block_body: $ => seq('{', repeat($.rule), '}'),
+    block_body: $ => seq('{', repeat(choice($.ability_block, $.rule)), '}'),
+
+    // An ability block heads a body with the abilities its clauses take, so the
+    // clauses inside name none of their own. The PHP parser rejects a nested
+    // block and a clause that names abilities anyway; both parse here, since a
+    // sensibly highlighted mistake beats an ERROR node.
+    ability_block: $ => seq(
+      field('abilities', $.ability_list),
+      field('body', $.block_body),
+    ),
 
     // One rule: an optional `if <expression>` guard, then the `they can` /
     // `they cannot` clauses that share it. Clauses with no `if` form a single
@@ -70,18 +79,23 @@ module.exports = grammar({
 
     _clause: $ => choice($.can_clause, $.cannot_clause),
 
-    can_clause: $ => seq(
+    // Right-associative because an ability list after `they can` is optional and
+    // an ability block opens on the same tokens: `they can view { ... }` could
+    // read as a headless clause followed by a `view` block. Shifting keeps the
+    // name with the clause, which is what the PHP parser does -- outside a block
+    // a clause must name its abilities, and inside one naming them is an error.
+    can_clause: $ => prec.right(seq(
       'they',
       'can',
-      field('abilities', $.ability_list),
-    ),
+      optional(field('abilities', $.ability_list)),
+    )),
 
-    cannot_clause: $ => seq(
+    cannot_clause: $ => prec.right(seq(
       'they',
       'cannot',
-      field('abilities', $.ability_list),
+      optional(field('abilities', $.ability_list)),
       optional(field('denial', $.because_clause)),
-    ),
+    )),
 
     // `because` attaches a denial message. The message is fixed at parse time,
     // so it is a literal string or a binding -- never an @context reference.

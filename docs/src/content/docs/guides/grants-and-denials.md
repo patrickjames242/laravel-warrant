@@ -20,6 +20,12 @@ predicate(ability) =
 Because it's a symmetric AND/OR combination, **rule order never matters**. You can
 merge rules from a resolver, implicit rules, and multiple clauses in any order.
 
+This is also why an
+[ability block](/guides/rule-language/#grouping-rules-by-ability) changes nothing
+about how rules combine. Grouping clauses under `view { ... }` is a way of writing
+them, not a way of scoping them: the block yields the same rules the longhand
+would, and they join the same flat combination.
+
 ## The hard edges
 
 | Situation | Compiles to | Meaning |

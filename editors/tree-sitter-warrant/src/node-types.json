@@ -99,6 +99,32 @@
     }
   },
   {
+    "type": "ability_block",
+    "named": true,
+    "fields": {
+      "abilities": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "ability_list",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_body",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "ability_list",
     "named": true,
     "fields": {},
@@ -187,6 +213,10 @@
       "required": false,
       "types": [
         {
+          "type": "ability_block",
+          "named": true
+        },
+        {
           "type": "rule",
           "named": true
         }
@@ -204,7 +234,7 @@
     "fields": {
       "abilities": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "ability_list",
@@ -256,7 +286,7 @@
     "fields": {
       "abilities": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "ability_list",
@@ -563,6 +593,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "ability_block",
+          "named": true
+        },
         {
           "type": "rule",
           "named": true

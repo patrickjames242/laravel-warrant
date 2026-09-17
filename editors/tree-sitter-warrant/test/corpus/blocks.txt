@@ -87,3 +87,102 @@ for timesheets {
     (schema_header
       schema: (identifier))
     body: (block_body)))
+
+=========================================
+an ability block heading headless clauses
+=========================================
+
+view, edit {
+    if is_public they can
+    they cannot because 'Locked.'
+}
+
+---
+
+(source_file
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (identifier))
+      (ability
+        (identifier)))
+    body: (block_body
+      (rule
+        (condition_clause
+          condition: (condition
+            name: (identifier)))
+        (can_clause)
+        (cannot_clause
+          denial: (because_clause
+            message: (string
+              (string_content))))))))
+
+===========================================
+a wildcard ability block beside plain rules
+===========================================
+
+if is_admin they can *
+
+* {
+    if is_suspended they cannot because 'Suspended.'
+}
+
+they can list
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (wildcard)))))
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (wildcard)))
+    body: (block_body
+      (rule
+        (condition_clause
+          condition: (condition
+            name: (identifier)))
+        (cannot_clause
+          denial: (because_clause
+            message: (string
+              (string_content)))))))
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+======================================
+an ability block inside a schema block
+======================================
+
+for documents {
+    view {
+        if is_owner they can
+    }
+}
+
+---
+
+(source_file
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body
+      (ability_block
+        abilities: (ability_list
+          (ability
+            (identifier)))
+        body: (block_body
+          (rule
+            (condition_clause
+              condition: (condition
+                name: (identifier)))
+            (can_clause)))))))

@@ -11,6 +11,7 @@
     { "include": "#sql-ref" },
     { "include": "#named-binding" },
     { "include": "#positional-binding" },
+    { "include": "#ability-block-header" },
     { "include": "#schema-target" },
     { "include": "#keywords" },
     { "include": "#constants" },
@@ -102,6 +103,13 @@
       "comment": "A `?` placeholder binding, scoped like :name so both binding forms look alike.",
       "match": "\\?",
       "name": "variable.parameter.binding.warrant"
+    },
+    "ability-block-header": {
+      "comment": "`<ability>[, <ability>]... {` \u2014 the header of an ability block, whose clauses take these abilities instead of naming their own. Matched by the names being followed directly by the `{` that opens the body, which no other construct does: a `for <schema> {` header has the schema name after a keyword, and a clause has its abilities after `can`/`cannot`. The whole list is one scope, so the separating commas carry it too. Line-start only (a match cannot span lines), so a header written on the same line as an enclosing `{` falls back to the identifier rule below.",
+      "match": "^\\s*((?:[A-Za-z_][A-Za-z0-9_-]*|\\*)(?:\\s*,\\s*(?:[A-Za-z_][A-Za-z0-9_-]*|\\*))*)(?=\\s*\\{)",
+      "captures": {
+        "1": { "name": "entity.name.type.ability-block.warrant" }
+      }
     },
     "schema-target": {
       "comment": "`for <schema>` — both the header of a top-level `for <schema> { ... }` rule-set block and the `for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. Any optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the name are on different lines, `for` falls back to the keyword rule below.",

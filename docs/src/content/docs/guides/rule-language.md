@@ -42,6 +42,74 @@ if is_locked
 they cannot update because 'This document is locked.'
 ```
 
+## Grouping rules by ability
+
+When several rules are about one ability, an **ability block** names it once. The
+clauses inside take the header's abilities and name none of their own:
+
+```text
+view {
+    if is_public they can
+    if is_locked they cannot because 'This document is locked.'
+}
+```
+
+That is the same as writing each clause out in full:
+
+```text
+if is_public they can view
+if is_locked they cannot view because 'This document is locked.'
+```
+
+A block is grouping and nothing more. It produces exactly those rules, and since
+[rule order never matters](/guides/grants-and-denials/), the two forms are
+indistinguishable to everything downstream.
+
+A header may list several abilities, or use the `*` wildcard:
+
+```text
+edit, delete {
+    if is_owner they can
+}
+
+* {
+    if is_suspended they cannot because 'Your account is suspended.'
+}
+```
+
+Blocks and ordinary rules mix freely, in any order:
+
+```text
+for documents {
+    if is_admin they can *
+
+    view {
+        if is_public they can
+    }
+
+    if is_archived they cannot edit because 'This document is archived.'
+}
+```
+
+Three things are rejected:
+
+- **A clause inside a block naming its own abilities** — `view { if x they can edit }`.
+  The header is the one place the ability is said, so it stays a complete account
+  of what the block is about.
+- **A block inside a block.** An inner header would answer a question the outer
+  one already settled.
+- **A headless clause outside a block** — `if is_public they can` at the top level
+  has nothing to take its abilities from.
+
+The same ability may appear in more than one header. Nothing is lost when it does:
+both blocks' rules apply, exactly as the longhand would.
+
+:::note[Blocks do not survive parsing]
+A block is expanded into ordinary rules as it is read, so
+[`toSyntax()`](/reference/rule-building-api/) renders the longhand form rather
+than reconstructing the block.
+:::
+
 ## `can`, `cannot`, and how they combine
 
 Warrant combines grants and denials with one rule: **a `cannot` always beats a
@@ -389,9 +457,11 @@ in the surrounding query and that the fragment is valid SQL for your connection.
 ## Formal grammar
 
 ```text
-ruleset     = clause* ( "if" expr clause+ )* ;
+ruleset     = ( clause+ | "if" expr clause+ | ability_block )* ;
+ability_block = ability ( "," ability )* "{" ruleset "}" ;
 clause      = "they" ( "can" ability ( "," ability )*
                      | "cannot" ability ( "," ability )* ( "because" message )? ) ;
+              (* inside an ability block the ability list is omitted entirely *)
 ability     = IDENTIFIER | "*" ;
 message     = STRING | NAMED_BINDING | POSITIONAL ;
 expr        = or ;
