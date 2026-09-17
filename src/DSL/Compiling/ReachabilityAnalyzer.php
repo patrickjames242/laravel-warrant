@@ -36,8 +36,8 @@ final class ReachabilityAnalyzer
         foreach ($ruleSet->rules as $rule) {
             if ($rule instanceof IncludeInvocation) {
                 throw new InvalidArgumentException(sprintf(
-                    'Cannot analyze reachability of a rule set holding `@include %s`; rule template expansion '
-                        .'is not implemented yet.',
+                    'Cannot analyze reachability of a rule set holding `@include %s`; expand it with a '
+                        .'RuleTemplateExpander first, so the template\'s own rules are counted.',
                     $rule->templateKey,
                 ));
             }

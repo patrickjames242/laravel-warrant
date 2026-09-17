@@ -276,6 +276,32 @@ final class WarrantParser
     }
 
     /**
+     * Parse a rule template's body: headless rules that take $abilities, for the
+     * `@include` expanding it.
+     *
+     * The body is read exactly as an ability block's is, and the same three rules
+     * follow from that: a clause may not name abilities, no ability block may be
+     * opened inside it, and an `@include` in the body takes the same abilities
+     * without a `for` list of its own — which is how a template that includes
+     * another resolves.
+     *
+     * @param list<string> $abilities
+     * @param array<int|string, mixed> $bindings
+     * @return list<RuleSetEntry>
+     */
+    public static function parseTemplateBody(string $source, array $abilities, array $bindings = []): array
+    {
+        $parser = new self($source, $bindings);
+
+        $entries = $parser->parseRules($abilities);
+
+        $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        $parser->bindings->finalize($parser->peek());
+
+        return $entries;
+    }
+
+    /**
      * Parse the full input to rules, asserting a clean end and that every
      * binding was consumed.
      *
