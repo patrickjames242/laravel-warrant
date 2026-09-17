@@ -16,6 +16,8 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
+use Warrant\Rules\IncludeInvocation;
+use Warrant\Rules\RuleTemplateExpander;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 
@@ -76,21 +78,13 @@ final class RuleSetValidator
     public function validate(WarrantRuleSet $ruleSet): void
     {
         foreach ($ruleSet->rules as $rule) {
-            /* An include is not validated here. Reading its body means calling the
-               template with concrete arguments, and an argument may be a @context
-               reference whose value arrives per check — the same blind spot this
-               class already has for a condition that answers with an expression. */
-            if (! $rule instanceof WarrantRule) {
+            if ($rule instanceof IncludeInvocation) {
+                $this->assertIncludeValid($rule);
+
                 continue;
             }
 
-            foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
-                if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
-                    throw new InvalidArgumentException(
-                        sprintf('Ability [%s] is not declared by the schema.', $ability)
-                    );
-                }
-            }
+            $this->assertAbilitiesDeclared([...$rule->canAbilities, ...$rule->cannotAbilities()]);
 
             $this->assertNoDuplicateCannotAbility($rule);
 
@@ -98,6 +92,44 @@ final class RuleSetValidator
                 $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
             }
         }
+    }
+
+    /**
+     * Every name in an ability list must be one the schema declares. `*` is not a
+     * name but a stand-in for all of them, so it is passed over.
+     *
+     * @param list<string> $abilities
+     */
+    private function assertAbilitiesDeclared(array $abilities): void
+    {
+        foreach ($abilities as $ability) {
+            if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Ability [%s] is not declared by the schema.', $ability)
+                );
+            }
+        }
+    }
+
+    /**
+     * Validate an `@include`: the abilities it names, the template it names, and
+     * that it supplies the arguments that template requires.
+     *
+     * The template checks are {@see RuleTemplateExpander::resolveTemplate()}'s own,
+     * called rather than restated, so this rejects exactly what an expansion would
+     * and says the same thing when it does.
+     *
+     * The body is out of reach, as the docblock above explains: it exists only
+     * once the template has been called with concrete arguments, and an argument
+     * may be a `@context` reference filled per check. A mistake inside a body is
+     * therefore the expansion's to report, in the same way a mistake inside a
+     * condition's derived expression is the compiler's.
+     */
+    private function assertIncludeValid(IncludeInvocation $include): void
+    {
+        $this->assertAbilitiesDeclared($include->abilities);
+
+        RuleTemplateExpander::resolveTemplate($this->schema, $this->schemaKey, $include);
     }
 
     /**

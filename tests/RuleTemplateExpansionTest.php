@@ -3,6 +3,7 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\Compiling\Call;
 use Warrant\DSL\Compiling\CallStack;
@@ -222,12 +223,12 @@ it('bounds a recursion that cannot terminate, naming the chain', function () {
 
 it('rejects an include naming a template the schema does not declare', function () {
     expect(fn () => expandSyntax('@include nope for view'))
-        ->toThrow(RuntimeException::class, 'declares no rule template [nope]');
+        ->toThrow(InvalidArgumentException::class, 'declares no rule template [nope]');
 });
 
 it('rejects an include supplying too few arguments', function () {
     expect(fn () => expandSyntax("@include needs_two('a') for view"))
-        ->toThrow(RuntimeException::class, 'requires 2 argument(s), but the @include supplies 1');
+        ->toThrow(InvalidArgumentException::class, 'requires 2 argument(s), but the @include supplies 1');
 });
 
 it('rejects a template answering with neither a string nor a body', function () {
@@ -383,4 +384,57 @@ it('diagnoses a denial that came from a template', function () {
 
     // is_advisor is false for this user, so the deny does not fire and view stands.
     expect($guard->can('view'))->toBeTrue();
+});
+
+// -- validation ---------------------------------------------------------------
+
+function validateSyntax(string $syntax): void
+{
+    (new RuleSetValidator(new TemplateExpansionSchema, 'course_sections'))
+        ->validate(WarrantRuleSet::fromSyntax($syntax, 'course_sections'));
+}
+
+it('accepts an include naming a template the schema declares', function () {
+    expect(fn () => validateSyntax('view { @include requires_approval }'))->not->toThrow(Exception::class);
+});
+
+it('rejects an unknown template from rule text, before anything is expanded', function () {
+    // The same rejection the expansion would make, reached without calling a
+    // template or resolving an argument.
+    expect(fn () => validateSyntax('@include nope for view'))
+        ->toThrow(InvalidArgumentException::class, 'declares no rule template [nope]');
+});
+
+it('rejects too few include arguments from rule text', function () {
+    expect(fn () => validateSyntax("@include needs_two('a') for view"))
+        ->toThrow(InvalidArgumentException::class, 'requires 2 argument(s), but the @include supplies 1');
+});
+
+it('rejects an undeclared ability in an include for list', function () {
+    expect(fn () => validateSyntax('@include grants_it for not_an_ability'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on the block an include sits in', function () {
+    expect(fn () => validateSyntax('not_an_ability { @include grants_it }'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('still validates the rules around an include', function () {
+    expect(fn () => validateSyntax(<<<'WARRANT'
+        view {
+            @include requires_approval
+            if no_such_condition they can
+        }
+        WARRANT))
+        ->toThrow(InvalidArgumentException::class, 'no_such_condition');
+});
+
+it('says nothing about what is inside a template body', function () {
+    // opens_a_block is malformed, but a body is only read at an expansion, so
+    // validation passes and the expansion is what reports it.
+    expect(fn () => validateSyntax('@include opens_a_block for view'))->not->toThrow(Exception::class);
+
+    expect(fn () => expandSyntax('@include opens_a_block for view'))
+        ->toThrow(WarrantSyntaxException::class);
 });

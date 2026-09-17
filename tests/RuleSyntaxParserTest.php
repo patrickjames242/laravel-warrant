@@ -9,7 +9,6 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Rules\IncludeInvocation;
@@ -1401,34 +1400,6 @@ it('renders an include back out rather than what it expands to', function () {
         TXT);
 });
 
-it('leaves an include alone when validating, having no way to read its body', function () {
-    // Validated against a schema in hand rather than through the registry, as the
-    // validator's own docblock suggests for a set whose schema is already known.
-    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
-            @include requires_approval
-            if is_teacher they can
-        }
-        WARRANT, 'timesheets');
-
-    $validator = new RuleSetValidator(new WarrantTestSchema, 'timesheets');
-
-    expect(fn () => $validator->validate($set))->not->toThrow(Exception::class);
-});
-
-it('still validates the rules around an include', function () {
-    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
-            @include requires_approval
-            if no_such_condition they can
-        }
-        WARRANT, 'timesheets');
-
-    $validator = new RuleSetValidator(new WarrantTestSchema, 'timesheets');
-
-    expect(fn () => $validator->validate($set))
-        ->toThrow(InvalidArgumentException::class, 'no_such_condition');
-});
 
 // -- @include: placement and carriers -----------------------------------------
 
@@ -1556,7 +1527,12 @@ it('rejects an include argument list that is never closed', function () {
 // -- @include: round-tripping -------------------------------------------------
 
 it('round-trips an include through toSyntax', function () {
-    $original = WarrantRuleSet::fromSyntax("@include inherited('folder', 2) for view, update", 'timesheets');
+    $original = WarrantRuleSet::fromSyntax(
+        <<<WARRANT
+            @include inherited('folder', 2) for view, update
+        WARRANT,
+        'timesheets'
+    );
 
     $reparsed = WarrantRuleSet::fromSyntax($original->toSyntax());
 

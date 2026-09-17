@@ -2,9 +2,11 @@
 
 namespace Warrant\Rules;
 
+use InvalidArgumentException;
 use RuntimeException;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\SchemaVocabulary;
+use Warrant\Schema\RuleTemplateDefinition;
 
 /**
  * Replaces every {@see IncludeInvocation} in a rule set with the rules its
@@ -49,6 +51,48 @@ final class RuleTemplateExpander
     }
 
     /**
+     * The template an include names, rejecting one the schema does not declare and
+     * one the include gives too few arguments.
+     *
+     * Static, and reached from outside, because
+     * {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator} makes exactly these
+     * two checks over rule text before anything is expanded, and the two have to
+     * agree — the same rejection, in the same words. Sharing one implementation is
+     * what makes that true rather than intended.
+     *
+     * Nothing else about a template can be settled this way. Reading a body means
+     * calling the method with concrete argument values, and an argument may be a
+     * `@context` reference whose value arrives per check, so what is inside a body
+     * is only ever known at an expansion.
+     */
+    public static function resolveTemplate(
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        IncludeInvocation $include,
+    ): RuleTemplateDefinition {
+        $definition = $schema->getRuleTemplateDefinition($include->templateKey);
+
+        if ($definition === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares no rule template [%s], named by an @include.',
+                $schemaKey,
+                $include->templateKey,
+            ));
+        }
+
+        if (count($include->arguments) < $definition->requiredArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'Rule template [%s] requires %d argument(s), but the @include supplies %d.',
+                $include->templateKey,
+                $definition->requiredArgumentCount,
+                count($include->arguments),
+            ));
+        }
+
+        return $definition;
+    }
+
+    /**
      * @param list<RuleSetEntry> $entries
      * @return list<WarrantRule>
      */
@@ -87,24 +131,7 @@ final class RuleTemplateExpander
     ): array {
         $deeper = $trail->entering($include);
 
-        $definition = $schema->getRuleTemplateDefinition($include->templateKey);
-
-        if ($definition === null) {
-            throw new RuntimeException(sprintf(
-                'Schema [%s] declares no rule template [%s], named by an @include.',
-                $schemaKey,
-                $include->templateKey,
-            ));
-        }
-
-        if (count($include->arguments) < $definition->requiredArgumentCount) {
-            throw new RuntimeException(sprintf(
-                'Rule template [%s] requires %d argument(s), but the @include supplies %d.',
-                $include->templateKey,
-                $definition->requiredArgumentCount,
-                count($include->arguments),
-            ));
-        }
+        $definition = self::resolveTemplate($schema, $schemaKey, $include);
 
         $body = $schema->{$definition->methodName}(...$include->arguments);
 
