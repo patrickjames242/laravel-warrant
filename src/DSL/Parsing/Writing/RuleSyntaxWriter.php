@@ -15,6 +15,8 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\Rules\IncludeInvocation;
+use Warrant\Rules\RuleSetEntry;
 use Warrant\Rules\RuleSetGroup;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
@@ -118,11 +120,32 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<WarrantRule> $rules
+     * @param list<RuleSetEntry> $entries
      */
-    private function writeRules(array $rules): string
+    private function writeRules(array $entries): string
     {
-        return implode("\n\n", array_map($this->writeRule(...), $rules));
+        return implode("\n\n", array_map($this->writeEntry(...), $entries));
+    }
+
+    private function writeEntry(RuleSetEntry $entry): string
+    {
+        return $entry instanceof IncludeInvocation
+            ? $this->writeInclude($entry)
+            : $this->writeRule($entry);
+    }
+
+    /**
+     * Render an `@include` as it was written rather than as what it expands to.
+     * The abilities are always spelled out with `for`, which says the same thing
+     * an enclosing ability block would have said and needs no block to say it.
+     */
+    private function writeInclude(IncludeInvocation $include): string
+    {
+        $arguments = $include->arguments === []
+            ? ''
+            : '(' . implode(', ', array_map($this->arg(...), $include->arguments)) . ')';
+
+        return "@include {$include->templateKey}{$arguments} for " . implode(', ', $include->abilities);
     }
 
     private function writeRuleWithHeader(WarrantRule $rule): string

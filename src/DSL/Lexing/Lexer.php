@@ -108,11 +108,16 @@ final class Lexer
     }
 
     /**
-     * Scan an `@`-prefixed reference: `@context` (a check-time context value),
-     * `@column` (a schema-qualified database column), or `@sql` (an arbitrary SQL
-     * fragment). The word after `@` selects which; the token(s) that follow — an
-     * identifier for `@context`/`@column`, a quoted string for `@sql` — are separate
-     * tokens the parser reads.
+     * Scan an `@`-prefixed word: the value references `@context` (a check-time
+     * context value), `@column` (a schema-qualified database column) and `@sql`
+     * (an arbitrary SQL fragment), or the directive `@include` (expand a rule
+     * template). The word after `@` selects which; whatever follows — an
+     * identifier for `@context`/`@column`/`@include`, a quoted string for `@sql` —
+     * are separate tokens the parser reads.
+     *
+     * The sigil carries a directive as well as a value because an ability block's
+     * header is a bare name: a keyword `include` would be reserved everywhere and
+     * would collide with a block opened on an ability of that name.
      */
     private function scanAtRef(): Token
     {
@@ -123,7 +128,12 @@ final class Lexer
         $this->advance(); // consume '@'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
-            throw $this->errorAt("Expected 'context', 'column', or 'sql' after '@'.", $startOffset, $startLine, $startCol);
+            throw $this->errorAt(
+                "Expected 'context', 'column', 'sql', or 'include' after '@'.",
+                $startOffset,
+                $startLine,
+                $startCol,
+            );
         }
 
         $word = $this->consumeIdentifier();
@@ -132,8 +142,9 @@ final class Lexer
             'context' => new Token(TokenType::CONTEXT_REF, '@context', $startOffset, $startLine, $startCol),
             'column' => new Token(TokenType::COLUMN_REF, '@column', $startOffset, $startLine, $startCol),
             'sql' => new Token(TokenType::SQL_REF, '@sql', $startOffset, $startLine, $startCol),
+            'include' => new Token(TokenType::INCLUDE_REF, '@include', $startOffset, $startLine, $startCol),
             default => throw $this->errorAt(
-                sprintf("Expected 'context', 'column', or 'sql' after '@', got '%s'.", $word),
+                sprintf("Expected 'context', 'column', 'sql', or 'include' after '@', got '%s'.", $word),
                 $startOffset,
                 $startLine,
                 $startCol,

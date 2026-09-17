@@ -17,6 +17,8 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Rules\CannotClause;
+use Warrant\Rules\IncludeInvocation;
+use Warrant\Rules\RuleSetEntry;
 use Warrant\Rules\WarrantRule;
 
 /**
@@ -27,12 +29,17 @@ use Warrant\Rules\WarrantRule;
  *   group    := block*                               -- one or more `for` blocks (RuleSetGroup)
  *   block    := 'for' IDENTIFIER '{' ruleset '}'     -- header + braces mandatory in a group
  *   header   := 'for' IDENTIFIER                     -- optional schema header on a lone rule/ruleset
- *   ruleset  := ( clauses | 'if' expr clause+ | ability_block )*
+ *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | include )*
  *              -- consecutive `they` clauses merge into one unconditional rule
  *   ability_block := ability (',' ability)* '{' ruleset '}'
  *              -- the header says the abilities once, so clauses inside are
  *                 headless and may not name their own; a block never contains
  *                 another
+ *   include  := '@include' IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
+ *                          ( 'for' ability (',' ability)* )?
+ *              -- expands a schema's rule template. The `for` list is required
+ *                 outside an ability block and forbidden inside one, where the
+ *                 header already names the abilities
  *   clause   := 'they' ( 'can' ability (',' ability)*
  *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
  *              -- `because` attaches a denial message; valid only after `cannot`.
@@ -106,6 +113,29 @@ final class WarrantParser
     }
 
     /**
+     * Reject an `@include` where the caller has nowhere to carry one. Both places
+     * answer with rules alone: an include is expanded against a schema's templates
+     * and so belongs to a rule set, which is what holds it.
+     *
+     * @param list<RuleSetEntry> $entries
+     * @return list<\Warrant\Rules\WarrantRule>
+     */
+    private function assertNoIncludes(array $entries, string $construct): array
+    {
+        foreach ($entries as $entry) {
+            if ($entry instanceof IncludeInvocation) {
+                throw $this->errorAtCurrent(sprintf(
+                    'An @include is not valid for %s; use WarrantRuleSet::fromSyntax, which carries it to the '
+                        .'schema whose rule template it expands.',
+                    $construct,
+                ));
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
      * Parse source that must contain exactly one rule, preceded by an optional
      * `for <schema>` header. Curly braces are rejected — a `{ ... }` block wraps a
      * rule *set*, not a single rule. The header schema (or null) is baked onto the
@@ -137,7 +167,7 @@ final class WarrantParser
             );
         }
 
-        $rules = $parser->parseRules();
+        $rules = $parser->assertNoIncludes($parser->parseRules(), 'a single rule');
 
         if ($rules === []) {
             throw $parser->errorAtCurrent('Expected a rule.');
@@ -169,7 +199,7 @@ final class WarrantParser
 
         $schemaKey = $parser->parseOptionalHeader();
 
-        $rules = $parser->check(TokenType::LBRACE)
+        $entries = $parser->check(TokenType::LBRACE)
             ? $parser->parseBracedBody()
             : $parser->parseRules();
 
@@ -182,7 +212,7 @@ final class WarrantParser
         $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
         $parser->bindings->finalize($parser->peek());
 
-        return new ParsedRuleSet($schemaKey, $rules);
+        return new ParsedRuleSet($schemaKey, $entries);
     }
 
     /**
@@ -209,9 +239,7 @@ final class WarrantParser
             }
 
             $schemaKey = $parser->parseOptionalHeader();
-            $rules = $parser->parseBracedBody();
-
-            $blocks[] = new ParsedRuleSet($schemaKey, $rules);
+            $blocks[] = new ParsedRuleSet($schemaKey, $parser->parseBracedBody());
         }
 
         $parser->bindings->finalize($parser->peek());
@@ -255,7 +283,7 @@ final class WarrantParser
      */
     private function parseComplete(): array
     {
-        $rules = $this->parseRules();
+        $rules = $this->assertNoIncludes($this->parseRules(), 'a flat list of rules');
         $this->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
         $this->bindings->finalize($this->peek());
 
@@ -286,38 +314,48 @@ final class WarrantParser
      * the next token starts neither a rule nor an ability block, so it naturally
      * halts at the closing `}`.
      *
-     * @return list<WarrantRule>
+     * @return list<RuleSetEntry>
      */
     private function parseBracedBody(): array
     {
         $this->expect(TokenType::LBRACE, "Expected '{' to open the rule set body.");
-        $rules = $this->parseRules();
+        $entries = $this->parseRules();
         $this->expect(TokenType::RBRACE, "Expected '}' to close the rule set body.");
 
-        return $rules;
+        return $entries;
     }
 
     /**
-     * Parse a rule body: unconditional clauses, `if` rules and ability blocks, in
-     * any order. A block contributes the rules it expands to, so what comes back
-     * is a flat list either way.
+     * Parse a rule body: unconditional clauses, `if` rules, ability blocks and
+     * `@include` directives, in any order.
+     *
+     * What comes back is one flat list in source order. An include keeps its place
+     * among the rules because expansion splices the template's rules in where it
+     * was written, so the position is part of what the include means; a block
+     * contributes its own entries to the same list.
      *
      * @param list<string>|null $impliedAbilities The abilities a headless clause
      *   here takes, or null at a level where every clause names its own. A
      *   non-null value also marks this body as the inside of an ability block,
      *   which is what makes a further block a nesting error.
-     * @return list<WarrantRule>
+     * @return list<RuleSetEntry>
      */
     private function parseRules(?array $impliedAbilities = null): array
     {
-        $rules = [];
+        $entries = [];
 
         while (true) {
             /* `they` clauses with no `if` form one unconditional rule.
                parseClausesInto() absorbs every consecutive `they`, so this is
                reachable only at the start of a body or after an ability block. */
             if ($this->check(TokenType::THEY)) {
-                $rules[] = $this->parseClausesInto(null, $impliedAbilities);
+                $entries[] = $this->parseClausesInto(null, $impliedAbilities);
+
+                continue;
+            }
+
+            if ($this->check(TokenType::INCLUDE_REF)) {
+                $entries[] = $this->parseInclude($impliedAbilities);
 
                 continue;
             }
@@ -326,7 +364,7 @@ final class WarrantParser
             if ($this->check(TokenType::IF)) {
                 $this->advance();
                 $conditions = $this->parseExpression();
-                $rules[] = $this->parseClausesInto($conditions, $impliedAbilities);
+                $entries[] = $this->parseClausesInto($conditions, $impliedAbilities);
 
                 continue;
             }
@@ -336,13 +374,72 @@ final class WarrantParser
                     throw $this->errorAtCurrent(self::NESTED_ABILITY_BLOCK);
                 }
 
-                $rules = [...$rules, ...$this->parseAbilityBlock()];
+                $entries = [...$entries, ...$this->parseAbilityBlock()];
 
                 continue;
             }
 
-            return $rules;
+            return $entries;
         }
+    }
+
+    /**
+     * Parse an `@include`: the template to expand, its arguments, and the
+     * abilities the clauses it expands to will take.
+     *
+     * Those abilities are named in the text either way — by the enclosing block's
+     * header, or by the reference's own `for` list — so they are settled here. A
+     * `for` list inside a block is rejected for the reason a clause's ability list
+     * is: the header is the one place the ability is said.
+     *
+     * @param list<string>|null $impliedAbilities
+     */
+    private function parseInclude(?array $impliedAbilities): IncludeInvocation
+    {
+        $this->advance(); // consume '@include'
+
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            throw $this->nameError('a rule template name');
+        }
+
+        $templateKey = $this->advance()->lexeme;
+        $arguments = [];
+
+        if ($this->check(TokenType::LPAREN)) {
+            $this->advance();
+
+            if (! $this->check(TokenType::RPAREN)) {
+                $arguments[] = $this->parseArgument();
+
+                while ($this->check(TokenType::COMMA)) {
+                    $this->advance();
+                    $arguments[] = $this->parseArgument();
+                }
+            }
+
+            $this->expect(TokenType::RPAREN, "Expected ')' to close the @include arguments.");
+        }
+
+        if ($impliedAbilities !== null) {
+            if ($this->check(TokenType::FOR)) {
+                throw $this->errorAtCurrent(
+                    'An @include inside an ability block may not name abilities; the block header already names them.'
+                );
+            }
+
+            return new IncludeInvocation($templateKey, $arguments, $impliedAbilities);
+        }
+
+        if (! $this->check(TokenType::FOR)) {
+            throw $this->errorAtCurrent(
+                'An @include outside an ability block must name the abilities it applies to, as '
+                    .'`@include <template> for <ability>, ...`.'
+            );
+        }
+
+        $this->advance();
+
+        return new IncludeInvocation($templateKey, $arguments, $this->parseAbilityList());
     }
 
     /**
@@ -354,17 +451,17 @@ final class WarrantParser
      * indistinguishable once parsed — which is why nothing downstream of the
      * parser knows blocks exist.
      *
-     * @return list<WarrantRule>
+     * @return list<RuleSetEntry>
      */
     private function parseAbilityBlock(): array
     {
         $abilities = $this->parseAbilityList();
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
-        $rules = $this->parseRules($abilities);
+        $entries = $this->parseRules($abilities);
         $this->expect(TokenType::RBRACE, "Expected '}' to close the ability block body.");
 
-        return $rules;
+        return $entries;
     }
 
     /**

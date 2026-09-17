@@ -2,6 +2,8 @@
 
 namespace Warrant\Guard\Concerns;
 
+use Warrant\Rules\IncludeInvocation;
+
 use Closure;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -179,6 +181,14 @@ trait DiagnosesDenials
             $anyCannotFired = false;
 
             foreach ($ruleSet->rules as $rule) {
+                if ($rule instanceof IncludeInvocation) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Cannot diagnose a denial from a rule set holding `@include %s`; rule template '
+                            .'expansion is not implemented yet.',
+                        $rule->templateKey,
+                    ));
+                }
+
                 if (! $rule->deniesAbility($ability)) {
                     continue;
                 }

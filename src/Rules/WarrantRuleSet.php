@@ -28,8 +28,13 @@ readonly class WarrantRuleSet
      * Every rule's own schema must be null or equal to this set's schema; a rule
      * that names a different schema is rejected.
      *
+     * The body holds rules and `@include` directives in one list, in the order
+     * they were written. An include carries no schema of its own — it is a
+     * reference to one of this schema's templates — so only the rules are checked
+     * here.
+     *
      * @param Model|WarrantSchema|string $schema
-     * @param array<int, WarrantRule> $rules
+     * @param array<int, RuleSetEntry> $rules
      */
     public function __construct(
         Model|WarrantSchema|string $schema,
@@ -38,6 +43,17 @@ readonly class WarrantRuleSet
         $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema);
 
         foreach ($rules as $rule) {
+            if (! $rule instanceof RuleSetEntry) {
+                throw new InvalidArgumentException(sprintf(
+                    'A rule set holds WarrantRule and IncludeInvocation entries, got %s.',
+                    get_debug_type($rule),
+                ));
+            }
+
+            if (! $rule instanceof WarrantRule) {
+                continue;
+            }
+
             if ($rule->schemaKey !== null && $rule->schemaKey !== $this->schemaKey) {
                 throw new InvalidArgumentException(sprintf(
                     'A rule targets schema [%s] but the rule set targets [%s]; every rule must be null or match the set.',

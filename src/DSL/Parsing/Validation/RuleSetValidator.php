@@ -76,6 +76,14 @@ final class RuleSetValidator
     public function validate(WarrantRuleSet $ruleSet): void
     {
         foreach ($ruleSet->rules as $rule) {
+            /* An include is not validated here. Reading its body means calling the
+               template with concrete arguments, and an argument may be a @context
+               reference whose value arrives per check — the same blind spot this
+               class already has for a condition that answers with an expression. */
+            if (! $rule instanceof WarrantRule) {
+                continue;
+            }
+
             foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
                 if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
                     throw new InvalidArgumentException(

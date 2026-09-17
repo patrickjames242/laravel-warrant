@@ -2,12 +2,13 @@
 
 namespace Warrant\DSL\Parsing;
 
-use Warrant\Rules\WarrantRule;
+use Warrant\Rules\RuleSetEntry;
 
 /**
  * The parser's raw structural output for one rule-set block: the schema key
  * named by a `for <schema>` header (null when the header is absent), plus the
- * block's rules.
+ * block's body — its rules and `@include` directives, in the order they were
+ * written.
  *
  * Header/param reconciliation and the "a rule set must name a schema" decision
  * live in the factories ({@see \Warrant\Rules\WarrantRuleSet},
@@ -17,7 +18,7 @@ use Warrant\Rules\WarrantRule;
 final readonly class ParsedRuleSet
 {
     /**
-     * @param list<WarrantRule> $rules
+     * @param list<RuleSetEntry> $rules
      */
     public function __construct(
         public ?string $schemaKey,

@@ -37,6 +37,9 @@ enum TokenType
     case COLUMN_REF;     // @column (followed by `<schema> . <column>`)
     case SQL_REF;        // @sql (followed by a quoted string literal)
 
+    // Directives.
+    case INCLUDE_REF;    // @include (followed by the rule template's name)
+
     // Names and literals.
     case IDENTIFIER; // condition or ability name
     case STRING;

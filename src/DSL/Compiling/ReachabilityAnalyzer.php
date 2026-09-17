@@ -2,7 +2,9 @@
 
 namespace Warrant\DSL\Compiling;
 
+use InvalidArgumentException;
 use Warrant\Reachability;
+use Warrant\Rules\IncludeInvocation;
 use Warrant\Rules\WarrantRuleSet;
 
 /**
@@ -32,6 +34,14 @@ final class ReachabilityAnalyzer
         $hasConditionalCannot = false;
 
         foreach ($ruleSet->rules as $rule) {
+            if ($rule instanceof IncludeInvocation) {
+                throw new InvalidArgumentException(sprintf(
+                    'Cannot analyze reachability of a rule set holding `@include %s`; rule template expansion '
+                        .'is not implemented yet.',
+                    $rule->templateKey,
+                ));
+            }
+
             $isUnconditional = $rule->conditions === null;
 
             if ($this->listsAbility($rule->cannotAbilities(), $ability)) {

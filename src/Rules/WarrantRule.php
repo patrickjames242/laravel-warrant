@@ -15,7 +15,7 @@ use Warrant\Facades\Warrant;
 use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantSchema;
 
-readonly class WarrantRule
+readonly class WarrantRule implements RuleSetEntry
 {
     use NormalizesRuleSchema;
 

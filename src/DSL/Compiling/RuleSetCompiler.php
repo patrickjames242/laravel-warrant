@@ -216,6 +216,14 @@ final class RuleSetCompiler
         $denies = [];
 
         foreach ($ruleSet->rules as $rule) {
+            if ($rule instanceof IncludeInvocation) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Cannot compile a rule set holding `@include %s`; rule template expansion is not '
+                        .'implemented yet.',
+                    $rule->templateKey,
+                ));
+            }
+
             if ($this->listsAbility($rule->canAbilities, $ability)) {
                 $grants[] = $rule->conditions;
             }

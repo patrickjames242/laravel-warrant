@@ -9,8 +9,11 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\Rules\IncludeInvocation;
+use Warrant\Rules\RuleSetGroup;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 
@@ -318,7 +321,7 @@ it('errors on a bad @-sigil or a malformed @column reference', function (string 
     expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
-    'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context', 'column', or 'sql'"],
+    'bad sigil'    => ['if is_teacher(@col) they can view', "Expected 'context', 'column', 'sql', or 'include'"],
     'trailing dot' => ['if is_teacher(@column timesheets.) they can view', 'Expected a column name'],
     'missing all'  => ['if is_teacher(@column) they can view', "Expected a column name after '@column'"],
 ]);
@@ -1286,4 +1289,295 @@ it('rejects an ability block through WarrantRule::fromSyntax', function () {
 it('rejects a headless clause outside an ability block', function () {
     expect(fn () => WarrantRuleSet::fromSyntax('if is_public they can', 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'an ability name');
+});
+
+// -- @include -----------------------------------------------------------------
+
+it('takes the abilities of the ability block it sits in', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view, edit {
+            @include requires_approval
+        }
+        WARRANT, 'timesheets');
+
+    expect($set->rules)->toHaveCount(1);
+    expect($set->rules[0])->toBeInstanceOf(IncludeInvocation::class);
+    expect($set->rules[0]->templateKey)->toBe('requires_approval');
+    expect($set->rules[0]->abilities)->toBe(['view', 'edit']);
+    expect($set->rules[0]->arguments)->toBe([]);
+});
+
+it('names its own abilities with a for list outside a block', function () {
+    $set = WarrantRuleSet::fromSyntax('@include requires_approval for view, edit', 'timesheets');
+
+    expect($set->rules[0]->abilities)->toBe(['view', 'edit']);
+});
+
+it('accepts a wildcard in an include for list', function () {
+    $set = WarrantRuleSet::fromSyntax('@include locked for *', 'timesheets');
+
+    expect($set->rules[0]->abilities)->toBe(['*']);
+});
+
+it('parses include arguments as a condition\'s are', function () {
+    $set = WarrantRuleSet::fromSyntax(
+        "@include inherited('folder', :depth, @context tenant_id, @column parent_id) for view",
+        'timesheets',
+        ['depth' => 2],
+    );
+
+    $arguments = $set->rules[0]->arguments;
+
+    expect($arguments[0])->toBe('folder');
+    expect($arguments[1])->toBe(2);
+    expect($arguments[2])->toBeInstanceOf(ContextRef::class);
+    expect($arguments[3])->toBeInstanceOf(ColumnRef::class);
+});
+
+it('accepts an include with empty parentheses', function () {
+    $set = WarrantRuleSet::fromSyntax('@include locked() for view', 'timesheets');
+
+    expect($set->rules[0]->arguments)->toBe([]);
+});
+
+it('keeps an include in source order among the rules', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        if is_first they can view
+
+        view {
+            @include requires_approval
+        }
+
+        if is_last they can view
+        WARRANT, 'timesheets');
+
+    expect($set->rules)->toHaveCount(3);
+    expect($set->rules[0])->toBeInstanceOf(WarrantRule::class);
+    expect($set->rules[0]->conditions->conditionKey)->toBe('is_first');
+    expect($set->rules[1])->toBeInstanceOf(IncludeInvocation::class);
+    expect($set->rules[2]->conditions->conditionKey)->toBe('is_last');
+});
+
+it('rejects a for list on an include inside an ability block', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('view { @include x for edit }', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'may not name abilities');
+});
+
+it('rejects an include outside a block that names no abilities', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('@include x', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'must name the abilities it applies to');
+});
+
+it('rejects an include with no template name', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('@include for view', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'a rule template name');
+});
+
+it('rejects an include through WarrantRule::fromSyntax', function () {
+    expect(fn () => WarrantRule::fromSyntax('@include x for view'))
+        ->toThrow(WarrantSyntaxException::class, 'not valid for a single rule');
+});
+
+it('rejects an include through the flat Parser::parse', function () {
+    expect(fn () => WarrantParser::parse('@include x for view'))
+        ->toThrow(WarrantSyntaxException::class, 'not valid for a flat list of rules');
+});
+
+it('renders an include back out rather than what it expands to', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view, edit {
+            @include requires_approval
+        }
+
+        @include inherited('folder', 2) for view
+        WARRANT, 'timesheets');
+
+    expect($set->toSyntax())->toBe(<<<'TXT'
+        for timesheets {
+            @include requires_approval for view, edit
+        
+            @include inherited('folder', 2) for view
+        }
+        TXT);
+});
+
+it('leaves an include alone when validating, having no way to read its body', function () {
+    // Validated against a schema in hand rather than through the registry, as the
+    // validator's own docblock suggests for a set whose schema is already known.
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view {
+            @include requires_approval
+            if is_teacher they can
+        }
+        WARRANT, 'timesheets');
+
+    $validator = new RuleSetValidator(new WarrantTestSchema, 'timesheets');
+
+    expect(fn () => $validator->validate($set))->not->toThrow(Exception::class);
+});
+
+it('still validates the rules around an include', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view {
+            @include requires_approval
+            if no_such_condition they can
+        }
+        WARRANT, 'timesheets');
+
+    $validator = new RuleSetValidator(new WarrantTestSchema, 'timesheets');
+
+    expect(fn () => $validator->validate($set))
+        ->toThrow(InvalidArgumentException::class, 'no_such_condition');
+});
+
+// -- @include: placement and carriers -----------------------------------------
+
+it('parses several includes in one ability block', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view {
+            @include requires_approval
+            @include not_archived
+        }
+        WARRANT, 'timesheets');
+
+    expect($set->rules)->toHaveCount(2);
+    expect($set->rules[0]->templateKey)->toBe('requires_approval');
+    expect($set->rules[1]->templateKey)->toBe('not_archived');
+    expect($set->rules[1]->abilities)->toBe(['view']);
+});
+
+it('keeps rules and includes interleaved inside one block', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view {
+            if is_teacher they can
+            @include requires_approval
+            if is_advisor they cannot because 'No.'
+        }
+        WARRANT, 'timesheets');
+
+    expect($set->rules[0])->toBeInstanceOf(WarrantRule::class);
+    expect($set->rules[1])->toBeInstanceOf(IncludeInvocation::class);
+    expect($set->rules[2])->toBeInstanceOf(WarrantRule::class);
+});
+
+it('takes a wildcard block header for an include', function () {
+    $set = WarrantRuleSet::fromSyntax('* { @include suspended }', 'timesheets');
+
+    expect($set->rules[0]->abilities)->toBe(['*']);
+});
+
+it('parses an include inside a braced for block', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        for timesheets {
+            @include requires_approval for view
+        }
+        WARRANT);
+
+    expect($set->schemaKey)->toBe('timesheets');
+    expect($set->rules[0])->toBeInstanceOf(IncludeInvocation::class);
+});
+
+it('carries includes per block through a group', function () {
+    $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
+        for timesheets {
+            view { @include requires_approval }
+        }
+
+        for warrant_test_models {
+            @include other for publish
+        }
+        WARRANT);
+
+    expect($group->ruleSets)->toHaveCount(2);
+    expect($group->ruleSets[0]->rules[0]->templateKey)->toBe('requires_approval');
+    expect($group->ruleSets[0]->rules[0]->abilities)->toBe(['view']);
+    expect($group->ruleSets[1]->rules[0]->templateKey)->toBe('other');
+    expect($group->ruleSets[1]->rules[0]->abilities)->toBe(['publish']);
+});
+
+it('keeps includes and their order when two rule sets merge', function () {
+    $first = WarrantRuleSet::fromSyntax('@include a for view', 'timesheets');
+    $second = WarrantRuleSet::fromSyntax('if is_teacher they can view  @include b for update', 'timesheets');
+
+    $merged = $first->mergeWith($second);
+
+    expect($merged->rules)->toHaveCount(3);
+    expect($merged->rules[0]->templateKey)->toBe('a');
+    expect($merged->rules[1])->toBeInstanceOf(WarrantRule::class);
+    expect($merged->rules[2]->templateKey)->toBe('b');
+});
+
+it('accepts an include built directly, without going through the parser', function () {
+    $set = new WarrantRuleSet('timesheets', [
+        new IncludeInvocation('requires_approval', [], ['view']),
+        WarrantRule::fromSyntax('they can update'),
+    ]);
+
+    expect($set->rules)->toHaveCount(2);
+    expect($set->rules[0]->abilities)->toBe(['view']);
+});
+
+it('rejects an entry that is neither a rule nor an include', function () {
+    expect(fn () => new WarrantRuleSet('timesheets', ['not an entry']))
+        ->toThrow(InvalidArgumentException::class, 'WarrantRule and IncludeInvocation entries');
+});
+
+// -- @include: arguments ------------------------------------------------------
+
+it('resolves positional bindings in include arguments', function () {
+    $set = WarrantRuleSet::fromSyntax('@include inherited(?, ?) for view', 'timesheets', ['folder', 3]);
+
+    expect($set->rules[0]->arguments)->toBe(['folder', 3]);
+});
+
+it('takes every literal kind as an include argument', function () {
+    $set = WarrantRuleSet::fromSyntax("@include t('s', 4, 1.5, true, null) for view", 'timesheets');
+
+    expect($set->rules[0]->arguments)->toBe(['s', 4, 1.5, true, null]);
+});
+
+it('takes a qualified column reference as an include argument', function () {
+    $set = WarrantRuleSet::fromSyntax('@include t(@column timesheets.parent_id) for view', 'timesheets');
+
+    expect($set->rules[0]->arguments[0])->toBeInstanceOf(ColumnRef::class);
+    expect($set->rules[0]->arguments[0]->alias)->toBe('timesheets');
+});
+
+it('counts an unused binding against an include like any other', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('@include t for view', 'timesheets', ['unused' => 1]))
+        ->toThrow(WarrantSyntaxException::class, 'never used');
+});
+
+it('rejects an include argument list that is never closed', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax("@include t('a' for view", 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, "')' to close the @include arguments");
+});
+
+// -- @include: round-tripping -------------------------------------------------
+
+it('round-trips an include through toSyntax', function () {
+    $original = WarrantRuleSet::fromSyntax("@include inherited('folder', 2) for view, update", 'timesheets');
+
+    $reparsed = WarrantRuleSet::fromSyntax($original->toSyntax());
+
+    expect($reparsed->rules[0]->templateKey)->toBe('inherited');
+    expect($reparsed->rules[0]->arguments)->toBe(['folder', 2]);
+    expect($reparsed->rules[0]->abilities)->toBe(['view', 'update']);
+});
+
+it('round-trips an include through toBoundSyntax', function () {
+    $original = WarrantRuleSet::fromSyntax("@include inherited('folder', 2) for view", 'timesheets');
+
+    $bound = $original->toBoundSyntax();
+    $reparsed = WarrantRuleSet::fromSyntax($bound->syntax, bindings: $bound->bindings);
+
+    expect($bound->bindings)->toBe(['folder', 2]);
+    expect($reparsed->rules[0]->arguments)->toBe(['folder', 2]);
+});
+
+it('renders an argument-less include with no parentheses', function () {
+    $set = WarrantRuleSet::fromSyntax('view { @include requires_approval }', 'timesheets');
+
+    expect($set->toSyntax())->toContain('@include requires_approval for view');
+    expect($set->toSyntax())->not->toContain('()');
 });
