@@ -72,6 +72,20 @@ final readonly class Call
     }
 
     /**
+     * @param class-string $schemaClass
+     * @param array<int, mixed> $arguments The include's *unresolved* DSL arguments.
+     */
+    public static function include(string $schemaClass, string $templateKey, array $arguments = []): self
+    {
+        return new self(
+            CallKind::Include,
+            $schemaClass,
+            $templateKey,
+            array_map(self::describeArgument(...), array_values($arguments)),
+        );
+    }
+
+    /**
      * Whether this call is the same call as $other — the same kind, against the
      * same schema, with the same name and the same rendered arguments.
      *
@@ -89,7 +103,8 @@ final readonly class Call
 
     /**
      * The call as it reads in a stack trace, e.g. `folders:view`,
-     * `check folders`, `folders.is_visible(@column folders.parent_id)`.
+     * `check folders`, `folders.is_visible(@column folders.parent_id)`,
+     * `@include folders.inherited_from(@column folders.parent_id)`.
      */
     public function signature(): string
     {
@@ -99,6 +114,7 @@ final readonly class Call
             CallKind::Ability => "{$schema}:{$this->name}",
             CallKind::Check => "check {$schema}",
             CallKind::Condition => "{$schema}.{$this->name}",
+            CallKind::Include => "@include {$schema}.{$this->name}",
         };
 
         return $this->arguments === []

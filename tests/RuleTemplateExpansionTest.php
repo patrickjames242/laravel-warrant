@@ -4,6 +4,9 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Compiling\Call;
+use Warrant\DSL\Compiling\CallStack;
+use Warrant\DSL\Compiling\CompileDepthException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
@@ -304,4 +307,80 @@ it('derives a fresh trail per branch rather than sharing one', function () {
     expect($expanded->rules)->toHaveCount(2);
     expect($expanded->rules[0]->canAbilities)->toBe(['view']);
     expect($expanded->rules[1]->canAbilities)->toBe(['publish']);
+});
+
+// -- compiling ----------------------------------------------------------------
+
+it('compiles a rule set through a template to the same SQL as its longhand', function () {
+    bindWarrantRules('@include conditional_grant for view');
+    $viaTemplate = warrantTestQuery();
+    Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class)->filterQuery($viaTemplate, 'view');
+
+    bindWarrantRules('if is_teacher they can view');
+    $longhand = warrantTestQuery();
+    Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class)->filterQuery($longhand, 'view');
+
+    expect(normalizeWarrantSql($viaTemplate->toSql()))->toBe(normalizeWarrantSql($longhand->toSql()));
+});
+
+it('lets a template deny, the same as a rule written out', function () {
+    bindWarrantRules("they can view\n@include hard_deny for view");
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    expect($guard->can('view'))->toBeFalse();
+});
+
+it('grants through a template', function () {
+    bindWarrantRules('@include grants_it for publish');
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    expect($guard->can('publish'))->toBeTrue();
+});
+
+it('compiles a recursion that terminates', function () {
+    bindWarrantRules('@include counts_down(4) for publish');
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    expect($guard->can('publish'))->toBeTrue();
+});
+
+it('bounds a runaway template against the compile budget, naming the ability hop', function () {
+    bindWarrantRules('@include loops for publish');
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    try {
+        $guard->can('publish');
+        expect(false)->toBeTrue('expected a depth error');
+    } catch (CompileDepthException $e) {
+        // The include frames sit under the ability that reached this rule set, so
+        // the trace says which check led here, not only which templates looped.
+        expect($e->getMessage())->toContain('@include');
+        expect($e->getMessage())->toContain('loops');
+        expect($e->getMessage())->toContain(':publish');
+    }
+});
+
+it('renders an include frame with its arguments in a trace', function () {
+    $call = Call::include(TemplateExpansionSchema::class, 'inherited_from', ['folder']);
+
+    expect($call->signature())->toBe("@include course_sections.inherited_from('folder')");
+});
+
+it('counts include frames rather than rejecting a repeated template', function () {
+    // Same template twice on one stack is legal — it is the argument that decides
+    // whether it terminates, exactly as for a condition.
+    $stack = CallStack::root()
+        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [2]))
+        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [1]))
+        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [1]));
+
+    expect($stack->depth())->toBe(3);
+});
+
+it('diagnoses a denial that came from a template', function () {
+    bindWarrantRules("they can view\n@include requires_approval for view");
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    // is_advisor is false for this user, so the deny does not fire and view stands.
+    expect($guard->can('view'))->toBeTrue();
 });

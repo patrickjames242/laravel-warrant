@@ -2,7 +2,7 @@
 
 namespace Warrant\Guard\Concerns;
 
-use Warrant\Rules\IncludeInvocation;
+use Warrant\Rules\RuleTemplateExpander;
 
 use Closure;
 use Illuminate\Contracts\Database\Query\Builder;
@@ -74,7 +74,10 @@ trait DiagnosesDenials
 
         $gate = new WarrantGate($abilities, $matchMode);
         $context = $this->schema->resolveEffectiveContext($context);
-        $ruleSet = $this->resolvedRuleSet();
+        /* A denial may be the doing of a rule a template supplied, and naming the
+           rule that caused it means holding that rule. There is no compile here to
+           hang the expansion on, so it takes the plain depth bound. */
+        $ruleSet = (new RuleTemplateExpander)->expand($this->resolvedRuleSet(), $this->schema);
         $compiler = $this->compiler();
 
         if ($target !== null) {
@@ -181,14 +184,6 @@ trait DiagnosesDenials
             $anyCannotFired = false;
 
             foreach ($ruleSet->rules as $rule) {
-                if ($rule instanceof IncludeInvocation) {
-                    throw new \InvalidArgumentException(sprintf(
-                        'Cannot diagnose a denial from a rule set holding `@include %s`; rule template '
-                            .'expansion is not implemented yet.',
-                        $rule->templateKey,
-                    ));
-                }
-
                 if (! $rule->deniesAbility($ability)) {
                     continue;
                 }

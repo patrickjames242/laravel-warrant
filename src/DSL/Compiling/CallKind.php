@@ -8,10 +8,10 @@ namespace Warrant\DSL\Compiling;
  * The kind is not bookkeeping: it decides whether a call participates in cycle
  * detection. An {@see self::Ability} takes no arguments, so the same
  * `(schema, ability)` twice on one stack is the same work over again and proves
- * non-termination — those are rejected on sight. A {@see self::Check} or a
- * {@see self::Condition} may legitimately recur with different arguments, and the
- * compiler does not try to tell those apart, so they are counted against the
- * depth budget and nothing more.
+ * non-termination — those are rejected on sight. A {@see self::Check}, a
+ * {@see self::Condition} or an {@see self::Include} may legitimately recur with
+ * different arguments, and the compiler does not try to tell those apart, so they
+ * are counted against the depth budget and nothing more.
  */
 enum CallKind
 {
@@ -23,6 +23,9 @@ enum CallKind
 
     /** A condition that expanded into a further expression rather than emitting SQL. */
     case Condition;
+
+    /** An `@include` — a rule template expanded into the rules it stands for. */
+    case Include;
 
     /**
      * Whether re-entering this kind of call proves the compile cannot terminate.

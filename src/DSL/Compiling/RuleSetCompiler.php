@@ -27,6 +27,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Rules\WarrantRuleSet;
+use Warrant\Rules\RuleTemplateExpander;
 use Warrant\WarrantManager;
 
 /**
@@ -208,6 +209,16 @@ final class RuleSetCompiler
            caught, and it puts the ability on the stack every leaf below reads. */
         $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
 
+        /* Templates are expanded before the rules are folded, on the stack the
+           ability is already on: a runaway expansion is then bounded by the same
+           budget as every other descent, and reports the hops that led here. What
+           comes back is rules, in the places their includes stood. */
+        $ruleSet = (new RuleTemplateExpander)->expand(
+            $ruleSet,
+            $this->conditions,
+            new CallStackTrail($ctx->callStack, $this->conditions::class),
+        );
+
         $abilityNode = new CompiledWhereClauseNode;
 
         /** @var list<IBooleanExpressionNode|null> $grants */
@@ -216,14 +227,6 @@ final class RuleSetCompiler
         $denies = [];
 
         foreach ($ruleSet->rules as $rule) {
-            if ($rule instanceof IncludeInvocation) {
-                throw new \InvalidArgumentException(sprintf(
-                    'Cannot compile a rule set holding `@include %s`; rule template expansion is not '
-                        .'implemented yet.',
-                    $rule->templateKey,
-                ));
-            }
-
             if ($this->listsAbility($rule->canAbilities, $ability)) {
                 $grants[] = $rule->conditions;
             }
