@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Highlight the header of an ability block — the ability list a `{ ... }` body
+  takes its clauses' abilities from, as in `view, edit { if is_public they can }`
+  — as a name of its own rather than as a condition call.
+- Highlight `@include`, the directive that expands a rule template into the rules
+  it stands for: `@include requires_approval for view, edit`. It scopes as a
+  keyword rather than as a reference, because it stands where a rule stands and
+  not where an argument does.
+
 ## 0.6.0
 
 - Highlight a positional `?` as the binding it is, scoped like a `:name`
