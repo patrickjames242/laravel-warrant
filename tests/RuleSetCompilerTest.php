@@ -14,6 +14,7 @@ use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\RuleTemplateDefinition;
 use Warrant\WarrantGate;
 
 /**
@@ -92,6 +93,12 @@ final class FakeConditionResolver implements ConditionResolver
     public function getAbilityDefinition(string $name): ?AbilityDefinition
     {
         return in_array($name, self::abilityNames(), true) ? new AbilityDefinition($name) : null;
+    }
+
+    // This double declares no rule templates; an @include against it is unknown.
+    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition
+    {
+        return null;
     }
 
     public function getConditionDefinition(string $name): ?ConditionDefinition

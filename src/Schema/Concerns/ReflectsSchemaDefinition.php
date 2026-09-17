@@ -18,11 +18,14 @@ use Warrant\Schema\DeclaresAbility;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
+use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplateDefinition;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`
- * constants) and the conditions (from `#[RowCondition]` / `#[GlobalCondition]`
- * methods) that a rule string is allowed to reference.
+ * constants), the conditions (from `#[RowCondition]` / `#[GlobalCondition]`
+ * methods) and the rule templates (from `#[RuleTemplate]` methods) that a rule
+ * string is allowed to reference.
  */
 trait ReflectsSchemaDefinition
 {
@@ -226,11 +229,12 @@ trait ReflectsSchemaDefinition
         if (
             $method->getAttributes(RowCondition::class) !== []
             || $method->getAttributes(GlobalCondition::class) !== []
+            || $method->getAttributes(RuleTemplate::class) !== []
         ) {
             throw new InvalidArgumentException(sprintf(
-                'Schema [%s] declares a condition attribute on matchKey(), which is the schema\'s row key '
+                'Schema [%s] declares a vocabulary attribute on matchKey(), which is the schema\'s row key '
                     .'and not part of its rule vocabulary; remove the attribute, or move the logic to a '
-                    .'condition method of its own.',
+                    .'condition or template method of its own.',
                 static::class,
             ));
         }
@@ -259,6 +263,131 @@ trait ReflectsSchemaDefinition
             true,
             max(0, $method->getNumberOfRequiredParameters() - 1),
         );
+    }
+
+    /**
+     * Every rule template key the schema declares, sorted, as
+     * {@see conditionKeys} is.
+     *
+     * @return array<int, string>
+     */
+    public static function ruleTemplateKeys(): array
+    {
+        return collect(static::ruleTemplateDefinitions())
+            ->map(fn (RuleTemplateDefinition $definition): string => $definition->key)
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The {@see RuleTemplateDefinition} for a single template key, or null if the
+     * schema declares no such template. The vocabulary seam an `@include` is
+     * resolved through, by both the validator and the compiler.
+     */
+    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition
+    {
+        return collect(static::ruleTemplateDefinitions())
+            ->first(fn (RuleTemplateDefinition $definition): bool => $definition->key === $templateKey);
+    }
+
+    /**
+     * The schema's `#[RuleTemplate]` methods, resolved to definitions. The single
+     * source of truth the other template accessors project from.
+     *
+     * A template takes no context object. It is handed argument values and answers
+     * with DSL text, reading no row and no query, so every parameter is a DSL
+     * argument — which is why the required count is read whole here where a
+     * condition's drops its leading context parameter.
+     *
+     * @return array<int, RuleTemplateDefinition>
+     */
+    protected static function ruleTemplateDefinitions(): array
+    {
+        $reflection = new ReflectionClass(static::class);
+
+        $definitions = collect($reflection->getMethods(ReflectionMethod::IS_PUBLIC))
+            ->map(function (ReflectionMethod $method): ?RuleTemplateDefinition {
+                if ($method->isStatic()) {
+                    return null;
+                }
+
+                $attributes = $method->getAttributes(RuleTemplate::class);
+
+                if ($attributes === []) {
+                    return null;
+                }
+
+                if (count($attributes) > 1) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Rule template method [%s::%s] must not declare duplicate #[RuleTemplate] attributes.',
+                        static::class,
+                        $method->getName(),
+                    ));
+                }
+
+                /* A condition answers with SQL or an expression about a row; a
+                   template answers with rule text about none. One method cannot be
+                   both, and a method wearing both attributes has no single meaning
+                   to pick. */
+                if (
+                    $method->getAttributes(RowCondition::class) !== []
+                    || $method->getAttributes(GlobalCondition::class) !== []
+                ) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Method [%s::%s] cannot be both a condition and a rule template.',
+                        static::class,
+                        $method->getName(),
+                    ));
+                }
+
+                $templateKey = $attributes[0]->newInstance()->key
+                    ?? static::ruleTemplateKeyFromMethodName($method->getName());
+
+                if (! is_string($templateKey) || $templateKey === '') {
+                    throw new InvalidArgumentException(sprintf(
+                        'Rule template method [%s::%s] must resolve to a non-empty template key.',
+                        static::class,
+                        $method->getName(),
+                    ));
+                }
+
+                /* No return type is required, as none is for a condition. A
+                   template answers with rule text, either as a plain string or as
+                   a WarrantRuleTemplate carrying the bindings its placeholders
+                   need, and a method free to branch may declare neither. What it
+                   actually answered with is checked at the expansion that reads
+                   it, where the value exists. */
+
+                return new RuleTemplateDefinition(
+                    $templateKey,
+                    $method->getName(),
+                    $method->getNumberOfRequiredParameters(),
+                );
+            })
+            ->filter()
+            ->values();
+
+        $duplicate = $definitions->pluck('key')->duplicates()->first();
+
+        if ($duplicate !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares rule template [%s] more than once.',
+                static::class,
+                $duplicate,
+            ));
+        }
+
+        return $definitions->all();
+    }
+
+    protected static function ruleTemplateKeyFromMethodName(string $methodName): ?string
+    {
+        if ($methodName === '') {
+            return null;
+        }
+
+        return Str::snake($methodName);
     }
 
     protected static function conditionKeyFromMethodName(string $methodName): ?string

@@ -26,6 +26,7 @@ use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\RuleTemplateDefinition;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -51,6 +52,8 @@ final class BuilderFakeResolver implements ConditionResolver
     public static function virtualTable(): ?Builder { return null; }
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
     public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
+
+    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition { return null; }
 
     public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', true, 1); }
 

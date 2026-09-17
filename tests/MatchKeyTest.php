@@ -369,9 +369,9 @@ it('rejects a literal null in any argument position', function () {
 
 // -- the key is not vocabulary ------------------------------------------------
 
-it('rejects a condition attribute on matchKey', function () {
+it('rejects a vocabulary attribute on matchKey', function () {
     expect(fn () => MkAttributedKeySchema::keyDefinition())
-        ->toThrow(InvalidArgumentException::class, 'declares a condition attribute on matchKey()');
+        ->toThrow(InvalidArgumentException::class, 'declares a vocabulary attribute on matchKey()');
 });
 
 it('does not expose the key as a condition a rule can name', function () {

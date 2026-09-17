@@ -4,17 +4,18 @@ namespace Warrant\DSL;
 
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\RuleTemplateDefinition;
 
 /**
- * A schema's declared vocabulary: the abilities and conditions a rule string may
- * reference. This is the minimal contract needed to *validate* a rule set —
+ * A schema's declared vocabulary: the abilities, conditions and rule templates a
+ * rule string may reference. This is the minimal contract needed to *validate* a rule set —
  * nothing here emits SQL. The compile-time seam {@see ConditionResolver} extends
  * it with the emission methods.
  *
- * Existence and metadata are answered together: {@see getAbilityDefinition} and
- * {@see getConditionDefinition} return the definition (or null if undeclared), so
- * a caller checks existence and reads what it needs — a condition's row-ness or
- * required argument count — from one lookup.
+ * Existence and metadata are answered together: {@see getAbilityDefinition},
+ * {@see getConditionDefinition} and {@see getRuleTemplateDefinition} return the
+ * definition (or null if undeclared), so a caller checks existence and reads what
+ * it needs — a condition's row-ness or required argument count — from one lookup.
  */
 interface SchemaVocabulary
 {
@@ -44,6 +45,12 @@ interface SchemaVocabulary
      * condition.
      */
     public function getConditionDefinition(string $conditionKey): ?ConditionDefinition;
+
+    /**
+     * The definition for a single rule template, or null if the schema declares no
+     * such template. What an `@include` resolves through.
+     */
+    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition;
 
     /**
      * The definition of the schema's row key, which every row-bound handle's
