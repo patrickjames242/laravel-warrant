@@ -28,6 +28,7 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Rules\WarrantRuleSet;
 use Warrant\Rules\RuleTemplateExpander;
+use Warrant\Rules\WarrantRule;
 use Warrant\WarrantManager;
 
 /**
@@ -227,6 +228,8 @@ final class RuleSetCompiler
         $denies = [];
 
         foreach ($ruleSet->rules as $rule) {
+            $this->assertRuleAbilitiesDeclared($rule);
+
             if ($this->listsAbility($rule->canAbilities, $ability)) {
                 $grants[] = $rule->conditions;
             }
@@ -317,6 +320,32 @@ final class RuleSetCompiler
      * rather than the rule set — a wildcard grant would otherwise make any
      * misspelling look granted.
      */
+    /**
+     * Every ability a rule lists must be one the schema declares.
+     *
+     * The mirror of {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator}'s
+     * check over rule text, made here because a rule reaches a compile by paths no
+     * validation ever ran over: one built with the fluent builder, one a template
+     * expanded into rules, a set assembled programmatically.
+     *
+     * A name nothing declares is otherwise silently inert rather than wrong. It
+     * matches no ability being compiled, so the rule never fires, and a misspelt
+     * `they can veiw` reads as a considered decision to grant nothing.
+     *
+     * `*` names no ability in particular but stands for all of them, so it is
+     * passed over.
+     */
+    private function assertRuleAbilitiesDeclared(WarrantRule $rule): void
+    {
+        foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
+            if ($ability !== '*' && $this->conditions->getAbilityDefinition($ability) === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Ability [%s] is not declared by the schema.', $ability)
+                );
+            }
+        }
+    }
+
     private function assertAbilityDeclared(string $ability): void
     {
         if ($this->conditions->getAbilityDefinition($ability) !== null) {

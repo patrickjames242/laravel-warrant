@@ -513,3 +513,28 @@ it('has no row qualifier without a from clause, or with an unreadable one', func
     expect(QueryFactory::for(DB::connection('testing')->query()->fromRaw('(select 1) as x'))->rowQualifier())
         ->toBeNull();
 });
+
+// -- undeclared ability names -------------------------------------------------
+
+it('rejects a rule listing an ability the schema does not declare', function () {
+    // Reached without validation, as a rule built with the fluent builder or
+    // expanded from a template is: the compiler has to make this call itself, or
+    // the name is silently inert — matching no ability, so the rule never fires.
+    expect(fn () => compileDocIds('they can veiw', 'view'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [veiw] is not declared by the schema.');
+});
+
+it('rejects an undeclared ability in a cannot clause', function () {
+    expect(fn () => compileDocIds("they can view\nthey cannot veiw", 'view'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [veiw] is not declared by the schema.');
+});
+
+it('rejects an undeclared name even while compiling a different ability', function () {
+    // The validator walks every rule in the set, so this one does too.
+    expect(fn () => compileDocIds("they can view\nthey can veiw", 'view'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [veiw] is not declared by the schema.');
+});
+
+it('passes over the wildcard, which names no ability in particular', function () {
+    expect(fn () => compileDocIds('they can *', 'view'))->not->toThrow(InvalidArgumentException::class);
+});
