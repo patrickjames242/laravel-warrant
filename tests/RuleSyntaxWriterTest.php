@@ -467,3 +467,24 @@ it('renders a check(...) row selector and predicate args via bound syntax lossle
     $reparsed = WarrantRule::fromSyntax($bound->syntax, bindings: $bound->bindings);
     expect($reparsed->conditions)->toEqual($rule->conditions);
 });
+
+// -- ability blocks -----------------------------------------------------------
+
+it('renders an ability block as the longhand rules it parsed to', function () {
+    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+        view, edit {
+            if is_public they can
+            if is_locked they cannot because 'Locked.'
+        }
+        WARRANT, 'docs');
+
+    expect($set->toSyntax())->toBe(<<<'TXT'
+        for docs {
+            if is_public
+            they can view, edit
+
+            if is_locked
+            they cannot view, edit because 'Locked.'
+        }
+        TXT);
+});

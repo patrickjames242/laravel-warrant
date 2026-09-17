@@ -27,12 +27,18 @@ use Warrant\Rules\WarrantRule;
  *   group    := block*                               -- one or more `for` blocks (RuleSetGroup)
  *   block    := 'for' IDENTIFIER '{' ruleset '}'     -- header + braces mandatory in a group
  *   header   := 'for' IDENTIFIER                     -- optional schema header on a lone rule/ruleset
- *   ruleset  := clauses? ( 'if' expr clause+ )*
+ *   ruleset  := ( clauses | 'if' expr clause+ | ability_block )*
+ *              -- consecutive `they` clauses merge into one unconditional rule
+ *   ability_block := ability (',' ability)* '{' ruleset '}'
+ *              -- the header says the abilities once, so clauses inside are
+ *                 headless and may not name their own; a block never contains
+ *                 another
  *   clause   := 'they' ( 'can' ability (',' ability)*
  *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
  *              -- `because` attaches a denial message; valid only after `cannot`.
  *                 Each `they cannot ...` clause becomes one CannotClause on the
  *                 rule, so distinct clauses keep distinct messages.
+ *                 Inside an ability block the ability list is omitted entirely.
  *   message  := STRING | NAMED_BINDING | POSITIONAL
  *              -- a string literal, or a binding resolving to a string or closure
  *   ability  := IDENTIFIER | '*'
@@ -62,6 +68,14 @@ use Warrant\Rules\WarrantRule;
  */
 final class WarrantParser
 {
+    /**
+     * Raised from the two places a nested block can be noticed: the body loop, and
+     * the ability slot of a clause, where `they can edit { ... }` reaches the
+     * clause parser first.
+     */
+    private const NESTED_ABILITY_BLOCK =
+        'An ability block may not contain another; the enclosing block already names the abilities.';
+
     /** @var list<Token> */
     private readonly array $tokens;
 
@@ -109,6 +123,17 @@ final class WarrantParser
         if ($parser->check(TokenType::LBRACE)) {
             throw $parser->errorAtCurrent(
                 'Curly braces are not valid for a single rule; use WarrantRuleSet::fromSyntax for a `{ ... }` block.'
+            );
+        }
+
+        /* An ability block wraps a rule *set* as surely as braces do. Rejecting it
+           here rather than leaving it to the count below keeps the error about the
+           construct: a block holding one rule would otherwise pass, and a block
+           holding two would fail as 'multiple rules', which names the wrong
+           mistake. */
+        if ($parser->abilityBlockAhead()) {
+            throw $parser->errorAtCurrent(
+                'An ability block is not valid for a single rule; use WarrantRuleSet::fromSyntax for a `<ability> { ... }` block.'
             );
         }
 
@@ -258,7 +283,8 @@ final class WarrantParser
 
     /**
      * Parse a braced `{ <rules> }` body. {@see parseRules()} already stops when
-     * the next token isn't `if`/`they`, so it naturally halts at the closing `}`.
+     * the next token starts neither a rule nor an ability block, so it naturally
+     * halts at the closing `}`.
      *
      * @return list<WarrantRule>
      */
@@ -272,25 +298,90 @@ final class WarrantParser
     }
 
     /**
+     * Parse a rule body: unconditional clauses, `if` rules and ability blocks, in
+     * any order. A block contributes the rules it expands to, so what comes back
+     * is a flat list either way.
+     *
+     * @param list<string>|null $impliedAbilities The abilities a headless clause
+     *   here takes, or null at a level where every clause names its own. A
+     *   non-null value also marks this body as the inside of an ability block,
+     *   which is what makes a further block a nesting error.
      * @return list<WarrantRule>
      */
-    private function parseRules(): array
+    private function parseRules(?array $impliedAbilities = null): array
     {
         $rules = [];
 
-        // Leading `they can/cannot` clauses (no `if`) form one unconditional rule.
-        if ($this->check(TokenType::THEY)) {
-            $rules[] = $this->parseClausesInto(null);
-        }
+        while (true) {
+            /* `they` clauses with no `if` form one unconditional rule.
+               parseClausesInto() absorbs every consecutive `they`, so this is
+               reachable only at the start of a body or after an ability block. */
+            if ($this->check(TokenType::THEY)) {
+                $rules[] = $this->parseClausesInto(null, $impliedAbilities);
 
-        // Each `if` starts a new conditional rule.
-        while ($this->check(TokenType::IF)) {
-            $this->advance();
-            $conditions = $this->parseExpression();
-            $rules[] = $this->parseClausesInto($conditions);
+                continue;
+            }
+
+            // Each `if` starts a new conditional rule.
+            if ($this->check(TokenType::IF)) {
+                $this->advance();
+                $conditions = $this->parseExpression();
+                $rules[] = $this->parseClausesInto($conditions, $impliedAbilities);
+
+                continue;
+            }
+
+            if ($this->abilityBlockAhead()) {
+                if ($impliedAbilities !== null) {
+                    throw $this->errorAtCurrent(self::NESTED_ABILITY_BLOCK);
+                }
+
+                $rules = [...$rules, ...$this->parseAbilityBlock()];
+
+                continue;
+            }
+
+            return $rules;
         }
+    }
+
+    /**
+     * Parse an ability block: an ability list, then a braced body whose clauses
+     * take those abilities instead of naming any.
+     *
+     * The block is grouping and nothing more. It yields the rules the longhand
+     * clauses would, and rule order never matters, so the two forms are
+     * indistinguishable once parsed — which is why nothing downstream of the
+     * parser knows blocks exist.
+     *
+     * @return list<WarrantRule>
+     */
+    private function parseAbilityBlock(): array
+    {
+        $abilities = $this->parseAbilityList();
+
+        $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
+        $rules = $this->parseRules($abilities);
+        $this->expect(TokenType::RBRACE, "Expected '}' to close the ability block body.");
 
         return $rules;
+    }
+
+    /**
+     * Whether an ability block starts here: an ability name or `*`, followed by
+     * the `{` that opens its body or the `,` that continues its header.
+     *
+     * Two tokens settle it. A bare name is legal nowhere else at the start of a
+     * rule — only `if`, `they`, `}`, `for` or end of input can follow one — so
+     * anything matching here is a block header and nothing else.
+     */
+    private function abilityBlockAhead(): bool
+    {
+        if (! $this->check(TokenType::IDENTIFIER) && ! $this->check(TokenType::STAR)) {
+            return false;
+        }
+
+        return in_array($this->peekAhead()->type, [TokenType::LBRACE, TokenType::COMMA], true);
     }
 
     /**
@@ -300,8 +391,10 @@ final class WarrantParser
      * {@see CannotClause}, so distinct clauses keep distinct messages on the same
      * rule.
      */
-    private function parseClausesInto(?IBooleanExpressionNode $conditions): WarrantRule
-    {
+    private function parseClausesInto(
+        ?IBooleanExpressionNode $conditions,
+        ?array $impliedAbilities,
+    ): WarrantRule {
         $can = [];
         $cannotClauses = [];
         $sawClause = false;
@@ -312,7 +405,7 @@ final class WarrantParser
 
             if ($this->check(TokenType::CAN)) {
                 $this->advance();
-                $can = array_merge($can, $this->parseAbilityList());
+                $can = array_merge($can, $this->parseClauseAbilities($impliedAbilities));
 
                 // A `because` message only ever surfaces for a matching `cannot`;
                 // hanging one off a `can` clause can never fire, so reject it here.
@@ -323,7 +416,7 @@ final class WarrantParser
                 }
             } elseif ($this->check(TokenType::CANNOT)) {
                 $this->advance();
-                $abilities = $this->parseAbilityList();
+                $abilities = $this->parseClauseAbilities($impliedAbilities);
 
                 $message = null;
 
@@ -376,6 +469,34 @@ final class WarrantParser
         }
 
         return $message;
+    }
+
+    /**
+     * The abilities one clause applies to: the list it names, or the ones the
+     * enclosing ability block supplies.
+     *
+     * Inside a block the list is not optional but forbidden. The header is the one
+     * place the ability is said, so every clause in the block has a single reading
+     * and the header stays a complete account of what the block is about.
+     *
+     * @param list<string>|null $impliedAbilities
+     * @return list<string>
+     */
+    private function parseClauseAbilities(?array $impliedAbilities): array
+    {
+        if ($impliedAbilities === null) {
+            return $this->parseAbilityList();
+        }
+
+        if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
+            /* A name followed by `{` or `,` is someone opening a block here rather
+               than naming an ability, and saying so names their actual mistake. */
+            throw $this->errorAtCurrent($this->abilityBlockAhead()
+                ? self::NESTED_ABILITY_BLOCK
+                : 'A clause inside an ability block may not name abilities; the block header already names them.');
+        }
+
+        return $impliedAbilities;
     }
 
     /**
@@ -786,6 +907,15 @@ final class WarrantParser
     private function peek(): Token
     {
         return $this->tokens[$this->index];
+    }
+
+    /**
+     * The token $distance places past the current one, clamped to the EOF token
+     * that always terminates the stream.
+     */
+    private function peekAhead(int $distance = 1): Token
+    {
+        return $this->tokens[min($this->index + $distance, count($this->tokens) - 1)];
     }
 
     private function check(TokenType $type): bool
