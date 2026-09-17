@@ -34,7 +34,7 @@ module.exports = grammar({
     // .warrant file may be any of them.
     source_file: $ => seq(
       optional($.schema_header),
-      repeat(choice($.schema_block, $.ability_block, $.rule)),
+      repeat(choice($.schema_block, $.ability_block, $.include, $.rule)),
     ),
 
     schema_header: $ => seq(
@@ -47,7 +47,20 @@ module.exports = grammar({
       field('body', $.block_body),
     ),
 
-    block_body: $ => seq('{', repeat(choice($.ability_block, $.rule)), '}'),
+    block_body: $ => seq('{', repeat(choice($.ability_block, $.include, $.rule)), '}'),
+
+    // `@include <template>(<args>) for <abilities>` -- expands a rule template
+    // into the rules it stands for, in the place it is written. The `for` list is
+    // required outside an ability block and forbidden inside one, where the header
+    // already names the abilities; both are accepted here, since which one is
+    // legal depends on where the include sits and a sensibly highlighted mistake
+    // beats an ERROR node.
+    include: $ => prec.right(seq(
+      '@include',
+      field('template', $.identifier),
+      optional(field('arguments', $.argument_list)),
+      optional(seq('for', field('abilities', $.ability_list))),
+    )),
 
     // An ability block heads a body with the abilities its clauses take, so the
     // clauses inside name none of their own. The PHP parser rejects a nested

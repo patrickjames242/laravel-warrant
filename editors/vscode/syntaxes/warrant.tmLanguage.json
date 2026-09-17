@@ -7,6 +7,7 @@
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#column-ref" },
+    { "include": "#include-directive" },
     { "include": "#context-ref" },
     { "include": "#sql-ref" },
     { "include": "#named-binding" },
@@ -85,6 +86,11 @@
           }
         }
       ]
+    },
+    "include-directive": {
+      "comment": "`@include <template>` \u2014 the directive that expands a rule template into the rules it stands for. Highlights `@include` as a keyword rather than as a reference: it stands where a rule stands, not where an argument stands. The template name after it is tokenized by the identifier rule, and any `(<args>)` and `for <abilities>` that follow by the argument, keyword and identifier rules. Listed before #context-ref so the shared `@` sigil is claimed by the longer, exact match first.",
+      "match": "@include\\b",
+      "name": "keyword.control.include.warrant"
     },
     "context-ref": {
       "match": "@context\\b",

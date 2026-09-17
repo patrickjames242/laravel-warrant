@@ -4,8 +4,8 @@ Syntax highlighting for the Warrant rule DSL, both in standalone `.warrant`
 files and inside PHP heredocs/nowdocs labelled `WARRANT` (or `DSL`).
 
 This is the PhpStorm counterpart of the VSCode extension in `../vscode`. The
-lexer here mirrors the token rules of
-`../../src/RuleSyntaxTree/Parsing/Lexer.php` — keep them in sync.
+lexer here mirrors the token rules of `../../src/DSL/Lexing/Lexer.php` — keep
+them in sync.
 
 ## What's here
 
@@ -52,7 +52,8 @@ Edit code, stop, re-run. This never touches your real IDE.
 ./gradlew buildPlugin
 ```
 
-Produces `build/distributions/warrant-phpstorm-0.1.0.zip`. Then in PhpStorm:
+Produces `build/distributions/warrant-phpstorm-<version>.zip`, where the
+version is the one set in `build.gradle.kts`. Then in PhpStorm:
 
 **Settings → Plugins → ⚙ → Install Plugin from Disk…** → select that zip →
 **Restart IDE**.

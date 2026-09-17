@@ -1,0 +1,107 @@
+=========================================================
+an include taking its abilities from the block it sits in
+=========================================================
+
+view, edit {
+    @include requires_approval
+}
+
+---
+
+(source_file
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (identifier))
+      (ability
+        (identifier)))
+    body: (block_body
+      (include
+        template: (identifier)))))
+
+===================================
+an include naming its own abilities
+===================================
+
+@include requires_approval for view, edit
+
+---
+
+(source_file
+  (include
+    template: (identifier)
+    abilities: (ability_list
+      (ability
+        (identifier))
+      (ability
+        (identifier)))))
+
+=================================
+an include with arguments
+=================================
+
+@include inherited_from('folder', @column parent_id, :depth) for view
+
+---
+
+(source_file
+  (include
+    template: (identifier)
+    arguments: (argument_list
+      (string
+        (string_content))
+      (column_ref
+        column: (identifier))
+      (named_binding))
+    abilities: (ability_list
+      (ability
+        (identifier)))))
+
+================================================
+includes and rules interleaved in a schema block
+================================================
+
+for documents {
+    if is_owner they can view
+
+    @include locked() for *
+
+    view {
+        @include requires_approval
+        if is_public they can
+    }
+}
+
+---
+
+(source_file
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body
+      (rule
+        (condition_clause
+          condition: (condition
+            name: (identifier)))
+        (can_clause
+          abilities: (ability_list
+            (ability
+              (identifier)))))
+      (include
+        template: (identifier)
+        arguments: (argument_list)
+        abilities: (ability_list
+          (ability
+            (wildcard))))
+      (ability_block
+        abilities: (ability_list
+          (ability
+            (identifier)))
+        body: (block_body
+          (include
+            template: (identifier))
+          (rule
+            (condition_clause
+              condition: (condition
+                name: (identifier)))
+            (can_clause)))))))

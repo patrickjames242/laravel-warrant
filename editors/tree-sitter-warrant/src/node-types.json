@@ -217,6 +217,10 @@
           "named": true
         },
         {
+          "type": "include",
+          "named": true
+        },
+        {
           "type": "rule",
           "named": true
         }
@@ -463,6 +467,42 @@
     }
   },
   {
+    "type": "include",
+    "named": true,
+    "fields": {
+      "abilities": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "ability_list",
+            "named": true
+          }
+        ]
+      },
+      "arguments": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "argument_list",
+            "named": true
+          }
+        ]
+      },
+      "template": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "not_expression",
     "named": true,
     "fields": {
@@ -595,6 +635,10 @@
       "types": [
         {
           "type": "ability_block",
+          "named": true
+        },
+        {
+          "type": "include",
           "named": true
         },
         {
@@ -745,6 +789,10 @@
   },
   {
     "type": "@context",
+    "named": false
+  },
+  {
+    "type": "@include",
     "named": false
   },
   {

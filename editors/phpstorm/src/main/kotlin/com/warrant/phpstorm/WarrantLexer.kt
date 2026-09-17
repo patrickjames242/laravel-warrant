@@ -67,13 +67,19 @@ class WarrantLexer : LexerBase() {
             }
             c == '\'' || c == '"' -> scanString(pos)
             c == '@' -> {
-                // @context / @column / @sql (tolerant: any @word). Lexer.php requires
-                // exactly "context", "column", or "sql"; for colouring we accept the
-                // @word and pick the token by which keyword it is (default: context).
+                // The value references @context / @column / @sql, and the directive
+                // @include. Tolerant of any @word: Lexer.php accepts exactly those
+                // four and rejects the rest, but for colouring we take the @word and
+                // pick the token by which one it is (default: context).
+                //
+                // @include colours as a keyword rather than as a reference because
+                // that is what it is — a directive standing where a rule stands,
+                // not a value standing where an argument stands.
                 tokenEnd = consumeWhile(pos + 1) { isIdentPart(it) }
                 tokenType = when (buffer.subSequence(pos, tokenEnd).toString()) {
                     "@column" -> WarrantTokenTypes.COLUMN_REF
                     "@sql" -> WarrantTokenTypes.SQL_REF
+                    "@include" -> WarrantTokenTypes.KEYWORD
                     else -> WarrantTokenTypes.CONTEXT_REF
                 }
             }

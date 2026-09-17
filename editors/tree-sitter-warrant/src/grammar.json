@@ -33,6 +33,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "include"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "rule"
               }
             ]
@@ -92,6 +96,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "include"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "rule"
               }
             ]
@@ -102,6 +110,68 @@
           "value": "}"
         }
       ]
+    },
+    "include": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "@include"
+          },
+          {
+            "type": "FIELD",
+            "name": "template",
+            "content": {
+              "type": "SYMBOL",
+              "name": "identifier"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "arguments",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "argument_list"
+                }
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "for"
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "abilities",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "ability_list"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
     },
     "ability_block": {
       "type": "SEQ",
