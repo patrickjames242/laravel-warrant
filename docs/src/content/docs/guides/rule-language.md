@@ -104,6 +104,15 @@ Three things are rejected:
 The same ability may appear in more than one header. Nothing is lost when it does:
 both blocks' rules apply, exactly as the longhand would.
 
+A block is also where an [`@include`](/guides/rule-templates/) most often sits:
+the header names the abilities, so the include needs no `for` list of its own.
+
+```text
+view, edit {
+    @include requires_approval
+}
+```
+
 :::note[Blocks do not survive parsing]
 A block is expanded into ordinary rules as it is read, so
 [`toSyntax()`](/reference/rule-building-api/) renders the longhand form rather
@@ -457,8 +466,12 @@ in the surrounding query and that the fragment is valid SQL for your connection.
 ## Formal grammar
 
 ```text
-ruleset     = ( clause+ | "if" expr clause+ | ability_block )* ;
+ruleset     = ( clause+ | "if" expr clause+ | ability_block | include )* ;
 ability_block = ability ( "," ability )* "{" ruleset "}" ;
+include     = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]
+                         [ "for" ability { "," ability } ] ;
+              (* the `for` list is required outside an ability block and
+                 forbidden inside one *)
 clause      = "they" ( "can" ability ( "," ability )*
                      | "cannot" ability ( "," ability )* ( "because" message )? ) ;
               (* inside an ability block the ability list is omitted entirely *)

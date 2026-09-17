@@ -8,8 +8,9 @@ sidebar:
 ---
 
 A schema is a `Warrant\Schema\WarrantSchema` subclass, one per resource. It
-declares the **abilities** that exist and the **conditions** a rule may test, and
-binds them to a model. A schema is *vocabulary*, not policy — it decides nothing.
+declares the **abilities** that exist, the **conditions** a rule may test and the
+[**rule templates**](/guides/rule-templates/) a rule may expand, and binds them to
+a model. A schema is *vocabulary*, not policy — it decides nothing.
 
 ```php
 use Warrant\Schema\WarrantSchema;
