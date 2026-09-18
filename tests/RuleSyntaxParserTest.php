@@ -1251,12 +1251,12 @@ it('allows the same ability in more than one block header', function () {
 
 it('rejects a clause inside an ability block naming its own abilities', function () {
     expect(fn () => WarrantRuleSet::fromSyntax('view { if x they can edit }', 'timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'may not name abilities');
+        ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
 });
 
 it('rejects a wildcard clause inside an ability block', function () {
     expect(fn () => WarrantRuleSet::fromSyntax('view { if x they cannot * }', 'timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'may not name abilities');
+        ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
 });
 
 it('rejects a nested ability block', function () {
@@ -1267,7 +1267,7 @@ it('rejects a nested ability block', function () {
             }
         }
         WARRANT, 'timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'may not contain another');
+        ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
 });
 
 it('reports a nested block rather than a named ability when a block follows a clause', function () {
@@ -1277,7 +1277,7 @@ it('reports a nested block rather than a named ability when a block follows a cl
             edit { if is_owner they can }
         }
         WARRANT, 'timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'may not contain another');
+        ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
 });
 
 it('rejects an ability block through WarrantRule::fromSyntax', function () {
@@ -1359,7 +1359,7 @@ it('keeps an include in source order among the rules', function () {
 
 it('rejects a for list on an include inside an ability block', function () {
     expect(fn () => WarrantRuleSet::fromSyntax('view { @include x for edit }', 'timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'may not name abilities');
+        ->toThrow(WarrantSyntaxException::class, 'An @include inside an ability block may not name abilities');
 });
 
 it('rejects an include outside a block that names no abilities', function () {

@@ -114,6 +114,18 @@ class TemplateExpansionSchema extends WarrantTestSchema
     {
         return 'if is_teacher they can view';
     }
+
+    #[RuleTemplate]
+    public function namesAnAbilityInACannot(): string
+    {
+        return "if is_teacher they cannot view because 'nope'";
+    }
+
+    #[RuleTemplate]
+    public function namesTheWildcard(): string
+    {
+        return 'if is_teacher they can *';
+    }
 }
 
 /**
@@ -239,13 +251,24 @@ it('rejects a template answering with neither a string nor a body', function () 
 it('rejects an ability block inside a template body', function () {
     // A body is headless for the same reason a block's clauses are: the abilities
     // are settled by the reference, so the body has nothing to open a block over.
+    // The message names the template, not the block the author never opened.
     expect(fn () => expandSyntax('@include opens_a_block for view'))
-        ->toThrow(WarrantSyntaxException::class, 'may not contain another');
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not open an ability block");
 });
 
 it('rejects a clause inside a template body naming its own abilities', function () {
     expect(fn () => expandSyntax('@include names_an_ability for view'))
-        ->toThrow(WarrantSyntaxException::class, 'may not name abilities');
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
+});
+
+it('rejects abilities named on a cannot clause in a template body', function () {
+    expect(fn () => expandSyntax('@include names_an_ability_in_a_cannot for view'))
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
+});
+
+it('rejects the wildcard named in a template body', function () {
+    expect(fn () => expandSyntax('@include names_the_wildcard for view'))
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
 });
 
 // -- reachability -------------------------------------------------------------
@@ -378,13 +401,6 @@ it('counts include frames rather than rejecting a repeated template', function (
     expect($stack->depth())->toBe(3);
 });
 
-it('diagnoses a denial that came from a template', function () {
-    bindWarrantRules("they can view\n@include requires_approval for view");
-    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
-
-    // is_advisor is false for this user, so the deny does not fire and view stands.
-    expect($guard->can('view'))->toBeTrue();
-});
 
 // -- validation ---------------------------------------------------------------
 

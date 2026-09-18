@@ -12,9 +12,11 @@ use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\WarrantRule;
 use Warrant\Rules\WarrantRuleSet;
+use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\RuleTemplate;
 use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantSchema;
 use Warrant\Schema\WarrantUngrantedContext;
@@ -32,6 +34,8 @@ beforeEach(function () {
         'denial_forbidden' => DenialForbiddenSchema::class,
         'denial_forbidden_throw' => DenialForbiddenThrowSchema::class,
         'denial_both' => DenialBothSchema::class,
+        'denial_template' => DenialTemplateSchema::class,
+        'denial_template_forbidden' => DenialTemplateForbiddenSchema::class,
     ]);
 });
 
@@ -269,6 +273,78 @@ class DenialBothSchema extends WarrantTestSchema
 }
 
 // -- helpers ------------------------------------------------------------------
+
+/** A schema whose denials come from rule templates rather than from rules. */
+class DenialTemplateModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialTemplateSchema::class;
+    }
+}
+
+class DenialTemplateSchema extends WarrantTestSchema
+{
+    public const model = DenialTemplateModel::class;
+
+    #[RuleTemplate]
+    public function archived(): string
+    {
+        return "if is_teacher they cannot because 'This section is archived and can no longer be edited.'";
+    }
+
+    /** A closure message, which can only reach the DSL through a binding. */
+    #[RuleTemplate]
+    public function archivedWithReason(string $reason): WarrantRuleTemplate
+    {
+        return Warrant::ruleTemplate(
+            'if is_teacher they cannot because :why',
+            ['why' => fn (WarrantDenialContext $c) => "You cannot {$c->deniedAbilities[0]} {$c->target->getKey()}: {$reason}."],
+        );
+    }
+
+    /** Denies with no message of its own, leaving the schema's hook to answer. */
+    #[RuleTemplate]
+    public function silentlyBlocked(): string
+    {
+        return 'if is_teacher they cannot';
+    }
+}
+
+class DenialTemplateForbiddenModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return DenialTemplateForbiddenSchema::class;
+    }
+}
+
+/** The same templates, plus a forbidden hook for the message-less one. */
+class DenialTemplateForbiddenSchema extends DenialTemplateSchema
+{
+    public const model = DenialTemplateForbiddenModel::class;
+
+    public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null
+    {
+        return 'Forbidden by template: '.implode(',', $c->deniedAbilities);
+    }
+}
 
 function seedDenialSections(): void
 {
@@ -943,4 +1019,69 @@ it('surfaces a rule message through the middleware', function () {
 
     expect(fn () => $this->actingAs(makeWarrantTestUser('teacher-role'))->get('/__warrant/denial/teacher:teacher-role'))
         ->toThrow(WarrantAuthorizationException::class, 'teacher blocked');
+});
+
+// -- messages carried by a rule template --------------------------------------
+
+it('surfaces a string message from a cannot a template supplied', function () {
+    seedDenialSections();
+    bindWarrantRules("they can update\n@include archived for update", schemaKey: 'denial_template');
+
+    $call = fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))
+        ->forSchema(DenialTemplateSchema::class)
+        ->authorize('update', 'teacher:teacher-role');
+
+    expect($call)->toThrow(WarrantAuthorizationException::class, 'This section is archived and can no longer be edited.');
+    expect($call)->toThrow(AuthorizationException::class);
+});
+
+it('surfaces a closure message a template carried through a binding', function () {
+    seedDenialSections();
+    bindWarrantRules(
+        "they can update\n@include archived_with_reason('the term has ended') for update",
+        schemaKey: 'denial_template',
+    );
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))
+        ->forSchema(DenialTemplateSchema::class)
+        ->authorize('update', 'teacher:teacher-role'))
+        ->toThrow(
+            WarrantAuthorizationException::class,
+            'You cannot update teacher:teacher-role: the term has ended.',
+        );
+});
+
+it('gives a template message to each ability the include named', function () {
+    seedDenialSections();
+    bindWarrantRules("they can view, update\n@include archived for view, update", schemaKey: 'denial_template');
+
+    $guard = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialTemplateSchema::class);
+
+    foreach (['view', 'update'] as $ability) {
+        expect(fn () => $guard->authorize($ability, 'teacher:teacher-role'))
+            ->toThrow(WarrantAuthorizationException::class, 'This section is archived and can no longer be edited.');
+    }
+});
+
+it('falls to the forbidden hook when a template denies without a message', function () {
+    seedDenialSections();
+    bindWarrantRules("they can update\n@include silently_blocked for update", schemaKey: 'denial_template_forbidden');
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))
+        ->forSchema(DenialTemplateForbiddenSchema::class)
+        ->authorize('update', 'teacher:teacher-role'))
+        ->toThrow(WarrantAuthorizationException::class, 'Forbidden by template: update');
+});
+
+it('reports an ability no template grants as ungranted, not forbidden', function () {
+    seedDenialSections();
+    bindWarrantRules('@include archived for update', schemaKey: 'denial_template');
+
+    // The template denies, but nothing grants either, and the deny does not fire
+    // for a user that is not the teacher — so this is ungranted rather than a
+    // forbid, and the template's message must not be reported.
+    expect(fn () => Warrant::guard(makeWarrantTestUser('other-role'))
+        ->forSchema(DenialTemplateSchema::class)
+        ->authorize('update', 'teacher:teacher-role'))
+        ->not->toThrow(WarrantAuthorizationException::class, 'This section is archived');
 });

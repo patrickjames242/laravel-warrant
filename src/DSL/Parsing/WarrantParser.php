@@ -76,12 +76,15 @@ use Warrant\Rules\WarrantRule;
 final class WarrantParser
 {
     /**
-     * Raised from the two places a nested block can be noticed: the body loop, and
-     * the ability slot of a clause, where `they can edit { ... }` reaches the
-     * clause parser first.
+     * Whether the body being read is a rule template's rather than an ability
+     * block's. Both are headless and so travel the same path, but they reject the
+     * same mistakes for different reasons, and an author told about a block they
+     * never opened goes looking for one.
+     *
+     * A field rather than a parameter because the two never nest inside one parse:
+     * a template's body may not open a block, and a block may not hold a body.
      */
-    private const NESTED_ABILITY_BLOCK =
-        'An ability block may not contain another; the enclosing block already names the abilities.';
+    private bool $inTemplateBody = false;
 
     /** @var list<Token> */
     private readonly array $tokens;
@@ -292,6 +295,7 @@ final class WarrantParser
     public static function parseTemplateBody(string $source, array $abilities, array $bindings = []): array
     {
         $parser = new self($source, $bindings);
+        $parser->inTemplateBody = true;
 
         $entries = $parser->parseRules($abilities);
 
@@ -397,7 +401,7 @@ final class WarrantParser
 
             if ($this->abilityBlockAhead()) {
                 if ($impliedAbilities !== null) {
-                    throw $this->errorAtCurrent(self::NESTED_ABILITY_BLOCK);
+                    throw $this->errorAtCurrent($this->nestedBlockError());
                 }
 
                 $entries = [...$entries, ...$this->parseAbilityBlock()];
@@ -615,11 +619,34 @@ final class WarrantParser
             /* A name followed by `{` or `,` is someone opening a block here rather
                than naming an ability, and saying so names their actual mistake. */
             throw $this->errorAtCurrent($this->abilityBlockAhead()
-                ? self::NESTED_ABILITY_BLOCK
-                : 'A clause inside an ability block may not name abilities; the block header already names them.');
+                ? $this->nestedBlockError()
+                : $this->namedAbilitiesError());
         }
 
         return $impliedAbilities;
+    }
+
+    /**
+     * Raised where a clause names abilities that the enclosing construct already
+     * named for it.
+     */
+    private function namedAbilitiesError(): string
+    {
+        return $this->inTemplateBody
+            ? "A rule template's body may not name abilities; the @include that expands it names them."
+            : 'A clause inside an ability block may not name abilities; the block header already names them.';
+    }
+
+    /**
+     * Raised from the two places a block can be opened where none may be: the body
+     * loop, and the ability slot of a clause, where `they can edit { ... }` reaches
+     * the clause parser first.
+     */
+    private function nestedBlockError(): string
+    {
+        return $this->inTemplateBody
+            ? "A rule template's body may not open an ability block; the @include that expands it names the abilities."
+            : 'An ability block may not contain another; the enclosing block already names the abilities.';
     }
 
     /**
