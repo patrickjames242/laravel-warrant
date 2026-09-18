@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- Follow the rule language's breaking change to the ability block header, which
+  now reads `can they <abilities> { ... }` where it read a bare ability list:
+  `can they view, edit { if is_public they can }`. The leading `can they` scopes
+  as a keyword and the ability list after it as a name, and a header no longer
+  has to start a line to be recognised.
+
 ## 0.7.0
 
 - Highlight the header of an ability block — the ability list a `{ ... }` body

@@ -1,6 +1,6 @@
 id = "warrant"
 name = "Warrant"
-version = "0.2.0"
+version = "0.3.0"
 schema_version = 1
 authors = ["Patrick Hanna"]
 description = "Syntax highlighting for the Warrant authorization rule DSL"
@@ -18,5 +18,5 @@ repository = "https://github.com/patrickjames242/laravel-warrant"
 # See editors/zed/README.md for the exact commands.
 [grammars.warrant]
 repository = "https://github.com/patrickjames242/laravel-warrant"
-commit = "eb058ec6f5497303eaf1e505ea08610d27532af7"
+commit = "cbff2d008c5f1c7870e841b2168dad6d7612f4e5"
 path = "editors/tree-sitter-warrant"
