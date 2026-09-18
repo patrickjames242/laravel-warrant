@@ -177,6 +177,14 @@
       "type": "SEQ",
       "members": [
         {
+          "type": "STRING",
+          "value": "can"
+        },
+        {
+          "type": "STRING",
+          "value": "they"
+        },
+        {
           "type": "FIELD",
           "name": "abilities",
           "content": {
@@ -253,86 +261,78 @@
       ]
     },
     "can_clause": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "they"
-          },
-          {
-            "type": "STRING",
-            "value": "can"
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "abilities",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "ability_list"
-                }
-              },
-              {
-                "type": "BLANK"
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "they"
+        },
+        {
+          "type": "STRING",
+          "value": "can"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "abilities",
+              "content": {
+                "type": "SYMBOL",
+                "name": "ability_list"
               }
-            ]
-          }
-        ]
-      }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
     },
     "cannot_clause": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "they"
-          },
-          {
-            "type": "STRING",
-            "value": "cannot"
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "abilities",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "ability_list"
-                }
-              },
-              {
-                "type": "BLANK"
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "they"
+        },
+        {
+          "type": "STRING",
+          "value": "cannot"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "abilities",
+              "content": {
+                "type": "SYMBOL",
+                "name": "ability_list"
               }
-            ]
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "denial",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "because_clause"
-                }
-              },
-              {
-                "type": "BLANK"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "denial",
+              "content": {
+                "type": "SYMBOL",
+                "name": "because_clause"
               }
-            ]
-          }
-        ]
-      }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
     },
     "because_clause": {
       "type": "SEQ",

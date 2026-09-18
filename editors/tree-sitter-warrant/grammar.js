@@ -62,11 +62,13 @@ module.exports = grammar({
       optional(seq('for', field('abilities', $.ability_list))),
     )),
 
-    // An ability block heads a body with the abilities its clauses take, so the
-    // clauses inside name none of their own. The PHP parser rejects a nested
-    // block and a clause that names abilities anyway; both parse here, since a
-    // sensibly highlighted mistake beats an ERROR node.
+    // `can they <abilities> { ... }` heads a body with the abilities its clauses
+    // take, so the clauses inside name none of their own. The PHP parser rejects a
+    // nested block and a clause that names abilities anyway; both parse here, since
+    // a sensibly highlighted mistake beats an ERROR node.
     ability_block: $ => seq(
+      'can',
+      'they',
       field('abilities', $.ability_list),
       field('body', $.block_body),
     ),
@@ -92,23 +94,18 @@ module.exports = grammar({
 
     _clause: $ => choice($.can_clause, $.cannot_clause),
 
-    // Right-associative because an ability list after `they can` is optional and
-    // an ability block opens on the same tokens: `they can view { ... }` could
-    // read as a headless clause followed by a `view` block. Shifting keeps the
-    // name with the clause, which is what the PHP parser does -- outside a block
-    // a clause must name its abilities, and inside one naming them is an error.
-    can_clause: $ => prec.right(seq(
+    can_clause: $ => seq(
       'they',
       'can',
       optional(field('abilities', $.ability_list)),
-    )),
+    ),
 
-    cannot_clause: $ => prec.right(seq(
+    cannot_clause: $ => seq(
       'they',
       'cannot',
       optional(field('abilities', $.ability_list)),
       optional(field('denial', $.because_clause)),
-    )),
+    ),
 
     // `because` attaches a denial message. The message is fixed at parse time,
     // so it is a literal string or a binding -- never an @context reference.

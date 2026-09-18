@@ -111,10 +111,12 @@
       "name": "variable.parameter.binding.warrant"
     },
     "ability-block-header": {
-      "comment": "`<ability>[, <ability>]... {` \u2014 the header of an ability block, whose clauses take these abilities instead of naming their own. Matched by the names being followed directly by the `{` that opens the body, which no other construct does: a `for <schema> {` header has the schema name after a keyword, and a clause has its abilities after `can`/`cannot`. The whole list is one scope, so the separating commas carry it too. Line-start only (a match cannot span lines), so a header written on the same line as an enclosing `{` falls back to the identifier rule below.",
-      "match": "^\\s*((?:[A-Za-z_][A-Za-z0-9_-]*|\\*)(?:\\s*,\\s*(?:[A-Za-z_][A-Za-z0-9_-]*|\\*))*)(?=\\s*\\{)",
+      "comment": "`can they <ability>[, <ability>]... {` \u2014 the header of an ability block, whose clauses take these abilities instead of naming their own. The leading `can they` settles it: a clause reads `they can`, the other way round, and the cross-schema builtin is `can(`. The whole ability list is one scope, so the separating commas carry it too. Same-line only (a match cannot span lines), so a header split across lines falls back to the keyword and identifier rules below.",
+      "match": "\\b(can)\\s+(they)\\b\\s*((?:[A-Za-z_][A-Za-z0-9_-]*|\\*)(?:\\s*,\\s*(?:[A-Za-z_][A-Za-z0-9_-]*|\\*))*)(?=\\s*\\{)",
       "captures": {
-        "1": { "name": "entity.name.type.ability-block.warrant" }
+        "1": { "name": "keyword.control.warrant" },
+        "2": { "name": "keyword.control.warrant" },
+        "3": { "name": "entity.name.type.ability-block.warrant" }
       }
     },
     "schema-target": {

@@ -2,7 +2,7 @@
 an include taking its abilities from the block it sits in
 =========================================================
 
-view, edit {
+can they view, edit {
     @include requires_approval
 }
 
@@ -66,7 +66,7 @@ for documents {
 
     @include locked() for *
 
-    view {
+    can they view {
         @include requires_approval
         if is_public they can
     }

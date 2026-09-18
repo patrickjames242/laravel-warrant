@@ -90,7 +90,7 @@ A body **may** hold several rules, and may include other templates.
 Inside an ability block, the header already names the abilities:
 
 ```text
-view, edit {
+can they view, edit {
     @include requires_approval
 }
 ```
@@ -211,7 +211,7 @@ reported by the compiler.
 | Too few arguments | `Rule template [...] requires N argument(s), but the @include supplies M` |
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
 | `@include x` outside a block | `An @include outside an ability block must name the abilities it applies to` |
-| `view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
+| `can they view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
 | A body that never stops including | `... exceeded the maximum nesting depth` — worded for the expansion on its own, or for the whole compile when one is under way |
 
 The first three are reported by `validate()` from rule text alone, so CI catches

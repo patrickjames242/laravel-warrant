@@ -472,7 +472,7 @@ it('renders a check(...) row selector and predicate args via bound syntax lossle
 
 it('renders an ability block as the longhand rules it parsed to', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view, edit {
+        can they view, edit {
             if is_public they can
             if is_locked they cannot because 'Locked.'
         }

@@ -45,10 +45,11 @@ they cannot update because 'This document is locked.'
 ## Grouping rules by ability
 
 When several rules are about one ability, an **ability block** names it once. The
-clauses inside take the header's abilities and name none of their own:
+header reads `can they <abilities>`, and the clauses inside take those abilities
+and name none of their own:
 
 ```text
-view {
+can they view {
     if is_public they can
     if is_locked they cannot because 'This document is locked.'
 }
@@ -68,11 +69,11 @@ indistinguishable to everything downstream.
 A header may list several abilities, or use the `*` wildcard:
 
 ```text
-edit, delete {
+can they edit, delete {
     if is_owner they can
 }
 
-* {
+can they * {
     if is_suspended they cannot because 'Your account is suspended.'
 }
 ```
@@ -83,7 +84,7 @@ Blocks and ordinary rules mix freely, in any order:
 for documents {
     if is_admin they can *
 
-    view {
+    can they view {
         if is_public they can
     }
 
@@ -93,7 +94,7 @@ for documents {
 
 Three things are rejected:
 
-- **A clause inside a block naming its own abilities** — `view { if x they can edit }`.
+- **A clause inside a block naming its own abilities** — `can they view { if x they can edit }`.
   The header is the one place the ability is said, so it stays a complete account
   of what the block is about.
 - **A block inside a block.** An inner header would answer a question the outer
@@ -108,7 +109,7 @@ A block is also where an [`@include`](/guides/rule-templates/) most often sits:
 the header names the abilities, so the include needs no `for` list of its own.
 
 ```text
-view, edit {
+can they view, edit {
     @include requires_approval
 }
 ```
@@ -467,7 +468,7 @@ in the surrounding query and that the fragment is valid SQL for your connection.
 
 ```text
 ruleset     = ( clause+ | "if" expr clause+ | ability_block | include )* ;
-ability_block = ability ( "," ability )* "{" ruleset "}" ;
+ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
 include     = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]
                          [ "for" ability { "," ability } ] ;
               (* the `for` list is required outside an ability block and

@@ -31,7 +31,7 @@ use Warrant\Rules\WarrantRule;
  *   header   := 'for' IDENTIFIER                     -- optional schema header on a lone rule/ruleset
  *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | include )*
  *              -- consecutive `they` clauses merge into one unconditional rule
- *   ability_block := ability (',' ability)* '{' ruleset '}'
+ *   ability_block := 'can' 'they' ability (',' ability)* '{' ruleset '}'
  *              -- the header says the abilities once, so clauses inside are
  *                 headless and may not name their own; a block never contains
  *                 another
@@ -166,7 +166,8 @@ final class WarrantParser
            mistake. */
         if ($parser->abilityBlockAhead()) {
             throw $parser->errorAtCurrent(
-                'An ability block is not valid for a single rule; use WarrantRuleSet::fromSyntax for a `<ability> { ... }` block.'
+                'An ability block is not valid for a single rule; use WarrantRuleSet::fromSyntax for a '
+                    .'`can they <ability> { ... }` block.'
             );
         }
 
@@ -409,6 +410,16 @@ final class WarrantParser
                 continue;
             }
 
+            /* Nothing here starts a rule. An ability list sitting where one should
+               is the block header written without its `can they`, and the caller's
+               "expected end of input" would name the wrong mistake. */
+            if (($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR))
+                && in_array($this->peekAhead()->type, [TokenType::LBRACE, TokenType::COMMA], true)) {
+                throw $this->errorAtCurrent(
+                    'An ability block header is written `can they <ability>, ... { ... }`.'
+                );
+            }
+
             return $entries;
         }
     }
@@ -485,6 +496,9 @@ final class WarrantParser
      */
     private function parseAbilityBlock(): array
     {
+        $this->advance(); // consume 'can'
+        $this->advance(); // consume 'they'
+
         $abilities = $this->parseAbilityList();
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
@@ -495,20 +509,16 @@ final class WarrantParser
     }
 
     /**
-     * Whether an ability block starts here: an ability name or `*`, followed by
-     * the `{` that opens its body or the `,` that continues its header.
+     * Whether an ability block starts here: the `can they` that heads one.
      *
-     * Two tokens settle it. A bare name is legal nowhere else at the start of a
-     * rule — only `if`, `they`, `}`, `for` or end of input can follow one — so
-     * anything matching here is a block header and nothing else.
+     * Two tokens settle it, and nothing deeper is needed. Where a rule may begin,
+     * only `if` and `they` can open one, so a `can` here starts a block and
+     * nothing else — `can(...)` is an expression and is reachable only after
+     * `if`, and the clause keyword is reached as `they can`, the other way round.
      */
     private function abilityBlockAhead(): bool
     {
-        if (! $this->check(TokenType::IDENTIFIER) && ! $this->check(TokenType::STAR)) {
-            return false;
-        }
-
-        return in_array($this->peekAhead()->type, [TokenType::LBRACE, TokenType::COMMA], true);
+        return $this->check(TokenType::CAN) && $this->peekAhead()->type === TokenType::THEY;
     }
 
     /**
@@ -616,11 +626,7 @@ final class WarrantParser
         }
 
         if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
-            /* A name followed by `{` or `,` is someone opening a block here rather
-               than naming an ability, and saying so names their actual mistake. */
-            throw $this->errorAtCurrent($this->abilityBlockAhead()
-                ? $this->nestedBlockError()
-                : $this->namedAbilitiesError());
+            throw $this->errorAtCurrent($this->namedAbilitiesError());
         }
 
         return $impliedAbilities;
@@ -638,9 +644,8 @@ final class WarrantParser
     }
 
     /**
-     * Raised from the two places a block can be opened where none may be: the body
-     * loop, and the ability slot of a clause, where `they can edit { ... }` reaches
-     * the clause parser first.
+     * Raised where a `can they ...` block is opened inside a body that is already
+     * headless, and so has the abilities the block would name.
      */
     private function nestedBlockError(): string
     {

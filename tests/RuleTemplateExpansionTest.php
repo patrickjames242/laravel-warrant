@@ -106,7 +106,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function opensABlock(): string
     {
-        return 'view { if is_teacher they can }';
+        return 'can they view { if is_teacher they can }';
     }
 
     #[RuleTemplate]
@@ -163,7 +163,7 @@ beforeEach(function () {
 // -- expansion ----------------------------------------------------------------
 
 it('expands an include into the rules its longhand would produce', function () {
-    $expanded = expandSyntax('view { @include requires_approval }');
+    $expanded = expandSyntax('can they view { @include requires_approval }');
     $longhand = WarrantRuleSet::fromSyntax("if is_advisor they cannot view because 'Needs approval.'", 'course_sections');
 
     expect($expanded->rules)->toHaveCount(1);
@@ -411,7 +411,7 @@ function validateSyntax(string $syntax): void
 }
 
 it('accepts an include naming a template the schema declares', function () {
-    expect(fn () => validateSyntax('view { @include requires_approval }'))->not->toThrow(Exception::class);
+    expect(fn () => validateSyntax('can they view { @include requires_approval }'))->not->toThrow(Exception::class);
 });
 
 it('rejects an unknown template from rule text, before anything is expanded', function () {
@@ -432,13 +432,13 @@ it('rejects an undeclared ability in an include for list', function () {
 });
 
 it('rejects an undeclared ability on the block an include sits in', function () {
-    expect(fn () => validateSyntax('not_an_ability { @include grants_it }'))
+    expect(fn () => validateSyntax('can they not_an_ability { @include grants_it }'))
         ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
 });
 
 it('still validates the rules around an include', function () {
     expect(fn () => validateSyntax(<<<'WARRANT'
-        view {
+        can they view {
             @include requires_approval
             if no_such_condition they can
         }

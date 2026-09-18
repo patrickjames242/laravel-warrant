@@ -1125,7 +1125,7 @@ it('rejects a malformed or misplaced for header', function (string $source) {
 
 it('parses an ability block into the rules its longhand would produce', function () {
     $block = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             if is_public they can
             if is_locked they cannot because 'Locked.'
         }
@@ -1149,7 +1149,7 @@ it('parses an ability block into the rules its longhand would produce', function
 
 it('gives every clause of a block the whole header ability list', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        edit, delete {
+        can they edit, delete {
             if is_owner they can
         }
         WARRANT, 'timesheets');
@@ -1159,7 +1159,7 @@ it('gives every clause of a block the whole header ability list', function () {
 
 it('accepts a wildcard block header', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        * {
+        can they * {
             if is_admin they can
             if is_suspended they cannot because 'Suspended.'
         }
@@ -1171,7 +1171,7 @@ it('accepts a wildcard block header', function () {
 
 it('carries several clauses of one block rule onto the same rule', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             if is_self
             they can
             they cannot because 'Not yours.'
@@ -1187,7 +1187,7 @@ it('mixes plain rules and ability blocks in one rule set', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_admin they can *
 
-        view {
+        can they view {
             if is_public they can
         }
 
@@ -1202,7 +1202,7 @@ it('mixes plain rules and ability blocks in one rule set', function () {
 
 it('allows an unconditional rule after an ability block', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             if is_public they can
         }
 
@@ -1217,7 +1217,7 @@ it('allows an unconditional rule after an ability block', function () {
 it('parses an ability block inside a for block and in a group', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         for timesheets {
-            view {
+            can they view {
                 if is_self they can
             }
         }
@@ -1228,18 +1228,18 @@ it('parses an ability block inside a for block and in a group', function () {
 });
 
 it('accepts an empty ability block, as a for block does', function () {
-    $set = WarrantRuleSet::fromSyntax('view { }', 'timesheets');
+    $set = WarrantRuleSet::fromSyntax('can they view { }', 'timesheets');
 
     expect($set->rules)->toBe([]);
 });
 
 it('allows the same ability in more than one block header', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view, edit {
+        can they view, edit {
             if is_owner they can
         }
 
-        view {
+        can they view {
             if is_public they can
         }
         WARRANT, 'timesheets');
@@ -1250,19 +1250,19 @@ it('allows the same ability in more than one block header', function () {
 });
 
 it('rejects a clause inside an ability block naming its own abilities', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax('view { if x they can edit }', 'timesheets'))
+    expect(fn () => WarrantRuleSet::fromSyntax('can they view { if x they can edit }', 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
 });
 
 it('rejects a wildcard clause inside an ability block', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax('view { if x they cannot * }', 'timesheets'))
+    expect(fn () => WarrantRuleSet::fromSyntax('can they view { if x they cannot * }', 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
 });
 
 it('rejects a nested ability block', function () {
     expect(fn () => WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
-            edit {
+        can they view {
+            can they edit {
                 if is_owner they can
             }
         }
@@ -1270,19 +1270,36 @@ it('rejects a nested ability block', function () {
         ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
 });
 
-it('reports a nested block rather than a named ability when a block follows a clause', function () {
+it('rejects a nested block opened after a clause', function () {
     expect(fn () => WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             if is_public they can
-            edit { if is_owner they can }
+            can they edit { if is_owner they can }
         }
         WARRANT, 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
 });
 
 it('rejects an ability block through WarrantRule::fromSyntax', function () {
-    expect(fn () => WarrantRule::fromSyntax('view { if is_public they can }'))
+    expect(fn () => WarrantRule::fromSyntax('can they view { if is_public they can }'))
         ->toThrow(WarrantSyntaxException::class, 'not valid for a single rule');
+});
+
+it('rejects an ability list used as a block header without `can they`', function () {
+    // The syntax ability blocks shipped with. Naming the header is the one useful
+    // thing to say here; 'expected end of input' points at the wrong token.
+    expect(fn () => WarrantRuleSet::fromSyntax('view { if is_public they can }', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'An ability block header is written `can they <ability>, ... { ... }`.');
+});
+
+it('rejects a bare header list that never reaches its brace', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('edit, delete { if is_owner they can }', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'An ability block header is written `can they <ability>, ... { ... }`.');
+});
+
+it('rejects a block header naming no ability', function () {
+    expect(fn () => WarrantRuleSet::fromSyntax('can they { if is_public they can }', 'timesheets'))
+        ->toThrow(WarrantSyntaxException::class, 'an ability name');
 });
 
 it('rejects a headless clause outside an ability block', function () {
@@ -1294,7 +1311,7 @@ it('rejects a headless clause outside an ability block', function () {
 
 it('takes the abilities of the ability block it sits in', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view, edit {
+        can they view, edit {
             @include requires_approval
         }
         WARRANT, 'timesheets');
@@ -1343,7 +1360,7 @@ it('keeps an include in source order among the rules', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
         if is_first they can view
 
-        view {
+        can they view {
             @include requires_approval
         }
 
@@ -1358,7 +1375,7 @@ it('keeps an include in source order among the rules', function () {
 });
 
 it('rejects a for list on an include inside an ability block', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax('view { @include x for edit }', 'timesheets'))
+    expect(fn () => WarrantRuleSet::fromSyntax('can they view { @include x for edit }', 'timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'An @include inside an ability block may not name abilities');
 });
 
@@ -1384,7 +1401,7 @@ it('rejects an include through the flat Parser::parse', function () {
 
 it('renders an include back out rather than what it expands to', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view, edit {
+        can they view, edit {
             @include requires_approval
         }
 
@@ -1405,7 +1422,7 @@ it('renders an include back out rather than what it expands to', function () {
 
 it('parses several includes in one ability block', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             @include requires_approval
             @include not_archived
         }
@@ -1419,7 +1436,7 @@ it('parses several includes in one ability block', function () {
 
 it('keeps rules and includes interleaved inside one block', function () {
     $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
-        view {
+        can they view {
             if is_teacher they can
             @include requires_approval
             if is_advisor they cannot because 'No.'
@@ -1432,7 +1449,7 @@ it('keeps rules and includes interleaved inside one block', function () {
 });
 
 it('takes a wildcard block header for an include', function () {
-    $set = WarrantRuleSet::fromSyntax('* { @include suspended }', 'timesheets');
+    $set = WarrantRuleSet::fromSyntax('can they * { @include suspended }', 'timesheets');
 
     expect($set->rules[0]->abilities)->toBe(['*']);
 });
@@ -1451,7 +1468,7 @@ it('parses an include inside a braced for block', function () {
 it('carries includes per block through a group', function () {
     $group = RuleSetGroup::fromSyntax(<<<'WARRANT'
         for timesheets {
-            view { @include requires_approval }
+            can they view { @include requires_approval }
         }
 
         for warrant_test_models {
@@ -1552,7 +1569,7 @@ it('round-trips an include through toBoundSyntax', function () {
 });
 
 it('renders an argument-less include with no parentheses', function () {
-    $set = WarrantRuleSet::fromSyntax('view { @include requires_approval }', 'timesheets');
+    $set = WarrantRuleSet::fromSyntax('can they view { @include requires_approval }', 'timesheets');
 
     expect($set->toSyntax())->toContain('@include requires_approval for view');
     expect($set->toSyntax())->not->toContain('()');

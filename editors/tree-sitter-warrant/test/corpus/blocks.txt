@@ -92,7 +92,7 @@ for timesheets {
 an ability block heading headless clauses
 =========================================
 
-view, edit {
+can they view, edit {
     if is_public they can
     they cannot because 'Locked.'
 }
@@ -123,7 +123,7 @@ a wildcard ability block beside plain rules
 
 if is_admin they can *
 
-* {
+can they * {
     if is_suspended they cannot because 'Suspended.'
 }
 
@@ -164,7 +164,7 @@ an ability block inside a schema block
 ======================================
 
 for documents {
-    view {
+    can they view {
         if is_owner they can
     }
 }
@@ -186,3 +186,41 @@ for documents {
               condition: (condition
                 name: (identifier)))
             (can_clause)))))))
+
+==================================================
+a block header after a clause that named abilities
+==================================================
+
+they can view
+
+can they edit, delete {
+    if is_owner they can
+}
+
+they can list
+
+---
+
+(source_file
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier)))))
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (identifier))
+      (ability
+        (identifier)))
+    body: (block_body
+      (rule
+        (condition_clause
+          condition: (condition
+            name: (identifier)))
+        (can_clause))))
+  (rule
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
