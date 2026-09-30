@@ -66,9 +66,13 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
 
       <div className="mx-auto grid max-w-[1584px] items-start min-[990px]:grid-cols-[299px_minmax(0,1fr)] min-[1320px]:grid-cols-[317px_minmax(0,1fr)_264px]">
         <DocsSidebar slug={page.slug} open={menuOpen} onNavigate={closeMenu} />
-        {menuOpen && (
-          <div aria-hidden="true" onClick={closeMenu} className="fixed inset-0 z-[35] bg-[rgba(8,5,4,0.6)] min-[990px]:hidden" />
-        )}
+        <div
+          aria-hidden="true"
+          onClick={closeMenu}
+          className={`fixed inset-0 z-[35] bg-[rgba(8,5,4,0.6)] transition-opacity duration-300 ease-out min-[990px]:hidden ${
+            menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        />
 
         <main className="min-w-0 px-[clamp(22px,4.5vw,70.5px)] pt-[clamp(35px,4.5vw,61.5px)] pb-24">
           <article className="mx-auto max-w-[836px]">

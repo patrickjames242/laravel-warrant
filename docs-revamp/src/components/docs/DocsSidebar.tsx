@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { DocGroup, DocItem } from '../../docs/nav'
 import { SECTIONS, isGroup, sidebarLabel } from '../../docs/nav'
@@ -50,7 +51,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             <DocLink
               slug={item.slug}
               onClick={onNavigate}
-              className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[15.5px] leading-[1.35] hover:bg-cream/4 hover:text-cream ${
+              className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[15.5px] leading-[1.35] transition-colors duration-200 hover:bg-cream/4 hover:text-cream focus-visible:outline-offset-[-2px] ${
                 item.slug === slug
                   ? 'border-coral bg-coral/8 font-semibold text-cream'
                   : 'border-transparent text-[#b39784]'
@@ -77,14 +78,16 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             toggle(key, byDefault)
           }}
           aria-expanded={expanded}
-          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium hover:text-cream ${
+          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium transition-colors duration-200 hover:text-cream focus-visible:outline-offset-[-2px] ${
             nested ? 'pr-2 pl-3 text-[#b39784]' : 'pr-2 pl-3 text-sand'
           }`}
         >
           {group.label}
           <Chevron open={expanded} />
         </button>
-        {expanded && <div className="mt-1">{renderItems(group.items, key)}</div>}
+        <Collapse open={expanded} className="pt-1">
+          {renderItems(group.items, key)}
+        </Collapse>
       </div>
     )
   }
@@ -93,9 +96,9 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
     <aside
       ref={scroller}
       aria-label="Documentation"
-      className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-[#140f0d] pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-[26.5px_0_66px_-22px_rgba(0,0,0,.7)] ${
-        open ? 'block' : 'hidden'
-      } min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:block min-[990px]:h-[calc(100vh-var(--spacing)*16)] min-[990px]:w-auto min-[990px]:bg-transparent min-[990px]:shadow-none`}
+      className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-[#140f0d] pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-[26.5px_0_66px_-22px_rgba(0,0,0,.7)] transition-[translate,visibility] duration-300 ease-out ${
+        open ? 'visible translate-x-0' : 'invisible -translate-x-full'
+      } min-[990px]:visible min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100vh-var(--spacing)*16)] min-[990px]:w-auto min-[990px]:translate-x-0 min-[990px]:bg-transparent min-[990px]:shadow-none min-[990px]:transition-none`}
     >
       <nav className="grid gap-7">
         {SECTIONS.map((section, i) => {
@@ -110,7 +113,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
                   toggle(key, true)
                 }}
                 aria-expanded={expanded}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono text-[12px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
+                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono focus-visible:outline-offset-[-2px] text-[12px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
               >
                 <span className="flex items-center gap-2.5">
                   <span className="font-medium text-coral">{String(i + 1).padStart(2, '0')}</span>
@@ -118,13 +121,11 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
                 </span>
                 <Chevron open={expanded} />
               </button>
-              {expanded && (
-                <div className="mt-3 grid gap-1">
-                  {section.groups.map((group) => (
-                    <div key={group.label}>{renderGroup(group, `${key}/${group.label}`, false)}</div>
-                  ))}
-                </div>
-              )}
+              <Collapse open={expanded} className="grid gap-1 pt-3">
+                {section.groups.map((group) => (
+                  <div key={group.label}>{renderGroup(group, `${key}/${group.label}`, false)}</div>
+                ))}
+              </Collapse>
             </div>
           )
         })}
@@ -133,11 +134,31 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
   )
 }
 
+/**
+ * Content that folds away to nothing. The row animates between a fraction of
+ * nothing and all of its content's height, so it needs no measuring, and while
+ * folded the content is inert: its links are neither focusable nor announced.
+ */
+function Collapse({ open, className = '', children }: { open: boolean; className?: string; children: ReactNode }) {
+  return (
+    <div
+      inert={!open}
+      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+        open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+      }`}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className={className}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`font-sans text-[16.5px] leading-none text-umber transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+      className={`font-sans text-[16.5px] leading-none text-umber transition-transform duration-300 ease-out ${open ? 'rotate-90' : ''}`}
     >
       ›
     </span>
