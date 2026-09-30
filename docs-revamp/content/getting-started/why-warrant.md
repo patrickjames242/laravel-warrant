@@ -29,6 +29,8 @@ class DocumentPolicy
 }
 ```
 
+
+
 The problem is that you eventually need to show a list of all the documents the user can view. How do you do that with this approach? Do you pull all the documents in and filter them one by one? Nope, too inefficient. You usually just rewrite the permission logic as a separate query.
 
 ```php

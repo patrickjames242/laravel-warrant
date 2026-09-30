@@ -49,6 +49,7 @@ export function TableOfContents({ entries }: { entries: readonly TocEntry[] }) {
 
   return (
     <aside
+      data-docs-contents
       aria-label="On this page"
       className="sticky top-16 hidden h-[calc(100vh-var(--spacing)*16)] overflow-y-auto pt-14 pr-[clamp(17.5px,3.5vw,35px)] pb-12 pl-2 min-[1320px]:block"
     >

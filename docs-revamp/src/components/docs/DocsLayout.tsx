@@ -110,7 +110,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
         {editing && PageEditor ? (
           <div
             data-editor-pane
-            className="fixed inset-x-0 bottom-0 z-[46] flex h-[var(--editor-height,60dvh)] flex-col border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
+            className="fixed inset-x-0 bottom-0 z-[46] flex h-[var(--editor-height,60dvh)] flex-col bg-surface-2 border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
             <Suspense>
               <PageEditor
                 key={page.slug}

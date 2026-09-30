@@ -1,4 +1,6 @@
 import { lazy, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { captureLayout, playTransition } from './editorTransition'
 
 /**
  * The in-browser Markdown editor, loaded on first use. A build replaces
@@ -25,6 +27,11 @@ function readOpen(): boolean {
  * Whether the page editor is open. It stays open across page changes and
  * reloads for the rest of the browser session, so moving between pages keeps
  * the editor where it was. Outside the dev server it is always closed.
+ *
+ * Opening and closing animate: the layout switches at once, inside
+ * `flushSync` so it is on screen before the next line runs, and the
+ * difference is then played from where things were. A build, where the
+ * editor never opens, keeps none of it.
  */
 export function useEditorOpen(): [boolean, (open: boolean) => void] {
   const [open, setOpen] = useState(() => import.meta.env.DEV && readOpen())
@@ -39,5 +46,17 @@ export function useEditorOpen(): [boolean, (open: boolean) => void] {
     }
   }, [open])
 
-  return [open, setOpen]
+  const change = (next: boolean) => {
+    if (!import.meta.env.DEV || next === open) {
+      setOpen(next)
+      return
+    }
+    const before = captureLayout(next)
+    flushSync(() => {
+      setOpen(next)
+    })
+    playTransition(before)
+  }
+
+  return [open, change]
 }
