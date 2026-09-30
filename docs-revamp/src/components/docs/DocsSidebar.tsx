@@ -16,18 +16,66 @@ function contains(items: readonly DocItem[], slug: string): boolean {
   return items.some((item) => (isGroup(item) ? contains(item.items, slug) : item.slug === slug))
 }
 
+/** A group's key is its label and the labels of every section and group above it, joined by `/`. */
+function groupKey(parent: string, group: DocGroup): string {
+  return `${parent}/${group.label}`
+}
+
+/** The keys of the group a key names and of every group it sits inside. */
+function withAncestors(key: string): Set<string> {
+  const parts = key.split('/')
+  return new Set(parts.map((_, i) => parts.slice(0, i + 1).join('/')))
+}
+
+/** The keys of every group that holds the page, outermost first. */
+function groupsHolding(slug: string): Set<string> {
+  const keys = new Set<string>()
+  const walk = (items: readonly DocItem[], parent: string) => {
+    for (const item of items) {
+      if (!isGroup(item) || !contains(item.items, slug)) continue
+      const key = groupKey(parent, item)
+      keys.add(key)
+      walk(item.items, key)
+    }
+  }
+  for (const section of SECTIONS) walk(section.groups, section.label)
+  return keys
+}
+
 /**
  * Every docs page, in the numbered sections and collapsible groups of the
- * sidebar. A group starts open when it holds the current page and closed
- * otherwise; once the reader toggles one, it stays the way they left it.
+ * sidebar. The groups behave as an accordion: only one run of them is open at
+ * a time, the one holding the current page, until the reader opens another,
+ * which closes the rest. Arriving on a page folds everything back to that
+ * page's groups. The numbered sections open and close independently.
  */
 export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
-  const [toggled, setToggled] = useState<Partial<Record<string, boolean>>>({})
+  const [sectionsClosed, setSectionsClosed] = useState<ReadonlySet<string>>(new Set())
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => groupsHolding(slug))
+  const [shownSlug, setShownSlug] = useState(slug)
   const scroller = useRef<HTMLElement>(null)
 
-  const isOpen = (key: string, byDefault: boolean) => toggled[key] ?? byDefault
-  const toggle = (key: string, byDefault: boolean) => {
-    setToggled((current) => ({ ...current, [key]: !(current[key] ?? byDefault) }))
+  // A new page resets the groups during render, so the fold happens in the same frame as the navigation.
+  if (slug !== shownSlug) {
+    setShownSlug(slug)
+    setOpenGroups(groupsHolding(slug))
+  }
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((current) => {
+      if (!current.has(key)) return withAncestors(key)
+      const next = new Set(current)
+      for (const other of current) if (other === key || other.startsWith(`${key}/`)) next.delete(other)
+      return next
+    })
+  }
+
+  const toggleSection = (key: string) => {
+    setSectionsClosed((current) => {
+      const next = new Set(current)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
   }
 
   // Keep the current page's link in view when the list is taller than the screen.
@@ -45,7 +93,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
     <ul className="ml-3 grid border-l border-line-2">
       {items.map((item) =>
         isGroup(item) ? (
-          <li key={item.label}>{renderGroup(item, `${path}/${item.label}`, true)}</li>
+          <li key={item.label}>{renderGroup(item, groupKey(path, item), true)}</li>
         ) : (
           <li key={item.slug}>
             <DocLink
@@ -67,15 +115,14 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
   )
 
   const renderGroup = (group: DocGroup, key: string, nested: boolean) => {
-    const byDefault = contains(group.items, slug)
-    const expanded = isOpen(key, byDefault)
+    const expanded = openGroups.has(key)
 
     return (
       <div className={nested ? 'mt-1 mb-1' : ''}>
         <button
           type="button"
           onClick={() => {
-            toggle(key, byDefault)
+            toggleGroup(key)
           }}
           aria-expanded={expanded}
           className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium transition-colors duration-250 ease-glide hover:text-cream focus-visible:outline-offset-[-2px] ${
@@ -103,14 +150,14 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
       <nav className="grid gap-7">
         {SECTIONS.map((section, i) => {
           const key = section.label
-          const expanded = isOpen(key, true)
+          const expanded = !sectionsClosed.has(key)
 
           return (
             <div key={key}>
               <button
                 type="button"
                 onClick={() => {
-                  toggle(key, true)
+                  toggleSection(key)
                 }}
                 aria-expanded={expanded}
                 className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono focus-visible:outline-offset-[-2px] text-[12px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
@@ -123,7 +170,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
               </button>
               <Collapse open={expanded} className="grid gap-1 pt-3">
                 {section.groups.map((group) => (
-                  <div key={group.label}>{renderGroup(group, `${key}/${group.label}`, false)}</div>
+                  <div key={group.label}>{renderGroup(group, groupKey(key, group), false)}</div>
                 ))}
               </Collapse>
             </div>
