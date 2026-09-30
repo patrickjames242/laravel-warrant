@@ -22,6 +22,29 @@ const DRAW_EASE = 'power2.out'
 /** A step begins once its trigger's top passes this far down the viewport. */
 const START = 'top 88%'
 /**
+ * The height on screen, as a fraction of the viewport, the bridge's tip is held
+ * at while it follows the scroll. The bridge is long enough to run well off
+ * screen, so rather than drawing on a clock it is drawn by scrolling: it is
+ * drawn down to wherever it crosses this line, so its tip keeps pace with the
+ * page however much of it runs across rather than down.
+ */
+const TIP_LINE = 0.8
+/**
+ * How closely the bridge's tip follows the scroll: each second it closes the
+ * gap as a lag of this many seconds would, so it glides after the reader rather
+ * than jumping with every turn of the wheel. However small the gap, it moves at
+ * least at the line's usual speed, so it lands rather than creeping up on its mark.
+ */
+const FOLLOW_LAG = 0.12
+/**
+ * How far down, in screen heights, a page may already be scrolled when it
+ * opens and still play its opening. A reader who arrives further down, as on a
+ * reload partway through, is shown the finished page instead.
+ */
+const FURTHEST_START = 0.5
+/** How far into its step, in seconds, the bridge begins to follow the scroll. */
+const BRIDGE_DELAY = 0.05
+/**
  * How many steps may wait their turn before the chain hurries. A reader who
  * scrolls well ahead of the line is caught up with rather than kept waiting,
  * each further waiting step adding `HURRY_PER_STEP` to the pace, up to
@@ -52,23 +75,6 @@ function drawTime(pixels: number): number {
   return Math.max(SHORTEST_DRAW, pixels / LINE_SPEED)
 }
 
-/**
- * How far into a stretch's drawing, in seconds, its tip reaches `fraction` of
- * the way along. The stretch is drawn on `DRAW_EASE`, so this is found on that
- * curve rather than by dividing, which would only hold at a constant speed.
- */
-function timeToReach(fraction: number, duration: number): number {
-  const eased = gsap.parseEase(DRAW_EASE)
-  let low = 0
-  let high = 1
-  for (let step = 0; step < 20; step++) {
-    const middle = (low + high) / 2
-    if (eased(middle) < fraction) low = middle
-    else high = middle
-  }
-  return high * duration
-}
-
 /** The drawn length of the dotted path inside a segment, in pixels. */
 function lineLength(segment: Element): number {
   return segment.querySelector<SVGPathElement>('path.flow-path')?.getTotalLength() ?? 0
@@ -94,8 +100,9 @@ function one(scope: Element, selector: string): HTMLElement {
  * grow into place.
  *
  * What is already on screen when the page loads plays at once; everything
- * below waits to be scrolled to. Readers who ask for reduced motion get the
- * finished page and none of this.
+ * below waits to be scrolled to. A page that opens already scrolled well down,
+ * and readers who ask for reduced motion, get the finished page and none of
+ * this.
  *
  * `scope` must hold the hero and the timeline, whose parts carry the
  * `data-choreo` names this looks for.
@@ -110,10 +117,23 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
       media.add('(prefers-reduced-motion: no-preference)', () => {
         /** A point on the line — a step circle or a connector dot — growing into place as the line arrives. */
         const arrive = (target: Element) =>
-          gsap.to(target, { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'power3.out', clearProps: SETTLED })
+          gsap.to(target, {
+            autoAlpha: 1,
+            scale: 1,
+            duration: 0.5,
+            ease: 'power3.out',
+            clearProps: SETTLED,
+          })
 
         const rise = (targets: Element | Element[], stagger = 0) =>
-          gsap.to(targets, { autoAlpha: 1, y: 0, duration: 0.7, ease: 'power3.out', stagger, clearProps: SETTLED })
+          gsap.to(targets, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.7,
+            ease: 'power3.out',
+            stagger,
+            clearProps: SETTLED,
+          })
 
         const draw = (segment: Element) =>
           gsap.fromTo(
@@ -132,7 +152,12 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
           gsap.fromTo(
             rail,
             { clipPath: HIDDEN_RAIL },
-            { clipPath: SHOWN_RAIL, duration: drawTime(rail.offsetHeight), ease: DRAW_EASE, clearProps: 'clipPath' },
+            {
+              clipPath: SHOWN_RAIL,
+              duration: drawTime(rail.offsetHeight),
+              ease: DRAW_EASE,
+              clearProps: 'clipPath',
+            },
           )
 
         const rules = one(root, '[data-choreo="rules"]')
@@ -156,18 +181,122 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
         }))
 
         // Everything starts hidden, set before the first paint so nothing flashes.
-        gsap.set(root.querySelectorAll('[data-flow-reveal]'), { strokeDashoffset: REVEAL_LENGTH })
-        gsap.set([rules, code, output, heading], { autoAlpha: 0, y: 28 })
-        gsap.set(tabs, { autoAlpha: 0, y: 16 })
-        gsap.set(branches, { autoAlpha: 0 })
-        gsap.set([...dots, ...pieces.map((piece) => piece.node)], { autoAlpha: 0, scale: 0.7 })
-        gsap.set(
-          pieces.flatMap((piece) => piece.items),
-          { autoAlpha: 0, y: 24 },
-        )
-        gsap.set([...pieces.map((piece) => piece.rail), railFinal], { clipPath: HIDDEN_RAIL })
-        gsap.set(bar, { autoAlpha: 0, scaleX: 0.94, transformOrigin: 'left center' })
-        gsap.set(entries, { autoAlpha: 0, y: 16 })
+        const hidden = gsap.context(() => {
+          gsap.set(root.querySelectorAll('[data-flow-reveal]'), {
+            strokeDashoffset: REVEAL_LENGTH,
+          })
+          gsap.set([rules, code, output, heading], { autoAlpha: 0, y: 28 })
+          gsap.set(tabs, { autoAlpha: 0, y: 16 })
+          gsap.set(branches, { autoAlpha: 0 })
+          gsap.set([...dots, ...pieces.map((piece) => piece.node)], {
+            autoAlpha: 0,
+            scale: 0.7,
+          })
+          gsap.set(
+            pieces.flatMap((piece) => piece.items),
+            { autoAlpha: 0, y: 24 },
+          )
+          gsap.set([...pieces.map((piece) => piece.rail), railFinal], {
+            clipPath: HIDDEN_RAIL,
+          })
+          gsap.set(bar, {
+            autoAlpha: 0,
+            scaleX: 0.94,
+            transformOrigin: 'left center',
+          })
+          gsap.set(entries, { autoAlpha: 0, y: 16 })
+        })
+
+        /*
+         * The bridge follows the reader rather than a clock. `goal` is the furthest
+         * fraction of it the reader has scrolled to, and never shrinks, so scrolling
+         * back up leaves the line drawn. Once the chain reaches the bridge, `drawn`
+         * chases `goal` frame by frame, and the steps after it wait for it to land.
+         */
+        const bridgeReveal = one(bridge, '[data-flow-reveal]')
+        const bridgePath = bridge.querySelector<SVGPathElement>('path.flow-path')
+        const bridgeLine = { drawn: 0 }
+        let goal = 0
+        let bridgeStarted = false
+        let bridgeLanded = false
+        let headingRisen = false
+        let headingAt = 1
+        let chasing = false
+        let bridgeTrack: ScrollTrigger | undefined
+
+        /**
+         * How far along the bridge, as a fraction, it is drawn when it runs down
+         * to the tip line. The bridge only ever runs down or across, so the height
+         * of a point along it never falls, and the crossing can be searched for.
+         */
+        const scrolledTo = (): number => {
+          const length = bridgePath?.getTotalLength() ?? 0
+          const matrix = bridgePath?.getScreenCTM()
+          if (!bridgePath || !length || !matrix) return 0
+          const line = window.innerHeight * TIP_LINE
+          const above = (at: number) => bridgePath.getPointAtLength(at).matrixTransform(matrix).y <= line
+          if (above(length)) return 1
+          if (!above(0)) return 0
+          let low = 0
+          let high = length
+          while (high - low > 2) {
+            const middle = (low + high) / 2
+            if (above(middle)) low = middle
+            else high = middle
+          }
+          return low / length
+        }
+
+        /** How far along the bridge, as a fraction, its tip comes level with the heading. */
+        const headingFraction = (): number => {
+          const length = bridgePath?.getTotalLength() ?? 0
+          if (!bridgePath || !length) return 0
+          const level = layoutBox(heading).top - layoutBox(root).top - 40
+          for (let at = 0; at <= length; at += 12) {
+            if (bridgePath.getPointAtLength(at).y >= level) return at / length
+          }
+          return 1
+        }
+
+        const showBridge = () => {
+          gsap.set(bridgeReveal, {
+            strokeDashoffset: REVEAL_LENGTH * (1 - bridgeLine.drawn),
+          })
+          if (!headingRisen && bridgeLine.drawn >= headingAt) {
+            headingRisen = true
+            rise(heading)
+          }
+        }
+
+        /** One frame of the tip's chase after `goal`, of `delta` milliseconds. */
+        const step = (_time: number, delta: number) => {
+          const length = lineLength(bridge)
+          const gap = (goal - bridgeLine.drawn) * length
+          const pixels = Math.max(gap / FOLLOW_LAG, LINE_SPEED) * (delta / 1000)
+          bridgeLine.drawn = length && pixels < gap ? bridgeLine.drawn + pixels / length : goal
+          showBridge()
+          if (bridgeLine.drawn < goal) return
+          gsap.ticker.remove(step)
+          chasing = false
+          if (goal < 1) return
+          bridgeLanded = true
+          bridgeTrack?.kill()
+          gsap.set(bridgeReveal, { clearProps: 'strokeDashoffset' })
+          reach(Math.max(wanted, bridgeAt + 1))
+        }
+
+        const chase = () => {
+          if (!bridgeStarted || bridgeLanded || chasing || goal <= bridgeLine.drawn) return
+          chasing = true
+          gsap.ticker.add(step)
+        }
+
+        const startBridge = () => {
+          bridgeStarted = true
+          headingAt = headingFraction()
+          goal = Math.max(goal, scrolledTo())
+          chase()
+        }
 
         /** A connector drawn down into a panel, whose dot and panel answer as it lands. */
         const intoPanel = (connector: HTMLElement, panel: HTMLElement): Built => {
@@ -179,10 +308,27 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
           return { timeline, handoff: lands + 0.15 }
         }
 
+        const bridgeStep: Step = {
+          // Once the hero's lines have landed, the bridge hands the pace to the
+          // reader, and the heading rises as the line comes level with it. The
+          // bridge starts a moment into its step rather than at its very start:
+          // a step joining a chain that has already finished is placed at the
+          // playhead, and only a callback past the playhead is played over.
+          trigger: output,
+          start: 'bottom 88%',
+          build: () => ({
+            timeline: gsap.timeline().call(startBridge, undefined, BRIDGE_DELAY),
+            handoff: 0,
+          }),
+        }
+
         const steps: Step[] = [
           {
             trigger: rules,
-            build: () => ({ timeline: gsap.timeline().add(rise(rules)), handoff: 0.35 }),
+            build: () => ({
+              timeline: gsap.timeline().add(rise(rules)),
+              handoff: 0.35,
+            }),
           },
           {
             trigger: fan,
@@ -190,35 +336,22 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
               const timeline = gsap.timeline().add(draw(fan))
               const lands = timeline.duration()
               // The grey branches to the unchosen questions follow the tabs they lead to.
-              timeline
-                .add(rise(tabs, 0.06), lands - 0.15)
-                .to(branches, { autoAlpha: 1, duration: 0.5, ease: 'power2.out', clearProps: SETTLED }, '>-0.15')
+              timeline.add(rise(tabs, 0.06), lands - 0.15).to(
+                branches,
+                {
+                  autoAlpha: 1,
+                  duration: 0.5,
+                  ease: 'power2.out',
+                  clearProps: SETTLED,
+                },
+                '>-0.15',
+              )
               return { timeline, handoff: lands + 0.1 }
             },
           },
           { trigger: toCode, build: () => intoPanel(toCode, code) },
           { trigger: toOutput, build: () => intoPanel(toOutput, output) },
-          {
-            trigger: output,
-            start: 'bottom 88%',
-            build: () => {
-              const drawing = draw(bridge)
-              const timeline = gsap.timeline().add(drawing)
-              // The heading rises as the line comes level with it on its way down.
-              const path = bridge.querySelector<SVGPathElement>('path.flow-path')
-              const level = layoutBox(heading).top - layoutBox(root).top - 40
-              const length = path?.getTotalLength() ?? 0
-              let reached = length
-              for (let at = 0; path && at <= length; at += 12) {
-                if (path.getPointAtLength(at).y >= level) {
-                  reached = at
-                  break
-                }
-              }
-              timeline.add(rise(heading), timeToReach(length ? reached / length : 1, drawing.duration()))
-              return { timeline, handoff: drawing.duration() }
-            },
-          },
+          bridgeStep,
           ...pieces.flatMap((piece): Step[] => [
             {
               trigger: piece.node,
@@ -231,7 +364,10 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
               trigger: piece.rail,
               build: () => {
                 const unrolling = unroll(piece.rail)
-                return { timeline: gsap.timeline().add(unrolling), handoff: unrolling.duration() }
+                return {
+                  timeline: gsap.timeline().add(unrolling),
+                  handoff: unrolling.duration(),
+                }
               },
             },
           ]),
@@ -241,7 +377,17 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
               const timeline = gsap.timeline().add(unroll(railFinal))
               const lands = timeline.duration()
               timeline
-                .to(bar, { autoAlpha: 1, scaleX: 1, duration: 0.7, ease: 'power3.out', clearProps: SETTLED }, lands)
+                .to(
+                  bar,
+                  {
+                    autoAlpha: 1,
+                    scaleX: 1,
+                    duration: 0.7,
+                    ease: 'power3.out',
+                    clearProps: SETTLED,
+                  },
+                  lands,
+                )
                 .add(rise(entries, 0.1), lands + 0.25)
               return { timeline, handoff: lands }
             },
@@ -255,10 +401,15 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
           const waiting = startsAt.filter((at) => at > chain.time()).length
           chain.timeScale(gsap.utils.clamp(1, MOST_HURRY, 1 + (waiting - PATIENCE) * HURRY_PER_STEP))
         })
+        // The steps past the bridge join only once it has landed on the first circle.
+        const bridgeAt = steps.indexOf(bridgeStep)
+        let wanted = 0
         let joined = 0
         let nextStart = 0
-        const reach = (index: number) => {
+        function reach(index: number) {
+          wanted = Math.max(wanted, index)
           for (; joined <= index; joined++) {
+            if (joined > bridgeAt && !bridgeLanded) break
             const step = steps[joined]
             if (!step) break
             const { timeline, handoff } = step.build()
@@ -270,31 +421,65 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
           chain.play()
         }
 
-        steps.forEach((step, index) => {
-          ScrollTrigger.create({
-            trigger: step.trigger,
-            start: step.start ?? START,
-            once: true,
-            onEnter: () => {
-              reach(index)
-            },
-          })
-        })
-
-        // Where each step starts moves when the page reflows: fonts loading, a
-        // question changing the panel's height, the timeline placing its nodes.
         let pending = 0
-        const reflowed = new ResizeObserver(() => {
-          cancelAnimationFrame(pending)
-          pending = requestAnimationFrame(() => {
-            ScrollTrigger.refresh()
+        let reflowed: ResizeObserver | undefined
+        // Made a frame after the page mounts, outside what `media` reverts on its own.
+        const triggers: ScrollTrigger[] = []
+
+        const begin = () => {
+          // The router restores the scroll position after the page mounts, so
+          // where the reader opens the page is only known a frame later.
+          if (window.scrollY > window.innerHeight * FURTHEST_START) {
+            hidden.revert()
+            return
+          }
+
+          const follow = () => {
+            goal = Math.max(goal, scrolledTo())
+            chase()
+          }
+          bridgeTrack = ScrollTrigger.create({
+            trigger: bridge,
+            start: 'top bottom',
+            end: 'bottom top',
+            onUpdate: follow,
+            onRefresh: follow,
           })
-        })
-        reflowed.observe(root)
+
+          triggers.push(bridgeTrack)
+          steps.forEach((step, index) => {
+            triggers.push(
+              ScrollTrigger.create({
+                trigger: step.trigger,
+                start: step.start ?? START,
+                once: true,
+                onEnter: () => {
+                  reach(index)
+                },
+              }),
+            )
+          })
+
+          // Where each step starts moves when the page reflows: fonts loading, a
+          // question changing the panel's height, the timeline placing its nodes.
+          reflowed = new ResizeObserver(() => {
+            cancelAnimationFrame(pending)
+            pending = requestAnimationFrame(() => {
+              ScrollTrigger.refresh()
+            })
+          })
+          reflowed.observe(root)
+        }
+        const opening = requestAnimationFrame(begin)
 
         return () => {
-          reflowed.disconnect()
+          cancelAnimationFrame(opening)
+          reflowed?.disconnect()
           cancelAnimationFrame(pending)
+          gsap.ticker.remove(step)
+          triggers.forEach((trigger) => {
+            trigger.kill()
+          })
         }
       })
 
