@@ -72,9 +72,10 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
       </div>
 
       <div
+        data-editor-layout
         className={`mx-auto grid items-start ${
           editing
-            ? 'min-[990px]:grid-cols-[minmax(0,1fr)_minmax(440px,46%)]'
+            ? 'min-[990px]:grid-cols-[minmax(0,1fr)_var(--editor-width,minmax(440px,46%))]'
             : 'max-w-[1584px] min-[990px]:grid-cols-[299px_minmax(0,1fr)] min-[1320px]:grid-cols-[317px_minmax(0,1fr)_264px]'
         }`}
       >
@@ -92,7 +93,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
 
         <main
           className={`min-w-0 px-[clamp(22px,4.5vw,70.5px)] pt-[clamp(35px,4.5vw,61.5px)] pb-24 ${
-            editing ? 'max-[989px]:pb-[64dvh]' : ''
+            editing ? 'max-[989px]:pb-[calc(var(--editor-height,60dvh)+4dvh)]' : ''
           }`}
         >
           <article className="mx-auto max-w-[836px]">
@@ -107,7 +108,9 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
         </main>
 
         {editing && PageEditor ? (
-          <div className="fixed inset-x-0 bottom-0 z-[46] flex h-[60dvh] flex-col border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
+          <div
+            data-editor-pane
+            className="fixed inset-x-0 bottom-0 z-[46] flex h-[var(--editor-height,60dvh)] flex-col border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
             <Suspense>
               <PageEditor
                 key={page.slug}
