@@ -42,7 +42,7 @@ php artisan vendor:publish --tag=warrant-config
 
 This writes `config/warrant.php`:
 
-```php
+```php title="config/warrant.php"
 return [
     // The class that hands Warrant the rules for the current request.
     // Warrant ships NO default — you must set this.

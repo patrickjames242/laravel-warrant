@@ -226,25 +226,25 @@ $user->can('view', $document);
 "Which rows?" becomes a `WHERE` clause the database answers, not a collection loaded
 into memory and filtered in PHP — and the check, the filter, and the per-row column
 **cannot** drift, because they compile from that single rule. See
-[How it compiles to SQL](/guides/how-it-compiles/).
+[How it compiles to SQL](/sql/rule-to-query/).
 
 ## Side by side
 
 | | spatie/laravel-permission | Laravel Warrant |
 |---|---|---|
 | What it is | a **store** for flat permission / role assignments | the **authorization logic itself**, compiled to SQL |
-| Row-level conditions (own it, same team, locked, unless admin) | not expressible — you write a Policy by hand | first-class [conditions](/guides/conditions/) in the [rule language](/guides/rule-language/) |
+| Row-level conditions (own it, same team, locked, unless admin) | not expressible — you write a Policy by hand | first-class [conditions](/schemas/conditions/) in the [rule language](/rules/basics/) |
 | "Which rows can they act on?" | not addressed — you write a query scope by hand | `Model::query()->userHasAbility('update')` → a `WHERE` clause |
-| Per-row abilities for a list | a check per row × ability | [`->selectUserAbilities()`](/guides/checking-access/#per-row-abilities) → one query, a JSON column |
+| Per-row abilities for a list | a check per row × ability | [`->selectUserAbilities()`](/checking/ways-in/#per-row-abilities) → one query, a JSON column |
 | Keeping the check and the filter in sync | your problem (two hand-written copies) | one source of truth; they compile together |
-| Storage | ships migrations + permission / role tables | owns **no** tables; rules come from a [resolver](/guides/resolvers/) |
+| Storage | ships migrations + permission / role tables | owns **no** tables; rules come from a [resolver](/supplying-rules/resolver/) |
 | Best at | assigning and looking up flat permissions | expressing and enforcing row-dependent rules |
 
 ## Can you use them together?
 
 Yes — they operate at different layers, so Spatie (or any role system) can stay as
 your **source of roles**, while Warrant does the actual authorization. Your
-[resolver](/guides/resolvers/) translates the current user's roles into the rules
+[resolver](/supplying-rules/resolver/) translates the current user's roles into the rules
 for a resource:
 
 ```php
@@ -277,5 +277,5 @@ actually took all the work: *"so what can they do to these rows?"*
   the checks that use them, end to end.
 - [Core concepts](/getting-started/core-concepts/) — how schemas, rules, and the
   resolver divide the work.
-- [How it compiles to SQL](/guides/how-it-compiles/) — why the single-record check,
+- [How it compiles to SQL](/sql/rule-to-query/) — why the single-record check,
   the list filter, and the per-row abilities can never disagree.

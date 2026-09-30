@@ -26,7 +26,7 @@ your domain needs as `#[Ability]` constants on a schema.
 ```
 
 Once declared, a rule can name it — `they can view`. There's no fixed list; see
-[Abilities](/guides/schemas/#abilities).
+[Abilities](/schemas/anatomy/#abilities).
 
 ## Condition
 
@@ -56,8 +56,8 @@ binds to the condition's first parameter after the context object:
 if in_team('sales') they can view
 ```
 
-See [Conditions](/guides/conditions/), [row vs. global](/guides/conditions/#row-vs-global),
-and [arguments](/guides/conditions/#arguments).
+See [Conditions](/schemas/conditions/), [row vs. global](/schemas/conditions/#row-vs-global),
+and [arguments](/schemas/conditions/#arguments).
 
 ## Rule
 
@@ -79,7 +79,7 @@ You construct a single rule two ways. Parse one from the DSL:
 WarrantRule::fromSyntax('if is_self or manages_team they can view, update');
 ```
 
-Or build it fluently with the [rule builder](/guides/rule-builder/) — the same rule,
+Or build it fluently with the [rule builder](/rules/builder/) — the same rule,
 composed in PHP:
 
 ```php
@@ -89,7 +89,7 @@ WarrantRule::build()
     ->toRule();
 ```
 
-See the [rule language](/guides/rule-language/) for the full syntax.
+See the [rule language](/rules/basics/) for the full syntax.
 
 ## Rule set
 
@@ -125,7 +125,7 @@ WarrantRuleSet::build('documents', function ($rule) {
 });
 ```
 
-See the [Rule-building API](/reference/rule-building-api/) for all three.
+See the [Rule-building API](/reference/warrant-rule-set/) for all three.
 
 ## Rule resolver
 
@@ -148,8 +148,8 @@ class DatabaseRuleResolver implements RuleResolver
 ```
 
 Warrant owns no tables and has no opinion about where rules live — it only asks your
-resolver for a `WarrantRuleSet`. You can also add [implicit rules](/guides/resolvers/#implicit-rules)
-that always apply. See [Providing rules](/guides/resolvers/).
+resolver for a `WarrantRuleSet`. You can also add [implicit rules](/supplying-rules/resolver/#implicit-rules)
+that always apply. See [Providing rules](/supplying-rules/resolver/).
 
 ## Schema
 
@@ -180,8 +180,8 @@ class DocumentSchema extends WarrantSchema
 
 A **schema is not a policy**: it decides nothing, it only declares the words your
 rules may use, and Warrant validates every rule against it at compile time. A
-[schema with no model](/guides/schemas/#schemas-with-no-model) answers only
-no-target checks. See [Schemas](/guides/schemas/).
+[schema with no model](/schemas/anatomy/#schemas-with-no-model) answers only
+no-target checks. See [Schemas](/schemas/anatomy/).
 
 ## Grants and denials
 
@@ -197,7 +197,7 @@ if is_locked
 they cannot view
 ```
 
-Order never matters. See [Grants and denials](/guides/grants-and-denials/).
+Order never matters. See [Grants and denials](/concepts/grants-and-denials/).
 
 ## Check-time context
 
@@ -230,7 +230,7 @@ if in_workspace(@context workspace_id) they can view
 ...or, if the condition is inherently tied to the frame, skip the rule and read the
 ambient bag directly with `$c->context['workspace_id']` — then the rule needn't
 mention the key at all. Keys can be `required` or optional, which matters for how a
-missing value behaves; see [Check-time context](/guides/context/).
+missing value behaves; see [Check-time context](/concepts/context/).
 
 ## Checking access
 
@@ -262,12 +262,12 @@ Document::query()
 These abilities also resolve through Laravel's Gate — `$user->can('view', $document)`,
 `Gate::authorize`, `@can`, and the `can:` route middleware all work.
 
-See [Checking access](/guides/checking-access/) and the [Checking API](/reference/checking-api/).
+See [Checking access](/checking/ways-in/) and the [Checking API](/reference/warrant-facade/).
 
 ## Route middleware
 
 The same rules can guard a route before your controller runs — targeted on a
-route-model-bound record, or a [no-target check](/guides/middleware/#no-target-checks)
+route-model-bound record, or a [no-target check](/checking/middleware/#no-target-checks)
 with no row:
 
 ```php
@@ -277,7 +277,7 @@ WarrantMiddleware::guard('document', 'view', function () {
 });
 ```
 
-See [Route middleware](/guides/middleware/).
+See [Route middleware](/checking/middleware/).
 
 ## Reachability
 
@@ -289,7 +289,7 @@ per link:
 Warrant::reachabilityOf(Document::class, 'update'); // Reachability::NEVER | MAYBE | ALWAYS
 ```
 
-See [Reachability](/guides/reachability/).
+See [Reachability](/concepts/reachability/).
 
 ## It all compiles to SQL
 
@@ -303,4 +303,4 @@ select * from documents where documents.user_id = 42
 
 That's why the boolean check, the list filter, and the per-row abilities can't
 disagree — there's one source of truth. (The real output is a little more careful
-than this; see [How it compiles to SQL](/guides/how-it-compiles/).)
+than this; see [How it compiles to SQL](/sql/rule-to-query/).)

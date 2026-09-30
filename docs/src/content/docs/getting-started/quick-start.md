@@ -49,7 +49,7 @@ class DocumentSchema extends WarrantSchema
 
 ## 2. Write a rule
 
-Rules are plain strings in Warrant's [rule language](/guides/rule-language/).
+Rules are plain strings in Warrant's [rule language](/rules/basics/).
 This one grants view and update on the user's own rows:
 
 ```text
@@ -159,9 +159,9 @@ Gate::authorize('view', $document);     // throws Warrant's denial message
 ```
 
 `@can` and the `can:` route middleware go through the same hook. See
-[Checking access](/guides/checking-access/#laravels-gate).
+[Checking access](/checking/ways-in/#laravels-gate).
 
-When you need to pass [context](/guides/context/), or you're checking the same
+When you need to pass [context](/concepts/context/), or you're checking the same
 schema over and over, a bound guard reads better. Add the `AuthorizesWithWarrant`
 trait to your `User` model for `$user->warrant()`, or call the schema's own
 `guard()` static:
@@ -178,7 +178,7 @@ DocumentSchema::guard($user)->abilities($document); // ['view', 'update']
 That's the whole loop. From here:
 
 - [Core concepts](/getting-started/core-concepts/) — how the pieces fit together.
-- [Schemas](/guides/schemas/) — abilities, conditions, and context keys in depth.
-- [The rule language](/guides/rule-language/) — the full DSL.
-- [Checking access](/guides/checking-access/) — every way to ask about access.
-- [Route middleware](/guides/middleware/) — guarding routes, targeted and no-target.
+- [Schemas](/schemas/anatomy/) — abilities, conditions, and context keys in depth.
+- [The rule language](/rules/basics/) — the full DSL.
+- [Checking access](/checking/ways-in/) — every way to ask about access.
+- [Route middleware](/checking/middleware/) — guarding routes, targeted and no-target.

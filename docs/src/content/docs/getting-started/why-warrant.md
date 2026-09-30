@@ -72,7 +72,7 @@ Packages like [spatie/laravel-permission](https://github.com/spatie/laravel-perm
 
 Here is what Warrant proposes. Move the policy of your access control into conditional rule strings like this.
 
-```text
+```warrant
 if is_my_own_document or manages_team they can view, update
 if is_document_locked and not is_admin they cannot view, update
 if is_admin they can *
@@ -240,7 +240,7 @@ That's very close to the real output — each condition is spliced inline like t
 Relational conditions reach other tables through a correlated `whereExists`
 subquery, and `NULL` columns follow standard SQL logic (an unknown condition simply
 contributes no access). For the full story, see
-[How it compiles to SQL](/guides/how-it-compiles/).
+[How it compiles to SQL](/sql/rule-to-query/).
 
 :::note[Work in progress]
 I'm currently working on collapsing redundant branches like the `1 = 1` above.
@@ -281,4 +281,4 @@ If the user was blocked because nothing granted them the ability (rather than a
 `cannot` forbidding it), you set that message on the schema instead, with
 `ungrantedDenialMessage`.
 
-Check [Denial messages](/guides/denial-messages/) for more info.
+Check [Denial messages](/rules/denial-messages/) for more info.
