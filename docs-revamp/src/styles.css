@@ -174,6 +174,18 @@
     /* Clears the sticky header, and below 990px the docs menu bar under it. */
     scroll-padding-top: calc(var(--spacing) * 28 + 26px);
   }
+
+  /*
+   * While the page editor is open the article follows the editor's scroll, so
+   * its own scrollbar only repeats the editor's. It is hidden, and the page
+   * still scrolls.
+   */
+  html[data-page-editor-open] {
+    scrollbar-width: none;
+  }
+  html[data-page-editor-open]::-webkit-scrollbar {
+    display: none;
+  }
   @media (min-width: 990px) {
     html {
       scroll-padding-top: calc(var(--spacing) * 16 + 26px);

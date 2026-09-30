@@ -80,6 +80,15 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
 
   useScrollSync(view, sync)
 
+  // Marks the page as being edited, which hides the window's scrollbar; the stylesheet has the rule.
+  useEffect(() => {
+    const root = document.documentElement
+    root.toggleAttribute('data-page-editor-open', true)
+    return () => {
+      root.toggleAttribute('data-page-editor-open', false)
+    }
+  }, [])
+
   const dirty = draft !== saved
   const busy = saving || rollingBack
 
