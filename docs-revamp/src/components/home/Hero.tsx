@@ -1,11 +1,13 @@
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { links } from '../../lib/links'
 import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
 import { SiteLink } from '../SiteLink'
 import { bend } from './flow'
-import { FlowSegment } from './FlowSegment'
+import { FlowSegment, REVEAL_LENGTH } from './FlowSegment'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
 import { themed, tint } from './sectionStyles'
@@ -38,6 +40,15 @@ const TAB_GAP = 17.5
 const ELBOW_HEIGHT = 70
 /** Height of the straight connector from the code panel to the output. */
 const DROP_HEIGHT = 44
+
+/**
+ * How long, in seconds, the connectors take to redraw to a newly picked
+ * question: each bending one, and the short straight drop into the output.
+ */
+const REDRAW = 0.32
+const DROP_REDRAW = 0.22
+/** How long, in seconds, the code and output panels take to settle to their new height. */
+const RESIZE = 0.45
 
 export function Hero() {
   const [question, setQuestion] = useState<HeroQuestion>('filter')
@@ -145,15 +156,121 @@ interface WorkspaceProps {
   onView: (view: OutputView) => void
 }
 
+/** The on-screen heights of the code and output panels, in pixels. */
+interface PanelHeights {
+  code: number
+  output: number
+}
+
 /**
  * The rule set, then one of three questions asked of it, then the code that
  * asks it, then what the database sends back. Dotted connectors trace the path
  * from the rule through the chosen question down to the output.
+ *
+ * Picking another question redraws the line from the rule down to it, into
+ * the code and on into the output, while the panels ease to their new height and their new
+ * content fades in. Switching between SQL and rows does the same for the
+ * output alone.
  */
 function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
   const mode = HERO_MODES[question]
   const selected = HERO_QUESTIONS.indexOf(question)
   const [fanRef, width] = useElementWidth<HTMLDivElement>(1000)
+  const toCodeRef = useRef<HTMLDivElement>(null)
+  const toOutputRef = useRef<HTMLDivElement>(null)
+  const codeRef = useRef<HTMLDivElement>(null)
+  const outputRef = useRef<HTMLDivElement>(null)
+  // The panels' heights as the reader last saw them, taken just before a change
+  // re-renders them, so the change can grow or shrink them from there.
+  const before = useRef<PanelHeights | null>(null)
+  const shownQuestion = useRef(question)
+
+  const remember = () => {
+    const code = codeRef.current
+    const output = outputRef.current
+    if (code && output) before.current = { code: code.offsetHeight, output: output.offsetHeight }
+  }
+
+  useGSAP(
+    () => {
+      const from = before.current
+      const code = codeRef.current
+      const output = outputRef.current
+      const fan = fanRef.current
+      const toCode = toCodeRef.current
+      const toOutput = toOutputRef.current
+      before.current = null
+      const redraw = shownQuestion.current !== question
+      shownQuestion.current = question
+      if (!from || !code || !output || !fan || !toCode || !toOutput) return
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+      const settle = (panel: HTMLElement, height: number) =>
+        gsap.fromTo(
+          panel,
+          { height },
+          { height: 'auto', duration: RESIZE, ease: 'power2.inOut', overwrite: true, clearProps: 'height' },
+        )
+      const fadeIn = (content: Element | null) =>
+        gsap.fromTo(
+          content,
+          { autoAlpha: 0, y: 6 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.35,
+            ease: 'power2.out',
+            overwrite: true,
+            clearProps: 'opacity,visibility,transform',
+          },
+        )
+      const draw = (connector: HTMLElement, duration: number) =>
+        gsap.fromTo(
+          connector.querySelector('[data-flow-reveal]'),
+          { strokeDashoffset: REVEAL_LENGTH },
+          {
+            strokeDashoffset: 0,
+            duration,
+            ease: 'power2.out',
+            autoRound: false,
+            overwrite: true,
+            clearProps: 'strokeDashoffset',
+          },
+        )
+      const land = (connector: HTMLElement) =>
+        gsap.fromTo(
+          connector.querySelector('[data-choreo="dot"]'),
+          { scale: 0.6 },
+          { scale: 1, duration: 0.4, ease: 'back.out(3)', overwrite: true, clearProps: 'scale' },
+        )
+
+      settle(output, from.output)
+      if (!redraw) {
+        fadeIn(output.lastElementChild)
+        return
+      }
+
+      // The line runs again from the rule to the new question, into the code,
+      // and on into the output, each panel's content arriving as it lands.
+      settle(code, from.code)
+      gsap
+        .timeline()
+        .add(draw(fan, REDRAW))
+        .fromTo(
+          fan.querySelectorAll('[data-choreo="branch"]'),
+          { opacity: 0.35 },
+          { opacity: 1, duration: REDRAW, ease: 'power1.out', overwrite: true, clearProps: 'opacity' },
+          0,
+        )
+        .add(draw(toCode, REDRAW), '>-0.04')
+        .add(land(toCode), '>-0.06')
+        .add(fadeIn(code.lastElementChild), '<')
+        .add(draw(toOutput, DROP_REDRAW), '<0.1')
+        .add(land(toOutput), '>-0.06')
+        .add(fadeIn(output.lastElementChild), '<')
+    },
+    { dependencies: [question, view], revertOnUpdate: false },
+  )
 
   const columnWidth = (width - TAB_GAP * 2) / 3
   const tabCentres = [0, 1, 2].map((i) => columnWidth * (i + 0.5) + TAB_GAP * i)
@@ -207,19 +324,25 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
               data-choreo="tab"
               aria-selected={on}
               onClick={() => {
+                if (on) return
+                remember()
                 onQuestion(key)
               }}
-              className={`min-w-0 cursor-pointer rounded-[7.5px] border px-3.5 py-3 text-left transition-colors duration-300 ${
-                on ? 'border-coral bg-coral/8' : 'border-line-3 bg-transparent'
+              className={`group min-w-0 cursor-pointer rounded-[7.5px] border px-3.5 py-3 text-left transition-colors duration-300 ${
+                on ? 'border-coral bg-coral/8' : 'border-line-3 bg-transparent hover:border-line-5 hover:bg-cream/4'
               }`}
             >
               <div
-                className={`font-mono text-[12.5px] leading-none font-bold tracking-[.12em] ${on ? 'text-coral' : 'text-taupe'}`}
+                className={`font-mono text-[12.5px] leading-none font-bold tracking-[.12em] transition-colors duration-300 ${
+                  on ? 'text-coral' : 'text-taupe group-hover:text-coral-soft'
+                }`}
               >
                 {HERO_MODES[key].label}
               </div>
               <div
-                className={`mt-1.75 truncate text-[15px] leading-[1.25] font-medium ${on ? 'text-cream' : 'text-taupe'}`}
+                className={`mt-1.75 truncate text-[15px] leading-[1.25] font-medium transition-colors duration-300 ${
+                  on ? 'text-cream' : 'text-taupe group-hover:text-sand'
+                }`}
               >
                 {HERO_MODES[key].question}
               </div>
@@ -228,19 +351,31 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         })}
       </div>
 
-      <div data-choreo="to-code" aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
+      <div
+        ref={toCodeRef}
+        data-choreo="to-code"
+        aria-hidden="true"
+        className="relative"
+        style={{ height: ELBOW_HEIGHT }}
+      >
         <Connector height={ELBOW_HEIGHT}>
           <FlowSegment d={elbow(selectedCentre, middle, ELBOW_HEIGHT)} />
         </Connector>
         <Dot />
       </div>
 
-      <div data-choreo="code" className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
+      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
         <PanelHeading title="YOUR CODE" aside="php" />
         <CodeLines source={mode.code} language="php" gutter={44} className="py-3 text-[15px] leading-[1.7]" />
       </div>
 
-      <div data-choreo="to-output" aria-hidden="true" className="relative" style={{ height: DROP_HEIGHT }}>
+      <div
+        ref={toOutputRef}
+        data-choreo="to-output"
+        aria-hidden="true"
+        className="relative"
+        style={{ height: DROP_HEIGHT }}
+      >
         <Connector height={DROP_HEIGHT}>
           <FlowSegment d={elbow(middle, middle, DROP_HEIGHT)} />
         </Connector>
@@ -248,6 +383,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
       </div>
 
       <div
+        ref={outputRef}
         data-flow-start
         data-choreo="output"
         className="overflow-hidden rounded-lg border border-line-2 bg-surface-2"
@@ -266,10 +402,14 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
                   role="tab"
                   aria-selected={on}
                   onClick={() => {
+                    if (on) return
+                    remember()
                     onView(key)
                   }}
                   className={`h-7 cursor-pointer rounded-[5.5px] border px-3 font-mono text-[12.5px] leading-none font-semibold tracking-[.1em] transition-all duration-250 ${
-                    on ? 'border-coral bg-coral/10 text-coral' : 'border-line-3 bg-transparent text-taupe'
+                    on
+                      ? 'border-coral bg-coral/10 text-coral'
+                      : 'border-line-3 bg-transparent text-taupe hover:border-line-5 hover:text-sand'
                   }`}
                 >
                   {key.toUpperCase()}

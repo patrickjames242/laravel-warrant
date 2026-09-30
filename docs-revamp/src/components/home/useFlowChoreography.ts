@@ -42,6 +42,8 @@ const FOLLOW_LAG = 0.12
  * reload partway through, is shown the finished page instead.
  */
 const FURTHEST_START = 0.5
+/** How long, in milliseconds, the page must stop reflowing before its triggers are measured again. */
+const REFLOW_SETTLE = 120
 /** How far into its step, in seconds, the bridge begins to follow the scroll. */
 const BRIDGE_DELAY = 0.05
 /**
@@ -472,11 +474,13 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
 
           // Where each step starts moves when the page reflows: fonts loading, a
           // question changing the panel's height, the timeline placing its nodes.
+          // A reflow that is animated, like a panel easing to its new height, is
+          // measured once it settles rather than on every frame of it.
           reflowed = new ResizeObserver(() => {
-            cancelAnimationFrame(pending)
-            pending = requestAnimationFrame(() => {
+            clearTimeout(pending)
+            pending = window.setTimeout(() => {
               ScrollTrigger.refresh()
-            })
+            }, REFLOW_SETTLE)
           })
           reflowed.observe(root)
         }
@@ -485,7 +489,7 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
         return () => {
           cancelAnimationFrame(opening)
           reflowed?.disconnect()
-          cancelAnimationFrame(pending)
+          clearTimeout(pending)
           gsap.ticker.remove(step)
           triggers.forEach((trigger) => {
             trigger.kill()
