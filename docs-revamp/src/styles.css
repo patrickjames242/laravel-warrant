@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/schibsted-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
+
+@theme {
+  /*
+   * The page is drawn about 10% larger than Tailwind's defaults. Every spacing,
+   * sizing and radius utility derives from these, so they scale together.
+   */
+  --spacing: 0.275rem;
+  --text-xs: 0.825rem;
+  --text-sm: 0.9625rem;
+  --text-base: 1.1rem;
+  --radius-sm: 0.275rem;
+  --radius-md: 0.4125rem;
+  --radius-lg: 0.55rem;
+  --radius-xl: 0.825rem;
+
+  --font-sans: 'Schibsted Grotesk Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  /* Surfaces, darkest to lightest. */
+  --color-ink-deep: #0f0b09;
+  --color-ink: #120e0c;
+  --color-surface-2: #18120f;
+  --color-surface: #1c1511;
+  --color-surface-3: #241b16;
+
+  /* Borders, faintest to strongest. */
+  --color-line-1: #2a1f19;
+  --color-line-2: #2e231d;
+  --color-line-3: #34261f;
+  --color-line-4: #3b2c24;
+  --color-line-5: #4a372d;
+
+  /* Text, brightest to dimmest. */
+  --color-cream: #ecdccd;
+  --color-sand: #d9c2b0;
+  --color-tan: #c5aa96;
+  --color-taupe: #977b6a;
+  --color-umber: #806757;
+  --color-gutter: #5f4b3f;
+
+  --color-coral: #ff5a45;
+  --color-coral-strong: #ff4a36;
+  --color-coral-hover: #ff6450;
+  --color-coral-soft: #ff7a66;
+
+  --animate-dash-flow: dash-flow 0.18s linear infinite;
+  --animate-dot-flow: dot-flow 0.45s linear infinite;
+
+  @keyframes dash-flow {
+    to {
+      stroke-dashoffset: -7.7;
+    }
+  }
+  @keyframes dot-flow {
+    to {
+      background-position: 0 11px;
+    }
+  }
+}
+
+/*
+ * Three equal columns while the container is at least 836px wide, one column
+ * below that. The clamp picks 30% or 100% as the minimum track width depending
+ * on the sign of (836px - 100%), so the switch follows the container rather
+ * than the viewport.
+ */
+@utility grid-switch-836 {
+  grid-template-columns: repeat(auto-fit, minmax(clamp(30%, (836px - 100%) * 999, 100%), 1fr));
+}
+@utility grid-switch-858 {
+  grid-template-columns: repeat(auto-fit, minmax(clamp(33.333%, (858px - 100%) * 999, 100%), 1fr));
+}
+
+/* A vertical run of coral dots, animated to flow downward. */
+@utility dot-rail {
+  background-image: radial-gradient(circle, var(--color-coral) 1.55px, transparent 2.1px);
+  background-size: 100% 11px;
+  background-repeat: repeat-y;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background: var(--color-ink);
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: var(--color-cream);
+  }
+  a:hover {
+    color: var(--color-coral-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--color-coral);
+    color: var(--color-ink);
+  }
+
+  /* Film grain over the whole page. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .86 0 0 0 0 .72 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}

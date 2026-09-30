@@ -1,0 +1,218 @@
+import { useLayoutEffect, useRef } from 'react'
+import { links } from '../../lib/links'
+import { CodeLines } from '../CodeLines'
+import { Eyebrow, SectionLink } from './SectionHeading'
+import { CORNER_GLOW, SECTION_INNER } from './sectionStyles'
+
+const PIECES = [
+  {
+    title: 'Schema',
+    tagline: 'What can be expressed.',
+    body: "The vocabulary for one resource: its abilities and the conditions a rule may test. Each condition knows how to become SQL. It decides nothing.",
+    language: 'php',
+    source: `class DocumentSchema extends WarrantSchema
+{
+    public const model = Document::class;
+
+    #[Ability] public const VIEW = 'view';
+    #[Ability] public const APPROVE = 'approve';
+
+    #[RowCondition]
+    public function isOwner(RowConditionContext $c): Builder
+    {
+        return $c->query->where('user_id', $c->user->id);
+    }
+}`,
+  },
+  {
+    title: 'Rules',
+    tagline: 'What is allowed.',
+    body: "The policy itself, as plain strings that use the schema's words. Warrant validates every rule against the schema when it compiles. Rules are data.",
+    language: 'rule',
+    source: `if is_owner
+    they can view, update
+
+if is_manager and same_department
+    they can approve`,
+  },
+  {
+    title: 'Resolver',
+    tagline: 'Which rules apply.',
+    body: 'One class you write. At request time it hands Warrant the rule set for this user and this resource, from wherever your app keeps them.',
+    language: 'php',
+    source: `class RoleRuleResolver implements RuleResolver
+{
+    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    {
+        return WarrantRuleSet::fromSyntax(
+            $context->user->role->rules,
+            $context->schemaKey,
+        );
+    }
+}`,
+  },
+] as const
+
+const ENTRY_POINTS = [
+  { label: 'LARAVEL GATE', code: '$user->can()' },
+  { label: 'QUERY BUILDER', code: '->userHasAbility()' },
+  { label: 'SQL', code: 'where ( … )' },
+]
+
+const BACKGROUND = [
+  CORNER_GLOW,
+  'radial-gradient(ellipse 50% 40% at 12% 0%, rgba(255,96,60,0.035), transparent 70%)',
+  'linear-gradient(180deg, #18120f 0%, #150f0d 100%)',
+].join(',')
+
+/** Diameter of a timeline node, in pixels. */
+const NODE = 44
+/** Space between a node and the dotted line that leaves or enters it. */
+const NODE_GAP = 9
+
+export function MentalModel() {
+  const timeline = useTimelineAlignment()
+
+  return (
+    <section className="border-b border-line-1" style={{ background: BACKGROUND }}>
+      <div className={SECTION_INNER}>
+        <div className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6">
+          <div className="max-w-190">
+            <Eyebrow>01 — The mental model</Eyebrow>
+            <h2 className="mt-5.5 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-cream">
+              Three pieces. Each does one job.
+            </h2>
+          </div>
+          <SectionLink href={links.coreConcepts}>Core concepts →</SectionLink>
+        </div>
+
+        <div ref={timeline} className="mt-16 grid grid-cols-1">
+          {PIECES.map((piece, i) => (
+            <div key={piece.title} className="grid grid-cols-[53px_minmax(0,1fr)] gap-x-[clamp(17.5px,2.86vw,40px)]">
+              <div aria-hidden="true" data-rail className="relative">
+                <div
+                  data-node
+                  className="absolute top-0 left-1/2 -ml-5 flex size-10 items-center justify-center rounded-full border border-coral bg-surface-2 font-mono text-xs leading-none font-semibold tracking-[.06em] text-coral"
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </div>
+                <div
+                  data-line
+                  className="dot-rail animate-dot-flow absolute left-1/2 -ml-0.5 w-1"
+                  style={{ top: NODE + NODE_GAP, bottom: i < PIECES.length - 1 ? NODE_GAP : 0 }}
+                />
+              </div>
+
+              <div className="flex min-w-0 flex-wrap items-center gap-x-[clamp(31px,4.4vw,62px)] gap-y-6 pb-[clamp(35px,4.4vw,57px)]">
+                <div className="min-w-0 flex-[1_1_286px]">
+                  <div
+                    data-title
+                    className="text-[clamp(35px,3.3vw,48px)] leading-none font-bold tracking-[-0.035em] text-cream"
+                  >
+                    {piece.title}
+                  </div>
+                  <div className="mt-2.5 text-[clamp(18.5px,1.54vw,22px)] leading-[1.3] font-medium text-taupe">
+                    {piece.tagline}
+                  </div>
+                  <p className="mt-3.5 text-[17px] leading-[1.6] text-pretty text-tan">{piece.body}</p>
+                </div>
+                <div className="min-w-0 flex-[2_1_484px]">
+                  <CodeLines
+                    source={piece.source}
+                    language={piece.language}
+                    className="rounded-md border border-line-3 bg-surface py-3.5 text-[14.5px] leading-[1.7]"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div aria-hidden="true" className="relative size-12">
+          <div className="dot-rail animate-dot-flow absolute inset-y-0 left-1/2 -ml-0.5 w-1" />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2.5 bg-coral-strong px-[clamp(22px,2.64vw,35px)] py-[clamp(22px,2.64vw,31px)] text-ink">
+          <div className="text-[clamp(37px,4.4vw,62px)] leading-none font-extrabold tracking-[-0.04em]">Warrant</div>
+          <div className="max-w-140 font-mono text-sm leading-normal font-medium">
+            validates rules against the schema → compiles one SQL predicate per ability
+          </div>
+        </div>
+
+        <div aria-hidden="true" className="grid-switch-858 grid h-10 auto-rows-[44px] overflow-hidden">
+          {ENTRY_POINTS.map((entry) => (
+            <div key={entry.label} className="flex justify-center">
+              <div className="w-px bg-line-5" />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid-switch-858 grid border-y border-line-5">
+          {ENTRY_POINTS.map((entry, i) => (
+            <div
+              key={entry.label}
+              className={`px-5 py-5.5 text-center ${i < ENTRY_POINTS.length - 1 ? 'border-r border-line-3' : ''}`}
+            >
+              <div className="font-mono text-xs leading-none font-semibold tracking-[.12em] text-taupe">
+                {entry.label}
+              </div>
+              <div className="mt-2.5 font-mono text-[16.5px] leading-[1.4] font-medium text-cream">{entry.code}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Centres each timeline node on its piece's title, and stretches the dotted
+ * line below it down to just above the next node. Titles move as the text and
+ * code beside them wrap, so the positions are measured rather than fixed.
+ */
+function useTimelineAlignment() {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const container = ref.current
+    if (!container) return
+
+    const align = () => {
+      const rails = [...container.querySelectorAll<HTMLElement>('[data-rail]')]
+      const titles = [...container.querySelectorAll<HTMLElement>('[data-title]')]
+
+      const tops = rails.map((rail, i) => {
+        const title = titles[i]
+        if (!title) return 0
+        const railBox = rail.getBoundingClientRect()
+        const titleBox = title.getBoundingClientRect()
+        return Math.round(titleBox.top - railBox.top + titleBox.height / 2 - NODE / 2)
+      })
+
+      rails.forEach((rail, i) => {
+        const node = rail.querySelector<HTMLElement>('[data-node]')
+        const line = rail.querySelector<HTMLElement>('[data-line]')
+        const top = tops[i] ?? 0
+        const nextTop = tops[i + 1]
+        if (node) node.style.top = `${top}px`
+        if (line) {
+          line.style.top = `${top + NODE + NODE_GAP}px`
+          line.style.bottom = nextTop === undefined ? '0px' : `${NODE_GAP - nextTop}px`
+        }
+      })
+    }
+
+    align()
+    void document.fonts.ready.then(align)
+
+    const observer = new ResizeObserver(align)
+    for (const rail of container.querySelectorAll('[data-rail]')) {
+      if (rail.parentElement) observer.observe(rail.parentElement)
+    }
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  return ref
+}
