@@ -7,10 +7,19 @@ import { SiteLink } from '../SiteLink'
 /*
  * What each element of a docs page's Markdown is drawn as. The page body
  * spaces its children out, so none of these carry an outer margin of their own.
+ *
+ * Under the dev server each block arrives with `data-source-line`, the line of the
+ * Markdown it came from, and passes it to the element it draws so the page
+ * editor can line the article up with the source.
  */
 
-export function P({ children }: ComponentProps<'p'>) {
-  return <p className="text-[18px] leading-[1.7] text-pretty text-tan">{children}</p>
+/** The source line a block element carries under the dev server. */
+interface SourceLine {
+  'data-source-line'?: number | string
+}
+
+export function P({ children, 'data-source-line': line }: ComponentProps<'p'> & SourceLine) {
+  return <p data-source-line={line} className="text-[18px] leading-[1.7] text-pretty text-tan">{children}</p>
 }
 
 export function Strong({ children }: ComponentProps<'strong'>) {
@@ -40,10 +49,11 @@ export function Anchor({ href = '', children }: ComponentProps<'a'>) {
   )
 }
 
-export function H2({ id, children }: ComponentProps<'h2'>) {
+export function H2({ id, children, 'data-source-line': line }: ComponentProps<'h2'> & SourceLine) {
   return (
     <h2
       id={id}
+      data-source-line={line}
       className="border-t border-line-1 pt-7 text-[clamp(28.5px,3vw,35px)] leading-[1.1] font-bold tracking-[-0.03em] text-cream"
     >
       {children}
@@ -51,55 +61,55 @@ export function H2({ id, children }: ComponentProps<'h2'>) {
   )
 }
 
-export function H3({ id, children }: ComponentProps<'h3'>) {
+export function H3({ id, children, 'data-source-line': line }: ComponentProps<'h3'> & SourceLine) {
   return (
-    <h3 id={id} className="text-[23px] leading-[1.25] font-semibold tracking-[-0.02em] text-cream">
+    <h3 id={id} data-source-line={line} className="text-[23px] leading-[1.25] font-semibold tracking-[-0.02em] text-cream">
       {children}
     </h3>
   )
 }
 
-export function H4({ id, children }: ComponentProps<'h4'>) {
+export function H4({ id, children, 'data-source-line': line }: ComponentProps<'h4'> & SourceLine) {
   return (
-    <h4 id={id} className="text-[18.5px] leading-[1.3] font-semibold text-cream">
+    <h4 id={id} data-source-line={line} className="text-[18.5px] leading-[1.3] font-semibold text-cream">
       {children}
     </h4>
   )
 }
 
-export function Quote({ children }: ComponentProps<'blockquote'>) {
-  return <blockquote className="border-l-2 border-coral py-1 pl-5 text-sand [&_p]:text-sand">{children}</blockquote>
+export function Quote({ children, 'data-source-line': line }: ComponentProps<'blockquote'> & SourceLine) {
+  return <blockquote data-source-line={line} className="border-l-2 border-coral py-1 pl-5 text-sand [&_p]:text-sand">{children}</blockquote>
 }
 
-export function Rule() {
-  return <hr className="border-line-1" />
+export function Rule({ 'data-source-line': line }: SourceLine) {
+  return <hr data-source-line={line} className="border-line-1" />
 }
 
 const LIST = 'grid gap-2 pl-6 text-[18px] leading-[1.7] text-tan marker:text-coral [&_ol]:mt-2 [&_ul]:mt-2'
 
-export function Ul({ children }: ComponentProps<'ul'>) {
-  return <ul className={`list-disc ${LIST}`}>{children}</ul>
+export function Ul({ children, 'data-source-line': line }: ComponentProps<'ul'> & SourceLine) {
+  return <ul data-source-line={line} className={`list-disc ${LIST}`}>{children}</ul>
 }
 
-export function Ol({ children, start }: ComponentProps<'ol'>) {
+export function Ol({ children, start, 'data-source-line': line }: ComponentProps<'ol'> & SourceLine) {
   return (
-    <ol start={start} className={`list-decimal ${LIST} marker:font-mono marker:text-[15.5px] marker:font-semibold`}>
+    <ol start={start} data-source-line={line} className={`list-decimal ${LIST} marker:font-mono marker:text-[15.5px] marker:font-semibold`}>
       {children}
     </ol>
   )
 }
 
-export function Li({ children }: ComponentProps<'li'>) {
-  return <li className="pl-1 [&>p+p]:mt-3">{children}</li>
+export function Li({ children, 'data-source-line': line }: ComponentProps<'li'> & SourceLine) {
+  return <li data-source-line={line} className="pl-1 [&>p+p]:mt-3">{children}</li>
 }
 
 /**
  * A table. One whose header row is empty, such as a list of requirements
  * written as label and value, is drawn without the header.
  */
-export function Table({ children }: ComponentProps<'table'>) {
+export function Table({ children, 'data-source-line': line }: ComponentProps<'table'> & SourceLine) {
   return (
-    <div className="overflow-x-auto">
+    <div data-source-line={line} className="overflow-x-auto">
       <table className="w-full border-collapse border-t border-line-3 text-left [&_thead:not(:has(th:not(:empty)))]:hidden">
         {children}
       </table>
@@ -129,9 +139,16 @@ export function Td({ children, style }: ComponentProps<'td'>) {
   )
 }
 
-function CodeFrame({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactNode }) {
+interface CodeFrameProps {
+  label: string
+  aside?: ReactNode
+  children: ReactNode
+  line?: SourceLine['data-source-line']
+}
+
+function CodeFrame({ label, aside, children, line }: CodeFrameProps) {
   return (
-    <div className="overflow-hidden rounded-[9px] border border-line-3 bg-surface-2">
+    <div data-source-line={line} className="overflow-hidden rounded-[9px] border border-line-3 bg-surface-2">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface pr-[6.5px] pl-[15.5px]">
         <span className="truncate font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand uppercase">
           {label}
@@ -144,7 +161,7 @@ function CodeFrame({ label, aside, children }: { label: string; aside?: ReactNod
 }
 
 /** Shell commands, one per line, with a button that copies them. Lines starting `#` are comments. */
-function Terminal({ source }: { source: string }) {
+function Terminal({ source, line }: { source: string; line?: SourceLine['data-source-line'] }) {
   const lines = source.replace(/\s+$/, '').split('\n')
   const commands = lines.filter((line) => !line.startsWith('#'))
   const { copied, copy } = useCopy(commands.join('\n'))
@@ -152,6 +169,7 @@ function Terminal({ source }: { source: string }) {
   return (
     <CodeFrame
       label="Terminal"
+      line={line}
       aside={
         <button
           type="button"
@@ -193,7 +211,7 @@ const FENCES: Partial<Record<string, { language: Language; name: string }>> = {
 
 const SHELLS = new Set(['bash', 'sh', 'shell', 'zsh'])
 
-interface CodeBlockProps {
+interface CodeBlockProps extends SourceLine {
   language?: string
   /** The rest of the fence's opening line. `title="path"` names the file the code belongs in. */
   meta?: string
@@ -201,8 +219,8 @@ interface CodeBlockProps {
 }
 
 /** A fenced code block, as `remarkDocs` hands it over. */
-export function CodeBlock({ language = '', meta = '', source = '' }: CodeBlockProps) {
-  if (SHELLS.has(language)) return <Terminal source={source} />
+export function CodeBlock({ language = '', meta = '', source = '', 'data-source-line': line }: CodeBlockProps) {
+  if (SHELLS.has(language)) return <Terminal source={source} line={line} />
 
   const fence = FENCES[language] ?? { language: 'plain', name: language || 'Text' }
   const file = /title="([^"]*)"/.exec(meta)?.[1]
@@ -210,6 +228,7 @@ export function CodeBlock({ language = '', meta = '', source = '' }: CodeBlockPr
   return (
     <CodeFrame
       label={file ?? fence.name}
+      line={line}
       aside={file && <span className="pr-2 font-mono text-[13px] leading-none text-umber">{fence.name.toLowerCase()}</span>}
     >
       <CodeLines source={source} language={fence.language} gutter={48} className="py-3.5 text-[15px] leading-[1.7]" />
@@ -228,18 +247,18 @@ function isCalloutKind(kind: string): kind is keyof typeof CALLOUTS {
   return kind in CALLOUTS
 }
 
-interface CalloutProps {
+interface CalloutProps extends SourceLine {
   kind?: string
   title?: string
   children?: ReactNode
 }
 
 /** A `:::kind[Title]` block, as `remarkDocs` hands it over. */
-export function Callout({ kind = 'note', title, children }: CalloutProps) {
+export function Callout({ kind = 'note', title, children, 'data-source-line': line }: CalloutProps) {
   const style = isCalloutKind(kind) ? CALLOUTS[kind] : CALLOUTS.note
 
   return (
-    <div role="note" className={`rounded-[9px] border px-5 py-[20px] ${style.frame}`}>
+    <div role="note" data-source-line={line} className={`rounded-[9px] border px-5 py-[20px] ${style.frame}`}>
       <div className={`font-mono text-[12px] leading-none font-semibold tracking-[.12em] uppercase ${style.title}`}>
         {title ?? kind}
       </div>

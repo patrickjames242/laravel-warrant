@@ -9,23 +9,27 @@ import remarkFrontmatter from 'remark-frontmatter'
 import remarkGfm from 'remark-gfm'
 import { defineConfig } from 'vite'
 import checker from 'vite-plugin-checker'
+import { docsEditor } from './mdx/docsEditor.ts'
 import { docsPages } from './mdx/docsPages.ts'
 import { rehypeHeadings } from './mdx/rehypeHeadings.ts'
+import { rehypeSourceLines } from './mdx/rehypeSourceLines.ts'
 import { remarkDocs } from './mdx/remarkDocs.ts'
 
 /** The Markdown every docs page is rendered from. */
 const CONTENT = fileURLToPath(new URL('./content', import.meta.url))
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     docsPages(CONTENT),
+    docsEditor(CONTENT),
     {
       enforce: 'pre',
       ...mdx({
         include: /\.md$/,
         remarkPlugins: [remarkFrontmatter, remarkGfm, remarkDirective, remarkDocs],
-        rehypePlugins: [rehypeSlug, rehypeHeadings],
+        // Only the dev server's page editor reads the source lines, so a build leaves them out.
+        rehypePlugins: [rehypeSlug, rehypeHeadings, ...(command === 'serve' ? [rehypeSourceLines] : [])],
       }),
     },
     react({ include: /\.(md|tsx?)$/ }),
@@ -38,4 +42,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+}))

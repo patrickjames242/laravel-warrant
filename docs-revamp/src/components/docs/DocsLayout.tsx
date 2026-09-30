@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import type { DocModule } from '../../docs/content'
 import { mdxComponents } from '../../docs/mdxComponents'
 import type { DocPage, PageEntry } from '../../docs/nav'
@@ -8,6 +8,7 @@ import type { NavLabel } from '../SiteHeader'
 import { SiteHeader } from '../SiteHeader'
 import { DocLink } from './DocLink'
 import { DocsSidebar } from './DocsSidebar'
+import { PageEditor, useEditorOpen } from './devEditor'
 import { PAGE_TOP, TableOfContents } from './TableOfContents'
 
 interface DocsLayoutProps {
@@ -27,10 +28,16 @@ function headerLink(entry: PageEntry): NavLabel {
  * A docs page: the sidebar, the article, and the list of its headings. Below
  * 990px the sidebar becomes a drawer behind a menu button, and below 1320px the
  * list of headings is left out.
+ *
+ * Under the dev server the page can also be edited. From 990px up the editor
+ * takes the place of the sidebar and the list of headings, beside the article
+ * it re-renders; below that it rises over the lower part of the screen.
  */
 export function DocsLayout({ entry, content }: DocsLayoutProps) {
   const { page } = entry
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editorOpen, setEditorOpen] = useEditorOpen()
+  const editing = PageEditor !== undefined && editorOpen
   const group = entry.groups.at(-1)
   const toc = [{ id: PAGE_TOP, label: 'Overview' }, ...content.headings]
   const Body = content.default
@@ -47,7 +54,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
     <>
       <SiteHeader docs={{ active: headerLink(entry) }} />
 
-      <div className="sticky top-16 z-[45] flex h-12 items-center gap-3 border-b border-line-1 bg-ink/90 px-[clamp(17.5px,3.5vw,35px)] backdrop-blur-md min-[990px]:hidden">
+      <div data-sticky-bar className="sticky top-16 z-[45] flex h-12 items-center gap-3 border-b border-line-1 bg-ink/90 px-[clamp(17.5px,3.5vw,35px)] backdrop-blur-md min-[990px]:hidden">
         <button
           type="button"
           onClick={() => {
@@ -64,8 +71,17 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[1584px] items-start min-[990px]:grid-cols-[299px_minmax(0,1fr)] min-[1320px]:grid-cols-[317px_minmax(0,1fr)_264px]">
-        <DocsSidebar slug={page.slug} open={menuOpen} onNavigate={closeMenu} />
+      <div
+        className={`mx-auto grid items-start ${
+          editing
+            ? 'min-[990px]:grid-cols-[minmax(0,1fr)_minmax(440px,46%)]'
+            : 'max-w-[1584px] min-[990px]:grid-cols-[299px_minmax(0,1fr)] min-[1320px]:grid-cols-[317px_minmax(0,1fr)_264px]'
+        }`}
+      >
+        {/* While editing, the sidebar is still the drawer below 990px, and gives its column to the editor above it. */}
+        <div className={editing ? 'contents min-[990px]:hidden' : 'contents'}>
+          <DocsSidebar slug={page.slug} open={menuOpen} onNavigate={closeMenu} />
+        </div>
         <div
           aria-hidden="true"
           onClick={closeMenu}
@@ -74,7 +90,11 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
           }`}
         />
 
-        <main className="min-w-0 px-[clamp(22px,4.5vw,70.5px)] pt-[clamp(35px,4.5vw,61.5px)] pb-24">
+        <main
+          className={`min-w-0 px-[clamp(22px,4.5vw,70.5px)] pt-[clamp(35px,4.5vw,61.5px)] pb-24 ${
+            editing ? 'max-[989px]:pb-[64dvh]' : ''
+          }`}
+        >
           <article className="mx-auto max-w-[836px]">
             <PageHeader page={page} eyebrow={group?.label} />
 
@@ -86,8 +106,36 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
           </article>
         </main>
 
-        <TableOfContents entries={toc} />
+        {editing && PageEditor ? (
+          <div className="fixed inset-x-0 bottom-0 z-[46] flex h-[60dvh] flex-col border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
+            <Suspense>
+              <PageEditor
+                key={page.slug}
+                slug={page.slug}
+                onClose={() => {
+                  setEditorOpen(false)
+                }}
+              />
+            </Suspense>
+          </div>
+        ) : (
+          <TableOfContents entries={toc} />
+        )}
       </div>
+
+      {PageEditor && !editing && (
+        <button
+          type="button"
+          onClick={() => {
+            setEditorOpen(true)
+          }}
+          className="fixed right-5 bottom-5 z-[46] flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-5 bg-surface px-4 font-mono text-[13px] leading-none font-medium text-sand shadow-[0_12px_32px_-12px_var(--color-shade)] hover:border-coral hover:text-cream"
+        >
+          <span className="text-coral">✎</span>
+          Edit page
+          <span className="rounded-[4.5px] border border-line-3 px-1.5 py-0.5 text-[10.5px] tracking-[.08em] text-umber">DEV</span>
+        </button>
+      )}
 
       <footer className="border-t border-line-1 bg-ink-deep">
         <div className="mx-auto flex max-w-[1584px] flex-wrap justify-between gap-x-8 gap-y-3 px-[clamp(17.5px,3.5vw,35px)] py-7 text-[14.5px] leading-normal text-umber">

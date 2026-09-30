@@ -24,7 +24,7 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
   const frame = docs ? 'max-w-[1584px] px-[clamp(17.5px,3.5vw,35px)]' : 'max-w-330 px-[clamp(22px,4.4vw,53px)]'
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line-1 bg-ink/84 backdrop-blur-md">
+    <header data-sticky-bar className="sticky top-0 z-50 border-b border-line-1 bg-ink/84 backdrop-blur-md">
       <nav aria-label="Primary" className={`mx-auto flex h-16 items-center gap-4 ${frame}`}>
         <Link to="/" className="flex flex-none items-center gap-2.5 text-cream sm:mr-4">
           <Logo />

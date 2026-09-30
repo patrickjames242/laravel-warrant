@@ -30,7 +30,7 @@ function markdownFiles(directory: string): string[] {
 }
 
 /** A page's path on the site: its file's path with `.md` dropped, and `index` standing for its directory. */
-function slugFor(root: string, file: string): string {
+export function slugFor(root: string, file: string): string {
   return relative(root, file)
     .split(sep)
     .join('/')
