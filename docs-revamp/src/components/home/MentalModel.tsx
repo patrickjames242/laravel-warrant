@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { links } from '../../lib/links'
 import { CodeLines } from '../CodeLines'
+import { layoutBox } from './flow'
 import { Eyebrow, SectionLink } from './SectionHeading'
 import { CORNER_GLOW, SECTION_INNER, themed, tint } from './sectionStyles'
 
@@ -80,6 +81,7 @@ export function MentalModel() {
         */}
         <div
           data-flow-heading
+          data-choreo="heading"
           className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6 pl-[calc(53px+clamp(17.5px,2.86vw,40px))]"
         >
           <div className="max-w-190">
@@ -93,7 +95,11 @@ export function MentalModel() {
 
         <div ref={timeline} className="mt-16 grid grid-cols-1">
           {PIECES.map((piece, i) => (
-            <div key={piece.title} className="grid grid-cols-[53px_minmax(0,1fr)] gap-x-[clamp(17.5px,2.86vw,40px)]">
+            <div
+              key={piece.title}
+              data-choreo="piece"
+              className="grid grid-cols-[53px_minmax(0,1fr)] gap-x-[clamp(17.5px,2.86vw,40px)]"
+            >
               <div aria-hidden="true" data-rail className="relative">
                 <div
                   data-node
@@ -113,16 +119,22 @@ export function MentalModel() {
                 <div className="min-w-0 flex-[1_1_286px]">
                   <div
                     data-title
+                    data-choreo="item"
                     className="text-[clamp(35px,3.3vw,48px)] leading-none font-bold tracking-[-0.035em] text-cream"
                   >
                     {piece.title}
                   </div>
-                  <div className="mt-2.5 text-[clamp(18.5px,1.54vw,22px)] leading-[1.3] font-medium text-taupe">
+                  <div
+                    data-choreo="item"
+                    className="mt-2.5 text-[clamp(18.5px,1.54vw,22px)] leading-[1.3] font-medium text-taupe"
+                  >
                     {piece.tagline}
                   </div>
-                  <p className="mt-3.5 text-[17px] leading-[1.6] text-pretty text-tan">{piece.body}</p>
+                  <p data-choreo="item" className="mt-3.5 text-[17px] leading-[1.6] text-pretty text-tan">
+                    {piece.body}
+                  </p>
                 </div>
-                <div className="min-w-0 flex-[2_1_484px]">
+                <div data-choreo="item" className="min-w-0 flex-[2_1_484px]">
                   <CodeLines
                     source={piece.source}
                     language={piece.language}
@@ -135,17 +147,20 @@ export function MentalModel() {
         </div>
 
         <div aria-hidden="true" className="relative size-12">
-          <div className="dot-rail absolute inset-y-0 left-1/2 -ml-0.5 w-1" />
+          <div data-choreo="rail-final" className="dot-rail absolute inset-y-0 left-1/2 -ml-0.5 w-1" />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2.5 bg-coral-strong px-[clamp(22px,2.64vw,35px)] py-[clamp(22px,2.64vw,31px)] text-ink">
+        <div
+          data-choreo="bar"
+          className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2.5 bg-coral-strong px-[clamp(22px,2.64vw,35px)] py-[clamp(22px,2.64vw,31px)] text-ink"
+        >
           <div className="text-[clamp(37px,4.4vw,62px)] leading-none font-extrabold tracking-[-0.04em]">Warrant</div>
           <div className="max-w-140 font-mono text-sm leading-normal font-medium">
             validates rules against the schema → compiles one SQL predicate per ability
           </div>
         </div>
 
-        <div aria-hidden="true" className="grid-switch-858 grid h-10 auto-rows-[44px] overflow-hidden">
+        <div data-choreo="entries" aria-hidden="true" className="grid-switch-858 grid h-10 auto-rows-[44px] overflow-hidden">
           {ENTRY_POINTS.map((entry) => (
             <div key={entry.label} className="flex justify-center">
               <div className="w-px bg-line-5" />
@@ -153,7 +168,7 @@ export function MentalModel() {
           ))}
         </div>
 
-        <div className="grid-switch-858 grid border-y border-line-5">
+        <div data-choreo="entries" className="grid-switch-858 grid border-y border-line-5">
           {ENTRY_POINTS.map((entry, i) => (
             <div
               key={entry.label}
@@ -175,7 +190,8 @@ export function MentalModel() {
  * Centres each timeline node on its piece's title, and stretches the dotted
  * line below it from its border down to the next node's. Titles move as the
  * text and code beside them wrap, so the positions are measured rather than
- * fixed.
+ * fixed, and measured by layout, so a title still sliding into place is placed
+ * by where it will come to rest.
  */
 function useTimelineAlignment() {
   const ref = useRef<HTMLDivElement>(null)
@@ -191,8 +207,8 @@ function useTimelineAlignment() {
       const tops = rails.map((rail, i) => {
         const title = titles[i]
         if (!title) return 0
-        const railBox = rail.getBoundingClientRect()
-        const titleBox = title.getBoundingClientRect()
+        const railBox = layoutBox(rail)
+        const titleBox = layoutBox(title)
         return Math.round(titleBox.top - railBox.top + titleBox.height / 2 - NODE / 2)
       })
 

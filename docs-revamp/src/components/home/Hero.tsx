@@ -5,6 +5,7 @@ import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
 import { SiteLink } from '../SiteLink'
 import { bend } from './flow'
+import { FlowSegment } from './FlowSegment'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
 import { themed, tint } from './sectionStyles'
@@ -141,7 +142,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div className="rounded-xl border border-line-4 bg-surface shadow-panel">
+      <div data-choreo="rules" className="rounded-xl border border-line-4 bg-surface shadow-panel">
         <div className="flex items-center gap-2.5 border-b border-line-2 px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
@@ -155,14 +156,23 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         />
       </div>
 
-      <div ref={fanRef} aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
+      <div ref={fanRef} data-choreo="fan" aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
         <Connector height={ELBOW_HEIGHT}>
-          {tabCentres
-            .filter((_, i) => i !== selected)
-            .map((x) => (
-              <path key={x} d={elbow(middle, x, ELBOW_HEIGHT)} className="fill-none stroke-line-5 stroke-1" />
-            ))}
-          <FlowPath d={elbow(middle, selectedCentre, ELBOW_HEIGHT)} />
+          {/*
+            Keyed by the tab each branch leads to, not by where it lands, so a
+            change of width reshapes the same branches rather than replacing them.
+          */}
+          {tabCentres.map((x, i) =>
+            i === selected ? null : (
+              <path
+                key={HERO_QUESTIONS[i]}
+                data-choreo="branch"
+                d={elbow(middle, x, ELBOW_HEIGHT)}
+                className="fill-none stroke-line-5 stroke-1"
+              />
+            ),
+          )}
+          <FlowSegment d={elbow(middle, selectedCentre, ELBOW_HEIGHT)} />
         </Connector>
       </div>
 
@@ -174,11 +184,12 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
               key={key}
               type="button"
               role="tab"
+              data-choreo="tab"
               aria-selected={on}
               onClick={() => {
                 onQuestion(key)
               }}
-              className={`min-w-0 cursor-pointer rounded-[7.5px] border px-3.5 py-3 text-left transition-all duration-300 ${
+              className={`min-w-0 cursor-pointer rounded-[7.5px] border px-3.5 py-3 text-left transition-colors duration-300 ${
                 on ? 'border-coral bg-coral/8' : 'border-line-3 bg-transparent'
               }`}
             >
@@ -197,26 +208,26 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         })}
       </div>
 
-      <div aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
+      <div data-choreo="to-code" aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
         <Connector height={ELBOW_HEIGHT}>
-          <FlowPath d={elbow(selectedCentre, middle, ELBOW_HEIGHT)} />
+          <FlowSegment d={elbow(selectedCentre, middle, ELBOW_HEIGHT)} />
         </Connector>
         <Dot />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
+      <div data-choreo="code" className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
         <PanelHeading title="YOUR CODE" aside="php" />
         <CodeLines source={mode.code} language="php" gutter={44} className="py-3 text-[15px] leading-[1.7]" />
       </div>
 
-      <div aria-hidden="true" className="relative" style={{ height: DROP_HEIGHT }}>
+      <div data-choreo="to-output" aria-hidden="true" className="relative" style={{ height: DROP_HEIGHT }}>
         <Connector height={DROP_HEIGHT}>
-          <FlowPath d={elbow(middle, middle, DROP_HEIGHT)} />
+          <FlowSegment d={elbow(middle, middle, DROP_HEIGHT)} />
         </Connector>
         <Dot />
       </div>
 
-      <div data-flow-start className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
+      <div data-flow-start data-choreo="output" className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-surface px-3.5 py-1.5">
           <span className="font-mono text-[12px] leading-[1.3] font-bold tracking-[.12em] text-sand">
             RULES, COMPILED TO SQL
@@ -373,13 +384,14 @@ function Connector({ height, children }: { height: number; children: ReactNode }
   )
 }
 
-function FlowPath({ d }: { d: string }) {
-  return <path d={d} className="flow-path" />
-}
-
 /** A dot centred on the bottom edge of its connector, where the next panel begins. */
 function Dot() {
-  return <div className="absolute top-[calc(100%-var(--spacing))] left-1/2 z-1 -ml-1 size-2 rounded-full bg-coral" />
+  return (
+    <div
+      data-choreo="dot"
+      className="absolute top-[calc(100%-var(--spacing))] left-1/2 z-1 -ml-1 size-2 rounded-full bg-coral"
+    />
+  )
 }
 
 /** A connector from `from` at its top to `to` at its bottom, turning across at half height. */

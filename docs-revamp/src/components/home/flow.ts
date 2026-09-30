@@ -15,6 +15,29 @@ export interface Point {
   y: number
 }
 
+export interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * Where an element is laid out on the page, ignoring any transform on it or its
+ * ancestors. The choreography slides and scales things as they appear, and a
+ * path measured mid-animation would point at where they were passing through
+ * rather than where they come to rest.
+ */
+export function layoutBox(element: HTMLElement): Box {
+  let left = 0
+  let top = 0
+  for (let at: HTMLElement | null = element; at; at = at.offsetParent as HTMLElement | null) {
+    left += at.offsetLeft
+    top += at.offsetTop
+  }
+  return { left, top, width: element.offsetWidth, height: element.offsetHeight }
+}
+
 /**
  * A path that runs down from `from` to the height `turn`, across to above `to`,
  * and down again to `to`, rounding both corners to at most `maxRadius`. With

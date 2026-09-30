@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
-import { CORNER_RADIUS, bend } from './flow'
+import { CORNER_RADIUS, bend, layoutBox } from './flow'
+import { FlowSegment } from './FlowSegment'
 
 /**
  * The bridge's corners follow the page's width. It crosses far more ground than
@@ -31,27 +32,28 @@ function cornerRadius(width: number): number {
  */
 export function FlowBridge() {
   const svg = useRef<SVGSVGElement>(null)
-  const path = useRef<SVGPathElement>(null)
 
   useLayoutEffect(() => {
     const frame = svg.current?.parentElement
-    const start = frame?.querySelector('[data-flow-start]')
-    const end = frame?.querySelector('[data-flow-end]')
-    const heading = frame?.querySelector('[data-flow-heading]')
+    const start = frame?.querySelector<HTMLElement>('[data-flow-start]')
+    const end = frame?.querySelector<HTMLElement>('[data-flow-end]')
+    const heading = frame?.querySelector<HTMLElement>('[data-flow-heading]')
     const section = heading?.closest('section')
-    if (!frame || !start || !end || !heading || !section) return
+    const paths = svg.current?.querySelectorAll('path')
+    if (!frame || !start || !end || !heading || !section || !paths) return
 
     const draw = () => {
-      const box = frame.getBoundingClientRect()
-      const panel = start.getBoundingClientRect()
-      const node = end.getBoundingClientRect()
+      const box = layoutBox(frame)
+      const panel = layoutBox(start)
+      const node = layoutBox(end)
       // The path turns halfway between the top of the timeline's section and its heading.
-      const turn = (section.getBoundingClientRect().top + heading.getBoundingClientRect().top) / 2 - box.top
+      const turn = (layoutBox(section).top + layoutBox(heading).top) / 2 - box.top
 
-      const from = { x: panel.left + panel.width / 2 - box.left, y: panel.bottom - box.top }
+      const from = { x: panel.left + panel.width / 2 - box.left, y: panel.top + panel.height - box.top }
       const to = { x: node.left + node.width / 2 - box.left, y: node.top - box.top }
 
-      path.current?.setAttribute('d', bend(from, to, turn, cornerRadius(box.width)))
+      const d = bend(from, to, turn, cornerRadius(box.width))
+      for (const path of paths) path.setAttribute('d', d)
     }
 
     draw()
@@ -60,8 +62,15 @@ export function FlowBridge() {
     const resized = new ResizeObserver(draw)
     resized.observe(frame)
     resized.observe(start)
-    // The timeline positions its nodes by setting their style after it measures.
-    const moved = new MutationObserver(draw)
+    // The timeline places its nodes by setting their `top` after it measures. The
+    // choreography animates their transform through the same style attribute,
+    // which moves nothing that is measured here, so only a new `top` redraws.
+    let placedAt = end.style.top
+    const moved = new MutationObserver(() => {
+      if (end.style.top === placedAt) return
+      placedAt = end.style.top
+      draw()
+    })
     moved.observe(end, { attributes: true, attributeFilter: ['style'] })
 
     return () => {
@@ -71,8 +80,13 @@ export function FlowBridge() {
   }, [])
 
   return (
-    <svg ref={svg} aria-hidden="true" className="pointer-events-none absolute inset-0 z-1 size-full overflow-visible">
-      <path ref={path} className="flow-path" />
+    <svg
+      ref={svg}
+      data-choreo="bridge"
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-1 size-full overflow-visible"
+    >
+      <FlowSegment />
     </svg>
   )
 }
