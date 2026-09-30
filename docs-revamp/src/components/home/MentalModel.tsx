@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { links } from '../../lib/links'
 import { CodeLines } from '../CodeLines'
 import { Eyebrow, SectionLink } from './SectionHeading'
-import { CORNER_GLOW, SECTION_INNER } from './sectionStyles'
+import { CORNER_GLOW, SECTION_INNER, themed, tint } from './sectionStyles'
 
 const PIECES = [
   {
@@ -61,8 +61,8 @@ const ENTRY_POINTS = [
 
 const BACKGROUND = [
   CORNER_GLOW,
-  'radial-gradient(ellipse 50% 40% at 12% 0%, rgba(255,96,60,0.035), transparent 70%)',
-  'linear-gradient(180deg, #18120f 0%, #150f0d 100%)',
+  `radial-gradient(ellipse 50% 40% at 12% 0%, ${tint('glow', 3.5)}, transparent 70%)`,
+  `linear-gradient(180deg, ${themed('surface-2')} 0%, ${themed('ink-raised')} 100%)`,
 ].join(',')
 
 /** Diameter of a timeline node, in pixels. */

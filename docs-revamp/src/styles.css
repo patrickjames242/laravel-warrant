@@ -2,7 +2,12 @@
 @import '@fontsource-variable/schibsted-grotesk';
 @import '@fontsource-variable/jetbrains-mono';
 
-@theme {
+/*
+ * `static` has every variable here written out, whether or not a utility class
+ * uses it: the home page's gradients name theme colours at runtime, through
+ * tint() and themed(), where Tailwind cannot see them.
+ */
+@theme static {
   /*
    * The page is drawn about 10% larger than Tailwind's defaults. Every spacing,
    * sizing and radius utility derives from these, so they scale together.
@@ -22,11 +27,13 @@
   /* Surfaces, darkest to lightest. */
   --color-ink-deep: #0f0b09;
   --color-ink: #120e0c;
+  --color-ink-raised: #140f0d;
   --color-surface-2: #18120f;
   --color-surface: #1c1511;
   --color-surface-3: #241b16;
 
   /* Borders, faintest to strongest. */
+  --color-line-0: #1f1814;
   --color-line-1: #2a1f19;
   --color-line-2: #2e231d;
   --color-line-3: #34261f;
@@ -37,6 +44,7 @@
   --color-cream: #ecdccd;
   --color-sand: #d9c2b0;
   --color-tan: #c5aa96;
+  --color-fawn: #b39784;
   --color-taupe: #977b6a;
   --color-umber: #806757;
   --color-gutter: #5f4b3f;
@@ -45,6 +53,29 @@
   --color-coral-strong: #ff4a36;
   --color-coral-hover: #ff6450;
   --color-coral-soft: #ff7a66;
+  --color-coral-deep: #6b3024;
+
+  /* Pale warm accents, for code set in prose and for highlighted values. */
+  --color-peach: #ffc2ad;
+  --color-blush: #ffd6c9;
+  --color-gold: #d9c28f;
+
+  /*
+   * Light and shadow. These are only ever drawn at a fraction of their strength:
+   * glow and ember in the background gradients, shade behind overlays.
+   */
+  --color-glow: #ff603c;
+  --color-ember: #964826;
+  --color-shade: #080504;
+
+  /* Syntax highlighting, by token kind. */
+  --color-code-keyword: var(--color-coral-hover);
+  --color-code-ability: var(--color-peach);
+  --color-code-variable: #f0b48c;
+  --color-code-class: #e8cdb5;
+  --color-code-string: var(--color-gold);
+  --color-code-comment: #8b7060;
+  --color-code-punctuation: #a88d7b;
 
   /*
    * A quick start that settles slowly, so things glide to rest rather than
@@ -78,6 +109,19 @@
 }
 @utility grid-switch-858 {
   grid-template-columns: repeat(auto-fit, minmax(clamp(33.333%, (858px - 100%) * 999, 100%), 1fr));
+}
+
+/* The lifted, faintly glowing shadow under the hero's rule panel. */
+@utility shadow-panel {
+  box-shadow:
+    0 44px 88px -33px color-mix(in srgb, var(--color-shade) 85%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-coral) 5%, transparent),
+    0 0 132px -44px color-mix(in srgb, var(--color-glow) 12%, transparent);
+}
+
+/* The shadow the docs sidebar casts over the page while it is a drawer. */
+@utility shadow-drawer {
+  box-shadow: 26.5px 0 66px -22px color-mix(in srgb, var(--color-shade) 70%, transparent);
 }
 
 /* A vertical run of coral dots, animated to flow downward. */

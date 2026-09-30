@@ -1,8 +1,8 @@
 import { links } from '../../lib/links'
 import { Eyebrow, SectionLink } from './SectionHeading'
-import { CORNER_GLOW, SECTION_INNER } from './sectionStyles'
+import { CORNER_GLOW, SECTION_INNER, themed } from './sectionStyles'
 
-const BACKGROUND = [CORNER_GLOW, 'linear-gradient(180deg, #18120f 0%, #161010 100%)'].join(',')
+const BACKGROUND = [CORNER_GLOW, `linear-gradient(180deg, ${themed('surface-2')} 0%, ${themed('ink-raised')} 100%)`].join(',')
 
 const OTHERS = [
   {

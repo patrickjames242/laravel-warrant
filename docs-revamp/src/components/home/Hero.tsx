@@ -5,6 +5,7 @@ import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
+import { themed, tint } from './sectionStyles'
 
 type OutputView = 'sql' | 'rows'
 
@@ -18,14 +19,13 @@ const BADGES = [
 ]
 
 const HERO_BACKGROUND = [
-  'radial-gradient(ellipse 42% 38% at 0% 0%, rgba(255,96,60,0.13), transparent 70%)',
-  'radial-gradient(ellipse 38% 30% at 12% 6%, rgba(255,96,60,0.075), transparent 70%)',
-  'radial-gradient(ellipse 30% 36% at 92% 78%, rgba(150,72,38,0.11), transparent 72%)',
-  'linear-gradient(180deg, #17110e 0%, #120e0c 100%)',
+  `radial-gradient(ellipse 42% 38% at 0% 0%, ${tint('glow', 13)}, transparent 70%)`,
+  `radial-gradient(ellipse 38% 30% at 12% 6%, ${tint('glow', 7.5)}, transparent 70%)`,
+  `radial-gradient(ellipse 30% 36% at 92% 78%, ${tint('ember', 11)}, transparent 72%)`,
+  `linear-gradient(180deg, ${themed('surface-2')} 0%, ${themed('ink')} 100%)`,
 ].join(',')
 
-const GRID_BACKGROUND =
-  'linear-gradient(#1f1814 1px, transparent 1px), linear-gradient(90deg, #1f1814 1px, transparent 1px)'
+const GRID_BACKGROUND = `linear-gradient(${themed('line-0')} 1px, transparent 1px), linear-gradient(90deg, ${themed('line-0')} 1px, transparent 1px)`
 
 const ROW_COLUMNS = 'grid-cols-[44px_minmax(143px,1.4fr)_79px_79px_64px_minmax(154px,1.2fr)]'
 
@@ -139,7 +139,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div className="rounded-xl border border-line-4 bg-surface shadow-[0_44px_88px_-33px_rgba(8,4,2,.85),0_0_0_1px_rgba(255,90,69,0.05),0_0_132px_-44px_rgba(255,90,60,0.12)]">
+      <div className="rounded-xl border border-line-4 bg-surface shadow-panel">
         <div className="flex items-center gap-2.5 border-b border-line-2 px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
@@ -294,14 +294,14 @@ function ResultRows({ question }: { question: HeroQuestion }) {
           return (
             <div
               key={document.id}
-              className={`grid ${ROW_COLUMNS} h-9.5 items-center border-t border-[#2a201a] px-3.5 font-mono text-[14.5px] leading-none transition-[opacity,background,box-shadow] duration-400 ${
+              className={`grid ${ROW_COLUMNS} h-9.5 items-center border-t border-line-1 px-3.5 font-mono text-[14.5px] leading-none transition-[opacity,background,box-shadow] duration-400 ${
                 abilities ? 'text-umber' : 'text-sand'
               } ${row.emphasis ? 'bg-coral/10 shadow-[inset_2px_0_0_var(--color-coral)]' : ''}`}
               style={{ opacity: row.opacity }}
             >
               <span className="text-taupe">#{document.id}</span>
               <span
-                className={`font-sans text-sm transition-colors duration-400 ${abilities ? 'text-[#b39784]' : 'text-cream'} ${
+                className={`font-sans text-sm transition-colors duration-400 ${abilities ? 'text-fawn' : 'text-cream'} ${
                   row.struck ? 'line-through' : ''
                 }`}
               >
@@ -352,7 +352,7 @@ function describeRow(document: Document, question: HeroQuestion): RowDescription
       return {
         ...row,
         result: JSON.stringify(document.abilities),
-        resultClass: document.abilities.length ? 'text-[#ffd6c9]' : 'text-taupe',
+        resultClass: document.abilities.length ? 'text-blush' : 'text-taupe',
       }
   }
 }

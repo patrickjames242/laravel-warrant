@@ -1,12 +1,12 @@
 import { INSTALL_COMMAND, links } from '../../lib/links'
 import { useCopy } from '../../lib/useCopy'
-import { CORNER_GLOW } from './sectionStyles'
+import { CORNER_GLOW, themed, tint } from './sectionStyles'
 
 const BACKGROUND = [
   CORNER_GLOW,
-  'radial-gradient(ellipse 80% 90% at 18% 105%, rgba(255,84,52,0.15), transparent 65%)',
-  'radial-gradient(ellipse 55% 60% at 92% 8%, rgba(165,80,42,0.10), transparent 70%)',
-  'linear-gradient(180deg, #140f0c 0%, #1a120e 100%)',
+  `radial-gradient(ellipse 80% 90% at 18% 105%, ${tint('glow', 15)}, transparent 65%)`,
+  `radial-gradient(ellipse 55% 60% at 92% 8%, ${tint('ember', 10)}, transparent 70%)`,
+  `linear-gradient(180deg, ${themed('ink-raised')} 0%, ${themed('surface-2')} 100%)`,
 ].join(',')
 
 export function CallToAction() {

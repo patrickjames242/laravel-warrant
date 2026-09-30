@@ -1,11 +1,11 @@
 import { Eyebrow } from './SectionHeading'
-import { CORNER_GLOW, SECTION_INNER } from './sectionStyles'
+import { CORNER_GLOW, SECTION_INNER, themed, tint } from './sectionStyles'
 
 const BACKGROUND = [
   CORNER_GLOW,
-  'radial-gradient(ellipse 60% 45% at 10% 8%, rgba(255,100,62,0.06), transparent 70%)',
-  'radial-gradient(ellipse 50% 50% at 95% 100%, rgba(140,68,36,0.06), transparent 70%)',
-  '#140f0d',
+  `radial-gradient(ellipse 60% 45% at 10% 8%, ${tint('glow', 6)}, transparent 70%)`,
+  `radial-gradient(ellipse 50% 50% at 95% 100%, ${tint('ember', 6)}, transparent 70%)`,
+  themed('ink-raised'),
 ].join(',')
 
 const FITS = [

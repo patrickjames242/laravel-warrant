@@ -24,7 +24,7 @@ export function Em({ children }: ComponentProps<'em'>) {
 
 export function InlineCode({ children }: ComponentProps<'code'>) {
   return (
-    <code className="rounded-[4.5px] border border-line-3 bg-surface px-[6.5px] py-[2px] font-mono text-[0.85em] leading-none font-medium text-[#ffc2ad]">
+    <code className="rounded-[4.5px] border border-line-3 bg-surface px-[6.5px] py-[2px] font-mono text-[0.85em] leading-none font-medium text-peach">
       {children}
     </code>
   )
@@ -183,7 +183,7 @@ function Terminal({ source }: { source: string }) {
       <div className="overflow-x-auto p-4 font-mono text-[15.5px] leading-[1.6] whitespace-pre text-sand">
         {lines.map((line, i) =>
           line.startsWith('#') ? (
-            <div key={i} className="text-[#8b7060]">
+            <div key={i} className="text-code-comment">
               {line}
             </div>
           ) : (
@@ -234,8 +234,8 @@ export function CodeBlock({ language = '', meta = '', source = '' }: CodeBlockPr
 
 const CALLOUTS = {
   note: { frame: 'border-line-4 bg-surface', title: 'text-sand' },
-  tip: { frame: 'border-line-5 bg-surface', title: 'text-[#d9c28f]' },
-  caution: { frame: 'border-[#6b3024] bg-coral/6', title: 'text-coral-soft' },
+  tip: { frame: 'border-line-5 bg-surface', title: 'text-gold' },
+  caution: { frame: 'border-coral-deep bg-coral/6', title: 'text-coral-soft' },
   danger: { frame: 'border-coral bg-coral/12', title: 'text-coral' },
 } as const
 

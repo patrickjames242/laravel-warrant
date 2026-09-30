@@ -102,7 +102,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
               className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[15.5px] leading-[1.35] transition-colors duration-250 ease-glide hover:bg-cream/4 hover:text-cream focus-visible:outline-offset-[-2px] ${
                 item.slug === slug
                   ? 'border-coral bg-coral/8 font-semibold text-cream'
-                  : 'border-transparent text-[#b39784]'
+                  : 'border-transparent text-fawn'
               }`}
               current={item.slug === slug}
             >
@@ -126,7 +126,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
           }}
           aria-expanded={expanded}
           className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium transition-colors duration-250 ease-glide hover:text-cream focus-visible:outline-offset-[-2px] ${
-            nested ? 'pr-2 pl-3 text-[#b39784]' : 'pr-2 pl-3 text-sand'
+            nested ? 'pr-2 pl-3 text-fawn' : 'pr-2 pl-3 text-sand'
           }`}
         >
           {group.label}
@@ -143,7 +143,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
     <aside
       ref={scroller}
       aria-label="Documentation"
-      className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-[#140f0d] pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-[26.5px_0_66px_-22px_rgba(0,0,0,.7)] transition-[translate,visibility] duration-450 ease-glide ${
+      className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-ink-raised pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-drawer transition-[translate,visibility] duration-450 ease-glide ${
         open ? 'visible translate-x-0' : 'invisible -translate-x-full'
       } min-[990px]:visible min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100vh-var(--spacing)*16)] min-[990px]:w-auto min-[990px]:translate-x-0 min-[990px]:bg-transparent min-[990px]:shadow-none min-[990px]:transition-none`}
     >

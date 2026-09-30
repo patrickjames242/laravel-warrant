@@ -2,16 +2,16 @@ import type { Language, TokenKind } from '../lib/highlight'
 import { highlight } from '../lib/highlight'
 
 const TOKEN_CLASS: Record<TokenKind, string> = {
-  keyword: 'text-[#ff6450]',
-  ability: 'text-[#ffc2ad]',
+  keyword: 'text-code-keyword',
+  ability: 'text-code-ability',
   condition: 'text-cream',
-  variable: 'text-[#f0b48c]',
+  variable: 'text-code-variable',
   function: 'text-cream',
-  class: 'text-[#e8cdb5]',
-  string: 'text-[#d9c28f]',
-  comment: 'text-[#8b7060]',
-  punctuation: 'text-[#a88d7b]',
-  number: 'text-[#d9c28f]',
+  class: 'text-code-class',
+  string: 'text-code-string',
+  comment: 'text-code-comment',
+  punctuation: 'text-code-punctuation',
+  number: 'text-code-string',
   text: 'text-sand',
 }
 
