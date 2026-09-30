@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      The page's ink background, set here so the first paint is already dark.
+      The stylesheet can arrive after the first paint (the dev server injects
+      it from the script), and until it does the browser paints its own white.
+    -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#120e0c" />
+    <style>
+      html,
+      body {
+        background: #120e0c;
+      }
+    </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Laravel Warrant · Row-level authorization for Laravel</title>
   </head>

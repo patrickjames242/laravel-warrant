@@ -7,14 +7,14 @@ import rehypeSlug from 'rehype-slug'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkGfm from 'remark-gfm'
-import { defineConfig, searchForWorkspaceRoot } from 'vite'
+import { defineConfig } from 'vite'
 import checker from 'vite-plugin-checker'
 import { docsPages } from './mdx/docsPages.ts'
 import { rehypeHeadings } from './mdx/rehypeHeadings.ts'
 import { remarkDocs } from './mdx/remarkDocs.ts'
 
-/** The Markdown every docs page is rendered from, shared with the Astro site. */
-const CONTENT = fileURLToPath(new URL('../docs/src/content/docs', import.meta.url))
+/** The Markdown every docs page is rendered from. */
+const CONTENT = fileURLToPath(new URL('./content', import.meta.url))
 
 export default defineConfig({
   plugins: [
@@ -38,11 +38,4 @@ export default defineConfig({
       },
     }),
   ],
-  resolve: {
-    // Pages compiled from outside this directory resolve React from here.
-    dedupe: ['react', 'react-dom'],
-  },
-  server: {
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), CONTENT] },
-  },
 })

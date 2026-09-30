@@ -7,10 +7,10 @@ export interface DocModule {
   headings: TocEntry[]
 }
 
-const PREFIX = '../../../docs/src/content/docs/'
+const PREFIX = '../../content/'
 
 /** Each page's Markdown, compiled by the MDX plugin into a chunk of its own. */
-const MODULES = import.meta.glob<DocModule>('../../../docs/src/content/docs/**/*.md')
+const MODULES = import.meta.glob<DocModule>('../../content/**/*.md')
 
 const BY_SLUG = new Map(
   Object.entries(MODULES).map(([path, load]) => [
