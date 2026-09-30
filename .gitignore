@@ -11,6 +11,7 @@ composer.lock
 CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
+.claude/
 
 # Design specs (local only)
 /specs/
