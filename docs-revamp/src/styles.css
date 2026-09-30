@@ -77,6 +77,11 @@
   --color-code-comment: #8b7060;
   --color-code-punctuation: #a88d7b;
 
+  /* The page editor's marks for lines changed since the last commit. */
+  --color-change-added: #8fb573;
+  --color-change-modified: #7ea3d4;
+  --color-change-deleted: var(--color-coral);
+
   /*
    * A quick start that settles slowly, so things glide to rest rather than
    * stopping short. Used for everything that opens, closes or slides.

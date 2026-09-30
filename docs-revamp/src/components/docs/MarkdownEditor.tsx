@@ -6,6 +6,7 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import { useEffect, useEffectEvent, useRef } from 'react'
+import { gitChanges, setCommitted } from './gitChanges'
 
 /** Markdown in the site's colours: the same tokens the rendered page uses for the same things. */
 const highlightStyle = HighlightStyle.define([
@@ -41,7 +42,7 @@ const theme = EditorView.theme(
       backgroundColor: 'transparent',
       color: 'var(--color-gutter)',
       border: 'none',
-      paddingLeft: '8px',
+      paddingLeft: '6px',
     },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--color-taupe)' },
   },
@@ -50,6 +51,8 @@ const theme = EditorView.theme(
 
 interface MarkdownEditorProps {
   value: string
+  /** The file as of the last commit, whose differences are marked beside the lines; `null` when git does not track it. */
+  committed: string | null
   onChange: (value: string) => void
   /** Hands over the editor's view once it exists, and `null` when it goes. */
   onView?: (view: EditorView | null) => void
@@ -62,7 +65,7 @@ interface MarkdownEditorProps {
  * through `onChange`, and a later `value` that differs from the editor's own
  * text, such as a revert or the file changing on disk, replaces it.
  */
-export function MarkdownEditor({ value, onChange, onView, label }: MarkdownEditorProps) {
+export function MarkdownEditor({ value, committed, onChange, onView, label }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView>(null)
 
@@ -73,6 +76,7 @@ export function MarkdownEditor({ value, onChange, onView, label }: MarkdownEdito
     onView?.(next)
   })
   const initialValue = useEffectEvent(() => value)
+  const initialCommitted = useEffectEvent(() => committed)
 
   useEffect(() => {
     const parent = host.current
@@ -83,6 +87,7 @@ export function MarkdownEditor({ value, onChange, onView, label }: MarkdownEdito
       state: EditorState.create({
         doc: initialValue(),
         extensions: [
+          gitChanges(initialCommitted()),
           lineNumbers(),
           highlightActiveLineGutter(),
           history(),
@@ -110,6 +115,10 @@ export function MarkdownEditor({ value, onChange, onView, label }: MarkdownEdito
       editor.destroy()
     }
   }, [label])
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: setCommitted.of(committed) })
+  }, [committed])
 
   // A value from outside replaces the text, as one step the editor's undo can take back.
   useEffect(() => {

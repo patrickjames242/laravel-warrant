@@ -8,6 +8,13 @@
 export const EDITOR_ENDPOINT = '/__docs-editor/page'
 
 /**
+ * Takes a page's slug as `?slug=`. POST rolls the page's file back to the last
+ * commit, discarding every uncommitted change to it, staged or not, and
+ * answers with the page as it then is.
+ */
+export const EDITOR_ROLLBACK_ENDPOINT = '/__docs-editor/rollback'
+
+/**
  * Every request carries this header. A page on another origin cannot add a
  * custom header without a CORS preflight the dev server does not grant, so a
  * site open in the same browser cannot write to the docs.
@@ -24,6 +31,8 @@ export interface PageSource {
   source: string
   /** A hash of `source`, sent back with a save to show which text the edit started from. */
   version: string
+  /** The file as of the last commit, to mark what has changed since; `null` when git does not track it. */
+  base: string | null
 }
 
 /** The body of a PUT. */

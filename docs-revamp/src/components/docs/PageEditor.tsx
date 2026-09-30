@@ -3,7 +3,12 @@ import { useBlocker } from '@tanstack/react-router'
 import type { KeyboardEvent } from 'react'
 import { useEffect, useEffectEvent, useState } from 'react'
 import type { ChangedEvent, PageSource, SaveConflict, SaveRequest, SaveResponse } from '../../docs/editorProtocol'
-import { EDITOR_CHANGED_EVENT, EDITOR_ENDPOINT, EDITOR_HEADER } from '../../docs/editorProtocol'
+import {
+  EDITOR_CHANGED_EVENT,
+  EDITOR_ENDPOINT,
+  EDITOR_HEADER,
+  EDITOR_ROLLBACK_ENDPOINT,
+} from '../../docs/editorProtocol'
 import { MarkdownEditor } from './MarkdownEditor'
 import { useScrollSync, useSyncPreference } from './scrollSync'
 
@@ -24,10 +29,17 @@ interface Divergence {
   theirs: PageSource
 }
 
-const DISCARD = 'Discard your unsaved changes to this page?'
+const DISCARD = 'Your latest changes to this page could not be saved. Discard them?'
 
-async function call(slug: string, init?: RequestInit): Promise<{ status: number; body: unknown }> {
-  const response = await fetch(`${EDITOR_ENDPOINT}?slug=${encodeURIComponent(slug)}`, {
+/** How long typing has to pause before the draft is saved. */
+const AUTOSAVE_DELAY = 800
+
+async function call(
+  slug: string,
+  init?: RequestInit,
+  endpoint = EDITOR_ENDPOINT,
+): Promise<{ status: number; body: unknown }> {
+  const response = await fetch(`${endpoint}?slug=${encodeURIComponent(slug)}`, {
     ...init,
     headers: { [EDITOR_HEADER]: '1', 'Content-Type': 'application/json' },
   })
@@ -41,17 +53,25 @@ function errorText(body: unknown): string {
 }
 
 /**
- * Edits one docs page's Markdown in the browser. Saving writes the file through
- * the dev server, and the page beside the editor re-renders from it as any
- * edit to the file would. While syncing is on, scrolling either the editor or
- * the article brings the other to the same place. Loaded only under `vite dev`.
+ * Edits one docs page's Markdown in the browser. The draft saves itself once
+ * typing pauses, writing the file through the dev server, and the page beside
+ * the editor re-renders from it as any edit to the file would. While syncing is on, scrolling either the editor or
+ * the article brings the other to the same place.
+ *
+ * It is tied to git: the lines that differ from the last commit are marked as
+ * they are typed, and a rollback returns the file to that commit. Loaded only
+ * under `vite dev`.
  */
 export default function PageEditor({ slug, onClose }: PageEditorProps) {
   const [load, setLoad] = useState<Load>({ status: 'loading' })
   const [draft, setDraft] = useState('')
   const [saved, setSaved] = useState('')
   const [version, setVersion] = useState('')
+  const [committed, setCommittedSource] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [rollingBack, setRollingBack] = useState(false)
+  /** A draft that failed to save. It is not tried again until the text changes. */
+  const [failed, setFailed] = useState<string>()
   const [error, setError] = useState<string>()
   const [divergence, setDivergence] = useState<Divergence>()
   const [view, setView] = useState<EditorView | null>(null)
@@ -60,11 +80,13 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
   useScrollSync(view, sync)
 
   const dirty = draft !== saved
+  const busy = saving || rollingBack
 
   const adopt = (page: PageSource) => {
     setDraft(page.source)
     setSaved(page.source)
     setVersion(page.version)
+    setCommittedSource(page.base)
     setDivergence(undefined)
     setError(undefined)
   }
@@ -101,6 +123,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
     if (body.source === draft) {
       setSaved(body.source)
       setVersion(body.version)
+      setCommittedSource(body.base)
       return
     }
     if (dirty) setDivergence({ reason: 'disk', theirs: body })
@@ -119,13 +142,30 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
     }
   }, [])
 
-  useBlocker({
-    shouldBlockFn: () => dirty && !window.confirm(DISCARD),
-    enableBeforeUnload: dirty,
+  // A commit made elsewhere, such as in a terminal, changes what the marks
+  // compare against without touching the file, so it is looked up again
+  // whenever the reader comes back to the page.
+  const refreshCommitted = useEffectEvent(async () => {
+    if (load.status !== 'ready') return
+    const { status, body } = await call(slug)
+    if (status === 200) setCommittedSource((body as PageSource).base)
   })
 
-  const save = async (from = version) => {
-    if (saving || load.status !== 'ready') return
+  useEffect(() => {
+    const onReturn = () => {
+      if (document.visibilityState === 'visible') void refreshCommitted()
+    }
+    window.addEventListener('focus', onReturn)
+    document.addEventListener('visibilitychange', onReturn)
+    return () => {
+      window.removeEventListener('focus', onReturn)
+      document.removeEventListener('visibilitychange', onReturn)
+    }
+  }, [])
+
+  /** Writes the draft to the file, and reports whether it is now saved. */
+  const save = async (from = version): Promise<boolean> => {
+    if (busy || load.status !== 'ready') return false
     setSaving(true)
     setError(undefined)
     const source = draft
@@ -139,21 +179,73 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
         setSaved(source)
         setVersion(body.version)
         setDivergence(undefined)
-      } else if (status === 409 && 'conflict' in body) {
-        setDivergence({ reason: 'conflict', theirs: body })
-      } else {
-        setError(errorText(body))
+        setFailed(undefined)
+        return true
+      }
+      if (status === 409 && 'conflict' in body) setDivergence({ reason: 'conflict', theirs: body })
+      else {
+        setError(`Could not save: ${errorText(body)}`)
+        setFailed(source)
       }
     } catch (reason) {
-      setError(String(reason))
+      setError(`Could not save: ${String(reason)}`)
+      setFailed(source)
     } finally {
       setSaving(false)
     }
+    return false
   }
 
-  const close = () => {
-    if (dirty && !window.confirm(DISCARD)) return
-    onClose()
+  // Save once typing pauses. It holds off while a save is under way, while the
+  // file has moved on and the reader has yet to choose which text to keep, and
+  // for a draft that already failed, until it is edited again.
+  const autosave = useEffectEvent(() => {
+    void save()
+  })
+  const waiting = !dirty || busy || divergence !== undefined || load.status !== 'ready' || draft === failed
+  useEffect(() => {
+    if (waiting) return
+    const timer = window.setTimeout(autosave, AUTOSAVE_DELAY)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [draft, waiting])
+
+  /** Saves what is still unsaved before the editor lets go of it, and asks before losing it if that fails. */
+  const mayLeave = async (): Promise<boolean> => {
+    if (!dirty || (await save())) return true
+    return window.confirm(DISCARD)
+  }
+
+  useBlocker({
+    shouldBlockFn: async () => !(await mayLeave()),
+    enableBeforeUnload: dirty,
+  })
+
+  /** The file differs from the last commit, on disk or in the draft, so a rollback would change it. */
+  const canRollBack = committed !== null && (draft !== committed || saved !== committed)
+
+  const rollBack = async () => {
+    if (busy || load.status !== 'ready' || !canRollBack) return
+    const confirmed = window.confirm(
+      `Roll ${load.path} back to the last commit?\n\nEvery uncommitted change to it will be lost, saved or not, staged or not.`,
+    )
+    if (!confirmed) return
+    setRollingBack(true)
+    setError(undefined)
+    try {
+      const { status, body } = await call(slug, { method: 'POST' }, EDITOR_ROLLBACK_ENDPOINT)
+      if (status === 200) adopt(body as PageSource)
+      else setError(`Could not roll back: ${errorText(body)}`)
+    } catch (reason) {
+      setError(`Could not roll back: ${String(reason)}`)
+    } finally {
+      setRollingBack(false)
+    }
+  }
+
+  const close = async () => {
+    if (await mayLeave()) onClose()
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -162,18 +254,25 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
       void save()
     } else if (event.key === 'Escape') {
       event.preventDefault()
-      close()
+      void close()
     }
   }
 
-  const status =
+  const progress =
     load.status === 'loading'
       ? 'Loading…'
       : saving
         ? 'Saving…'
-        : dirty
-          ? 'Unsaved changes'
-          : 'Saved'
+        : rollingBack
+          ? 'Rolling back…'
+          : dirty
+            ? draft === failed
+              ? 'Not saved'
+              : 'Unsaved changes'
+            : 'Saved'
+  const gitState =
+    load.status !== 'ready' ? undefined : committed === null ? 'not in git yet' : saved !== committed ? 'uncommitted' : undefined
+  const status = gitState ? `${progress} · ${gitState}` : progress
 
   return (
     <section
@@ -209,28 +308,24 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
         </button>
         <button
           type="button"
-          disabled={!dirty || saving}
+          disabled={!canRollBack || busy}
           onClick={() => {
-            setDraft(saved)
+            void rollBack()
           }}
-          className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[14px] font-medium text-tan enabled:hover:border-taupe disabled:cursor-default disabled:opacity-40"
+          title={
+            committed === null
+              ? 'This page has never been committed, so there is nothing to roll back to'
+              : 'Discard every uncommitted change to this file and return it to the last commit'
+          }
+          className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[14px] font-medium text-tan enabled:hover:border-coral enabled:hover:text-coral-soft disabled:cursor-default disabled:opacity-40"
         >
-          Revert
+          Rollback
         </button>
         <button
           type="button"
-          disabled={!dirty || saving}
           onClick={() => {
-            void save()
+            void close()
           }}
-          title="Save (⌘S)"
-          className="h-8 cursor-pointer rounded-md bg-coral-strong px-3.5 text-[14px] font-bold text-ink enabled:hover:bg-coral-hover disabled:cursor-default disabled:opacity-40"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={close}
           aria-label="Close the editor"
           title="Close (Esc)"
           className="grid size-8 cursor-pointer place-items-center rounded-md border border-line-3 text-[17px] leading-none text-tan hover:border-taupe"
@@ -270,7 +365,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
 
       {error && (
         <div role="alert" className="flex-none border-b border-coral-deep bg-coral/8 px-4 py-3 text-[14.5px] leading-normal text-cream">
-          Could not save: {error}
+          {error}
         </div>
       )}
 
@@ -282,6 +377,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
       {load.status === 'ready' && (
         <MarkdownEditor
           value={draft}
+          committed={committed}
           onChange={setDraft}
           onView={(next) => {
             setView(next)
