@@ -12,7 +12,7 @@ head:
       content: "Laravel Warrant — row-level permissions & authorization for Laravel"
 template: splash
 hero:
-  tagline: A small DSL language that converts portable conditional permission rules to sql to make row level access control centralized and flexible.
+  tagline: Write a row-level access rule once, in a small language, and Warrant compiles it to SQL. The same rule answers "can they?" and "which rows?".
   image:
     alt: Laravel Warrant
     file: ../../assets/warrant-logo.png
@@ -42,14 +42,15 @@ compiles them straight to SQL. One rule set answers "can they?", filters a list,
 and tells you what a user can do to each row, with no permission tables to migrate
 and no policy logic duplicated across your app.
 
-```text
+```warrant
 if is_my_own_document or manages_team they can view, update
 if is_document_locked and not is_admin they cannot view, update
 if is_admin they can *
 ```
 
 New here? [**Why Warrant**](/getting-started/why-warrant/) walks through the problem
-it solves and how it works.
+it solves, and [**rules compile to SQL**](/concepts/rules-compile-to-sql/) explains
+the one idea the rest of it follows from.
 
 ## Start here
 
@@ -58,21 +59,24 @@ it solves and how it works.
 		[Why Warrant](/getting-started/why-warrant/) — the problem with the usual
 		policy-and-query approach, and what Warrant does instead.
 	</Card>
-	<Card title="Install & first check" icon="rocket">
-		[Installation](/getting-started/installation/) then the [Quick
-		start](/getting-started/quick-start/) — a schema, a rule, a resolver, and
-		the checks that use them, end to end.
+	<Card title="The one idea" icon="puzzle">
+		[Rules compile to SQL](/concepts/rules-compile-to-sql/) — the fact
+		everything else in Warrant follows from.
 	</Card>
-	<Card title="The mental model" icon="puzzle">
-		[Core concepts](/getting-started/core-concepts/) — how schemas, rules, and
-		the resolver divide the work.
+	<Card title="Write your first rule" icon="rocket">
+		[Your first rule](/first-rule/schema/) — six steps from an empty schema to a
+		boolean check and a filtered list built from the same rule.
 	</Card>
-	<Card title="Build for real" icon="open-book">
-		The [Guides](/guides/schemas/) go deep on schemas, conditions, the rule
-		language, resolvers, context, middleware, and testing.
+	<Card title="The mental model" icon="open-book">
+		[Concepts](/concepts/rules-and-abilities/) — row identity, the third truth
+		value, frames, context, and how a decision is made.
 	</Card>
-	<Card title="Look something up" icon="list-format">
-		The [API Reference](/reference/api-cheat-sheet/) has the cheat sheet, full
-		signatures, and the complete error catalogue.
+	<Card title="Solve a real problem" icon="list-format">
+		[Recipes](/recipes/roles/) — roles, teams, multi-tenancy, hierarchies,
+		sharing, suspension, and migrating an existing policy.
+	</Card>
+	<Card title="Look something up" icon="document">
+		The [Reference](/reference/cheat-sheet/) has the cheat sheet, full
+		signatures, and the [complete error catalogue](/diagnosis/errors/).
 	</Card>
 </CardGrid>
