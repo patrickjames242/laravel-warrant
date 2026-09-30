@@ -46,6 +46,12 @@
   --color-coral-hover: #ff6450;
   --color-coral-soft: #ff7a66;
 
+  /*
+   * A quick start that settles slowly, so things glide to rest rather than
+   * stopping short. Used for everything that opens, closes or slides.
+   */
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+
   --animate-dash-flow: dash-flow 0.18s linear infinite;
   --animate-dot-flow: dot-flow 0.45s linear infinite;
 

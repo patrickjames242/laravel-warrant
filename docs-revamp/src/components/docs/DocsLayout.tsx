@@ -69,7 +69,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
         <div
           aria-hidden="true"
           onClick={closeMenu}
-          className={`fixed inset-0 z-[35] bg-[rgba(8,5,4,0.6)] transition-opacity duration-300 ease-out min-[990px]:hidden ${
+          className={`fixed inset-0 z-[35] bg-[rgba(8,5,4,0.6)] transition-opacity duration-450 ease-glide min-[990px]:hidden ${
             menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
           }`}
         />
