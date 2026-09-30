@@ -90,7 +90,8 @@ function one(scope: Element, selector: string): HTMLElement {
  * The home page's opening sequence, as one continuous line that the reader
  * scrolls along.
  *
- * The line runs from the rule set, through the question they pick, into the
+ * The page opens with the hero's intro rising in, line by line. The line
+ * then runs from the rule set, through the question they pick, into the
  * code and its SQL, across into the timeline and down its three steps to the
  * Warrant bar. It is broken into steps, each started by its own part of the
  * page scrolling into view, and the steps play strictly in order: a step that
@@ -170,6 +171,7 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
         const heading = one(root, '[data-choreo="heading"]')
         const railFinal = one(root, '[data-choreo="rail-final"]')
         const bar = one(root, '[data-choreo="bar"]')
+        const intro = gsap.utils.toArray<HTMLElement>('[data-choreo="intro"]', root)
         const tabs = gsap.utils.toArray<HTMLElement>('[data-choreo="tab"]', root)
         const branches = gsap.utils.toArray<SVGPathElement>('[data-choreo="branch"]', root)
         const dots = gsap.utils.toArray<HTMLElement>('[data-choreo="dot"]', root)
@@ -185,6 +187,7 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
           gsap.set(root.querySelectorAll('[data-flow-reveal]'), {
             strokeDashoffset: REVEAL_LENGTH,
           })
+          gsap.set(intro, { autoAlpha: 0, y: 24 })
           gsap.set([rules, code, output, heading], { autoAlpha: 0, y: 28 })
           gsap.set(tabs, { autoAlpha: 0, y: 16 })
           gsap.set(branches, { autoAlpha: 0 })
@@ -323,6 +326,13 @@ export function useFlowChoreography(scope: RefObject<HTMLElement | null>) {
         }
 
         const steps: Step[] = [
+          {
+            trigger: one(root, '[data-choreo="intro"]'),
+            build: () => ({
+              timeline: gsap.timeline().add(rise(intro, 0.09)),
+              handoff: 0.6,
+            }),
+          },
           {
             trigger: rules,
             build: () => ({

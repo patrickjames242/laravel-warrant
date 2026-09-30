@@ -66,24 +66,34 @@ export function Hero() {
           className="flex min-h-[calc(100svh-var(--spacing)*16)] min-w-0 flex-[1_1_462px] flex-col justify-center py-[clamp(44px,5.5vw,70px)] text-center"
           style={{ maxWidth: 1276 }}
         >
-          <div className="flex items-center justify-center gap-2.5 font-mono text-[11.5px] leading-none font-medium tracking-[.12em] text-coral uppercase sm:text-xs sm:tracking-[.14em]">
+          <div
+            data-choreo="intro"
+            className="flex items-center justify-center gap-2.5 font-mono text-[11.5px] leading-none font-medium tracking-[.12em] text-coral uppercase sm:text-xs sm:tracking-[.14em]"
+          >
             <span className="size-2 bg-coral" />
             Row-level authorization for Laravel
           </div>
 
           <h1 className="mt-7 text-[clamp(44px,6.6vw,79px)] leading-[0.92] font-extrabold tracking-[-0.05em] wrap-break-word text-balance text-cream">
-            <span className="block text-balance">Write authorization once.</span>
-            <span className="block text-balance text-coral">Ask any question.</span>
+            <span data-choreo="intro" className="block text-balance">
+              Write authorization once.
+            </span>
+            <span data-choreo="intro" className="block text-balance text-coral">
+              Ask any question.
+            </span>
           </h1>
 
-          <p className="mx-auto mt-8 max-w-150 text-[clamp(18.5px,2.2vw,23px)] leading-[1.6] text-pretty text-tan">
+          <p
+            data-choreo="intro"
+            className="mx-auto mt-8 max-w-150 text-[clamp(18.5px,2.2vw,23px)] leading-[1.6] text-pretty text-tan"
+          >
             Warrant compiles your authorization rules to SQL. The same rule answers{' '}
             <span className="text-cream">can they update this document</span>,{' '}
             <span className="text-cream">which documents can they update</span>, and{' '}
             <span className="text-cream">what can they do with every row</span>. You write it once.
           </p>
 
-          <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <div data-choreo="intro" className="mt-10 flex flex-wrap justify-center gap-3">
             <SiteLink
               href={links.installation}
               className="inline-flex h-12.5 items-center gap-2.5 rounded-[7.5px] bg-coral-strong px-5.5 text-base leading-none font-bold whitespace-nowrap text-ink hover:bg-coral-hover hover:text-ink"
@@ -98,7 +108,10 @@ export function Hero() {
             </SiteLink>
           </div>
 
-          <div className="mx-auto mt-9 flex max-w-180 flex-wrap justify-center gap-2 font-mono text-[14px] leading-none font-medium">
+          <div
+            data-choreo="intro"
+            className="mx-auto mt-9 flex max-w-180 flex-wrap justify-center gap-2 font-mono text-[14px] leading-none font-medium"
+          >
             {BADGES.map((badge) => (
               <span
                 key={badge.logo}
@@ -110,7 +123,7 @@ export function Hero() {
             ))}
           </div>
 
-          <div className="mt-4 text-[14.5px] leading-normal text-taupe">
+          <div data-choreo="intro" className="mt-4 text-[14.5px] leading-normal text-taupe">
             Warrant is in beta. Expect API changes between releases —{' '}
             <a href={links.issues} className="text-sand underline underline-offset-3">
               report an issue
@@ -234,7 +247,11 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         <Dot />
       </div>
 
-      <div data-flow-start data-choreo="output" className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
+      <div
+        data-flow-start
+        data-choreo="output"
+        className="overflow-hidden rounded-lg border border-line-2 bg-surface-2"
+      >
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-surface px-3.5 py-1.5">
           <span className="font-mono text-[12px] leading-[1.3] font-bold tracking-[.12em] text-sand">
             RULES, COMPILED TO SQL
@@ -277,7 +294,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
           <ResultRows question={question} />
         )}
       </div>
-
     </div>
   )
 }
