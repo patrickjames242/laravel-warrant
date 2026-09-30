@@ -20,7 +20,7 @@ interface SiteHeaderProps {
 }
 
 export function SiteHeader({ docs }: SiteHeaderProps) {
-  const frame = docs ? 'max-w-[1440px] px-[clamp(16px,3vw,32px)]' : 'max-w-330 px-[clamp(22px,4.4vw,53px)]'
+  const frame = docs ? 'max-w-[1584px] px-[clamp(17.5px,3.5vw,35px)]' : 'max-w-330 px-[clamp(22px,4.4vw,53px)]'
 
   return (
     <header className="sticky top-0 z-50 border-b border-line-1 bg-ink/84 backdrop-blur-md">
@@ -28,7 +28,7 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
         <Link to="/" className="flex flex-none items-center gap-2.5 text-cream sm:mr-4">
           <Logo />
           {docs && (
-            <span className="rounded-[4px] border border-line-3 px-1.5 py-1 font-mono text-[10.5px] leading-none font-medium tracking-[.08em] text-taupe">
+            <span className="rounded-[4.5px] border border-line-3 px-1.5 py-1 font-mono text-[11.5px] leading-none font-medium tracking-[.08em] text-taupe">
               DOCS
             </span>
           )}

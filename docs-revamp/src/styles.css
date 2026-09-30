@@ -85,12 +85,12 @@
   html {
     scroll-behavior: smooth;
     background: var(--color-ink);
-    /* Clears the sticky header, and below 900px the docs menu bar under it. */
-    scroll-padding-top: calc(var(--spacing) * 16 + 72px);
+    /* Clears the sticky header, and below 990px the docs menu bar under it. */
+    scroll-padding-top: calc(var(--spacing) * 28 + 26px);
   }
-  @media (min-width: 900px) {
+  @media (min-width: 990px) {
     html {
-      scroll-padding-top: calc(var(--spacing) * 16 + 24px);
+      scroll-padding-top: calc(var(--spacing) * 16 + 26px);
     }
   }
   * {

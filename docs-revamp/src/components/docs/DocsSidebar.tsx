@@ -6,7 +6,7 @@ import { DocLink } from './DocLink'
 interface DocsSidebarProps {
   /** The page being shown. */
   slug: string
-  /** Below 900px the sidebar is a drawer, shown only while this is true. */
+  /** Below 990px the sidebar is a drawer, shown only while this is true. */
   open: boolean
   onNavigate: () => void
 }
@@ -50,7 +50,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             <DocLink
               slug={item.slug}
               onClick={onNavigate}
-              className={`-ml-px block rounded-r-[5px] border-l px-3 py-[7px] text-[14px] leading-[1.35] hover:bg-cream/4 hover:text-cream ${
+              className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[15.5px] leading-[1.35] hover:bg-cream/4 hover:text-cream ${
                 item.slug === slug
                   ? 'border-coral bg-coral/8 font-semibold text-cream'
                   : 'border-transparent text-[#b39784]'
@@ -77,7 +77,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             toggle(key, byDefault)
           }}
           aria-expanded={expanded}
-          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[13.5px] leading-[1.25] font-medium hover:text-cream ${
+          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium hover:text-cream ${
             nested ? 'pr-2 pl-3 text-[#b39784]' : 'pr-2 pl-3 text-sand'
           }`}
         >
@@ -93,9 +93,9 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
     <aside
       ref={scroller}
       aria-label="Documentation"
-      className={`fixed top-[calc(var(--spacing)*16+48px)] bottom-0 left-0 z-40 w-[min(320px,86vw)] overflow-y-auto border-r border-line-1 bg-[#140f0d] pt-6 pr-4 pb-12 pl-[clamp(16px,3vw,32px)] shadow-[24px_0_60px_-20px_rgba(0,0,0,.7)] ${
+      className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-[#140f0d] pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-[26.5px_0_66px_-22px_rgba(0,0,0,.7)] ${
         open ? 'block' : 'hidden'
-      } min-[900px]:sticky min-[900px]:top-16 min-[900px]:bottom-auto min-[900px]:block min-[900px]:h-[calc(100vh-var(--spacing)*16)] min-[900px]:w-auto min-[900px]:bg-transparent min-[900px]:shadow-none`}
+      } min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:block min-[990px]:h-[calc(100vh-var(--spacing)*16)] min-[990px]:w-auto min-[990px]:bg-transparent min-[990px]:shadow-none`}
     >
       <nav className="grid gap-7">
         {SECTIONS.map((section, i) => {
@@ -110,7 +110,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
                   toggle(key, true)
                 }}
                 aria-expanded={expanded}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono text-[11px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
+                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono text-[12px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
               >
                 <span className="flex items-center gap-2.5">
                   <span className="font-medium text-coral">{String(i + 1).padStart(2, '0')}</span>
@@ -137,7 +137,7 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`font-sans text-[15px] leading-none text-umber transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+      className={`font-sans text-[16.5px] leading-none text-umber transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
     >
       ›
     </span>
