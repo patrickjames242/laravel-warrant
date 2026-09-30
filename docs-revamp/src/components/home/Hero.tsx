@@ -57,8 +57,15 @@ export function Hero() {
         style={{ backgroundImage: GRID_BACKGROUND }}
       />
 
-      <div className="relative mx-auto flex max-w-330 flex-wrap items-start justify-center gap-[clamp(44px,5.5vw,79px)] px-[clamp(22px,4.4vw,53px)] pt-[clamp(44px,5.5vw,70px)] pb-[clamp(70px,8.8vw,114px)]">
-        <div className="min-w-0 flex-[1_1_462px] text-center" style={{ maxWidth: 1276 }}>
+      <div className="relative mx-auto flex max-w-330 flex-wrap items-start justify-center gap-[clamp(44px,5.5vw,79px)] px-[clamp(22px,4.4vw,53px)] pb-[clamp(70px,8.8vw,114px)]">
+        {/*
+          At least a screen tall, less the sticky header, with its content centred
+          in it, so the page opens on the pitch alone and the workspace waits below.
+        */}
+        <div
+          className="flex min-h-[calc(100svh-var(--spacing)*16)] min-w-0 flex-[1_1_462px] flex-col justify-center py-[clamp(44px,5.5vw,70px)] text-center"
+          style={{ maxWidth: 1276 }}
+        >
           <div className="flex items-center justify-center gap-2.5 font-mono text-[11.5px] leading-none font-medium tracking-[.12em] text-coral uppercase sm:text-xs sm:tracking-[.14em]">
             <span className="size-2 bg-coral" />
             Row-level authorization for Laravel
