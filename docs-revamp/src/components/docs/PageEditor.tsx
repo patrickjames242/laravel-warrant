@@ -262,7 +262,8 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
       event.preventDefault()
       void save()
-    } else if (event.key === 'Escape') {
+    } else if (event.key === 'Escape' && !event.defaultPrevented) {
+      // An Esc the editor already used, such as to close a change it had open, stops there.
       event.preventDefault()
       void close()
     }
