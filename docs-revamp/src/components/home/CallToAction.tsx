@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { INSTALL_COMMAND, links } from '../../lib/links'
+import { useCopy } from '../../lib/useCopy'
 import { CORNER_GLOW } from './sectionStyles'
 
 const BACKGROUND = [
@@ -50,21 +50,7 @@ export function CallToAction() {
 }
 
 function InstallCommand() {
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<number>(undefined)
-
-  useEffect(() => () => {
-    window.clearTimeout(timer.current)
-  }, [])
-
-  const copy = () => {
-    void navigator.clipboard.writeText(INSTALL_COMMAND).catch(() => undefined)
-    setCopied(true)
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => {
-      setCopied(false)
-    }, 1600)
-  }
+  const { copied, copy } = useCopy(INSTALL_COMMAND)
 
   return (
     <div className="mt-7 inline-flex max-w-full items-center overflow-hidden rounded-[7.5px] border border-line-3 bg-surface">

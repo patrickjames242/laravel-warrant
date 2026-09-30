@@ -4,7 +4,13 @@ import { createRoot } from 'react-dom/client'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
 
-const router = createRouter({ routeTree })
+const router = createRouter({
+  routeTree,
+  trailingSlash: 'always',
+  scrollRestoration: true,
+  // A new page starts at its top at once, rather than gliding there from wherever the last one was.
+  scrollRestorationBehavior: 'instant',
+})
 
 declare module '@tanstack/react-router' {
   interface Register {

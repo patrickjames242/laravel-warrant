@@ -1,4 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { SiteFooter } from '../components/SiteFooter'
+import { SiteHeader } from '../components/SiteHeader'
 import { CallToAction } from '../components/home/CallToAction'
 import { Compare } from '../components/home/Compare'
 import { Fit } from '../components/home/Fit'
@@ -10,13 +13,21 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
+  useEffect(() => {
+    document.title = 'Laravel Warrant · Row-level authorization for Laravel'
+  }, [])
+
   return (
-    <main>
-      <Hero />
-      <MentalModel />
-      <Compare />
-      <Fit />
-      <CallToAction />
-    </main>
+    <>
+      <SiteHeader />
+      <main>
+        <Hero />
+        <MentalModel />
+        <Compare />
+        <Fit />
+        <CallToAction />
+      </main>
+      <SiteFooter />
+    </>
   )
 }

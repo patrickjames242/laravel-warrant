@@ -85,6 +85,17 @@
   html {
     scroll-behavior: smooth;
     background: var(--color-ink);
+    /* Clears the sticky header, and below 900px the docs menu bar under it. */
+    scroll-padding-top: calc(var(--spacing) * 16 + 72px);
+  }
+  @media (min-width: 900px) {
+    html {
+      scroll-padding-top: calc(var(--spacing) * 16 + 24px);
+    }
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-4) transparent;
   }
   body {
     background: var(--color-ink);

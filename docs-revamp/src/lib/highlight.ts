@@ -1,4 +1,5 @@
-export type Language = 'rule' | 'php' | 'sql'
+/** `plain` leaves every token uncoloured, for text such as an error message. */
+export type Language = 'rule' | 'php' | 'sql' | 'plain'
 
 export type TokenKind =
   | 'keyword'
@@ -63,7 +64,7 @@ const SQL_KEYWORDS = new Set([
 const TOKEN = /(\/\/.*|--.*|'[^']*'|"[^"]*"|@\w+|\$\w+|->|::|#\[|\w+|\s+|[^\w\s])/g
 
 /**
- * A small tokenizer for the three languages the home page shows. It colours by
+ * A small tokenizer for the languages the site shows. It colours by
  * shape rather than by grammar, which is enough for short, hand-written
  * snippets and keeps the page free of a full highlighter.
  *
@@ -91,7 +92,7 @@ export function highlight(source: string, language: Language): Line[] {
 function classify(text: string, language: Language, previous: string, inAbilityList: boolean): Token {
   const token = (kind: TokenKind, weight: Token['weight'] = 400): Token => ({ text, kind, weight })
 
-  if (/^\s+$/.test(text)) return token('text')
+  if (language === 'plain' || /^\s+$/.test(text)) return token('text')
   if (text.startsWith('//') || text.startsWith('--')) return token('comment')
   if (/^['"]/.test(text)) return token('string')
 
