@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { links } from '../../lib/links'
 import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
+import { SiteLink } from '../SiteLink'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
 import { themed, tint } from './sectionStyles'
@@ -74,18 +75,18 @@ export function Hero() {
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <a
+            <SiteLink
               href={links.installation}
               className="inline-flex h-12.5 items-center gap-2.5 rounded-[7.5px] bg-coral-strong px-5.5 text-base leading-none font-bold whitespace-nowrap text-ink hover:bg-coral-hover hover:text-ink"
             >
               Get started <span className="font-mono">→</span>
-            </a>
-            <a
+            </SiteLink>
+            <SiteLink
               href={links.whyWarrant}
               className="inline-flex h-12.5 items-center rounded-[7.5px] border border-line-5 px-5.5 text-base leading-none font-semibold whitespace-nowrap text-cream hover:border-taupe hover:text-cream"
             >
               Why Warrant?
-            </a>
+            </SiteLink>
           </div>
 
           <div className="mx-auto mt-9 flex max-w-180 flex-wrap justify-center gap-2 font-mono text-[14px] leading-none font-medium">

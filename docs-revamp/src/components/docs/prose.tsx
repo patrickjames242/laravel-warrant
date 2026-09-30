@@ -1,9 +1,8 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { findPage } from '../../docs/nav'
 import type { Language } from '../../lib/highlight'
 import { useCopy } from '../../lib/useCopy'
 import { CodeLines } from '../CodeLines'
-import { DocLink } from './DocLink'
+import { SiteLink } from '../SiteLink'
 
 /*
  * What each element of a docs page's Markdown is drawn as. The page body
@@ -32,26 +31,12 @@ export function InlineCode({ children }: ComponentProps<'code'>) {
 
 const LINK = 'text-coral-soft underline underline-offset-3 hover:text-coral'
 
-/**
- * A link to another docs page is navigated in place, and lands on the heading
- * its fragment names. Anything else is an ordinary link.
- */
+/** A link in a page's Markdown, which SiteLink navigates in place when it names another docs page. */
 export function Anchor({ href = '', children }: ComponentProps<'a'>) {
-  const match = /^\/([^#?]*?)\/?(?:#(.*))?$/.exec(href)
-  const slug = match?.[1]
-
-  if (slug !== undefined && findPage(slug)) {
-    return (
-      <DocLink slug={slug} hash={match?.[2]} className={LINK}>
-        {children}
-      </DocLink>
-    )
-  }
-
   return (
-    <a href={href} className={LINK}>
+    <SiteLink href={href} className={LINK}>
       {children}
-    </a>
+    </SiteLink>
   )
 }
 

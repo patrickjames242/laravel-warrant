@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { links } from '../lib/links'
 import { Logo } from './Logo'
+import { SiteLink } from './SiteLink'
 
 const NAV = [
   { label: 'Why Warrant', href: links.whyWarrant },
@@ -40,9 +41,13 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
         */}
         <div className="hidden h-5 min-w-0 flex-1 flex-wrap gap-x-6.5 gap-y-1 overflow-hidden text-sm leading-5 font-medium sm:mr-4 sm:flex">
           {NAV.map((item) => (
-            <a key={item.label} href={item.href} className={item.label === docs?.active ? 'text-cream' : 'text-tan'}>
+            <SiteLink
+              key={item.label}
+              href={item.href}
+              className={item.label === docs?.active ? 'text-cream' : 'text-tan'}
+            >
               {item.label}
-            </a>
+            </SiteLink>
           ))}
         </div>
 
@@ -56,12 +61,12 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
             <span className="hidden sm:inline">GitHub</span>
           </a>
           {!docs && (
-            <a
+            <SiteLink
               href={links.installation}
               className="flex h-9 items-center rounded-md bg-cream px-3.5 text-sm leading-none font-semibold text-ink hover:text-ink"
             >
               Get started
-            </a>
+            </SiteLink>
           )}
         </div>
       </nav>

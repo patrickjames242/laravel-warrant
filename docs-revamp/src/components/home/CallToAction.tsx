@@ -1,5 +1,6 @@
 import { INSTALL_COMMAND, links } from '../../lib/links'
 import { useCopy } from '../../lib/useCopy'
+import { SiteLink } from '../SiteLink'
 import { CORNER_GLOW, themed, tint } from './sectionStyles'
 
 const BACKGROUND = [
@@ -29,18 +30,18 @@ export function CallToAction() {
         </h2>
 
         <div className="mt-11 flex flex-wrap gap-3">
-          <a
+          <SiteLink
             href={links.quickStart}
             className="inline-flex h-14 items-center gap-2.5 rounded-[7.5px] bg-coral-strong px-6 text-[18.5px] leading-none font-bold whitespace-nowrap text-ink hover:bg-coral-hover hover:text-ink"
           >
             Build your first Warrant schema →
-          </a>
-          <a
+          </SiteLink>
+          <SiteLink
             href={links.whyWarrant}
             className="inline-flex h-14 items-center rounded-[7.5px] border border-line-5 px-6 text-[18.5px] leading-none font-semibold whitespace-nowrap text-cream hover:border-taupe hover:text-cream"
           >
             Read Why Warrant →
-          </a>
+          </SiteLink>
         </div>
 
         <InstallCommand />

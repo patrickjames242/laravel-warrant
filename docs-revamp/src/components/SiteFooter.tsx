@@ -1,5 +1,6 @@
 import { links } from '../lib/links'
 import { Logo } from './Logo'
+import { SiteLink } from './SiteLink'
 
 const COLUMNS = [
   {
@@ -48,9 +49,9 @@ export function SiteFooter() {
                 {column.title}
               </div>
               {column.items.map((item) => (
-                <a key={item.label} href={item.href} className="text-tan">
+                <SiteLink key={item.label} href={item.href} className="text-tan">
                   {item.label}
-                </a>
+                </SiteLink>
               ))}
             </div>
           ))}
