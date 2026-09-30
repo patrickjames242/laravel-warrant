@@ -67,8 +67,6 @@ const BACKGROUND = [
 
 /** Diameter of a timeline node, in pixels. */
 const NODE = 44
-/** Space between a node and the dotted line that leaves or enters it. */
-const NODE_GAP = 9
 
 export function MentalModel() {
   const timeline = useTimelineAlignment()
@@ -76,7 +74,14 @@ export function MentalModel() {
   return (
     <section className="border-b border-line-1" style={{ background: BACKGROUND }}>
       <div className={SECTION_INNER}>
-        <div className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6">
+        {/*
+          Indented by the timeline's rail column and gap, so the path arriving from
+          the hero runs down the rail's lane beside the heading, not through it.
+        */}
+        <div
+          data-flow-heading
+          className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6 pl-[calc(53px+clamp(17.5px,2.86vw,40px))]"
+        >
           <div className="max-w-190">
             <Eyebrow>01 — The mental model</Eyebrow>
             <h2 className="mt-5.5 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-cream">
@@ -92,14 +97,15 @@ export function MentalModel() {
               <div aria-hidden="true" data-rail className="relative">
                 <div
                   data-node
+                  data-flow-end={i === 0 ? '' : undefined}
                   className="absolute top-0 left-1/2 -ml-5 flex size-10 items-center justify-center rounded-full border border-coral bg-surface-2 font-mono text-xs leading-none font-semibold tracking-[.06em] text-coral"
                 >
                   {String(i + 1).padStart(2, '0')}
                 </div>
                 <div
                   data-line
-                  className="dot-rail animate-dot-flow absolute left-1/2 -ml-0.5 w-1"
-                  style={{ top: NODE + NODE_GAP, bottom: i < PIECES.length - 1 ? NODE_GAP : 0 }}
+                  className="dot-rail absolute left-1/2 -ml-0.5 w-1"
+                  style={{ top: NODE, bottom: 0 }}
                 />
               </div>
 
@@ -129,7 +135,7 @@ export function MentalModel() {
         </div>
 
         <div aria-hidden="true" className="relative size-12">
-          <div className="dot-rail animate-dot-flow absolute inset-y-0 left-1/2 -ml-0.5 w-1" />
+          <div className="dot-rail absolute inset-y-0 left-1/2 -ml-0.5 w-1" />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2.5 bg-coral-strong px-[clamp(22px,2.64vw,35px)] py-[clamp(22px,2.64vw,31px)] text-ink">
@@ -167,8 +173,9 @@ export function MentalModel() {
 
 /**
  * Centres each timeline node on its piece's title, and stretches the dotted
- * line below it down to just above the next node. Titles move as the text and
- * code beside them wrap, so the positions are measured rather than fixed.
+ * line below it from its border down to the next node's. Titles move as the
+ * text and code beside them wrap, so the positions are measured rather than
+ * fixed.
  */
 function useTimelineAlignment() {
   const ref = useRef<HTMLDivElement>(null)
@@ -196,8 +203,8 @@ function useTimelineAlignment() {
         const nextTop = tops[i + 1]
         if (node) node.style.top = `${top}px`
         if (line) {
-          line.style.top = `${top + NODE + NODE_GAP}px`
-          line.style.bottom = nextTop === undefined ? '0px' : `${NODE_GAP - nextTop}px`
+          line.style.top = `${top + NODE}px`
+          line.style.bottom = nextTop === undefined ? '0px' : `${-nextTop}px`
         }
       })
     }

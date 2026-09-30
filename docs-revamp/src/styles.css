@@ -83,18 +83,30 @@
    */
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
 
-  --animate-dash-flow: dash-flow 0.18s linear infinite;
-  --animate-dot-flow: dot-flow 0.45s linear infinite;
+  /*
+   * The coral dotted lines that run from the hero down through the timeline:
+   * each dot's diameter, the distance from one dot to the next, and how long a
+   * dot takes to travel that distance. The hero's curved connectors (flow-path)
+   * and the timeline's straight rails (dot-rail) are drawn two different ways,
+   * and both read these, so where one meets the other they are the same line.
+   */
+  --flow-dot: 3.3px;
+  --flow-gap: 7.7px;
+  --flow-step: 0.18s;
+}
 
-  @keyframes dash-flow {
-    to {
-      stroke-dashoffset: -7.7;
-    }
+@keyframes flow-along-path {
+  to {
+    stroke-dashoffset: calc(-1 * var(--flow-gap));
   }
-  @keyframes dot-flow {
-    to {
-      background-position: 0 11px;
-    }
+}
+/* Starts half a gap up, so a dot sits centred on the rail's top edge. */
+@keyframes flow-down-rail {
+  from {
+    background-position: 0 calc(var(--flow-gap) / -2);
+  }
+  to {
+    background-position: 0 calc(var(--flow-gap) / 2);
   }
 }
 
@@ -124,11 +136,30 @@
   box-shadow: 26.5px 0 66px -22px color-mix(in srgb, var(--color-shade) 70%, transparent);
 }
 
-/* A vertical run of coral dots, animated to flow downward. */
+/* A dotted line along an SVG path, its dots flowing from the path's start to its end. */
+@utility flow-path {
+  fill: none;
+  stroke: var(--color-coral);
+  stroke-width: var(--flow-dot);
+  stroke-linecap: round;
+  stroke-dasharray: 0 var(--flow-gap);
+  animation: flow-along-path var(--flow-step) linear infinite;
+}
+
+/*
+ * A straight vertical run of the same dots, flowing downward. Each dot is a
+ * radial gradient whose edge is softened by half a pixel either side, the way
+ * the round end of a stroke is antialiased.
+ */
 @utility dot-rail {
-  background-image: radial-gradient(circle, var(--color-coral) 1.55px, transparent 2.1px);
-  background-size: 100% 11px;
+  background-image: radial-gradient(
+    circle,
+    var(--color-coral) calc(var(--flow-dot) / 2 - 0.5px),
+    transparent calc(var(--flow-dot) / 2 + 0.5px)
+  );
+  background-size: 100% var(--flow-gap);
   background-repeat: repeat-y;
+  animation: flow-down-rail var(--flow-step) linear infinite;
 }
 
 @layer base {

@@ -4,6 +4,7 @@ import { links } from '../../lib/links'
 import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
 import { SiteLink } from '../SiteLink'
+import { bend } from './flow'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
 import { themed, tint } from './sectionStyles'
@@ -36,11 +37,6 @@ const TAB_GAP = 17.5
 const ELBOW_HEIGHT = 70
 /** Height of the straight connector from the code panel to the output. */
 const DROP_HEIGHT = 44
-/**
- * The largest radius a connector's corners are drawn with. A corner is also kept
- * within half the connector's height and half the distance it crosses.
- */
-const CORNER_RADIUS = 28
 
 export function Hero() {
   const [question, setQuestion] = useState<HeroQuestion>('filter')
@@ -220,7 +216,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         <Dot />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
+      <div data-flow-start className="overflow-hidden rounded-lg border border-line-2 bg-surface-2">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-surface px-3.5 py-1.5">
           <span className="font-mono text-[12px] leading-[1.3] font-bold tracking-[.12em] text-sand">
             RULES, COMPILED TO SQL
@@ -264,9 +260,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         )}
       </div>
 
-      <p className="mx-1 mt-3.5 text-[14.5px] leading-normal text-taupe">
-        One rule set. Pick a question — the database answers all three from the same compiled predicate.
-      </p>
     </div>
   )
 }
@@ -381,13 +374,7 @@ function Connector({ height, children }: { height: number; children: ReactNode }
 }
 
 function FlowPath({ d }: { d: string }) {
-  return (
-    <path
-      d={d}
-      strokeDasharray="0 7.7"
-      className="animate-dash-flow fill-none stroke-coral stroke-[3.3] [stroke-linecap:round]"
-    />
-  )
+  return <path d={d} className="flow-path" />
 }
 
 /** A dot centred on the bottom edge of its connector, where the next panel begins. */
@@ -395,23 +382,7 @@ function Dot() {
   return <div className="absolute top-[calc(100%-var(--spacing))] left-1/2 z-1 -ml-1 size-2 rounded-full bg-coral" />
 }
 
-/**
- * A path that runs down from `from`, turns across to `to` at half height with
- * rounded corners, and runs down again to the bottom.
- */
+/** A connector from `from` at its top to `to` at its bottom, turning across at half height. */
 function elbow(from: number, to: number, height: number): string {
-  if (Math.abs(from - to) < 0.5) return `M${from} 0V${height}`
-
-  const mid = height / 2
-  const direction = Math.sign(to - from)
-  const radius = Math.min(CORNER_RADIUS, Math.abs(to - from) / 2, mid)
-
-  return [
-    `M${from} 0`,
-    `V${mid - radius}`,
-    `Q${from} ${mid} ${from + direction * radius} ${mid}`,
-    `H${to - direction * radius}`,
-    `Q${to} ${mid} ${to} ${mid + radius}`,
-    `V${height}`,
-  ].join('')
+  return bend({ x: from, y: 0 }, { x: to, y: height }, height / 2)
 }
