@@ -36,6 +36,11 @@ const TAB_GAP = 17.5
 const ELBOW_HEIGHT = 70
 /** Height of the straight connector from the code panel to the output. */
 const DROP_HEIGHT = 44
+/**
+ * The largest radius a connector's corners are drawn with. A corner is also kept
+ * within half the connector's height and half the distance it crosses.
+ */
+const CORNER_RADIUS = 28
 
 export function Hero() {
   const [question, setQuestion] = useState<HeroQuestion>('filter')
@@ -399,7 +404,7 @@ function elbow(from: number, to: number, height: number): string {
 
   const mid = height / 2
   const direction = Math.sign(to - from)
-  const radius = Math.min(14, Math.abs(to - from) / 2, mid)
+  const radius = Math.min(CORNER_RADIUS, Math.abs(to - from) / 2, mid)
 
   return [
     `M${from} 0`,
