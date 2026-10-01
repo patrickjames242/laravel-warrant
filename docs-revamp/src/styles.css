@@ -49,6 +49,9 @@
   --color-umber: #9a8170;
   --color-gutter: #735d50;
 
+  /* The large bold titles: headlines, section headings and page headings. */
+  --color-title: var(--color-cream);
+
   --color-coral: #ff5a45;
   --color-coral-strong: #ff4a36;
   --color-coral-hover: #ff6450;
@@ -67,6 +70,16 @@
   --color-glow: #ff603c;
   --color-ember: #964826;
   --color-shade: #080504;
+
+  /*
+   * A code card's body, title bar and edge in the light theme, where cards sit
+   * a shade below the page with a soft shadow. The dark theme's cards keep
+   * their own surface and line classes, so these are only reached through
+   * `light:`; the values here are the dark surfaces they mirror.
+   */
+  --color-pane: var(--color-surface-2);
+  --color-pane-head: var(--color-surface);
+  --color-pane-edge: var(--color-line-3);
 
   /* Syntax highlighting, by token kind. */
   --color-code-keyword: var(--color-coral-hover);
@@ -106,6 +119,8 @@
  */
 :root {
   --glow-strength: 1;
+  /* The shadow under a code card. Dark cards stand out by their surface alone. */
+  --pane-shadow: none;
 }
 
 /*
@@ -133,33 +148,48 @@
   --color-line-4: #d2bfaf;
   --color-line-5: #bea897;
 
-  --color-cream: #1f1611;
-  --color-sand: #33261f;
-  --color-tan: #4a3a30;
-  --color-fawn: #5b493d;
-  --color-taupe: #6d594b;
-  --color-umber: #84705f;
-  --color-gutter: #a8958a;
+  /*
+   * The large titles are a deep espresso brown. The rest of the text keeps
+   * only a trace of warmth, so it reads as ink rather than brown: the strongest
+   * in a soft charcoal, the secondary steps clear enough to read at label size.
+   */
+  --color-title: #4e2e1b;
+  --color-cream: #27211e;
+  --color-sand: #3a3330;
+  --color-tan: #4b4441;
+  --color-fawn: #5b5350;
+  --color-taupe: #6a625e;
+  --color-umber: #7b726d;
+  --color-gutter: #aaa09a;
 
-  --color-coral: #e5432f;
-  --color-coral-strong: #e83f2a;
-  --color-coral-hover: #f05440;
-  --color-coral-soft: #cf3a26;
-  --color-coral-deep: #f0b6a6;
+  /* Coral a step deeper and calmer than on dark, so it reads as ink on paper. */
+  --color-coral: #d2493a;
+  --color-coral-strong: #da4433;
+  --color-coral-hover: #e2543f;
+  --color-coral-soft: #bc3f2f;
+  --color-coral-deep: #eebcae;
 
-  --color-peach: #b4432a;
-  --color-blush: #a0402b;
-  --color-gold: #866619;
+  --color-peach: #a9432f;
+  --color-blush: #9a4231;
+  --color-gold: #7f6628;
 
   --color-glow: #ff7a52;
   --color-ember: #e0915f;
   --color-shade: #3b2a20;
 
-  --color-code-keyword: #d0381f;
-  --color-code-variable: #a85a1c;
-  --color-code-class: #6b4a33;
-  --color-code-comment: #9a8576;
-  --color-code-punctuation: #7d6758;
+  --color-code-keyword: #bb3e2c;
+  --color-code-variable: #9c5a26;
+  --color-code-class: #5f4a3c;
+  --color-code-comment: #9a8f88;
+  --color-code-punctuation: #776c66;
+
+  --color-pane: #f4ede6;
+  --color-pane-head: #eee6dd;
+  --color-pane-edge: #e0d4c9;
+  --pane-shadow:
+    0 1px 1px color-mix(in srgb, var(--color-shade) 4%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--color-shade) 7%, transparent),
+    0 16px 34px -18px color-mix(in srgb, var(--color-shade) 18%, transparent);
 
   --color-change-added: #4f8a32;
   --color-change-modified: #3d6dad;
@@ -169,7 +199,7 @@
   color-scheme: dark;
 }
 
-/* Styles that apply only while the page is in its light theme, as `light:border-line-1`. */
+/* Styles that apply only while the page is in its light theme, as `light:bg-pane`. */
 @custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
 
 @keyframes flow-along-path {
@@ -198,6 +228,11 @@
 }
 @utility grid-switch-858 {
   grid-template-columns: repeat(auto-fit, minmax(clamp(33.333%, (858px - 100%) * 999, 100%), 1fr));
+}
+
+/* The soft shadow that lifts a code card off the page in the light theme. */
+@utility shadow-pane {
+  box-shadow: var(--pane-shadow);
 }
 
 /* The shadow the docs sidebar casts over the page while it is a drawer. */

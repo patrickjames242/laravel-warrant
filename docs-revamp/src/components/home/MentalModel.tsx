@@ -86,7 +86,7 @@ export function MentalModel() {
         >
           <div className="max-w-190">
             <Eyebrow>01 — The mental model</Eyebrow>
-            <h2 className="mt-5.5 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-cream">
+            <h2 className="mt-5.5 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title">
               Three pieces. Each does one job.
             </h2>
           </div>
@@ -120,7 +120,7 @@ export function MentalModel() {
                   <div
                     data-title
                     data-choreo="item"
-                    className="text-[clamp(35px,3.3vw,48px)] leading-none font-bold tracking-[-0.035em] text-cream"
+                    className="text-[clamp(35px,3.3vw,48px)] leading-none font-bold tracking-[-0.035em] text-title"
                   >
                     {piece.title}
                   </div>
@@ -138,7 +138,7 @@ export function MentalModel() {
                   <CodeLines
                     source={piece.source}
                     language={piece.language}
-                    className="rounded-[17px] border border-line-3 bg-surface py-3.5 light:border-line-1 text-[14.5px] leading-[1.7]"
+                    className="rounded-[17px] border border-line-3 bg-surface py-3.5 shadow-pane light:border-pane-edge light:bg-pane text-[14.5px] leading-[1.7]"
                   />
                 </div>
               </div>

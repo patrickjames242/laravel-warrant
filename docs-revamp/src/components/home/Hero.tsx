@@ -87,7 +87,7 @@ export function Hero() {
             Row-level authorization for Laravel
           </div>
 
-          <h1 className="mt-7 text-[clamp(44px,6.6vw,79px)] leading-[0.92] font-extrabold tracking-[-0.05em] wrap-break-word text-balance text-cream">
+          <h1 className="mt-7 text-[clamp(44px,6.6vw,79px)] leading-[0.92] font-extrabold tracking-[-0.05em] wrap-break-word text-balance text-title">
             <span data-choreo="intro" className="block text-balance">
               Write authorization once.
             </span>
@@ -281,8 +281,8 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div data-choreo="rules" className="overflow-hidden rounded-[17px] border border-line-4 bg-surface light:border-line-2">
-        <div className="flex items-center gap-2.5 border-b border-line-2 light:border-line-1 px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
+      <div data-choreo="rules" className="overflow-hidden rounded-[17px] border border-line-4 bg-surface shadow-pane light:border-pane-edge light:bg-pane">
+        <div className="flex items-center gap-2.5 border-b border-line-2 light:border-pane-edge px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
         </div>
@@ -366,7 +366,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         <Dot />
       </div>
 
-      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 light:border-line-1">
+      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-edge light:bg-pane">
         <PanelHeading title="YOUR CODE" aside="php" />
         <CodeLines source={mode.code} language="php" gutter={44} className="py-3 text-[15px] leading-[1.7]" />
       </div>
@@ -388,9 +388,9 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         ref={outputRef}
         data-flow-start
         data-choreo="output"
-        className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 light:border-line-1"
+        className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-edge light:bg-pane"
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 light:border-line-1 bg-surface px-3.5 py-1.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-surface px-3.5 py-1.5 light:border-pane-edge light:bg-pane-head">
           <span className="font-mono text-[12px] leading-[1.3] font-bold tracking-[.12em] text-sand">
             RULES, COMPILED TO SQL
           </span>
@@ -448,7 +448,7 @@ function ResultRows({ question }: { question: HeroQuestion }) {
     <div className="min-h-58 overflow-x-auto overflow-y-hidden">
       <div className="min-w-140">
         <div
-          className={`grid ${ROW_COLUMNS} h-8 items-center bg-surface px-3.5 font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase`}
+          className={`grid ${ROW_COLUMNS} h-8 items-center bg-surface px-3.5 light:bg-pane-head font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase`}
         >
           <span>id</span>
           <span>title</span>
@@ -534,7 +534,7 @@ function describeRow(document: Document, question: HeroQuestion): RowDescription
 
 function PanelHeading({ title, aside }: { title: string; aside: string }) {
   return (
-    <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface px-3.5 light:border-line-1">
+    <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface px-3.5 light:border-pane-edge light:bg-pane-head">
       <span className="font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand">{title}</span>
       <span className="font-mono text-xs leading-none text-umber">{aside}</span>
     </div>

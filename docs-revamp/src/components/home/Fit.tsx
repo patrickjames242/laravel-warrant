@@ -29,7 +29,7 @@ export function Fit() {
     <section className="border-b border-line-1" style={{ background: BACKGROUND }}>
       <div className={SECTION_INNER}>
         <Eyebrow>03 — Fit</Eyebrow>
-        <h2 className="mt-5.5 max-w-225 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-cream">
+        <h2 className="mt-5.5 max-w-225 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title">
           When should you use Warrant?
         </h2>
         <p className="mt-6 max-w-140 text-[18.5px] leading-[1.6] text-tan">

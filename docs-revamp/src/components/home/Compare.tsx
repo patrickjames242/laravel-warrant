@@ -33,7 +33,7 @@ export function Compare() {
         <div className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6">
           <div className="max-w-215">
             <Eyebrow>02 — Mental models</Eyebrow>
-            <h2 className="mt-5.5 text-[clamp(42px,5.28vw,75px)] leading-[0.97] font-extrabold tracking-[-0.045em] text-balance text-cream">
+            <h2 className="mt-5.5 text-[clamp(42px,5.28vw,75px)] leading-[0.97] font-extrabold tracking-[-0.045em] text-balance text-title">
               Authorization isn't just a yes/no question.
             </h2>
           </div>

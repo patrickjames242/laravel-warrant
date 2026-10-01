@@ -163,7 +163,7 @@ function PageHeader({ page, eyebrow }: { page: DocPage; eyebrow?: string }) {
       )}
       <h1
         id={PAGE_TOP}
-        className="mt-5 text-[clamp(44px,5.5vw,66px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-cream"
+        className="mt-5 text-[clamp(44px,5.5vw,66px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title"
       >
         {page.title}
       </h1>

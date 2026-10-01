@@ -21,7 +21,7 @@ export function CallToAction() {
       </div>
 
       <div className="relative mx-auto max-w-330 px-[clamp(22px,4.4vw,53px)] py-[clamp(88px,11vw,160px)]">
-        <h2 className="max-w-220 text-[clamp(40px,5.5vw,88px)] leading-[0.92] font-extrabold tracking-[-0.055em] text-balance text-cream">
+        <h2 className="max-w-220 text-[clamp(40px,5.5vw,88px)] leading-[0.92] font-extrabold tracking-[-0.055em] text-balance text-title">
           Stop writing the same authorization rule{' '}
           <span className="relative inline-block text-coral">
             twice.
@@ -54,7 +54,7 @@ function InstallCommand() {
   const { copied, copy } = useCopy(INSTALL_COMMAND)
 
   return (
-    <div className="mt-7 inline-flex max-w-full items-center overflow-hidden rounded-[17px] border border-line-3 bg-surface light:border-line-1">
+    <div className="mt-7 inline-flex max-w-full items-center overflow-hidden rounded-[17px] border border-line-3 bg-surface shadow-pane light:border-pane-edge light:bg-pane">
       <code className="flex h-12 min-w-0 items-center overflow-x-auto overflow-y-hidden px-4.5 font-mono text-sm leading-none whitespace-nowrap text-sand">
         <span className="mr-2.5 text-coral">$</span>
         {INSTALL_COMMAND}
@@ -63,7 +63,7 @@ function InstallCommand() {
         type="button"
         onClick={copy}
         aria-label="Copy install command"
-        className={`h-12 flex-none cursor-pointer border-0 border-l border-line-3 bg-surface-3 light:border-line-1 px-4 font-mono text-[14px] leading-none font-medium hover:bg-line-2 ${
+        className={`h-12 flex-none cursor-pointer border-0 border-l border-line-3 bg-surface-3 light:border-pane-edge px-4 font-mono text-[14px] leading-none font-medium hover:bg-line-2 ${
           copied ? 'text-coral' : 'text-sand'
         }`}
       >
