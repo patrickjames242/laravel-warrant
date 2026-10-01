@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { links } from '../../lib/links'
 import { CodeLines } from '../CodeLines'
 import { layoutBox } from './flow'
+import { PanelHeading } from './PanelHeading'
 import { Eyebrow, SectionLink } from './SectionHeading'
 import { CORNER_GLOW, SECTION_INNER, themed, tint } from './sectionStyles'
 
@@ -10,6 +11,7 @@ const PIECES = [
     title: 'Schema',
     tagline: 'What can be expressed.',
     body: "The vocabulary for one resource: its abilities and the conditions a rule may test. Each condition knows how to become SQL. It decides nothing.",
+    label: 'DocumentSchema.php',
     language: 'php',
     source: `class DocumentSchema extends WarrantSchema
 {
@@ -29,6 +31,7 @@ const PIECES = [
     title: 'Rules',
     tagline: 'What is allowed.',
     body: "The policy itself, as plain strings that use the schema's words. Warrant validates every rule against the schema when it compiles. Rules are data.",
+    label: 'RULES',
     language: 'rule',
     source: `if is_owner
     they can view, update
@@ -40,6 +43,7 @@ if is_manager and same_department
     title: 'Resolver',
     tagline: 'Which rules apply.',
     body: 'One class you write. At request time it hands Warrant the rule set for this user and this resource, from wherever your app keeps them.',
+    label: 'RuleResolver.php',
     language: 'php',
     source: `class RoleRuleResolver implements RuleResolver
 {
@@ -135,11 +139,15 @@ export function MentalModel() {
                   </p>
                 </div>
                 <div data-choreo="item" className="min-w-0 flex-[2_1_484px]">
-                  <CodeLines
-                    source={piece.source}
-                    language={piece.language}
-                    className="rounded-[17px] border border-line-3 bg-surface py-3.5 shadow-pane light:border-pane-edge light:bg-pane text-[14.5px] leading-[1.7]"
-                  />
+                  <div className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-warm-edge light:bg-pane-warm">
+                    <PanelHeading title={piece.label} aside={piece.language} tone="warm" />
+                    <CodeLines
+                      source={piece.source}
+                      language={piece.language}
+                      gutter={44}
+                      className="py-3 text-[14.5px] leading-[1.7]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -80,6 +80,10 @@
   --color-pane: var(--color-surface-2);
   --color-pane-head: var(--color-surface);
   --color-pane-edge: var(--color-line-3);
+  /* A deeper brown card, for a section whose background is close to the plain card's. */
+  --color-pane-warm: var(--color-surface-2);
+  --color-pane-warm-head: var(--color-surface);
+  --color-pane-warm-edge: var(--color-line-3);
 
   /* Syntax highlighting, by token kind. */
   --color-code-keyword: var(--color-coral-hover);
@@ -186,6 +190,9 @@
   --color-pane: #f4ede6;
   --color-pane-head: #eee6dd;
   --color-pane-edge: #e0d4c9;
+  --color-pane-warm: #f0e6db;
+  --color-pane-warm-head: #ebdfd3;
+  --color-pane-warm-edge: #e0d2c5;
   --pane-shadow:
     0 1px 1px color-mix(in srgb, var(--color-shade) 4%, transparent),
     0 2px 6px -2px color-mix(in srgb, var(--color-shade) 7%, transparent),

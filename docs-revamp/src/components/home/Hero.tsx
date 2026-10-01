@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { links } from '../../lib/links'
 import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
+import { PanelHeading } from './PanelHeading'
 import { SiteLink } from '../SiteLink'
 import { bend } from './flow'
 import { FlowSegment, REVEAL_LENGTH } from './FlowSegment'
@@ -530,15 +531,6 @@ function describeRow(document: Document, question: HeroQuestion): RowDescription
         resultClass: document.abilities.length ? 'text-blush' : 'text-taupe',
       }
   }
-}
-
-function PanelHeading({ title, aside }: { title: string; aside: string }) {
-  return (
-    <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface px-3.5 light:border-pane-edge light:bg-pane-head">
-      <span className="font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand">{title}</span>
-      <span className="font-mono text-xs leading-none text-umber">{aside}</span>
-    </div>
-  )
 }
 
 function Connector({ height, children }: { height: number; children: ReactNode }) {
