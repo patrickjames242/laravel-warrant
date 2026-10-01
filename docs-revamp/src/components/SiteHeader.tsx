@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { links } from '../lib/links'
 import { Logo } from './Logo'
 import { SiteLink } from './SiteLink'
+import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
   { label: 'Why Warrant', href: links.whyWarrant },
@@ -52,6 +53,7 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
         </div>
 
         <div className="ml-auto flex flex-none items-center gap-2.5">
+          <ThemeToggle />
           <a
             href={links.github}
             aria-label="GitHub"

@@ -3,9 +3,11 @@ export const SECTION_INNER = 'mx-auto max-w-330 px-[clamp(22px,4.4vw,53px)] py-[
 /**
  * A theme colour at `percent` of its strength, for the gradients the home page
  * draws in inline styles, where Tailwind's `/opacity` modifier cannot reach.
+ * The percentage is scaled by the theme's `--glow-strength`, because a glow
+ * that reads on a dark ground all but vanishes on a light one.
  */
 export function tint(color: string, percent: number): string {
-  return `color-mix(in srgb, var(--color-${color}) ${percent}%, transparent)`
+  return `color-mix(in srgb, var(--color-${color}) calc(${percent}% * var(--glow-strength)), transparent)`
 }
 
 /** A theme colour, for the same gradients. */

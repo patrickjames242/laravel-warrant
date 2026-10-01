@@ -4,16 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!--
-      The page's ink background, set here so the first paint is already dark.
-      The stylesheet can arrive after the first paint (the dev server injects
-      it from the script), and until it does the browser paints its own white.
+      The theme is settled before the first paint: the reader's own choice if
+      they have made one, otherwise their system's. The page's ground colour is
+      set here too, so the first paint is already the right one. The stylesheet
+      can arrive after the first paint (the dev server injects it from the
+      script), and until it does the browser paints its own white.
     -->
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#120e0c" />
+    <script>
+      ;(function () {
+        var theme
+        try {
+          theme = localStorage.getItem('docs-theme')
+        } catch (error) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+        document.documentElement.dataset.theme = theme
+        document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#faf5f0' : '#120e0c'
+      })()
+    </script>
     <style>
       html,
       body {
         background: #120e0c;
+      }
+      html[data-theme='light'],
+      html[data-theme='light'] body {
+        background: #faf5f0;
       }
     </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

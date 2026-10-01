@@ -100,6 +100,75 @@
   --flow-step: 0.18s;
 }
 
+/*
+ * How strongly the background glows are drawn: a multiplier on every percentage
+ * the home page's gradients give tint().
+ */
+:root {
+  --glow-strength: 1;
+}
+
+/*
+ * The light theme: the same tokens, redrawn on warm paper. Each keeps its role
+ * rather than its brightness, so `cream` is still the strongest text and `ink`
+ * still the page, and every utility that names a token follows the theme. The
+ * accents are deepened to stay legible as text on a light ground.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --glow-strength: 2.6;
+
+  --color-ink-deep: #f1e8df;
+  --color-ink: #faf5f0;
+  --color-ink-raised: #f7f0e9;
+  --color-surface-2: #f4ece4;
+  --color-surface: #fffbf7;
+  --color-surface-3: #efe4da;
+
+  --color-line-0: #f0e6dc;
+  --color-line-1: #e9ddd2;
+  --color-line-2: #e4d6c9;
+  --color-line-3: #ddcdbf;
+  --color-line-4: #d2bfaf;
+  --color-line-5: #bea897;
+
+  --color-cream: #1f1611;
+  --color-sand: #33261f;
+  --color-tan: #4a3a30;
+  --color-fawn: #5b493d;
+  --color-taupe: #6d594b;
+  --color-umber: #84705f;
+  --color-gutter: #a8958a;
+
+  --color-coral: #e5432f;
+  --color-coral-strong: #e83f2a;
+  --color-coral-hover: #f05440;
+  --color-coral-soft: #cf3a26;
+  --color-coral-deep: #f0b6a6;
+
+  --color-peach: #b4432a;
+  --color-blush: #a0402b;
+  --color-gold: #866619;
+
+  --color-glow: #ff7a52;
+  --color-ember: #e0915f;
+  --color-shade: #3b2a20;
+
+  --color-code-keyword: #d0381f;
+  --color-code-variable: #a85a1c;
+  --color-code-class: #6b4a33;
+  --color-code-comment: #9a8576;
+  --color-code-punctuation: #7d6758;
+
+  --color-change-added: #4f8a32;
+  --color-change-modified: #3d6dad;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 @keyframes flow-along-path {
   to {
     stroke-dashoffset: calc(-1 * var(--flow-gap));
@@ -126,14 +195,6 @@
 }
 @utility grid-switch-858 {
   grid-template-columns: repeat(auto-fit, minmax(clamp(33.333%, (858px - 100%) * 999, 100%), 1fr));
-}
-
-/* The lifted, faintly glowing shadow under the hero's rule panel. */
-@utility shadow-panel {
-  box-shadow:
-    0 44px 88px -33px color-mix(in srgb, var(--color-shade) 85%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--color-coral) 5%, transparent),
-    0 0 132px -44px color-mix(in srgb, var(--color-glow) 12%, transparent);
 }
 
 /* The shadow the docs sidebar casts over the page while it is a drawer. */
@@ -225,6 +286,11 @@
     z-index: 100;
     opacity: 0.05;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .86 0 0 0 0 .72 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  /* On paper the grain is dark flecks rather than light ones. */
+  :root[data-theme='light'] body::after {
+    filter: invert(1);
+    opacity: 0.04;
   }
 
   @media (prefers-reduced-motion: reduce) {

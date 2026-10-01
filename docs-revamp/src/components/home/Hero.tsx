@@ -23,11 +23,12 @@ const BADGES = [
   { logo: 'mit', label: 'MIT licensed' },
 ]
 
-const HERO_BACKGROUND = [
-  `radial-gradient(ellipse 42% 38% at 0% 0%, ${tint('glow', 13)}, transparent 70%)`,
-  `radial-gradient(ellipse 38% 30% at 12% 6%, ${tint('glow', 7.5)}, transparent 70%)`,
+const HERO_BACKGROUND = `linear-gradient(180deg, ${themed('surface-2')} 0%, ${themed('ink')} 100%)`
+
+/** The hero's glows, drawn over the grid so it fades into them. */
+const HERO_GLOW = [
+  `radial-gradient(ellipse 70% 55% at 45% 32%, ${tint('glow', 9)}, transparent 75%)`,
   `radial-gradient(ellipse 30% 36% at 92% 78%, ${tint('ember', 11)}, transparent 72%)`,
-  `linear-gradient(180deg, ${themed('surface-2')} 0%, ${themed('ink')} 100%)`,
 ].join(',')
 
 const GRID_BACKGROUND = `linear-gradient(${themed('line-0')} 1px, transparent 1px), linear-gradient(90deg, ${themed('line-0')} 1px, transparent 1px)`
@@ -67,6 +68,7 @@ export function Hero() {
         className="pointer-events-none absolute inset-0 bg-size-[62px_62px] mask-[linear-gradient(180deg,#000_0%,rgba(0,0,0,.6)_60%,transparent_100%)]"
         style={{ backgroundImage: GRID_BACKGROUND }}
       />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: HERO_GLOW }} />
 
       <div className="relative mx-auto flex max-w-330 flex-wrap items-start justify-center gap-[clamp(44px,5.5vw,79px)] px-[clamp(22px,4.4vw,53px)] pb-[clamp(70px,8.8vw,114px)]">
         {/*
@@ -279,7 +281,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div data-choreo="rules" className="rounded-xl border border-line-4 bg-surface shadow-panel">
+      <div data-choreo="rules" className="rounded-xl border border-line-4 bg-surface">
         <div className="flex items-center gap-2.5 border-b border-line-2 px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
@@ -428,7 +430,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
             language="sql"
             gutter={44}
             highlighted={mode.sqlHighlight}
-            className="min-h-58 bg-ink py-3.5 text-[15px] leading-[1.75]"
+            className="min-h-58 py-3.5 text-[15px] leading-[1.75]"
           />
         ) : (
           <ResultRows question={question} />
