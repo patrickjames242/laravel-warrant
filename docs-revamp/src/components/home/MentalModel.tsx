@@ -138,7 +138,7 @@ export function MentalModel() {
                   <CodeLines
                     source={piece.source}
                     language={piece.language}
-                    className="rounded-md border border-line-3 bg-surface py-3.5 text-[14.5px] leading-[1.7]"
+                    className="rounded-[17px] border border-line-3 bg-surface py-3.5 light:border-line-1 text-[14.5px] leading-[1.7]"
                   />
                 </div>
               </div>

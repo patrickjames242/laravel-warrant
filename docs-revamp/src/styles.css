@@ -169,6 +169,9 @@
   color-scheme: dark;
 }
 
+/* Styles that apply only while the page is in its light theme, as `light:border-line-1`. */
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+
 @keyframes flow-along-path {
   to {
     stroke-dashoffset: calc(-1 * var(--flow-gap));

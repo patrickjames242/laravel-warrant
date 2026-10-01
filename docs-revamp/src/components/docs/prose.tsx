@@ -148,8 +148,8 @@ interface CodeFrameProps {
 
 function CodeFrame({ label, aside, children, line }: CodeFrameProps) {
   return (
-    <div data-source-line={line} className="overflow-hidden rounded-[9px] border border-line-3 bg-surface-2">
-      <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface pr-[6.5px] pl-[15.5px]">
+    <div data-source-line={line} className="overflow-hidden rounded-[17px] border border-line-3 bg-surface-2 light:border-line-1">
+      <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-surface light:border-line-1 pr-[6.5px] pl-[15.5px]">
         <span className="truncate font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand uppercase">
           {label}
         </span>
