@@ -345,7 +345,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
                 {HERO_MODES[key].label}
               </div>
               <div
-                className={`mt-1.75 truncate text-[15px] leading-[1.25] font-medium transition-colors duration-300 ${
+                className={`mt-1.75 text-[15px] leading-[1.25] font-medium text-pretty transition-colors duration-300 ${
                   on ? 'text-cream' : 'text-taupe group-hover:text-sand'
                 }`}
               >
