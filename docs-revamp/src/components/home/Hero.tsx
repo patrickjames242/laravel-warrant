@@ -413,7 +413,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
                   }}
                   className={`h-7 cursor-pointer rounded-[5.5px] border px-3 font-mono text-[12.5px] leading-none font-semibold tracking-[.1em] transition-all duration-250 ${
                     on
-                      ? 'border-coral bg-coral/10 text-coral'
+                      ? 'border-coral bg-coral/10 text-coral light:border-[1.5px]'
                       : 'border-line-3 bg-transparent text-taupe hover:border-line-5 hover:text-sand'
                   }`}
                 >

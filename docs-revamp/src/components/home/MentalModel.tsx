@@ -108,7 +108,7 @@ export function MentalModel() {
                 <div
                   data-node
                   data-flow-end={i === 0 ? '' : undefined}
-                  className="absolute top-0 left-1/2 -ml-5 flex size-10 items-center justify-center rounded-full border border-coral bg-surface-2 font-mono text-xs leading-none font-semibold tracking-[.06em] text-coral"
+                  className="absolute top-0 left-1/2 -ml-5 flex size-10 items-center justify-center rounded-full border border-coral bg-surface-2 light:border-[1.5px] font-mono text-xs leading-none font-semibold tracking-[.06em] text-coral"
                 >
                   {String(i + 1).padStart(2, '0')}
                 </div>

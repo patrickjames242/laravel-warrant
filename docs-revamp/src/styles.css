@@ -185,6 +185,9 @@
   --color-coral-soft: #bc3f2f;
   --color-coral-deep: #eebcae;
 
+  /* The dotted flow line's dots are a little larger, so the deeper coral holds its weight on paper. */
+  --flow-dot: 4px;
+
   --color-peach: #a9432f;
   --color-blush: #9a4231;
   --color-gold: #7f6628;
