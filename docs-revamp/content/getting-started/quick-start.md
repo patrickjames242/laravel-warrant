@@ -52,7 +52,7 @@ class DocumentSchema extends WarrantSchema
 Rules are plain strings in Warrant's [rule language](/rules/basics/).
 This one grants view and update on the user's own rows:
 
-```text
+```warrant
 if is_self they can view, update
 ```
 

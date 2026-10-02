@@ -52,16 +52,17 @@ class DocumentPolicy
 {
     public function view(User $user, Document $doc)
     {
-				// you can't do this 👇 if you use the query as the source of truth
+        // you can't do this 👇 if you use the query as the source of truth
 
         if ($doc->hidden)
-					return Response::deny('The doc is hidden.');
-				if (!(
-						$doc->is_admin
-						|| $doc->user_id === $user->id
-						|| $user->managesTeam($doc->team_id)
-				))
-					return Response::deny('You are not authorized to view this.')
+            return Response::deny('The doc is hidden.');
+
+        if (!(
+            $doc->is_admin
+            || $doc->user_id === $user->id
+            || $user->managesTeam($doc->team_id)
+        ))
+            return Response::deny('You are not authorized to view this.');
     }
 }
 ```
@@ -85,20 +86,20 @@ You can return any rule you want to for any entity in this global rule resolver.
 ```php
 class DatabaseRuleResolver implements RuleResolver
 {
-		public function resolve(RuleResolutionContext $context): WarrantRuleSet
-		{
+    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    {
+        $user = $context->user; // the user these rules are for
 
-				$user = $context->user; // the user these rules are for
+        if ($context->schemaKey === 'documents' && $user->role === 'employee') {
+            return WarrantRuleSet::fromSyntax('
+                if is_my_own_document or manages_team they can update
+                if is_document_locked and not is_admin they cannot update
+                if is_admin they can *
+            ', 'documents');
+        }
 
-				if ($context->schemaKey === 'documents' && $user->role === 'employee'){
-						return WarrantRuleSet::fromSyntax('
-								if is_my_own_document or manages_team they can update
-								if is_document_locked and not is_admin they cannot update
-								if is_admin they can *
-						', 'documents');
-				}
-				// ...
-		}
+        // ...
+    }
 }
 ```
 
