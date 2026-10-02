@@ -17,6 +17,13 @@ const TOKEN_CLASS: Record<TokenKind, string> = {
 
 const WEIGHT_CLASS = { 400: 'font-normal', 500: 'font-medium', 600: 'font-semibold' } as const
 
+/**
+ * PHP is set a step heavier in the light theme: its tokens are mostly thin
+ * identifiers and punctuation, which dark ink on paper renders lighter than
+ * light text on dark.
+ */
+const LIGHT_PHP_WEIGHT_CLASS = { 400: 'light:font-medium', 500: 'light:font-semibold', 600: 'light:font-bold' } as const
+
 interface CodeLinesProps {
   source: string
   language: Language
@@ -51,7 +58,12 @@ export function CodeLines({ source, language, gutter, highlighted = [], classNam
           )}
           <span className="whitespace-pre">
             {line.tokens.map((token, j) => (
-              <span key={j} className={`${TOKEN_CLASS[token.kind]} ${WEIGHT_CLASS[token.weight]}`}>
+              <span
+                key={j}
+                className={`${TOKEN_CLASS[token.kind]} ${WEIGHT_CLASS[token.weight]} ${
+                  language === 'php' ? LIGHT_PHP_WEIGHT_CLASS[token.weight] : ''
+                }`}
+              >
                 {token.text}
               </span>
             ))}
