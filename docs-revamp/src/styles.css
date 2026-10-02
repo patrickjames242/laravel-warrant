@@ -84,12 +84,22 @@
   --color-pane-warm-head: var(--color-surface);
   --color-pane-warm-edge: var(--color-line-3);
 
-  /* Syntax highlighting, by token kind. */
+  /*
+   * Syntax highlighting, by token kind. Each kind takes its own earthy hue, so
+   * a line reads at a glance and still sits in the site's warm palette: coral
+   * keywords, apricot variables and abilities, ochre class names, olive
+   * strings and gold numbers. Functions and rule conditions are a quiet warm
+   * neutral, sand on dark and the titles' brown on light, and comments and
+   * punctuation recede.
+   */
   --color-code-keyword: var(--color-coral-hover);
-  --color-code-ability: var(--color-peach);
-  --color-code-variable: #f0b48c;
-  --color-code-class: #e8cdb5;
-  --color-code-string: var(--color-gold);
+  --color-code-ability: var(--color-code-variable);
+  --color-code-condition: var(--color-code-function);
+  --color-code-variable: #f2a467;
+  --color-code-function: #dcc3a8;
+  --color-code-class: #e3bd6c;
+  --color-code-string: #c4c08a;
+  --color-code-number: var(--color-gold);
   --color-code-comment: #8b7060;
   --color-code-punctuation: #a88d7b;
 
@@ -181,8 +191,11 @@
   --color-shade: #3b2a20;
 
   --color-code-keyword: #bb3e2c;
-  --color-code-variable: #9c5a26;
-  --color-code-class: #5f4a3c;
+  --color-code-variable: #a4581a;
+  --color-code-function: var(--color-title);
+  --color-code-class: #8a6413;
+  --color-code-string: #67702b;
+  --color-code-number: var(--color-gold);
   --color-code-comment: #9a8f88;
   --color-code-punctuation: #776c66;
 

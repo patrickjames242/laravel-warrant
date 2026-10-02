@@ -4,14 +4,14 @@ import { highlight } from '../lib/highlight'
 const TOKEN_CLASS: Record<TokenKind, string> = {
   keyword: 'text-code-keyword',
   ability: 'text-code-ability',
-  condition: 'text-cream',
+  condition: 'text-code-condition',
   variable: 'text-code-variable',
-  function: 'text-cream',
+  function: 'text-code-function',
   class: 'text-code-class',
   string: 'text-code-string',
   comment: 'text-code-comment',
   punctuation: 'text-code-punctuation',
-  number: 'text-code-string',
+  number: 'text-code-number',
   text: 'text-sand',
 }
 
