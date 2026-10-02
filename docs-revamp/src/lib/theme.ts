@@ -10,7 +10,7 @@ const STORAGE = 'docs-theme'
 
 const SYSTEM_LIGHT = '(prefers-color-scheme: light)'
 
-const THEME_COLOR: Record<Theme, string> = { light: '#faf5f0', dark: '#120e0c' }
+const THEME_COLOR: Record<Theme, string> = { light: '#f9f3e8', dark: '#120e0c' }
 
 function stored(): Theme | null {
   try {

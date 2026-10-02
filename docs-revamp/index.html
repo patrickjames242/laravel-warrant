@@ -22,7 +22,7 @@
           theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
         }
         document.documentElement.dataset.theme = theme
-        document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#faf5f0' : '#120e0c'
+        document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#f9f3e8' : '#120e0c'
       })()
     </script>
     <style>
@@ -32,7 +32,7 @@
       }
       html[data-theme='light'],
       html[data-theme='light'] body {
-        background: #faf5f0;
+        background: #f9f3e8;
       }
     </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
