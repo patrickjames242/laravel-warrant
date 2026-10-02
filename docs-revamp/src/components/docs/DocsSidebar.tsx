@@ -78,14 +78,32 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
     })
   }
 
-  // Keep the current page's link in view when the list is taller than the screen.
+  /*
+   * Keep the current page's link in view when the list is taller than the
+   * screen. The link's place is only known once the groups have finished
+   * folding to the new page, so it is measured after the sidebar's transitions
+   * settle. The first page jumps straight there; later ones glide.
+   */
+  const revealed = useRef(false)
   useEffect(() => {
     const aside = scroller.current
-    const link = aside?.querySelector<HTMLElement>('[aria-current="page"]')
-    if (!aside || !link) return
-    const top = link.offsetTop
-    if (top < aside.scrollTop || top + link.offsetHeight > aside.scrollTop + aside.clientHeight) {
-      aside.scrollTop = top - aside.clientHeight / 3
+    if (!aside) return
+    let cancelled = false
+    const smooth = revealed.current
+    revealed.current = true
+
+    const reveal = () => {
+      const link = aside.querySelector<HTMLElement>('[aria-current="page"]')
+      if (cancelled || !link) return
+      const top = link.getBoundingClientRect().top - aside.getBoundingClientRect().top + aside.scrollTop
+      if (top < aside.scrollTop || top + link.offsetHeight > aside.scrollTop + aside.clientHeight) {
+        aside.scrollTo({ top: top - aside.clientHeight / 3, behavior: smooth ? 'smooth' : 'instant' })
+      }
+    }
+
+    void Promise.allSettled(aside.getAnimations({ subtree: true }).map((animation) => animation.finished)).then(reveal)
+    return () => {
+      cancelled = true
     }
   }, [slug])
 
