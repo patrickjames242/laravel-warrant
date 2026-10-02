@@ -4,9 +4,22 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join, relative, sep } from 'node:path'
 import type { Plugin } from 'vite'
-import type { ChangedEvent, PageSource, SaveConflict, SaveRequest, SaveResponse } from '../src/docs/editorProtocol.ts'
+import type {
+  ChangedEvent,
+  ChangeKind,
+  ChangesResponse,
+  CommitRequest,
+  CommitResponse,
+  FileChange,
+  PageSource,
+  SaveConflict,
+  SaveRequest,
+  SaveResponse,
+} from '../src/docs/editorProtocol.ts'
 import {
   EDITOR_CHANGED_EVENT,
+  EDITOR_CHANGES_ENDPOINT,
+  EDITOR_COMMIT_ENDPOINT,
   EDITOR_ENDPOINT,
   EDITOR_HEADER,
   EDITOR_ROLLBACK_ENDPOINT,
@@ -104,6 +117,88 @@ function rollBack(root: string, file: string): void {
 }
 
 /**
+ * Runs git in `root`'s repository for a command whose failure the reader needs
+ * to see, such as a commit a hook refused, reporting git's own explanation.
+ */
+function gitOrExplain(root: string, args: string[]): string {
+  try {
+    return git(root, args)
+  } catch (error) {
+    const stderr = (error as { stderr?: unknown }).stderr
+    const said = (typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : '').trim()
+    throw new HttpError(409, said || (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+function kindOf(status: string): ChangeKind {
+  if (status === '??') return 'untracked'
+  if (status.includes('U') || status === 'AA' || status === 'DD') return 'conflicted'
+  if (status.includes('R')) return 'renamed'
+  if (status.includes('D')) return 'deleted'
+  if (status.includes('A')) return 'added'
+  return 'modified'
+}
+
+/**
+ * Every file in the repository that differs from the last commit, staged or
+ * not: untracked files are listed one by one, and ignored ones are left out. A
+ * file is a docs page when it is Markdown under `root`.
+ */
+function changesIn(root: string): FileChange[] {
+  const top = repoTop(root)
+  const docsDir = relative(top, realpathSync(root)).split(sep).join('/') + '/'
+  const fields = git(top, ['status', '--porcelain=v1', '-z', '--untracked-files=all']).split('\0')
+  const changes: FileChange[] = []
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i]
+    if (!field) continue
+    const status = field.slice(0, 2)
+    const path = field.slice(3)
+    const kind = kindOf(status)
+    const change: FileChange = { path, kind, docs: path.startsWith(docsDir) && path.endsWith('.md') }
+    // A rename or a copy is followed by the path the file had before.
+    if (status.includes('R') || status.includes('C')) {
+      const from = fields[++i]
+      if (from) change.from = from
+    }
+    changes.push(change)
+  }
+  return changes
+}
+
+/**
+ * Commits exactly the named changes, each of which must still be uncommitted,
+ * and nothing else: changes already staged but not named stay staged and out
+ * of the commit. A rename takes the path it left with it.
+ */
+function commit(root: string, request: CommitRequest): CommitResponse {
+  const top = repoTop(root)
+  const changes = new Map(changesIn(root).map((change) => [change.path, change]))
+  const chosen = request.paths.map((path) => {
+    const change = changes.get(path)
+    if (!change) throw new HttpError(409, `${path} has no uncommitted change; the list may be out of date.`)
+    if (change.kind === 'conflicted') throw new HttpError(409, `${path} has an unresolved merge conflict.`)
+    return change
+  })
+
+  // Paths are taken literally, so a name with `*` or `:` in it is never read as a pattern.
+  const literal = ['--literal-pathspecs']
+  const paths = chosen.map((change) => change.path)
+  const named = chosen.flatMap((change) => (change.from ? [change.path, change.from] : [change.path]))
+  gitOrExplain(top, [...literal, 'add', '--all', '--', ...paths])
+  gitOrExplain(top, [...literal, 'commit', '--message', request.message, '--', ...named])
+  const hash = git(top, ['rev-parse', '--short', 'HEAD']).trim()
+
+  if (!request.push) return { commit: hash, pushed: false }
+  try {
+    gitOrExplain(top, ['push'])
+    return { commit: hash, pushed: true }
+  } catch (error) {
+    return { commit: hash, pushed: false, pushError: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/**
  * Refuses a request that did not come from the docs site itself: it must carry
  * the editor's header, and if the browser says where it came from, that must be
  * this server.
@@ -117,16 +212,19 @@ function assertFromEditor(request: IncomingMessage): void {
   }
 }
 
-async function readBody(request: IncomingMessage): Promise<SaveRequest> {
+async function readJson(request: IncomingMessage): Promise<unknown> {
   let size = 0
   const chunks: Buffer[] = []
   for await (const chunk of request as AsyncIterable<Buffer>) {
     size += chunk.length
-    if (size > MAX_BODY) throw new HttpError(413, 'The page is too large to save.')
+    if (size > MAX_BODY) throw new HttpError(413, 'The request is too large.')
     chunks.push(chunk)
   }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+}
 
-  const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+async function readSave(request: IncomingMessage): Promise<SaveRequest> {
+  const body = await readJson(request)
   if (
     typeof body !== 'object' ||
     body === null ||
@@ -138,6 +236,27 @@ async function readBody(request: IncomingMessage): Promise<SaveRequest> {
     throw new HttpError(400, 'A save needs `source` and `version` strings.')
   }
   return { source: body.source, version: body.version }
+}
+
+async function readCommit(request: IncomingMessage): Promise<CommitRequest> {
+  const body = await readJson(request)
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('message' in body) ||
+    !('paths' in body) ||
+    !('push' in body) ||
+    typeof body.message !== 'string' ||
+    typeof body.push !== 'boolean' ||
+    !Array.isArray(body.paths) ||
+    !body.paths.every((path): path is string => typeof path === 'string')
+  ) {
+    throw new HttpError(400, 'A commit needs a `message` string, a `paths` array of strings and a `push` boolean.')
+  }
+  const message = body.message.trim()
+  if (message === '') throw new HttpError(400, 'A commit needs a message.')
+  if (body.paths.length === 0) throw new HttpError(400, 'Choose at least one file to commit.')
+  return { message, paths: body.paths, push: body.push }
 }
 
 function send(response: ServerResponse, status: number, body: unknown): void {
@@ -169,8 +288,10 @@ function pageRoute(
 /**
  * Lets the docs pages be edited from the browser while the dev server runs.
  * It serves {@link EDITOR_ENDPOINT} to read and write a page's Markdown under
- * `root` and {@link EDITOR_ROLLBACK_ENDPOINT} to roll one back to the last
- * commit, and tells the browser whenever one of those files changes on disk.
+ * `root`, {@link EDITOR_ROLLBACK_ENDPOINT} to roll one back to the last commit,
+ * and {@link EDITOR_CHANGES_ENDPOINT} and {@link EDITOR_COMMIT_ENDPOINT} to list
+ * the repository's uncommitted changes and commit a choice of them, and tells
+ * the browser whenever one of the pages' files changes on disk.
  *
  * It applies only to `vite dev`: a build has no server, and so no way to write.
  */
@@ -188,7 +309,7 @@ export function docsEditor(root: string): Plugin {
           }
 
           if (request.method === 'PUT') {
-            const { source, version } = await readBody(request)
+            const { source, version } = await readSave(request)
             const current = readSource(root, file)
             if (current.version !== version) {
               send(response, 409, { ...current, conflict: true } satisfies SaveConflict)
@@ -209,6 +330,26 @@ export function docsEditor(root: string): Plugin {
           if (request.method !== 'POST') throw new HttpError(405, 'A rollback is a POST.')
           rollBack(root, file)
           send(response, 200, readSource(root, file))
+        }),
+      )
+
+      server.middlewares.use(
+        EDITOR_CHANGES_ENDPOINT,
+        pageRoute(root, (request, response, file) => {
+          if (request.method !== 'GET') throw new HttpError(405, 'The changes are read with a GET.')
+          send(response, 200, {
+            changes: changesIn(root),
+            branch: git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(),
+            page: repoPath(root, file),
+          } satisfies ChangesResponse)
+        }),
+      )
+
+      server.middlewares.use(
+        EDITOR_COMMIT_ENDPOINT,
+        pageRoute(root, async (request, response) => {
+          if (request.method !== 'POST') throw new HttpError(405, 'A commit is a POST.')
+          send(response, 200, commit(root, await readCommit(request)))
         }),
       )
 

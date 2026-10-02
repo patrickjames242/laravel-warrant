@@ -1,5 +1,5 @@
 import type { EditorView } from '@codemirror/view'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 /** A point where a line of the Markdown and a height on the page are known to meet. */
 interface Anchor {
@@ -13,8 +13,6 @@ interface Anchor {
  * wheel, touch, scrollbar or keyboard each begins with one of these.
  */
 const INTENT_EVENTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
-
-const PREFERENCE = 'docs-editor-sync-scroll'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -125,17 +123,17 @@ function scrollEditorToLine(view: EditorView, line: number, round = 0): void {
 }
 
 /**
- * Keeps the editor's scroll position and the article's in step while `enabled`.
+ * Keeps the editor's scroll position and the article's in step.
  * The side the reader last touched leads, and the other is moved to show the
  * same part of the page. Only the leader's scrolling is followed, so the
  * scroll a follower makes on being moved is never taken for the reader's and
  * sent back, however late it arrives. When it starts, the editor moves to
  * where the article is.
  */
-export function useScrollSync(view: EditorView | null, enabled: boolean): void {
+export function useScrollSync(view: EditorView | null): void {
   useEffect(() => {
     const article = document.querySelector<HTMLElement>('main article')
-    if (!view || !article || !enabled) return
+    if (!view || !article) return
 
     const pane = view.dom.closest('section') ?? view.dom
     let leader: 'editor' | 'article' = 'article'
@@ -181,26 +179,5 @@ export function useScrollSync(view: EditorView | null, enabled: boolean): void {
       view.scrollDOM.removeEventListener('scroll', onEditorScroll)
       window.removeEventListener('scroll', onArticleScroll)
     }
-  }, [view, enabled])
-}
-
-/** Whether scroll syncing is on, remembered in this browser. It starts on. */
-export function useSyncPreference(): [boolean, (on: boolean) => void] {
-  const [on, setOn] = useState(() => {
-    try {
-      return localStorage.getItem(PREFERENCE) !== 'off'
-    } catch {
-      return true
-    }
-  })
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(PREFERENCE, on ? 'on' : 'off')
-    } catch {
-      // Storage can be unavailable; the choice then lasts until the page reloads.
-    }
-  }, [on])
-
-  return [on, setOn]
+  }, [view])
 }

@@ -28,6 +28,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.13",
     "@eslint/js": "^9.39.5",
+    "@floating-ui/react": "^0.27.20",
     "@lezer/highlight": "^1.2.5",
     "@mdx-js/rollup": "^3.1.1",
     "@tailwindcss/vite": "^4.3.3",

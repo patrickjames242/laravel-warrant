@@ -2,16 +2,20 @@ import type { EditorView } from '@codemirror/view'
 import { useBlocker } from '@tanstack/react-router'
 import type { KeyboardEvent } from 'react'
 import { useEffect, useEffectEvent, useState } from 'react'
-import type { ChangedEvent, PageSource, SaveConflict, SaveRequest, SaveResponse } from '../../docs/editorProtocol'
-import {
-  EDITOR_CHANGED_EVENT,
-  EDITOR_ENDPOINT,
-  EDITOR_HEADER,
-  EDITOR_ROLLBACK_ENDPOINT,
+import type {
+  ChangedEvent,
+  CommitResponse,
+  PageSource,
+  SaveConflict,
+  SaveRequest,
+  SaveResponse,
 } from '../../docs/editorProtocol'
+import { EDITOR_CHANGED_EVENT, EDITOR_ROLLBACK_ENDPOINT } from '../../docs/editorProtocol'
+import { CommitMenu } from './CommitMenu'
+import { call, errorText } from './editorApi'
 import { MarkdownEditor } from './MarkdownEditor'
 import { PaneDivider } from './PaneDivider'
-import { useScrollSync, useSyncPreference } from './scrollSync'
+import { useScrollSync } from './scrollSync'
 
 interface PageEditorProps {
   slug: string
@@ -35,32 +39,18 @@ const DISCARD = 'Your latest changes to this page could not be saved. Discard th
 /** How long typing has to pause before the draft is saved. */
 const AUTOSAVE_DELAY = 800
 
-async function call(
-  slug: string,
-  init?: RequestInit,
-  endpoint = EDITOR_ENDPOINT,
-): Promise<{ status: number; body: unknown }> {
-  const response = await fetch(`${endpoint}?slug=${encodeURIComponent(slug)}`, {
-    ...init,
-    headers: { [EDITOR_HEADER]: '1', 'Content-Type': 'application/json' },
-  })
-  return { status: response.status, body: (await response.json()) as unknown }
-}
-
-function errorText(body: unknown): string {
-  return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string'
-    ? body.error
-    : 'The dev server did not say why.'
-}
+/** How long the word that a commit went through stays in place of the status. */
+const NOTICE_TIME = 6000
 
 /**
  * Edits one docs page's Markdown in the browser. The draft saves itself once
  * typing pauses, writing the file through the dev server, and the page beside
- * the editor re-renders from it as any edit to the file would. While syncing is on, scrolling either the editor or
- * the article brings the other to the same place.
+ * the editor re-renders from it as any edit to the file would. Scrolling either
+ * the editor or the article brings the other to the same place.
  *
  * It is tied to git: the lines that differ from the last commit are marked as
- * they are typed, and a rollback returns the file to that commit. Loaded only
+ * they are typed, a rollback returns the file to that commit, and the commit
+ * menu commits this page, the docs pages or any other changes. Loaded only
  * under `vite dev`.
  */
 export default function PageEditor({ slug, onClose }: PageEditorProps) {
@@ -76,9 +66,20 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
   const [error, setError] = useState<string>()
   const [divergence, setDivergence] = useState<Divergence>()
   const [view, setView] = useState<EditorView | null>(null)
-  const [sync, setSync] = useSyncPreference()
+  /** What the last commit made, shown in place of the status for a moment. */
+  const [notice, setNotice] = useState<string>()
 
-  useScrollSync(view, sync)
+  useScrollSync(view)
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => {
+      setNotice(undefined)
+    }, NOTICE_TIME)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [notice])
 
   // Marks the page as being edited, which hides the window's scrollbar; the stylesheet has the rule.
   useEffect(() => {
@@ -254,6 +255,13 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
     }
   }
 
+  /** A commit moves what the change marks compare against, so the last commit's text is read again. */
+  const committedNow = async (result: CommitResponse) => {
+    setNotice(result.pushed ? `Committed ${result.commit} and pushed` : `Committed ${result.commit}`)
+    const { status, body } = await call(slug)
+    if (status === 200) setCommittedSource((body as PageSource).base)
+  }
+
   const close = async () => {
     if (await mayLeave()) onClose()
   }
@@ -283,7 +291,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
             : 'Saved'
   const gitState =
     load.status !== 'ready' ? undefined : committed === null ? 'not in git yet' : saved !== committed ? 'uncommitted' : undefined
-  const status = gitState ? `${progress} · ${gitState}` : progress
+  const status = notice ?? (gitState ? `${progress} · ${gitState}` : progress)
 
   return (
     <section
@@ -299,25 +307,22 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
           </div>
           <div
             aria-live="polite"
-            className={`mt-0.5 font-mono text-[11.5px] leading-[1.3] tracking-[.06em] ${dirty ? 'text-coral' : 'text-umber'}`}
+            className={`mt-0.5 font-mono text-[11.5px] leading-[1.3] tracking-[.06em] ${
+              notice ? 'text-change-added' : dirty ? 'text-coral' : 'text-umber'
+            }`}
           >
             {status}
           </div>
         </div>
-        <button
-          type="button"
-          aria-pressed={sync}
-          onClick={() => {
-            setSync(!sync)
-          }}
-          title="Keep the editor and the article scrolled to the same place"
-          className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 font-mono text-[12.5px] font-medium ${
-            sync ? 'border-coral bg-coral/10 text-coral' : 'border-line-3 text-taupe hover:border-taupe'
-          }`}
-        >
-          <span aria-hidden="true">⇅</span>
-          Sync
-        </button>
+        {load.status === 'ready' && (
+          <CommitMenu
+            slug={slug}
+            prepare={async () => !dirty || (await save())}
+            onCommitted={(result) => {
+              void committedNow(result)
+            }}
+          />
+        )}
         <button
           type="button"
           disabled={!canRollBack || busy}
