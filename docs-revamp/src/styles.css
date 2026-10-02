@@ -72,13 +72,12 @@
   --color-shade: #080504;
 
   /*
-   * A code card's body, title bar and edge in the light theme, where cards sit
-   * a shade below the page with a soft shadow. The dark theme's cards keep
-   * their own surface and line classes, so these are only reached through
-   * `light:`; the values here are the dark surfaces they mirror.
+   * A code card's body, title bar and edge. In the dark theme cards are lifted
+   * clearly off the page; in the light theme they sit a shade below it with a
+   * soft shadow.
    */
-  --color-pane: var(--color-surface-2);
-  --color-pane-head: var(--color-surface);
+  --color-pane: #1e1713;
+  --color-pane-head: #251d18;
   --color-pane-edge: var(--color-line-3);
   /* A deeper brown card, for a section whose background is close to the plain card's. */
   --color-pane-warm: var(--color-surface-2);

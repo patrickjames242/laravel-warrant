@@ -139,7 +139,7 @@ export function MentalModel() {
                   </p>
                 </div>
                 <div data-choreo="item" className="min-w-0 flex-[2_1_484px]">
-                  <div className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-warm-edge light:bg-pane-warm">
+                  <div className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-warm-edge light:bg-pane-warm">
                     <PanelHeading title={piece.label} aside={piece.language} tone="warm" />
                     <CodeLines
                       source={piece.source}

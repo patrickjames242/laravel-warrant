@@ -282,7 +282,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div data-choreo="rules" className="overflow-hidden rounded-[17px] border border-line-4 bg-surface shadow-pane light:border-pane-edge light:bg-pane">
+      <div data-choreo="rules" className="overflow-hidden rounded-[17px] border border-line-4 bg-pane shadow-pane light:border-pane-edge">
         <div className="flex items-center gap-2.5 border-b border-line-2 light:border-pane-edge px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
@@ -334,7 +334,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
               className={`group min-w-0 cursor-pointer rounded-[17px] border px-3.5 py-3 text-left shadow-pane transition-colors duration-300 ${
                 on
                   ? 'border-coral bg-coral/8'
-                  : 'border-line-3 bg-transparent hover:border-line-5 hover:bg-cream/4 light:border-pane-edge light:bg-pane light:hover:border-line-5'
+                  : 'border-line-3 bg-pane hover:border-line-5 hover:bg-pane-head light:border-pane-edge light:hover:border-line-5'
               }`}
             >
               <div
@@ -369,7 +369,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         <Dot />
       </div>
 
-      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-edge light:bg-pane">
+      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-edge">
         <PanelHeading title="YOUR CODE" aside="php" />
         <CodeLines source={mode.code} language="php" gutter={44} className="py-3 text-[15px] leading-[1.7]" />
       </div>
@@ -391,9 +391,9 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         ref={outputRef}
         data-flow-start
         data-choreo="output"
-        className="overflow-hidden rounded-[17px] border border-line-2 bg-surface-2 shadow-pane light:border-pane-edge light:bg-pane"
+        className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-edge"
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-surface px-3.5 py-1.5 light:border-pane-edge light:bg-pane-head">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-pane-head px-3.5 py-1.5 light:border-pane-edge">
           <span className="font-mono text-[12px] leading-[1.3] font-bold tracking-[.12em] text-sand">
             RULES, COMPILED TO SQL
           </span>
@@ -451,7 +451,7 @@ function ResultRows({ question }: { question: HeroQuestion }) {
     <div className="min-h-58 overflow-x-auto overflow-y-hidden">
       <div className="min-w-140">
         <div
-          className={`grid ${ROW_COLUMNS} h-8 items-center bg-surface px-3.5 light:bg-pane-head font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase`}
+          className={`grid ${ROW_COLUMNS} h-8 items-center bg-pane-head px-3.5 font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase`}
         >
           <span>id</span>
           <span>title</span>

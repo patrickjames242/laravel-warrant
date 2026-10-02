@@ -132,7 +132,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
           onClick={() => {
             setEditorOpen(true)
           }}
-          className="fixed right-5 bottom-5 z-[46] flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-5 bg-surface px-4 font-mono text-[13px] leading-none font-medium text-sand shadow-[0_12px_32px_-12px_var(--color-shade)] hover:border-coral hover:text-cream"
+          className="fixed right-5 bottom-5 z-[46] flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-5 bg-surface px-4 font-mono text-[13px] leading-none font-medium text-sand hover:border-coral light:border-line-3 light:hover:border-coral hover:text-cream"
         >
           <span className="text-coral">✎</span>
           Edit page
