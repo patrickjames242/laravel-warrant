@@ -168,7 +168,7 @@ function PageHeader({ page, eyebrow }: { page: DocPage; eyebrow?: string }) {
         {page.title}
       </h1>
       <p className="mt-5 text-[21px] leading-[1.55] text-pretty text-tan">{page.description}</p>
-      <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[17px] border border-line-3 bg-surface px-3.5 py-3 text-[15.5px] leading-normal text-tan">
+      <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[17px] border border-line-3 bg-surface px-3.5 py-3 light:border-pane-edge light:bg-pane text-[15.5px] leading-normal text-tan">
         <span className="rounded-[4.5px] border border-coral px-[7.5px] py-1 font-mono text-[11.5px] leading-none font-semibold tracking-widest text-coral">
           BETA
         </span>

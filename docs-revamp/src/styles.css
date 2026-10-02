@@ -142,15 +142,15 @@
   --color-ink: #f9f3e8;
   --color-ink-raised: #f6efe2;
   --color-surface-2: #f3eadd;
-  --color-surface: #fffbf7;
-  --color-surface-3: #efe4da;
+  --color-surface: #fffcf5;
+  --color-surface-3: #eee5d6;
 
-  --color-line-0: #f0e6dc;
-  --color-line-1: #e9ddd2;
-  --color-line-2: #e4d6c9;
-  --color-line-3: #ddcdbf;
-  --color-line-4: #d2bfaf;
-  --color-line-5: #bea897;
+  --color-line-0: #efe7da;
+  --color-line-1: #e8dfd0;
+  --color-line-2: #e3d8c7;
+  --color-line-3: #dccfbd;
+  --color-line-4: #d1c2ad;
+  --color-line-5: #bdac95;
 
   /*
    * The large titles are a deep espresso brown. The rest of the text keeps
@@ -187,12 +187,12 @@
   --color-code-comment: #9a8f88;
   --color-code-punctuation: #776c66;
 
-  --color-pane: #f4ede6;
-  --color-pane-head: #eee6dd;
-  --color-pane-edge: #e0d4c9;
-  --color-pane-warm: #f0e6db;
-  --color-pane-warm-head: #ebdfd3;
-  --color-pane-warm-edge: #e0d2c5;
+  --color-pane: #f3ecdf;
+  --color-pane-head: #ede5d6;
+  --color-pane-edge: #e0d5c4;
+  --color-pane-warm: #efe6d6;
+  --color-pane-warm-head: #eae0cf;
+  --color-pane-warm-edge: #dfd2bf;
   --pane-shadow:
     0 1px 1px color-mix(in srgb, var(--color-shade) 4%, transparent),
     0 2px 6px -2px color-mix(in srgb, var(--color-shade) 7%, transparent),
