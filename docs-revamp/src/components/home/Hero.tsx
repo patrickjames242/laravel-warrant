@@ -308,7 +308,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
                 key={HERO_QUESTIONS[i]}
                 data-choreo="branch"
                 d={elbow(middle, x, ELBOW_HEIGHT)}
-                className="fill-none stroke-line-5 stroke-1"
+                className="fill-none stroke-line-5 stroke-1 light:stroke-line-3"
               />
             ),
           )}
@@ -331,8 +331,10 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
                 remember()
                 onQuestion(key)
               }}
-              className={`group min-w-0 cursor-pointer rounded-[17px] border px-3.5 py-3 text-left transition-colors duration-300 ${
-                on ? 'border-coral bg-coral/8' : 'border-line-3 bg-transparent hover:border-line-5 hover:bg-cream/4'
+              className={`group min-w-0 cursor-pointer rounded-[17px] border px-3.5 py-3 text-left shadow-pane transition-colors duration-300 ${
+                on
+                  ? 'border-coral bg-coral/8'
+                  : 'border-line-3 bg-transparent hover:border-line-5 hover:bg-cream/4 light:border-pane-edge light:bg-pane light:hover:border-line-5'
               }`}
             >
               <div
