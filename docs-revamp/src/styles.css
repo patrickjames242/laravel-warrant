@@ -103,6 +103,9 @@
   --color-code-comment: #8b7060;
   --color-code-punctuation: #a88d7b;
 
+  /* Code in the page editor's Markdown, set apart from the prose in a hue of its own. */
+  --color-editor-code: #f0a58c;
+
   /* The page editor's marks for lines changed since the last commit. */
   --color-change-added: #8fb573;
   --color-change-modified: #7ea3d4;
@@ -210,6 +213,7 @@
     0 2px 6px -2px color-mix(in srgb, var(--color-shade) 7%, transparent),
     0 16px 34px -18px color-mix(in srgb, var(--color-shade) 18%, transparent);
 
+  --color-editor-code: #7d3324;
   --color-change-added: #4f8a32;
   --color-change-modified: #3d6dad;
 }

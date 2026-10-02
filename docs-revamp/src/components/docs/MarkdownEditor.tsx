@@ -1,9 +1,19 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { yamlFrontmatter } from '@codemirror/lang-yaml'
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
-import { EditorState } from '@codemirror/state'
-import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
+import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
+import { EditorState, RangeSetBuilder } from '@codemirror/state'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  drawSelection,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  keymap,
+  lineNumbers,
+} from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { gitChanges, setCommitted } from './gitChanges'
@@ -15,20 +25,21 @@ const highlightStyle = HighlightStyle.define([
   { tag: tags.emphasis, color: 'var(--color-sand)', fontStyle: 'italic' },
   { tag: tags.strikethrough, textDecoration: 'line-through' },
   { tag: [tags.link, tags.url], color: 'var(--color-coral-soft)' },
-  { tag: tags.monospace, color: 'var(--color-peach)' },
+  { tag: tags.monospace, color: 'var(--color-editor-code)' },
   { tag: tags.quote, color: 'var(--color-sand)' },
   { tag: tags.list, color: 'var(--color-coral)' },
   { tag: [tags.processingInstruction, tags.contentSeparator, tags.meta], color: 'var(--color-umber)' },
   { tag: tags.comment, color: 'var(--color-code-comment)' },
   // The frontmatter's YAML.
   { tag: [tags.propertyName, tags.definition(tags.propertyName)], color: 'var(--color-taupe)' },
-  { tag: [tags.string, tags.content], color: 'var(--color-gold)' },
+  // Only quoted values: plain ones, like a paragraph's text, are tagged content and stay the body colour.
+  { tag: tags.string, color: 'var(--color-gold)' },
   { tag: [tags.number, tags.bool, tags.null], color: 'var(--color-gold)' },
 ])
 
 const theme = EditorView.theme(
   {
-    '&': { height: '100%', backgroundColor: 'transparent', color: 'var(--color-sand)', fontSize: '14px' },
+    '&': { height: '100%', backgroundColor: 'transparent', color: 'var(--color-sand)', fontSize: '15.5px' },
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': { fontFamily: 'var(--font-mono)', lineHeight: '1.7', overscrollBehavior: 'contain' },
     '.cm-content': { padding: '16px 0 40vh', caretColor: 'var(--color-coral)' },
@@ -44,9 +55,52 @@ const theme = EditorView.theme(
       border: 'none',
       paddingLeft: '6px',
     },
+    '.cm-code-block': { backgroundColor: 'color-mix(in srgb, var(--color-cream) 5%, transparent)' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--color-taupe)' },
   },
   { dark: true },
+)
+
+const codeBlockLine = Decoration.line({ class: 'cm-code-block' })
+
+/** Marks every visible line of a fenced code block, fences included, so the block reads as one band. */
+function codeBlockLines(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>()
+  let lastLine = -1
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== 'FencedCode') return
+        for (let pos = Math.max(node.from, from); pos <= Math.min(node.to, to); ) {
+          const line = view.state.doc.lineAt(pos)
+          if (line.number > lastLine) builder.add(line.from, line.from, codeBlockLine)
+          lastLine = line.number
+          pos = line.to + 1
+        }
+        return false
+      },
+    })
+  }
+  return builder.finish()
+}
+
+const codeBlocks = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+
+    constructor(view: EditorView) {
+      this.decorations = codeBlockLines(view)
+    }
+
+    update(update: ViewUpdate) {
+      if (update.docChanged || update.viewportChanged || syntaxTree(update.startState) !== syntaxTree(update.state)) {
+        this.decorations = codeBlockLines(update.view)
+      }
+    }
+  },
+  { decorations: (plugin) => plugin.decorations },
 )
 
 interface MarkdownEditorProps {
@@ -97,6 +151,7 @@ export function MarkdownEditor({ value, committed, onChange, onView, label }: Ma
           // The frontmatter is YAML; read as Markdown, its closing `---` would make the block a heading.
           yamlFrontmatter({ content: markdown({ base: markdownLanguage }) }),
           syntaxHighlighting(highlightStyle),
+          codeBlocks,
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           theme,
           EditorView.contentAttributes.of({ 'aria-label': label }),
