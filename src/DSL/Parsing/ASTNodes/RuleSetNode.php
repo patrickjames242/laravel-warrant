@@ -5,8 +5,6 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\Writing\BoundSyntax;
-use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
 
 /**
  * The rules for one schema: the body of a `for <schema>` header, or rules given
@@ -197,25 +195,5 @@ final readonly class RuleSetNode implements ISchemaScopedNode
         $callback($make);
 
         return self::fromRules($schemaKey, $builders);
-    }
-
-    /**
-     * Render the rule set as a `for <schema> { ... }` block with scalar condition
-     * parameters inlined as literals. Throws if a parameter has no inline
-     * representation — use {@see toBoundSyntax()} for those.
-     */
-    public function toSyntax(): string
-    {
-        return RuleSyntaxWriter::ruleSetToSyntax($this);
-    }
-
-    /**
-     * Render the rule set to a `for <schema> { ... }` block with `?`-parameterized
-     * values plus one flat, left-to-right positional bindings list. Lossless for
-     * any value.
-     */
-    public function toBoundSyntax(): BoundSyntax
-    {
-        return RuleSyntaxWriter::ruleSetToBoundSyntax($this);
     }
 }

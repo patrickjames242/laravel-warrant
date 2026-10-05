@@ -5,8 +5,6 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\Writing\BoundSyntax;
-use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
@@ -199,112 +197,5 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     public function hasCannot(): bool
     {
         return $this->cannotClauses !== [];
-    }
-
-    /**
-     * Return a copy of this rule carrying a denial message. Works for any rule,
-     * however it was constructed — notably a parsed rule, which the inline string
-     * DSL can also give a message via `because`.
-     *
-     * By default the message applies to every denied ability; pass $abilities to
-     * scope it to specific ones. A denial message can only ride on a `cannot`, so
-     * targeting an ability the rule does not deny — or attaching any message to a
-     * rule with no `cannot` clause — throws.
-     *
-     * @param string|Closure(WarrantDenialContext):(string|\Throwable) $message
-     * @param list<string>|null $abilities
-     */
-    public function withDenialMessage(string|Closure $message, ?array $abilities = null): self
-    {
-        // Flatten to ability => current message (first clause wins, as messageFor).
-        $map = [];
-
-        foreach ($this->cannotClauses as $clause) {
-            foreach ($clause->abilities as $ability) {
-                $map[$ability] ??= $clause->message;
-            }
-        }
-
-        $targets = $abilities ?? array_keys($map);
-
-        if ($targets === []) {
-            throw new InvalidArgumentException(
-                'A denial message requires a `they cannot ...` clause; it can never be surfaced by a rule that only grants.'
-            );
-        }
-
-        foreach ($targets as $ability) {
-            if (! array_key_exists($ability, $map)) {
-                throw new InvalidArgumentException(sprintf(
-                    'Cannot attach a denial message to ability [%s]: the rule does not deny it.',
-                    $ability,
-                ));
-            }
-
-            $map[$ability] = $message;
-        }
-
-        return new self($this->conditions, $this->canClauses, self::clausesFromMessageMap($map));
-    }
-
-    /**
-     * Render this rule back to the string DSL with scalar condition parameters
-     * inlined as literals. Throws if a parameter has no inline representation —
-     * use {@see toBoundSyntax()} for those. Parsing the result yields this rule.
-     *
-     * Note: a string denial message round-trips as a `because '...'` clause, but
-     * a closure message has no inline form and throws here — use
-     * {@see toBoundSyntax()}, which carries a closure message as a `?` binding.
-     */
-    public function toSyntax(): string
-    {
-        return RuleSyntaxWriter::ruleToSyntax($this);
-    }
-
-    /**
-     * Render this rule to `?`-parameterized syntax plus the positional bindings
-     * that fill it. Lossless for any parameter value: parsing `$result->syntax`
-     * with `$result->bindings` yields this rule.
-     */
-    public function toBoundSyntax(): BoundSyntax
-    {
-        return RuleSyntaxWriter::ruleToBoundSyntax($this);
-    }
-
-    /**
-     * Rebuild clauses from an ordered ability => message map, grouping abilities
-     * that share an identical message (`===`, so a shared closure instance groups
-     * together and `null` groups the message-less ones) into one clause, in
-     * first-appearance order.
-     *
-     * @param array<string, string|Closure|null> $map
-     * @return list<CannotClauseNode>
-     */
-    private static function clausesFromMessageMap(array $map): array
-    {
-        /** @var list<array{message: string|Closure|null, abilities: list<string>}> $groups */
-        $groups = [];
-
-        foreach ($map as $ability => $message) {
-            $matched = null;
-
-            foreach ($groups as $index => $group) {
-                if ($group['message'] === $message) {
-                    $matched = $index;
-                    break;
-                }
-            }
-
-            if ($matched === null) {
-                $groups[] = ['message' => $message, 'abilities' => [(string) $ability]];
-            } else {
-                $groups[$matched]['abilities'][] = (string) $ability;
-            }
-        }
-
-        return array_map(
-            static fn (array $group): CannotClauseNode => new CannotClauseNode($group['abilities'], $group['message']),
-            $groups,
-        );
     }
 }
