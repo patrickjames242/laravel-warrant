@@ -72,7 +72,7 @@ Packages like [spatie/laravel-permission](https://github.com/spatie/laravel-perm
 
 Here is what Warrant proposes. Move the policy of your access control into conditional rule strings like this.
 
-```warrant
+```text
 if is_my_own_document or manages_team they can view, update
 if is_document_locked and not is_admin they cannot view, update
 if is_admin they can *
@@ -83,17 +83,17 @@ You can return any rule you want to for any entity in this global rule resolver.
 ```php
 class DatabaseRuleResolver implements RuleResolver
 {
-		public function resolve(RuleResolutionContext $context): RuleSetNode
+		public function resolve(RuleResolutionContext $context): WarrantRuleSet
 		{
 
 				$user = $context->user; // the user these rules are for
 
 				if ($context->schemaKey === 'documents' && $user->role === 'employee'){
-						return WarrantSyntax::parse('
+						return WarrantRuleSet::fromSyntax('
 								if is_my_own_document or manages_team they can update
 								if is_document_locked and not is_admin they cannot update
 								if is_admin they can *
-						')->scopedTo('documents');
+						', 'documents');
 				}
 				// ...
 		}
@@ -240,7 +240,7 @@ That's very close to the real output — each condition is spliced inline like t
 Relational conditions reach other tables through a correlated `whereExists`
 subquery, and `NULL` columns follow standard SQL logic (an unknown condition simply
 contributes no access). For the full story, see
-[How it compiles to SQL](/sql/rule-to-query/).
+[How it compiles to SQL](/guides/how-it-compiles/).
 
 :::note[Work in progress]
 I'm currently working on collapsing redundant branches like the `1 = 1` above.
@@ -260,13 +260,11 @@ That's not a problem here. A rule set isn't one big query, it's a list of separa
 rules, so you can put a message on whichever `cannot` rule did the blocking:
 
 ```php
-WarrantSyntax::parse(<<<'WARRANT'
-    if is_document_locked and not is_admin
-    they cannot update because 'This document is locked and can no longer be edited.'
-
-    if is_my_own_document or manages_team
-    they can update
-    WARRANT)->scopedTo('documents');
+WarrantRuleSet::fromRules('documents',
+    WarrantRule::fromSyntax('if is_document_locked and not is_admin they cannot update')
+        ->withDenialMessage('This document is locked and can no longer be edited.'),
+    WarrantRule::fromSyntax('if is_my_own_document or manages_team they can update'),
+);
 ```
 
 Then call `authorize` instead of `can`:
@@ -283,4 +281,4 @@ If the user was blocked because nothing granted them the ability (rather than a
 `cannot` forbidding it), you set that message on the schema instead, with
 `ungrantedDenialMessage`.
 
-Check [Denial messages](/rules/denial-messages/) for more info.
+Check [Denial messages](/guides/denial-messages/) for more info.
