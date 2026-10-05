@@ -2,10 +2,11 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\WarrantManager;
 
 /**
@@ -16,9 +17,9 @@ class CountingWarrantRuleResolver implements RuleResolver
 {
     public int $calls = 0;
 
-    public function __construct(private WarrantRuleSet $ruleSet) {}
+    public function __construct(private RuleSetNode $ruleSet) {}
 
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $this->calls++;
 
@@ -29,7 +30,7 @@ class CountingWarrantRuleResolver implements RuleResolver
 function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can publish'): CountingWarrantRuleResolver
 {
     $resolver = new CountingWarrantRuleResolver(
-        WarrantRuleSet::fromSyntax($syntax, 'course_sections')
+        WarrantSyntax::parse($syntax)->scopedTo('course_sections')
     );
 
     app()->instance(RuleResolver::class, $resolver);

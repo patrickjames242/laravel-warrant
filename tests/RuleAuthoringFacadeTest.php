@@ -1,32 +1,29 @@
 <?php
 
+require_once __DIR__.'/Support/TestSupport.php';
+
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleSetGroup;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 
 /*
 |------------------------------------------------------------------------------
 | The rule-authoring facade
 |------------------------------------------------------------------------------
 |
-| Four entry points, each parsing Warrant syntax and each taking exactly the
-| parameters its parsing constructor takes. The parameter symmetry is the point:
-| a schema named in the string's own `for` header travels with the string, where
-| tooling reading the source can see it, and a schema passed as a separate PHP
-| argument does not.
-|
-| Two of them answer with a builder when handed nothing, because a condition and
-| a rule are their fluent chain. A rule set and a group are collections, so their
-| syntax is required.
+| One parse for rule text of every form, answering with the WarrantSyntax tree
+| the parser builds, and a fluent builder each for a condition and a rule.
 |
 */
 
-// -- the builder branch -------------------------------------------------------
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+});
+
+// -- the builders -------------------------------------------------------------
 
 it('returns a condition builder from condition() and a rule builder from rule()', function () {
     expect(Warrant::condition())->toBeInstanceOf(WarrantConditionBuilder::class);
@@ -36,77 +33,74 @@ it('returns a condition builder from condition() and a rule builder from rule()'
     // A rule builder specifically: it carries the `they can` half a bare
     // condition builder has no place for.
     expect($rule)->toBeInstanceOf(WarrantRuleBuilder::class);
-    expect($rule->if('is_self')->theyCan('view')->toRule())->toBeInstanceOf(WarrantRule::class);
+    expect($rule->if('is_self')->theyCan('view')->toRule())->toBeInstanceOf(WarrantRuleNode::class);
 });
 
-// -- the parsing branch, against the constructors it delegates to -------------
+// -- parse ---------------------------------------------------------------------
 
-it('parses a condition expression exactly as the parser does', function () {
-    expect(Warrant::condition('is_owner or is_admin'))
-        ->toBeInstanceOf(IBooleanExpressionNode::class)
-        ->toEqual(WarrantParser::parseConditionExpression('is_owner or is_admin'));
+it('parses every form exactly as WarrantSyntax::parse does', function (string $source) {
+    expect(Warrant::parse($source))->toEqual(WarrantSyntax::parse($source));
+})->with([
+    'a condition' => ['is_owner or is_admin'],
+    'a rule' => ['if is_self they can view'],
+    'headless rules' => ['if is_self they can view  if is_admin they can edit'],
+    'a rule set' => ['for timesheets { they can view }'],
+    'several rule sets' => ['for timesheets { they can view } for documents { they can edit }'],
+]);
+
+it('resolves bindings through parse', function () {
+    expect(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1'])->rule()
+        ->conditions->parameters)->toBe(['x-1']);
 });
 
-it('parses a rule, a rule set and a group exactly as their constructors do', function () {
-    expect(Warrant::rule('if is_self they can view', 'timesheets')->toSyntax())
-        ->toBe(WarrantRule::fromSyntax('if is_self they can view', 'timesheets')->toSyntax());
+it('parses a file through parseFile', function () {
+    $path = tempnam(sys_get_temp_dir(), 'warrant');
+    file_put_contents($path, 'for timesheets { they can view }');
 
-    expect(Warrant::ruleSet('if is_self they can view', 'timesheets')->toSyntax())
-        ->toBe(WarrantRuleSet::fromSyntax('if is_self they can view', 'timesheets')->toSyntax());
-
-    $syntax = 'for timesheets { they can view } for documents { they can edit }';
-
-    expect(Warrant::group($syntax)->toSyntax())->toBe(RuleSetGroup::fromSyntax($syntax)->toSyntax());
+    try {
+        expect(Warrant::parseFile($path)->ruleSet()->schemaKey)->toBe('timesheets');
+    } finally {
+        unlink($path);
+    }
 });
 
 // -- the language-server case: the schema lives in the string ------------------
 
-it('takes the schema from the string\'s own for header, with no PHP argument', function () {
-    expect(Warrant::rule('for timesheets if is_self they can view')->schemaKey)->toBe('timesheets');
-    expect(Warrant::ruleSet('for timesheets { they can view }')->schemaKey)->toBe('timesheets');
-    expect(Warrant::group('for timesheets { they can view }')->schemaKeys())->toBe(['timesheets']);
+it('takes the schema from the string\'s own for header', function () {
+    expect(Warrant::parse('for timesheets if is_self they can view')->ruleSet()->schemaKey)->toBe('timesheets');
+    expect(Warrant::parse('for timesheets { they can view }')->schemaKeys())->toBe(['timesheets']);
 });
 
-it('accepts a for header on a condition expression and discards it', function () {
-    // The header exists so tooling knows which schema's conditions the names
-    // belong to; an expression has no schema field to carry it.
-    expect(Warrant::condition('for timesheets is_owner or is_admin'))
-        ->toEqual(Warrant::condition('is_owner or is_admin'));
+it('rejects a header that disagrees with the schema it is scoped to', function () {
+    expect(fn () => Warrant::parse('for timesheets { they can view }')->scopedTo('documents'))
+        ->toThrow(InvalidArgumentException::class, 'targets schema [timesheets] in its `for` header but was scoped to [documents]');
 });
 
-it('still rejects a header that disagrees with the schema argument', function () {
-    expect(fn () => Warrant::rule('for timesheets if is_self they can view', 'documents'))
+// -- validate -------------------------------------------------------------------
+
+it('validates each rule set against the schema registered for its key', function () {
+    expect(fn () => Warrant::validate(Warrant::parse('if is_teacher they can view')->scopedTo('course_sections')))
+        ->not->toThrow(Exception::class);
+
+    expect(fn () => Warrant::validate(Warrant::parse('if no_such_condition they can view')->scopedTo('course_sections')))
         ->toThrow(InvalidArgumentException::class);
-
-    expect(fn () => Warrant::ruleSet('for timesheets { they can view }', 'documents'))
-        ->toThrow(InvalidArgumentException::class);
 });
 
-// -- bindings ------------------------------------------------------------------
-
-it('resolves bindings identically through every entry point', function () {
-    expect(Warrant::condition('is_owner(:id)', ['id' => 'x-1'])->parameters)->toBe(['x-1']);
-
-    expect(Warrant::rule('if is_owner(:id) they can view', 'timesheets', ['id' => 'x-1'])
-        ->conditions->parameters)->toBe(['x-1']);
-
-    expect(Warrant::ruleSet('if is_owner(:id) they can view', 'timesheets', ['id' => 'x-1'])
-        ->rules[0]->conditions->parameters)->toBe(['x-1']);
-
-    expect(Warrant::group('for timesheets { if is_owner(:id) they can view }', ['id' => 'x-1'])
-        ->forSchema('timesheets')->rules[0]->conditions->parameters)->toBe(['x-1']);
+it('rejects anything but a rule set', function () {
+    expect(fn () => Warrant::validate(['for course_sections { they can view }']))
+        ->toThrow(InvalidArgumentException::class, 'validate expects RuleSetNode instances, got string.');
 });
 
 // -- a builder still needs no terminal where a value is expected ---------------
 
 it('feeds a facade-built rule straight into fromRules, unfinished', function () {
-    $set = WarrantRuleSet::fromRules(
+    $set = RuleSetNode::fromRules(
         'timesheets',
         Warrant::rule()->if('is_self')->theyCan('view'),
-        Warrant::rule('they cannot delete'),
+        Warrant::parse('they cannot delete')->rule(),
     );
 
-    expect($set->rules)->toHaveCount(2);
-    expect($set->rules[0]->canAbilities)->toBe(['view']);
-    expect($set->rules[1]->cannotAbilities())->toBe(['delete']);
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->canAbilities())->toBe(['view']);
+    expect($set->entries[1]->cannotAbilities())->toBe(['delete']);
 });

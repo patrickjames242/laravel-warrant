@@ -3,9 +3,9 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Reachability;
-use Warrant\Rules\WarrantRuleSet;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
@@ -20,7 +20,7 @@ beforeEach(function () {
 function analyze(string $syntax, string $ability): Reachability
 {
     return (new ReachabilityAnalyzer)->analyze(
-        WarrantRuleSet::fromSyntax($syntax, 'course_sections'),
+        WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
         $ability,
     );
 }

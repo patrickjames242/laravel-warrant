@@ -3,9 +3,10 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -178,7 +179,7 @@ it('merges implicit rules with resolver rules', function () {
     expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
 });
 
-it('accepts a WarrantRuleSet from implicitRules and merges it like a rule list', function () {
+it('accepts a RuleSetNode from implicitRules and merges it like a rule list', function () {
     useWarrantSchemas(['course_sections' => WarrantImplicitRuleSetSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
@@ -279,7 +280,7 @@ it('rejects a condition invoked with fewer arguments than its required parameter
 it('rejects a rule that supplies fewer condition arguments than required, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantRuleSet::fromSyntax('if is_specific_user they can view', $schema);
+    $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->scopedTo($schema::schemaKey());
 
     expect(fn () => (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_specific_user] requires at least 1 argument');
@@ -288,7 +289,7 @@ it('rejects a rule that supplies fewer condition arguments than required, during
 it('accepts a rule that supplies the required condition arguments, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantRuleSet::fromSyntax("if is_specific_user('u-1') they can view", $schema);
+    $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->scopedTo($schema::schemaKey());
 
     (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet);
 

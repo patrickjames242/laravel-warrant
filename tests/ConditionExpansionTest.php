@@ -10,6 +10,7 @@ use Warrant\DSL\Compiling\CompileDepthException;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -348,9 +349,9 @@ class DcFolderSchema extends WarrantSchema
     #[RowCondition]
     public function isEditable(RowConditionContext $c): IBooleanExpressionNode
     {
-        return Warrant::condition(<<<WARRANT
+        return WarrantSyntax::parse(<<<WARRANT
             is_owner or owner_is('role-9')
-        WARRANT);
+        WARRANT)->conditionExpression();
     }
 
     /** Derived, as a bare AST node. */

@@ -2,10 +2,10 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__ . "/Support/TestSupport.php";
 
@@ -282,8 +282,8 @@ it("queries a no-target ability gated on a global condition", function () {
 it("authorize() still diagnoses a folded denial", function () {
 	seedShortCircuitSections();
 	bindWarrantRuleSet(
-		new WarrantRuleSet(WarrantTestSchema::class, [
-			WarrantRule::build()->theyCannotBecause("view", "not yours")->toRule(),
+		new RuleSetNode(WarrantTestSchema::schemaKey(), [
+			WarrantRuleNode::build()->theyCannotBecause("view", "not yours")->toRule(),
 		]),
 	);
 	$section = loadedSection();

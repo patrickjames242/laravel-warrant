@@ -3,19 +3,20 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\Compiling\Call;
 use Warrant\DSL\Compiling\CallStack;
 use Warrant\DSL\Compiling\CompileDepthException;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\IncludeInvocation;
 use Warrant\Rules\IncludeTrail;
 use Warrant\Rules\RuleTemplateExpander;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\RuleTemplate;
 
@@ -138,7 +139,7 @@ final readonly class ShallowTrail implements IncludeTrail
     {
     }
 
-    public function entering(IncludeInvocation $include): static
+    public function entering(IncludeInvocationNode $include): static
     {
         if ($this->depth >= 3) {
             throw new RuntimeException("ShallowTrail stopped at depth 3 in [{$include->templateKey}].");
@@ -148,10 +149,10 @@ final readonly class ShallowTrail implements IncludeTrail
     }
 }
 
-function expandSyntax(string $syntax): WarrantRuleSet
+function expandSyntax(string $syntax): RuleSetNode
 {
     return (new RuleTemplateExpander)->expand(
-        WarrantRuleSet::fromSyntax($syntax, 'course_sections'),
+        WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
         new TemplateExpansionSchema,
     );
 }
@@ -164,18 +165,18 @@ beforeEach(function () {
 
 it('expands an include into the rules its longhand would produce', function () {
     $expanded = expandSyntax('can they view { @include requires_approval }');
-    $longhand = WarrantRuleSet::fromSyntax("if is_advisor they cannot view because 'Needs approval.'", 'course_sections');
+    $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->scopedTo('course_sections');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(WarrantRule::class);
-    expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->rules[0]->cannotAbilities());
-    expect($expanded->rules[0]->messageFor('view'))->toBe('Needs approval.');
+    expect($expanded->flatEntries())->toHaveCount(1);
+    expect($expanded->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->flatEntries()[0]->cannotAbilities())->toBe($longhand->flatEntries()[0]->cannotAbilities());
+    expect($expanded->flatEntries()[0]->messageFor('view'))->toBe('Needs approval.');
 });
 
 it('gives the expanded rules the abilities the include named', function () {
     $expanded = expandSyntax('@include grants_it for view, publish');
 
-    expect($expanded->rules[0]->canAbilities)->toBe(['view', 'publish']);
+    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view', 'publish']);
 });
 
 it('splices the expansion in where the include was written', function () {
@@ -185,41 +186,41 @@ it('splices the expansion in where the include was written', function () {
         if is_advisor they can archive
         WARRANT);
 
-    expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
-    expect($expanded->rules[1]->canAbilities)->toBe(['publish']);
-    expect($expanded->rules[1]->conditions)->toBeNull();
-    expect($expanded->rules[2]->conditions->conditionKey)->toBe('is_advisor');
+    expect($expanded->flatEntries())->toHaveCount(3);
+    expect($expanded->flatEntries()[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->flatEntries()[1]->canAbilities())->toBe(['publish']);
+    expect($expanded->flatEntries()[1]->conditions)->toBeNull();
+    expect($expanded->flatEntries()[2]->conditions->conditionKey)->toBe('is_advisor');
 });
 
 it('hands a template its arguments through bindings', function () {
     $expanded = expandSyntax("@include with_relation('folder') for view");
 
-    expect($expanded->rules[0]->conditions->parameters)->toBe(['folder']);
+    expect($expanded->flatEntries()[0]->conditions->parameters)->toBe(['folder']);
 });
 
 it('expands a template that includes another', function () {
     $expanded = expandSyntax('@include nests_another for view');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(WarrantRule::class);
-    expect($expanded->rules[0]->canAbilities)->toBe(['view']);
+    expect($expanded->flatEntries())->toHaveCount(1);
+    expect($expanded->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
 });
 
 it('terminates a recursion whose argument decreases per level', function () {
     $expanded = expandSyntax('@include counts_down(3) for view');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0]->canAbilities)->toBe(['view']);
+    expect($expanded->flatEntries())->toHaveCount(1);
+    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
 });
 
 it('leaves a set holding no includes exactly as it was', function () {
-    $set = WarrantRuleSet::fromSyntax("if is_teacher they can view\nthey cannot archive", 'course_sections');
+    $set = WarrantSyntax::parse("if is_teacher they can view\nthey cannot archive")->scopedTo('course_sections');
 
     $expanded = (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema);
 
     expect($expanded->schemaKey)->toBe($set->schemaKey);
-    expect($expanded->rules)->toBe($set->rules);
+    expect($expanded->flatEntries())->toBe($set->flatEntries());
 });
 
 // -- failures -----------------------------------------------------------------
@@ -312,7 +313,7 @@ it('still reports an ability no template grants as NEVER', function () {
 // -- the trail ----------------------------------------------------------------
 
 it('takes a caller\'s own trail, letting it bound and report the descent', function () {
-    $set = WarrantRuleSet::fromSyntax('@include loops for view', 'course_sections');
+    $set = WarrantSyntax::parse('@include loops for view')->scopedTo('course_sections');
 
     expect(fn () => (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema, new ShallowTrail))
         ->toThrow(RuntimeException::class, 'ShallowTrail stopped at depth 3');
@@ -321,16 +322,16 @@ it('takes a caller\'s own trail, letting it bound and report the descent', funct
 it('derives a fresh trail per branch rather than sharing one', function () {
     // Two includes side by side each descend one level; neither sees the other's,
     // so a shallow bound that admits one admits both.
-    $set = WarrantRuleSet::fromSyntax(<<<'WARRANT'
+    $set = WarrantSyntax::parse(<<<'WARRANT'
         @include grants_it for view
         @include grants_it for publish
-        WARRANT, 'course_sections');
+        WARRANT)->scopedTo('course_sections');
 
     $expanded = (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema, new ShallowTrail);
 
-    expect($expanded->rules)->toHaveCount(2);
-    expect($expanded->rules[0]->canAbilities)->toBe(['view']);
-    expect($expanded->rules[1]->canAbilities)->toBe(['publish']);
+    expect($expanded->flatEntries())->toHaveCount(2);
+    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
+    expect($expanded->flatEntries()[1]->canAbilities())->toBe(['publish']);
 });
 
 // -- compiling ----------------------------------------------------------------
@@ -407,7 +408,7 @@ it('counts include frames rather than rejecting a repeated template', function (
 function validateSyntax(string $syntax): void
 {
     (new RuleSetValidator(new TemplateExpansionSchema, 'course_sections'))
-        ->validate(WarrantRuleSet::fromSyntax($syntax, 'course_sections'));
+        ->validate(WarrantSyntax::parse($syntax)->scopedTo('course_sections'));
 }
 
 it('accepts an include naming a template the schema declares', function () {

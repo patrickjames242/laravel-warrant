@@ -7,11 +7,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
-use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -67,7 +67,7 @@ class DenialImplicitSchema extends WarrantTestSchema
     public function implicitRules(): array
     {
         return [
-            WarrantRule::build()->theyCannotBecause('update', 'implicit locked')->toRule(),
+            WarrantRuleNode::build()->theyCannotBecause('update', 'implicit locked')->toRule(),
         ];
     }
 }
@@ -357,11 +357,11 @@ function seedDenialSections(): void
 }
 
 /**
- * @param  array<int, WarrantRule|\Warrant\Builders\WarrantRuleBuilder>  $rules
+ * @param  array<int, WarrantRuleNode|\Warrant\Builders\WarrantRuleBuilder>  $rules
  */
 function bindDenialRules(array $rules, string $schema = WarrantTestSchema::class): void
 {
-    bindWarrantRuleSet(WarrantRuleSet::fromRules($schema, $rules));
+    bindWarrantRuleSet(RuleSetNode::fromRules(Warrant::registry()->resolveSchemaKeyOrFail($schema), $rules));
 }
 
 // -- string & closure messages ------------------------------------------------
@@ -369,8 +369,8 @@ function bindDenialRules(array $rules, string $schema = WarrantTestSchema::class
 it('surfaces a string message from a matching cannot rule', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('update', 'This section is archived and can no longer be edited.')->toRule(),
     ]);
 
@@ -384,8 +384,8 @@ it('surfaces a string message from a matching cannot rule', function () {
 it('surfaces a string returned from a closure message', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('update', fn (WarrantDenialContext $c) => "You cannot {$c->deniedAbilities[0]} {$c->target->getKey()}.")
             ->toRule(),
     ]);
@@ -397,8 +397,8 @@ it('surfaces a string returned from a closure message', function () {
 it('throws a custom Throwable returned from a closure message as-is', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('update', fn (WarrantDenialContext $c) => new DenialCustomException('custom denial'))
             ->toRule(),
     ]);
@@ -412,8 +412,8 @@ it('passes the resolved target model and ability into the closure context', func
 
     $captured = null;
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()
             ->theyCannotBecause('update', function (WarrantDenialContext $c) use (&$captured) {
                 $captured = $c;
 
@@ -433,7 +433,7 @@ it('passes the resolved target model and ability into the closure context', func
     expect($captured->gate->abilities)->toBe(['update']);
     expect($captured->gate->matchMode)->toBe(AbilityMatchMode::ALL);
     expect($captured->deniedAbilities)->toBe(['update']);
-    expect($captured->rule)->toBeInstanceOf(WarrantRule::class);
+    expect($captured->rule)->toBeInstanceOf(WarrantRuleNode::class);
     expect($captured->schema)->toBe(WarrantTestSchema::class);
 });
 
@@ -442,7 +442,7 @@ it('passes the resolved target model and ability into the closure context', func
 it('returns without throwing when access is granted', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->if('is_teacher')->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCan('view')->toRule(),
     ]);
 
     Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('view', 'teacher:teacher-role');
@@ -451,7 +451,7 @@ it('returns without throwing when access is granted', function () {
 it('adds no queries on the grant path beyond the boolean check', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->if('is_teacher')->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCan('view')->toRule(),
     ]);
     $user = makeWarrantTestUser('teacher-role');
 
@@ -472,7 +472,7 @@ it('falls back to a generic exception when denial is only "no grant"', function 
     seedDenialSections();
     // No `can` rule grants view; the message-bearing cannot targets a different row.
     bindDenialRules([
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),
     ]);
 
     // `other-section` is not a teacher row: no grant, and the cannot does not match.
@@ -488,8 +488,8 @@ it('denies on an unanswerable cannot, but cannot attribute the denial to it', fu
        failed to fire — but the diagnostic cannot claim *this* rule blocked the
        user, so the generic message stands rather than the specific one. */
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()
             ->ifCan('view', 'course_sections', \Warrant\Builders\Ref::context('missing'))
             ->theyCannotBecause('update', 'blocked by a question we could not ask')
             ->toRule(),
@@ -503,7 +503,7 @@ it('denies on an unanswerable cannot, but cannot attribute the denial to it', fu
 it('fires an unconditional cannot message when the row exists', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCannotBecause('update', 'never editable')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'never editable')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -513,8 +513,8 @@ it('fires an unconditional cannot message when the row exists', function () {
 it('fires a targeted cannot message only for the matching row', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('update', 'teacher row locked')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('update', 'teacher row locked')->toRule(),
     ]);
     $user = makeWarrantTestUser('teacher-role');
 
@@ -529,8 +529,8 @@ it('fires a targeted cannot message only for the matching row', function () {
 it('fires a global cannot message', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_advisor')->theyCannotBecause('update', 'advisors cannot edit')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_advisor')->theyCannotBecause('update', 'advisors cannot edit')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('advisor'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -540,9 +540,9 @@ it('fires a global cannot message', function () {
 it('falls back to generic when the denying cannot has no message', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->theyCannot('update')->toRule(),                        // denies, no message
-        WarrantRule::build()->if('is_advisor')->theyCannotBecause('update', 'advisor only')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->theyCannot('update')->toRule(),                        // denies, no message
+        WarrantRuleNode::build()->if('is_advisor')->theyCannotBecause('update', 'advisor only')->toRule(),
     ]);
 
     // User is not an advisor, so the only message-bearing cannot does not match.
@@ -555,8 +555,8 @@ it('falls back to generic when the denying cannot has no message', function () {
 it('surfaces the earliest message-bearing cannot when several match', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('update', 'first')->toRule(),
-        WarrantRule::build()->theyCannotBecause('update', 'second')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('update', 'first')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'second')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -566,8 +566,8 @@ it('surfaces the earliest message-bearing cannot when several match', function (
 it('skips an earlier matching cannot that has no message', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCannot('update')->toRule(),                                    // matches, no message
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('update', 'teacher msg')->toRule(),
+        WarrantRuleNode::build()->theyCannot('update')->toRule(),                                    // matches, no message
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('update', 'teacher msg')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -577,8 +577,8 @@ it('skips an earlier matching cannot that has no message', function () {
 it('lets an implicit-rule message win over a resolver-rule message', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('update', 'resolver msg')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('update', 'resolver msg')->toRule(),
     ], DenialImplicitSchema::class);
 
     // Implicit rules are prepended, so their unconditional cannot is diagnosed first.
@@ -591,7 +591,7 @@ it('lets an implicit-rule message win over a resolver-rule message', function ()
 it('diagnoses a row hidden by a model global scope (warden operates without scopes)', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCannotBecause('view', 'blocked')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('view', 'blocked')->toRule(),
     ], DenialScopedSchema::class);
 
     // `other-section` is hidden by the model's global scope, but warden's
@@ -606,7 +606,7 @@ it('diagnoses a row hidden by a model global scope (warden operates without scop
 it('falls back to generic when the target row does not exist', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCannotBecause('update', 'never editable')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'never editable')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'no-such-row'))
@@ -618,8 +618,8 @@ it('falls back to generic when the target row does not exist', function () {
 it('diagnoses the first denied ability under ALL', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->theyCannotBecause('update', 'no update')->toRule(),
+        WarrantRuleNode::build()->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'no update')->toRule(),
     ]);
 
     // view is granted, update is denied -> ALL fails on update.
@@ -630,8 +630,8 @@ it('diagnoses the first denied ability under ALL', function () {
 it('diagnoses the first denied ability under ANY', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCannotBecause('update', 'no update')->toRule(),
-        WarrantRule::build()->theyCannotBecause('archive', 'no archive')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'no update')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('archive', 'no archive')->toRule(),
     ]);
 
     // Neither is grantable -> ANY fails; the first requested denied ability wins.
@@ -644,8 +644,8 @@ it('diagnoses the first denied ability under ANY', function () {
 it('threads the effective context into the diagnostic', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->if('region_locked')->theyCannotBecause('update', 'EU is locked')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->if('region_locked')->theyCannotBecause('update', 'EU is locked')->toRule(),
     ], DenialContextSchema::class);
     $user = makeWarrantTestUser('teacher-role');
 
@@ -662,8 +662,8 @@ it('threads the effective context into the diagnostic', function () {
 it('diagnoses a no-target denial from a global cannot rule', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('publish')->toRule(),
-        WarrantRule::build()->if('is_advisor')->theyCannotBecause('publish', 'advisors cannot publish')->toRule(),
+        WarrantRuleNode::build()->theyCan('publish')->toRule(),
+        WarrantRuleNode::build()->if('is_advisor')->theyCannotBecause('publish', 'advisors cannot publish')->toRule(),
     ]);
 
     // No target: the global `is_advisor` cannot is the cause and its message survives.
@@ -674,8 +674,8 @@ it('diagnoses a no-target denial from a global cannot rule', function () {
 it('diagnoses a no-target denial from an unconditional cannot rule', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('publish')->toRule(),
-        WarrantRule::build()->theyCannotBecause('publish', 'publishing disabled')->toRule(),
+        WarrantRuleNode::build()->theyCan('publish')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('publish', 'publishing disabled')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('publish', null))
@@ -687,32 +687,18 @@ it('cannot attribute a no-target denial to a targeted-only cannot', function () 
     // The only message-bearing cannot is targeted; without a row it cannot fire,
     // so a no-target denial falls back to the generic exception.
     bindDenialRules([
-        WarrantRule::build()->if('is_teacher')->theyCannotBecause('publish', 'teacher blocked')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('publish', 'teacher blocked')->toRule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('publish', null))
         ->toThrow(WarrantAuthorizationException::class, 'This action is unauthorized.');
 });
 
-// -- attaching a message to any rule (withDenialMessage wither) ---------------
-
-it('attaches a message to a fromSyntax rule', function () {
-    seedDenialSections();
-    bindDenialRules([
-        WarrantRule::fromSyntax('they can update'),
-        WarrantRule::fromSyntax('if is_teacher they cannot update')
-            ->withDenialMessage('This section is locked.'),
-    ]);
-
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
-        ->toThrow(WarrantAuthorizationException::class, 'This section is locked.');
-});
-
 it('surfaces a because message written directly in the DSL', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::fromSyntax('they can update'),
-        WarrantRule::fromSyntax("if is_teacher they cannot update because 'This section is locked.'"),
+        WarrantSyntax::parse('they can update')->rule(),
+        WarrantSyntax::parse("if is_teacher they cannot update because 'This section is locked.'")->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -721,12 +707,12 @@ it('surfaces a because message written directly in the DSL', function () {
 
 it('surfaces per-clause because messages for distinct abilities in one if', function () {
     seedDenialSections();
-    bindDenialRules(WarrantParser::parse(<<<'WARRANT'
+    bindDenialRules(WarrantSyntax::parse(<<<'WARRANT'
         they can update, archive
         if is_teacher
         they cannot update because 'Cannot update a teacher row.'
         they cannot archive because 'Cannot archive a teacher row.'
-        WARRANT));
+        WARRANT)->ruleEntries());
     $user = makeWarrantTestUser('teacher-role');
 
     expect(fn () => Warrant::guard($user)->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -739,8 +725,8 @@ it('surfaces per-clause because messages for distinct abilities in one if', func
 it('surfaces per-clause messages from a fluent builder rule', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update', 'archive')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update', 'archive')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('update', 'Cannot update a teacher row.')
             ->theyCannotBecause('archive', 'Cannot archive a teacher row.')
             ->toRule(),
@@ -759,8 +745,8 @@ it('scopes deniedAbilities to the fired clause message', function () {
 
     $captured = null;
     bindDenialRules([
-        WarrantRule::build()->theyCan('update', 'archive')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update', 'archive')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('update', function (WarrantDenialContext $c) use (&$captured) {
                 $captured = $c;
 
@@ -784,31 +770,10 @@ it('scopes deniedAbilities to the fired clause message', function () {
 it('surfaces a because message supplied through a binding closure', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::fromSyntax('they can update'),
-        WarrantRule::fromSyntax('if is_teacher they cannot update because :msg', bindings: [
+        WarrantSyntax::parse('they can update')->rule(),
+        WarrantSyntax::parse('if is_teacher they cannot update because :msg', [
             'msg' => fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}.",
-        ]),
-    ]);
-
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
-        ->toThrow(WarrantAuthorizationException::class, 'No editing teacher:teacher-role.');
-});
-
-it('leaves the original rule untouched (immutable wither)', function () {
-    $original = WarrantRule::fromSyntax('if is_teacher they cannot update');
-    $withMessage = $original->withDenialMessage('locked');
-
-    expect($original->messageFor('update'))->toBeNull();
-    expect($withMessage->messageFor('update'))->toBe('locked');
-    expect($withMessage)->not->toBe($original);
-});
-
-it('accepts a closure message on a fromSyntax rule', function () {
-    seedDenialSections();
-    bindDenialRules([
-        WarrantRule::fromSyntax('they can update'),
-        WarrantRule::fromSyntax('if is_teacher they cannot update')
-            ->withDenialMessage(fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}."),
+        ])->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -819,7 +784,7 @@ it('accepts a closure message on a fromSyntax rule', function () {
 
 it('surfaces the schema ungranted message when no rule grants access', function () {
     seedDenialSections();
-    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+    bindDenialRules([WarrantRuleNode::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
 
     // Nothing grants update, nothing forbids it -> ungranted hook fires.
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialUngrantedSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -828,7 +793,7 @@ it('surfaces the schema ungranted message when no rule grants access', function 
 
 it('throws a Throwable returned from the ungranted hook', function () {
     seedDenialSections();
-    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedThrowSchema::class);
+    bindDenialRules([WarrantRuleNode::build()->theyCan('view')->toRule()], DenialUngrantedThrowSchema::class);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialUngrantedThrowSchema::class)->authorize('update', 'teacher:teacher-role'))
         ->toThrow(DenialCustomException::class, 'no grant for update');
@@ -836,7 +801,7 @@ it('throws a Throwable returned from the ungranted hook', function () {
 
 it('gives the ungranted hook the whole gate under ANY', function () {
     seedDenialSections();
-    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+    bindDenialRules([WarrantRuleNode::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
 
     // ANY [update, archive]: both ungranted -> the whole gate is the subset.
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialUngrantedSchema::class)->authorizeAny(['update', 'archive'], 'teacher:teacher-role'))
@@ -845,7 +810,7 @@ it('gives the ungranted hook the whole gate under ANY', function () {
 
 it('gives the ungranted hook only the missing abilities under ALL', function () {
     seedDenialSections();
-    bindDenialRules([WarrantRule::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
+    bindDenialRules([WarrantRuleNode::build()->theyCan('view')->toRule()], DenialUngrantedSchema::class);
 
     // ALL [view, update]: view granted, update ungranted -> subset is just update.
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialUngrantedSchema::class)->authorize(['view', 'update'], 'teacher:teacher-role'))
@@ -855,8 +820,8 @@ it('gives the ungranted hook only the missing abilities under ALL', function () 
 it('does not treat a message-less cannot as ungranted', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->theyCannot('update')->toRule(),   // forbids, no message
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->theyCannot('update')->toRule(),   // forbids, no message
     ], DenialUngrantedSchema::class);
 
     // Forbidden by a message-less cannot -> generic 403, NOT the ungranted message.
@@ -867,8 +832,8 @@ it('does not treat a message-less cannot as ungranted', function () {
 it('prefers a message-bearing cannot over the ungranted hook', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->theyCannotBecause('view', 'view forbidden')->toRule(),
+        WarrantRuleNode::build()->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('view', 'view forbidden')->toRule(),
     ], DenialUngrantedSchema::class);
 
     // ALL [view, update]: view forbidden (with message), update ungranted -> forbid wins.
@@ -881,8 +846,8 @@ it('resolves a wildcard cannot to the concrete gate abilities in deniedAbilities
 
     $captured = null;
     bindDenialRules([
-        WarrantRule::build()->theyCan('update', 'view')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+        WarrantRuleNode::build()->theyCan('update', 'view')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('*', function (WarrantDenialContext $c) use (&$captured) {
                 $captured = $c;
 
@@ -905,8 +870,8 @@ it('resolves a wildcard cannot to the concrete gate abilities in deniedAbilities
 it('catches a message-less cannot with the schema forbidden hook', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->theyCannot('update')->toRule(),   // forbids, no message
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->theyCannot('update')->toRule(),   // forbids, no message
     ], DenialForbiddenSchema::class);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialForbiddenSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -916,8 +881,8 @@ it('catches a message-less cannot with the schema forbidden hook', function () {
 it('prefers a rule message over the schema forbidden hook', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->theyCannotBecause('update', 'rule says no')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->theyCannotBecause('update', 'rule says no')->toRule(),
     ], DenialForbiddenSchema::class);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialForbiddenSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -927,8 +892,8 @@ it('prefers a rule message over the schema forbidden hook', function () {
 it('gives the forbidden hook the concrete blocked abilities of a wildcard cannot', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update', 'view')->toRule(),
-        WarrantRule::build()->if('is_teacher')->theyCannot('*')->toRule(),   // wildcard forbid, no message
+        WarrantRuleNode::build()->theyCan('update', 'view')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')->theyCannot('*')->toRule(),   // wildcard forbid, no message
     ], DenialForbiddenSchema::class);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialForbiddenSchema::class)->authorize(['update', 'view'], 'teacher:teacher-role'))
@@ -938,8 +903,8 @@ it('gives the forbidden hook the concrete blocked abilities of a wildcard cannot
 it('throws a Throwable returned from the forbidden hook', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('update')->toRule(),
-        WarrantRule::build()->theyCannot('update')->toRule(),
+        WarrantRuleNode::build()->theyCan('update')->toRule(),
+        WarrantRuleNode::build()->theyCannot('update')->toRule(),
     ], DenialForbiddenThrowSchema::class);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialForbiddenThrowSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -949,8 +914,8 @@ it('throws a Throwable returned from the forbidden hook', function () {
 it('prefers the forbidden hook over the ungranted hook on a mixed denial', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
+        WarrantRuleNode::build()->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
     ], DenialBothSchema::class);
 
     // ALL [view, update]: view forbidden, update ungranted -> forbid wins.
@@ -963,8 +928,8 @@ it('falls through from a declining forbidden hook to the ungranted hook', functi
     // DenialUngrantedSchema overrides only the ungranted hook; its forbidden hook
     // declines (null), so a mixed denial falls through to the ungranted message.
     bindDenialRules([
-        WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
+        WarrantRuleNode::build()->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->theyCannot('view')->toRule(),   // view forbidden (no message)
     ], DenialUngrantedSchema::class);
 
     // ALL [view, update]: view forbidden but the forbidden hook declines; update
@@ -973,23 +938,10 @@ it('falls through from a declining forbidden hook to the ungranted hook', functi
         ->toThrow(WarrantAuthorizationException::class, 'Not permitted: update (ALL)');
 });
 
-// -- withDenialMessage wither guards ------------------------------------------
-
-it('rejects withDenialMessage on a grant-only rule (fails fast)', function () {
-    // The wither has nowhere to attach the message and throws immediately.
-    expect(fn () => WarrantRule::fromSyntax('they can view')->withDenialMessage('pointless'))
-        ->toThrow(InvalidArgumentException::class, 'requires a `they cannot ...` clause');
-});
-
-it('rejects withDenialMessage targeting an ability the rule does not deny', function () {
-    expect(fn () => WarrantRule::fromSyntax('they cannot update')->withDenialMessage('nope', ['view']))
-        ->toThrow(InvalidArgumentException::class, 'the rule does not deny it');
-});
-
 it('rejects an ability duplicated across a rule\'s cannot clauses', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantRule::fromSyntax("if is_teacher they cannot update because 'a' they cannot update because 'b'"),
+        WarrantSyntax::parse("if is_teacher they cannot update because 'a' they cannot update because 'b'")->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -1003,11 +955,11 @@ it('surfaces a rule message through the middleware', function () {
     Schema::create('course_sections', fn ($table) => $table->string('id'));
     DB::table('course_sections')->insert([['id' => 'teacher:teacher-role']]);
 
-    bindWarrantRuleSet(WarrantRuleSet::fromRules(
-        WarrantScopedModelSchema::class,
+    bindWarrantRuleSet(RuleSetNode::fromRules(
+        WarrantScopedModelSchema::schemaKey(),
         [
-            WarrantRule::build()->theyCan('view')->toRule(),
-            WarrantRule::build()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),
+            WarrantRuleNode::build()->theyCan('view')->toRule(),
+            WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),
         ],
     ));
 

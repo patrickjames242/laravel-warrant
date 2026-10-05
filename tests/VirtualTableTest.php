@@ -5,11 +5,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -176,17 +177,17 @@ function bindVtRules(array $syntaxByKey, array $bindings = []): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key, $bindings);
+        $sets[$key] = WarrantSyntax::parse($syntax, $bindings)->scopedTo($key);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver
     {
-        /** @param array<string, WarrantRuleSet> $sets */
+        /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new WarrantRuleSet($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
         }
     });
 
@@ -365,10 +366,9 @@ it('refuses a targeted check against rows it cannot name', function () {
 });
 
 it('refuses a row-bound reference to rows it cannot name', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if can(view for vt_keyless(@column id)) they can plan',
-        'vt_teams',
-    )->validate())->toThrow(InvalidArgumentException::class, 'has no way to name one');
+    )->scopedTo('vt_teams')))->toThrow(InvalidArgumentException::class, 'has no way to name one');
 });
 
 it('still filters and lists abilities for rows it cannot name', function () {

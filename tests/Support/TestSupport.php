@@ -11,15 +11,18 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Writing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -338,8 +341,8 @@ class WarrantImplicitRulesSchema extends WarrantTestSchema
     {
         return [
             // Always grant publish, and never allow archive, regardless of the resolver.
-            WarrantRule::fromSyntax('they can publish'),
-            WarrantRule::fromSyntax('they cannot archive'),
+            WarrantSyntax::parse('they can publish')->rule(),
+            WarrantSyntax::parse('they cannot archive')->rule(),
         ];
     }
 }
@@ -364,21 +367,20 @@ class WarrantImplicitRuleSetSchema extends WarrantTestSchema
 {
     public const model = WarrantImplicitRuleSetModel::class;
 
-    public function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
         // Same baseline as WarrantImplicitRulesSchema, but returned as a rule set.
-        return WarrantRuleSet::fromSyntax(
+        return WarrantSyntax::parse(
             "they can publish\nthey cannot archive",
-            self::schemaKey(),
-        );
+        )->scopedTo(self::schemaKey());
     }
 }
 
 class FakeWarrantRuleResolver implements RuleResolver
 {
-    public function __construct(private WarrantRuleSet $ruleSet) {}
+    public function __construct(private RuleSetNode $ruleSet) {}
 
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         return $this->ruleSet;
     }
@@ -404,14 +406,14 @@ function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKe
 {
     app()->instance(
         RuleResolver::class,
-        new FakeWarrantRuleResolver(WarrantRuleSet::fromSyntax($syntax, $schemaKey, $bindings))
+        new FakeWarrantRuleResolver(WarrantSyntax::parse($syntax, $bindings)->scopedTo($schemaKey))
     );
 }
 
 /**
  * Bind the resolver to an explicit rule set.
  */
-function bindWarrantRuleSet(WarrantRuleSet $ruleSet): void
+function bindWarrantRuleSet(RuleSetNode $ruleSet): void
 {
     app()->instance(RuleResolver::class, new FakeWarrantRuleResolver($ruleSet));
 }
@@ -611,6 +613,24 @@ class NonStaticWarrantSchemaModel extends Model
     {
         return WarrantTestSchema::class;
     }
+}
+
+/**
+ * Write one rule entry or rule set back to rule text, through the
+ * WarrantSyntax that would hold it on its own.
+ */
+function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
+{
+    return (new WarrantSyntax([$node]))->toSyntax();
+}
+
+/**
+ * Write one rule entry or rule set to `?`-parameterized rule text and its
+ * bindings, through the WarrantSyntax that would hold it on its own.
+ */
+function writeBoundSyntax(IRuleEntryNode|ISchemaScopedNode $node): BoundSyntax
+{
+    return (new WarrantSyntax([$node]))->toBoundSyntax();
 }
 
 /**

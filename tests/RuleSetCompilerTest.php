@@ -10,8 +10,8 @@ use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\RuleTemplateDefinition;
@@ -158,7 +158,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs', $bindings);
+    $ruleSet = WarrantSyntax::parse($syntax, $bindings)->scopedTo('docs');
 
     $query = DB::table('docs');
 
@@ -180,7 +180,7 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
 function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $matchMode, ?string $role = 'role-1'): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantRuleSet::fromSyntax($syntax, 'docs');
+    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('docs');
 
     $query = DB::table('docs');
 
@@ -294,7 +294,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     $user = new CompilerTestUser('role-1');
 
     // No target row in scope, so is_teacher cannot be evaluated at all.
-    $granted = WarrantRuleSet::fromSyntax('if is_teacher they can view', 'docs');
+    $granted = WarrantSyntax::parse('if is_teacher they can view')->scopedTo('docs');
     $q = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
@@ -304,7 +304,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     /* And `not is_teacher` selects nothing either: negating an unanswered
        question leaves it unanswered, and a `where` keeps a row only on a
        definite yes. */
-    $negated = WarrantRuleSet::fromSyntax('if not is_teacher they can view', 'docs');
+    $negated = WarrantSyntax::parse('if not is_teacher they can view')->scopedTo('docs');
     $q2 = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
@@ -446,21 +446,21 @@ it('accepts a rule referencing any context key without declaration', function ()
 
     // Context keys need no declaration; an absent one just makes its condition
     // false at compile time. Required-ness is enforced at check time, not here.
-    $validator->validate(WarrantRuleSet::fromSyntax('if id_is(@context nope) they can view', 'docs'));
+    $validator->validate(WarrantSyntax::parse('if id_is(@context nope) they can view')->scopedTo('docs'));
     expect(true)->toBeTrue();
 });
 
 it('validates unknown ability and condition names', function () {
     $validator = new RuleSetValidator(new FakeConditionResolver, 'docs');
 
-    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('they can fly', 'docs')))
+    expect(fn () => $validator->validate(WarrantSyntax::parse('they can fly')->scopedTo('docs')))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 
-    expect(fn () => $validator->validate(WarrantRuleSet::fromSyntax('if is_wizard they can view', 'docs')))
+    expect(fn () => $validator->validate(WarrantSyntax::parse('if is_wizard they can view')->scopedTo('docs')))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard]');
 
     // A valid set passes silently.
-    $validator->validate(WarrantRuleSet::fromSyntax('if is_teacher they can view, edit', 'docs'));
+    $validator->validate(WarrantSyntax::parse('if is_teacher they can view, edit')->scopedTo('docs'));
     expect(true)->toBeTrue();
 });
 
@@ -468,7 +468,7 @@ it('names the rule set, not the registry, when a schema-less can has nowhere to 
     /* A can(...) naming no schema crosses to nothing and looks nothing up, so the
        message points at the rule set rather than blaming the registry. */
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantRuleSet::fromSyntax('if can(edit) they can view', 'docs');
+    $ruleSet = WarrantSyntax::parse('if can(edit) they can view')->scopedTo('docs');
 
     expect(fn () => $compiler->compile(
         CompilationContext::ability(

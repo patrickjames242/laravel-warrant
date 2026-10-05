@@ -6,11 +6,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -56,12 +57,12 @@ beforeEach(function () {
  */
 function assertSelfRefSql(string $syntax, string $ability, string $expectedSql, array $context = []): void
 {
-    $set = WarrantRuleSet::fromSyntax($syntax, 'sr_docs');
+    $set = WarrantSyntax::parse($syntax)->scopedTo('sr_docs');
 
     app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
-        public function __construct(private WarrantRuleSet $set) {}
+        public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $this->set;
         }
@@ -302,15 +303,14 @@ it('suffixes an author alias that collides with the query being filtered', funct
 it('leaves an inlined can unanswerable when the frame it inlines into has no row', function () {
     /* `can(X)` inherits the frame it sits in, targeting included — so with no row
        the inlined rules are as unanswerable as they would be written inline. */
-    $set = WarrantRuleSet::fromSyntax(
+    $set = WarrantSyntax::parse(
         "if is_owner they can do_thing_1\nif can(do_thing_1) they can do_thing_2",
-        'sr_docs',
-    );
+    )->scopedTo('sr_docs');
 
     app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
-        public function __construct(private WarrantRuleSet $set) {}
+        public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $this->set;
         }

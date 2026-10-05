@@ -4,6 +4,7 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -94,7 +95,7 @@ class UnknownAnswerSchema extends WarrantSchema
     #[RowCondition]
     public function derivedFromUnanswerable(RowConditionContext $c)
     {
-        return Warrant::condition('unanswerable or is_owned');
+        return WarrantSyntax::parse('unanswerable or is_owned')->conditionExpression();
     }
 
     /** Constrains the query, then falls off the end — the forgotten return. */
