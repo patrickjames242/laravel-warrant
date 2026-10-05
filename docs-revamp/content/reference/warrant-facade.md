@@ -70,27 +70,37 @@ Warrant::impossibleAbilities($schema, ?Authenticatable $user = null): array;
 ## Authoring
 
 ```php
-Warrant::condition(?string $syntax = null, array $bindings = []): IBooleanExpressionNode|WarrantConditionBuilder;
-Warrant::rule(?string $syntax = null, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRule|WarrantRuleBuilder;
-Warrant::ruleSet(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRuleSet;
-Warrant::group(string $syntax, array $bindings = []): RuleSetGroup;
+Warrant::parse(string $syntax, array $bindings = []): WarrantSyntax;
+Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
+Warrant::validate(RuleSetNode|array ...$ruleSets): void;
+Warrant::condition(): WarrantConditionBuilder;
+Warrant::rule(): WarrantRuleBuilder;
 Warrant::ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate;
 ```
 
-Given syntax, each returns the finished construct. Given nothing, `condition()` and
-`rule()` return the builder that composes one. A rule set and a group are
-collections, so their syntax is required.
+One `parse()` reads every form of rule text and returns a
+[`WarrantSyntax`](/reference/warrant-rule-set/) tree; you ask the tree for the
+shape you expect. `parseFile()` does the same for a file, such as a `.warrant`
+file. `condition()` and `rule()` take no arguments and return the builder that
+composes one.
 
 ```php
-Warrant::condition('is_owner or is_admin');                  // IBooleanExpressionNode
-Warrant::condition()->if('is_owner')->orIf('is_admin');      // WarrantConditionBuilder
-Warrant::rule('for documents if is_mine they can view');     // WarrantRule
-Warrant::ruleSet('for documents { they can view }');         // WarrantRuleSet
-Warrant::group('for documents { … } for folders { … }');     // RuleSetGroup
+Warrant::parse('is_owner or is_admin')->conditionExpression();             // IBooleanExpressionNode
+Warrant::parse('if is_mine they can view')->rule();                        // WarrantRuleNode
+Warrant::parse('if is_mine they can view')->scopedTo('documents');         // RuleSetNode
+Warrant::parse('for documents { they can view }')->ruleSet();              // RuleSetNode
+Warrant::parse('for documents { … } for folders { … }')->forSchema('documents'); // ?RuleSetNode
+Warrant::condition()->if('is_owner')->orIf('is_admin');                    // WarrantConditionBuilder
+Warrant::rule()->if('is_mine')->theyCan('view');                           // WarrantRuleBuilder
 ```
 
-A `for <schema>` header is accepted on a condition expression and discarded, so a
-condition written as a string is as checkable as every other construct.
+`conditionExpression()` answers the expression under a `for <schema>` header as
+well as a bare one. The header names the schema whose conditions the expression
+uses, so a condition written as a string is as checkable as every other
+construct, and it changes nothing about the tree.
+
+`validate()` checks each rule set against the schema registered for its own key,
+and throws on the first unknown name.
 
 ## Flushing
 

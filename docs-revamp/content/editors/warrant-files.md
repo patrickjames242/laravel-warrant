@@ -7,8 +7,8 @@ sidebar:
   order: 6
 ---
 
-A `.warrant` file is a group of `for <schema> { ... }` blocks. The header and braces
-are mandatory on every block.
+A `.warrant` file is a run of `for <schema> { ... }` blocks. With more than one
+block, the header and braces are mandatory on every one.
 
 ```warrant
 # warrant/editor.warrant
@@ -41,34 +41,33 @@ Highlighted by extension in every editor that has the
 ## Reading one
 
 ```php
-use Warrant\Rules\RuleSetGroup;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\Facades\Warrant;
 
-$group = RuleSetGroup::fromFile(base_path('warrant/editor.warrant'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'));
 
-$group->forSchema('documents');   // the WarrantRuleSet, or null
-$group->schemaKeys();             // ['documents', 'folders', 'comments']
-count($group);                    // 3
+$file->forSchema('documents');   // the RuleSetNode, or null
+$file->schemaKeys();             // ['documents', 'folders', 'comments']
+$file->ruleSets();               // every block, in source order
 
-foreach ($group as $ruleSet) {
-    $ruleSet->validate();
-}
+Warrant::validate($file->ruleSets());
 ```
 
 Bindings work the same as anywhere:
 
 ```php
-RuleSetGroup::fromFile(base_path('warrant/editor.warrant'), ['region' => 'west']);
+WarrantSyntax::parseFile(base_path('warrant/editor.warrant'), ['region' => 'west']);
 ```
 
 An unreadable path throws:
 
 ```text
-Cannot read Warrant rule file [/app/warrant/editor.warrant].
+Unable to read Warrant rule file [/app/warrant/editor.warrant].
 ```
 
-Blocks targeting the same schema are merged, rules concatenated in source order, so
-a group holds at most one set per key. You can group by subject rather than by
-schema if that reads better:
+`forSchema()` folds every block targeting the same schema into one set, entries
+concatenated in source order. You can group by subject rather than by schema if
+that reads better:
 
 ```warrant
 # Ownership
@@ -94,7 +93,7 @@ warrant/
 ```php
 class FileRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $sets = [];
 
@@ -105,7 +104,7 @@ class FileRuleResolver implements RuleResolver
                 continue;
             }
 
-            $set = $this->group($path)->forSchema($context->schemaKey);
+            $set = $this->parsed($path)->forSchema($context->schemaKey);
 
             if ($set !== null) {
                 $sets[] = $set;
@@ -113,15 +112,15 @@ class FileRuleResolver implements RuleResolver
         }
 
         return $sets === []
-            ? WarrantRuleSet::fromRules($context->schemaKey)
-            : WarrantRuleSet::merge(...$sets);
+            ? RuleSetNode::fromRules($context->schemaKey)
+            : RuleSetNode::merge(...$sets);
     }
 
-    private function group(string $path): RuleSetGroup
+    private function parsed(string $path): WarrantSyntax
     {
         return Cache::rememberForever(
             'warrant.file.'.md5($path).'.'.filemtime($path),
-            fn () => RuleSetGroup::fromFile($path),
+            fn () => WarrantSyntax::parseFile($path),
         );
     }
 }
@@ -137,9 +136,7 @@ mistake fails the build.
 ```php
 it('every warrant file parses and validates', function () {
     foreach (glob(base_path('warrant/**/*.warrant')) as $path) {
-        foreach (RuleSetGroup::fromFile($path) as $set) {
-            $set->validate();
-        }
+        Warrant::validate(WarrantSyntax::parseFile($path)->ruleSets());
     }
 })->throwsNoExceptions();
 ```
@@ -159,20 +156,23 @@ A policy change then arrives as a diff a reviewer can read:
 ```php
 file_put_contents(
     base_path('warrant/roles/editor.warrant'),
-    $group->toSyntax(),
+    $file->toSyntax(),
 );
 ```
 
-`toSyntax()` renders the canonical form with inline literals, and throws on
+`WarrantSyntax::toSyntax()` renders the canonical form with inline literals, and throws on
 anything with no inline form, such as an array parameter or a closure denial
 message. `toBoundSyntax()` handles those, at the cost of a separate bindings array:
 
 ```php
-$bound = $group->toBoundSyntax();
+$bound = $file->toBoundSyntax();
 
 $bound->syntax;     // parameterized with ?
 $bound->bindings;   // one flat, left-to-right list across every block
 ```
+
+Rule sets from anywhere else, such as rows in a database, write out the same way
+once they are in a tree: `(new WarrantSyntax($ruleSets))->toSyntax()`.
 
 That round-trip is how you would migrate rules from a database into files, or dump
 a tenant's stored rules to review them.

@@ -98,7 +98,7 @@ rules, roles, or the resolver mid-test needs a flush. See
 If your resolver reads from storage, cache there, where you control invalidation:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     $text = Cache::remember(
         "warrant.rules.{$context->user->role_id}.{$context->schemaKey}",
@@ -106,7 +106,7 @@ public function resolve(RuleResolutionContext $context): WarrantRuleSet
         fn () => $this->fetchRuleText($context),
     );
 
-    return WarrantRuleSet::fromSyntax($text, $context->schemaKey);
+    return WarrantSyntax::parse($text)->scopedTo($context->schemaKey);
 }
 ```
 

@@ -67,7 +67,7 @@ public readonly ?Model $target;              // null for a no-row check
 public readonly string $schema;
 public readonly array $context;              // the effective check-time context
 public readonly WarrantGate $gate;
-public readonly WarrantRule $rule;           // the matching `cannot`
+public readonly WarrantRuleNode $rule;       // the matching `cannot`
 public readonly array $deniedAbilities;      // with `*` already resolved
 ```
 
@@ -90,8 +90,11 @@ missing subset.
 | a schema registered under two keys | `InvalidArgumentException` |
 | an unresolvable schema reference | `OutOfBoundsException` |
 | a rule that cannot be rendered inline | `LogicException` |
+| a parse accessor that does not match the source's shape | `LogicException` |
+| a `for` header that disagrees with `scopedTo()` | `InvalidArgumentException` |
+| an unreadable rule file | `InvalidArgumentException` |
 | a builder rule with no clause | `LogicException` |
-| no resolver configured, an unsupported driver, an unreadable file | `RuntimeException` |
+| no resolver configured, an unsupported driver | `RuntimeException` |
 | an authorization denial | `WarrantAuthorizationException` |
 | no user available, from the engine | `InvalidArgumentException` |
 | no user available, from a query scope | `LogicException` |
@@ -102,7 +105,7 @@ Validation, where both are worth surfacing to the author:
 
 ```php
 try {
-    WarrantRuleSet::fromSyntax($text, $schemaKey)->validate();
+    Warrant::validate(Warrant::parse($text)->scopedTo($schemaKey));
 } catch (WarrantSyntaxException $e) {
     // syntax: carries line, column, and the source
 } catch (InvalidArgumentException $e) {

@@ -41,10 +41,10 @@ may be used any number of times, anywhere in the string, and array order is
 irrelevant:
 
 ```php
-WarrantRuleSet::fromSyntax('
+WarrantSyntax::parse('
     if is_specific_user(:uid) they can view
     if delegated_to(:uid)     they can approve
-', 'documents', ['uid' => $currentUserId]);
+', ['uid' => $currentUserId])->scopedTo('documents');
 ```
 
 ## Positional bindings
@@ -52,11 +52,10 @@ WarrantRuleSet::fromSyntax('
 `?` placeholders filled left to right across the entire string:
 
 ```php
-WarrantRuleSet::fromSyntax(
+WarrantSyntax::parse(
     'if in_team(?, ?) they can view',
-    'documents',
     ['sales', 'eng'],
-);
+)->rule();
 ```
 
 ## The rules bindings obey
@@ -68,9 +67,9 @@ anything. Only inline literals are restricted to scalars. Your condition receive
 it verbatim:
 
 ```php
-WarrantRuleSet::fromSyntax('if in_teams(:teams) they can view', 'documents', [
+WarrantSyntax::parse('if in_teams(:teams) they can view', [
     'teams' => ['sales', 'eng', 'ops'],
-]);
+])->rule();
 ```
 
 ```php
@@ -143,9 +142,9 @@ The body may also come from a binding, which is how you keep long SQL out of the
 rule text:
 
 ```php
-WarrantRuleSet::fromSyntax('if matches(@sql :q) they can view', 'documents', [
+WarrantSyntax::parse('if matches(@sql :q) they can view', [
     'q' => 'select pay_period_id from settings limit 1',
-]);
+])->rule();
 ```
 
 Note the one difference from `@context` and `@column`: a binding used as an `@sql`

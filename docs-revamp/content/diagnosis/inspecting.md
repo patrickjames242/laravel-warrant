@@ -12,27 +12,36 @@ Four things are worth dumping, and between them they answer almost every questio
 ## 1. The rules in effect
 
 ```php
-Warrant::forSchema(Document::class, $user)->resolvedRuleSet()->toSyntax();
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
+
+(new WarrantSyntax([$set]))->toSyntax();
 ```
 
 ```warrant
-if is_suspended they cannot *
-if is_super_admin they can *
-if is_mine or in_my_team they can view, update
-if is_locked they cannot update because 'This document is locked.'
+for documents {
+    if is_suspended they cannot *
+
+    if is_super_admin they can *
+
+    if is_mine or in_my_team they can view, update
+
+    if is_locked they cannot update because 'This document is locked.'
+}
 ```
 
 That is what your resolver returned plus the schema's
 [implicit rules](/schemas/schema-policy/), merged and validated. Start here.
 
-The first two lines above are the ones people are surprised by, because they were
+The first two rules above are the ones people are surprised by, because they were
 never in the resolver.
 
 If `toSyntax()` throws, a rule holds a value with no inline form. Use the bound
 form:
 
 ```php
-$bound = $set->toBoundSyntax();
+$bound = (new WarrantSyntax([$set]))->toBoundSyntax();
 $bound->syntax;
 $bound->bindings;
 ```
@@ -107,7 +116,7 @@ class WarrantExplain extends Command
         $guard  = Warrant::forSchema($class, $user);
 
         $this->info('Rules in effect');
-        $this->line($guard->resolvedRuleSet()->toSyntax());
+        $this->line((new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax());
 
         $this->newLine();
         $this->info('Reachability');
@@ -140,7 +149,7 @@ The three constants to look for are `1 = 1`, `1 = 0`, and `null`. See
 
 ```php
 it('shows what is in effect', function () {
-    dump(Warrant::forSchema(Document::class, $this->user)->resolvedRuleSet()->toSyntax());
+    dump((new WarrantSyntax([Warrant::forSchema(Document::class, $this->user)->resolvedRuleSet()]))->toSyntax());
     dump(Warrant::possibleAbilities(Document::class, $this->user));
     dump(Document::query()->userHasAbility('view', $this->user)->toRawSql());
 });

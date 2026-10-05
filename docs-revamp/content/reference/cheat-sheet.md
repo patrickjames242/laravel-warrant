@@ -36,9 +36,9 @@ class DocumentSchema extends WarrantSchema
         return "if not is_approved they cannot because 'Needs approval.'";
     }
 
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
-        return [WarrantRule::fromSyntax('if is_suspended they cannot *')];
+        return Warrant::parse('if is_suspended they cannot *')->ruleEntries();
     }
 
     protected function defaultContext(): array
@@ -131,27 +131,27 @@ WarrantMiddleware::never('documents', 'approve');
 ## Rules as data
 
 ```php
-WarrantRuleSet::fromSyntax($text, 'documents', $bindings);
-WarrantRuleSet::fromRules('documents', $ruleA, $ruleB);
-WarrantRuleSet::build('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
-WarrantRuleSet::merge($a, $b, $c);
+Warrant::parse($text, $bindings)->scopedTo('documents');
+Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
+Warrant::parse('if is_mine they can view')->rule();
+Warrant::parse('is_owner or is_admin')->conditionExpression();
+RuleSetNode::fromRules('documents', $ruleA, $ruleB);
+RuleSetNode::build('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
+RuleSetNode::merge($a, $b, $c);
 $a->mergeWith($b);
-$set->validate();
-$set->toSyntax();
-$set->toBoundSyntax();
+Warrant::validate($set);
+(new WarrantSyntax([$set]))->toSyntax();
+(new WarrantSyntax([$set]))->toBoundSyntax();
 
-RuleSetGroup::fromSyntax($text);
-RuleSetGroup::fromFile(base_path('warrant/editor.warrant'));
-$group->forSchema('documents');
-
-Warrant::rule('for documents if is_mine they can view');
-Warrant::condition('is_owner or is_admin');
+$file = Warrant::parseFile(base_path('warrant/editor.warrant'));
+$file->forSchema('documents');
+$file->schemaKeys();
 ```
 
 ## Builder
 
 ```php
-WarrantRule::build()
+Warrant::rule()
     ->if('is_mine')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
     ->ifCan('view', 'folders', Ref::column('folder_id'))
@@ -170,7 +170,7 @@ new NoRow;
 ## Introspection
 
 ```php
-Warrant::forSchema(Document::class, $user)->resolvedRuleSet()->toSyntax();
+(new WarrantSyntax([Warrant::forSchema(Document::class, $user)->resolvedRuleSet()]))->toSyntax();
 Warrant::registry()->registeredSchemas();
 Warrant::registry()->resolveSchemaKeyOrFail(Document::class);
 

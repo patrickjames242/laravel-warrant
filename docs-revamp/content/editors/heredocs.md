@@ -13,12 +13,12 @@ label is the whole mechanism: the injection grammar matches on it.
 ```php
 use Warrant\Facades\Warrant;
 
-$rules = Warrant::ruleSet(<<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine or in_my_team they can view, update
         if is_locked they cannot update because 'This document is locked.'
     }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 Automatic in VS Code and Zed. PhpStorm needs a
@@ -43,17 +43,17 @@ literal early, and what follows is parsed as rule syntax:
 $team = "sales' they can *; if x";
 
 // Now the rule text says something you did not write.
-Warrant::ruleSet(<<<WARRANT
+Warrant::parse(<<<WARRANT
     for documents { if in_team('{$team}') they can view }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 **Bindings exist for this**, and they accept any PHP value rather than only strings:
 
 ```php
-Warrant::ruleSet(<<<'WARRANT'
+Warrant::parse(<<<'WARRANT'
     for documents { if in_team(:team) they can view }
-WARRANT, bindings: ['team' => $team]);
+WARRANT, bindings: ['team' => $team])->ruleSet();
 ```
 
 See [passing values to conditions](/rules/values/).
@@ -66,13 +66,13 @@ heredoc indents with the surrounding code:
 ```php
 class DocumentRules
 {
-    public function forEditor(): WarrantRuleSet
+    public function forEditor(): RuleSetNode
     {
-        return Warrant::ruleSet(<<<'WARRANT'
+        return Warrant::parse(<<<'WARRANT'
             for documents {
                 if is_mine they can view, update
             }
-            WARRANT);
+            WARRANT)->ruleSet();
     }
 }
 ```
@@ -83,17 +83,17 @@ Whitespace is insignificant in the language anyway, so this is purely cosmetic.
 
 ```php
 // Better: the header travels with the string.
-Warrant::ruleSet(<<<'WARRANT'
+Warrant::parse(<<<'WARRANT'
     for documents { if is_mine they can view }
-WARRANT);
+WARRANT)->ruleSet();
 
 // Works, but the string is unverifiable from the outside.
-WarrantRuleSet::fromSyntax('if is_mine they can view', 'documents');
+Warrant::parse('if is_mine they can view')->scopedTo('documents');
 ```
 
 Anything reading your source, including a future language server, can check the
-first against a schema and cannot check the second. A header and a `$schema`
-argument that disagree are an error, so there is no ambiguity in having both.
+first against a schema and cannot check the second. A header that disagrees with
+`scopedTo()` is an error, so there is no ambiguity in having both.
 
 ## Where a heredoc is the right home
 
@@ -102,12 +102,12 @@ implicit rule on a schema, the rules for a role that is part of the product rath
 than configuration.
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
-    return WarrantRuleSet::fromSyntax(<<<'WARRANT'
+    return Warrant::parse(<<<'WARRANT'
         if is_suspended they cannot * because 'Your account is suspended.'
         if is_super_admin they can *
-    WARRANT, static::schemaKey());
+    WARRANT)->ruleEntries();
 }
 ```
 

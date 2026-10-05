@@ -14,7 +14,7 @@ expression, so predicates compose without templates:
 #[RowCondition]
 public function needsApproval(RowConditionContext $c)
 {
-    return Warrant::condition('is_submitted and not is_approved');
+    return Warrant::parse('is_submitted and not is_approved')->conditionExpression();
 }
 ```
 
@@ -172,8 +172,8 @@ reports the chain.
 | Compiling a check or filtering a query | expands; a template's rules decide access like any other |
 | [Reachability](/concepts/reachability/) | expands; an ability granted only by a template is still reachable |
 | [Denial messages](/rules/denial-messages/) | expands; a template's `because` surfaces like any other |
-| `validate()` | checks the name, the arity, and the abilities named, and does not read the body |
-| `toSyntax()` | renders the `@include` rather than what it expands to |
+| `Warrant::validate()` | checks the name, the arity, and the abilities named, and does not read the body |
+| `WarrantSyntax::toSyntax()` | writes the `@include` back as written, not what it expands to |
 
 Validation stops at the body deliberately. Reading one means calling the method
 with concrete arguments, and an argument may be a `@context` reference whose value

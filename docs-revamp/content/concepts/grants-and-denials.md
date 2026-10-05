@@ -65,11 +65,9 @@ does not matter which source each rule came from. An implicit `cannot` declared 
 the schema beats any `can` a resolver returns:
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
-    return [
-        WarrantRule::fromSyntax('if is_suspended they cannot *'),
-    ];
+    return WarrantSyntax::parse('if is_suspended they cannot *')->ruleEntries();
 }
 ```
 

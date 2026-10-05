@@ -38,7 +38,7 @@ if scoped_to('projects', @context project_id, :region) they can view
 ```
 
 ```php
-WarrantRuleSet::fromSyntax($syntax, 'documents', ['region' => 'west']);
+WarrantSyntax::parse($syntax, ['region' => 'west'])->scopedTo('documents');
 ```
 
 That matters because bindings are strict. Every `:name` must have a value, every
@@ -79,7 +79,7 @@ reference:
 ```php
 use Warrant\Builders\Ref;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('scoped_to', ['projects', Ref::context('project_id'), $region])
     ->theyCan('view')
     ->toRule();

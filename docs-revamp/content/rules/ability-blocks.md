@@ -18,7 +18,7 @@ can they view {
 }
 ```
 
-That is exactly the same as writing each clause in full:
+That decides every check exactly as writing each clause in full does:
 
 ```warrant
 if is_public they can view
@@ -94,10 +94,12 @@ Outside a block, the include has to name them:
 @include requires_approval for view, edit
 ```
 
-:::note[Blocks do not survive parsing]
-A block is expanded into ordinary rules as it is read, so
-[`toSyntax()`](/reference/warrant-rule-set/) renders the longhand rather than
-reconstructing the block. Since [rule order never
-matters](/concepts/grants-and-denials/), nothing downstream can tell the two forms
-apart.
+:::note[Blocks in the parsed tree]
+A block stays in the parsed tree as an `AbilityBlockNode` holding its body exactly
+as written, with clauses and includes that name no abilities. The header is the
+only place the abilities live, so [`toSyntax()`](/reference/warrant-rule-set/)
+writes the block back as a block. A rule set's `rules()` and `flatEntries()` apply
+the header to each entry, and since [rule order never
+matters](/concepts/grants-and-denials/), every check decides the same way either
+form is written.
 :::

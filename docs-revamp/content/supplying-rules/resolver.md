@@ -14,23 +14,22 @@ where your access model meets Warrant, and it is the only one.
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $rules = DB::table('role_rules')
             ->where('role_id', $context->user->role_id)
             ->where('schema_key', $context->schemaKey)
             ->pluck('rule');
 
-        return WarrantRuleSet::fromSyntax(
-            $rules->implode("\n"),
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse($rules->implode("\n"))
+            ->scopedTo($context->schemaKey);
     }
 }
 ```
@@ -49,7 +48,7 @@ key at a time rather than being asked for everything.
 
 ## What you must return
 
-A `WarrantRuleSet` targeting the schema you were asked about. Returning one for a
+A `RuleSetNode` targeting the schema you were asked about. Returning one for a
 different schema is caught:
 
 ```text
@@ -93,12 +92,12 @@ so gluing them with newlines composes a policy.
 your repository where it can be reviewed:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     return match ($context->user->role) {
-        'admin'  => Warrant::ruleSet("for {$context->schemaKey} { they can * }"),
+        'admin'  => Warrant::parse("for {$context->schemaKey} { they can * }")->ruleSet(),
         'editor' => $this->editorRules($context),
-        default  => WarrantRuleSet::fromRules($context->schemaKey),
+        default  => RuleSetNode::fromRules($context->schemaKey),
     };
 }
 ```
@@ -107,12 +106,12 @@ public function resolve(RuleResolutionContext $context): WarrantRuleSet
 files](/supplying-rules/where-rules-live/) are for:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
-    $group = RuleSetGroup::fromFile(base_path("warrant/{$context->user->role}.warrant"));
+    $file = WarrantSyntax::parseFile(base_path("warrant/{$context->user->role}.warrant"));
 
-    return $group->forSchema($context->schemaKey)
-        ?? WarrantRuleSet::fromRules($context->schemaKey);
+    return $file->forSchema($context->schemaKey)
+        ?? RuleSetNode::fromRules($context->schemaKey);
 }
 ```
 
@@ -127,7 +126,7 @@ may safely treat null as "no rules":
 
 ```php
 if ($context->user === null) {
-    return WarrantRuleSet::fromRules($context->schemaKey);
+    return RuleSetNode::fromRules($context->schemaKey);
 }
 ```
 

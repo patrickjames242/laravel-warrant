@@ -93,7 +93,7 @@ other, name the condition instead:
 #[RowCondition]
 public function isContributor(RowConditionContext $c)
 {
-    return Warrant::condition('is_owner or is_editor');
+    return Warrant::parse('is_owner or is_editor')->conditionExpression();
 }
 ```
 

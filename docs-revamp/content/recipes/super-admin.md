@@ -34,10 +34,10 @@ A super admin grant that lives in the resolver is one refactor away from being
 dropped, and it is exactly the kind of thing your operations team depends on:
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
-        WarrantRule::fromSyntax('if is_super_admin they can *'),
+        WarrantSyntax::parse('if is_super_admin they can *')->rule(),
     ];
 }
 ```
@@ -53,9 +53,9 @@ abstract class AppSchema extends WarrantSchema
         return $c->user->is_super_admin;
     }
 
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
-        return [WarrantRule::fromSyntax('if is_super_admin they can *')];
+        return [WarrantSyntax::parse('if is_super_admin they can *')->rule()];
     }
 }
 ```
@@ -63,11 +63,11 @@ abstract class AppSchema extends WarrantSchema
 A subclass overriding `implicitRules()` should merge rather than replace:
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
         ...parent::implicitRules(),
-        WarrantRule::fromSyntax('if is_suspended they cannot *'),
+        WarrantSyntax::parse('if is_suspended they cannot *')->rule(),
     ];
 }
 ```

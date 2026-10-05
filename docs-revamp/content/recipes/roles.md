@@ -63,7 +63,7 @@ class DocumentSchema extends WarrantSchema
 ```php
 class RoleRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $texts = DB::table('role_rules')
             ->whereIn('role', $context->user->roles->pluck('name'))
@@ -71,10 +71,10 @@ class RoleRuleResolver implements RuleResolver
             ->pluck('rules');
 
         if ($texts->isEmpty()) {
-            return WarrantRuleSet::fromRules($context->schemaKey);
+            return RuleSetNode::fromRules($context->schemaKey);
         }
 
-        return WarrantRuleSet::fromSyntax($texts->implode("\n"), $context->schemaKey);
+        return WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```
@@ -103,15 +103,15 @@ class RoleRuleResolver implements RuleResolver
         'admin'    => ['documents' => 'they can *'],
     ];
 
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $texts = collect($context->user->roleNames())
             ->map(fn (string $role) => self::RULES[$role][$context->schemaKey] ?? null)
             ->filter();
 
         return $texts->isEmpty()
-            ? WarrantRuleSet::fromRules($context->schemaKey)
-            : WarrantRuleSet::fromSyntax($texts->implode("\n"), $context->schemaKey);
+            ? RuleSetNode::fromRules($context->schemaKey)
+            : WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```

@@ -15,8 +15,9 @@ namespace App\Warrant;
 
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\WarrantRule;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -64,7 +65,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isEditable(RowConditionContext $c)
     {
-        return Warrant::condition('is_mine and not is_locked');
+        return Warrant::parse('is_mine and not is_locked')->conditionExpression();
     }
 
     // 7. A reusable shape a rule may expand.
@@ -75,9 +76,9 @@ class DocumentSchema extends WarrantSchema
     }
 
     // 8. Rules merged into every resolved set, whatever the resolver returned.
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
-        return [WarrantRule::fromSyntax('if is_suspended they cannot *')];
+        return [WarrantSyntax::parse('if is_suspended they cannot *')->rule()];
     }
 
     // 9. Context values callers may omit.

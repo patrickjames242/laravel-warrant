@@ -54,11 +54,11 @@ for documents {
 **A heredoc labelled `WARRANT`**, inside PHP:
 
 ```php
-$rules = Warrant::ruleSet(<<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 That works automatically in VS Code and Zed. PhpStorm needs a Language Injection

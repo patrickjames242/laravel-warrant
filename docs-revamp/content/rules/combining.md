@@ -98,7 +98,7 @@ which is [a derived condition](/schemas/conditions-beyond-sql/):
 #[RowCondition]
 public function isEditable(RowConditionContext $c)
 {
-    return Warrant::condition('is_submitted and not is_approved and not is_locked');
+    return Warrant::parse('is_submitted and not is_approved and not is_locked')->conditionExpression();
 }
 ```
 

@@ -53,16 +53,18 @@ they can update               # conditional
 they cannot delete            # also attached to is_mine
 ```
 
-## Rule sets and groups
+## Rule sets
 
-A `WarrantRuleSet` is the rules for one schema. It carries the schema key, so a
-set built for `documents` cannot be compiled against `folders`:
+A `RuleSetNode` is the rules for one schema. It carries the schema key, so a set
+built for `documents` cannot be compiled against `folders`. Text with no `for`
+header is given its schema by the code that reads it:
 
 ```php
-WarrantRuleSet::fromSyntax('if is_mine they can view', 'documents');
+WarrantSyntax::parse('if is_mine they can view')->scopedTo('documents');
 ```
 
-A `RuleSetGroup` is several of those authored together, one block per schema:
+One source may hold several rule sets authored together, one braced block per
+schema:
 
 ```warrant
 for documents {
@@ -75,13 +77,13 @@ for folders {
 ```
 
 ```php
-$group = Warrant::group($syntax);
-$group->forSchema('documents');   // the WarrantRuleSet
-$group->schemaKeys();             // ['documents', 'folders']
+$syntax = Warrant::parse($text);
+$syntax->forSchema('documents');   // the RuleSetNode for documents
+$syntax->schemaKeys();             // ['documents', 'folders']
 ```
 
-Groups are what a [`.warrant` file](/editors/warrant-files/) holds, and what
-`RuleSetGroup::fromFile()` reads.
+That is what a [`.warrant` file](/editors/warrant-files/) holds, and what
+`Warrant::parseFile()` reads.
 
 ## Who supplies them
 

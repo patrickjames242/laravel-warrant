@@ -47,7 +47,7 @@ public function abilities(Model|string|int|null $target = null, array $context =
 public function schema(): WarrantSchema;
 public function user(): Authenticatable;
 public function query(): Builder;
-public function resolvedRuleSet(): WarrantRuleSet;
+public function resolvedRuleSet(): RuleSetNode;
 ```
 
 ```php

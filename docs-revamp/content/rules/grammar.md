@@ -12,6 +12,18 @@ A page to search rather than read. Concepts are on the pages this one summarizes
 ## The grammar
 
 ```text
+syntax        = scoped | entries | expr | (* empty *) ;
+
+scoped        = header body
+              | ( header "{" body "}" )+ ;
+                (* the bare form runs to the end of the input, so a second
+                   rule set needs braces, and so does the first *)
+header        = "for" IDENTIFIER ;
+body          = ruleset | expr ;
+                (* a rule set, or a condition for that schema *)
+entries       = ruleset ;
+                (* no header, at least one entry *)
+
 ruleset       = ( clause+ | "if" expr clause+ | ability_block | include )* ;
 
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
@@ -49,14 +61,44 @@ COLUMN_REF    = "@column" IDENTIFIER [ "." IDENTIFIER ] ;
 SQL_REF       = "@sql" ( STRING | NAMED_BINDING | POSITIONAL ) ;
 ```
 
-A rule set may also be wrapped in a schema header, which is what a
-[`.warrant` file](/editors/warrant-files/) holds:
+Rule text may open with a `for <schema>` header naming the schema its conditions
+and abilities belong to, which is what a [`.warrant` file](/editors/warrant-files/)
+holds:
 
 ```warrant
 for documents {
     if is_mine they can view
 }
 ```
+
+One source may hold rule sets for several schemas, each braced:
+
+```warrant
+for documents { if is_mine they can view }
+for folders   { if is_mine they can view, rename }
+```
+
+A header may also stand over a single condition, `for documents is_mine or
+is_public`, which scopes its names without changing the expression. Braces need a
+header in front of them, and rules with no header cannot be followed by a `for`
+block. A condition cannot sit beside rules in the same source.
+
+Every form goes through the one `WarrantSyntax::parse()`, and the result says which
+form it held:
+
+| The text holds | Ask with | Read with |
+|---|---|---|
+| nothing, or only comments | `isEmpty()` | |
+| a condition, `a or b` | `isExpression()` | `conditionExpression()` |
+| one rule, `if a they can view` | `isSingleRule()` | `rule()` |
+| rules, ability blocks and includes with no header | `isRuleEntries()` | `ruleEntries()`, or `scopedTo('documents')` |
+| one `for documents` rule set, braced or not | `isSingleRuleSet()` | `ruleSet()` |
+| several braced rule sets | `isRuleSets()` | `ruleSets()`, `forSchema('documents')`, `schemaKeys()` |
+| `for documents a or b` | `isSchemaCondition()` | `conditionExpression()` |
+| braced rule sets and conditions together | `isSchemaScoped()` | `scoped()` |
+
+Asking for the wrong shape throws a `LogicException` naming what the text held,
+such as `Expected a single rule, but the source holds a rule set for [documents].`
 
 ## Keywords
 

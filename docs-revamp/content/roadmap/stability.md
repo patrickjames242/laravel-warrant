@@ -21,7 +21,9 @@ The things this documentation covers as API:
   `#[GlobalCondition]`, `#[RequiredContext]`, `#[RuleTemplate]`;
 - the condition context objects and their properties;
 - `HasWarrantSchema`, its scopes, and `warrantQualifyColumn()`;
-- `WarrantRuleSet`, `WarrantRule`, `RuleSetGroup`, the builders, and `Ref`;
+- `WarrantSyntax` and the syntax nodes a parse returns (`RuleSetNode`,
+  `WarrantRuleNode`, `AbilityBlockNode`, `IncludeInvocationNode`,
+  `SchemaConditionNode` and their clause nodes), the builders, and `Ref`;
 - `RuleResolver` and `RuleResolutionContext`;
 - `WarrantMiddleware` and the registered aliases;
 - the exception classes and the denial-context objects;
@@ -31,7 +33,7 @@ The things this documentation covers as API:
 ## What is internal
 
 Anything under `Warrant\DSL\` other than what is named above, particularly the
-parser internals, the AST node classes, and the compiler. `CompilationResult` and
+parser internals, the lexer, and the compiler. `CompilationResult` and
 `Decision` are documented because tooling needs them, and they are the most likely
 of the documented surface to move.
 
@@ -50,7 +52,7 @@ Keep a [CI test](/supplying-rules/validation/) validating every stored rule. A
 language change that breaks one then fails your build rather than a request.
 
 Keep [`toSyntax()`](/reference/warrant-rule-set/) in mind as a migration tool. A
-rule set round-trips through the language, so a mechanical rewrite of stored rules
+parse round-trips through the language, so a mechanical rewrite of stored rules
 is a script rather than a project.
 
 ## During beta

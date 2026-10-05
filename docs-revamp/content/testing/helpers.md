@@ -15,34 +15,42 @@ pays for itself is three helpers of your own.
 ```php
 // tests/Support/Warrant.php
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\RuleSetGroup;
-use Warrant\Rules\WarrantRuleSet;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
-    bindGroup("for {$schemaKey} { {$syntax} }");
+    bindSyntax(new WarrantSyntax([WarrantSyntax::parse($syntax)->scopedTo($schemaKey)]));
 }
 
 function bindGroup(string $syntax): void
 {
-    $group = RuleSetGroup::fromSyntax($syntax);
+    bindSyntax(WarrantSyntax::parse($syntax));
+}
 
-    app()->instance(RuleResolver::class, new class($group) implements RuleResolver {
-        public function __construct(private RuleSetGroup $group) {}
+function bindSyntax(WarrantSyntax $syntax): void
+{
+    app()->instance(RuleResolver::class, new class($syntax) implements RuleResolver {
+        public function __construct(private WarrantSyntax $syntax) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
-            return $this->group->forSchema($context->schemaKey)
-                ?? WarrantRuleSet::fromRules($context->schemaKey);
+            return $this->syntax->forSchema($context->schemaKey)
+                ?? new RuleSetNode($context->schemaKey);
         }
     });
 
     Warrant::flush();
 }
 ```
+
+`bindRules` takes rule text with no `for` header and gives it the schema with
+`scopedTo`. Text that already names `documents` in a header is accepted too, and
+text naming any other schema throws, so a test cannot silently bind rules to the
+wrong schema.
 
 `bindGroup` covers several schemas at once, which cross-schema tests need:
 
@@ -109,7 +117,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            WarrantRuleSet::fromSyntax($row->rules, $row->schema_key)->validate();
+            Warrant::validate(WarrantSyntax::parse($row->rules)->scopedTo($row->schema_key));
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -124,19 +132,16 @@ For rules in `.warrant` files, walk the directory:
 ```php
 it('every warrant file parses and validates', function () {
     foreach (glob(base_path('warrant/*.warrant')) as $path) {
-        $group = RuleSetGroup::fromFile($path);
-
-        foreach ($group as $set) {
-            $set->validate();
-        }
+        Warrant::validate(WarrantSyntax::parseFile($path)->ruleSets());
     }
 })->throwsNoExceptions();
 ```
 
-`WarrantRuleSet::validateAll()` does a batch in one call:
+`Warrant::validate()` takes one rule set, several, or arrays of them, and checks
+each against the schema its own key names:
 
 ```php
-WarrantRuleSet::validateAll($setA, $setB, [$setC, $setD]);
+Warrant::validate($setA, $setB, [$setC, $setD]);
 ```
 
 Note what validation does not cover: a rule template's body, a derived condition's
@@ -152,7 +157,7 @@ Useful when a permission change is meant to be a no-op:
 it('has not changed the editor policy', function () {
     $set = Warrant::forSchema(Document::class, $editor)->resolvedRuleSet();
 
-    expect($set->toSyntax())->toMatchSnapshot();
+    expect((new WarrantSyntax([$set]))->toSyntax())->toMatchSnapshot();
 });
 ```
 

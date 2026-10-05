@@ -12,8 +12,8 @@ that never existed, a typo in a stored string. Validation catches those without 
 user, a row, or a query.
 
 ```php
-WarrantRuleSet::fromSyntax($storedRule, 'documents')->validate();
-WarrantRuleSet::validateAll($setA, $setB, [$setC, $setD]);
+Warrant::validate(Warrant::parse($storedRule)->scopedTo('documents'));
+Warrant::validate($setA, $setB, [$setC, $setD]);
 ```
 
 It throws on the first unknown ability or condition:
@@ -24,7 +24,9 @@ Condition [is_mne] is not declared by the schema.
 Condition [in_team] requires at least 1 argument(s), but the rule supplied 0.
 ```
 
-It also rejects a rule carrying a denial message with no `cannot` clause.
+Each set is checked against the schema registered for its own key. A denial
+message after `they can` never gets this far: `because` may only follow
+`they cannot`, so the parser rejects it.
 
 ## Two places to run it
 
@@ -37,7 +39,7 @@ public function store(Request $request)
     $ruleText = $request->string('rules');
 
     try {
-        WarrantRuleSet::fromSyntax($ruleText, $request->string('schema_key'))->validate();
+        Warrant::validate(Warrant::parse($ruleText)->scopedTo($request->string('schema_key')));
     } catch (WarrantSyntaxException | InvalidArgumentException $e) {
         return back()->withErrors(['rules' => $e->getMessage()]);
     }
@@ -55,7 +57,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            WarrantRuleSet::fromSyntax($row->rules, $row->schema_key)->validate();
+            Warrant::validate(Warrant::parse($row->rules)->scopedTo($row->schema_key));
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -70,7 +72,7 @@ That turns "a typo in a stored rule silently grants or denies" into a failing te
 ## What validation checks
 
 Syntax is checked earlier, at parse time, and throws eagerly with a caret. What
-`validate()` adds is names, against the registered schema:
+`Warrant::validate()` adds is names, against the registered schema:
 
 - every ability named by a `can` or `cannot` is declared;
 - every condition named is declared, with enough arguments;
@@ -126,5 +128,5 @@ compiler](/sql/validator-compiler-invariant/).
 
 A resolved rule set is validated once per request when the guard resolves it, not
 once per check. So a stored typo does surface on the first check that touches that
-schema, with the same message. Running `validate()` yourself is about hearing it
+schema, with the same message. Running `Warrant::validate()` yourself is about hearing it
 somewhere better than a production request.

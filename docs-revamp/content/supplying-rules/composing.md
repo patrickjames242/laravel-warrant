@@ -16,13 +16,13 @@ and because [rule order never matters](/concepts/grants-and-denials/), merging i
 safe in any order.
 
 ```php
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 
-$a->mergeWith($b);                 // one into another
-WarrantRuleSet::merge($a, $b, $c); // several, in argument order
+$a->mergeWith($b);              // one into another
+RuleSetNode::merge($a, $b, $c); // several, in argument order
 ```
 
-Both return a new set with the rules concatenated. The schema keys have to match:
+Both return a new set with the entries concatenated. The schema keys have to match:
 
 ```text
 Cannot merge rule sets for different schemas: [documents] and [folders].
@@ -35,13 +35,13 @@ class CompositeRuleResolver implements RuleResolver
 {
     public function __construct(private RoleRules $roles, private TeamRules $teams) {}
 
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $key = $context->schemaKey;
 
         $sets = [
             // 1. Baseline for everyone.
-            Warrant::ruleSet("for {$key} { they can view }"),
+            Warrant::parse("for {$key} { they can view }")->ruleSet(),
 
             // 2. Whatever the user's role grants.
             $this->roles->forRole($context->user->role, $key),
@@ -55,7 +55,7 @@ class CompositeRuleResolver implements RuleResolver
         // 4. Per-user overrides, including revocations.
         $sets[] = $this->overridesFor($context->user, $key);
 
-        return WarrantRuleSet::merge(...$sets);
+        return RuleSetNode::merge(...$sets);
     }
 }
 ```
@@ -73,7 +73,7 @@ safe.
 other source:
 
 ```php
-$sets[] = Warrant::ruleSet("for {$key} { if is_suspended they cannot * }");
+$sets[] = Warrant::parse("for {$key} { if is_suspended they cannot * }")->ruleSet();
 ```
 
 **A later source cannot carve an exception out of an earlier denial.** There is no
@@ -96,7 +96,7 @@ A role is a named rule set. Store one per role per schema:
 ```php
 class RoleRules
 {
-    public function forRole(string $role, string $schemaKey): WarrantRuleSet
+    public function forRole(string $role, string $schemaKey): RuleSetNode
     {
         $text = DB::table('role_rules')
             ->where('role', $role)
@@ -104,8 +104,8 @@ class RoleRules
             ->value('rules');
 
         return $text === null
-            ? WarrantRuleSet::fromRules($schemaKey)
-            : WarrantRuleSet::fromSyntax($text, $schemaKey);
+            ? RuleSetNode::fromRules($schemaKey)
+            : Warrant::parse($text)->scopedTo($schemaKey);
     }
 }
 ```
@@ -119,32 +119,32 @@ if is_locked they cannot update because 'This document is locked.'
 A user with several roles merges several sets. Nothing else changes.
 [Roles](/recipes/roles/) works this through as a complete recipe.
 
-## Merging groups
+## Merging files
 
-When each source is a `.warrant` file covering several schemas, merge at the group
-level and pull out the schema you were asked for:
+When each source is a `.warrant` file covering several schemas, parse each file,
+pull out the schema you were asked for, and merge what is left:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
-    $groups = array_map(
-        fn (string $role) => RuleSetGroup::fromFile(base_path("warrant/{$role}.warrant")),
+    $files = array_map(
+        fn (string $role) => Warrant::parseFile(base_path("warrant/{$role}.warrant")),
         $context->user->roleNames(),
     );
 
-    $sets = array_filter(array_map(
-        fn (RuleSetGroup $g) => $g->forSchema($context->schemaKey),
-        $groups,
-    ));
+    $sets = array_values(array_filter(array_map(
+        fn (WarrantSyntax $file) => $file->forSchema($context->schemaKey),
+        $files,
+    )));
 
     return $sets === []
-        ? WarrantRuleSet::fromRules($context->schemaKey)
-        : WarrantRuleSet::merge(...$sets);
+        ? RuleSetNode::fromRules($context->schemaKey)
+        : RuleSetNode::merge(...$sets);
 }
 ```
 
-`RuleSetGroup::fromRuleSets()` does the same merging when you already hold the
-sets: same-schema sets are merged in first-appearance order.
+Within one file, `forSchema()` already folds every block for that schema into one
+set, in source order.
 
 ## Mixing text and builders
 
@@ -153,9 +153,9 @@ both. Stored text for the parts an administrator edits, builders for the parts t
 depend on runtime values:
 
 ```php
-$stored = WarrantRuleSet::fromSyntax($textFromDatabase, $key);
+$stored = Warrant::parse($textFromDatabase)->scopedTo($key);
 
-$dynamic = WarrantRuleSet::build($key, function ($rule) use ($teamIds) {
+$dynamic = RuleSetNode::build($key, function ($rule) use ($teamIds) {
     $rule()->if(fn ($c) => array_map(fn ($id) => $c->orIf('in_team', [$id]), $teamIds))
         ->theyCan('view');
 });

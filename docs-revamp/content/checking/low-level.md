@@ -108,31 +108,40 @@ Memoized per guard, validated once. This is the entry point for debugging and fo
 anything that wants to introspect policy rather than evaluate it:
 
 ```php
-$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
+$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();   // a RuleSetNode
 
 $set->schemaKey;
-$set->rules;         // WarrantRule[]
-$set->toSyntax();    // render it back to the language
+$set->entries;       // rules, ability blocks and @includes, as written
+$set->rules();       // WarrantRuleNode[], with each block's header applied
+$set->includes();    // the @includes, with each block's header applied
 ```
 
 ```php
-foreach ($set->rules as $rule) {
-    $rule->canAbilities;
+foreach ($set->rules() as $rule) {
+    $rule->canAbilities();
     $rule->cannotAbilities();
     $rule->conditions;            // null for an unconditional rule
     $rule->messageFor('update');
 }
 ```
 
-## Rendering a rule back to text
+## Rendering it back to text
+
+Writing back to the language goes through a `WarrantSyntax`, the root a parse
+returns. Wrap the node you hold in one:
 
 ```php
-$rule->toSyntax();        // inline literals
-$rule->toBoundSyntax();   // parameterized, plus a positional bindings array
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+$syntax = new WarrantSyntax([$set]);
+
+$syntax->toSyntax();        // inline literals
+$syntax->toBoundSyntax();   // parameterized: ->syntax, plus a positional ->bindings array
 ```
 
 `toSyntax()` throws on anything with no inline form, such as an array parameter or
-a closure denial message. `toBoundSyntax()` always works.
+a closure denial message. `toBoundSyntax()` always works. Ability blocks and
+`@include`s are written back as they were written.
 
 ## What to build on this
 

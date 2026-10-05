@@ -45,7 +45,9 @@ they cannot delete because 'Locked documents cannot be deleted.'
 ## With the builder
 
 ```php
-WarrantRule::build()
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+
+WarrantRuleNode::build()
     ->if('is_locked')
     ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
     ->theyCannotBecause('delete', 'Locked documents cannot be deleted.')
@@ -58,22 +60,6 @@ Abilities passed together share one message:
 ->theyCannotBecause(['update', 'delete'], 'This document is locked.')
 ```
 
-## On a rule you already have
-
-`withDenialMessage` works whatever the rule's origin, which matters for rules
-parsed from stored text. It applies to every denied ability, or to a named subset:
-
-```php
-WarrantRule::fromSyntax('if is_locked they cannot update, delete')
-    ->withDenialMessage('This document is locked.');
-
-WarrantRule::fromSyntax('if is_locked they cannot update, delete')
-    ->withDenialMessage('Deletes are permanent.', ['delete']);
-```
-
-`WarrantRule` is immutable, so it returns a copy. Messaging an ability the rule
-does not deny, or any rule with no `cannot`, throws.
-
 ## A message that knows the row
 
 Pass a closure and it receives a `WarrantDenialContext`, returning either a string
@@ -82,10 +68,10 @@ or a `Throwable` to throw as-is:
 ```php
 use Warrant\Schema\WarrantDenialContext;
 
-->withDenialMessage(fn (WarrantDenialContext $c) =>
+->theyCannotBecause('update', fn (WarrantDenialContext $c) =>
     "You cannot edit {$c->target->title} while it is locked.")
 
-->withDenialMessage(fn (WarrantDenialContext $c) =>
+->theyCannotBecause('update', fn (WarrantDenialContext $c) =>
     new DocumentLockedException($c->target))
 ```
 
@@ -96,9 +82,11 @@ A closure can reach the language too, through a binding, since `because` itself
 takes only a literal:
 
 ```php
-WarrantRule::fromSyntax('if is_locked they cannot update because :msg', bindings: [
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+WarrantSyntax::parse('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
-]);
+])->rule();
 ```
 
 The context carries everything about the refusal:
@@ -110,7 +98,7 @@ The context carries everything about the refusal:
 | `$c->schema` | `string` | the schema class |
 | `$c->context` | `array` | the effective check-time context |
 | `$c->gate` | `WarrantGate` | what was asked: `abilities` and `matchMode` |
-| `$c->rule` | `WarrantRule` | the responsible `cannot` |
+| `$c->rule` | `WarrantRuleNode` | the responsible `cannot` |
 | `$c->deniedAbilities` | `array` | the concrete abilities this message explains, with `*` resolved |
 
 `deniedAbilities` has the wildcard expanded, so a per-clause message sees only the
@@ -183,6 +171,6 @@ model-bound route already carries the responsible rule's message.
 
 ## Round-tripping
 
-`toSyntax()` re-renders a string message as `because '...'` and throws on a
-closure, which has no inline form. `toBoundSyntax()` carries either losslessly, as
-a `?` binding.
+`WarrantSyntax::toSyntax()` re-renders a string message as `because '...'` and
+throws on a closure, which has no inline form. `toBoundSyntax()` carries either
+losslessly, as a `?` binding.

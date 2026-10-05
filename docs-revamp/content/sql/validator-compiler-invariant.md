@@ -24,7 +24,7 @@ The validator reads rule text. Plenty of rules never are rule text.
 A rule built with the [fluent builder](/rules/builder/) goes straight to an AST:
 
 ```php
-WarrantRule::build()
+WarrantRuleNode::build()
     ->ifCan('view', 'folders', Ref::column('parent_id'))
     ->theyCan('view')
     ->toRule();

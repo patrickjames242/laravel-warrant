@@ -46,14 +46,17 @@ they cannot delete because 'Locked documents cannot be deleted.'
 
 ## A message that knows the row
 
-Pass a closure instead of a string and it receives the denial context:
+Pass a closure instead of a string and it receives the denial context. In rule
+text, the closure arrives through a binding:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Schema\WarrantDenialContext;
 
-WarrantRule::fromSyntax('if is_locked they cannot update')
-    ->withDenialMessage(fn (WarrantDenialContext $c) =>
-        "You cannot edit {$c->target->title} while it is locked.");
+WarrantSyntax::parse('if is_locked they cannot update because :msg', [
+    'msg' => fn (WarrantDenialContext $c) =>
+        "You cannot edit {$c->target->title} while it is locked.",
+])->rule();
 ```
 
 ## When nothing granted it

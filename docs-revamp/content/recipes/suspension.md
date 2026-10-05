@@ -24,12 +24,12 @@ public function isSuspended(GlobalConditionContext $c): bool
 ```
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
-        WarrantRule::fromSyntax(
+        WarrantSyntax::parse(
             "if is_suspended they cannot * because 'Your account is suspended.'"
-        ),
+        )->rule(),
     ];
 }
 ```
@@ -54,9 +54,9 @@ abstract class AppSchema extends WarrantSchema
         return $c->user->suspended_at !== null;
     }
 
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
-        return [WarrantRule::fromSyntax("if is_suspended they cannot * because 'Your account is suspended.'")];
+        return [WarrantSyntax::parse("if is_suspended they cannot * because 'Your account is suspended.'")->rule()];
     }
 }
 ```
@@ -86,13 +86,13 @@ them and failing.
 The same shape, narrower:
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
-        WarrantRule::fromSyntax(
+        WarrantSyntax::parse(
             "if is_read_only they cannot update, delete, submit, approve
              because 'Your account is limited to read-only access.'"
-        ),
+        )->rule(),
     ];
 }
 ```

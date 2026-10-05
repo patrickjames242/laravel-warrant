@@ -16,18 +16,19 @@ Bind an anonymous one so the test controls which rules apply, independent of you
 production rule store:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
     app()->instance(RuleResolver::class, new class($syntax, $schemaKey) implements RuleResolver {
         public function __construct(private string $syntax, private string $schemaKey) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
-            return WarrantRuleSet::fromSyntax($this->syntax, $context->schemaKey);
+            return WarrantSyntax::parse($this->syntax)->scopedTo($context->schemaKey);
         }
     });
 

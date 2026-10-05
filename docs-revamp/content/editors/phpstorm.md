@@ -69,8 +69,8 @@ Keep the schema in the string's own header, so anything reading your source know
 which vocabulary applies:
 
 ```php
-Warrant::ruleSet('for documents { if is_mine they can view }');
+Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
 ```
 
-And run [`validate()`](/supplying-rules/validation/) in a test over stored rules, so
+And run [`Warrant::validate()`](/supplying-rules/validation/) in a test over stored rules, so
 a misspelled condition fails CI rather than a request.

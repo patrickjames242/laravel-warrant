@@ -22,7 +22,7 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 #[RowCondition]
 public function isEditable(RowConditionContext $c): IBooleanExpressionNode
 {
-    return Warrant::condition('is_mine and not is_locked');
+    return Warrant::parse('is_mine and not is_locked')->conditionExpression();
 }
 ```
 
@@ -41,13 +41,13 @@ rules. Name the combination once, and rules stay short:
 #[RowCondition]
 public function needsApproval(RowConditionContext $c)
 {
-    return Warrant::condition('is_submitted and not is_approved');
+    return Warrant::parse('is_submitted and not is_approved')->conditionExpression();
 }
 
 #[RowCondition]
 public function isVisibleInternally(RowConditionContext $c)
 {
-    return Warrant::condition('not is_draft or is_mine');
+    return Warrant::parse('not is_draft or is_mine')->conditionExpression();
 }
 ```
 

@@ -125,7 +125,7 @@ public function inheritedFrom(int $levels): string|WarrantRuleTemplate
 
     return Warrant::ruleTemplate(
         'if granted_directly they can
-         @include inherited_from(:next) for view',
+         @include inherited_from(:next)',
         ['next' => $levels - 1],
     );
 }

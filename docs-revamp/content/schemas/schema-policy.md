@@ -17,19 +17,19 @@ schema, before compilation. They are validated and combine exactly like resolver
 rules:
 
 ```php
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
-        WarrantRule::fromSyntax('if is_admin they can *'),
-        WarrantRule::fromSyntax('if is_suspended they cannot *'),
+        WarrantSyntax::parse('if is_admin they can *')->rule(),
+        WarrantSyntax::parse('if is_suspended they cannot *')->rule(),
     ];
 }
 ```
 
-Return a plain list, or a fully formed `WarrantRuleSet` for this schema, whichever
+Return a plain list of rule entries, or a fully formed `RuleSetNode` for this schema, whichever
 your baseline logic produces most naturally. A returned set must target this
 schema.
 

@@ -47,12 +47,10 @@ if is_manager and same_department
     language: 'php',
     source: `class RoleRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
-        return WarrantRuleSet::fromSyntax(
-            $context->user->role->rules,
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse($context->user->role->rules)
+            ->scopedTo($context->schemaKey);
     }
 }`,
   },

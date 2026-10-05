@@ -41,11 +41,11 @@ changes yet.
 **3. Write the rules and a resolver** covering just that schema:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     return match ($context->schemaKey) {
         'documents' => $this->documentRules($context),
-        default => WarrantRuleSet::fromRules($context->schemaKey),
+        default => RuleSetNode::fromRules($context->schemaKey),
     };
 }
 ```

@@ -29,11 +29,11 @@ Zed's registry; until it is listed there, install it as a dev extension pointing
 language a heredoc's closing label names, so no configuration is needed:
 
 ```php
-$rules = Warrant::ruleSet(<<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 ## SQL inside `@sql`

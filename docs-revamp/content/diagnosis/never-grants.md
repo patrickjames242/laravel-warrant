@@ -15,7 +15,9 @@ list. The causes are ordered by how often they turn out to be the answer.
 Before anything else:
 
 ```php
-Warrant::forSchema(Document::class, $user)->resolvedRuleSet()->toSyntax();
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+(new WarrantSyntax([Warrant::forSchema(Document::class, $user)->resolvedRuleSet()]))->toSyntax();
 ```
 
 That is the merged, validated set actually in play, including the schema's implicit

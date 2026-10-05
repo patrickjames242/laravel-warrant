@@ -141,7 +141,7 @@ Tenancy usually means the policy differs per tenant too, which is the resolver's
 job:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     $tenantId = app(Tenancy::class)->currentId();
 
@@ -152,8 +152,8 @@ public function resolve(RuleResolutionContext $context): WarrantRuleSet
         ->pluck('rules');
 
     return $texts->isEmpty()
-        ? WarrantRuleSet::fromRules($context->schemaKey)
-        : WarrantRuleSet::fromSyntax($texts->implode("\n"), $context->schemaKey);
+        ? RuleSetNode::fromRules($context->schemaKey)
+        : WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
 }
 ```
 

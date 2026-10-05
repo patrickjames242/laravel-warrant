@@ -37,7 +37,7 @@ class CachingRuleResolver implements RuleResolver
 {
     private array $cache = [];
 
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         return $this->cache[$context->user->id] ??= $this->build($context);
     }

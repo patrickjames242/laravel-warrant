@@ -36,12 +36,36 @@ Representative messages:
 - `Unexpected character %s.`
 - `Unterminated string literal.`
 - `Invalid escape sequence "\%s"; only \', \", and \\ are allowed.`
-- `Expected 'context' after '@'.`, `Expected a context key after '@context'.`
+- `Expected 'context', 'column', 'sql', or 'include' after '@'.`, `Expected a context key after '@context'.`
 - `Expected 'can' or 'cannot' after 'they'.`
 - `Expected at least one 'they can ...' or 'they cannot ...' clause.`
+- `'because' may only follow a 'they cannot ...' clause, not 'they can ...'.`
+- `A clause inside an ability block may not name abilities; the block header already names them.`
 - `Expected ')' to close the group.`, `Expected ')' to close the condition arguments.`
 - `Reserved word '%s' cannot be used as a name; expected %s.`
-- `Expected a rule.`, `Expected a single rule but found multiple.`
+
+### The shape of the source
+
+One parse reads every form, so these are about how the pieces sit together:
+
+- `` A `{ ... }` block needs a `for <schema>` header before it. ``
+- `` Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own. ``
+- `` Multiple rule sets in one source must each be braced, as `for <schema> { ... }`. ``
+- `Unexpected token; expected end of input.`, usually a condition expression with
+  rules after it.
+
+Asking a parse for a shape it does not hold is a `LogicException`, naming both:
+
+```text
+Expected a single rule, but the source holds a rule set for [documents].
+```
+
+`scopedTo()` given a schema the `for` header disagrees with is an
+`InvalidArgumentException`:
+
+```text
+The rule text targets schema [documents] in its `for` header but was scoped to [folders].
+```
 
 ### Bindings
 
@@ -60,14 +84,12 @@ Representative messages:
 Context keys need no declaration to be referenced, so there is no unknown-context-key
 error.
 
-Attaching a denial message to a rule with no `theyCannot` clause is rejected here
-too.
-
 Type guards:
 
-- `fromRules expects WarrantRule or WarrantRuleBuilder instances, got %s.`
-- `validateAll expects WarrantRuleSet instances, got %s.`
-- `fromRuleSets expects WarrantRuleSet instances, got %s.`
+- `fromRules expects WarrantRuleNode or WarrantRuleBuilder instances, got %s.`
+- `validate expects RuleSetNode instances, got %s.`
+- `A rule set holds rules, ability blocks and includes, got %s.`
+- `Every clause and @include outside an ability block names the abilities it applies to; the rule set for [%s] holds one that names none.`
 
 :::note[Two "unknown ability" messages]
 *is not declared by the schema* comes from validating a rule set. A different one
@@ -210,7 +232,8 @@ public readonly ?WarrantDenialContext $denial;
 
 ## Writing rules back out, `LogicException`
 
-From `toSyntax()` when a rule cannot be rendered inline. Use `toBoundSyntax()`:
+From `WarrantSyntax::toSyntax()` when a rule cannot be rendered inline. Use
+`toBoundSyntax()`:
 
 - `A constant boolean expression has no rule-language representation.`
 - `Condition parameter of type %s cannot be written inline; use toBoundSyntax().`
@@ -226,5 +249,7 @@ Also from the builder:
 
 - `No Warrant rule resolver configured. Set warrant.rule_resolver to a class implementing Warrant\Rules\RuleResolver.`
 - `Warrant ability selection does not support the [%s] database driver.`
-- `Cannot read Warrant rule file [%s].`
-- `Failed to read Warrant rule file [%s].`
+
+From `WarrantSyntax::parseFile()`, an `InvalidArgumentException`:
+
+- `Unable to read Warrant rule file [%s].`

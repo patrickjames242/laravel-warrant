@@ -33,7 +33,7 @@ The exception carries the source so you can log it:
 
 ```php
 try {
-    WarrantRuleSet::fromSyntax($text, 'documents');
+    WarrantSyntax::parse($text)->scopedTo('documents');
 } catch (WarrantSyntaxException $e) {
     logger()->error($e->getMessage(), [
         'source' => $e->source,
@@ -48,8 +48,12 @@ The ones you will actually hit:
 **`Unterminated string literal.`** Usually a quote inside a message. Switch the
 delimiter rather than escaping: `"can't"` instead of `'can\'t'`.
 
-**`Expected 'can' or 'cannot' after 'they'.`** A typo, or an ability block clause
-that named its own abilities.
+**`Expected 'can' or 'cannot' after 'they'.`** A typo.
+
+**`A clause inside an ability block may not name abilities; the block header already names them.`**
+A clause in a `can they … { }` block that spelled out its own abilities. Inside a
+block, write `they can` and `they cannot` bare; the header is where the abilities
+go.
 
 **`Expected at least one 'they can ...' or 'they cannot ...' clause.`** An `if` with
 nothing attached.
@@ -132,7 +136,7 @@ Find it by validating each one:
 ```php
 foreach (RoleRule::all() as $row) {
     try {
-        WarrantRuleSet::fromSyntax($row->rules, $row->schema_key)->validate();
+        Warrant::validate(WarrantSyntax::parse($row->rules)->scopedTo($row->schema_key));
     } catch (Throwable $e) {
         $this->warn("{$row->id} ({$row->role}/{$row->schema_key}): {$e->getMessage()}");
     }

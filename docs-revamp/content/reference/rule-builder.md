@@ -7,7 +7,7 @@ sidebar:
   order: 7
 ---
 
-Returned by `WarrantRule::build()` or `Warrant::rule()`. Conceptual coverage is in
+Returned by `WarrantRuleNode::build()` or `Warrant::rule()`. Conceptual coverage is in
 [the PHP builder](/rules/builder/).
 
 ## Condition methods, from `WarrantConditionBuilder`
@@ -53,13 +53,15 @@ There are **no negated variants**. Negate with a group:
 ->theyCan(string ...$abilities): static
 ->theyCannot(string ...$abilities): static
 ->theyCannotBecause(string|list<string> $abilities, string|Closure $message): static
-->toRule(): WarrantRule
+->toRule(): WarrantRuleNode
 ```
 
 `theyCannotBecause()` adds one clause per call, so separate calls give separate
 abilities separate messages while abilities passed together share one.
 
-`toRule()` throws a `LogicException` if neither clause method was called.
+`toRule()` throws a `LogicException` if neither clause method was called. A
+builder handed to `RuleSetNode::fromRules()` needs no `toRule()`; the rule set
+finishes it.
 
 ## `NoRow` and `Ref`
 
@@ -84,7 +86,7 @@ parameter, a row selector, or a `with` map value.
 - An empty group folds to `false`: nothing in an `or`, a veto in an `and`.
 - Condition parameters may be any PHP value. Nothing is stringified.
 - Omitting `$key` gives an unbound handle. An explicit `key: null` stays row-bound
-  and is rejected by `validate()`, so a missing id fails loudly instead of widening
+  and is rejected by `Warrant::validate()`, so a missing id fails loudly instead of widening
   the question. For a dynamic fallback, write `key: $id ?? new NoRow`.
 - A multi-part key takes a list, bound positionally to
   [`matchKey()`](/reference/warrant-schema/#matchkey).
@@ -92,15 +94,15 @@ parameter, a row selector, or a `with` map value.
   may not contain a constant and so cannot fall back to `false`.
 - `$schema` is normalized through the registry, so a model or schema class-string
   resolving to nothing throws `OutOfBoundsException` at build time. A plain
-  unregistered *key* string passes through and is caught by `validate()`.
+  unregistered *key* string passes through and is caught by `Warrant::validate()`.
 
 ## Examples
 
 ```php
 use Warrant\Builders\Ref;
-use Warrant\Rules\WarrantRule;
+use Warrant\Facades\Warrant;
 
-WarrantRule::build()
+Warrant::rule()
     ->if('is_author')
     ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
     ->andIfCheck(
@@ -113,7 +115,7 @@ WarrantRule::build()
 ```
 
 ```php
-WarrantRuleSet::build('documents', function ($rule) {
+RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_mine')->theyCan('view', 'update');
     $rule()->if('is_locked')->theyCannotBecause('update', 'This document is locked.');
 });

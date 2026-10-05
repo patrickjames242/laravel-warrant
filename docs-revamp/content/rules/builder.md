@@ -12,9 +12,9 @@ usually clearer when the rule's shape depends on runtime data: a list of team id
 a feature flag, values that have no business being serialized into a string.
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-$rule = WarrantRule::build()
+$rule = WarrantRuleNode::build()
     ->if('is_mine')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
     ->theyCan('view', 'update')
@@ -35,19 +35,19 @@ validation and compilation. Nothing is serialized, so arbitrary PHP values in
 condition parameters survive untouched.
 
 :::tip[One front door]
-Every construct is reachable from the facade, which returns the finished thing
-given syntax and the builder given nothing:
+Every construct is reachable from the facade. `parse` reads rule text of any form
+and the result says which form it held; `condition` and `rule` hand you a builder:
 
 ```php
-Warrant::condition()                      // WarrantConditionBuilder
-Warrant::condition('is_owner or is_admin')
-Warrant::rule()                           // WarrantRuleBuilder
-Warrant::rule('for documents if is_mine they can view')
-Warrant::ruleSet('for documents { they can view }')
-Warrant::group('for documents { … } for folders { … }')
+Warrant::condition()                                      // WarrantConditionBuilder
+Warrant::rule()                                           // WarrantRuleBuilder
+Warrant::parse('is_owner or is_admin')->conditionExpression()
+Warrant::parse('if is_mine they can view')->rule()
+Warrant::parse('for documents { they can view }')->ruleSet()
+Warrant::parse('for documents { … } for folders { … }')->forSchema('folders')
 ```
 
-`Warrant::rule()` and `WarrantRule::build()` are the same call.
+`Warrant::rule()` and `WarrantRuleNode::build()` are the same call.
 :::
 
 ## Connectives
@@ -80,7 +80,7 @@ Precedence is identical to the language, `not` then `and` then `or`, so
 Folding a list:
 
 ```php
-$rule = WarrantRule::build()
+$rule = WarrantRuleNode::build()
     ->if('is_mine')
     ->orIf(function ($c) use ($teamIds) {
         foreach ($teamIds as $id) {
@@ -98,7 +98,7 @@ An empty group folds to `false`, so it contributes nothing to an `or` and vetoes
 Passing a value the language cannot express inline:
 
 ```php
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('within_polygon', [$geoJsonArray])
     ->theyCan('view')
     ->toRule();
@@ -120,7 +120,7 @@ is usually a runtime value:
 ```php
 use Warrant\Builders\Ref;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_author')
     ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
     ->andIfCheck(
@@ -197,11 +197,13 @@ a column ref against the registry and the query's grammar, a SQL ref verbatim.
 
 ## A whole rule set
 
-`WarrantRuleSet::build()` hands you a factory. Each `$rule()` call starts a fresh
+`RuleSetNode::build()` hands you a factory. Each `$rule()` call starts a fresh
 rule and adds it to the set, and you never call `toRule()` yourself:
 
 ```php
-$set = WarrantRuleSet::build('documents', function ($rule) {
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+
+$set = RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_mine')->theyCan('view', 'update');
 
     $rule()->if('is_locked')

@@ -95,15 +95,16 @@ Use the plural table-ish form, since that is what reads best in rules:
 `documents`, `pay_periods`, `shift_days`.
 
 Keep them stable. A rename means a data migration over every stored rule. If you
-have to, `RuleSetGroup::toSyntax()` gives you a round-trip to rewrite them with.
+have to, `WarrantSyntax::parse()` and `toSyntax()` give you a round-trip to rewrite
+them with.
 
 Use the same key in the rule text header as in config, and prefer putting the
 header in the string:
 
 ```php
-Warrant::ruleSet('for documents { if is_mine they can view }');
+Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
 ```
 
 A header travels with the string, so editor tooling reading your source knows which
-schema to check the names against. Passing the schema as a PHP argument instead
-leaves the string unchecked. It is still valid, just unverifiable from the outside.
+schema to check the names against. Leaving the header off and supplying the schema
+from PHP with `scopedTo('documents')` leaves the string unchecked. It is still valid, just unverifiable from the outside.

@@ -15,12 +15,12 @@ Four homes are common, and they suit different things.
 Label the heredoc `WARRANT` and editors highlight it:
 
 ```php
-$rules = Warrant::ruleSet(<<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine or in_my_team they can view, update
         if is_locked they cannot update because 'This document is locked.'
     }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 Use the nowdoc form with quoted `'WARRANT'` unless you actually want PHP
@@ -46,7 +46,7 @@ Schema::create('role_rules', function (Blueprint $table) {
 ```
 
 ```php
-WarrantRuleSet::fromSyntax($row->rules, $row->schema_key);
+Warrant::parse($row->rules)->scopedTo($row->schema_key);
 ```
 
 Good for: policy that differs per tenant, or that an administrator edits through a
@@ -73,24 +73,24 @@ for folders {
 ```
 
 ```php
-use Warrant\Rules\RuleSetGroup;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$group = RuleSetGroup::fromFile(base_path('warrant/editor.warrant'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'));
 
-$group->forSchema('documents');   // the WarrantRuleSet for one schema
-$group->schemaKeys();             // ['documents', 'folders']
+$file->forSchema('documents');   // the RuleSetNode for one schema, or null
+$file->schemaKeys();             // ['documents', 'folders']
 ```
 
 Bindings work the same way:
 
 ```php
-RuleSetGroup::fromFile(base_path('warrant/editor.warrant'), ['region' => 'west']);
+WarrantSyntax::parseFile(base_path('warrant/editor.warrant'), ['region' => 'west']);
 ```
 
 An unreadable path throws:
 
 ```text
-Cannot read Warrant rule file [/app/warrant/editor.warrant].
+Unable to read Warrant rule file [/app/warrant/editor.warrant].
 ```
 
 Good for: policy in version control that is long enough to deserve its own file,
@@ -101,25 +101,25 @@ targets by extension, so they get highlighting everywhere with no configuration.
 A resolver built on them:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     $path = base_path("warrant/{$context->user->role}.warrant");
 
     if (! is_file($path)) {
-        return WarrantRuleSet::fromRules($context->schemaKey);
+        return RuleSetNode::fromRules($context->schemaKey);
     }
 
-    return RuleSetGroup::fromFile($path)->forSchema($context->schemaKey)
-        ?? WarrantRuleSet::fromRules($context->schemaKey);
+    return WarrantSyntax::parseFile($path)->forSchema($context->schemaKey)
+        ?? RuleSetNode::fromRules($context->schemaKey);
 }
 ```
 
 In production, cache the parse rather than reading and parsing per request:
 
 ```php
-$group = Cache::rememberForever(
+$file = Cache::rememberForever(
     "warrant.rules.{$role}." . filemtime($path),
-    fn () => RuleSetGroup::fromFile($path),
+    fn () => WarrantSyntax::parseFile($path),
 );
 ```
 
@@ -128,7 +128,7 @@ $group = Cache::rememberForever(
 No text at all, when the shape depends on runtime data:
 
 ```php
-WarrantRuleSet::build('documents', function ($rule) use ($teamIds) {
+RuleSetNode::build('documents', function ($rule) use ($teamIds) {
     $rule()->orIf(function ($c) use ($teamIds) {
         foreach ($teamIds as $id) {
             $c->orIf('in_team', [$id]);
@@ -148,13 +148,16 @@ regardless of where each piece came from.
 
 ## Round-tripping between homes
 
-A group renders back to text, so moving policy from one home to another is
+A parsed tree renders back to text, so moving policy from one home to another is
 mechanical:
 
 ```php
-$group->toSyntax();        // for <schema> { ... } blocks
-$group->toBoundSyntax();   // the same, parameterized, plus a bindings array
+$file->toSyntax();        // for <schema> { ... } blocks
+$file->toBoundSyntax();   // the same, parameterized, plus a bindings array
 ```
+
+Rule sets from anywhere else render the same way once they are in a tree:
+`(new WarrantSyntax([$documents, $folders]))->toSyntax()`.
 
 That is also how you would write a migration that moves rules from files into a
 table, or dump a tenant's stored rules into a file to review them.

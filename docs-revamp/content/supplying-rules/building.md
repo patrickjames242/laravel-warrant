@@ -7,38 +7,44 @@ sidebar:
   order: 2
 ---
 
-The schema argument throughout is a model instance, a schema instance, a
-schema or model class string, or a plain schema-key string.
+A rule set is a `RuleSetNode` for one schema key. Text becomes one through
+`WarrantSyntax::parse()`, and PHP builds one with `RuleSetNode::fromRules()` or
+`RuleSetNode::build()`. Every node lives in `Warrant\DSL\Parsing\ASTNodes`.
 
 ## From text
 
 ```php
-WarrantRuleSet::fromSyntax('if is_mine they can view', 'documents');
-WarrantRuleSet::fromSyntax('if in_team(:t) they can view', 'documents', ['t' => 'sales']);
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+WarrantSyntax::parse('for documents { if is_mine they can view }')->ruleSet();
+WarrantSyntax::parse('for documents { if in_team(:t) they can view }', ['t' => 'sales'])->ruleSet();
 ```
 
-`Warrant::ruleSet()` is the same call from the facade, and it lets the schema live
-in the string's own header:
+`Warrant::parse()` is the same call from the facade. One parse reads every form of
+rule text; the `WarrantSyntax` it returns says what the text held, and `ruleSet()`
+asks for the single `for <schema>` rule set.
+
+Text with no header is given its schema by `scopedTo()`:
 
 ```php
-Warrant::ruleSet('for documents { if is_mine they can view }');
+WarrantSyntax::parse('if is_mine they can view')->scopedTo('documents');
 ```
 
 Prefer the header. It travels with the string, so editor tooling reading your
-source knows which schema to check the condition and ability names against.
-Passing the schema as a PHP argument leaves the string unchecked: still valid, just
-unverifiable from the outside. A header and an argument that disagree are an error.
+source knows which schema to check the condition and ability names against. Text
+scoped from PHP is still valid, just unverifiable from the outside. A header that
+disagrees with `scopedTo()` is an error.
 
 ## From already-parsed rules
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 
-$own      = WarrantRule::fromSyntax('if is_mine they can view, update');
-$noDelete = WarrantRule::fromSyntax('they cannot delete');
+$own      = WarrantSyntax::parse('if is_mine they can view, update')->rule();
+$noDelete = WarrantSyntax::parse('they cannot delete')->rule();
 
-WarrantRuleSet::fromRules('documents', $own, $noDelete);
-WarrantRuleSet::fromRules('documents', [$own, $noDelete]);   // same
+RuleSetNode::fromRules('documents', $own, $noDelete);
+RuleSetNode::fromRules('documents', [$own, $noDelete]);   // same
 ```
 
 `fromRules` takes a variadic list or a single array, flattens a mix of both,
@@ -49,7 +55,7 @@ This is also how you build an empty set, which is the right answer for a user wi
 no access:
 
 ```php
-WarrantRuleSet::fromRules('documents');
+RuleSetNode::fromRules('documents');
 ```
 
 ## With a build callback
@@ -58,7 +64,7 @@ Each `$rule()` call starts a fresh rule and appends it. You never call `toRule()
 yourself:
 
 ```php
-WarrantRuleSet::build('documents', function ($rule) {
+RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_mine')->theyCan('view', 'update');
     $rule()->if('is_locked')->theyCannotBecause('update', 'This document is locked.');
     $rule()->theyCannot('delete');
@@ -71,22 +77,28 @@ is code rather than data. The full builder surface is in
 
 ## Straight from the parser
 
-When you want the parsed rules without a set around them:
+When you want the parsed rules without a set around them, ask the tree for the
+shape the text holds:
 
 ```php
-use Warrant\DSL\Parsing\WarrantParser;
-
-$rules = WarrantParser::parse('if is_mine they can view');        // WarrantRule[]
-$one   = WarrantParser::parseSingleRule('they cannot delete');    // WarrantRule
-$expr  = WarrantParser::parseConditionExpression('a or not b');   // an expression
+$entries = WarrantSyntax::parse('if is_mine they can view')->ruleEntries();   // IRuleEntryNode[]
+$one     = WarrantSyntax::parse('they cannot delete')->rule();               // WarrantRuleNode
+$expr    = WarrantSyntax::parse('a or not b')->conditionExpression();        // an expression
 ```
 
-## Groups, for several schemas at once
+An accessor that does not match the text throws a `LogicException` naming what
+the text holds:
 
-A `RuleSetGroup` holds one merged set per schema, authored together:
+```text
+Expected a single rule, but the source holds a rule set for [documents].
+```
+
+## Several schemas at once
+
+One source can hold a braced block per schema:
 
 ```php
-$group = Warrant::group(<<<'WARRANT'
+$syntax = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view, update
     }
@@ -96,27 +108,35 @@ $group = Warrant::group(<<<'WARRANT'
     }
 WARRANT);
 
-$group->forSchema('documents');   // the WarrantRuleSet, or null
-$group->schemaKeys();             // ['documents', 'folders']
-count($group);
+$syntax->forSchema('documents');   // the RuleSetNode, or null
+$syntax->schemaKeys();             // ['documents', 'folders']
+$syntax->ruleSets();               // every block, in source order
 ```
 
-Blocks targeting the same schema are merged, rules concatenated in source order, so
-a group holds at most one set per key.
+`forSchema()` folds every block targeting the same schema into one set, entries
+concatenated in source order. `ruleSets()` returns the blocks as written,
+unmerged. With more than one block, every block must be braced:
 
-```php
-RuleSetGroup::fromSyntax($text, $bindings);
-RuleSetGroup::fromFile(base_path('warrant/editor.warrant'));
-RuleSetGroup::fromRuleSets($a, $b, [$c, $d]);
+```text
+Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.
 ```
+
+`WarrantSyntax::parseFile()` and `Warrant::parseFile()` read the same thing from
+a file.
 
 ## Round-tripping
 
-Any set or group renders back to the language:
+A `WarrantSyntax` tree renders back to the language:
 
 ```php
-$set->toSyntax();        // canonical text, inline literals
-$set->toBoundSyntax();   // text plus a positional bindings array
+$syntax->toSyntax();        // canonical text, inline literals
+$syntax->toBoundSyntax();   // text plus a positional bindings array
+```
+
+To render one rule set, put it in a tree of its own:
+
+```php
+(new WarrantSyntax([$set]))->toSyntax();
 ```
 
 `toSyntax()` can only render parameters expressible as inline literals. An array,

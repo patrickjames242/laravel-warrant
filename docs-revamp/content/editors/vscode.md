@@ -42,11 +42,11 @@ for documents {
 closing label:
 
 ```php
-$rules = Warrant::ruleSet(<<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT);
+WARRANT)->ruleSet();
 ```
 
 The nowdoc form with quoted `'WARRANT'` is the one to prefer, since rule text
@@ -72,7 +72,7 @@ No diagnostics, no hover, no completion. The grammar is a lexer, so it cannot kn
 whether `is_mne` is a real condition on this schema. That needs a language server
 with access to your schemas, which is [planned](/roadmap/planned/).
 
-Until then, [`validate()`](/supplying-rules/validation/) in a test is the check
+Until then, [`Warrant::validate()`](/supplying-rules/validation/) in a test is the check
 that catches a misspelled name.
 
 ## A snippet worth adding
@@ -82,11 +82,11 @@ that catches a misspelled name.
   "Warrant rule set": {
     "prefix": "warrant",
     "body": [
-      "Warrant::ruleSet(<<<'WARRANT'",
+      "Warrant::parse(<<<'WARRANT'",
       "    for ${1:documents} {",
       "        $0",
       "    }",
-      "WARRANT);"
+      "WARRANT)->ruleSet();"
     ]
   }
 }

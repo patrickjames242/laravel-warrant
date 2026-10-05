@@ -14,23 +14,23 @@ required.
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
-        return WarrantRuleSet::fromSyntax(
-            'if is_mine they can view, update',
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse('if is_mine they can view, update')
+            ->scopedTo($context->schemaKey);
     }
 }
 ```
 
-Every user gets the same rule here, which is fine for a first pass. The context
+The text names no schema of its own, so `scopedTo` gives it the one being asked
+about. Every user gets the same rule here, which is fine for a first pass. The context
 tells you who is asking and what about:
 
 ```php
@@ -43,14 +43,14 @@ $context->model;      // App\Models\Document, or null for a schema with no model
 A real resolver usually reads from somewhere. Rules stored per role:
 
 ```php
-public function resolve(RuleResolutionContext $context): WarrantRuleSet
+public function resolve(RuleResolutionContext $context): RuleSetNode
 {
     $lines = DB::table('role_rules')
         ->where('role_id', $context->user->role_id)
         ->where('schema_key', $context->schemaKey)
         ->pluck('rule');
 
-    return WarrantRuleSet::fromSyntax($lines->implode("\n"), $context->schemaKey);
+    return WarrantSyntax::parse($lines->implode("\n"))->scopedTo($context->schemaKey);
 }
 ```
 

@@ -44,8 +44,9 @@ The important half. Two errors can come back, and both are worth surfacing
 verbatim:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\Rules\WarrantRuleSet;
 
 class RoleRuleController extends Controller
 {
@@ -56,7 +57,7 @@ class RoleRuleController extends Controller
         $text = $request->string('rules');
 
         try {
-            WarrantRuleSet::fromSyntax($text, $roleRule->schema_key)->validate();
+            Warrant::validate(WarrantSyntax::parse($text)->scopedTo($roleRule->schema_key));
         } catch (WarrantSyntaxException $e) {
             return back()->withErrors(['rules' => $e->getMessage()])->withInput();
         } catch (InvalidArgumentException $e) {
@@ -124,16 +125,16 @@ able to do:
 ```php
 public function preview(Request $request, RoleRule $roleRule)
 {
-    $proposed = WarrantRuleSet::fromSyntax($request->string('rules'), $roleRule->schema_key);
-    $proposed->validate();
+    $proposed = WarrantSyntax::parse($request->string('rules'))->scopedTo($roleRule->schema_key);
+    Warrant::validate($proposed);
 
     $subject = User::findOrFail($request->integer('user_id'));
 
     return app()->call(function () use ($proposed, $subject, $roleRule) {
         app()->instance(RuleResolver::class, new class($proposed) implements RuleResolver {
-            public function __construct(private WarrantRuleSet $set) {}
+            public function __construct(private RuleSetNode $set) {}
 
-            public function resolve(RuleResolutionContext $context): WarrantRuleSet
+            public function resolve(RuleResolutionContext $context): RuleSetNode
             {
                 return $this->set;
             }
@@ -170,8 +171,8 @@ public function effective(User $user, string $schemaKey)
     )->resolvedRuleSet();
 
     return [
-        'syntax' => $set->toSyntax(),
-        'rules'  => count($set->rules),
+        'syntax' => (new WarrantSyntax([$set]))->toSyntax(),
+        'rules'  => count($set->rules()),
     ];
 }
 ```

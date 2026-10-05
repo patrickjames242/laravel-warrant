@@ -138,12 +138,12 @@ public function isTrashed(RowConditionContext $c): Builder
     return $c->query->whereNotNull($c->row('deleted_at'));
 }
 
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
     return [
-        WarrantRule::fromSyntax(
+        WarrantSyntax::parse(
             "if is_trashed they cannot update, submit, approve because 'This document is in the trash.'"
-        ),
+        )->rule(),
     ];
 }
 ```

@@ -13,21 +13,30 @@ answer it, and all three are available at runtime.
 ## What rules is this user actually under?
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
 $set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
 
 $set->schemaKey;
-$set->rules;        // WarrantRule[]
-$set->toSyntax();   // rendered back to the language
+$set->entries;      // rules, ability blocks and @includes, as written
+$set->rules();      // WarrantRuleNode[], ability blocks opened up
+
+(new WarrantSyntax([$set]))->toSyntax();   // rendered back to the language
 ```
 
-`toSyntax()` is the one to reach for. It includes the schema's
+`toSyntax()` is the one to reach for. Writing back to text lives on
+`WarrantSyntax`, the root of a parse, so wrap the rule set in one to render it. It includes the schema's
 [implicit rules](/schemas/schema-policy/), so it shows what actually applies rather
 than what your resolver returned:
 
 ```warrant
-if is_suspended they cannot *
-if is_mine or in_my_team they can view
-if is_locked they cannot update because 'This document is locked.'
+for documents {
+    if is_suspended they cannot *
+
+    if is_mine or in_my_team they can view
+
+    if is_locked they cannot update because 'This document is locked.'
+}
 ```
 
 Nine times out of ten the answer is visible in that output.
@@ -36,7 +45,7 @@ A rule with a value that has no inline form throws from `toSyntax()`. Use
 `toBoundSyntax()` there, which always works:
 
 ```php
-$bound = $set->toBoundSyntax();
+$bound = (new WarrantSyntax([$set]))->toBoundSyntax();
 
 $bound->syntax;
 $bound->bindings;
@@ -103,7 +112,7 @@ class WarrantExplain extends Command
         );
 
         $this->line('Rules in effect:');
-        $this->line($guard->resolvedRuleSet()->toSyntax());
+        $this->line((new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax());
         $this->newLine();
 
         $this->table(['Ability', 'Reachability'], collect(
@@ -134,7 +143,7 @@ Route::get('/debug/warrant/{user}/{schema}', function (User $user, string $schem
     $guard = Warrant::forSchema(Warrant::registry()->resolveSchemaClassOrFail($schema), $user);
 
     return [
-        'rules'      => $guard->resolvedRuleSet()->toSyntax(),
+        'rules'      => (new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax(),
         'possible'   => $guard->possibleAbilities(),
         'guaranteed' => $guard->guaranteedAbilities(),
     ];
