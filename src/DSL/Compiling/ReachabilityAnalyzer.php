@@ -3,13 +3,13 @@
 namespace Warrant\DSL\Compiling;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\Reachability;
-use Warrant\Rules\IncludeInvocation;
-use Warrant\Rules\WarrantRuleSet;
 
 /**
  * Answers "could a user ever hold ability X?" by inspecting the *structure* of a
- * resolved {@see WarrantRuleSet} — never by evaluating conditions or running SQL.
+ * resolved {@see RuleSetNode} — never by evaluating conditions or running SQL.
  *
  * Each rule listing the ability (directly or via `*`) is classified only by
  * whether it is unconditional (a null condition expression). The outcome follows
@@ -26,15 +26,15 @@ use Warrant\Rules\WarrantRuleSet;
  */
 final class ReachabilityAnalyzer
 {
-    public function analyze(WarrantRuleSet $ruleSet, string $ability): Reachability
+    public function analyze(RuleSetNode $ruleSet, string $ability): Reachability
     {
         $hasUnconditionalCannot = false;
         $hasUnconditionalCan = false;
         $hasConditionalCan = false;
         $hasConditionalCannot = false;
 
-        foreach ($ruleSet->rules as $rule) {
-            if ($rule instanceof IncludeInvocation) {
+        foreach ($ruleSet->flatEntries() as $rule) {
+            if ($rule instanceof IncludeInvocationNode) {
                 throw new InvalidArgumentException(sprintf(
                     'Cannot analyze reachability of a rule set holding `@include %s`; expand it with a '
                         .'RuleTemplateExpander first, so the template\'s own rules are counted.',
@@ -48,7 +48,7 @@ final class ReachabilityAnalyzer
                 $isUnconditional ? $hasUnconditionalCannot = true : $hasConditionalCannot = true;
             }
 
-            if ($this->listsAbility($rule->canAbilities, $ability)) {
+            if ($this->listsAbility($rule->canAbilities(), $ability)) {
                 $isUnconditional ? $hasUnconditionalCan = true : $hasConditionalCan = true;
             }
         }

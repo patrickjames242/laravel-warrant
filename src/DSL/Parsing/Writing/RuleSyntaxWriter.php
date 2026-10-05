@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Writing;
 
 use Closure;
 use LogicException;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -12,17 +13,20 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\Rules\IncludeInvocation;
-use Warrant\Rules\RuleSetEntry;
-use Warrant\Rules\RuleSetGroup;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 /**
- * Renders {@see WarrantRule} ASTs back to the string DSL — the inverse of
+ * Renders Warrant syntax trees back to the string DSL — the inverse of
  * {@see \Warrant\DSL\Parsing\WarrantParser}.
  *
  * Two forms:
@@ -55,120 +59,98 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * Render rules to a self-contained string with inline literals.
+     * Render a whole tree to a self-contained string with inline literals.
+     * `for <schema>` bodies are written as `for <schema> { ... }` blocks one blank
+     * line apart, which reads back the same whether there is one or several;
+     * headless entries and a bare expression are written as they are.
      */
-    public static function toSyntax(WarrantRule ...$rules): string
+    public static function toSyntax(WarrantSyntax $syntax): string
     {
-        return (new self(bound: false))->writeRules($rules);
+        return (new self(bound: false))->writeSyntax($syntax);
     }
 
     /**
-     * Render rules to `?`-parameterized syntax plus the matching bindings.
+     * Render a whole tree to `?`-parameterized syntax plus the matching bindings.
      */
-    public static function toBoundSyntax(WarrantRule ...$rules): BoundSyntax
+    public static function toBoundSyntax(WarrantSyntax $syntax): BoundSyntax
     {
         $writer = new self(bound: true);
 
-        return new BoundSyntax($writer->writeRules($rules), $writer->bindings);
+        return new BoundSyntax($writer->writeSyntax($syntax), $writer->bindings);
+    }
+
+    private function writeSyntax(WarrantSyntax $syntax): string
+    {
+        return implode("\n\n", array_map(
+            fn (INode $child): string => match (true) {
+                $child instanceof ISchemaScopedNode => $this->writeScoped($child),
+                $child instanceof IRuleEntryNode => $this->writeEntry($child),
+                $child instanceof IBooleanExpressionNode => $this->writeExpression($child),
+                default => throw new LogicException('Cannot render unknown node ' . $child::class . '.'),
+            },
+            $syntax->children,
+        ));
     }
 
     /**
-     * Render a single rule, prefixed with a `for <schema>` header when the rule
-     * carries a schema (braceless — a single rule takes no `{ }` block).
+     * @param list<IRuleEntryNode> $entries
      */
-    public static function ruleToSyntax(WarrantRule $rule): string
-    {
-        return (new self(bound: false))->writeRuleWithHeader($rule);
-    }
-
-    public static function ruleToBoundSyntax(WarrantRule $rule): BoundSyntax
-    {
-        $writer = new self(bound: true);
-
-        return new BoundSyntax($writer->writeRuleWithHeader($rule), $writer->bindings);
-    }
-
-    /**
-     * Render a rule set as a `for <schema> { ... }` block with an indented body.
-     */
-    public static function ruleSetToSyntax(WarrantRuleSet $set): string
-    {
-        return (new self(bound: false))->writeRuleSet($set);
-    }
-
-    public static function ruleSetToBoundSyntax(WarrantRuleSet $set): BoundSyntax
-    {
-        $writer = new self(bound: true);
-
-        return new BoundSyntax($writer->writeRuleSet($set), $writer->bindings);
-    }
-
-    /**
-     * Render a group as its `for <schema> { ... }` blocks, one blank line apart.
-     * One shared bindings list spans the whole group, left to right.
-     */
-    public static function groupToSyntax(RuleSetGroup $group): string
-    {
-        return (new self(bound: false))->writeGroup($group);
-    }
-
-    public static function groupToBoundSyntax(RuleSetGroup $group): BoundSyntax
-    {
-        $writer = new self(bound: true);
-
-        return new BoundSyntax($writer->writeGroup($group), $writer->bindings);
-    }
-
-    /**
-     * @param list<RuleSetEntry> $entries
-     */
-    private function writeRules(array $entries): string
+    private function writeEntries(array $entries): string
     {
         return implode("\n\n", array_map($this->writeEntry(...), $entries));
     }
 
-    private function writeEntry(RuleSetEntry $entry): string
+    private function writeEntry(IRuleEntryNode $entry): string
     {
-        return $entry instanceof IncludeInvocation
-            ? $this->writeInclude($entry)
-            : $this->writeRule($entry);
+        return match (true) {
+            $entry instanceof IncludeInvocationNode => $this->writeInclude($entry),
+            $entry instanceof AbilityBlockNode => $this->writeAbilityBlock($entry),
+            $entry instanceof WarrantRuleNode => $this->writeRule($entry),
+            default => throw new LogicException('Cannot render unknown entry ' . $entry::class . '.'),
+        };
     }
 
     /**
      * Render an `@include` as it was written rather than as what it expands to.
-     * The abilities are always spelled out with `for`, which says the same thing
-     * an enclosing ability block would have said and needs no block to say it.
+     * Its abilities are spelled out with `for`; a headless include has none,
+     * because the block header around it says them.
      */
-    private function writeInclude(IncludeInvocation $include): string
+    private function writeInclude(IncludeInvocationNode $include): string
     {
         $arguments = $include->arguments === []
             ? ''
             : '(' . implode(', ', array_map($this->arg(...), $include->arguments)) . ')';
 
-        return "@include {$include->templateKey}{$arguments} for " . implode(', ', $include->abilities);
+        $written = "@include {$include->templateKey}{$arguments}";
+
+        return $include->isHeadless() ? $written : $written . ' for ' . implode(', ', $include->abilities);
     }
 
-    private function writeRuleWithHeader(WarrantRule $rule): string
+    /**
+     * Render a `can they <abilities> { ... }` block around its headless body.
+     */
+    private function writeAbilityBlock(AbilityBlockNode $block): string
     {
-        $body = $this->writeRule($rule);
+        $body = $this->writeEntries($block->entries);
 
-        return $rule->schemaKey !== null ? "for {$rule->schemaKey}\n{$body}" : $body;
+        $header = 'can they ' . implode(', ', $block->abilities);
+
+        return $body === '' ? "{$header} {\n}" : "{$header} {\n" . $this->indent($body) . "\n}";
     }
 
-    private function writeRuleSet(WarrantRuleSet $set): string
+    private function writeScoped(ISchemaScopedNode $node): string
     {
-        $body = $this->writeRules($set->rules);
+        $body = match (true) {
+            $node instanceof RuleSetNode => $this->writeEntries($node->entries),
+            $node instanceof SchemaConditionNode => $this->writeExpression($node->expression),
+            default => throw new LogicException('Cannot render unknown node ' . $node::class . '.'),
+        };
 
         if ($body === '') {
-            return "for {$set->schemaKey} {\n}";
+            return "for {$node->schemaKey()} {\n}";
         }
 
-        return "for {$set->schemaKey} {\n" . $this->indent($body) . "\n}";
-    }
-
-    private function writeGroup(RuleSetGroup $group): string
-    {
-        return implode("\n\n", array_map($this->writeRuleSet(...), $group->ruleSets));
+        return "for {$node->schemaKey()} {\n" . $this->indent($body) . "\n}";
     }
 
     /**
@@ -182,7 +164,11 @@ final class RuleSyntaxWriter
         ));
     }
 
-    private function writeRule(WarrantRule $rule): string
+    /**
+     * Render a rule's `if` line and clauses, one line per clause. A headless
+     * clause names no abilities, so it says only `they can` or `they cannot`.
+     */
+    private function writeRule(WarrantRuleNode $rule): string
     {
         $lines = [];
 
@@ -190,14 +176,13 @@ final class RuleSyntaxWriter
             $lines[] = 'if ' . $this->writeExpression($rule->conditions);
         }
 
-        if ($rule->canAbilities !== []) {
-            $lines[] = 'they can ' . implode(', ', $rule->canAbilities);
+        foreach ($rule->canClauses as $clause) {
+            $lines[] = $this->clauseLine('they can', $clause->abilities);
         }
 
-        // One `they cannot ...` line per clause; each clause groups the abilities
-        // that share its message.
+        // Each `they cannot ...` clause groups the abilities that share its message.
         foreach ($rule->cannotClauses as $clause) {
-            $line = 'they cannot ' . implode(', ', $clause->abilities);
+            $line = $this->clauseLine('they cannot', $clause->abilities);
 
             if ($clause->message !== null) {
                 $line .= ' because ' . $this->messageArg($clause->message);
@@ -207,6 +192,14 @@ final class RuleSyntaxWriter
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param list<string> $abilities
+     */
+    private function clauseLine(string $keyword, array $abilities): string
+    {
+        return $abilities === [] ? $keyword : $keyword . ' ' . implode(', ', $abilities);
     }
 
     private function writeExpression(IBooleanExpressionNode $node): string

@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Compiling;
 
-use Warrant\Rules\IncludeInvocation;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\Rules\IncludeTrail;
 
 /**
@@ -31,7 +31,7 @@ final readonly class CallStackTrail implements IncludeTrail
     ) {
     }
 
-    public function entering(IncludeInvocation $include): static
+    public function entering(IncludeInvocationNode $include): static
     {
         return new self(
             $this->callStack->enter(Call::include($this->schemaClass, $include->templateKey, $include->arguments)),

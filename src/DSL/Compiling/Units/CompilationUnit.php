@@ -6,7 +6,7 @@ namespace Warrant\DSL\Compiling\Units;
  * What a single compile is *about* — the thing being turned into a predicate.
  *
  * There are three, and they differ in what they need: a gate and an ability are
- * both resolved against a {@see \Warrant\Rules\WarrantRuleSet} under the
+ * both resolved against a {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode} under the
  * deny-overrides formula, while a condition is an expression tree compiled in
  * isolation with no rule set at all. Making them separate types is what lets the
  * rule set be a required constructor argument exactly where it is required,

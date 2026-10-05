@@ -3,6 +3,7 @@
 namespace Warrant\Rules;
 
 use RuntimeException;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 
 /**
  * The {@see IncludeTrail} for an expansion asked for outside a compile:
@@ -41,7 +42,7 @@ final readonly class DepthTrail implements IncludeTrail
         return new self;
     }
 
-    public function entering(IncludeInvocation $include): static
+    public function entering(IncludeInvocationNode $include): static
     {
         $deeper = [...$this->templateKeys, $include->templateKey];
 

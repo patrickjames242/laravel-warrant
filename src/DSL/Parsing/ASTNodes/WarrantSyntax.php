@@ -283,7 +283,7 @@ final readonly class WarrantSyntax implements INode
      */
     public function toSyntax(): string
     {
-        return RuleSyntaxWriter::syntaxToSyntax($this);
+        return RuleSyntaxWriter::toSyntax($this);
     }
 
     /**
@@ -292,7 +292,7 @@ final readonly class WarrantSyntax implements INode
      */
     public function toBoundSyntax(): BoundSyntax
     {
-        return RuleSyntaxWriter::syntaxToBoundSyntax($this);
+        return RuleSyntaxWriter::toBoundSyntax($this);
     }
 
     /**
