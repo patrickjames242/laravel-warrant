@@ -22,7 +22,7 @@ without templates:
 #[RowCondition]
 public function needsApproval(RowConditionContext $c)
 {
-    return Warrant::condition('is_submitted and not is_approved');
+    return Warrant::parse('is_submitted and not is_approved')->conditionExpression();
 }
 ```
 

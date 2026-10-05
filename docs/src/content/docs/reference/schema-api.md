@@ -57,7 +57,7 @@ public static function requiredContextKeys(): array;  // schema-wide required ke
 
 ```php
 public static function virtualTable(): ?Builder;         // default null; rows come from model's table
-public function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
+public function implicitRules(): array|RuleSetNode;          // default []; merged into every rule set
 protected function defaultContext(): array;              // default []; merged UNDER explicit context
 
 // Declared on your schema when needed; not inherited — see below.
@@ -157,7 +157,7 @@ exists (select * from ( … virtualTable … ) as shift_days where …)
 ### Denial-message hooks
 
 Schema-level fallbacks that supply a message when `authorize()` denies and the
-responsible rule carried no `withDenialMessage()`. Override in your schema; each
+responsible `cannot` clause carried no message of its own. Override in your schema; each
 returns `string|Throwable|null` (return `null` to fall through). See
 [Denial messages](/guides/denial-messages/).
 
@@ -166,8 +166,8 @@ public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwabl
 public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null; // nothing granted the ability
 ```
 
-Message-source precedence (first non-null wins): (1) the matching `cannot` rule's
-`withDenialMessage()`; (2) `forbiddenDenialMessage()`; (3) `ungrantedDenialMessage()`;
+Message-source precedence (first non-null wins): (1) the matching `cannot`
+clause's own message; (2) `forbiddenDenialMessage()`; (3) `ungrantedDenialMessage()`;
 (4) a generic 403.
 
 ### Reachability

@@ -43,7 +43,22 @@ Representative messages:
 - `Expected at least one 'they can ...' or 'they cannot ...' clause.`
 - `Expected ')' to close the group.` / `Expected ')' to close the condition arguments.`
 - `Reserved word '%s' cannot be used as a name; expected %s.`
-- `Expected a rule.` / `Expected a single rule but found multiple.`
+- ``Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.``
+- ``A `{ ... }` block needs a `for <schema>` header before it.``
+- ``Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.``
+
+### Shape errors
+
+A parse never guesses which form the text took; the `WarrantSyntax` it returns
+says. Asking it for a shape the text does not hold throws a `LogicException`
+naming what it does hold:
+
+- `Expected a single rule, but the source holds a rule set for [documents].`
+
+`scopedTo()` throws `InvalidArgumentException` when the text's `for` header names a
+different schema:
+
+- ``The rule text targets schema [%s] in its `for` header but was scoped to [%s].``
 
 ### Binding errors (also `WarrantSyntaxException`)
 
@@ -64,15 +79,14 @@ Thrown when a rule set is validated/compiled against a schema:
 Context keys need **no** declaration to be referenced in a rule (`@context <key>`)
 or read in a condition, so there is no "unknown context key" validation error.
 
-Attaching a denial message to a rule that has no `theyCannot` clause is also
-rejected here — only a `cannot` rule may carry one, whether it was set with
-`withDenialMessage()` or written in the DSL with `because`. See
+A denial message rides on a `cannot` clause, so `because` after `they can` is a
+parse error rather than a validation error. See
 [Denial messages](/guides/denial-messages/).
 
-`fromRules` / `validateAll` type-guard their inputs:
+`RuleSetNode::fromRules` / `Warrant::validate` type-guard their inputs:
 
-- `fromRules expects WarrantRule or WarrantRuleBuilder instances, got %s.`
-- `validateAll expects WarrantRuleSet instances, got %s.`
+- `fromRules expects WarrantRuleNode or WarrantRuleBuilder instances, got %s.`
+- `validate expects RuleSetNode instances, got %s.`
 
 :::note[Two distinct "unknown ability" messages]
 The message above (*"is not declared by the schema"*) comes from validating a
@@ -206,7 +220,7 @@ check failed:
 - `WarrantGate` — the requested `array $abilities` (normalized, wildcards resolved)
   and `AbilityMatchMode $matchMode`.
 - `WarrantDenialContext` — `$user`, `?Model $target`, `string $schema`,
-  `array $context`, `WarrantGate $gate`, the responsible `WarrantRule $rule` (the
+  `array $context`, `WarrantGate $gate`, the responsible `WarrantRuleNode $rule` (the
   matching `cannot`), and `array $deniedAbilities`.
 - `WarrantUngrantedContext` — same fields **minus** `$rule`, with
   `array $ungrantedAbilities` in place of `deniedAbilities` (the whole gate under

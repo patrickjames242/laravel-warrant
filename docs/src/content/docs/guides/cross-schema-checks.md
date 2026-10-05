@@ -328,9 +328,9 @@ better than a string:
 
 ```php
 use Warrant\Builders\Ref;
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_author')
     ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
     ->andIfCheck(

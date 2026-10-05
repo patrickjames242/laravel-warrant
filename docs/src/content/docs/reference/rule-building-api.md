@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Rule-building API
-description: WarrantRuleSet, WarrantRule, the fluent builder, and the parser.
+description: WarrantSyntax, RuleSetNode, WarrantRuleNode, the fluent builder, and the parser.
 sidebar:
   order: 3
 ---
@@ -10,117 +10,217 @@ sidebar:
 Reference for constructing rules. Conceptual coverage is in
 [Providing rules](/guides/resolvers/) and [The rule language](/guides/rule-language/).
 
-The `$schema` parameter throughout is a `Model` instance, a `WarrantSchema`
+Every syntax node lives in `Warrant\DSL\Parsing\ASTNodes`: `WarrantSyntax`,
+`RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `WarrantRuleNode`, `IncludeInvocationNode`,
+`CannotClauseNode`, the interfaces `IRuleEntryNode` and `ISchemaScopedNode`, and the
+expression nodes. A rule set takes a plain schema **key** string. The builder's
+cross-schema `$schema` parameter is a `Model` instance, a `WarrantSchema`
 instance, a schema/model class-string, or a plain schema-key string.
 
 ## `Warrant` facade — the authoring front door
 
-Four entry points, one per construct. Each parses Warrant syntax and takes exactly
-the parameters of the constructor it delegates to.
-
 ```php
 use Warrant\Facades\Warrant;
 
-Warrant::condition(?string $syntax = null, array $bindings = []): IBooleanExpressionNode|WarrantConditionBuilder;
-Warrant::rule(?string $syntax = null, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRule|WarrantRuleBuilder;
-Warrant::ruleSet(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): WarrantRuleSet;
-Warrant::group(string $syntax, array $bindings = []): RuleSetGroup;
+Warrant::parse(string $syntax, array $bindings = []): WarrantSyntax;
+Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
+Warrant::validate(RuleSetNode|array ...$ruleSets): void;
+Warrant::condition(): WarrantConditionBuilder;
+Warrant::rule(): WarrantRuleBuilder;
+Warrant::ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate;
 ```
 
-Given syntax, each returns the finished construct. Given nothing, `condition()` and
-`rule()` return the builder that composes one — they are the two constructs that
-*are* their fluent chain, so an empty call is meaningful. A rule set and a group are
-collections, so their syntax is required; build those from values you already hold
-with `WarrantRuleSet::fromRules()` or `RuleSetGroup::fromRuleSets()` below.
+There is one parse for every form of rule text. `parse()` reads the source and
+returns a `WarrantSyntax` tree whose children say what the source held; you ask
+the tree for the shape you expect. `parseFile()` does the same for a file, such as
+a `.warrant` file. `condition()` and `rule()` take no arguments and return the
+fluent builder for each.
 
 ```php
-Warrant::condition('is_owner or is_admin');                  // IBooleanExpressionNode
-Warrant::condition()->if('is_owner')->orIf('is_admin');      // WarrantConditionBuilder
-Warrant::rule('for documents if is_self they can view');     // WarrantRule
-Warrant::ruleSet('for documents { they can view }');         // WarrantRuleSet
-Warrant::group('for documents { … } for timesheets { … }');  // RuleSetGroup
+Warrant::parse('is_owner or is_admin')->conditionExpression();            // IBooleanExpressionNode
+Warrant::parse('if is_self they can view')->rule();                        // WarrantRuleNode
+Warrant::parse('if is_self they can view')->scopedTo('documents');         // RuleSetNode
+Warrant::parse('for documents { they can view }')->ruleSet();              // RuleSetNode
+Warrant::parse('for documents { … } for timesheets { … }')->forSchema('documents'); // ?RuleSetNode
+Warrant::condition()->if('is_owner')->orIf('is_admin');                    // WarrantConditionBuilder
 ```
 
-Prefer naming the schema in the string's own `for` header rather than in the
-`$schema` argument. The header travels with the string, so editor tooling reading
-your source can tell which schema to check the names against; a string with no
-header is simply left unchecked. A header and a `$schema` argument that disagree
-are an error.
+## `WarrantSyntax` (final, readonly)
 
-The header is accepted on a condition expression too, and discarded — an expression
-has no schema field to carry it, and it exists purely so a condition written as a
-string is as checkable as every other construct:
+The root of every parse. `WarrantSyntax::parse()` and `WarrantSyntax::parseFile()`
+are the same calls as the facade's.
 
 ```php
-Warrant::condition('for documents is_owner or is_admin');    // header parsed, then dropped
+public array $children; // list<INode>
+
+public static function parse(string $source, array $bindings = []): self;
+public static function parseFile(string $path, array $bindings = []): self;
+
+public function isEmpty(): bool;
+public function isExpression(): bool;
+public function isSingleRule(): bool;
+public function isRuleEntries(): bool;
+public function isSchemaScoped(): bool;
+public function isSingleRuleSet(): bool;
+public function isRuleSets(): bool;
+public function isSchemaCondition(): bool;
+
+public function conditionExpression(): IBooleanExpressionNode;
+public function rule(): WarrantRuleNode;
+public function ruleEntries(): array; // list<IRuleEntryNode>
+public function ruleSet(): RuleSetNode;
+public function ruleSets(): array;    // list<RuleSetNode>, source order, unmerged
+public function scoped(): array;      // list<ISchemaScopedNode>
+public function schemaKeys(): array;  // list<string>, distinct, source order
+public function forSchema(string $schemaKey): ?RuleSetNode; // every block for that schema, folded
+public function scopedTo(string $schemaKey): RuleSetNode;
+
+public function toSyntax(): string;          // the whole tree as rule text, inline literals
+public function toBoundSyntax(): BoundSyntax; // the same, plus a positional bindings array
 ```
 
-## `WarrantRuleSet` (readonly)
+`WarrantSyntax` is the one place a tree is written back to rule text. To write a
+single rule or rule set, put it in a tree of its own:
+`(new WarrantSyntax([$ruleSet]))->toSyntax()`.
+
+### What a parse returns
+
+| Source | `children` | Accessor |
+| --- | --- | --- |
+| empty, or comments only | none | `isEmpty()` |
+| `is_owner or is_admin` | one `IBooleanExpressionNode` | `conditionExpression()` |
+| `if is_self they can view` | one `WarrantRuleNode` | `rule()` |
+| several rules, `can they … { … }` blocks or `@include`s, no header | `IRuleEntryNode`, … | `ruleEntries()` |
+| `for documents` then a body, no braces | one `RuleSetNode` | `ruleSet()` |
+| `for documents { … }` | one `RuleSetNode` | `ruleSet()` |
+| `for documents { … } for timesheets { … }` | `RuleSetNode`, … | `ruleSets()`, `forSchema()`, `schemaKeys()` |
+| `for documents is_owner or is_admin` | one `SchemaConditionNode` | `conditionExpression()` |
+| braced blocks of rules and of conditions | `ISchemaScopedNode`, … | `scoped()` |
+
+An accessor that does not match the shape throws a `LogicException` naming what
+the source holds — `Expected a single rule, but the source holds a rule set for
+[documents].` An empty source answers an empty list from `ruleEntries()`,
+`ruleSets()` and `scoped()`.
+
+`conditionExpression()` answers the expression under a `for <schema>` header as well as a
+bare one. The header names the schema whose conditions the expression uses, so
+editor tooling can check the names, and it changes nothing about the tree.
+
+The shapes never mix, and the parser rejects a source that tries:
+
+- ``Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.``
+  — a bare `for` body runs to the end of the input, so a second rule set needs
+  braces, and so does the first.
+- ``A `{ ... }` block needs a `for <schema>` header before it.``
+- ``Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.``
+- A condition expression written beside rules.
+
+### `scopedTo()`
+
+`scopedTo($schemaKey)` turns a source into one rule set for that schema. Headless
+entries, or an empty source, are placed in a `RuleSetNode` for `$schemaKey`. A single
+`for <schema>` rule set is returned as it is, after checking that its header names
+the same schema; a header that disagrees throws `InvalidArgumentException`. Any
+other shape throws `LogicException`.
+
+```php
+WarrantSyntax::parse('if is_self they can view')->scopedTo('documents');          // RuleSetNode for documents
+WarrantSyntax::parse('for documents { they can view }')->scopedTo('documents');   // the same rule set
+WarrantSyntax::parse('for timesheets { they can view }')->scopedTo('documents');  // InvalidArgumentException
+```
+
+Prefer naming the schema in the text's own `for` header where you write the text.
+The header travels with the string, so editor tooling reading your source can tell
+which schema to check the names against; a string with no header is left
+unchecked.
+
+## `RuleSetNode` (final, readonly)
+
+The rules for one schema: the body of a `for <schema>` header, or headless rules
+given their schema by `scopedTo()`.
 
 ```php
 public string $schemaKey;
-public array  $rules;
+public array  $entries;  // list<IRuleEntryNode>: rules, ability blocks, includes, in source order
 
-public function __construct(Model|WarrantSchema|string $schema, array $rules);
-
-public static function fromSyntax(
-    string $syntax,
-    Model|WarrantSchema|string|null $schema = null,
-    array $bindings = [],
-): self;
+public function __construct(string $schemaKey, array $entries = []);
 
 public static function fromRules(
-    Model|WarrantSchema|string $schema,
-    WarrantRule|WarrantRuleBuilder|array ...$rules,
+    string $schemaKey,
+    WarrantRuleNode|WarrantRuleBuilder|array ...$rules,
 ): self; // flattens arrays; calls toRule() on builders; takes no bindings
 
 public static function build(
-    Model|WarrantSchema|string $schema,
+    string $schemaKey,
     Closure $callback,          // ($rule) => { $rule()->...; }  — each call appends a rule
 ): self;
 
-public function toSyntax(): string;          // canonical DSL, inline literals
-public function toBoundSyntax(): BoundSyntax; // DSL + a positional bindings array
-public function validate(): void;            // name-check against the registered schema
-public static function validateAll(WarrantRuleSet|array ...$ruleSets): void;
+public static function merge(RuleSetNode $first, RuleSetNode ...$rest): self; // same schema, argument order
+public function mergeWith(RuleSetNode $other): self;
+
+public function rules(): array;        // list<WarrantRuleNode>, ability blocks opened up, includes left out
+public function includes(): array;     // list<IncludeInvocationNode>, ability blocks opened up
+public function flatEntries(): array;  // list<WarrantRuleNode|IncludeInvocationNode>, ability blocks opened up
 ```
 
-`validate()` / `validateAll()` throw on the first unknown ability, condition, or
-context-key name — useful for CI-checking [stored rules](/guides/testing/#validate-stored-rules-in-ci).
-They also reject a rule that carries a [denial message](/guides/denial-messages/)
-but has no `they cannot` clause (`InvalidArgumentException`).
+An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
+`$entries`). Its body is headless, as the source writes it: the clauses and
+includes inside name no abilities, and the header is the only place they are
+said. Opening the block up applies the header to each entry, so the flattened
+lists grant and deny exactly what the block does, and writing the tree back
+renders the block as a block. Every rule and include held directly in `$entries`
+must name its own abilities; a headless one there throws
+`InvalidArgumentException`. Merging rule sets for two different schemas throws
+`InvalidArgumentException`.
 
-## `WarrantRule` (readonly)
+### Validating
+
+```php
+Warrant::validate($ruleSet);
+Warrant::validate($documents, $timesheets);
+Warrant::validate([$documents, $timesheets]);
+```
+
+`Warrant::validate()` checks each rule set against the schema registered for its
+own key and throws on the first unknown ability, condition, or context-key name —
+useful for CI-checking [stored rules](/guides/testing/#validate-stored-rules-in-ci).
+
+## `WarrantRuleNode` (readonly)
 
 ```php
 public ?IBooleanExpressionNode $conditions; // null = unconditional
-public ?string $schemaKey;                  // null = schema-less
-public array $canAbilities;
-public array $cannotClauses;                // list<CannotClause>; each carries its own message
+public array $canClauses;                   // list<CanClauseNode>, one per `they can`
+public array $cannotClauses;                // list<CannotClauseNode>; each carries its own message
 
-public static function fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = []): self; // exactly one rule
 public static function build(): WarrantRuleBuilder;
 
+public function canAbilities(): array;                 // every granted ability, flattened
 public function cannotAbilities(): array;              // every denied ability, flattened
 public function messageFor(string $ability): string|Closure|null;
-public function withDenialMessage(string|Closure $message, ?array $abilities = null): self; // a copy carrying the message
-public function withSchemaKey(?string $schemaKey): self;
-public function toSyntax(): string;
-public function toBoundSyntax(): BoundSyntax;
+public function isHeadless(): bool;                    // no clause names an ability
+public function withAbilities(array $abilities): self; // a headless rule with $abilities on every clause
 ```
 
-`fromSyntax` throws if the string parses to zero or more than one rule.
+Inside an ability block or a rule template's body a rule is headless: each
+`they can` / `they cannot` clause has an empty `$abilities` list, because the
+block header or the `@include` names them. `withAbilities()` gives such a rule the
+abilities it takes, and throws on a rule that already names its own.
+
+A rule carries no schema; the `RuleSetNode` that holds it does. Parse a single rule
+with `WarrantSyntax::parse($text)->rule()`, which throws if the text holds
+anything other than exactly one rule.
 
 A [denial message](/guides/denial-messages/) lives on a `cannot` *clause*, not on
 the rule, so one rule can deny two sets of abilities for two different reasons;
-`messageFor()` resolves the message for a given ability. `withDenialMessage()`
-returns a new `WarrantRule` (the class is immutable), attaching the message to the
-named abilities, or to every denied ability when `$abilities` is null. A message is
-**not** representable in the string DSL, so `toSyntax()` / `toBoundSyntax()` drop it.
+`messageFor()` resolves the message for a given ability. Give a clause its
+message with `because` in rule text, or with `theyCannotBecause()` on the builder.
+A string message writes back as a `because '…'` clause; a closure message has no
+inline form, so `toSyntax()` throws on it and `toBoundSyntax()` carries it as a
+binding.
 
 ## `WarrantRuleBuilder`
 
-Returned by `WarrantRule::build()`. Extends the condition builder with clause
+Returned by `WarrantRuleNode::build()`. Extends the condition builder with clause
 methods.
 
 ### Condition methods (from `WarrantConditionBuilder`)
@@ -170,16 +270,14 @@ parameter, a cross-schema row selector, or a `with` map value.
 ### Clause methods (from `WarrantRuleBuilder`)
 
 ```php
-->theyCan(string ...$abilities): static     // additive
+->theyCan(string ...$abilities): static     // additive; one can clause per call
 ->theyCannot(string ...$abilities): static  // additive
 ->theyCannotBecause(string|list<string> $abilities, string|Closure $message): static // deny with a message
-->toRule(): WarrantRule                      // throws LogicException if no clause set
+->toRule(): WarrantRuleNode                      // throws LogicException if no clause set
 ```
 
 `theyCannotBecause()` adds one clause per call, so separate calls give separate
-abilities separate messages; abilities passed together share one message. To
-attach a message to an existing rule instead, use
-[`WarrantRule::withDenialMessage()`](#warrantrule-readonly). See
+abilities separate messages; abilities passed together share one message. See
 [Denial messages](/guides/denial-messages/) for what a message closure receives
 and where the message surfaces.
 
@@ -194,27 +292,28 @@ and where the message surfaces.
 - `can` and `check` have **no negated variants** — negate one with a group,
   `->ifNot(fn ($c) => $c->ifCan(...))`.
 - Omitting `$key` gives an **unbound handle**; an explicit `key: null` stays
-  row-bound and is rejected by `validate()`, so a missing id fails loudly instead
+  row-bound and is rejected by `Warrant::validate()`, so a missing id fails loudly instead
   of widening a row question into a schema-wide one.
 - An **empty `check` predicate closure throws `LogicException`** — unlike a group
   it cannot fall back to `false`, because a predicate may not contain a constant.
 - `$schema` is normalized to a schema key through the registry, so a model or
   schema class-string that resolves to nothing throws `OutOfBoundsException` at
   build time. A plain unregistered *key* string passes through, and a typo'd key is
-  caught by `validate()`.
+  caught by `Warrant::validate()`.
 
 ## `WarrantParser` (final)
 
 ```php
-public static function parse(string $source, array $bindings = []): array;              // WarrantRule[]
-public static function parseSingleRule(string $source, array $bindings = []): WarrantRule;
-public static function parseConditionExpression(string $source, array $bindings = []): IBooleanExpressionNode;
+public static function parse(string $source, array $bindings = []): WarrantSyntax;
 ```
+
+The parser behind `WarrantSyntax::parse()`. Bindings are resolved as the tree is
+built, so the nodes hold only concrete values.
 
 ## Round-tripping
 
-`toSyntax()` and `toBoundSyntax()` render a rule back to the DSL and parse-back
-identically. `toSyntax()` can only render parameters that are expressible as
+`WarrantSyntax::toSyntax()` and `toBoundSyntax()` render a tree back to the DSL,
+and parsing the result gives back an equal tree. `toSyntax()` can only render parameters that are expressible as
 **inline literals** (scalars); a parameter that's an array, object, `NAN`, `INF`,
 or a float needing exponent notation throws a `LogicException` — use
 `toBoundSyntax()`, which extracts every parameter as a positional binding.

@@ -12,17 +12,18 @@ request time. This is the seam where your access-control model meets Warrant.
 
 ## The `RuleResolver` interface
 
-Implement one method. Given a context, return the `WarrantRuleSet` that governs
+Implement one method. Given a context, return the `RuleSetNode` that governs
 this user's access to that resource:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         // $context->user       — the Authenticatable being checked (nullable)
         // $context->schemaKey  — e.g. 'documents'
@@ -34,16 +35,14 @@ class DatabaseRuleResolver implements RuleResolver
             ->where('resource', $context->schemaKey)
             ->pluck('rule');                    // ['if is_self they can view', ...]
 
-        return WarrantRuleSet::fromSyntax(
-            $grants->implode("\n"),             // rules concatenate freely
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse($grants->implode("\n")) // rules concatenate freely
+            ->scopedTo($context->schemaKey);
     }
 }
 ```
 
 Store rule strings in a table, compose them from role flags, read them from JWT
-claims — whatever fits. Warrant only cares that you return a `WarrantRuleSet`.
+claims — whatever fits. Warrant only cares that you return a `RuleSetNode`.
 
 :::note[The resolver is container-resolved]
 Warrant builds your resolver via `app()->make()`, so you can type-hint
@@ -57,81 +56,84 @@ If `warrant.rule_resolver` is unset, the first check throws a `RuntimeException`
 
 ## Building a rule set
 
-Three ways to construct a `WarrantRuleSet`. The first argument is always the
-schema (a model instance, a schema instance, or a schema/model class string, or a
-plain schema-key string):
+Three ways to construct a `RuleSetNode`. Each takes the schema as a plain schema-key
+string, or reads it from the text's own `for` header.
 
 ### From syntax
 
-Parse a string, resolving bindings inline:
+There is one parse for every form of rule text. `WarrantSyntax::parse()` (or
+`Warrant::parse()` from the facade) reads the text, resolving bindings inline, and
+returns a tree whose children say what the text held. Ask it for the shape you
+expect:
 
 ```php
-WarrantRuleSet::fromSyntax('if is_self they can view', 'documents', $bindings = []);
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+
+WarrantSyntax::parse('if is_self they can view', $bindings)->scopedTo('documents');
+WarrantSyntax::parse('for documents { if is_self they can view }', $bindings)->ruleSet();
 ```
 
-`Warrant::ruleSet()` is the same call from the facade, and it is the one to reach
-for when the rules are stored as text, because it lets the schema live in the
-string's own `for` header:
+| The text holds | Ask for | You get |
+| --- | --- | --- |
+| headless rules, ability blocks, `@include`s | `scopedTo('documents')` | a `RuleSetNode` for that schema |
+| one `for documents { … }` block, or `for documents` and a bare body | `ruleSet()` | that `RuleSetNode` |
+| several `for <schema> { … }` blocks | `forSchema('documents')`, `ruleSets()` | the blocks for one schema folded together, or every block |
+| exactly one rule | `rule()` | a `WarrantRuleNode` |
+| a bare condition | `expression()` | an `IBooleanExpressionNode` |
 
-```php
-Warrant::ruleSet('for documents { if is_self they can view }', bindings: $bindings);
-```
+`scopedTo()` is the call for a resolver: it scopes headless text to the schema
+being resolved, and accepts text that already names that schema in a `for`
+header, throwing if the header names a different one. A file of rules parses the
+same way with `WarrantSyntax::parseFile($path)`. Several rule sets in one source
+must each be braced — `for documents { … } for timesheets { … }` — because a bare
+`for` body runs to the end of the input. The full table of shapes is in the
+[Rule-building API](/reference/rule-building-api/#what-a-parse-returns).
 
-A header travels with the string, so editor tooling reading your source knows which
-schema to check the condition and ability names against. Passing the schema as a PHP
-argument instead leaves the string unchecked — still valid, just unverifiable from
-the outside.
+Prefer writing the `for` header into text you author. A header travels with the
+string, so editor tooling reading your source knows which schema to check the
+condition and ability names against. Text with no header is still valid, just
+unverifiable from the outside.
 
 ### From already-parsed rules
 
-Build individual `WarrantRule`s and compose them. `fromRules` takes a variadic
+Build individual `WarrantRuleNode`s and compose them. `fromRules` takes a variadic
 list *or* a single array (it flattens a mix of both), accepts builders directly,
 and takes no bindings (the rules are already resolved):
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$own      = WarrantRule::fromSyntax('if is_self they can view, update');
-$noDelete = WarrantRule::fromSyntax('they cannot delete');
+$own      = WarrantSyntax::parse('if is_self they can view, update')->rule();
+$noDelete = WarrantSyntax::parse('they cannot delete')->rule();
 
-WarrantRuleSet::fromRules('documents', $own, $noDelete);
-WarrantRuleSet::fromRules('documents', [$own, $noDelete]); // equivalent
+RuleSetNode::fromRules('documents', $own, $noDelete);
+RuleSetNode::fromRules('documents', [$own, $noDelete]); // equivalent
 ```
 
 ### With a build callback
 
-`WarrantRuleSet::build` hands you a factory; each `$rule()` call appends a builder:
+`RuleSetNode::build` hands you a factory; each `$rule()` call appends a builder:
 
 ```php
-WarrantRuleSet::build('documents', function ($rule) {
+RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_self')->theyCan('view', 'update');
     $rule()->theyCannot('delete');
 });
-```
-
-### Directly with the parser
-
-If you want the parsed rules without a rule set:
-
-```php
-use Warrant\DSL\Parsing\WarrantParser;
-
-$rules = WarrantParser::parse('if is_self they can view', $bindings = []); // WarrantRule[]
-$one   = WarrantParser::parseSingleRule('they cannot delete');            // WarrantRule
 ```
 
 ## Building rules programmatically
 
 When a rule's shape depends on runtime data — a list of team ids, a feature
 flag, values that don't belong in a string — the fluent builder is often clearer
-than assembling DSL text. `WarrantRule::build()` produces the **same AST** the
+than assembling DSL text. `WarrantRuleNode::build()` produces the **same AST** the
 parser does, and nothing is serialized to a string, so arbitrary PHP values in
 condition parameters survive untouched:
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-$rule = WarrantRule::build()
+$rule = WarrantRuleNode::build()
     ->if('is_self')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
     ->theyCan('view', 'update')
@@ -151,22 +153,23 @@ exactly like resolver rules — and, like every rule, they're still
 evaluated against the *current* user via their conditions:
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 class DocumentSchema extends WarrantSchema
 {
-    protected function implicitRules(): array|WarrantRuleSet
+    public function implicitRules(): array|RuleSetNode
     {
-        return [
-            WarrantRule::fromSyntax('if is_admin they can *'),
-            WarrantRule::fromSyntax('if is_suspended they cannot *'),
-        ];
+        return WarrantSyntax::parse('
+            if is_admin they can *
+            if is_suspended they cannot *
+        ')->ruleEntries();
     }
 }
 ```
 
-You may return either a plain list of rules (above) or a fully-formed
-`WarrantRuleSet` for this schema — whichever your baseline logic produces most
+You may return either a plain list of rule entries (above) or a fully-formed
+`RuleSetNode` for this schema — whichever your baseline logic produces most
 naturally. A returned rule set must target this schema.
 
 Because rule order never matters, an implicit `cannot` beats any

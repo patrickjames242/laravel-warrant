@@ -18,7 +18,7 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 - `#[Ability] const X = '...'` — declare an ability (add `requiredContext: [...]` for per-ability required context keys)
 - `#[RequiredContext] const X = '...'` — mark a context key required on every check (context keys need no declaration to be *used*)
 - `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions
-- `public function implicitRules(): array|WarrantRuleSet` — always-on rules
+- `public function implicitRules(): array|RuleSetNode` — always-on rules
 - `protected function defaultContext(): array` — default check-time context
 - `public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied
 - `public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when nothing granted
@@ -28,19 +28,28 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 
 See [Rule-building API](/reference/rule-building-api/).
 
-- `WarrantRuleSet::fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = [])`
-- `WarrantRuleSet::fromRules(Model|WarrantSchema|string $schema, WarrantRule|WarrantRuleBuilder|array ...$rules)`
-- `WarrantRuleSet::build(Model|WarrantSchema|string $schema, Closure $callback)`
-- `WarrantRule::fromSyntax(string $syntax, Model|WarrantSchema|string|null $schema = null, array $bindings = [])`
-- `WarrantParser::parse(string $source, array $bindings = []): WarrantRule[]`
-- `WarrantParser::parseSingleRule(string $source, array $bindings = []): WarrantRule`
-- `WarrantRule::build()` — fluent builder: `->if/andIf/orIf/ifNot/…`, `->ifCan/->ifCheck` (+ `and`/`or` forms, with `Ref::context/column/sql`), `->theyCan/theyCannot`, `->toRule()`
+Nodes live in `Warrant\DSL\Parsing\ASTNodes`.
+
+- `WarrantSyntax::parse(string $source, array $bindings = []): WarrantSyntax` (= `Warrant::parse`) — one parse for every form of rule text; `WarrantSyntax::parseFile($path, $bindings = [])` (= `Warrant::parseFile`) for a file
+- ask the result for the shape the text held ([table](/reference/rule-building-api/#what-a-parse-returns)):
+  - bare condition `a or b`, or `for docs a or b` → `->conditionExpression()`
+  - one headless rule → `->rule()`
+  - headless rules / `can they … { … }` blocks / `@include`s → `->ruleEntries()`, or `->scopedTo('docs')` for a `RuleSetNode`
+  - `for docs …` or `for docs { … }` → `->ruleSet()` (or `->scopedTo('docs')`, which checks the header)
+  - `for a { … } for b { … }` → `->ruleSets()`, `->forSchema('a')` (folds same-schema blocks), `->schemaKeys()`
+  - shape checks: `isEmpty/isExpression/isSingleRule/isRuleEntries/isSchemaScoped/isSingleRuleSet/isRuleSets/isSchemaCondition`; a wrong-shape accessor throws `LogicException`
+  - several rule sets in one source must each be braced
+- `RuleSetNode::fromRules(string $schemaKey, WarrantRuleNode|WarrantRuleBuilder|array ...$rules)`
+- `RuleSetNode::build(string $schemaKey, Closure $callback)`
+- `RuleSetNode::merge(...)` / `->mergeWith($other)`, `->rules()`, `->includes()`, `->entries`
+- `Warrant::validate(RuleSetNode|array ...$ruleSets): void` — name-check against each set's registered schema
+- `WarrantRuleNode::build()` (= `Warrant::rule()`; `Warrant::condition()` for a condition alone) — fluent builder: `->if/andIf/orIf/ifNot/…`, `->ifCan/->ifCheck` (+ `and`/`or` forms, with `Ref::context/column/sql`), `->theyCan/theyCannot`, `->toRule()`
 
 ## Provide rules
 
 Implement `Warrant\Rules\RuleResolver` — see [Providing rules](/guides/resolvers/).
 
-- `resolve(RuleResolutionContext $context): WarrantRuleSet`
+- `resolve(RuleResolutionContext $context): RuleSetNode` — typically `WarrantSyntax::parse($text)->scopedTo($context->schemaKey)`
 - context: `->user`, `->schemaKey`, `->schema`, `->model`
 - register in `config/warrant.php` → `rule_resolver`, `schemas`
 

@@ -55,11 +55,9 @@ Since the combination is order-independent, an **implicit** `cannot` beats any
 resolver-supplied `can`:
 
 ```php
-protected function implicitRules(): array|WarrantRuleSet
+public function implicitRules(): array|RuleSetNode
 {
-    return [
-        WarrantRule::fromSyntax('if is_suspended they cannot *'),
-    ];
+    return WarrantSyntax::parse('if is_suspended they cannot *')->ruleEntries();
 }
 ```
 

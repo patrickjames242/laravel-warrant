@@ -28,13 +28,15 @@ module.exports = grammar({
   supertypes: $ => [$._expression, $._argument],
 
   rules: {
-    // A file is either a sequence of `for <schema> { ... }` blocks, or a bare
-    // rule body optionally preceded by a `for <schema>` header. Both entry
-    // shapes exist on the PHP side (parseGroup vs parseSingleRuleSet), and a
-    // .warrant file may be any of them.
+    // A file is any form WarrantParser::parse() reads: a sequence of
+    // `for <schema> { ... }` blocks, a rule body, or a condition expression,
+    // the last two optionally preceded by a bare `for <schema>` header.
     source_file: $ => seq(
       optional($.schema_header),
-      repeat(choice($.schema_block, $.ability_block, $.include, $.rule)),
+      choice(
+        repeat(choice($.schema_block, $.ability_block, $.include, $.rule)),
+        field('condition', $._expression),
+      ),
     ),
 
     schema_header: $ => seq(
@@ -47,7 +49,17 @@ module.exports = grammar({
       field('body', $.block_body),
     ),
 
-    block_body: $ => seq('{', repeat(choice($.ability_block, $.include, $.rule)), '}'),
+    // A braced body holds rules, or one condition when it follows a `for`
+    // header. Inside an ability block only rules are legal; the condition form
+    // parses there too, since a sensibly highlighted mistake beats an ERROR node.
+    block_body: $ => seq(
+      '{',
+      choice(
+        repeat(choice($.ability_block, $.include, $.rule)),
+        field('condition', $._expression),
+      ),
+      '}',
+    ),
 
     // `@include <template>(<args>) for <abilities>` -- expands a rule template
     // into the rules it stands for, in the place it is written. The `for` list is
