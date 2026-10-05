@@ -77,7 +77,7 @@ module.exports = grammar({
     // `they cannot` clauses that share it. Clauses with no `if` form a single
     // unconditional rule; each `if` begins a new one.
     // Right-associative so consecutive clauses are absorbed greedily into the
-    // rule already being built, mirroring parseClausesInto()'s
+    // rule already being built, mirroring parseTheyCanCannotClauses()'s
     // `while ($this->check(THEY))` loop -- every `they` clause up to the next
     // `if` shares that rule's condition. Left associativity would instead end
     // the rule after each clause, wrongly making a trailing `they cannot ...`
