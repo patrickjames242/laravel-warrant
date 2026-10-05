@@ -4,11 +4,12 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -129,16 +130,16 @@ function bindFoldRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantRuleSet::fromSyntax($syntax, $key);
+        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
-        /** @param array<string, WarrantRuleSet> $sets */
+        /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new WarrantRuleSet($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
         }
     });
 }

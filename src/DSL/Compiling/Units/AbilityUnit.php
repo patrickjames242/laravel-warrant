@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Compiling\Units;
 
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 
 /**
  * One ability, resolved against a rule set under the deny-overrides formula.
@@ -15,7 +15,7 @@ final readonly class AbilityUnit implements CompilationUnit
 {
     public function __construct(
         public string $ability,
-        public WarrantRuleSet $ruleSet,
+        public RuleSetNode $ruleSet,
     ) {
     }
 }

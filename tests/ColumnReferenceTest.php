@@ -5,11 +5,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -53,16 +54,16 @@ beforeEach(function () {
  */
 function bindColRules(string $syntax, string $schemaKey): void
 {
-    $set = WarrantRuleSet::fromSyntax($syntax, $schemaKey);
+    $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
 
     app()->instance(RuleResolver::class, new class($set, $schemaKey) implements RuleResolver {
-        public function __construct(private WarrantRuleSet $set, private string $key) {}
+        public function __construct(private RuleSetNode $set, private string $key) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $context->schemaKey === $this->key
                 ? $this->set
-                : new WarrantRuleSet($context->schemaKey, []);
+                : new RuleSetNode($context->schemaKey, []);
         }
     });
 }
@@ -143,10 +144,9 @@ it('follows the host query alias without being told', function () {
 
 it('needs no schema in scope for an unqualified @column to validate', function () {
     // Nothing is named, so there is nothing for validation to reject.
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if pay_period_matches(@column pay_period_id) they can view',
-        'timesheets',
-    )->validate())->not->toThrow(Exception::class);
+    )->scopedTo('timesheets')))->not->toThrow(Exception::class);
 });
 
 // -- a row that is not in scope ------------------------------------------------
@@ -234,11 +234,11 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
 
     // The target schema grants view to everyone.
     app()->instance(RuleResolver::class, new class implements RuleResolver {
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $context->schemaKey === 'col_docs'
-                ? WarrantRuleSet::fromSyntax('if can(view for col_targets(@column col_docs.target_id)) they can view', 'col_docs')
-                : WarrantRuleSet::fromSyntax('they can view', 'col_targets');
+                ? WarrantSyntax::parse('if can(view for col_targets(@column col_docs.target_id)) they can view')->scopedTo('col_docs')
+                : WarrantSyntax::parse('they can view')->scopedTo('col_targets');
         }
     });
 
@@ -281,10 +281,9 @@ it('rejects a @column reference naming a table that is not in scope', function (
        and a capability schema with no table at all are one error now: from these
        rules, none of those names refers to anything. The message names what *is*
        in scope, which is the useful half. */
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         "if pay_period_matches(@column {$name}.col) they can view",
-        'timesheets',
-    )->validate())->toThrow(
+    )->scopedTo('timesheets')))->toThrow(
         InvalidArgumentException::class,
         "A @column reference names [{$name}], which is not in scope here; the names in scope are [timesheets].",
     );
@@ -296,28 +295,25 @@ it('rejects a @column reference naming a table that is not in scope', function (
 
 it('allows a @column reference to the owning schema (self-reference)', function () {
     // Unlike can(...)/check(...), referencing your own table's column is the point.
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if pay_period_matches(@column timesheets.pay_period_id) they can view',
-        'timesheets',
-    )->validate())->not->toThrow(Exception::class);
+    )->scopedTo('timesheets')))->not->toThrow(Exception::class);
 });
 
 it('puts the target of a check(...) in scope for its own predicate, alongside the caller', function () {
     /* The predicate is written in col_docs' rule text but asks col_targets'
        questions, so both frames are nameable there — that is what lets one
        predicate correlate the two. */
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if check(id_matches(@column col_targets.id) and id_matches(@column col_docs.target_id) '
             .'for col_targets(@column col_docs.target_id)) they can view',
-        'col_docs',
-    )->validate())->not->toThrow(Exception::class);
+    )->scopedTo('col_docs')))->not->toThrow(Exception::class);
 });
 
 it('rejects a @column in a check(...) predicate naming neither frame', function () {
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if check(id_matches(@column timesheets.id) for col_targets(@column col_docs.target_id)) they can view',
-        'col_docs',
-    )->validate())->toThrow(
+    )->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         'the names in scope are [col_docs, col_targets].',
     );
@@ -325,7 +321,7 @@ it('rejects a @column in a check(...) predicate naming neither frame', function 
 
 it('rejects an alias on a handle that selects no row', function (string $syntax, string $builtin) {
     // An unbound handle emits no `from`, so its alias names nothing.
-    expect(fn () => WarrantRuleSet::fromSyntax($syntax, 'col_docs')->validate())->toThrow(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse($syntax)->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         "A {$builtin}(...) reference to schema [col_targets] is aliased [as t2] but selects no row, "
             .'so the alias names nothing',
@@ -340,20 +336,18 @@ it('names a check(...) target by its alias, leaving its schema key for the calle
        target, and `col_targets` — had the caller been col_targets itself — would
        still mean the enclosing row. Here the caller is col_docs, so both names
        resolve and neither shadows. */
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if check(id_matches(@column t2.id) for col_targets(@column col_docs.target_id) as t2) they can view',
-        'col_docs',
-    )->validate())->not->toThrow(Exception::class);
+    )->scopedTo('col_docs')))->not->toThrow(Exception::class);
 });
 
 it('stops the target schema key naming an aliased check(...) frame', function () {
     /* With `as t2` the target is bound under `t2` only, so `col_targets` is no
        longer a name in scope — the whole point, since it is what lets the key go
        on meaning an outer frame of the same table. */
-    expect(fn () => WarrantRuleSet::fromSyntax(
+    expect(fn () => Warrant::validate(WarrantSyntax::parse(
         'if check(id_matches(@column col_targets.id) for col_targets(@column col_docs.target_id) as t2) they can view',
-        'col_docs',
-    )->validate())->toThrow(
+    )->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         'A @column reference names [col_targets], which is not in scope here; '
             .'the names in scope are [col_docs, t2].',

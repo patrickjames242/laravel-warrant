@@ -5,11 +5,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -46,16 +47,16 @@ beforeEach(function () {
  */
 function bindSqlRules(string $syntax, string $schemaKey): void
 {
-    $set = WarrantRuleSet::fromSyntax($syntax, $schemaKey);
+    $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
 
     app()->instance(RuleResolver::class, new class($set, $schemaKey) implements RuleResolver {
-        public function __construct(private WarrantRuleSet $set, private string $key) {}
+        public function __construct(private RuleSetNode $set, private string $key) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $context->schemaKey === $this->key
                 ? $this->set
-                : new WarrantRuleSet($context->schemaKey, []);
+                : new RuleSetNode($context->schemaKey, []);
         }
     });
 }

@@ -19,28 +19,41 @@
           ]
         },
         {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "schema_block"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "ability_block"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "include"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "rule"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "schema_block"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "ability_block"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "include"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "rule"
+                  }
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "FIELD",
+              "name": "condition",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_expression"
+              }
+            }
+          ]
         }
       ]
     },
@@ -86,24 +99,37 @@
           "value": "{"
         },
         {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "ability_block"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "include"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "rule"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "ability_block"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "include"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "rule"
+                  }
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "FIELD",
+              "name": "condition",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_expression"
+              }
+            }
+          ]
         },
         {
           "type": "STRING",

@@ -2,6 +2,8 @@
 
 namespace Warrant\Rules;
 
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+
 /**
  * What bounds a chain of `@include` expansions, and what it says when the chain
  * cannot end.
@@ -23,5 +25,5 @@ interface IncludeTrail
     /**
      * The trail one level deeper, or a throw when this descent may not be made.
      */
-    public function entering(IncludeInvocation $include): static;
+    public function entering(IncludeInvocationNode $include): static;
 }

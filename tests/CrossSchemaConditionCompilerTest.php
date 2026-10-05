@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Ref;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -68,18 +69,18 @@ beforeEach(function () {
  * Bind a resolver that returns schema A's rule set. The referenced schema's
  * conditions are dispatched directly, so only A needs a rule set here.
  */
-function bindCheckDocRules(string|WarrantRuleSet $docSyntax): void
+function bindCheckDocRules(string|RuleSetNode $docSyntax): void
 {
-    $set = $docSyntax instanceof WarrantRuleSet ? $docSyntax : WarrantRuleSet::fromSyntax($docSyntax, 'chk_docs');
+    $set = $docSyntax instanceof RuleSetNode ? $docSyntax : WarrantSyntax::parse($docSyntax)->scopedTo('chk_docs');
 
     app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
-        public function __construct(private WarrantRuleSet $set) {}
+        public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
             return $context->schemaKey === 'chk_docs'
                 ? $this->set
-                : new WarrantRuleSet($context->schemaKey, []);
+                : new RuleSetNode($context->schemaKey, []);
         }
     });
 }
@@ -91,7 +92,7 @@ function bindCheckDocRules(string|WarrantRuleSet $docSyntax): void
  * @param array<string, mixed> $context
  */
 function assertChkFilterSql(
-    string|WarrantRuleSet $docSyntax,
+    string|RuleSetNode $docSyntax,
     array $context,
     string $expectedSql,
     ?string $roleId = 'role-1',
@@ -171,9 +172,9 @@ it('does not let an absent row selector lift a cannot on a check', function () {
 
 it('compiles a builder-built row-bound predicate to the same SQL as the DSL', function () {
     assertChkFilterSql(
-        WarrantRuleSet::fromRules(
+        RuleSetNode::fromRules(
             'chk_docs',
-            WarrantRule::build()
+            WarrantRuleNode::build()
                 ->ifCheck(fn ($p) => $p->if('is_owner'), 'chk_targets', Ref::context('tid'))
                 ->theyCan('view'),
         ),

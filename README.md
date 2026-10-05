@@ -174,13 +174,14 @@ class TimesheetSchema extends WarrantSchema
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         // Load the raw rule string + any binding values for this user/resource.
         [$syntax, $bindings] = MyRuleStore::for(
@@ -188,7 +189,7 @@ class DatabaseRuleResolver implements RuleResolver
             resource: $context->schemaKey, // 'timesheets'
         );
 
-        return WarrantRuleSet::fromSyntax($syntax, $context->schemaKey, $bindings);
+        return WarrantSyntax::parse($syntax, $bindings)->scopedTo($context->schemaKey);
     }
 }
 ```

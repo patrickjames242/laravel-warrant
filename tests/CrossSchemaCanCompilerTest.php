@@ -7,12 +7,13 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -78,16 +79,16 @@ function bindCrossSchemaRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = $syntax instanceof WarrantRuleSet ? $syntax : WarrantRuleSet::fromSyntax($syntax, $key);
+        $sets[$key] = $syntax instanceof RuleSetNode ? $syntax : WarrantSyntax::parse($syntax)->scopedTo($key);
     }
 
     app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
-        /** @param array<string, WarrantRuleSet> $sets */
+        /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
-        public function resolve(RuleResolutionContext $context): WarrantRuleSet
+        public function resolve(RuleResolutionContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new WarrantRuleSet($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
         }
     });
 }
@@ -101,7 +102,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
  * @param array<string, mixed>        $context
  */
 function assertXcFilterSql(
-    string|WarrantRuleSet $docSyntax,
+    string|RuleSetNode $docSyntax,
     array $otherSyntax,
     string|array $abilities,
     array $context,
@@ -147,9 +148,9 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
 
 it('compiles a builder-built row-bound reference to the same SQL as the DSL', function () {
     assertXcFilterSql(
-        WarrantRuleSet::fromRules(
+        RuleSetNode::fromRules(
             'xc_docs',
-            WarrantRule::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view'),
+            WarrantRuleNode::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view'),
         ),
         ['xc_folders' => 'if is_owner they can view'],
         'view',

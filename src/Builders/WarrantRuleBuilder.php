@@ -4,13 +4,14 @@ namespace Warrant\Builders;
 
 use Closure;
 use LogicException;
-use Warrant\Rules\CannotClause;
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole
- * {@see WarrantRule} in PHP instead of the string DSL.
+ * {@see WarrantRuleNode} in PHP instead of the string DSL.
  *
  * It extends {@see WarrantConditionBuilder} with the clause half of a rule
  * (`theyCan` / `theyCannot` / `theyCannotBecause`) and finalization via
@@ -19,7 +20,7 @@ use Warrant\Schema\WarrantDenialContext;
  * closure only ever receives a bare condition builder.
  *
  * ```php
- * WarrantRule::build()
+ * WarrantRuleNode::build()
  *     ->if('is_self')
  *     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
  *     ->theyCan('view', 'update')
@@ -29,24 +30,24 @@ use Warrant\Schema\WarrantDenialContext;
  */
 final class WarrantRuleBuilder extends WarrantConditionBuilder
 {
-    /** @var list<string> */
-    private array $can = [];
+    /** @var list<CanClauseNode> */
+    private array $canClauses = [];
 
-    /** @var list<CannotClause> */
+    /** @var list<CannotClauseNode> */
     private array $cannotClauses = [];
 
     // -- clauses --------------------------------------------------------------
 
     public function theyCan(string ...$abilities): static
     {
-        $this->can = [...$this->can, ...$abilities];
+        $this->canClauses[] = new CanClauseNode(array_values($abilities));
 
         return $this;
     }
 
     public function theyCannot(string ...$abilities): static
     {
-        $this->cannotClauses[] = new CannotClause($abilities);
+        $this->cannotClauses[] = new CannotClauseNode($abilities);
 
         return $this;
     }
@@ -63,21 +64,21 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      */
     public function theyCannotBecause(string|array $abilities, string|Closure $message): static
     {
-        $this->cannotClauses[] = new CannotClause(is_array($abilities) ? array_values($abilities) : [$abilities], $message);
+        $this->cannotClauses[] = new CannotClauseNode(is_array($abilities) ? array_values($abilities) : [$abilities], $message);
 
         return $this;
     }
 
     // -- materialization ------------------------------------------------------
 
-    public function toRule(): WarrantRule
+    public function toRule(): WarrantRuleNode
     {
-        if ($this->can === [] && $this->cannotClauses === []) {
+        if ($this->canClauses === [] && $this->cannotClauses === []) {
             throw new LogicException(
                 "A rule needs at least one 'they can ...' or 'they cannot ...' clause; call theyCan(), theyCannot(), or theyCannotBecause() before toRule()."
             );
         }
 
-        return new WarrantRule($this->buildConditions(), $this->can, $this->cannotClauses);
+        return new WarrantRuleNode($this->buildConditions(), $this->canClauses, $this->cannotClauses);
     }
 }

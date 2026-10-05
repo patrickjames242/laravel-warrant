@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -232,9 +232,9 @@ it('does not resolve Warrant abilities when register_gate is false', function ()
 it('carries the Warrant denial message through inspect/authorize', function () {
     seedGateSections();
     useWarrantSchemas(['course_sections' => GateTestSchema::class]);
-    bindWarrantRuleSet(WarrantRuleSet::fromRules(GateTestSchema::class, [
-        WarrantRule::build()->theyCan('view')->toRule(),
-        WarrantRule::build()->if('is_teacher')
+    bindWarrantRuleSet(RuleSetNode::fromRules(GateTestSchema::schemaKey(), [
+        WarrantRuleNode::build()->theyCan('view')->toRule(),
+        WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('view', 'teacher blocked')->toRule(),
     ]));
     $user = makeWarrantTestUser('teacher-role');

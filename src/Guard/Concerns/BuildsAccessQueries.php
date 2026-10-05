@@ -11,11 +11,11 @@ use Warrant\DSL\Compiling\CompilationResult;
 use Warrant\DSL\Compiling\Decision;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\WarrantGate;
 
 /**
- * The SQL runtime: turns this guard's resolved {@see WarrantRuleSet} into
+ * The SQL runtime: turns this guard's resolved {@see RuleSetNode} into
  * access-control predicates and attaches them to entity queries (row filtering
  * and per-row ability selection). All condition SQL is produced by the
  * {@see RuleSetCompiler}, which dispatches condition emission back into the

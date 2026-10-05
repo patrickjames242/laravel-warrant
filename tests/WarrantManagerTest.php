@@ -2,9 +2,9 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Registry\SchemaRegistry;
-use Warrant\Rules\WarrantRuleSet;
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
@@ -90,17 +90,17 @@ it('throws when a schema names a model that does not use the trait', function ()
 
 it('validates a batch of rule sets, each against its own registered schema', function () {
     // Passes silently: every name is declared by the course_sections schema.
-    WarrantRuleSet::validateAll(
-        WarrantRuleSet::fromSyntax('if is_teacher they can view, update', 'course_sections'),
-        [WarrantRuleSet::fromSyntax('if is_advisor they can publish', 'course_sections')],
+    Warrant::validate(
+        WarrantSyntax::parse('if is_teacher they can view, update')->scopedTo('course_sections'),
+        [WarrantSyntax::parse('if is_advisor they can publish')->scopedTo('course_sections')],
     );
 
     expect(true)->toBeTrue();
 });
 
-it('throws on the first unknown name across a validateAll batch', function () {
-    expect(fn () => WarrantRuleSet::validateAll(
-        WarrantRuleSet::fromSyntax('if is_teacher they can view', 'course_sections'),
-        WarrantRuleSet::fromSyntax('they can fly', 'course_sections'),
+it('throws on the first unknown name across a validate batch', function () {
+    expect(fn () => Warrant::validate(
+        WarrantSyntax::parse('if is_teacher they can view')->scopedTo('course_sections'),
+        WarrantSyntax::parse('they can fly')->scopedTo('course_sections'),
     ))->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 });

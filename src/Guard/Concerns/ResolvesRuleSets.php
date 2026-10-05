@@ -3,13 +3,13 @@
 namespace Warrant\Guard\Concerns;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 /**
- * Resolving the ordered {@see WarrantRuleSet} that governs this guard's user's
+ * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
  * access to the managed entity: asking the bound {@see RuleResolver}, confirming
  * its answer is about the schema it was asked about, prepending the schema's
  * implicit rules, and running the set past {@see RuleSetValidator} on the way to
@@ -35,17 +35,17 @@ use Warrant\Rules\WarrantRuleSet;
  */
 trait ResolvesRuleSets
 {
-    private ?WarrantRuleSet $resolvedRuleSet = null;
+    private ?RuleSetNode $resolvedRuleSet = null;
 
     /**
      * This guard's resolved, validated rule set, memoized for the instance.
      */
-    public function resolvedRuleSet(): WarrantRuleSet
+    public function resolvedRuleSet(): RuleSetNode
     {
         return $this->resolvedRuleSet ??= $this->resolveRuleSet();
     }
 
-    private function resolveRuleSet(): WarrantRuleSet
+    private function resolveRuleSet(): RuleSetNode
     {
         $resolver = app(RuleResolver::class);
 
@@ -66,7 +66,7 @@ trait ResolvesRuleSets
 
         $implicitRules = $this->schema->implicitRules();
 
-        if ($implicitRules instanceof WarrantRuleSet) {
+        if ($implicitRules instanceof RuleSetNode) {
             if ($implicitRules->schemaKey !== $ruleSet->schemaKey) {
                 throw new InvalidArgumentException(sprintf(
                     'Implicit rule set for schema [%s] targets a different schema [%s].',
@@ -75,13 +75,13 @@ trait ResolvesRuleSets
                 ));
             }
 
-            $implicitRules = $implicitRules->rules;
+            $implicitRules = $implicitRules->entries;
         }
 
         if ($implicitRules !== []) {
-            $ruleSet = new WarrantRuleSet($ruleSet->schemaKey, [
+            $ruleSet = new RuleSetNode($ruleSet->schemaKey, [
                 ...$implicitRules,
-                ...$ruleSet->rules,
+                ...$ruleSet->entries,
             ]);
         }
 

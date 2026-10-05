@@ -19,7 +19,7 @@ use Warrant\Schema\WarrantSchema;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for composing the boolean
- * condition tree of a {@see WarrantRule} — the `if`/`and`/`or` half of a rule.
+ * condition tree of a {@see WarrantRuleNode} — the `if`/`and`/`or` half of a rule.
  *
  * It produces AST nodes directly — the same tree the parser builds — so a built
  * condition flows through the identical validation and compilation. Nothing is
@@ -45,7 +45,7 @@ class WarrantConditionBuilder
 
     /**
      * Start a fluent, query-builder-style condition, the way
-     * {@see \Warrant\Rules\WarrantRule::build()} starts a whole rule.
+     * {@see \Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode::build()} starts a whole rule.
      *
      * This is how a schema's own condition composes the expression it derives
      * itself from, rather than emitting SQL:
@@ -295,7 +295,7 @@ class WarrantConditionBuilder
      */
     private function addRaw(string $boolean, string $expression, array $bindings): static
     {
-        return $this->pushTerm($boolean, WarrantParser::parseConditionExpression($expression, $bindings));
+        return $this->pushTerm($boolean, WarrantParser::parse($expression, $bindings)->conditionExpression());
     }
 
     /**
@@ -322,8 +322,8 @@ class WarrantConditionBuilder
 
     /**
      * Materialize one `can(...)` leaf. The schema reference is normalized to a
-     * schema key exactly as {@see \Warrant\Rules\WarrantRuleSet::__construct} does,
-     * so the node carries the key the parser would have lexed.
+     * schema key through the registry, so the node carries the key the parser would
+     * have lexed.
      *
      * @param array<string, mixed> $with
      */

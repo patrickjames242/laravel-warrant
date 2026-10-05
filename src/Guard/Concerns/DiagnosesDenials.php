@@ -2,8 +2,6 @@
 
 namespace Warrant\Guard\Concerns;
 
-use Warrant\Rules\RuleTemplateExpander;
-
 use Closure;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +9,8 @@ use Throwable;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\Rules\RuleTemplateExpander;
 use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
@@ -24,7 +23,7 @@ use Warrant\WarrantGate;
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
  * *forbidden* by a `cannot` (surfacing that clause's
- * {@see WarrantRule::messageFor()}) from being *ungranted* (nothing forbade and
+ * {@see WarrantRuleNode::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
  * {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook).
  */
@@ -183,7 +182,7 @@ trait DiagnosesDenials
         foreach ($failedAbilities as $ability) {
             $anyCannotFired = false;
 
-            foreach ($ruleSet->rules as $rule) {
+            foreach ($ruleSet->rules() as $rule) {
                 if (! $rule->deniesAbility($ability)) {
                     continue;
                 }
@@ -243,7 +242,7 @@ trait DiagnosesDenials
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRule(WarrantRule $rule, array $gateAbilities): array
+    private function abilitiesBlockedByRule(WarrantRuleNode $rule, array $gateAbilities): array
     {
         $cannotAbilities = $rule->cannotAbilities();
 
@@ -264,7 +263,7 @@ trait DiagnosesDenials
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRuleForMessage(WarrantRule $rule, array $gateAbilities, string $ability): array
+    private function abilitiesBlockedByRuleForMessage(WarrantRuleNode $rule, array $gateAbilities, string $ability): array
     {
         $target = $rule->messageFor($ability);
 
@@ -283,7 +282,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildDenialException(
-        WarrantRule $rule,
+        WarrantRuleNode $rule,
         string $ability,
         string|Closure $message,
         ?Model $targetModel,
@@ -327,7 +326,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildForbiddenException(
-        WarrantRule $rule,
+        WarrantRuleNode $rule,
         ?Model $targetModel,
         WarrantGate $gate,
         array $context,

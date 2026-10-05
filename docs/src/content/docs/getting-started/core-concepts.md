@@ -76,14 +76,14 @@ can live in a table, in config, on a JWT claim.
 You construct a single rule two ways. Parse one from the DSL:
 
 ```php
-WarrantRule::fromSyntax('if is_self or manages_team they can view, update');
+WarrantSyntax::parse('if is_self or manages_team they can view, update')->rule();
 ```
 
 Or build it fluently with the [rule builder](/rules/builder/) — the same rule,
 composed in PHP:
 
 ```php
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_self')->orIf('manages_team')
     ->theyCan('view', 'update')
     ->toRule();
@@ -93,33 +93,33 @@ See the [rule language](/rules/basics/) for the full syntax.
 
 ## Rule set
 
-A **rule set** (`WarrantRuleSet`) is the collection of rules that apply to one
+A **rule set** (`RuleSetNode`) is the collection of rules that apply to one
 resource for one user — what your resolver returns and what Warrant compiles. There
 are three ways to construct one.
 
-Parse a whole multi-rule string with `fromSyntax`:
+Parse a whole multi-rule string, and scope it to the schema with `scopedTo`:
 
 ```php
-WarrantRuleSet::fromSyntax('
+WarrantSyntax::parse('
     if is_self or manages_team they can view, update
     if is_locked and not is_admin they cannot update
     if is_admin they can *
-', 'documents');
+')->scopedTo('documents');
 ```
 
-Compose it from already-built `WarrantRule` objects with `fromRules`:
+Compose it from already-built `WarrantRuleNode` objects with `fromRules`:
 
 ```php
-WarrantRuleSet::fromRules('documents',
-    WarrantRule::fromSyntax('if is_self they can view'),
-    WarrantRule::build()->if('is_admin')->theyCan('view', 'update')->toRule(),
+RuleSetNode::fromRules('documents',
+    WarrantSyntax::parse('if is_self they can view')->rule(),
+    WarrantRuleNode::build()->if('is_admin')->theyCan('view', 'update')->toRule(),
 );
 ```
 
 Or build the whole set fluently, where each `$rule()` call appends a rule:
 
 ```php
-WarrantRuleSet::build('documents', function ($rule) {
+RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_self')->orIf('manages_team')->theyCan('view', 'update');
     $rule()->if('is_admin')->theyCan('*');
 });
@@ -135,20 +135,20 @@ rule set for the current user and resource. This is where "rules are data" pays 
 ```php
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         $rules = DB::table('role_rules')
             ->where('role_id', $context->user->role_id)
             ->where('resource', $context->schemaKey)   // e.g. 'documents'
             ->pluck('rule');
 
-        return WarrantRuleSet::fromSyntax($rules->implode("\n"), $context->schemaKey);
+        return WarrantSyntax::parse($rules->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```
 
 Warrant owns no tables and has no opinion about where rules live — it only asks your
-resolver for a `WarrantRuleSet`. You can also add [implicit rules](/supplying-rules/resolver/#implicit-rules)
+resolver for a `RuleSetNode`. You can also add [implicit rules](/supplying-rules/resolver/#implicit-rules)
 that always apply. See [Providing rules](/supplying-rules/resolver/).
 
 ## Schema

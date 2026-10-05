@@ -4,12 +4,15 @@ namespace Warrant\Rules;
 
 use InvalidArgumentException;
 use RuntimeException;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Schema\RuleTemplateDefinition;
 
 /**
- * Replaces every {@see IncludeInvocation} in a rule set with the rules its
+ * Replaces every {@see IncludeInvocationNode} in a rule set with the rules its
  * template expands to.
  *
  * Expansion is a pure function of the rule set and the schema: it calls a
@@ -33,17 +36,17 @@ use Warrant\Schema\RuleTemplateDefinition;
 final class RuleTemplateExpander
 {
     /**
-     * Return a copy of $set holding rules alone, every include replaced by what
-     * its template expands to.
+     * Return a copy of $set holding rules alone: ability blocks opened up, and
+     * every include replaced by what its template expands to.
      *
      * $trail decides how deep the expansion may go and what a runaway reports;
      * omitting it takes the plain depth bound, which is what a caller outside a
      * compile wants.
      */
-    public function expand(WarrantRuleSet $set, SchemaVocabulary $schema, ?IncludeTrail $trail = null): WarrantRuleSet
+    public function expand(RuleSetNode $set, SchemaVocabulary $schema, ?IncludeTrail $trail = null): RuleSetNode
     {
-        return new WarrantRuleSet($set->schemaKey, $this->expandEntries(
-            $set->rules,
+        return new RuleSetNode($set->schemaKey, $this->expandEntries(
+            $set->flatEntries(),
             $schema,
             $set->schemaKey,
             $trail ?? DepthTrail::root(),
@@ -68,7 +71,7 @@ final class RuleTemplateExpander
     public static function resolveTemplate(
         SchemaVocabulary $schema,
         string $schemaKey,
-        IncludeInvocation $include,
+        IncludeInvocationNode $include,
     ): RuleTemplateDefinition {
         $definition = $schema->getRuleTemplateDefinition($include->templateKey);
 
@@ -93,8 +96,8 @@ final class RuleTemplateExpander
     }
 
     /**
-     * @param list<RuleSetEntry> $entries
-     * @return list<WarrantRule>
+     * @param list<WarrantRuleNode|IncludeInvocationNode> $entries
+     * @return list<WarrantRuleNode>
      */
     private function expandEntries(
         array $entries,
@@ -106,7 +109,7 @@ final class RuleTemplateExpander
         $expanded = [];
 
         foreach ($entries as $entry) {
-            if (! $entry instanceof IncludeInvocation) {
+            if (! $entry instanceof IncludeInvocationNode) {
                 $expanded[] = $entry;
 
                 continue;
@@ -121,10 +124,10 @@ final class RuleTemplateExpander
     }
 
     /**
-     * @return list<WarrantRule>
+     * @return list<WarrantRuleNode>
      */
     private function expandOne(
-        IncludeInvocation $include,
+        IncludeInvocationNode $include,
         SchemaVocabulary $schema,
         string $schemaKey,
         IncludeTrail $trail,
@@ -145,10 +148,17 @@ final class RuleTemplateExpander
             ));
         }
 
-        $entries = WarrantParser::parseTemplateBody(
+        $headless = WarrantParser::parseTemplateBody(
             is_string($body) ? $body : $body->syntax,
-            $include->abilities,
             is_string($body) ? [] : $body->bindings,
+        );
+
+        /* The body is headless, as an ability block's is: the include names the
+           abilities its clauses take, so they are applied here. */
+        $entries = array_map(
+            static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
+                => $entry->withAbilities($include->abilities),
+            $headless,
         );
 
         /* The body may hold includes of its own, taking the same abilities. They

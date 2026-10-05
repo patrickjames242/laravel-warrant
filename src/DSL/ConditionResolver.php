@@ -9,7 +9,7 @@ use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 
 /**
- * The seam between a compiled {@see WarrantRuleSet} and the host schema. The
+ * The seam between a compiled {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode} and the host schema. The
  * compiler only knows how to assemble boolean structure and the deny-overrides
  * formula; emitting a condition's SQL is delegated here.
  *

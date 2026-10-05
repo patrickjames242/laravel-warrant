@@ -12,17 +12,18 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\IncludeInvocation;
 use Warrant\Rules\RuleTemplateExpander;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
 
 /**
- * Validates every condition and ability name in a {@see WarrantRuleSet} against
+ * Validates every condition and ability name in a {@see RuleSetNode} against
  * the schema it targets — including that each condition is called with at least
  * as many arguments as it requires.
  *
@@ -34,8 +35,8 @@ use Warrant\Rules\WarrantRuleSet;
  * loudly, just later and against a live user and query.
  *
  * What it adds is reach in the other direction. It answers from rule text alone —
- * no database, no user, no query — which is what a language server, a CI check or
- * {@see WarrantRuleSet::validate()} needs, and it sees every rule in a set rather
+ * no database, no user, no query — which is what a language server or a CI check
+ * needs, and it sees every rule in a set rather
  * than only the paths a particular check happens to compile.
  *
  * Its blind spot is the mirror of that. A condition may answer with an expression
@@ -74,17 +75,20 @@ final class RuleSetValidator
     /**
      * Validate every condition and ability name in the rule set against the
      * schema. Throws {@see InvalidArgumentException} on the first unknown name.
+     *
+     * Ability blocks are read opened up, each header applied to its entries, so
+     * a block's abilities are checked through the rules they end up on.
      */
-    public function validate(WarrantRuleSet $ruleSet): void
+    public function validate(RuleSetNode $ruleSet): void
     {
-        foreach ($ruleSet->rules as $rule) {
-            if ($rule instanceof IncludeInvocation) {
+        foreach ($ruleSet->flatEntries() as $rule) {
+            if ($rule instanceof IncludeInvocationNode) {
                 $this->assertIncludeValid($rule);
 
                 continue;
             }
 
-            $this->assertAbilitiesDeclared([...$rule->canAbilities, ...$rule->cannotAbilities()]);
+            $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
 
             $this->assertNoDuplicateCannotAbility($rule);
 
@@ -92,6 +96,15 @@ final class RuleSetValidator
                 $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
             }
         }
+    }
+
+    /**
+     * Validate every name in a condition written under a `for <schema>` header
+     * against the schema, as a rule's own `if` expression would be.
+     */
+    public function validateCondition(SchemaConditionNode $condition): void
+    {
+        $this->validateExpression($condition->expression, $this->schema, $this->rootScope());
     }
 
     /**
@@ -125,7 +138,7 @@ final class RuleSetValidator
      * therefore the expansion's to report, in the same way a mistake inside a
      * condition's derived expression is the compiler's.
      */
-    private function assertIncludeValid(IncludeInvocation $include): void
+    private function assertIncludeValid(IncludeInvocationNode $include): void
     {
         $this->assertAbilitiesDeclared($include->abilities);
 
@@ -135,10 +148,10 @@ final class RuleSetValidator
     /**
      * An ability may appear in at most one `cannot` clause of a rule. A duplicate
      * would give that ability two denial messages, of which only the first could
-     * ever surface (see {@see WarrantRule::messageFor()}), so it is almost always
+     * ever surface (see {@see WarrantRuleNode::messageFor()}), so it is almost always
      * a mistake — reject it rather than silently dropping the later message.
      */
-    private function assertNoDuplicateCannotAbility(WarrantRule $rule): void
+    private function assertNoDuplicateCannotAbility(WarrantRuleNode $rule): void
     {
         $seen = [];
 

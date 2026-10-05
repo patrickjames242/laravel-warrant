@@ -1,23 +1,23 @@
 <?php
 
-namespace Warrant\Rules;
+namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Closure;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
- * One `they cannot <abilities> [because <message>]` clause of a {@see WarrantRule}.
+ * One `they cannot <abilities> [because <message>]` clause of a {@see WarrantRuleNode}.
  *
  * A rule's `cannot` side is a list of these, so different abilities can carry
  * different denial messages while still living on one rule. Every ability in a
  * single clause shares that clause's {@see $message}.
  *
  * The compiler and reachability analyzer treat the abilities purely as a
- * membership list ({@see WarrantRule::cannotAbilities()} flattens every clause),
+ * membership list ({@see WarrantRuleNode::cannotAbilities()} flattens every clause),
  * so the message never affects the compiled predicate — it is surfaced only when
- * diagnosing a denial (see {@see WarrantRule::messageFor()}).
+ * diagnosing a denial (see {@see WarrantRuleNode::messageFor()}).
  */
-readonly class CannotClause
+readonly class CannotClauseNode implements INode
 {
     /**
      * @param list<string> $abilities Denied ability names (or `*`).

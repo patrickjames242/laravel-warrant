@@ -2,17 +2,15 @@
 
 namespace Warrant\Facades;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Facade;
+use InvalidArgumentException;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\Rules\RuleSetGroup;
-use Warrant\Rules\WarrantRule;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Rules\WarrantRuleTemplate;
-use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantManager;
 
 /**
@@ -51,26 +49,19 @@ class Warrant extends Facade
     | Rule authoring
     |--------------------------------------------------------------------------
     |
-    | The four constructs an author writes — a condition, a rule, a rule set, a
-    | group — reachable from one place, each parsing Warrant syntax and each taking
-    | exactly the parameters its parsing constructor takes.
+    | Rule text of every form is read by one call, parse(), which answers with a
+    | WarrantSyntax tree whose children say what the text held: a condition, a
+    | rule, headless rules, or one or more `for <schema>` bodies. Nothing about
+    | the text has to be known before it is read.
     |
-    | That parameter symmetry is the point rather than a courtesy. A schema named in
-    | the string's own `for` header travels with the string; a schema passed as a
-    | separate PHP argument does not, and tooling reading the source — the language
-    | server, an editor extension — can only see the former. Writing
-    | `Warrant::ruleSet('for documents { ... }')` is therefore what makes the rules
-    | inside checkable; the `$schema` argument remains for the cases where the
-    | string genuinely has no header, and a headerless string is simply left
-    | unvalidated.
+    | A schema named in the text's own `for` header travels with the text, and
+    | tooling reading the source — the language server, an editor extension — can
+    | see it. Text with no header is given its schema by the caller, with
+    | WarrantSyntax::scopedTo().
     |
-    | Two of them also answer with a builder when handed nothing. A condition and a
-    | rule *are* their fluent chain, so an empty call is meaningful; a rule set and
-    | a group are collections, so their syntax is required. Building from rule or
-    | rule-set *values* rather than syntax is not duplicated here — that is
-    | WarrantRuleSet::fromRules(), WarrantRuleSet::build() and
-    | RuleSetGroup::fromRuleSets(), which take builders as readily as finished
-    | values.
+    | A condition and a rule also have a fluent builder, reached by condition() and
+    | rule(). Building a rule set from rules already in hand is
+    | RuleSetNode::fromRules() and RuleSetNode::build().
     |
     | These are real statics rather than proxied @method entries: they need no user,
     | no state and nothing from the container, and WarrantManager is otherwise
@@ -79,76 +70,82 @@ class Warrant extends Facade
     */
 
     /**
-     * A condition expression: the `if` half of a rule, with no clauses attached.
+     * Parse Warrant rule text of any form.
      *
-     * With no argument you get the builder, which is what a schema's own condition
-     * returns when it derives itself from other conditions rather than emitting SQL.
-     * With syntax you get the parsed expression tree.
+     *     Warrant::parse('is_owner or is_admin')->conditionExpression()
+     *     Warrant::parse('if is_self they can view')->rule()
+     *     Warrant::parse('for documents { if is_self they can view }')->ruleSet()
+     *     Warrant::parse('if is_self they can view')->scopedTo('documents')
+     *
+     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     */
+    public static function parse(string $syntax, array $bindings = []): WarrantSyntax
+    {
+        return WarrantSyntax::parse($syntax, $bindings);
+    }
+
+    /**
+     * Parse the Warrant rule text in a file, such as a `.warrant` file.
+     *
+     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     */
+    public static function parseFile(string $path, array $bindings = []): WarrantSyntax
+    {
+        return WarrantSyntax::parseFile($path, $bindings);
+    }
+
+    /**
+     * Validate every condition and ability name in one or more rule sets, each
+     * against the schema registered for its own schema key, throwing on the first
+     * unknown name. Runs before compilation so mistakes surface loudly rather
+     * than as an empty predicate.
+     *
+     * To validate against a schema you already hold, construct a
+     * {@see RuleSetValidator} directly rather than routing through the registry.
+     *
+     * @param RuleSetNode|array<int, RuleSetNode> ...$ruleSets
+     */
+    public static function validate(RuleSetNode|array ...$ruleSets): void
+    {
+        foreach ($ruleSets as $ruleSet) {
+            foreach (is_array($ruleSet) ? $ruleSet : [$ruleSet] as $one) {
+                if (! $one instanceof RuleSetNode) {
+                    throw new InvalidArgumentException(
+                        sprintf('validate expects RuleSetNode instances, got %s.', get_debug_type($one))
+                    );
+                }
+
+                $schemaClass = static::registry()->resolveSchemaClassOrFail($one->schemaKey);
+
+                (new RuleSetValidator(new $schemaClass, $one->schemaKey))->validate($one);
+            }
+        }
+    }
+
+    /**
+     * A fluent builder for a condition expression: the `if` half of a rule, with
+     * no clauses attached. It is what a schema's own condition returns when it
+     * derives itself from other conditions rather than emitting SQL.
      *
      *     Warrant::condition()->if('is_owner')->orIf('is_admin')
-     *     Warrant::condition('is_owner or is_admin')
-     *     Warrant::condition('for documents is_owner or is_admin')
-     *
-     * A `for` header is accepted and discarded — an expression has no schema field
-     * to carry it. It is there so that tooling reading this string knows which
-     * schema's conditions to resolve `is_owner` against.
-     *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
-     * @return ($syntax is null ? WarrantConditionBuilder : IBooleanExpressionNode)
      */
-    public static function condition(?string $syntax = null, array $bindings = []): IBooleanExpressionNode|WarrantConditionBuilder
+    public static function condition(): WarrantConditionBuilder
     {
-        return $syntax === null
-            ? WarrantConditionBuilder::build()
-            : WarrantParser::parseConditionExpression($syntax, $bindings);
+        return WarrantConditionBuilder::build();
     }
 
     /**
-     * One rule: conditions plus the abilities they grant or deny.
+     * A fluent builder for one rule: conditions plus the abilities they grant or
+     * deny.
      *
      *     Warrant::rule()->if('is_self')->theyCan('view', 'update')
-     *     Warrant::rule('for documents if is_self they can view, update')
      *
-     * The builder form needs no `toRule()` when it is handed to
-     * {@see WarrantRuleSet::fromRules()}, which finishes builders itself.
-     *
-     * @param Model|WarrantSchema|string|null $schema The rule's target schema, for a
-     *   string with no `for` header. A header and an argument that disagree are an
-     *   error; prefer the header, which travels with the string.
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
-     * @return ($syntax is null ? WarrantRuleBuilder : WarrantRule)
+     * The builder needs no `toRule()` when it is handed to
+     * {@see RuleSetNode::fromRules()}, which finishes builders itself.
      */
-    public static function rule(
-        ?string $syntax = null,
-        Model|WarrantSchema|string|null $schema = null,
-        array $bindings = [],
-    ): WarrantRule|WarrantRuleBuilder {
-        return $syntax === null
-            ? WarrantRule::build()
-            : WarrantRule::fromSyntax($syntax, $schema, $bindings);
-    }
-
-    /**
-     * A rule set: every rule that applies to one schema, with or without the
-     * `{ ... }` block form.
-     *
-     *     Warrant::ruleSet('for documents { if is_self they can view  they cannot delete }')
-     *     Warrant::ruleSet('if is_self they can view', 'documents')
-     *
-     * Syntax is required: unlike a condition or a rule, a rule set has no builder to
-     * hand back. To assemble one from rules you already hold, use
-     * {@see WarrantRuleSet::fromRules()} or {@see WarrantRuleSet::build()}.
-     *
-     * @param Model|WarrantSchema|string|null $schema The target schema, for a string
-     *   with no `for` header.
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
-     */
-    public static function ruleSet(
-        string $syntax,
-        Model|WarrantSchema|string|null $schema = null,
-        array $bindings = [],
-    ): WarrantRuleSet {
-        return WarrantRuleSet::fromSyntax($syntax, $schema, $bindings);
+    public static function rule(): WarrantRuleBuilder
+    {
+        return WarrantRuleNode::build();
     }
 
     /**
@@ -171,23 +168,5 @@ class Warrant extends Facade
     public static function ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate
     {
         return new WarrantRuleTemplate($syntax, $bindings);
-    }
-
-    /**
-     * A group: the rule sets for several schemas at once, as `for <schema> { ... }`
-     * blocks. Two blocks naming the same schema merge, in the order they appear.
-     *
-     *     Warrant::group('for documents { they can view } for timesheets { they can edit }')
-     *
-     * There is no `$schema` parameter and there could not be one — each block names
-     * its own. Read a whole `.warrant` file with {@see RuleSetGroup::fromFile()},
-     * which reports the path when it cannot be read; assemble one from rule sets you
-     * already hold with {@see RuleSetGroup::fromRuleSets()}.
-     *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
-     */
-    public static function group(string $syntax, array $bindings = []): RuleSetGroup
-    {
-        return RuleSetGroup::fromSyntax($syntax, $bindings);
     }
 }

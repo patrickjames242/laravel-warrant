@@ -9,7 +9,7 @@ use Warrant\DSL\Compiling\Units\CompilationUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\WarrantGate;
 
 /**
@@ -123,7 +123,7 @@ final readonly class CompilationContext
         QueryFactory $queries,
         Authenticatable $user,
         WarrantGate $gate,
-        WarrantRuleSet $ruleSet,
+        RuleSetNode $ruleSet,
     ): self {
         return new self(new GateUnit($gate, $ruleSet), $queries, $user);
     }
@@ -135,7 +135,7 @@ final readonly class CompilationContext
         QueryFactory $queries,
         Authenticatable $user,
         string $ability,
-        WarrantRuleSet $ruleSet,
+        RuleSetNode $ruleSet,
     ): self {
         return new self(new AbilityUnit($ability, $ruleSet), $queries, $user);
     }

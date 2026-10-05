@@ -25,14 +25,14 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\Rules\RuleTemplateExpander;
-use Warrant\Rules\WarrantRule;
 use Warrant\WarrantManager;
 
 /**
- * Compiles a {@see WarrantRuleSet} into SQL predicates.
+ * Compiles a {@see RuleSetNode} into SQL predicates.
  *
  * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
  * a {@see CompilationResult}. The context names what to compile (a
@@ -213,7 +213,8 @@ final class RuleSetCompiler
         /* Templates are expanded before the rules are folded, on the stack the
            ability is already on: a runaway expansion is then bounded by the same
            budget as every other descent, and reports the hops that led here. What
-           comes back is rules, in the places their includes stood. */
+           comes back is rules alone, ability blocks opened up and each include's
+           rules in the place it stood. */
         $ruleSet = (new RuleTemplateExpander)->expand(
             $ruleSet,
             $this->conditions,
@@ -227,10 +228,10 @@ final class RuleSetCompiler
         /** @var list<IBooleanExpressionNode|null> $denies */
         $denies = [];
 
-        foreach ($ruleSet->rules as $rule) {
+        foreach ($ruleSet->rules() as $rule) {
             $this->assertRuleAbilitiesDeclared($rule);
 
-            if ($this->listsAbility($rule->canAbilities, $ability)) {
+            if ($this->listsAbility($rule->canAbilities(), $ability)) {
                 $grants[] = $rule->conditions;
             }
 
@@ -335,9 +336,9 @@ final class RuleSetCompiler
      * `*` names no ability in particular but stands for all of them, so it is
      * passed over.
      */
-    private function assertRuleAbilitiesDeclared(WarrantRule $rule): void
+    private function assertRuleAbilitiesDeclared(WarrantRuleNode $rule): void
     {
-        foreach ([...$rule->canAbilities, ...$rule->cannotAbilities()] as $ability) {
+        foreach ([...$rule->canAbilities(), ...$rule->cannotAbilities()] as $ability) {
             if ($ability !== '*' && $this->conditions->getAbilityDefinition($ability) === null) {
                 throw new InvalidArgumentException(
                     sprintf('Ability [%s] is not declared by the schema.', $ability)
