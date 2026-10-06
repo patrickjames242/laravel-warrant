@@ -194,7 +194,18 @@ for the accepted values.
 Schema [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().
 ```
 
-See [Check-time context](/guides/context/#required-vs-optional). Note that an
+A `can(... for <schema>)` or `check(... for <schema>)` whose bag — the referenced
+schema's defaults and the `with` map — lacks a required key throws while the rule
+compiles:
+
+```text
+Schema [%s] requires context key(s) [%s]; pass them in the `with` map of the reference to [%s], or via its defaultContext().
+Ability [%s] requires context key(s) [%s]; pass them in the `with` map of the reference to [%s], or via its defaultContext().
+```
+
+See [Check-time context](/guides/context/#required-vs-optional) and
+[cross-schema checks](/guides/cross-schema-checks/#the-with-map-context-across-the-boundary).
+Note that an
 [*optional* key](/guides/context/#missing-optional-context) that's absent doesn't
 throw — it's passed to its condition as `null` (standard SQL logic then applies,
 which is fail-closed).
