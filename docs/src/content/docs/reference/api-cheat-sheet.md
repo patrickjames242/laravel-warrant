@@ -30,7 +30,7 @@ See [Rule-building API](/reference/rule-building-api/).
 
 Nodes live in `Warrant\DSL\Parsing\ASTNodes`.
 
-- `WarrantSyntax::parse(string $source, array $bindings = []): WarrantSyntax` (= `Warrant::parse`) — one parse for every form of rule text; `WarrantSyntax::parseFile($path, $bindings = [])` (= `Warrant::parseFile`) for a file
+- `WarrantSyntax::parse(string $source, array $bindings = []): WarrantSyntax` (= `Warrant::parse`) — one parse for every form of rule text; `WarrantSyntax::parseFile($path, $bindings = [])` (= `Warrant::parseFile`) for a file, `.warrant` optional in `$path`
 - ask the result for the shape the text held ([table](/reference/rule-building-api/#what-a-parse-returns)):
   - bare condition `a or b`, or `for docs a or b` → `->conditionExpression()`
   - one unscoped rule → `->rule()`

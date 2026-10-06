@@ -85,7 +85,9 @@ class Warrant extends Facade
     }
 
     /**
-     * Parse the Warrant rule text in a file, such as a `.warrant` file.
+     * Parse the Warrant rule text in a file. The `.warrant` extension may be left
+     * off: `Warrant::parseFile(resource_path('warrant/timesheets'))` reads
+     * `timesheets.warrant`.
      *
      * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
      */

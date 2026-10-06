@@ -44,12 +44,17 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * Parse the rule text in the file at $path.
+     * Parse the rule text in the file at $path. The `.warrant` extension may be
+     * left off: a path naming no file is read with `.warrant` appended.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parseFile(string $path, array $bindings = []): self
     {
+        if (! is_file($path) && ! str_ends_with($path, '.warrant')) {
+            $path .= '.warrant';
+        }
+
         $source = @file_get_contents($path);
 
         if ($source === false) {

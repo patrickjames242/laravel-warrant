@@ -95,9 +95,10 @@ WarrantSyntax::parse('for documents { if is_self they can view }', $bindings)->r
 `scopedTo()` is the call for a provider: it gives unscoped text its schema
 being resolved, and accepts text that already names that schema in a `for`
 header, throwing if the header names a different one. A file of rules parses the
-same way with `WarrantSyntax::parseFile($path)`. Several rule sets in one source
-must each be braced — `for documents { … } for timesheets { … }` — because a bare
-`for` body runs to the end of the input. The full table of shapes is in the
+same way with `WarrantSyntax::parseFile($path)`, where the `.warrant` extension
+may be left off. Several rule sets in one source must each be braced —
+`for documents { … } for timesheets { … }` — because a bare `for` body runs to
+the end of the input. The full table of shapes is in the
 [Rule-building API](/reference/rule-building-api/#what-a-parse-returns).
 
 Prefer writing the `for` header into text you author. A header travels with the

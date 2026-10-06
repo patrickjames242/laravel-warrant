@@ -305,8 +305,38 @@ it('reads rule text from a file', function () {
     }
 });
 
+it('reads a .warrant file named without its extension', function () {
+    $base = tempnam(sys_get_temp_dir(), 'warrant');
+    unlink($base);
+    file_put_contents($base . '.warrant', 'for timesheets { they can view }');
+
+    try {
+        expect(WarrantSyntax::parseFile($base)->ruleSet()->schemaKey)->toBe('timesheets');
+    } finally {
+        @unlink($base . '.warrant');
+    }
+});
+
+it('reads the path as given before appending the extension', function () {
+    $base = tempnam(sys_get_temp_dir(), 'warrant');
+    file_put_contents($base, 'for timesheets { they can view }');
+    file_put_contents($base . '.warrant', 'for documents { they can view }');
+
+    try {
+        expect(WarrantSyntax::parseFile($base)->ruleSet()->schemaKey)->toBe('timesheets');
+    } finally {
+        @unlink($base);
+        @unlink($base . '.warrant');
+    }
+});
+
 it('throws when the file is missing', function () {
     expect(fn () => WarrantSyntax::parseFile('/no/such/file.warrant'))
+        ->toThrow(InvalidArgumentException::class, 'Unable to read Warrant rule file [/no/such/file.warrant].');
+});
+
+it('names the extended path when a file named without its extension is missing', function () {
+    expect(fn () => WarrantSyntax::parseFile('/no/such/file'))
         ->toThrow(InvalidArgumentException::class, 'Unable to read Warrant rule file [/no/such/file.warrant].');
 });
 
