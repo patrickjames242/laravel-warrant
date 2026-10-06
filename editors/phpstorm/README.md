@@ -1,7 +1,8 @@
 # Laravel Warrant — PhpStorm plugin
 
 Syntax highlighting for the Warrant rule DSL, both in standalone `.warrant`
-files and inside PHP heredocs/nowdocs labelled `WARRANT` (or `DSL`).
+files and inside PHP: heredocs/nowdocs labelled `WARRANT`, and strings wherever
+rule text is expected (see `WarrantInjector`).
 
 This is the PhpStorm counterpart of the VSCode extension in `../vscode`. The
 lexer here mirrors the token rules of `../../src/DSL/Lexing/Lexer.php` — keep
@@ -15,7 +16,7 @@ them in sync.
 | `WarrantLexer` | Tokenizes Warrant source (mirror of `Lexer.php`, but tolerant) |
 | `WarrantSyntaxHighlighter(Factory)` | Maps tokens → theme colors (produces the highlighting) |
 | `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A deliberately flat parse tree — the minimum injection requires |
-| `WarrantInjector` | Injects Warrant into `<<<WARRANT` PHP heredocs |
+| `WarrantInjector` | Injects Warrant into PHP strings that hold rule text: `<<<WARRANT` heredocs, `warrant('...')`, `Warrant::parse('...')`, returns from `rules()`, … |
 
 The parser is intentionally trivial. Error-checking and autocomplete are meant
 to come later from a Warrant language server (reusing the PHP parser/validator),
@@ -68,6 +69,6 @@ install the new zip the same way.
   version) may need bumping over time; IntelliJ will point you at valid values.
 - The plugin `<depends>` on `com.jetbrains.php`, so it loads only in PhpStorm /
   IDEs with PHP support — which is the point.
-- The heredoc label is configured in `WarrantInjector.LABEL` (`WARRANT`). Note
-  the test suite currently uses `<<<'DSL'`, so those heredocs won't inject until
-  they're relabelled `WARRANT`.
+- The heredoc label is configured in `WarrantInjector.LABEL` (`WARRANT`). The
+  calls, attributes and types that mark a string as rule text are the sets at
+  the top of `WarrantInjector`'s companion object.

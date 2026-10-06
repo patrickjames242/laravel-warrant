@@ -48,9 +48,20 @@ that multiplication from growing any further.
       if is_self they can edit
       WARRANT
   ```
-  Works automatically in VS Code, and in Zed — Zed's PHP extension injects
-  whatever language a heredoc's closing label names. In PhpStorm it needs
-  Language Injection (see `phpstorm/README.md`).
+  Works in VS Code, PhpStorm and Zed — Zed's PHP extension injects whatever
+  language a heredoc's closing label names.
+- **Inside PHP, where rule text is expected** — VS Code and PhpStorm only. A
+  string literal, or a heredoc/nowdoc of any label, is highlighted when it is the
+  first argument of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
+  `WarrantParser::parse()`, or a builder's `->ifRaw()` / `->orIfRaw()`:
+  ```php
+  warrant('is_owner or in_team(:team)', ['team' => $team]);
+  ```
+  PhpStorm also highlights a string returned from `rules()` on a schema or rule
+  provider, or from a `#[DerivedCondition]` or `#[RuleTemplate]` method. A
+  TextMate grammar cannot see which method a `return` belongs to, so VS Code
+  highlights those only when they are `WARRANT` heredocs. Zed's PHP extension
+  owns the injections into PHP, so Zed has neither.
 - **SQL inside `@sql "..."`** — Zed only, and only when a SQL extension is
   installed. The tree-sitter grammar can address a string's body as a node,
   which a TextMate grammar cannot, so the SQL is highlighted as SQL.

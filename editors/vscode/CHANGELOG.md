@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- Highlight Warrant inside PHP wherever rule text is expected: the first argument
+  of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
+  `WarrantParser::parse()`, and a builder's `->ifRaw()` / `->orIfRaw()`. The
+  argument may be a single- or double-quoted string or a heredoc/nowdoc of any
+  label, passed first or by its parameter name.
+
 ## 0.8.0
 
 - Follow the rule language's breaking change to the ability block header, which

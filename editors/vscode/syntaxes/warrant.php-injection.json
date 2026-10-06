@@ -1,8 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "scopeName": "warrant.php.injection",
-  "injectionSelector": "L:source.php -comment -string",
+  "injectionSelector": "L:source.php -comment -string -meta.embedded.block.warrant",
   "patterns": [
+    { "include": "#warrant-call" },
     { "include": "#warrant-heredoc" }
   ],
   "repository": {
@@ -14,6 +15,129 @@
         "3": { "name": "keyword.other.warrant-label.php" }
       },
       "end": "^\\s*(WARRANT)\\b",
+      "endCaptures": {
+        "1": { "name": "keyword.other.warrant-label.php" }
+      },
+      "contentName": "meta.embedded.block.warrant",
+      "patterns": [
+        { "include": "source.warrant" }
+      ]
+    },
+
+    "warrant-call": {
+      "comment": "A call whose first argument is Warrant rule text: warrant(...), Warrant::parse(...), WarrantSyntax::parse(...), WarrantParser::parse(...), and the builders' ->ifRaw(...) / ->orIfRaw(...). The first argument is highlighted as Warrant when it is a string literal or a heredoc/nowdoc of any label.",
+      "patterns": [
+        { "include": "#warrant-function-call" },
+        { "include": "#warrant-static-call" },
+        { "include": "#warrant-method-call" }
+      ]
+    },
+
+    "warrant-function-call": {
+      "begin": "(?<![\\w$\\\\]|->|::)(\\\\)?\\b(warrant)\\s*(\\()",
+      "beginCaptures": {
+        "1": { "name": "punctuation.separator.inheritance.php" },
+        "2": { "name": "entity.name.function.php" },
+        "3": { "name": "punctuation.definition.arguments.begin.bracket.round.php" }
+      },
+      "end": "(?=[^\\s'\"<])",
+      "applyEndPatternLast": 1,
+      "name": "meta.function-call.php",
+      "patterns": [
+        { "include": "#first-argument" }
+      ]
+    },
+
+    "warrant-static-call": {
+      "begin": "(?<![\\w$])((?:\\\\?[A-Za-z_][A-Za-z0-9_]*\\\\)*\\\\?)\\b(Warrant|WarrantSyntax|WarrantParser)\\s*(::)\\s*(parse)\\s*(\\()",
+      "beginCaptures": {
+        "1": { "name": "support.other.namespace.php" },
+        "2": { "name": "support.class.php" },
+        "3": { "name": "keyword.operator.class.php" },
+        "4": { "name": "entity.name.function.php" },
+        "5": { "name": "punctuation.definition.arguments.begin.bracket.round.php" }
+      },
+      "end": "(?=[^\\s'\"<])",
+      "applyEndPatternLast": 1,
+      "name": "meta.method-call.static.php",
+      "patterns": [
+        { "include": "#first-argument" }
+      ]
+    },
+
+    "warrant-method-call": {
+      "begin": "(\\??->)\\s*(ifRaw|orIfRaw)\\s*(\\()",
+      "beginCaptures": {
+        "1": { "name": "keyword.operator.class.php" },
+        "2": { "name": "entity.name.function.php" },
+        "3": { "name": "punctuation.definition.arguments.begin.bracket.round.php" }
+      },
+      "end": "(?=[^\\s'\"<])",
+      "applyEndPatternLast": 1,
+      "name": "meta.method-call.php",
+      "patterns": [
+        { "include": "#first-argument" }
+      ]
+    },
+
+    "first-argument": {
+      "comment": "What may open the rule-text argument: its parameter name, then one string literal or heredoc. Anything else (a variable, a concatenation, the bindings) ends the call's region and is left to the PHP grammar.",
+      "patterns": [
+        {
+          "match": "\\b(syntax|source|expression)\\s*(:)(?!:)",
+          "captures": {
+            "1": { "name": "entity.name.variable.parameter.php" },
+            "2": { "name": "punctuation.separator.colon.php" }
+          }
+        },
+        { "include": "#php-single-quoted" },
+        { "include": "#php-double-quoted" },
+        { "include": "#php-heredoc" }
+      ]
+    },
+
+    "php-single-quoted": {
+      "begin": "'",
+      "beginCaptures": {
+        "0": { "name": "string.quoted.single.php punctuation.definition.string.begin.php" }
+      },
+      "end": "'",
+      "endCaptures": {
+        "0": { "name": "string.quoted.single.php punctuation.definition.string.end.php" }
+      },
+      "contentName": "meta.embedded.block.warrant",
+      "patterns": [
+        { "match": "\\\\[\\\\']", "name": "constant.character.escape.php" },
+        { "match": "#[^']*", "name": "comment.line.number-sign.warrant" },
+        { "include": "source.warrant" }
+      ]
+    },
+
+    "php-double-quoted": {
+      "begin": "\"",
+      "beginCaptures": {
+        "0": { "name": "string.quoted.double.php punctuation.definition.string.begin.php" }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": { "name": "string.quoted.double.php punctuation.definition.string.end.php" }
+      },
+      "contentName": "meta.embedded.block.warrant",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.php" },
+        { "match": "\\$[A-Za-z_][A-Za-z0-9_]*", "name": "variable.other.php" },
+        { "match": "#[^\"]*", "name": "comment.line.number-sign.warrant" },
+        { "include": "source.warrant" }
+      ]
+    },
+
+    "php-heredoc": {
+      "begin": "(<<<)\\s*([\"']?)([A-Za-z_][A-Za-z0-9_]*)\\2\\s*$",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.string.begin.php" },
+        "3": { "name": "keyword.other.warrant-label.php" }
+      },
+      "end": "^\\s*(\\3)\\b",
       "endCaptures": {
         "1": { "name": "keyword.other.warrant-label.php" }
       },
