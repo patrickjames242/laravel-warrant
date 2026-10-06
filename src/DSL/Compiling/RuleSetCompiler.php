@@ -619,8 +619,9 @@ final class RuleSetCompiler
      * Compile a cross-schema `can(<ability> for <schema>[(<row>)] [with <map>])`
      * by recursively compiling the referenced schema B's ability and embedding it:
      * a row-bound reference wraps B's per-row predicate as `EXISTS` over B's table;
-     * an unbound reference splices B's no-target boolean predicate inline. B sees
-     * only the explicit `with` map as its context — never A's ambient context.
+     * an unbound reference splices B's no-target boolean predicate inline. B's
+     * context is its own `defaultContext()` with the `with` map merged over it —
+     * never A's ambient context.
      */
     private function crossSchemaCanLeaf(CrossSchemaCanNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
@@ -641,16 +642,16 @@ final class RuleSetCompiler
            otherwise answer the reference before it was ever looked at. */
         $this->assertHandleIsWellFormed($node, $bClass);
 
-        /* Explicit boundary context only: resolve each with-map RHS against A's
-           context and A's frame, with no ambient inheritance of A's bag. A value
-           A cannot resolve here settles the whole reference. */
+        /* B's bag is B's own defaultContext() under the with map, each RHS
+           resolved against A's context and A's frame. A's bag is never inherited.
+           A value A cannot resolve here settles the whole reference. */
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = array_combine(array_keys($node->contextMap), $bValues);
+        $bContext = $bSchema->withDefaultContext(array_combine(array_keys($node->contextMap), $bValues));
 
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
@@ -771,7 +772,8 @@ final class RuleSetCompiler
      * row-bound reference wraps B's predicate as `EXISTS` over B's table
      * (`NOT EXISTS` when negated); an unbound reference splices B's boolean predicate
      * inline. The predicate's condition leaves are compiled with B's own resolver,
-     * and B sees only the explicit `with` map as its context — never A's ambient bag.
+     * and B's context is its own `defaultContext()` with the `with` map merged over
+     * it — never A's ambient bag.
      */
     private function crossSchemaCheckLeaf(CrossSchemaConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
@@ -792,16 +794,16 @@ final class RuleSetCompiler
            otherwise answer the reference before it was ever looked at. */
         $this->assertHandleIsWellFormed($node, $bClass);
 
-        /* Explicit boundary context only: resolve each with-map RHS against A's
-           context and A's frame, with no ambient inheritance of A's bag. A value
-           A cannot resolve here settles the whole reference. */
+        /* B's bag is B's own defaultContext() under the with map, each RHS
+           resolved against A's context and A's frame. A's bag is never inherited.
+           A value A cannot resolve here settles the whole reference. */
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = array_combine(array_keys($node->contextMap), $bValues);
+        $bContext = $bSchema->withDefaultContext(array_combine(array_keys($node->contextMap), $bValues));
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.

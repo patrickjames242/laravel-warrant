@@ -221,8 +221,9 @@ schema — and pass what B needs with `with`.
 ## The `with` map: context across the boundary
 
 B never inherits A's [check-time context](/guides/context/). Whatever bag the
-check was made with belongs to A; B is handed a **fresh** one, built only from an
-explicit `with` map:
+check was made with belongs to A; B is handed a **fresh** one, built from B's own
+[`defaultContext()`](/guides/context/#defaults) with an explicit `with` map merged
+over it:
 
 ```text
 if can(view for folders(@context folder_id) with tenant_id = @context tenant_id)
@@ -231,7 +232,8 @@ they can view
 
 Each key names one of B's context keys; each value is resolved in **A's** frame —
 a literal, a binding, `@context`, `@column`, or `@sql` — and lands in B's bag under
-that key. Duplicate keys in one map are a syntax error.
+that key, overriding any default B gives that key. Duplicate keys in one map are
+a syntax error.
 
 ```text
 # A's `region` becomes B's `scope`; B's rules read @context scope
@@ -240,12 +242,13 @@ they can view
 ```
 
 :::caution[The boundary is not a check entry point]
-B's bag is exactly the `with` map — nothing more. A's ambient context does not
-leak in, and B's `defaultContext()` and `#[RequiredContext]` enforcement belong to
-the [check APIs](/guides/checking-access/), not to this boundary. If a rule of B's
-needs a key, pass it in the map; a key you forget is simply absent, and an absent
-optional key is [fail-closed](/guides/context/#missing-optional-context) — it can
-remove access, never restore it.
+B's bag is B's `defaultContext()` and the `with` map — nothing more. A's ambient
+context does not leak in, and `#[RequiredContext]` enforcement belongs to the
+[check APIs](/guides/checking-access/), not to this boundary. If a rule of B's
+needs a key B has no default for, pass it in the map; a key you forget is simply
+absent, and an absent optional key is
+[fail-closed](/guides/context/#missing-optional-context) — it can remove access,
+never restore it.
 :::
 
 ## Combining and negating

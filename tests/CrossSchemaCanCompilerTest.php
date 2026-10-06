@@ -47,7 +47,8 @@ require_once __DIR__.'/Support/TestSupport.php';
 |     literal. A global condition returning a bool therefore only shows up as
 |     `1 = 1` / `1 = 0` when it decides the *whole* predicate; one returning SQL
 |     splices its where-group verbatim.
-|   - B sees only the explicit `with` map as its context — never A's ambient bag.
+|   - B's context is its own defaultContext() with the explicit `with` map merged
+|     over it — never A's ambient bag.
 |
 | Fixture conditions (defined at the foot of this file), with the acting user's
 | role ("role-1") already substituted:
@@ -426,6 +427,63 @@ it('feeds the referenced schema a fresh bag built from the with map', function (
     );
 });
 
+it('fills the referenced schema\'s bag from its own defaultContext()', function () {
+    // xc_folders defaults `fallback` to role-default. The handle passes no with
+    // map, so that default is what B's owner check reads.
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id)) they can view',
+        ['xc_folders' => 'if owner_is(@context fallback) they can view'],
+        'view',
+        ['folder_id' => 'f-owned'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-default')
+                )
+            )
+        SQL,
+    );
+});
+
+it('lets a with-map value override the referenced schema\'s default', function () {
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id) with fallback = @context outer) they can view',
+        ['xc_folders' => 'if owner_is(@context fallback) they can view'],
+        'view',
+        ['folder_id' => 'f-owned', 'outer' => 'role-2'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-2')
+                )
+            )
+        SQL,
+    );
+});
+
+it('does not let the caller\'s context stand in for the referenced schema\'s default', function () {
+    // A's bag holds `fallback` too, but only a with map carries a value across.
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id)) they can view',
+        ['xc_folders' => 'if owner_is(@context fallback) they can view'],
+        'view',
+        ['folder_id' => 'f-owned', 'fallback' => 'role-2'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-owned'
+                        and (xc_folders.owner = 'role-default')
+                )
+            )
+        SQL,
+    );
+});
+
 // -- sibling references (path-scoped cycle guard) ------------------------------
 
 it('emits two independent exists clauses for sibling references to one schema', function () {
@@ -645,6 +703,11 @@ class XcFolder extends Model
 class XcFolderSchema extends WarrantSchema
 {
     public const model = XcFolder::class;
+
+    protected function defaultContext(): array
+    {
+        return ['fallback' => 'role-default'];
+    }
 
     #[Ability]
     public const VIEW = 'view';
