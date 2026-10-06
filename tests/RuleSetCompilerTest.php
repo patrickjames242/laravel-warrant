@@ -10,6 +10,7 @@ use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Schema\AbilityDefinition;
@@ -158,7 +159,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantSyntax::parse($syntax, $bindings)->scopedTo('docs');
+    $ruleSet = (new RuleSetExpander)->expand(WarrantSyntax::parse($syntax, $bindings)->scopedTo('docs'), new FakeConditionResolver);
 
     $query = DB::table('docs');
 
@@ -180,7 +181,7 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
 function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $matchMode, ?string $role = 'role-1'): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('docs');
+    $ruleSet = (new RuleSetExpander)->expand(WarrantSyntax::parse($syntax)->scopedTo('docs'), new FakeConditionResolver);
 
     $query = DB::table('docs');
 
@@ -294,7 +295,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     $user = new CompilerTestUser('role-1');
 
     // No target row in scope, so is_teacher cannot be evaluated at all.
-    $granted = WarrantSyntax::parse('if is_teacher they can view')->scopedTo('docs');
+    $granted = (new RuleSetExpander)->expand(WarrantSyntax::parse('if is_teacher they can view')->scopedTo('docs'), new FakeConditionResolver);
     $q = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
@@ -304,7 +305,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     /* And `not is_teacher` selects nothing either: negating an unanswered
        question leaves it unanswered, and a `where` keeps a row only on a
        definite yes. */
-    $negated = WarrantSyntax::parse('if not is_teacher they can view')->scopedTo('docs');
+    $negated = (new RuleSetExpander)->expand(WarrantSyntax::parse('if not is_teacher they can view')->scopedTo('docs'), new FakeConditionResolver);
     $q2 = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
@@ -468,7 +469,7 @@ it('names the rule set, not the registry, when a schema-less can has nowhere to 
     /* A can(...) naming no schema crosses to nothing and looks nothing up, so the
        message points at the rule set rather than blaming the registry. */
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = WarrantSyntax::parse('if can(edit) they can view')->scopedTo('docs');
+    $ruleSet = (new RuleSetExpander)->expand(WarrantSyntax::parse('if can(edit) they can view')->scopedTo('docs'), new FakeConditionResolver);
 
     expect(fn () => $compiler->compile(
         CompilationContext::ability(

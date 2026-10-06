@@ -3,6 +3,8 @@
 namespace Warrant\Guard\Concerns;
 
 use InvalidArgumentException;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Rules\RuleResolutionContext;
@@ -30,19 +32,36 @@ use Warrant\Rules\RuleResolver;
  * share the vocabulary.
  *
  * The guard is fixed to one (schema, user), so the resolved rule set is memoized
- * once and reused by every check, filter, diagnosis, and reachability query on
- * this instance.
+ * once, and so is its expansion: every check, filter, diagnosis, and reachability
+ * query on this instance reads the same {@see ExpandedRuleSet}.
  */
 trait ResolvesRuleSets
 {
     private ?RuleSetNode $resolvedRuleSet = null;
 
+    private ?ExpandedRuleSet $expandedRuleSet = null;
+
     /**
-     * This guard's resolved, validated rule set, memoized for the instance.
+     * This guard's resolved, validated rule set, memoized for the instance. It is
+     * the rule set as written — ability blocks and includes intact — which is what
+     * validation and writing want; compiling wants {@see expandedRuleSet()}.
      */
     public function resolvedRuleSet(): RuleSetNode
     {
         return $this->resolvedRuleSet ??= $this->resolveRuleSet();
+    }
+
+    /**
+     * This guard's rule set after the expansion phase — rules alone, every ability
+     * block opened up and every include replaced by its template's rules —
+     * memoized for the instance.
+     *
+     * Expansion reads no row and no check context, so one expansion serves every
+     * check this guard answers.
+     */
+    public function expandedRuleSet(): ExpandedRuleSet
+    {
+        return $this->expandedRuleSet ??= (new RuleSetExpander)->expand($this->resolvedRuleSet(), $this->schema);
     }
 
     private function resolveRuleSet(): RuleSetNode

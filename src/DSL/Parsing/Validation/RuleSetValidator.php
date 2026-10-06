@@ -6,6 +6,7 @@ use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -20,7 +21,6 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleTemplateExpander;
 
 /**
  * Validates every condition and ability name in a {@see RuleSetNode} against
@@ -128,7 +128,7 @@ final class RuleSetValidator
      * Validate an `@include`: the abilities it names, the template it names, and
      * that it supplies the arguments that template requires.
      *
-     * The template checks are {@see RuleTemplateExpander::resolveTemplate()}'s own,
+     * The template checks are {@see RuleSetExpander::resolveTemplate()}'s own,
      * called rather than restated, so this rejects exactly what an expansion would
      * and says the same thing when it does.
      *
@@ -142,7 +142,7 @@ final class RuleSetValidator
     {
         $this->assertAbilitiesDeclared($include->abilities);
 
-        RuleTemplateExpander::resolveTemplate($this->schema, $this->schemaKey, $include);
+        RuleSetExpander::resolveTemplate($this->schema, $this->schemaKey, $include);
     }
 
     /**

@@ -3,6 +3,7 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Reachability;
@@ -20,7 +21,10 @@ beforeEach(function () {
 function analyze(string $syntax, string $ability): Reachability
 {
     return (new ReachabilityAnalyzer)->analyze(
-        WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
+        (new RuleSetExpander)->expand(
+            WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
+            new WarrantScopedModelSchema,
+        ),
         $ability,
     );
 }

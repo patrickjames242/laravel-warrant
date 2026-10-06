@@ -10,7 +10,6 @@ use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\Rules\RuleTemplateExpander;
 use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
@@ -74,9 +73,9 @@ trait DiagnosesDenials
         $gate = new WarrantGate($abilities, $matchMode);
         $context = $this->schema->resolveEffectiveContext($context);
         /* A denial may be the doing of a rule a template supplied, and naming the
-           rule that caused it means holding that rule. There is no compile here to
-           hang the expansion on, so it takes the plain depth bound. */
-        $ruleSet = (new RuleTemplateExpander)->expand($this->resolvedRuleSet(), $this->schema);
+           rule that caused it means holding that rule, so this reads the rule set
+           the check itself compiled: the expanded one. */
+        $ruleSet = $this->expandedRuleSet();
         $compiler = $this->compiler();
 
         if ($target !== null) {
@@ -182,7 +181,7 @@ trait DiagnosesDenials
         foreach ($failedAbilities as $ability) {
             $anyCannotFired = false;
 
-            foreach ($ruleSet->rules() as $rule) {
+            foreach ($ruleSet->rules as $rule) {
                 if (! $rule->deniesAbility($ability)) {
                     continue;
                 }

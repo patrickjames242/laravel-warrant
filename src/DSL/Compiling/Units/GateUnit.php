@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Compiling\Units;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\WarrantGate;
 
 /**
@@ -18,7 +18,7 @@ final readonly class GateUnit implements CompilationUnit
 {
     public function __construct(
         public WarrantGate $gate,
-        public RuleSetNode $ruleSet,
+        public ExpandedRuleSet $ruleSet,
     ) {
     }
 }

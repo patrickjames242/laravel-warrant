@@ -15,6 +15,7 @@ use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -25,14 +26,12 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\Rules\RuleTemplateExpander;
 use Warrant\WarrantManager;
 
 /**
- * Compiles a {@see RuleSetNode} into SQL predicates.
+ * Compiles an {@see ExpandedRuleSet} into SQL predicates.
  *
  * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
  * a {@see CompilationResult}. The context names what to compile (a
@@ -210,17 +209,6 @@ final class RuleSetCompiler
            caught, and it puts the ability on the stack every leaf below reads. */
         $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
 
-        /* Templates are expanded before the rules are folded, on the stack the
-           ability is already on: a runaway expansion is then bounded by the same
-           budget as every other descent, and reports the hops that led here. What
-           comes back is rules alone, ability blocks opened up and each include's
-           rules in the place it stood. */
-        $ruleSet = (new RuleTemplateExpander)->expand(
-            $ruleSet,
-            $this->conditions,
-            new CallStackTrail($ctx->callStack, $this->conditions::class),
-        );
-
         $abilityNode = new CompiledWhereClauseNode;
 
         /** @var list<IBooleanExpressionNode|null> $grants */
@@ -228,7 +216,7 @@ final class RuleSetCompiler
         /** @var list<IBooleanExpressionNode|null> $denies */
         $denies = [];
 
-        foreach ($ruleSet->rules() as $rule) {
+        foreach ($ruleSet->rules as $rule) {
             $this->assertRuleAbilitiesDeclared($rule);
 
             if ($this->listsAbility($rule->canAbilities(), $ability)) {
@@ -602,7 +590,7 @@ final class RuleSetCompiler
             ));
         }
 
-        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->resolvedRuleSet();
+        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->expandedRuleSet();
 
         /* A unit is always entered unnegated — {@see abilityNode} sets the deny
            side's polarity itself — so the reference's own negation rides on the
@@ -652,7 +640,7 @@ final class RuleSetCompiler
 
         $bContext = array_combine(array_keys($node->contextMap), $bValues);
 
-        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
+        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));

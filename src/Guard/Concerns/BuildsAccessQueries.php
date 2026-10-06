@@ -122,7 +122,7 @@ trait BuildsAccessQueries
                 QueryFactory::for($query),
                 $this->user,
                 new WarrantGate($abilities, $matchMode),
-                $this->resolvedRuleSet(),
+                $this->expandedRuleSet(),
             )
                 ->forTargetRow($targetModel)
                 ->withCheckContext($context),
@@ -176,7 +176,7 @@ trait BuildsAccessQueries
         /* One branch per ability, each compiled against the target row. Unlike the
            no-target path, nothing is folded away here: a per-row list has to name
            every ability it was asked about, and a constant is per-row too. */
-        $ruleSet = $this->resolvedRuleSet();
+        $ruleSet = $this->expandedRuleSet();
         $branches = [];
 
         $queries = QueryFactory::for($query);
@@ -282,7 +282,7 @@ trait BuildsAccessQueries
         $connection = $this->rowsConnection();
         $queries = QueryFactory::forConnection($connection);
         $baseQuery = $queries->newQuery();
-        $ruleSet = $this->resolvedRuleSet();
+        $ruleSet = $this->expandedRuleSet();
 
         /* Without a row to consult, a great many abilities fold outright — every
            targeted condition is forced false, so anything gated on one is settled

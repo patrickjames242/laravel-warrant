@@ -1,21 +1,24 @@
 <?php
 
-namespace Warrant\Rules;
+namespace Warrant\DSL\Expanding;
 
 use RuntimeException;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 
 /**
- * The {@see IncludeTrail} for an expansion asked for outside a compile:
- * reachability analysis and denial diagnosis, which reach a rule set straight
- * from the resolver and have no call stack to hang an include on.
+ * What bounds a chain of `@include` expansions, and what it says when the chain
+ * cannot end.
  *
  * It counts, and it remembers the template keys so a runaway can name the chain.
  * It does not reject a template for appearing twice: one that recurs with an
  * argument that decreases per level terminates legitimately, and refusing on the
  * name alone would ban exactly those.
+ *
+ * The trail is immutable, so it is path-scoped for free: a descent made down one
+ * include can never leak into the one beside it, because each derives its own and
+ * the caller keeps the trail it had.
  */
-final readonly class DepthTrail implements IncludeTrail
+final readonly class ExpansionTrail
 {
     /**
      * Hard cap on nested expansions.
@@ -42,7 +45,11 @@ final readonly class DepthTrail implements IncludeTrail
         return new self;
     }
 
-    public function entering(IncludeInvocationNode $include): static
+    /**
+     * The trail one level deeper, or a throw when the chain has grown past the
+     * bound.
+     */
+    public function entering(IncludeInvocationNode $include): self
     {
         $deeper = [...$this->templateKeys, $include->templateKey];
 

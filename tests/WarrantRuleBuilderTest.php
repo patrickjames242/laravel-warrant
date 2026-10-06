@@ -11,6 +11,7 @@ use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -544,7 +545,10 @@ it('compiles a built rule to SQL that filters rows', function () {
     Schema::create('docs', fn ($t) => $t->string('id'));
     DB::table('docs')->insert([['id' => 'teacher:role-1'], ['id' => 'other']]);
 
-    $ruleSet = RuleSetNode::fromRules('docs', WarrantRuleNode::build()->if('is_teacher')->theyCan('view'));
+    $ruleSet = (new RuleSetExpander)->expand(
+        RuleSetNode::fromRules('docs', WarrantRuleNode::build()->if('is_teacher')->theyCan('view')),
+        new FakeConditionResolver,
+    );
 
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $query = DB::table('docs');

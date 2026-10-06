@@ -5,7 +5,6 @@ namespace Warrant\Guard\Concerns;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
 use Warrant\Reachability;
-use Warrant\Rules\RuleTemplateExpander;
 
 /**
  * Structural "could they ever?" analysis for the guard's user — answered from the
@@ -35,19 +34,15 @@ trait AnalyzesReachability
     {
         $abilities = $abilities === null ? $this->schema::abilityNames() : $this->schema->normalizeAbilities($abilities);
 
-        /* Templates are expanded before analysis, not skipped: the decision table
-           reads "no `can` rule lists the ability" as NEVER, so an ability granted
-           only through a template would otherwise come back unreachable. Expansion
-           happens once for the whole map rather than per ability. */
-        $ruleSet = $abilities === []
-            ? null
-            : (new RuleTemplateExpander)->expand($this->resolvedRuleSet(), $this->schema);
-
+        /* The analysis reads the expanded rule set, not the one as written: the
+           decision table reads "no `can` rule lists the ability" as NEVER, so an
+           ability granted only through a template would otherwise come back
+           unreachable. */
         $analyzer = new ReachabilityAnalyzer;
 
         $map = [];
         foreach ($abilities as $ability) {
-            $map[$ability] = $analyzer->analyze($ruleSet, $ability);
+            $map[$ability] = $analyzer->analyze($this->expandedRuleSet(), $ability);
         }
 
         return $map;
