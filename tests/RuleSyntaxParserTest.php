@@ -21,7 +21,7 @@ use Warrant\Facades\Warrant;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
-// -- headless rules -----------------------------------------------------------
+// -- unscoped rules -----------------------------------------------------------
 
 it('parses source and bindings into a flat list of rules', function () {
     $rules = WarrantSyntax::parse('if is_teacher they can view if is_admin they can edit')->ruleEntries();
@@ -32,7 +32,7 @@ it('parses source and bindings into a flat list of rules', function () {
     expect($rules[1]->conditions->conditionKey)->toBe('is_admin');
 });
 
-it('resolves bindings in headless rules', function () {
+it('resolves bindings in unscoped rules', function () {
     $rules = WarrantSyntax::parse('if is_owner(:id) they can view', ['id' => 'x-1'])->ruleEntries();
 
     expect($rules[0]->conditions->parameters)->toBe(['x-1']);
@@ -561,7 +561,7 @@ it('parses a single conditional rule with a binding', function () {
 
 it('refuses to answer a single rule for source holding several', function () {
     expect(fn () => WarrantSyntax::parse('if a they can x if b they can y')->rule())
-        ->toThrow(LogicException::class, 'Expected a single rule, but the source holds 2 headless rule entries.');
+        ->toThrow(LogicException::class, 'Expected a single rule, but the source holds 2 unscoped rule entries.');
 });
 
 // -- fromRules ----------------------------------------------------------------
@@ -1333,14 +1333,14 @@ it('rejects a block header naming no ability', function () {
         ->toThrow(WarrantSyntaxException::class, 'an ability name');
 });
 
-it('rejects a headless clause outside an ability block', function () {
+it('rejects a generic clause outside an ability block', function () {
     expect(fn () => WarrantSyntax::parse('if is_public they can')->scopedTo('timesheets'))
         ->toThrow(WarrantSyntaxException::class, 'an ability name');
 });
 
 // -- @include -----------------------------------------------------------------
 
-it('sits headless in the ability block whose header names its abilities', function () {
+it('sits generic in the ability block whose header names its abilities', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         can they view, edit {
             @include requires_approval
@@ -1430,7 +1430,7 @@ it('refuses to answer a single rule for an include', function () {
         ->toThrow(LogicException::class, 'Expected a single rule, but the source holds an @include.');
 });
 
-it('parses a headless include as an entry of its own', function () {
+it('parses a generic include as an entry of its own', function () {
     $entries = WarrantSyntax::parse('@include x for view')->ruleEntries();
 
     expect($entries)->toHaveCount(1);

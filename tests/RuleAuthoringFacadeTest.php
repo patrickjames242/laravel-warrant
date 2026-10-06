@@ -43,7 +43,7 @@ it('parses every form exactly as WarrantSyntax::parse does', function (string $s
 })->with([
     'a condition' => ['is_owner or is_admin'],
     'a rule' => ['if is_self they can view'],
-    'headless rules' => ['if is_self they can view  if is_admin they can edit'],
+    'unscoped rules' => ['if is_self they can view  if is_admin they can edit'],
     'a rule set' => ['for timesheets { they can view }'],
     'several rule sets' => ['for timesheets { they can view } for documents { they can edit }'],
 ]);

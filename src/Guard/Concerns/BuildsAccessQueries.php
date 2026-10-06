@@ -276,7 +276,7 @@ trait BuildsAccessQueries
     private function runNoTargetAbilityQuery(array $abilities, array $context): array
     {
         /* A connection to evaluate the ability predicates on (rule-set lookup
-           itself is the resolver's job, on its own connection). No-target
+           itself is the rule provider's job, on its own connection). No-target
            conditions may reference tenant tables, so a capability schema uses
            the default connection — the current tenant under tenancy. */
         $connection = $this->rowsConnection();

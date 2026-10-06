@@ -2,29 +2,29 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Testing
-description: Test your schemas against a real database by swapping in a fake resolver.
+description: Test your schemas against a real database by swapping in a fake provider.
 sidebar:
   order: 12
 ---
 
 Warrant's own suite drives real SQLite and asserts on rows and ability lists
 rather than SQL strings. The same approach works for your schemas: register a
-fake resolver that returns a fixed `RuleSetNode`, seed a table, and assert what
+fake provider that returns a fixed `RuleSetNode`, seed a table, and assert what
 comes back.
 
-## Swap in a fake resolver
+## Swap in a fake provider
 
-Bind an anonymous `RuleResolver` for the test so you control exactly which rules
+Bind an anonymous `RuleProvider` for the test so you control exactly which rules
 apply, independent of your production rule store:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 
-app()->instance(RuleResolver::class, new class implements RuleResolver {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+app()->instance(RuleProvider::class, new class implements RuleProvider {
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         return WarrantSyntax::parse('if is_self they can view')
             ->scopedTo($context->schemaKey);
@@ -38,11 +38,11 @@ expect($visible)
     ->not->toContain($othersDocument->id);
 ```
 
-:::note[Rebinding a resolver mid-test]
+:::note[Rebinding a provider mid-test]
 Warrant memoizes each user's rule set for the life of the request — and a test
-*is* one long-lived request. If you swap the resolver, or change a user's roles,
+*is* one long-lived request. If you swap the provider, or change a user's roles,
 after a check has already run, call `Warrant::flush()` so the next check picks up
-the new rules. See [Resolution lifetime](/guides/resolvers/#resolution-lifetime).
+the new rules. See [Resolution lifetime](/guides/providers/#resolution-lifetime).
 :::
 
 ## What to assert

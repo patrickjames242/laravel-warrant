@@ -58,7 +58,7 @@ public static function requiredContextKeys(): array;  // schema-wide required ke
 
 ```php
 public static function virtualTable(): ?Builder;         // default null; rows come from model's table
-public function implicitRules(): array|RuleSetNode;          // default []; merged into every rule set
+public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable; // default []; merged ahead of the provider's rules
 protected function defaultContext(): array;              // default []; merged UNDER explicit context
 
 // Declared on your schema when needed; not inherited — see below.
@@ -411,7 +411,7 @@ Warrant::registry()->registeredSchemas(): array;
 
 A `WarrantSchema` (class or instance) resolves to itself, but must be registered —
 an unregistered schema has no schema key, so nothing can name it in rule syntax or
-in a `RuleResolutionContext`. A model reference resolves through the model's own
+in a `RuleProviderContext`. A model reference resolves through the model's own
 `HasWarrantSchema::warrantSchema()`. A bare string is treated as a literal schema
 key and is returned unchanged by the `resolveSchemaKey*` pair, so rule syntax still
 parses and writes without a registry; it is `resolveSchemaClass*` that rejects an

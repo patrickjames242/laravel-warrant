@@ -11,8 +11,8 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
@@ -138,14 +138,14 @@ it('lists abilities by reachability bucket', function () {
         ->and($sort(Warrant::guard($user)->forSchema(WarrantScopedModelSchema::class)->impossibleAbilities()))->toBe(['archive', 'create', 'update']);
 });
 
-it('honours implicit rules in the analysis', function () {
-    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
-    // Resolver grants nothing; the schema's implicit rules grant publish, deny archive.
+it('honours schema rules in the analysis', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRulesSchema::class]);
+    // The provider grants nothing; the schema's rules grant publish, deny archive.
     bindWarrantRules('');
     $user = makeWarrantTestUser();
 
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->reachabilityOf('publish'))->toBe(Reachability::ALWAYS)
-        ->and(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->reachabilityOf('archive'))->toBe(Reachability::NEVER);
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->reachabilityOf('publish'))->toBe(Reachability::ALWAYS)
+        ->and(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->reachabilityOf('archive'))->toBe(Reachability::NEVER);
 });
 
 it('requires a user, explicit or authenticated', function () {
@@ -284,11 +284,11 @@ function bindRchRules(array $syntaxByKey): void
         $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
     }
 
-    app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
         /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
         }

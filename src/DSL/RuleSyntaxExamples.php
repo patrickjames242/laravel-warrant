@@ -14,8 +14,8 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
  * resolved-rule composition accepted by RuleSetNode::fromRules().
  *
  * One parse reads every form of rule text, and the tree it answers with says
- * which form the text took: a condition, a rule, headless rules, or one or more
- * `for <schema>` rule sets. Headless rules take their schema from the caller,
+ * which form the text took: a condition, a rule, unscoped rules, or one or more
+ * `for <schema>` rule sets. Unscoped rules take their schema from the caller,
  * through WarrantSyntax::scopedTo().
  *
  * Core model:

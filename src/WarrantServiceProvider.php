@@ -10,11 +10,10 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
-use RuntimeException;
 use Warrant\Gate\WarrantGateBridge;
 use Warrant\Middleware\WarrantMiddleware;
 use Warrant\Registry\SchemaRegistry;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
 
 final class WarrantServiceProvider extends ServiceProvider
 {
@@ -26,18 +25,13 @@ final class WarrantServiceProvider extends ServiceProvider
             new SchemaRegistry((array) $app['config']->get('warrant.schemas', []))
         ));
 
-        /* Warrant ships no default resolver; the consumer must configure one. */
-        $this->app->bind(RuleResolver::class, function (Application $app): RuleResolver {
-            $resolverClass = $app['config']->get('warrant.rule_resolver');
+        /* The global rule provider is optional: left unset, a guard's rules are
+           its schema's own rules() alone. */
+        $providerClass = $this->app['config']->get('warrant.rule_provider');
 
-            if ($resolverClass === null) {
-                throw new RuntimeException(
-                    'No Warrant rule resolver configured. Set warrant.rule_resolver to a class implementing '.RuleResolver::class.'.'
-                );
-            }
-
-            return $app->make($resolverClass);
-        });
+        if ($providerClass !== null) {
+            $this->app->bind(RuleProvider::class, $providerClass);
+        }
     }
 
     public function boot(Router $router): void

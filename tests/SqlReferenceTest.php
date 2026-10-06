@@ -9,8 +9,8 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -49,10 +49,10 @@ function bindSqlRules(string $syntax, string $schemaKey): void
 {
     $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
 
-    app()->instance(RuleResolver::class, new class($set, $schemaKey) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === $this->key
                 ? $this->set

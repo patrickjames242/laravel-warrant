@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Some values a rule needs aren't known when the schema is written *or* when the
-resolver builds the rules — they're known only at the moment of the check: the
+provider builds the rules — they're known only at the moment of the check: the
 current tenant, an academic year, an as-of date, an impersonated user. These are
 **context keys**.
 

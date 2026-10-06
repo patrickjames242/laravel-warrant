@@ -2,28 +2,27 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Providing rules
-description: The RuleResolver interface, building rule sets, the fluent builder, and implicit rules.
+description: The RuleProvider interface, building rule sets, the fluent builder, and schema rules.
 sidebar:
   order: 5
 ---
 
-Rules are data. Warrant never invents them — it asks *your* resolver for them at
-request time. This is the seam where your access-control model meets Warrant.
+Rules are data. Warrant never invents them — it asks *your* code for them at
+request time: an optional global rule provider, and each schema's own `rules()`.
+This is the seam where your access-control model meets Warrant.
 
-## The `RuleResolver` interface
+## The `RuleProvider` interface
 
-Implement one method. Given a context, return the `RuleSetNode` that governs
-this user's access to that resource:
+Implement one method. Given a context, return the rules that govern this user's
+access to that resource:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): iterable
     {
         // $context->user       — the Authenticatable being checked (nullable)
         // $context->schemaKey  — e.g. 'documents'
@@ -35,23 +34,35 @@ class DatabaseRuleResolver implements RuleResolver
             ->where('resource', $context->schemaKey)
             ->pluck('rule');                    // ['if is_self they can view', ...]
 
-        return WarrantSyntax::parse($grants->implode("\n")) // rules concatenate freely
-            ->scopedTo($context->schemaKey);
+        return $grants;                         // a collection of rule text
     }
 }
 ```
 
 Store rule strings in a table, compose them from role flags, read them from JWT
-claims — whatever fits. Warrant only cares that you return a `RuleSetNode`.
+claims — whatever fits. Return them in whichever form you have them:
 
-:::note[The resolver is container-resolved]
-Warrant builds your resolver via `app()->make()`, so you can type-hint
+| Return | Read as |
+| --- | --- |
+| `string` | rule text — rules with no `for` header, or `for <schema>` rule sets |
+| `WarrantSyntax` | already-parsed rule text, read the same way |
+| `RuleSetNode` | its rules |
+| a rule entry (`WarrantRuleNode`, ability block, include) | that one entry |
+| `array` / `Collection` / any iterable | each element read by these same rules, in order |
+
+Every rule set among them — a `RuleSetNode`, or a `for <schema>` header in rule
+text — must target `$context->schemaKey`; anything else throws. An empty string,
+array or collection means no rules.
+
+:::note[The provider is container-resolved]
+Warrant builds your provider via `app()->make()`, so you can type-hint
 dependencies in its constructor and they'll be injected.
 :::
 
-:::caution[No default resolver ships]
-If `warrant.rule_resolver` is unset, the first check throws a `RuntimeException`:
-*"No Warrant rule resolver configured."* You must configure one.
+:::note[The global provider is optional]
+If `warrant.rule_provider` is unset, each schema's [own rules](#schema-rules)
+govern access to it alone. With neither, a schema's rule set is empty and every
+check denies.
 :::
 
 ## Building a rule set
@@ -75,13 +86,13 @@ WarrantSyntax::parse('for documents { if is_self they can view }', $bindings)->r
 
 | The text holds | Ask for | You get |
 | --- | --- | --- |
-| headless rules, ability blocks, `@include`s | `scopedTo('documents')` | a `RuleSetNode` for that schema |
+| unscoped rules, ability blocks, `@include`s | `scopedTo('documents')` | a `RuleSetNode` for that schema |
 | one `for documents { … }` block, or `for documents` and a bare body | `ruleSet()` | that `RuleSetNode` |
 | several `for <schema> { … }` blocks | `forSchema('documents')`, `ruleSets()` | the blocks for one schema folded together, or every block |
 | exactly one rule | `rule()` | a `WarrantRuleNode` |
 | a bare condition | `expression()` | an `IBooleanExpressionNode` |
 
-`scopedTo()` is the call for a resolver: it scopes headless text to the schema
+`scopedTo()` is the call for a provider: it gives unscoped text its schema
 being resolved, and accepts text that already names that schema in a `for`
 header, throwing if the header names a different one. A file of rules parses the
 same way with `WarrantSyntax::parseFile($path)`. Several rule sets in one source
@@ -144,46 +155,56 @@ The builder is its own topic — connectives, parenthesized groups, dynamic
 composition, and splicing in DSL text are all covered in
 [The rule builder](/guides/rule-builder/).
 
-## Implicit rules
+## Schema rules
 
-A schema can declare rules **always merged into the rule set**, regardless of
-what the resolver returns, by overriding `implicitRules()`. They're added to
-every resolved rule set before compilation, so they're validated and combine
-exactly like resolver rules — and, like every rule, they're still
-evaluated against the *current* user via their conditions:
+A schema can supply its own rules by overriding `rules()`. They're **merged ahead
+of whatever the global provider returns** (or stand alone when no provider is
+configured), so they're validated and combine exactly like provider rules — and,
+like every rule, they're still evaluated against the *current* user via their
+conditions:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\Rules\RuleProviderContext;
 
 class DocumentSchema extends WarrantSchema
 {
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
-        return WarrantSyntax::parse('
+        return '
             if is_admin they can *
             if is_suspended they cannot *
-        ')->ruleEntries();
+        ';
     }
 }
 ```
 
-You may return either a plain list of rule entries (above) or a fully-formed
-`RuleSetNode` for this schema — whichever your baseline logic produces most
-naturally. A returned rule set must target this schema.
+It may return any form the global provider may (see the table above). A
+returned rule set must target this schema.
 
-Because rule order never matters, an implicit `cannot` beats any
-resolver-supplied `can` — ideal for baseline guarantees like an admin escape
+`rules()` receives the same `RuleProviderContext` the global provider does, so a
+schema can return rules for this user alone:
+
+```php
+public function rules(RuleProviderContext $context): iterable
+{
+    return DB::table('document_grants')
+        ->where('user_id', $context->user?->getAuthIdentifier())
+        ->pluck('rule');
+}
+```
+
+Because rule order never matters, a schema's `cannot` beats any
+provider-supplied `can` — ideal for baseline guarantees like an admin escape
 hatch or a suspension lockout.
 
-## Registering the resolver
+## Registering the provider
 
-Warrant ships **no** default resolver. Configure one in `config/warrant.php`,
-plus the list of schemas:
+A global provider is optional. To use one, set it in `config/warrant.php`,
+alongside the list of schemas:
 
 ```php
 return [
-    'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 
     'schemas' => [
         'documents' => App\Warrant\DocumentSchema::class,
@@ -194,14 +215,14 @@ return [
 
 ## Resolution lifetime
 
-Your resolver is **not** called once per check. Warrant memoizes a guard per user
+Neither your provider nor a schema's `rules()` is called once per check. Warrant memoizes a guard per user
 for the life of the request, and each guard memoizes the rule set it resolved, so
-`resolve()` runs at most once per (user, schema) — no matter how many checks
+`rules()` runs at most once per (user, schema) — no matter how many checks
 follow:
 
 ```php
-Warrant::can('view', $documentA);      // resolve() runs
-Warrant::can('update', $documentB);    // memoized — no resolver call
+Warrant::can('view', $documentA);      // rules() runs
+Warrant::can('update', $documentB);    // memoized — no provider call
 Warrant::abilities($documentC);        // memoized
 ```
 
@@ -245,6 +266,6 @@ change affecting many users, and silently narrowing `flush()` to the current use
 would leave every other memo stale.
 :::
 
-If your resolver reads from a store that changes rarely, this in-request
+If your provider reads from a store that changes rarely, this in-request
 memoization may be all the caching you need. Anything longer-lived — surviving
-across requests — belongs in your resolver, where you control invalidation.
+across requests — belongs in your provider, where you control invalidation.

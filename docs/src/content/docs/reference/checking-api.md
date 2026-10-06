@@ -83,9 +83,9 @@ Warrant::flush(?Authenticatable $user = null): void;   // drop memoized rules �
   (rendered as HTTP **403**) on denial, carrying a diagnosed denial context (see
   [Denial messages](/guides/denial-messages/)).
 - `context:` is a separate argument, merged over the schema's `defaultContext()`.
-- `flush()` drops the per-request memo so the next check re-runs your resolver.
+- `flush()` drops the per-request memo so the next check re-runs your provider.
   Its `$user` does **not** default to the current user — omitting it flushes
-  *everyone*. See [Resolution lifetime](/guides/resolvers/#resolution-lifetime).
+  *everyone*. See [Resolution lifetime](/guides/providers/#resolution-lifetime).
 
 ### Target forms
 
@@ -368,7 +368,7 @@ conditions and `can(...)` references. Conceptual coverage is in
 
 On the facade / `WarrantGuard` the schema comes **first**; there is no `matchMode`
 (use the `*Any` variants for ANY) and no `context:` (row and global conditions
-are never evaluated), but a `$user` is still required — the resolver may return a different
+are never evaluated), but a `$user` is still required — the provider may return a different
 rule set per user.
 
 ```php

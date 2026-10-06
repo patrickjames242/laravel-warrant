@@ -103,7 +103,7 @@ final class RuleSetExpander
     }
 
     /**
-     * The rules an ability block stands for: its header applied to every headless
+     * The rules an ability block stands for: its header applied to every generic
      * entry in its body, and those entries expanded in turn.
      *
      * A block is grouping and nothing more, so it spends nothing of the trail.
@@ -155,14 +155,14 @@ final class RuleSetExpander
             $body = new WarrantRuleTemplate($body);
         }
 
-        $headless = WarrantParser::parseTemplateBody($body->syntax, $body->bindings);
+        $generic = WarrantParser::parseTemplateBody($body->syntax, $body->bindings);
 
-        /* The body is headless, as an ability block's is: the include names the
+        /* The body is generic, as an ability block's is: the include names the
            abilities its clauses take, so they are applied here. */
         $entries = array_map(
             static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
                 => $entry->withAbilities($include->abilities),
-            $headless,
+            $generic,
         );
 
         /* The body may hold includes of its own, taking the same abilities. They

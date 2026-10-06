@@ -9,8 +9,8 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -56,10 +56,10 @@ function bindColRules(string $syntax, string $schemaKey): void
 {
     $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
 
-    app()->instance(RuleResolver::class, new class($set, $schemaKey) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === $this->key
                 ? $this->set
@@ -233,8 +233,8 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
     bindColRules('if can(view for col_targets(@column col_docs.target_id)) they can view', 'col_docs');
 
     // The target schema grants view to everyone.
-    app()->instance(RuleResolver::class, new class implements RuleResolver {
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+    app()->instance(RuleProvider::class, new class implements RuleProvider {
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === 'col_docs'
                 ? WarrantSyntax::parse('if can(view for col_targets(@column col_docs.target_id)) they can view')->scopedTo('col_docs')

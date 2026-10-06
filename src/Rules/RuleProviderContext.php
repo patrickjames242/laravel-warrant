@@ -8,7 +8,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\Schema\WarrantSchema;
 
-final readonly class RuleResolutionContext
+final readonly class RuleProviderContext
 {
     /**
      * @param  class-string<WarrantSchema>  $schema

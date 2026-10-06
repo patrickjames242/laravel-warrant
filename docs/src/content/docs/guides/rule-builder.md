@@ -273,10 +273,10 @@ $set = RuleSetNode::build('documents', function ($rule) {
 
 The first argument is the schema key. It's the terse equivalent of building each
 rule with `WarrantRuleNode::build()` and handing them to `RuleSetNode::fromRules()`, and it's the shape you'll most
-often return from a [resolver](/guides/resolvers/).
+often return from a [provider](/guides/providers/).
 
 ---
 
 Parsing a rule set from text with `WarrantSyntax::parse()`, and `RuleSetNode::fromRules()`, live in
-[Providing rules](/guides/resolvers/#building-a-rule-set), and every method
+[Providing rules](/guides/providers/#building-a-rule-set), and every method
 signature is in the [Rule-building API](/reference/rule-building-api/).

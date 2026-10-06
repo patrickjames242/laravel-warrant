@@ -52,7 +52,7 @@ it('parses a rule with no header to one rule child', function () {
     expect($syntax->rule()->canAbilities())->toBe(['view']);
 });
 
-it('parses several headless rules, blocks and includes to a list of entries', function () {
+it('parses several unscoped rules, blocks and includes to a list of entries', function () {
     $syntax = WarrantSyntax::parse(<<<'WARRANT'
         if a they can view
         if b they can edit
@@ -162,7 +162,7 @@ it('rejects braces with no for header', function () {
         ->toThrow(WarrantSyntaxException::class, 'A `{ ... }` block needs a `for <schema>` header before it.');
 });
 
-it('rejects headless rules followed by a for block', function () {
+it('rejects unscoped rules followed by a for block', function () {
     expect(fn () => WarrantSyntax::parse('they can view for a { they can edit }'))
         ->toThrow(WarrantSyntaxException::class, 'Rules without a `for` header cannot be followed by a `for` block');
 });
@@ -203,7 +203,7 @@ it('refuses an accessor that does not match what the source holds', function (st
     'entries from a rule set' => [
         'for a { they can view }',
         fn (WarrantSyntax $s) => $s->ruleEntries(),
-        'Expected headless rules, but the source holds a rule set for [a].',
+        'Expected unscoped rules, but the source holds a rule set for [a].',
     ],
     'rule sets from an expression' => [
         'is_owner',
@@ -233,7 +233,7 @@ it('answers empty lists for an empty source', function () {
 
 // -- scopedTo -----------------------------------------------------------------
 
-it('scopes headless rules to a schema', function () {
+it('scopes unscoped rules to a schema', function () {
     $set = WarrantSyntax::parse('if is_self they can view  can they edit { they can }')->scopedTo('timesheets');
 
     expect($set->schemaKey)->toBe('timesheets');
@@ -312,7 +312,7 @@ it('throws when the file is missing', function () {
 
 // -- the tree keeps ability blocks and includes --------------------------------
 
-it('keeps an ability block as a node over a headless body', function () {
+it('keeps an ability block as a node over a generic body', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         for docs {
             can they view, edit {
@@ -346,7 +346,7 @@ it('rejects a block entry that names abilities of its own', function (WarrantRul
     'an include' => fn () => new IncludeInvocationNode('t', [], ['view']),
 ]);
 
-it('rejects a headless clause or include outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
+it('rejects a generic clause or include outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
     expect(fn () => new RuleSetNode('docs', [$entry]))->toThrow(
         InvalidArgumentException::class,
         'Every clause and @include outside an ability block names the abilities it applies to; the rule set for [docs] holds one that names none.',
@@ -359,10 +359,10 @@ it('rejects a headless clause or include outside an ability block', function (Wa
 
 it('refuses to give abilities to a rule or include that names its own', function () {
     expect(fn () => (new WarrantRuleNode(null, [new CanClauseNode(['view'])], []))->withAbilities(['edit']))
-        ->toThrow(InvalidArgumentException::class, 'Only a headless rule takes abilities from outside; this rule names its own.');
+        ->toThrow(InvalidArgumentException::class, 'Only a generic rule takes abilities from outside; this rule names its own.');
 
     expect(fn () => (new IncludeInvocationNode('t', [], ['view']))->withAbilities(['edit']))
-        ->toThrow(InvalidArgumentException::class, 'Only a headless @include takes abilities from outside; @include t names its own.');
+        ->toThrow(InvalidArgumentException::class, 'Only a generic @include takes abilities from outside; @include t names its own.');
 });
 
 it('rejects a block inside a block, and a block with no abilities', function () {
@@ -398,7 +398,7 @@ it('round-trips every form through toSyntax', function (string $source) {
 })->with([
     'a condition' => ['is_owner or not is_admin'],
     'a rule' => ["if is_self they can edit they cannot delete because 'Locked.'"],
-    'headless entries' => ['if a they can view  can they edit { if b they can }  @include t for publish'],
+    'unscoped entries' => ['if a they can view  can they edit { if b they can }  @include t for publish'],
     'a rule set' => ['for timesheets if is_self they can view'],
     'rule sets' => ['for a { they can view } for b { can they edit { they cannot } }'],
     'a schema condition' => ['for timesheets is_owner and is_approved'],

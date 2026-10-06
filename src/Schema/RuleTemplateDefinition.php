@@ -7,7 +7,7 @@ namespace Warrant\Schema;
  * key, the name of the method that answers with the template's body, and how many
  * DSL arguments it requires.
  *
- * A template's body is headless — its clauses name no abilities, taking them from
+ * A template's body is generic — its clauses name no abilities, taking them from
  * the ability block or the `for` list at the `@include` that expands it. That is
  * why the definition says nothing about abilities: a template is a shape, and the
  * abilities belong to the reference.

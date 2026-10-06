@@ -2,22 +2,23 @@
 
 return [
     /*
-     * The rule resolver: a class implementing Warrant\Rules\RuleResolver.
+     * The global rule provider: a class implementing Warrant\Rules\RuleProvider.
      *
-     * Warrant ships no default — you must provide one. It maps the current user
-     * to the WarrantRuleSet that governs their access to an entity, built from
-     * wherever your access rules live: role/permission tables, JWT claims, a
-     * remote service, config, etc.
+     * Optional. It maps the current user to the rule set that governs their
+     * access to an entity, built from wherever your access rules live:
+     * role/permission tables, JWT claims, a remote service, config, etc. Its
+     * rules are merged with each schema's own rules(); left null, a schema's
+     * rules() alone govern access to it.
      */
-    'rule_resolver' => null,
+    'rule_provider' => null,
 
     /*
      * The Warrant schemas registered with the application, keyed by schema key.
      *
      * The array key *is* the schema key: the short, stable identifier that
      * appears in rule strings (`for posts { ... }`, `can(view for posts)`,
-     * `@column posts.author_id`) and in the RuleResolutionContext handed to your
-     * rule resolver. It is the only place a schema key is declared, so treat it
+     * `@column posts.author_id`) and in the RuleProviderContext handed to your
+     * rule provider. It is the only place a schema key is declared, so treat it
      * like a database identifier — renaming one changes the meaning of every
      * rule string that already references it.
      *

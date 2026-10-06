@@ -3,7 +3,7 @@
 namespace Warrant\Rules;
 
 /**
- * A rule template's body: headless rule text, plus the values for any `:name` /
+ * A rule template's body: generic rule text, plus the values for any `:name` /
  * `?` placeholders in it.
  *
  * A template is the one member of the rule family that is not parsed when it is

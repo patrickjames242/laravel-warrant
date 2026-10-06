@@ -21,8 +21,8 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Writing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -317,7 +317,7 @@ class WarrantScopedModelSchema extends WarrantTestSchema
     public const model = WarrantScopedModel::class;
 }
 
-class WarrantImplicitRulesModel extends Model
+class WarrantSchemaRulesModel extends Model
 {
     use HasWarrantSchema;
 
@@ -329,25 +329,25 @@ class WarrantImplicitRulesModel extends Model
 
     public static function warrantSchema(): string
     {
-        return WarrantImplicitRulesSchema::class;
+        return WarrantSchemaRulesSchema::class;
     }
 }
 
-class WarrantImplicitRulesSchema extends WarrantTestSchema
+class WarrantSchemaRulesSchema extends WarrantTestSchema
 {
-    public const model = WarrantImplicitRulesModel::class;
+    public const model = WarrantSchemaRulesModel::class;
 
-    public function implicitRules(): array
+    public function rules(RuleProviderContext $context): array
     {
         return [
-            // Always grant publish, and never allow archive, regardless of the resolver.
+            // Always grant publish, and never allow archive, regardless of the provider.
             WarrantSyntax::parse('they can publish')->rule(),
             WarrantSyntax::parse('they cannot archive')->rule(),
         ];
     }
 }
 
-class WarrantImplicitRuleSetModel extends Model
+class WarrantSchemaRuleSetModel extends Model
 {
     use HasWarrantSchema;
 
@@ -359,28 +359,55 @@ class WarrantImplicitRuleSetModel extends Model
 
     public static function warrantSchema(): string
     {
-        return WarrantImplicitRuleSetSchema::class;
+        return WarrantSchemaRuleSetSchema::class;
     }
 }
 
-class WarrantImplicitRuleSetSchema extends WarrantTestSchema
+class WarrantSchemaRuleSetSchema extends WarrantTestSchema
 {
-    public const model = WarrantImplicitRuleSetModel::class;
+    public const model = WarrantSchemaRuleSetModel::class;
 
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): array|RuleSetNode
     {
-        // Same baseline as WarrantImplicitRulesSchema, but returned as a rule set.
+        // Same rules as WarrantSchemaRulesSchema, but returned as a rule set.
         return WarrantSyntax::parse(
             "they can publish\nthey cannot archive",
         )->scopedTo(self::schemaKey());
     }
 }
 
-class FakeWarrantRuleResolver implements RuleResolver
+class WarrantUserRulesModel extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'course_sections';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return WarrantUserRulesSchema::class;
+    }
+}
+
+/** Rules that depend on who is asking: only the `editor-role` user may publish. */
+class WarrantUserRulesSchema extends WarrantTestSchema
+{
+    public const model = WarrantUserRulesModel::class;
+
+    public function rules(RuleProviderContext $context): string
+    {
+        return $context->user?->role_id === 'editor-role' ? 'they can publish' : '';
+    }
+}
+
+class FakeWarrantRuleProvider implements RuleProvider
 {
     public function __construct(private RuleSetNode $ruleSet) {}
 
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         return $this->ruleSet;
     }
@@ -398,24 +425,24 @@ function useWarrantSchemas(array $schemas): void
 }
 
 /**
- * Bind the resolver to a rule set built from Warrant syntax. The schema key is
+ * Bind the provider to a rule set built from Warrant syntax. The schema key is
  * irrelevant to the fake (the schema asks for its own rules), so it defaults to
  * the course_sections fixture schema key.
  */
 function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKey = 'course_sections'): void
 {
     app()->instance(
-        RuleResolver::class,
-        new FakeWarrantRuleResolver(WarrantSyntax::parse($syntax, $bindings)->scopedTo($schemaKey))
+        RuleProvider::class,
+        new FakeWarrantRuleProvider(WarrantSyntax::parse($syntax, $bindings)->scopedTo($schemaKey))
     );
 }
 
 /**
- * Bind the resolver to an explicit rule set.
+ * Bind the provider to an explicit rule set.
  */
 function bindWarrantRuleSet(RuleSetNode $ruleSet): void
 {
-    app()->instance(RuleResolver::class, new FakeWarrantRuleResolver($ruleSet));
+    app()->instance(RuleProvider::class, new FakeWarrantRuleProvider($ruleSet));
 }
 
 /**

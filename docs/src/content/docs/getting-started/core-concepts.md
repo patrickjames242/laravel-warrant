@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Core concepts
-description: The vocabulary of Warrant — abilities, conditions, rules, rule sets, resolvers, schemas, and the APIs built on them.
+description: The vocabulary of Warrant — abilities, conditions, rules, rule sets, providers, schemas, and the APIs built on them.
 sidebar:
   order: 3
 ---
@@ -11,7 +11,7 @@ Warrant keeps three things separate, and that separation of concerns is what giv
 
 - **Schema** — the _vocabulary_ (abilities + conditions) for one resource.
 - **Rules** — the _policy_, written as plain strings that reference that vocabulary.
-- **Resolver** — the _glue_ that hands Warrant the rules for the current request.
+- **Provider** — the _glue_ that hands Warrant the rules for the current request.
 
 Everything below is one of those three or something built on top of them.
 
@@ -68,7 +68,7 @@ A **rule** is one line of policy: an optional `if <condition expression>`, then
 if is_self or manages_team they can view, update
 ```
 
-Throughout the language, **"they" is the current user** — the one your resolver was
+Throughout the language, **"they" is the current user** — the one your provider was
 asked about. A rule never says what _everyone_ can do, only what _this_ user can do
 with the resource it's scoped to. Rules are plain strings — data, not code — so they
 can live in a table, in config, on a JWT claim.
@@ -94,7 +94,7 @@ See the [rule language](/guides/rule-language/) for the full syntax.
 ## Rule set
 
 A **rule set** (`RuleSetNode`) is the collection of rules that apply to one
-resource for one user — what your resolver returns and what Warrant compiles. There
+resource for one user — what your provider returns and what Warrant compiles. There
 are three ways to construct one.
 
 Parse a whole multi-rule string, and scope it to the schema with `scopedTo`:
@@ -127,15 +127,15 @@ RuleSetNode::build('documents', function ($rule) {
 
 See the [Rule-building API](/reference/rule-building-api/) for all three.
 
-## Rule resolver
+## Rule provider
 
-The **resolver** is the one class you write that, at request time, hands Warrant the
-rule set for the current user and resource. This is where "rules are data" pays off:
+The **provider** is an optional class you write that, at request time, hands Warrant
+the rule set for the current user and resource. This is where "rules are data" pays off:
 
 ```php
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $rules = DB::table('role_rules')
             ->where('role_id', $context->user->role_id)
@@ -148,8 +148,9 @@ class DatabaseRuleResolver implements RuleResolver
 ```
 
 Warrant owns no tables and has no opinion about where rules live — it only asks your
-resolver for a `RuleSetNode`. You can also add [implicit rules](/guides/resolvers/#implicit-rules)
-that always apply. See [Providing rules](/guides/resolvers/).
+provider for a `RuleSetNode`. A schema can also return its own
+[rules](/guides/providers/#schema-rules), given the same context — with or without
+a global provider. See [Providing rules](/guides/providers/).
 
 ## Schema
 
@@ -201,7 +202,7 @@ Order never matters. See [Grants and denials](/guides/grants-and-denials/).
 
 ## Check-time context
 
-Some values a condition needs aren't fixed when your resolver builds the rules —
+Some values a condition needs aren't fixed when your provider builds the rules —
 they're only settled when you ask the actual question, "can this user access this?"
 Think an active tenant, an academic year, or an as-of date that the caller chooses
 per check. Those come in as **context keys**: named values you pass to the check,

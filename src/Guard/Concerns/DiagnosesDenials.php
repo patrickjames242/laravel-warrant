@@ -34,7 +34,7 @@ trait DiagnosesDenials
      * Two distinct causes, resolved in this precedence:
      *  1. **Forbidden** — a matching `cannot` rule blocked an ability. The
      *     earliest message-bearing such rule (abilities in requested order, rules
-     *     in resolver order — implicit first) wins, since being actively forbidden
+     *     in rule-set order — schema rules first) wins, since being actively forbidden
      *     with a reason is the most specific answer. A matching `cannot` with no
      *     message is a deliberate forbid and falls through to a generic 403 — it
      *     is *not* treated as "ungranted".

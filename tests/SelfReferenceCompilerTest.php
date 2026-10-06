@@ -10,8 +10,8 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
@@ -59,10 +59,10 @@ function assertSelfRefSql(string $syntax, string $ability, string $expectedSql, 
 {
     $set = WarrantSyntax::parse($syntax)->scopedTo('sr_docs');
 
-    app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $this->set;
         }
@@ -307,10 +307,10 @@ it('leaves an inlined can unanswerable when the frame it inlines into has no row
         "if is_owner they can do_thing_1\nif can(do_thing_1) they can do_thing_2",
     )->scopedTo('sr_docs');
 
-    app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $this->set;
         }

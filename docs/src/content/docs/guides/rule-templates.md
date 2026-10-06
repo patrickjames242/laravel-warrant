@@ -67,7 +67,7 @@ row; a template answers with rule text about none. A method wearing both
 attributes is rejected when the schema is read.
 :::
 
-## The body is headless
+## The body is generic
 
 Clauses in a template body name no abilities — they take the ones the `@include`
 supplies:

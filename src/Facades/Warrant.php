@@ -51,7 +51,7 @@ class Warrant extends Facade
     |
     | Rule text of every form is read by one call, parse(), which answers with a
     | WarrantSyntax tree whose children say what the text held: a condition, a
-    | rule, headless rules, or one or more `for <schema>` bodies. Nothing about
+    | rule, unscoped rules, or one or more `for <schema>` bodies. Nothing about
     | the text has to be known before it is read.
     |
     | A schema named in the text's own `for` header travels with the text, and
@@ -149,7 +149,7 @@ class Warrant extends Facade
     }
 
     /**
-     * A rule template's body: headless rule text and the values for its
+     * A rule template's body: generic rule text and the values for its
      * placeholders, for a `#[RuleTemplate]` method to answer with.
      *
      *     Warrant::ruleTemplate('if not is_approved they cannot')

@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
  *
  *   - nothing                         an empty source
  *   - one IBooleanExpressionNode      a bare condition
- *   - IRuleEntryNode, ...             headless rules, ability blocks, includes
+ *   - IRuleEntryNode, ...             unscoped rules, ability blocks, includes
  *   - ISchemaScopedNode, ...          one bare `for` body, or braced blocks
  *
  * The shapes never mix. The caller asks which one it got, so one {@see parse()}
@@ -73,7 +73,7 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * Whether the source is exactly one headless rule.
+     * Whether the source is exactly one unscoped rule.
      */
     public function isSingleRule(): bool
     {
@@ -81,7 +81,7 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * Whether the source is headless rule entries: one or more rules, ability
+     * Whether the source is unscoped rule entries: one or more rules, ability
      * blocks or includes, with no `for` header.
      */
     public function isRuleEntries(): bool
@@ -149,7 +149,7 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * The one headless rule this source holds.
+     * The one unscoped rule this source holds.
      */
     public function rule(): WarrantRuleNode
     {
@@ -163,7 +163,7 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * The headless entries. An empty source answers an empty list, since no rules
+     * The unscoped entries. An empty source answers an empty list, since no rules
      * is a valid rule body.
      *
      * @return list<IRuleEntryNode>
@@ -171,7 +171,7 @@ final readonly class WarrantSyntax implements INode
     public function ruleEntries(): array
     {
         if (! $this->isEmpty() && ! $this->isRuleEntries()) {
-            throw $this->shapeError('headless rules');
+            throw $this->shapeError('unscoped rules');
         }
 
         /** @var list<IRuleEntryNode> */
@@ -252,7 +252,7 @@ final readonly class WarrantSyntax implements INode
     }
 
     /**
-     * This source as one rule set for $schemaKey. Headless entries, or no
+     * This source as one rule set for $schemaKey. Unscoped entries, or no
      * entries at all, are placed in a rule set for that schema; a single
      * `for <schema>` rule set must already name it. A header and a schema that
      * disagree is an error, never a silent choice.
@@ -365,7 +365,7 @@ final readonly class WarrantSyntax implements INode
             $this->isSingleRule() => 'a single rule',
             $first instanceof AbilityBlockNode && count($this->children) === 1 => 'an ability block',
             $first instanceof IncludeInvocationNode && count($this->children) === 1 => 'an @include',
-            $this->isRuleEntries() => sprintf('%d headless rule entries', count($this->children)),
+            $this->isRuleEntries() => sprintf('%d unscoped rule entries', count($this->children)),
             $first instanceof RuleSetNode && count($this->children) === 1 => sprintf('a rule set for [%s]', $first->schemaKey),
             $first instanceof SchemaConditionNode && count($this->children) === 1 => sprintf('a condition for [%s]', $first->schemaKey),
             default => sprintf('%d `for <schema>` bodies', count($this->children)),
