@@ -170,10 +170,10 @@ it('does not lift a deny when the cannot rule answers unknown', function () {
     /* The deny must stand. If an unknown negated into a false, `not unknown`
        would become true, the cannot would fail to fire, and the grant above it
        would come through — a missing answer turning into access. */
-    bindWarrantRules(<<<'RULES'
+    bindWarrantRules(<<<'WARRANT'
         if is_owned they can view
         if unanswerable they cannot view
-    RULES, schemaKey: 'unknown_docs');
+    WARRANT, schemaKey: 'unknown_docs');
 
     expect(unknownGuard()->can('view', 'mine'))->toBeFalse();
 });
@@ -181,10 +181,10 @@ it('does not lift a deny when the cannot rule answers unknown', function () {
 it('leaves an unknown unknown through negation in the emitted SQL', function () {
     /* `not (null)` is null again, so the unknown is emitted bare rather than
        negated into something that could select a row. */
-    expect(unknownFilterSql(<<<'RULES'
+    expect(unknownFilterSql(<<<'WARRANT'
         if is_owned they can view
         if unanswerable they cannot view
-    RULES))->toBe(normalizeWarrantSql(<<<SQL
+    WARRANT))->toBe(normalizeWarrantSql(<<<SQL
         select * from "unknown_docs"
         where ("unknown_docs"."owner_id" = 'role-1' and null)
     SQL));
@@ -226,10 +226,10 @@ it('answers unknown from inside a derived condition\'s expansion', function () {
 });
 
 it('answers unknown from inside a per-row ability selection', function () {
-    bindWarrantRules(<<<'RULES'
+    bindWarrantRules(<<<'WARRANT'
         if unanswerable they can view
         if is_owned they can delete
-    RULES, schemaKey: 'unknown_docs');
+    WARRANT, schemaKey: 'unknown_docs');
 
     $rows = unknownGuard()
         ->selectAbilitiesInQuery(warrantTestQuery('unknown_docs')->orderBy('id'))

@@ -87,11 +87,11 @@ it('gives each frame of a self-referencing chain its own alias', function () {
        row condition at the bottom, which says `$c->row('owner')` without knowing
        how deep it has been reached. */
     assertSelfRefSql(
-        <<<'RULES'
+        <<<'WARRANT'
             if is_owner they can do_thing_1
             if can(do_thing_1 for sr_docs(@column id) as d2) they can do_thing_2
             if can(do_thing_2 for sr_docs(@column id) as d3) they can do_thing_3
-        RULES,
+        WARRANT,
         'do_thing_3',
         <<<SQL
             select * from "sr_docs" where (
