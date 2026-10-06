@@ -53,7 +53,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
  *   include  := '@include' IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
  *                          ( 'for' ability (',' ability)* )?
  *              -- expands a schema's rule template. The `for` list is required
- *                 outside an ability block and forbidden inside one, where the
+ *                 in a `for` body and forbidden inside an ability block, where the
  *                 header already names the abilities
  *   clause   := 'they' ( 'can' ability (',' ability)*
  *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
@@ -61,6 +61,9 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
  *                 Each `they cannot ...` clause becomes one CannotClauseNode on the
  *                 rule, so distinct clauses keep distinct messages.
  *                 Inside an ability block the ability list is omitted entirely.
+ *              -- in rules with no `for` header, clauses and includes either all
+ *                 name their abilities or all leave them off, as a rule template's
+ *                 body does; the first one decides
  *   message  := STRING | NAMED_BINDING | POSITIONAL
  *              -- a string literal, or a binding resolving to a string or closure
  *   ability  := IDENTIFIER | '*'
@@ -91,15 +94,11 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 final class WarrantParser
 {
     /**
-     * Whether the body being read is a rule template's rather than an ability
-     * block's. Both are generic and so travel the same path, but they reject the
-     * same mistakes for different reasons, and an author told about a block they
-     * never opened goes looking for one.
-     *
-     * A field rather than a parameter because the two never nest inside one parse:
-     * a template's body may not open a block, and a block may not hold a body.
+     * Whether rules with no `for` header name their abilities: null until the
+     * first clause, include or ability block decides it, and then held to for the
+     * rest of the text. See {@see AbilityNaming::Consistent}.
      */
-    private bool $inTemplateBody = false;
+    private ?bool $namesAbilities = null;
 
     /** @var list<Token> */
     private readonly array $tokens;
@@ -145,33 +144,6 @@ final class WarrantParser
     }
 
     /**
-     * Parse a rule template's body: generic rules and includes, for the
-     * `@include` expanding it to give its abilities.
-     *
-     * The body is read exactly as an ability block's is, and the same three rules
-     * follow from that: a clause may not name abilities, no ability block may be
-     * opened inside it, and an `@include` in the body names no abilities either —
-     * the outer `@include` gives them to it, which is how a template that includes
-     * another resolves.
-     *
-     * @param array<int|string, mixed> $bindings
-     * @return list<WarrantRuleNode|IncludeInvocationNode>
-     */
-    public static function parseTemplateBody(string $source, array $bindings = []): array
-    {
-        $parser = new self($source, $bindings);
-        $parser->inTemplateBody = true;
-
-        /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
-        $entries = $parser->parseRules(generic: true);
-
-        $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
-        $parser->bindings->finalize($parser->peek());
-
-        return $entries;
-    }
-
-    /**
      * Whether a rule entry starts here. These four are the only tokens that can
      * open one, and none of them can open an expression: `can(...)` is told apart
      * from a block's `can they` by the token after it.
@@ -192,7 +164,7 @@ final class WarrantParser
      */
     private function parseUnscopedEntries(): array
     {
-        $entries = $this->parseRules();
+        $entries = $this->parseRules(AbilityNaming::Consistent);
 
         if ($this->check(TokenType::FOR)) {
             throw $this->errorAtCurrent(
@@ -252,7 +224,7 @@ final class WarrantParser
         $atEnd = $this->check(TokenType::EOF) || $this->check(TokenType::RBRACE);
 
         return $atEnd || $this->ruleAhead()
-            ? new RuleSetNode($schemaKey, $this->parseRules())
+            ? new RuleSetNode($schemaKey, $this->parseRules(AbilityNaming::Required))
             : new SchemaConditionNode($schemaKey, $this->parseBareExpression());
     }
 
@@ -302,13 +274,12 @@ final class WarrantParser
      * was written, so the position is part of what the include means; a block
      * keeps its place as an {@see AbilityBlockNode} holding its own entries.
      *
-     * @param bool $generic Whether this body is the inside of an ability block
-     *   or a template body, where clauses and includes name no abilities because
-     *   something outside names them. It is also what makes a further block a
-     *   nesting error.
+     * @param AbilityNaming $naming Whether clauses and includes in this body name
+     *   their abilities. A body that may not, the inside of an ability block, is
+     *   also one where a further block is a nesting error.
      * @return list<IRuleEntryNode>
      */
-    private function parseRules(bool $generic = false): array
+    private function parseRules(AbilityNaming $naming): array
     {
         $entries = [];
 
@@ -317,13 +288,13 @@ final class WarrantParser
                parseTheyCanCannotClauses() absorbs every consecutive `they`, so this is
                reachable only at the start of a body or after an ability block. */
             if ($this->check(TokenType::THEY)) {
-                $entries[] = $this->parseTheyCanCannotClauses(null, $generic);
+                $entries[] = $this->parseTheyCanCannotClauses(null, $naming);
 
                 continue;
             }
 
             if ($this->check(TokenType::INCLUDE_REF)) {
-                $entries[] = $this->parseInclude($generic);
+                $entries[] = $this->parseInclude($naming);
 
                 continue;
             }
@@ -332,14 +303,20 @@ final class WarrantParser
             if ($this->check(TokenType::IF)) {
                 $this->advance();
                 $conditions = $this->parseExpression();
-                $entries[] = $this->parseTheyCanCannotClauses($conditions, $generic);
+                $entries[] = $this->parseTheyCanCannotClauses($conditions, $naming);
 
                 continue;
             }
 
             if ($this->abilityBlockAhead()) {
-                if ($generic) {
-                    throw $this->errorAtCurrent($this->nestedBlockError());
+                if ($naming === AbilityNaming::Forbidden) {
+                    throw $this->errorAtCurrent(
+                        'An ability block may not contain another; the enclosing block already names the abilities.'
+                    );
+                }
+
+                if ($naming === AbilityNaming::Consistent) {
+                    $this->holdToNaming(true, 'An ability block');
                 }
 
                 $entries[] = $this->parseAbilityBlock();
@@ -357,12 +334,13 @@ final class WarrantParser
      * Parse an `@include`: the template to expand, its arguments, and the
      * abilities the clauses it expands to will take.
      *
-     * Outside a block the reference names those abilities with its own `for`
-     * list. Inside a block or a template body it is generic, and a `for` list is
-     * rejected for the reason a clause's ability list is: the block header or the
-     * outer `@include` is the one place the ability is said.
+     * In a `for` body the reference names those abilities with its own `for`
+     * list. Inside a block it is generic, and a `for` list is rejected for the
+     * reason a clause's ability list is: the block header is the one place the
+     * ability is said. In rules with no `for` header it may be either, as long as
+     * the rest of the text agrees.
      */
-    private function parseInclude(bool $generic): IncludeInvocationNode
+    private function parseInclude(AbilityNaming $naming): IncludeInvocationNode
     {
         $this->advance(); // consume '@include'
 
@@ -388,17 +366,25 @@ final class WarrantParser
             $this->expect(TokenType::RPAREN, "Expected ')' to close the @include arguments.");
         }
 
-        if ($generic) {
+        if ($naming === AbilityNaming::Forbidden) {
             if ($this->check(TokenType::FOR)) {
-                throw $this->errorAtCurrent($this->inTemplateBody
-                    ? "An @include inside a rule template's body may not name abilities; the @include that expands it names them."
-                    : 'An @include inside an ability block may not name abilities; the block header already names them.');
+                throw $this->errorAtCurrent(
+                    'An @include inside an ability block may not name abilities; the block header already names them.'
+                );
             }
 
             return new IncludeInvocationNode($templateKey, $arguments);
         }
 
+        if ($naming === AbilityNaming::Consistent) {
+            $this->holdToNaming($this->check(TokenType::FOR), 'This @include');
+        }
+
         if (! $this->check(TokenType::FOR)) {
+            if ($naming === AbilityNaming::Consistent) {
+                return new IncludeInvocationNode($templateKey, $arguments);
+            }
+
             throw $this->errorAtCurrent(
                 'An @include outside an ability block must name the abilities it applies to, as '
                     .'`@include <template> for <ability>, ...`.'
@@ -427,7 +413,7 @@ final class WarrantParser
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
-        $entries = $this->parseRules(generic: true);
+        $entries = $this->parseRules(AbilityNaming::Forbidden);
         $this->expect(TokenType::RBRACE, "Expected '}' to close the ability block body.");
 
         return new AbilityBlockNode($abilities, $entries);
@@ -470,7 +456,7 @@ final class WarrantParser
      */
     private function parseTheyCanCannotClauses(
         ?IBooleanExpressionNode $conditions,
-        bool $generic,
+        AbilityNaming $naming,
     ): WarrantRuleNode {
         $canClauses = [];
         $cannotClauses = [];
@@ -482,7 +468,7 @@ final class WarrantParser
 
             if ($this->check(TokenType::CAN)) {
                 $this->advance();
-                $canClauses[] = new CanClauseNode($this->parseClauseAbilities($generic));
+                $canClauses[] = new CanClauseNode($this->parseClauseAbilities($naming));
 
                 // A `because` message only ever surfaces for a matching `cannot`;
                 // hanging one off a `can` clause can never fire, so reject it here.
@@ -493,7 +479,7 @@ final class WarrantParser
                 }
             } elseif ($this->check(TokenType::CANNOT)) {
                 $this->advance();
-                $abilities = $this->parseClauseAbilities($generic);
+                $abilities = $this->parseClauseAbilities($naming);
 
                 $message = null;
 
@@ -549,47 +535,77 @@ final class WarrantParser
     }
 
     /**
-     * The abilities one clause names: its list, or none in a generic body.
+     * The abilities one clause names: its list, or none.
      *
-     * Inside a block the list is not optional but forbidden. The header is the one
-     * place the ability is said, so every clause in the block has a single reading
-     * and the header stays a complete account of what the block is about.
+     * Inside a block the list is forbidden. The header is the one place the
+     * ability is said, so every clause in the block has a single reading and the
+     * header stays a complete account of what the block is about.
+     *
+     * In rules with no `for` header the list is left out exactly when the next
+     * token is one that follows a finished clause, and read otherwise, so a
+     * reserved word written as an ability is reported as one rather than as an
+     * ability-less clause followed by a stray token.
      *
      * @return list<string>
      */
-    private function parseClauseAbilities(bool $generic): array
+    private function parseClauseAbilities(AbilityNaming $naming): array
     {
-        if (! $generic) {
+        if ($naming === AbilityNaming::Required) {
             return $this->parseAbilityList();
         }
 
-        if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
-            throw $this->errorAtCurrent($this->namedAbilitiesError());
+        if ($naming === AbilityNaming::Forbidden) {
+            if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
+                throw $this->errorAtCurrent(
+                    'A clause inside an ability block may not name abilities; the block header already names them.'
+                );
+            }
+
+            return [];
         }
 
-        return [];
+        $names = ! $this->clauseEndAhead();
+        $this->holdToNaming($names, 'This clause');
+
+        return $names ? $this->parseAbilityList() : [];
     }
 
     /**
-     * Raised where a clause names abilities that the enclosing construct already
-     * named for it.
+     * Whether the next token follows a finished `they can` / `they cannot`
+     * clause: the start of another clause or entry, a `because`, a `for` header,
+     * or the end of the input.
      */
-    private function namedAbilitiesError(): string
+    private function clauseEndAhead(): bool
     {
-        return $this->inTemplateBody
-            ? "A rule template's body may not name abilities; the @include that expands it names them."
-            : 'A clause inside an ability block may not name abilities; the block header already names them.';
+        return $this->ruleAhead()
+            || $this->check(TokenType::BECAUSE)
+            || $this->check(TokenType::FOR)
+            || $this->check(TokenType::EOF);
     }
 
     /**
-     * Raised where a `can they ...` block is opened inside a body that is already
-     * generic, and so has the abilities the block would name.
+     * Hold rules with no `for` header to one way of naming abilities: the first
+     * clause, include or ability block decides whether they name them, and
+     * everything after must agree.
+     *
+     * @param bool $names Whether the entry being read names abilities.
+     * @param string $entry The entry being read, for the error message.
      */
-    private function nestedBlockError(): string
+    private function holdToNaming(bool $names, string $entry): void
     {
-        return $this->inTemplateBody
-            ? "A rule template's body may not open an ability block; the @include that expands it names the abilities."
-            : 'An ability block may not contain another; the enclosing block already names the abilities.';
+        $this->namesAbilities ??= $names;
+
+        if ($this->namesAbilities === $names) {
+            return;
+        }
+
+        throw $this->errorAtCurrent(sprintf(
+            '%s %s, but the rules before it %s; rules with no `for` header either all name their abilities '
+                .'or all leave them to be named where the rules are placed.',
+            $entry,
+            $names ? 'names abilities' : 'names none',
+            $names ? 'name none' : 'name theirs',
+        ));
     }
 
     /**

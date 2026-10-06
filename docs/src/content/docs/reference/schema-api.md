@@ -280,8 +280,8 @@ public function canEdit(): string
 It takes **no context object**: every parameter is a DSL argument, so all of
 them without a default are required. A `@context` or `@column` argument arrives as
 the reference (`ContextRef`, `ColumnRef`), to be passed on through a binding. It
-answers with rule text, a `WarrantConditionBuilder`, an expression node, a `bool`,
-or `null` for unknown, and is expanded once per rule set before compiling — see
+answers with rule text as a string or a `WarrantSyntax`, a `WarrantConditionBuilder`,
+an expression node, a `bool`, or `null` for unknown, and is expanded once per rule set before compiling — see
 [Derived conditions](/guides/conditions/#derived-conditions).
 
 A method may carry only one of `#[RowCondition]`, `#[GlobalCondition]`,

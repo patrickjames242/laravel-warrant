@@ -27,7 +27,6 @@ Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
 Warrant::validate(RuleSetNode|array ...$ruleSets): void;
 Warrant::condition(): WarrantConditionBuilder;
 Warrant::rule(): WarrantRuleBuilder;
-Warrant::ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate;
 ```
 
 There is one parse for every form of rule text. `parse()` reads the source and
@@ -205,6 +204,14 @@ Inside an ability block or a rule template's body a rule is generic: each
 `they can` / `they cannot` clause has an empty `$abilities` list, because the
 block header or the `@include` names them. `withAbilities()` gives such a rule the
 abilities it takes, and throws on a rule that already names its own.
+
+Rules with no `for` header either all name their abilities or all leave them off, so
+`WarrantSyntax::parse()` reads a template body:
+`Warrant::parse('if is_owner they cannot because :why', ['why' => $why])`. The
+first clause, `@include` or ability block decides which, and one that disagrees is
+a syntax error. A `RuleSetNode` requires abilities, so generic text throws when it
+is placed in one, as by `scopedTo()`. Inside a `for` body they are required as the
+text is parsed.
 
 A rule carries no schema; the `RuleSetNode` that holds it does. Parse a single rule
 with `WarrantSyntax::parse($text)->rule()`, which throws if the text holds

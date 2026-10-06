@@ -16,7 +16,6 @@ use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\RuleTemplate;
 
 class TemplateExpansionModel extends Model
@@ -70,18 +69,18 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
-    public function withRelation(string $relation): WarrantRuleTemplate
+    public function withRelation(string $relation): WarrantSyntax
     {
-        return Warrant::ruleTemplate('if is_teacher(:relation) they can', ['relation' => $relation]);
+        return Warrant::parse('if is_teacher(:relation) they can', ['relation' => $relation]);
     }
 
     /** Terminates because the argument decreases at every level. */
     #[RuleTemplate]
-    public function countsDown(int $n): string|WarrantRuleTemplate
+    public function countsDown(int $n): string|WarrantSyntax
     {
         return $n <= 0
             ? 'they can'
-            : Warrant::ruleTemplate('@include counts_down(:n)', ['n' => $n - 1]);
+            : Warrant::parse('@include counts_down(:n)', ['n' => $n - 1]);
     }
 
     /** Never terminates: the same arguments at every level. */
@@ -98,9 +97,74 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
-    public function wrongReturn(): array
+    public function wrongReturn(): int
+    {
+        return 42;
+    }
+
+    #[RuleTemplate]
+    public function answersWithARule(): WarrantRuleNode
+    {
+        return Warrant::rule()->if('is_teacher')->theyCan()->toRule();
+    }
+
+    #[RuleTemplate]
+    public function answersWithAnInclude(): IncludeInvocationNode
+    {
+        return new IncludeInvocationNode('grants_it');
+    }
+
+    /** Every form at once, nested, in order. */
+    #[RuleTemplate]
+    public function answersWithAList(): array
+    {
+        return [
+            'if is_teacher they can',
+            Warrant::parse('if is_advisor they cannot because :why', ['why' => 'No.']),
+            [new IncludeInvocationNode('grants_it')],
+        ];
+    }
+
+    #[RuleTemplate]
+    public function answersWithNothing(): array
     {
         return [];
+    }
+
+    #[RuleTemplate]
+    public function answersWithANamedRule(): WarrantRuleNode
+    {
+        return Warrant::rule()->theyCan('view')->toRule();
+    }
+
+    #[RuleTemplate]
+    public function answersWithANamedInclude(): IncludeInvocationNode
+    {
+        return new IncludeInvocationNode('grants_it', [], ['view']);
+    }
+
+    #[RuleTemplate]
+    public function answersWithARuleSet(): RuleSetNode
+    {
+        return new RuleSetNode('course_sections', []);
+    }
+
+    #[RuleTemplate]
+    public function answersWithParsedNamedRules(): WarrantSyntax
+    {
+        return Warrant::parse('if is_teacher they can view');
+    }
+
+    #[RuleTemplate]
+    public function answersWithParsedBlock(): WarrantSyntax
+    {
+        return Warrant::parse('can they view { they can }');
+    }
+
+    #[RuleTemplate]
+    public function answersWithAForBlock(): WarrantSyntax
+    {
+        return Warrant::parse('for course_sections { they can view }');
     }
 
     #[RuleTemplate]
@@ -137,6 +201,12 @@ class TemplateExpansionSchema extends WarrantTestSchema
     public function namesTheWildcard(): string
     {
         return 'if is_teacher they can *';
+    }
+
+    #[RuleTemplate]
+    public function mixesNaming(): string
+    {
+        return 'if is_teacher they can  if is_advisor they cannot view';
     }
 }
 
@@ -290,32 +360,110 @@ it('rejects an include supplying too few arguments', function () {
         ->toThrow(InvalidArgumentException::class, 'requires 2 argument(s), but the @include supplies 1');
 });
 
-it('rejects a template answering with neither a string nor a body', function () {
-    expect(fn () => expandSyntax('@include wrong_return for view'))
-        ->toThrow(RuntimeException::class, 'must answer with a string or a');
+// -- what a template may answer with --------------------------------------------
+
+it('expands a template answering with a rule that names no abilities', function () {
+    $expanded = expandSyntax('@include answers_with_a_rule for view');
+
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
 });
 
-it('rejects an ability block inside a template body', function () {
+it('expands a template answering with an include that names no abilities', function () {
+    $expanded = expandSyntax('@include answers_with_an_include for view');
+
+    expect($expanded->rules)->toHaveCount(1);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+});
+
+it('expands a template answering with an iterable of every form, in order', function () {
+    $expanded = expandSyntax('@include answers_with_a_list for view');
+
+    expect($expanded->rules)->toHaveCount(3);
+    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->rules[1]->cannotAbilities())->toBe(['view']);
+    expect($expanded->rules[1]->messageFor('view'))->toBe('No.');
+    expect($expanded->rules[2]->conditions)->toBeNull();
+    expect($expanded->rules[2]->canAbilities())->toBe(['view']);
+});
+
+it('expands a template answering with an empty iterable to no rules', function () {
+    expect(expandSyntax('@include answers_with_nothing for view')->rules)->toBe([]);
+});
+
+it('rejects a template answering with a rule that names abilities', function () {
+    expect(fn () => expandSyntax('@include answers_with_a_named_rule for view'))
+        ->toThrow(
+            RuntimeException::class,
+            'Rule template [TemplateExpansionSchema::answersWithANamedRule] answered with a rule that names '
+                .'abilities; the @include that expands a template names the abilities its rules and includes take.',
+        );
+});
+
+it('rejects a template answering with an include that names abilities', function () {
+    expect(fn () => expandSyntax('@include answers_with_a_named_include for view'))
+        ->toThrow(RuntimeException::class, 'answered with an @include that names abilities');
+});
+
+it('rejects a template answering with a rule set', function () {
+    expect(fn () => expandSyntax('@include answers_with_a_rule_set for view'))
+        ->toThrow(RuntimeException::class, 'answered with a rule set, which names abilities');
+});
+
+it('rejects a template answering with parsed rules that name abilities', function () {
+    expect(fn () => expandSyntax('@include answers_with_parsed_named_rules for view'))
+        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
+});
+
+it('rejects a template answering with a parsed ability block', function () {
+    expect(fn () => expandSyntax('@include answers_with_parsed_block for view'))
+        ->toThrow(RuntimeException::class, 'answered with an ability block, which names abilities');
+});
+
+it('rejects a template answering with a for block', function () {
+    expect(fn () => expandSyntax('@include answers_with_a_for_block for view'))
+        ->toThrow(RuntimeException::class, 'answered with rule text that is not unscoped rules and includes');
+});
+
+it('rejects a template answering with something that is not rules', function () {
+    expect(fn () => expandSyntax('@include wrong_return for view'))
+        ->toThrow(
+            RuntimeException::class,
+            'Rule template [TemplateExpansionSchema::wrongReturn] must answer with rule text, a '
+                .WarrantSyntax::class.', a rule or @include that names no abilities, or an iterable of them; got int.',
+        );
+});
+
+it('rejects an ability block in a template body', function () {
     // A body is generic for the same reason a block's clauses are: the abilities
     // are settled by the reference, so the body has nothing to open a block over.
-    // The message names the template, not the block the author never opened.
-    expect(fn () => expandSyntax('@include opens_a_block for view'))
-        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not open an ability block");
+    expect(fn () => expandSyntax('@include opens_a_block for view'))->toThrow(
+        RuntimeException::class,
+        'Rule template [TemplateExpansionSchema::opensABlock] answered with an ability block, which names abilities',
+    );
 });
 
-it('rejects a clause inside a template body naming its own abilities', function () {
-    expect(fn () => expandSyntax('@include names_an_ability for view'))
-        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
+it('rejects a clause in a template body naming its own abilities', function () {
+    expect(fn () => expandSyntax('@include names_an_ability for view'))->toThrow(
+        RuntimeException::class,
+        'Rule template [TemplateExpansionSchema::namesAnAbility] answered with a rule that names abilities',
+    );
 });
 
 it('rejects abilities named on a cannot clause in a template body', function () {
     expect(fn () => expandSyntax('@include names_an_ability_in_a_cannot for view'))
-        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
+        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
 });
 
 it('rejects the wildcard named in a template body', function () {
     expect(fn () => expandSyntax('@include names_the_wildcard for view'))
-        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not name abilities");
+        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
+});
+
+it('rejects a template body mixing generic and named rules where the text mixes them', function () {
+    expect(fn () => expandSyntax('@include mixes_naming for view'))
+        ->toThrow(WarrantSyntaxException::class, 'This clause names abilities, but the rules before it name none');
 });
 
 // -- reachability -------------------------------------------------------------
@@ -522,7 +670,7 @@ it('still validates the rules around an include', function () {
 
 it('reports a mistake inside a template body, which it reads through the expansion', function () {
     expect(fn () => validateSyntax('@include opens_a_block for view'))
-        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not open an ability block");
+        ->toThrow(RuntimeException::class, 'answered with an ability block, which names abilities');
 
     expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');

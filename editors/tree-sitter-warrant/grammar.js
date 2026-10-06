@@ -63,10 +63,11 @@ module.exports = grammar({
 
     // `@include <template>(<args>) for <abilities>` -- expands a rule template
     // into the rules it stands for, in the place it is written. The `for` list is
-    // required outside an ability block and forbidden inside one, where the header
-    // already names the abilities; both are accepted here, since which one is
-    // legal depends on where the include sits and a sensibly highlighted mistake
-    // beats an ERROR node.
+    // required in a `for` body and forbidden inside an ability block, where the
+    // header already names the abilities; rules with no `for` header either all
+    // name their abilities or none do. Both forms are accepted here, since which
+    // one is legal depends on where the include sits and a sensibly highlighted
+    // mistake beats an ERROR node.
     include: $ => prec.right(seq(
       '@include',
       field('template', $.identifier),

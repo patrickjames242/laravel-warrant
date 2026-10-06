@@ -1,9 +1,9 @@
 <?php
 
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
 use Warrant\Schema\WarrantSchema;
@@ -21,9 +21,9 @@ class TemplatedSchema extends WarrantSchema
     }
 
     #[RuleTemplate('inherited')]
-    public function inheritedFrom(string $relation, int $depth = 1): WarrantRuleTemplate
+    public function inheritedFrom(string $relation, int $depth = 1): WarrantSyntax
     {
-        return Warrant::ruleTemplate(
+        return Warrant::parse(
             'if is_child_of(:relation, :depth) they can',
             ['relation' => $relation, 'depth' => $depth],
         );
@@ -135,26 +135,18 @@ it('answers with a plain string when the body has no placeholders', function () 
         ->toBe("if not is_approved they cannot because 'Needs approval.'");
 });
 
-it('carries a template body as syntax plus its bindings', function () {
-    $body = (new TemplatedSchema)->inheritedFrom('folder', 2);
+it('answers with a body parsed with its bindings', function () {
+    $rule = (new TemplatedSchema)->inheritedFrom('folder', 2)->rule();
 
-    expect($body)->toBeInstanceOf(WarrantRuleTemplate::class);
-    expect($body->syntax)->toBe('if is_child_of(:relation, :depth) they can');
-    expect($body->bindings)->toBe(['relation' => 'folder', 'depth' => 2]);
-});
-
-it('builds a body through the facade, with no bindings by default', function () {
-    $body = Warrant::ruleTemplate('if not is_approved they cannot');
-
-    expect($body->syntax)->toBe('if not is_approved they cannot');
-    expect($body->bindings)->toBe([]);
+    expect($rule->isGeneric())->toBeTrue();
+    expect($rule->conditions->parameters)->toBe(['folder', 2]);
 });
 
 it('takes a closure denial message through a binding', function () {
     // A closure has no inline form; a binding is the only way it reaches the DSL,
     // which is why a template body has to be able to carry one.
     $message = fn () => 'nope';
-    $body = Warrant::ruleTemplate('they cannot because :why', ['why' => $message]);
+    $rule = Warrant::parse('they cannot because :why', ['why' => $message])->rule();
 
-    expect($body->bindings['why'])->toBe($message);
+    expect($rule->cannotClauses[0]->message)->toBe($message);
 });

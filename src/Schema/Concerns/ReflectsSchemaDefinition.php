@@ -377,11 +377,11 @@ trait ReflectsSchemaDefinition
                 }
 
                 /* No return type is required, as none is for a condition. A
-                   template answers with rule text, either as a plain string or as
-                   a WarrantRuleTemplate carrying the bindings its placeholders
-                   need, and a method free to branch may declare neither. What it
-                   actually answered with is checked at the expansion that reads
-                   it, where the value exists. */
+                   template answers in any of several forms — rule text, a
+                   WarrantSyntax parsed with bindings, rules and includes, or an
+                   iterable of them — and a method free to branch may declare
+                   none. What it actually answered with is checked at the
+                   expansion that reads it, where the value exists. */
 
                 return new RuleTemplateDefinition(
                     $templateKey,
