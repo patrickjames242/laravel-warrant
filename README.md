@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="art/logo.png" alt="Laravel Warrant" width="140">
-</p>
-
 <h1 align="center">Laravel Warrant</h1>
 
 <p align="center">
