@@ -4,6 +4,8 @@ namespace Warrant\DSL\Parsing\Writing;
 
 use Closure;
 use LogicException;
+use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
@@ -213,8 +215,16 @@ final class RuleSyntaxWriter
             $node instanceof CrossSchemaCanNode => $this->writeCrossSchemaCan($node),
             $node instanceof CrossSchemaConditionNode => $this->writeCrossSchemaCheck($node),
             $node instanceof ConditionNode => $this->writeCondition($node),
+            /* An expanded derived condition reads as the call the rule wrote, not
+               as what it expanded to. */
+            $node instanceof DerivedConditionNode => $this->writeCondition(
+                new ConditionNode($node->conditionKey, $node->parameters),
+            ),
             $node instanceof BooleanNode => throw new LogicException(
                 'A constant boolean expression has no rule-language representation.'
+            ),
+            $node instanceof UnknownNode => throw new LogicException(
+                'An unknown answer has no rule-language representation.'
             ),
             default => throw new LogicException('Cannot render unknown node ' . $node::class . '.'),
         };

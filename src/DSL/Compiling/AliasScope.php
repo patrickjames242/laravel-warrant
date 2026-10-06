@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Compiling;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 
 /**
  * The names a `@column` reference may use at one point in a compile, and the SQL
@@ -80,11 +81,15 @@ final readonly class AliasScope
      * @param list<string> $usedQualifiers Every identifier already standing for a
      *   frame in the query being built. See the class docblock for why this
      *   outlives the names in {@see $bindings}.
+     * @param array<int, ?string> $forwardedColumns The `@column` arguments handed
+     *   to a derived condition, by object id, each resolved where the caller
+     *   wrote it. See {@see forwardingColumns()}.
      */
     private function __construct(
         public array $bindings = [],
         public ?string $current = null,
         public array $usedQualifiers = [],
+        public array $forwardedColumns = [],
     ) {
     }
 
@@ -116,7 +121,7 @@ final readonly class AliasScope
      */
     public function enteringRuleSet(string $schemaKey, ?string $qualifier): self
     {
-        return new self([$schemaKey => $qualifier], $qualifier, $this->including($qualifier));
+        return new self([$schemaKey => $qualifier], $qualifier, $this->including($qualifier), $this->forwardedColumns);
     }
 
     /**
@@ -131,6 +136,7 @@ final readonly class AliasScope
             array_merge($this->bindings, [$alias ?? $schemaKey => $qualifier]),
             $qualifier,
             $this->including($qualifier),
+            $this->forwardedColumns,
         );
     }
 
@@ -158,13 +164,58 @@ final readonly class AliasScope
      */
     public function enteringRowlessPredicate(): self
     {
-        return new self($this->bindings, null, $this->usedQualifiers);
+        return new self($this->bindings, null, $this->usedQualifiers, $this->forwardedColumns);
     }
 
     /** {@see enteringRowlessPredicate} — the `can(...)` half, starting fresh. */
     public function enteringRowlessRuleSet(): self
     {
-        return new self([], null, $this->usedQualifiers);
+        return new self([], null, $this->usedQualifiers, $this->forwardedColumns);
+    }
+
+    /**
+     * This scope with every `@column` among $arguments resolved here, where the
+     * caller wrote it, ahead of a derived condition's body being compiled under a
+     * scope of its own.
+     *
+     * The body is the condition author's text and gets the condition's names, but
+     * an argument is the caller's text and means what the caller's names say. A
+     * body hands an argument back through a binding, which passes the very object
+     * on, so recording the answer by object is what lets {@see resolveColumn()}
+     * tell an argument from a reference the body wrote itself, however deep it
+     * travels. One already recorded is kept: an argument passed on through several
+     * derived conditions was written by the outermost caller.
+     *
+     * @param array<int, mixed> $arguments
+     *
+     * @throws InvalidArgumentException When an argument names something not in
+     *   scope for the caller.
+     */
+    public function forwardingColumns(array $arguments): self
+    {
+        $forwardedColumns = $this->forwardedColumns;
+
+        foreach ($arguments as $argument) {
+            if ($argument instanceof ColumnRef && ! array_key_exists(spl_object_id($argument), $forwardedColumns)) {
+                $forwardedColumns[spl_object_id($argument)] = $this->resolve($argument->alias);
+            }
+        }
+
+        return new self($this->bindings, $this->current, $this->usedQualifiers, $forwardedColumns);
+    }
+
+    /**
+     * The SQL qualifier $ref should be emitted against: what it resolved to where
+     * the caller wrote it, when it was handed to a derived condition, else what
+     * {@see resolve()} says of its name here.
+     *
+     * @throws InvalidArgumentException When $ref names something not in scope.
+     */
+    public function resolveColumn(ColumnRef $ref): ?string
+    {
+        return array_key_exists(spl_object_id($ref), $this->forwardedColumns)
+            ? $this->forwardedColumns[spl_object_id($ref)]
+            : $this->resolve($ref->alias);
     }
 
     /**

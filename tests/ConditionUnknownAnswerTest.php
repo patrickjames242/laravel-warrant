@@ -10,6 +10,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
@@ -92,8 +93,8 @@ class UnknownAnswerSchema extends WarrantSchema
     }
 
     /** Derives itself into an expression whose first leaf cannot be answered. */
-    #[RowCondition]
-    public function derivedFromUnanswerable(RowConditionContext $c)
+    #[DerivedCondition]
+    public function derivedFromUnanswerable()
     {
         return WarrantSyntax::parse('unanswerable or is_owned')->conditionExpression();
     }

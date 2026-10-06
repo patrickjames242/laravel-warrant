@@ -25,9 +25,10 @@ trait ResolvesConditions
      * Applies a named condition filter to the provided builder.
      *
      * A condition method may return the builder it constrained, a bool to decide
-     * the outcome outright, an expression / {@see WarrantConditionBuilder} to
-     * derive itself from other conditions, or null to answer unknown — see
-     * {@see \Warrant\DSL\ConditionResolver::applyCondition()}.
+     * the outcome outright, or null to answer unknown — see
+     * {@see \Warrant\DSL\ConditionResolver::applyCondition()}. A condition that
+     * derives itself from other conditions is a `#[DerivedCondition]`, expanded
+     * before anything compiles, and is never dispatched here.
      *
      * The named condition must correspond to a public method declared on the
      * schema and marked with either `#[RowCondition(...)]` or
@@ -67,6 +68,15 @@ trait ResolvesConditions
             );
         }
 
+        if ($conditionDefinition->isDerived()) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] is a derived condition, which has no SQL of its own; it is '
+                    .'expanded into its expression before compiling, and cannot be applied to a query.',
+                $conditionKey,
+                static::class,
+            ));
+        }
+
         /* The context object is always the method's first parameter; any further
            parameters are the condition's DSL arguments, bound positionally
            (parameter #2 -> argument[0], and so on). Supplying more arguments than
@@ -84,7 +94,7 @@ trait ResolvesConditions
             ));
         }
 
-        return $this->dispatchDefinition(
+        $result = $this->dispatchDefinition(
             $conditionDefinition,
             $conditionKey,
             $currentUser,
@@ -95,6 +105,22 @@ trait ResolvesConditions
             $targetModel,
             $rowQualifier,
         );
+
+        /* A row or global condition is asked about a row or a user, and answers
+           with SQL, a constant or unknown. An expression is a different kind of
+           answer — one built from other conditions — and belongs to a condition
+           whose expansion can happen before any of that is known. */
+        if ($result instanceof IBooleanExpressionNode || $result instanceof WarrantConditionBuilder) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] returned an expression; a row or global condition answers with '
+                    .'the query it constrained, a bool or null. Declare a condition built from other conditions '
+                    .'#[DerivedCondition] instead, taking its arguments and no context object.',
+                $conditionKey,
+                static::class,
+            ));
+        }
+
+        return $result;
     }
 
     /**
@@ -329,7 +355,7 @@ trait ResolvesConditions
         array $context = [],
         ?Model $targetModel = null,
         ?string $rowQualifier = null
-    ): \Illuminate\Database\Query\Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder|null
+    ): \Illuminate\Database\Query\Builder|bool|null
     {
         return $this->applyConditionFilter(
             $conditionKey,

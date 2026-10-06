@@ -18,9 +18,8 @@ use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
 use Warrant\Schema\Ability;
-use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
@@ -207,24 +206,14 @@ it('interleaves abilities, checks and conditions in the order they happened', fu
     }
 });
 
-it('bounds a check that keeps dispatching itself, collapsing the repetition', function () {
-    // pong expands to `check(pong for cst_pings)`, so each level costs two calls:
-    // the check, then the condition it dispatches.
+it('bounds a check that keeps dispatching itself, before anything compiles', function () {
+    /* pong expands to `check(pong for cst_pings)`, whose predicate names pong
+       again. Expansion reads a check's predicate against the schema it names, so
+       the loop is found there, one step per level. */
     bindCstRules(['cst_pings' => 'if pong they can view']);
 
-    try {
-        compileCst('cst_pings', new CstPingSchema);
-        $this->fail('Expected a CompileDepthException.');
-    } catch (CompileDepthException $e) {
-        expect($e->calls())->toHaveCount(CallStack::MAX_DEPTH + 1);
-
-        expect($e->getMessage())
-            ->toContain('1. cst_pings:view')
-            ->toContain('2. cst_pings.pong')
-            ->toContain('3. check cst_pings')
-            ->toContain('repeat this 2-frame segment')
-            ->toContain('cannot terminate');
-    }
+    expect(fn () => compileCst('cst_pings', new CstPingSchema))
+        ->toThrow(RuntimeException::class, 'cst_pings.pong  (repeated 65 times)');
 });
 
 it('does not charge sibling abilities for each other', function () {
@@ -290,8 +279,8 @@ class CstDocSchema extends WarrantSchema
     public const EDIT = 'edit';
 
     /** Dispatches a check into another schema from inside a condition. */
-    #[GlobalCondition]
-    public function hopsToFolder(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function hopsToFolder(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('back_to_doc', CstFolderSchema::class);
     }
@@ -327,22 +316,22 @@ class CstFolderSchema extends WarrantSchema
         return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
     }
 
-    #[RowCondition]
-    public function isEditable(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function isEditable(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->if('is_owner');
     }
 
     /** Closes the loop back to A's ability, from inside B's predicate. */
-    #[GlobalCondition]
-    public function backToDoc(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function backToDoc(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('view', CstDocSchema::class);
     }
 
     /** Recurs with a literal that decreases, so it reaches a base case. */
-    #[RowCondition]
-    public function within(RowConditionContext $c, int $levels): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function within(int $levels): WarrantConditionBuilder
     {
         return $levels <= 0
             ? WarrantConditionBuilder::build()->if('is_owner')
@@ -372,8 +361,8 @@ class CstPingSchema extends WarrantSchema
     public const VIEW = 'view';
 
     /** Dispatches itself into itself, forever. */
-    #[GlobalCondition]
-    public function pong(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function pong(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('pong', CstPingSchema::class);
     }

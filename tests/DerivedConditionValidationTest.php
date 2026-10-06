@@ -12,6 +12,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
@@ -233,15 +234,15 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Hops to an ability no schema declares. */
-    #[RowCondition]
-    public function hopToMissingAbility(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function hopToMissingAbility(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('nope', DvDocSchema::class, Ref::column('id'));
     }
 
     /** Names the model-less target's own key, which stands for no frame at all. */
-    #[RowCondition]
-    public function derivedCapColOwn(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColOwn(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('dv_caps', 'x')]),
@@ -250,8 +251,8 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Names no frame, so it means whichever rows the frame is about — none. */
-    #[RowCondition]
-    public function derivedCapColBare(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColBare(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('x')]),
@@ -260,8 +261,8 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Correlates back to the frame the predicate was written in. */
-    #[RowCondition]
-    public function derivedCapColCaller(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColCaller(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('dv_docs', 'id')]),
@@ -270,29 +271,29 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Asks about another ability of this same frame, naming no schema. */
-    #[RowCondition]
-    public function bareCanMissingAbility(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function bareCanMissingAbility(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('nope');
     }
 
     /** Row-binds a hop into a schema that has no model, and so no rows. */
-    #[RowCondition]
-    public function rowBoundCapability(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function rowBoundCapability(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_ok', DvCapSchema::class, Ref::column('id'));
     }
 
     /** Names the rows of a handle that selects none. */
-    #[RowCondition]
-    public function aliasWithoutRow(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function aliasWithoutRow(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, as: 'f');
     }
 
     /** Stays row-bound while naming no row — an explicit null, not an omission. */
-    #[RowCondition]
-    public function nullRowSelector(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function nullRowSelector(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, key: null);
     }

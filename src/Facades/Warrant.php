@@ -124,8 +124,8 @@ class Warrant extends Facade
 
     /**
      * A fluent builder for a condition expression: the `if` half of a rule, with
-     * no clauses attached. It is what a schema's own condition returns when it
-     * derives itself from other conditions rather than emitting SQL.
+     * no clauses attached. It is what a schema's `#[DerivedCondition]` returns to
+     * build itself from other conditions rather than emitting SQL.
      *
      *     Warrant::condition()->if('is_owner')->orIf('is_admin')
      */
