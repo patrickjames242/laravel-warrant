@@ -168,18 +168,22 @@ Warrant::flush($user);
 
 ## Crossing a hop
 
-A hop hands the other schema an empty context bag, so a tenant-scoped target needs
-the key passed explicitly:
+A hop hands the other schema a fresh context bag, holding only that schema's own
+defaults. A target with the same `defaultContext()` as `DocumentSchema` gets the
+current tenant on its own. The caller's bag never crosses, though, so a check made
+with an explicit `tenant_id` does not carry it into the hop. Pass the key when the
+two must agree:
 
 ```warrant
 if can(view for folders(@column folder_id) with tenant_id = @context tenant_id)
 they can view
 ```
 
-Forgetting it means the folder schema's required key is absent. Since
-`#[RequiredContext]` is not enforced at a boundary, that shows up as a condition
-comparing against `null`, which grants nothing. If you are scoping by tenant, audit
-your hops for the `with` clause.
+A target with no default for the key, and no `with` to supply it, sees it absent.
+Since `#[RequiredContext]` is not enforced at a boundary, that shows up as a
+condition comparing against `null`, which grants nothing. If you are scoping by
+tenant, give every tenant-scoped schema the default, and audit your hops for the
+`with` clause wherever a check may name a tenant other than the current one.
 
 ## Testing
 

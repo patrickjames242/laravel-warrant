@@ -96,14 +96,14 @@ if in_workspace(@context workspace_id) they can view
 
 ## Context does not cross a schema boundary
 
-A hop into another schema hands it a fresh, empty context bag. Nothing is
-inherited:
+A hop into another schema hands it a fresh context bag, holding only that schema's
+own `defaultContext()`. Nothing of the caller's is inherited:
 
 ```warrant
 if can(view for folders(@context folder_id)) they can view
 ```
 
-`folders` sees no context at all there.
+`folders` sees its own defaults there, and nothing else.
 
 **The way out** is the `with` map, which says explicitly what crosses:
 

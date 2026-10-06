@@ -2,21 +2,22 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Context across boundaries
-description: A hop inherits nothing. The with map is what crosses.
+description: A hop inherits nothing from its caller. The with map is what crosses.
 sidebar:
   order: 6
 ---
 
-A cross-schema reference hands the other schema a **fresh, empty** context bag. The
-bag the check was made with belongs to the schema being checked, and nothing leaks
-across.
+A cross-schema reference hands the other schema a **fresh** context bag, holding
+only that schema's own `defaultContext()`. The bag the check was made with belongs
+to the schema being checked, and nothing of it leaks across.
 
 ```warrant
 if can(view for folders(@context folder_id)) they can view
 ```
 
-Inside `folders`, there is no context at all. A rule of `folders` reading
-`@context tenant_id` gets `null`.
+Inside `folders`, the context is whatever `folders` defaults. A rule of `folders`
+reading `@context tenant_id` gets the default `folders` gives that key, or `null`
+when it gives none.
 
 That is deliberate. A rule set for `folders` is written by whoever owns `folders`,
 and it should not silently depend on what some other schema happened to be checked
@@ -51,25 +52,25 @@ if check(in_scope(@context scope) for folders(@context folder_id) with scope = @
 they can view
 ```
 
-Duplicate keys in one map are a syntax error.
+A key in the map overrides any default the target gives it. Duplicate keys in one
+map are a syntax error.
 
 ## What the boundary does not do
 
-The boundary is not a check entry point, so two things you might expect do not
-happen there.
+The boundary is not a check entry point. The target's `defaultContext()` is
+applied, under the map, but its `#[RequiredContext]` declarations are not enforced.
+Those belong to the check APIs.
 
-The target's `defaultContext()` is not applied, and its `#[RequiredContext]`
-declarations are not enforced. Those belong to the check APIs.
-
-The bag is exactly the map. A key you forget is simply absent, and an absent
-optional key is fail-closed: it can remove access, never restore it.
+The bag is exactly the target's defaults and the map. A key you forget, and the
+target gives no default, is simply absent, and an absent optional key is
+fail-closed: it can remove access, never restore it.
 
 :::caution[`for` is what resets the context]
 These two are not the same rule.
 
 ```warrant
 if can(read)                                  # same schema, same row, context kept
-if can(read for documents(@column id))        # a boundary: context starts empty
+if can(read for documents(@column id))        # a boundary: context starts afresh
 ```
 
 Both ask about the same ability on the same row. The second crosses a boundary, and

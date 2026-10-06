@@ -152,8 +152,8 @@ class PayPeriodSchema extends WarrantSchema
 }
 ```
 
-Remember that a hop hands the target an empty context bag, so pass the clock
-across:
+Remember that a hop hands the target a fresh context bag, holding only the
+target's own defaults, so pass the clock across:
 
 ```warrant
 if check(is_open for pay_periods(@column pay_period_id) with now = @context now)
@@ -161,12 +161,11 @@ they can submit
 ```
 
 That is a case where forgetting the `with` is easy and the failure is quiet, since
-the target falls back to `now()` and behaves almost right. If the clock matters,
-require it on the target schema so it fails loudly instead:
-
-```php
-#[RequiredContext] public const NOW = 'now';
-```
+the target falls back to the real `now()` and behaves almost right. It goes wrong
+only when the check was made with a different clock, such as a report run for last
+month: `timesheets` is judged at that time and `pay_periods` at this one. A
+`#[RequiredContext]` on the target does not catch it, because a boundary does not
+enforce required context, so the `with` is the only guard.
 
 ## Watch the null
 
