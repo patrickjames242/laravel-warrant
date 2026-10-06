@@ -143,8 +143,9 @@ public function requiresApproval(): string
 public function requiresApproval(): string { /* ... */ }
 ```
 
-The method answers with rule text: a plain string, or a `WarrantRuleTemplate` when
-the body has placeholders to fill through bindings.
+The method answers with rule text as a string or a `WarrantSyntax` parsed with
+bindings, a rule or `@include` that names no abilities, or an iterable of any of
+these. See [what a template may answer with](/rules/templates/#what-a-template-may-answer-with).
 
 A method cannot be both a condition and a template. Both attributes on one method is
 rejected when the schema is read.

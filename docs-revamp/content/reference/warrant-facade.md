@@ -75,7 +75,6 @@ Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
 Warrant::validate(RuleSetNode|array ...$ruleSets): void;
 Warrant::condition(): WarrantConditionBuilder;
 Warrant::rule(): WarrantRuleBuilder;
-Warrant::ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate;
 ```
 
 One `parse()` reads every form of rule text and returns a

@@ -86,7 +86,9 @@ Anywhere else, the include names them:
 @include requires_approval for view, edit
 ```
 
-The `for` list is required outside a block and rejected inside one.
+The `for` list is required in a rule set and rejected inside a block. Rules with
+no `for` header may leave it off, as a template's body does, but only if every
+other clause and include in the text leaves its abilities off too.
 
 Either way the result is the rules the longhand would have produced, in the place
 the `@include` was written:
@@ -114,15 +116,16 @@ A template may take parameters, passed at the reference the way a condition's ar
 ```
 
 Give the values back to the body through bindings, not by writing them into the
-string. `Warrant::ruleTemplate()` pairs the text with them:
+string. Parse the body with them and return the result:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Schema\WarrantDenialContext;
 
 #[RuleTemplate]
-public function inheritedFrom(string $relation): WarrantRuleTemplate
+public function inheritedFrom(string $relation): WarrantSyntax
 {
-    return Warrant::ruleTemplate(
+    return Warrant::parse(
         'if is_child_of(:relation) they cannot because :why',
         [
             'relation' => $relation,
@@ -141,9 +144,32 @@ A body's placeholders are its own. Every parse gets its own binding state, so a
 `:named` body expands cleanly inside a rule set parsed with positional `?` ones.
 
 :::tip[A fixed body stays a string]
-`WarrantRuleTemplate` is only needed when the body has placeholders. A method free
-to answer with either may declare no return type at all.
+Parsing is only needed when the body has placeholders. A method free to answer
+with either may declare no return type at all.
 :::
+
+## What a template may answer with
+
+A template answers in whichever form it has its body, much as a
+[rule provider](/supplying-rules/provider/) does:
+
+| Answer | Example |
+|---|---|
+| rule text | `'if is_owner they can'` |
+| a `WarrantSyntax` | `Warrant::parse('if is_child_of(:rel) they can', ['rel' => $rel])` |
+| a rule that names no abilities | `Warrant::rule()->if('is_owner')->theyCan()->toRule()` |
+| an `@include` that names no abilities | `new IncludeInvocationNode('requires_approval')` |
+| an iterable of any of these, nested | `['if is_owner they can', [$include]]` |
+
+Every rule and include in the answer must name no abilities, because the `@include`
+that expands the template names them. A template answering with one that names its
+own, with an ability block, or with a rule set is rejected when it is expanded,
+naming the template. An empty answer, `''` or `[]`, expands to no rules.
+
+`Warrant::parse()` reads a body like any other rule text. Rules with no `for`
+header either all name their abilities or all leave them off: the first clause,
+`@include` or ability block decides, and one that disagrees is a syntax error at
+its position.
 
 ## Recursion
 
@@ -154,11 +180,11 @@ alone would ban exactly those:
 
 ```php
 #[RuleTemplate]
-public function ancestor(int $depth): string|WarrantRuleTemplate
+public function ancestor(int $depth): string|WarrantSyntax
 {
     return $depth <= 0
         ? 'they can'
-        : Warrant::ruleTemplate('@include ancestor(:next)', ['next' => $depth - 1]);
+        : Warrant::parse('@include ancestor(:next)', ['next' => $depth - 1]);
 }
 ```
 
@@ -190,7 +216,10 @@ validation read a body at all.
 | `@include nope for view` | `Schema [...] declares no rule template [nope]` |
 | too few arguments | `Rule template [...] requires N argument(s), but the @include supplies M` |
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
-| `@include x` outside a block | `An @include outside an ability block must name the abilities it applies to` |
+| `for docs { @include x }` | `An @include outside an ability block must name the abilities it applies to` |
+| `@include x` in a provider's rules with no `for` header | `... the rule set for [docs] holds one that names none`, when it is placed in a rule set |
+| `if a they can view  @include x` | `This @include names none, but the rules before it name theirs` |
+| a template answering with a rule that names abilities | `Rule template [...] answered with a rule that names abilities` |
 | `can they view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
 | a body that never stops including | `Expansion exceeded the maximum nesting depth of 64`, followed by the chain |
 | a mistake inside a body | reported as it would be in the rule, e.g. `Condition [x] is not declared by the schema` |

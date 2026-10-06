@@ -127,11 +127,11 @@ decide for itself when to stop. The base case has to be a PHP one:
 
 ```php
 #[RuleTemplate]
-public function ancestor(int $depth): string|WarrantRuleTemplate
+public function ancestor(int $depth): string|WarrantSyntax
 {
     return $depth <= 0
         ? 'they can'
-        : Warrant::ruleTemplate('@include ancestor(:next)', ['next' => $depth - 1]);
+        : Warrant::parse('@include ancestor(:next)', ['next' => $depth - 1]);
 }
 ```
 

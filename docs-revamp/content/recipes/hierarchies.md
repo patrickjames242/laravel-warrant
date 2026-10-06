@@ -117,13 +117,13 @@ When the hierarchy has a known small maximum, a
 
 ```php
 #[RuleTemplate]
-public function inheritedFrom(int $levels): string|WarrantRuleTemplate
+public function inheritedFrom(int $levels): string|WarrantSyntax
 {
     if ($levels <= 0) {
         return 'they cannot';
     }
 
-    return Warrant::ruleTemplate(
+    return Warrant::parse(
         'if granted_directly they can
          @include inherited_from(:next)',
         ['next' => $levels - 1],

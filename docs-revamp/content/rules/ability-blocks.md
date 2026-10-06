@@ -79,8 +79,13 @@ Three things, each because the header is the one place the ability is said:
 ```warrant
 can they view { if x they can edit }   # a clause naming its own abilities
 can they view { can they edit { … } }  # a block inside a block
-if is_public they can                  # a generic clause at the top level
+for docs { if is_public they can }     # a generic clause in a rule set
 ```
+
+Rules with no `for` header may all leave their abilities off, so the same text can
+be a [template's](/rules/templates/) body. Such text is rejected when it is placed
+in a rule set, and text mixing the two, `if a they can view  if b they cannot`, is
+a syntax error.
 
 ## Where templates fit
 

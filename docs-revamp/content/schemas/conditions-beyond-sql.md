@@ -56,11 +56,13 @@ before any check, so there is no user, row or check context to hand it. Its
 parameters are its DSL arguments alone. Anything that needs the user or the row
 belongs in a row or global condition, which the derived one then names.
 
-It may answer with:
+It may answer with the following. Rule text of either kind may put the expression
+under a `for` header naming this schema; a header naming another is rejected.
 
 | Answer | Meaning |
 | --- | --- |
 | a `string` | rule text, parsed as a condition expression |
+| a `WarrantSyntax` | rule text you parsed, with bindings, holding a condition expression |
 | `Warrant::condition()->…` | the expression the builder composed |
 | an expression node | used as it is |
 | `true` / `false` | decides the outcome outright |
@@ -79,10 +81,9 @@ by writing it into the string:
 
 ```php
 #[DerivedCondition]
-public function ownedOrInTeam(mixed $team): IBooleanExpressionNode
+public function ownedOrInTeam(mixed $team): WarrantSyntax
 {
-    return Warrant::parse('is_owner or in_team(:team)', ['team' => $team])
-        ->conditionExpression();
+    return Warrant::parse('is_owner or in_team(:team)', ['team' => $team]);
 }
 ```
 
