@@ -268,9 +268,11 @@ if not check(is_open for pay_periods(@context period_id))
 they cannot submit because 'That pay period is closed.'
 ```
 
-[Reachability](/guides/reachability/) treats a rule containing either builtin like
-any other conditional rule — it is structural, so a `can(...)` never turns into
-`ALWAYS` or `NEVER` on its own.
+[Reachability](/guides/reachability/) follows both builtins into the other
+schema's rules for the same user. A `can(x for other)` that nothing in `other`
+grants makes a rule that needs it `NEVER`. One that is always granted makes it
+`ALWAYS`, unless the reference is row-bound: the row may not exist, so a row-bound
+reference can rule a grant out, but never guarantee one.
 
 ## What it compiles to
 

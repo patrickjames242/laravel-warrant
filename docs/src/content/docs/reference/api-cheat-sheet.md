@@ -76,7 +76,7 @@ live on the engine, not the model/schema.
 
 ## Reachability
 
-Structural check — no conditions, no SQL, no `context:` (user still required); schema comes first, no `matchMode` (use `*Any`). See [Reachability](/guides/reachability/).
+Judged from the rules alone — no row or global conditions, no SQL, no `context:` (user still required); schema comes first, no `matchMode` (use `*Any`). See [Reachability](/guides/reachability/).
 
 - `Warrant::reachabilityOf($schema, $ability, $user = null): Reachability`
 - `Warrant::couldEverHave($schema, $abilities, $user = null): bool` — `!== NEVER` (+ `couldEverHaveAny`)

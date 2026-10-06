@@ -361,13 +361,14 @@ the method name instead (`can` vs `canAny`, `authorize` vs `authorizeAny`).
 ## Reachability
 
 Reachability answers *"could this user ever have this ability, given the shape of
-the rules?"* — a purely **structural** analysis of the resolved rule set. It
-evaluates **no conditions** and runs **no SQL**. Conceptual coverage is in
+the rules?"* — an analysis of the resolved rule set without a row. It evaluates
+**no row or global conditions** and runs **no SQL**, but follows derived
+conditions and `can(...)` references. Conceptual coverage is in
 [Reachability](/guides/reachability/).
 
 On the facade / `WarrantGuard` the schema comes **first**; there is no `matchMode`
-(use the `*Any` variants for ANY) and no `context:` (conditions are never
-evaluated), but a `$user` is still required — the resolver may return a different
+(use the `*Any` variants for ANY) and no `context:` (row and global conditions
+are never evaluated), but a `$user` is still required — the resolver may return a different
 rule set per user.
 
 ```php
@@ -389,7 +390,7 @@ Warrant::impossibleAbilities($schema, ?Authenticatable $user = null): array;  //
 `Warrant::guard($user)->couldEverHave(Document::class, 'update')`.
 
 `Warrant\Reachability` is a pure enum with cases `NEVER`, `MAYBE`, `ALWAYS`. See
-[Schema API](/reference/schema-api/#reachability) for the per-ability decision table.
+[Schema API](/reference/schema-api/#reachability) for how each ability is judged.
 
 ### On `WarrantGuardForSchema`
 

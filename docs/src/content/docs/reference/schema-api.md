@@ -173,8 +173,8 @@ clause's own message; (2) `forbiddenDenialMessage()`; (3) `ungrantedDenialMessag
 
 ### Reachability
 
-Structural analysis of the resolved rule set — evaluates no conditions, runs no
-SQL, takes no `context:`. It lives on the engine, not the schema: see
+Analysis of the resolved rule set without a row: it evaluates no row or global
+condition, runs no SQL, and takes no `context:`. It lives on the engine, not the schema: see
 [Checking API → Reachability](/reference/checking-api/#reachability) for the full
 surface (`Warrant::reachabilityOf`, `couldEverHave`, `alwaysHas`, `neverHas`,
 `possibleAbilities`, …) and [Reachability](/guides/reachability/) for concepts.
@@ -360,16 +360,17 @@ instead (`can` vs `canAny`).
 Pure enum (not backed) returned by the [reachability](/reference/checking-api/#reachability) API.
 
 ```php
-Reachability::NEVER;  // no rule shape can ever grant it
+Reachability::NEVER;  // the rules can never grant it
 Reachability::MAYBE;  // grantable, but subject to conditions at check time
-Reachability::ALWAYS; // granted by the rules' shape (NOT a per-row guarantee)
+Reachability::ALWAYS; // every way the rules can come out grants it
 ```
 
-Decision per ability, top to bottom: (1) an unconditional `cannot` → `NEVER`;
-(2) no `can` rule lists it → `NEVER`; (3) an unconditional `can` and no
-*conditional* `cannot` → `ALWAYS`; (4) otherwise → `MAYBE`. A **conditional**
-`cannot` is intentionally ignored — `ALWAYS` means "granted by the rules' shape",
-not a guarantee for every row.
+Each ability is folded the way the compiler does it (grants ORed, every deny
+negated and ANDed), over the values each condition could still take. Row and
+global conditions could be anything. Derived conditions are read through to what
+they answer with. `can(...)` references take the reachability of the ability they
+name, on whichever schema they name. A row-bound reference can rule a grant out
+but never guarantee one. See [Reachability](/guides/reachability/#how-an-ability-is-judged).
 
 ### `StandardAbilities`
 
