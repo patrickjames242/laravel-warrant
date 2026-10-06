@@ -50,6 +50,7 @@ public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinit
 public static function conditionKeys(): array;        // sorted
 public static function rowConditionKeys(): array;     // sorted
 public static function globalConditionKeys(): array;  // sorted
+public static function derivedConditionKeys(): array; // sorted
 public static function requiredContextKeys(): array;  // schema-wide required keys (#[RequiredContext])
 ```
 
@@ -57,7 +58,7 @@ public static function requiredContextKeys(): array;  // schema-wide required ke
 
 ```php
 public static function virtualTable(): ?Builder;         // default null; rows come from model's table
-public function implicitRules(): array|WarrantRuleSet;   // default []; merged into every rule set
+public function implicitRules(): array|RuleSetNode;          // default []; merged into every rule set
 protected function defaultContext(): array;              // default []; merged UNDER explicit context
 
 // Declared on your schema when needed; not inherited — see below.
@@ -157,7 +158,7 @@ exists (select * from ( … virtualTable … ) as shift_days where …)
 ### Denial-message hooks
 
 Schema-level fallbacks that supply a message when `authorize()` denies and the
-responsible rule carried no `withDenialMessage()`. Override in your schema; each
+responsible `cannot` clause carried no message of its own. Override in your schema; each
 returns `string|Throwable|null` (return `null` to fall through). See
 [Denial messages](/guides/denial-messages/).
 
@@ -166,14 +167,14 @@ public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwabl
 public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null; // nothing granted the ability
 ```
 
-Message-source precedence (first non-null wins): (1) the matching `cannot` rule's
-`withDenialMessage()`; (2) `forbiddenDenialMessage()`; (3) `ungrantedDenialMessage()`;
+Message-source precedence (first non-null wins): (1) the matching `cannot`
+clause's own message; (2) `forbiddenDenialMessage()`; (3) `ungrantedDenialMessage()`;
 (4) a generic 403.
 
 ### Reachability
 
-Structural analysis of the resolved rule set — evaluates no conditions, runs no
-SQL, takes no `context:`. It lives on the engine, not the schema: see
+Analysis of the resolved rule set without a row: it evaluates no row or global
+condition, runs no SQL, and takes no `context:`. It lives on the engine, not the schema: see
 [Checking API → Reachability](/reference/checking-api/#reachability) for the full
 surface (`Warrant::reachabilityOf`, `couldEverHave`, `alwaysHas`, `neverHas`,
 `possibleAbilities`, …) and [Reachability](/guides/reachability/) for concepts.
@@ -260,6 +261,32 @@ nothing and cannot lift a `cannot`. A condition answering `null` must add no whe
 clause; doing both throws, because PHP cannot distinguish a deliberate `null` from
 a missing `return`.
 
+A row or global condition may not return an expression or a
+`WarrantConditionBuilder`; that is a [`#[DerivedCondition]`](#derivedcondition).
+
+### `#[DerivedCondition]`
+
+Mark a public method as a condition built from other conditions. The key works as
+for the other two.
+
+```php
+#[DerivedCondition]
+public function canEdit(): string
+{
+    return 'is_owner or is_editor';
+}
+```
+
+It takes **no context object**: every parameter is a DSL argument, so all of
+them without a default are required. A `@context` or `@column` argument arrives as
+the reference (`ContextRef`, `ColumnRef`), to be passed on through a binding. It
+answers with rule text, a `WarrantConditionBuilder`, an expression node, a `bool`,
+or `null` for unknown, and is expanded once per rule set before compiling — see
+[Derived conditions](/guides/conditions/#derived-conditions).
+
+A method may carry only one of `#[RowCondition]`, `#[GlobalCondition]`,
+`#[DerivedCondition]` and `#[RuleTemplate]`.
+
 ### `#[RequiredContext]`
 
 Marks a class constant's **value** as a context key that is required on **every**
@@ -333,16 +360,17 @@ instead (`can` vs `canAny`).
 Pure enum (not backed) returned by the [reachability](/reference/checking-api/#reachability) API.
 
 ```php
-Reachability::NEVER;  // no rule shape can ever grant it
+Reachability::NEVER;  // the rules can never grant it
 Reachability::MAYBE;  // grantable, but subject to conditions at check time
-Reachability::ALWAYS; // granted by the rules' shape (NOT a per-row guarantee)
+Reachability::ALWAYS; // every way the rules can come out grants it
 ```
 
-Decision per ability, top to bottom: (1) an unconditional `cannot` → `NEVER`;
-(2) no `can` rule lists it → `NEVER`; (3) an unconditional `can` and no
-*conditional* `cannot` → `ALWAYS`; (4) otherwise → `MAYBE`. A **conditional**
-`cannot` is intentionally ignored — `ALWAYS` means "granted by the rules' shape",
-not a guarantee for every row.
+Each ability is folded the way the compiler does it (grants ORed, every deny
+negated and ANDed), over the values each condition could still take. Row and
+global conditions could be anything. Derived conditions are read through to what
+they answer with. `can(...)` references take the reachability of the ability they
+name, on whichever schema they name. A row-bound reference can rule a grant out
+but never guarantee one. See [Reachability](/guides/reachability/#how-an-ability-is-judged).
 
 ### `StandardAbilities`
 

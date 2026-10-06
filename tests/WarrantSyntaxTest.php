@@ -285,8 +285,8 @@ it('resolves bindings across every block', function () {
         for b { if owns(:id) they can edit }
         WARRANT, ['id' => 'x-1']);
 
-    expect($syntax->forSchema('a')->rules()[0]->conditions->parameters)->toBe(['x-1']);
-    expect($syntax->forSchema('b')->rules()[0]->conditions->parameters)->toBe(['x-1']);
+    expect($syntax->forSchema('a')->entries[0]->conditions->parameters)->toBe(['x-1']);
+    expect($syntax->forSchema('b')->entries[0]->conditions->parameters)->toBe(['x-1']);
 });
 
 // -- parseFile ----------------------------------------------------------------
@@ -299,7 +299,7 @@ it('reads rule text from a file', function () {
         $syntax = WarrantSyntax::parseFile($path);
 
         expect($syntax->schemaKeys())->toBe(['timesheets', 'documents']);
-        expect($syntax->forSchema('timesheets')->rules()[0]->canAbilities())->toBe(['view', 'edit']);
+        expect($syntax->forSchema('timesheets')->entries[0]->canAbilities())->toBe(['view', 'edit']);
     } finally {
         @unlink($path);
     }
@@ -332,28 +332,6 @@ it('keeps an ability block as a node over a headless body', function () {
     expect($block->entries[0]->canClauses)->toEqual([new CanClauseNode([])]);
     expect($block->entries[1]->cannotClauses)->toEqual([new CannotClauseNode([], 'Locked.')]);
     expect($block->entries[2]->abilities)->toBe([]);
-});
-
-it('applies the block header to its entries when the rule set is opened up', function () {
-    $set = WarrantSyntax::parse(<<<'WARRANT'
-        for docs {
-            can they view, edit {
-                if is_public they can
-                if is_locked they cannot because 'Locked.'
-                @include requires_approval
-            }
-        }
-        WARRANT)->ruleSet();
-
-    $flat = $set->flatEntries();
-
-    expect($flat[0]->canAbilities())->toBe(['view', 'edit']);
-    expect($flat[1]->cannotAbilities())->toBe(['view', 'edit']);
-    expect($flat[1]->messageFor('view'))->toBe('Locked.');
-    expect($flat[2]->abilities)->toBe(['view', 'edit']);
-
-    expect($set->rules())->toEqual([$flat[0], $flat[1]]);
-    expect($set->includes())->toEqual([$flat[2]]);
 });
 
 it('rejects a block entry that names abilities of its own', function (WarrantRuleNode|IncludeInvocationNode $entry) {

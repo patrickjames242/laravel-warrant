@@ -11,6 +11,7 @@ use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -26,6 +27,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\ConditionKind;
 use Warrant\Schema\RuleTemplateDefinition;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -51,11 +53,11 @@ final class BuilderFakeResolver implements ConditionResolver
     public static function hasRowKey(): bool { return true; }
     public static function virtualTable(): ?Builder { return null; }
     public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
-    public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, true) : null; }
+    public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, ConditionKind::Row) : null; }
 
     public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition { return null; }
 
-    public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', true, 1); }
+    public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1); }
 
     public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
     {
@@ -505,9 +507,9 @@ it('accepts builders directly in fromRules', function () {
         WarrantRuleNode::build()->theyCannot('delete'),
     );
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[1]->conditions)->toBeNull();
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[1]->conditions)->toBeNull();
 });
 
 // -- RuleSetNode::build (callback, one rule per $rule() call) ----------------
@@ -519,17 +521,17 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
     });
 
     expect($set->schemaKey)->toBe('timesheets');
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit', 'view']);
-    expect($set->flatEntries()[1]->conditions)->toBeNull();
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['list']);
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->canAbilities())->toBe(['edit', 'view']);
+    expect($set->entries[1]->conditions)->toBeNull();
+    expect($set->entries[1]->canAbilities())->toBe(['list']);
 });
 
 it('produces an empty rule set when the callback adds nothing', function () {
     $set = RuleSetNode::build('timesheets', function ($rule) {});
 
-    expect($set->flatEntries())->toBe([]);
+    expect($set->entries)->toBe([]);
 });
 
 it('rejects a $rule() with no they-can/they-cannot clause', function () {
@@ -544,7 +546,10 @@ it('compiles a built rule to SQL that filters rows', function () {
     Schema::create('docs', fn ($t) => $t->string('id'));
     DB::table('docs')->insert([['id' => 'teacher:role-1'], ['id' => 'other']]);
 
-    $ruleSet = RuleSetNode::fromRules('docs', WarrantRuleNode::build()->if('is_teacher')->theyCan('view'));
+    $ruleSet = (new RuleSetExpander)->expand(
+        RuleSetNode::fromRules('docs', WarrantRuleNode::build()->if('is_teacher')->theyCan('view')),
+        new FakeConditionResolver,
+    );
 
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
     $query = DB::table('docs');

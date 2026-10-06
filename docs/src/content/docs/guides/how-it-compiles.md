@@ -15,6 +15,22 @@ a record. This page is how that compilation works.
 You don't need it to _use_ Warrant, but it explains _why_ the semantics are what
 they are.
 
+## Before compiling: expansion
+
+A rule set goes through three steps: it is **parsed** into a tree, **expanded**,
+and **compiled**. Expansion spells out the shorthand an author wrote:
+
+- an ability block's header is applied to every clause under it;
+- an [`@include`](/guides/rule-templates/) is replaced by its template's rules,
+  where the include stood;
+- a [derived condition](/guides/conditions/#derived-conditions) is replaced by the
+  expression it answers with.
+
+Expansion reads no user, row or check context, so it happens once per rule set
+and every check against it compiles the same rules. A `can(... for <schema>)`
+reaches rules resolved for that schema, which are expanded the same way when it
+is first compiled.
+
 ## The example.
 
 **The schema** — a `documents` entity with three abilities and four
@@ -438,9 +454,11 @@ branch per ability, which is why
 [narrowing with `onlyAbilities`](/guides/checking-access/#per-row-abilities) is a
 real cost saving on wide lists.
 
-## Validation happens at compile time
+## Validation happens before compiling
 
-Compilation validates every ability and condition name against the schema; an
-unknown name is a hard error, so a typo in a stored rule fails loudly rather than
-silently granting or denying.
+A rule set is validated as written and again once expanded, before anything
+compiles, so a mistake inside a template's body or a derived condition's
+expression is reported like one written in the rule. The compiler also rejects an
+unknown name at the lookup that needs it, so a typo fails loudly rather than
+silently granting or denying even in a rule set nobody validated.
 See [Errors & exceptions](/reference/errors/).

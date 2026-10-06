@@ -58,12 +58,12 @@ they cannot delete because 'Locked documents cannot be deleted.'
 The message can also come from a `:name`/`?` [binding](/guides/rule-language/#bindings)
 instead of a literal, and that binding may resolve to a **string or a closure** —
 so even the [dynamic closure form](#dynamic-messages-with-a-closure) can be
-carried through `fromSyntax`:
+carried through parsed text:
 
 ```php
-WarrantRule::fromSyntax('if is_locked they cannot update because :msg', bindings: [
+WarrantSyntax::parse('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
-]);
+])->rule();
 ```
 
 ### With the fluent builder
@@ -73,40 +73,22 @@ separate calls give separate abilities separate messages, and abilities passed
 together share one message:
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_locked')
     ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
     ->theyCannotBecause('delete', 'Locked documents cannot be deleted.')
     ->toRule();
 
 // several abilities sharing one message:
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_locked')
     ->theyCannotBecause(['update', 'delete'], 'This document is locked.')
     ->toRule();
 ```
 
 `theyCannot(...)` (message-less) stays available for plain denials.
-
-### On an existing rule
-
-`withDenialMessage` lives on `WarrantRule` itself, so you can add a message to a
-rule however it was authored — notably a `fromSyntax` rule. It applies to every
-denied ability by default, or pass a list of abilities to scope it:
-
-```php
-WarrantRule::fromSyntax('if is_locked they cannot update, delete')
-    ->withDenialMessage('This document is locked.');            // both abilities
-
-WarrantRule::fromSyntax('if is_locked they cannot update, delete')
-    ->withDenialMessage('Deletes are permanent.', ['delete']);  // just delete
-```
-
-`WarrantRule` is immutable, so `withDenialMessage` returns a **copy** — the
-original is untouched. It can only target abilities the rule denies; messaging an
-ability the rule does not `cannot`, or any rule with no `cannot` clause, throws.
 
 ### Dynamic messages with a closure
 
@@ -116,9 +98,12 @@ returning either a string, or a `Throwable` to throw as-is:
 ```php
 use Warrant\Schema\WarrantDenialContext;
 
-->withDenialMessage(fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
-->withDenialMessage(fn (WarrantDenialContext $c) => new DocumentLockedException($c->target))
+->theyCannotBecause('update', fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.")
+->theyCannotBecause('update', fn (WarrantDenialContext $c) => new DocumentLockedException($c->target))
 ```
+
+In rule text, pass the closure through a [binding](#in-the-string-dsl):
+`because :msg`.
 
 Returning your own exception opts out of the automatic 403 — its own rendering
 applies.
@@ -134,7 +119,7 @@ blocked:
 | `$c->schema` | `string` | The schema class-string. |
 | `$c->context` | `array` | The effective [check-time context](/guides/context/). |
 | `$c->gate` | `WarrantGate` | What was asked — `$c->gate->abilities` and `$c->gate->matchMode`. |
-| `$c->rule` | `WarrantRule` | The responsible `cannot` rule. |
+| `$c->rule` | `WarrantRuleNode` | The responsible `cannot` rule. |
 | `$c->deniedAbilities` | `array` | The concrete gate abilities blocked by the *same message* that fired, with any `*` already resolved — so a per-clause message sees only the abilities it explains. |
 
 `deniedAbilities` has the wildcard expanded for you, so you never have to unpack a
@@ -154,15 +139,14 @@ or unconditional `cannot` rules can be the cause, since a row condition can't
 fire without a row.
 
 :::note[Where messages can live]
-Inline in the DSL with [`because`](#in-the-string-dsl), on the
-[fluent builder](#with-the-fluent-builder) with `theyCannotBecause`, or on an
-[existing rule](#on-an-existing-rule) with `withDenialMessage`. A message always
-rides on a `cannot`, so attaching one to a rule with **no** `cannot` clause (or to
-an ability the rule does not deny) throws immediately.
+Inline in the DSL with [`because`](#in-the-string-dsl), or on the
+[fluent builder](#with-the-fluent-builder) with `theyCannotBecause`. Either way a
+message rides on a `cannot` clause, and `because` after a `can` clause is a parse
+error.
 
-Round-tripping: `toSyntax()` re-renders a string message as `because '...'` but
-**throws** on a closure message (no inline form); `toBoundSyntax()` carries
-either form losslessly, as a `?` binding.
+Round-tripping: `WarrantSyntax::toSyntax()` re-renders a string message as
+`because '...'` but **throws** on a closure message (no inline form);
+`toBoundSyntax()` carries either form losslessly, as a `?` binding.
 :::
 
 ## When nothing granted access
@@ -219,7 +203,7 @@ non-null:
 
 | Cause of the denial | Message used |
 |---|---|
-| a matching `cannot` **with** a message | that rule's `withDenialMessage` |
+| a matching `cannot` **with** a message | that clause's message |
 | a matching `cannot` **without** a message | schema `forbiddenDenialMessage()` |
 | nothing granted the ability | schema `ungrantedDenialMessage()` |
 | none of the above returned a message | generic 403 |

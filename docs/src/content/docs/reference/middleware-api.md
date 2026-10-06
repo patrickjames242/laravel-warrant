@@ -71,7 +71,7 @@ public static function canArchive(string $target, ?Closure $routes = null): ?str
 ## Reachability guards
 
 Guards backed by the [reachability](/reference/checking-api/#reachability) system —
-a purely structural check that runs no conditions and no SQL. Each returns the
+a check from the rules alone that evaluates no row or global condition and runs no SQL. Each returns the
 middleware string when called without a `$routes` closure, or guards the group
 when given one.
 

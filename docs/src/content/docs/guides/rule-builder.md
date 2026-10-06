@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: The rule builder
-description: The fluent WarrantRule::build() and WarrantRuleSet::build() front-ends — connectives, parenthesized groups, dynamic composition, and splicing DSL text.
+description: The fluent WarrantRuleNode::build() and RuleSetNode::build() front-ends — connectives, parenthesized groups, dynamic composition, and splicing DSL text.
 sidebar:
   order: 3.5
 ---
@@ -10,21 +10,23 @@ sidebar:
 The [rule language](/guides/rule-language/) is one way to author a rule; the
 fluent **rule builder** is the other. When a rule's shape depends on runtime data
 — a list of team ids, a feature flag, values that don't belong in a string —
-`WarrantRule::build()` is often clearer than assembling DSL text.
+`WarrantRuleNode::build()` is often clearer than assembling DSL text.
 
 :::tip[One front door]
-Every construct is reachable from the `Warrant` facade, which returns the finished
-thing when given syntax and the builder when given nothing:
+The `Warrant` facade parses rule text of any form with one call, and hands you the
+builders with two more:
 
 ```php
-Warrant::condition()   // WarrantConditionBuilder      Warrant::condition('is_owner or is_admin')
-Warrant::rule()        // WarrantRuleBuilder           Warrant::rule('for docs if is_self they can view')
-                       //                              Warrant::ruleSet('for docs { they can view }')
-                       //                              Warrant::group('for docs { … } for people { … }')
+Warrant::parse('is_owner or is_admin')->conditionExpression()          // IBooleanExpressionNode
+Warrant::parse('if is_self they can view')->rule()            // WarrantRuleNode
+Warrant::parse('for docs { they can view }')->ruleSet()       // RuleSetNode
+Warrant::condition()                                          // WarrantConditionBuilder
+Warrant::rule()                                               // WarrantRuleBuilder
 ```
 
-`Warrant::rule()` and `WarrantRule::build()` are the same call; use whichever reads
-better where you are. See [the authoring front door](/reference/rule-building-api/#warrant-facade--the-authoring-front-door).
+`Warrant::rule()` and `WarrantRuleNode::build()` are the same call; use whichever reads
+better where you are. See [the authoring front door](/reference/rule-building-api/#warrant-facade--the-authoring-front-door)
+for what a parse returns for each form of text.
 :::
 
 It produces the **same AST** the parser does, so a built rule flows through
@@ -32,9 +34,9 @@ identical validation and compilation. Nothing is serialized to a string, so
 arbitrary PHP values in condition parameters survive untouched.
 
 ```php
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-$rule = WarrantRule::build()
+$rule = WarrantRuleNode::build()
     ->if('is_self')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
     ->theyCan('view', 'update')
@@ -85,7 +87,7 @@ language.
 Fold a list inside a group, or branch with `when()`:
 
 ```php
-$rule = WarrantRule::build()
+$rule = WarrantRuleNode::build()
     ->if('is_self')
     ->orIf(function ($c) use ($teamIds) {
         foreach ($teamIds as $id) {
@@ -127,9 +129,9 @@ something you'd write into a string.
 
 ```php
 use Warrant\Builders\Ref;
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_author')
     ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
     ->andIfCheck(
@@ -151,8 +153,7 @@ they can submit
 ```
 
 The schema may be given as a schema key, a schema instance or class-string, or a
-model instance or class-string — the same references `WarrantRuleSet::fromRules()`
-accepts.
+model instance or class-string.
 
 ### There are no negated variants
 
@@ -240,28 +241,27 @@ fires. Each call adds one clause, so separate calls give separate abilities
 separate messages, while abilities passed together share one:
 
 ```php
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_locked')
     ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
     ->theyCannotBecause(['publish', 'delete'], 'Locked documents are read-only.')
     ->toRule();
 ```
 
-To add a message to a rule you already have — one parsed from the DSL, say — use
-`WarrantRule::withDenialMessage()`, which returns a copy. See
+In rule text, the same message is a `because` clause. See
 [Denial messages](/guides/denial-messages/) for the full behaviour.
 
 ## Building a whole rule set
 
-A single rule rarely stands alone. `WarrantRuleSet::build()` hands you a `$rule`
+A single rule rarely stands alone. `RuleSetNode::build()` hands you a `$rule`
 factory: **each `$rule()` call starts a fresh rule** — with every connective above
 — and adds it to the set. You never call `->toRule()` yourself; the set finalizes
 each one for you.
 
 ```php
-use Warrant\Rules\WarrantRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 
-$set = WarrantRuleSet::build('documents', function ($rule) {
+$set = RuleSetNode::build('documents', function ($rule) {
     $rule()->if('is_self')->theyCan('view', 'update');
 
     $rule()->if('is_locked')
@@ -271,13 +271,12 @@ $set = WarrantRuleSet::build('documents', function ($rule) {
 });
 ```
 
-The first argument is the schema — a model, a schema instance, or a schema-key
-string. It's the terse equivalent of building each rule with `WarrantRule::build()`
-and handing them to `WarrantRuleSet::fromRules()`, and it's the shape you'll most
+The first argument is the schema key. It's the terse equivalent of building each
+rule with `WarrantRuleNode::build()` and handing them to `RuleSetNode::fromRules()`, and it's the shape you'll most
 often return from a [resolver](/guides/resolvers/).
 
 ---
 
-The other rule-set constructors — `fromSyntax` and `fromRules` — live in
+Parsing a rule set from text with `WarrantSyntax::parse()`, and `RuleSetNode::fromRules()`, live in
 [Providing rules](/guides/resolvers/#building-a-rule-set), and every method
 signature is in the [Rule-building API](/reference/rule-building-api/).

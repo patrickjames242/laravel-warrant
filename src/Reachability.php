@@ -3,26 +3,26 @@
 namespace Warrant;
 
 /**
- * The result of a *structural* reachability analysis of a rule set for one
- * ability — "could this user ever hold it?" answered from the shape of the
- * rules alone, without evaluating a single condition or touching the database.
+ * The result of a reachability analysis of a rule set for one ability — "could
+ * this user ever hold it?" answered from the rules alone, with no row, no
+ * context and no query.
  *
- * Only unconditionality makes us certain:
- *  - an unconditional `can` is a grant nothing can narrow away;
- *  - an unconditional `cannot` is a deny no row can dodge;
- *  - any *conditional* rule is a "maybe" — whether it fires depends on a
- *    condition we deliberately do not evaluate here.
+ * Row and global conditions are never evaluated, so each could answer anything.
+ * Everything that can be answered without a row is followed: constants, derived
+ * conditions, and the `can(...)` references the rules lean on. An ability only
+ * granted alongside another the user can never hold is NEVER, and one granted on
+ * another they always hold is ALWAYS.
  *
- * @see \Warrant\DSL\Compiling\ReachabilityAnalyzer for the decision table.
+ * @see \Warrant\DSL\Compiling\ReachabilityAnalyzer for how an ability is judged.
  */
 enum Reachability
 {
-    /** No grant path exists, or an unconditional `cannot` forbids it outright. */
+    /** No way the rules can come out grants it. */
     case NEVER;
 
     /** A condition decides — the user may or may not have it, depending. */
     case MAYBE;
 
-    /** Unconditionally granted with no unconditional deny — they always have it. */
+    /** Every way the rules can come out grants it. */
     case ALWAYS;
 }

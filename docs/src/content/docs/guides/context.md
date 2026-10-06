@@ -84,7 +84,7 @@ compiled rule and is filled per check, exactly like the `@context` form:
 ```php
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('scoped_to', ['projects', new ContextRef('project_id'), $region])
     ->theyCan('view')
     ->toRule();

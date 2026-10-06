@@ -83,17 +83,17 @@ You can return any rule you want to for any entity in this global rule resolver.
 ```php
 class DatabaseRuleResolver implements RuleResolver
 {
-		public function resolve(RuleResolutionContext $context): WarrantRuleSet
+		public function resolve(RuleResolutionContext $context): RuleSetNode
 		{
 
 				$user = $context->user; // the user these rules are for
 
 				if ($context->schemaKey === 'documents' && $user->role === 'employee'){
-						return WarrantRuleSet::fromSyntax('
+						return WarrantSyntax::parse('
 								if is_my_own_document or manages_team they can update
 								if is_document_locked and not is_admin they cannot update
 								if is_admin they can *
-						', 'documents');
+						')->scopedTo('documents');
 				}
 				// ...
 		}
@@ -260,11 +260,13 @@ That's not a problem here. A rule set isn't one big query, it's a list of separa
 rules, so you can put a message on whichever `cannot` rule did the blocking:
 
 ```php
-WarrantRuleSet::fromRules('documents',
-    WarrantRule::fromSyntax('if is_document_locked and not is_admin they cannot update')
-        ->withDenialMessage('This document is locked and can no longer be edited.'),
-    WarrantRule::fromSyntax('if is_my_own_document or manages_team they can update'),
-);
+WarrantSyntax::parse(<<<'WARRANT'
+    if is_document_locked and not is_admin
+    they cannot update because 'This document is locked and can no longer be edited.'
+
+    if is_my_own_document or manages_team
+    they can update
+    WARRANT)->scopedTo('documents');
 ```
 
 Then call `authorize` instead of `can`:

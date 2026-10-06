@@ -4,15 +4,17 @@ namespace Warrant\Guard\Concerns;
 
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\Reachability;
-use Warrant\Rules\RuleTemplateExpander;
 
 /**
- * Structural "could they ever?" analysis for the guard's user — answered from the
- * shape of the resolved rules alone: no conditions are evaluated and no query is
- * run. It asks whether a grant is even conceivable, so it is ideal for hiding UI,
- * gating sections, and short-circuiting per-row checks — never a substitute for
- * the real row check.
+ * "Could they ever?" analysis for the guard's user — answered from the rules
+ * alone, with no row, no context and no query. Row and global conditions are
+ * never evaluated; constants, derived conditions that answer one, and every
+ * `can(...)` the rules lean on are, so an ability granted only on another the
+ * user can never hold comes back NEVER. It asks whether a grant is even
+ * conceivable, so it is ideal for hiding UI, gating sections, and
+ * short-circuiting per-row checks — never a substitute for the real row check.
  */
 trait AnalyzesReachability
 {
@@ -35,22 +37,38 @@ trait AnalyzesReachability
     {
         $abilities = $abilities === null ? $this->schema::abilityNames() : $this->schema->normalizeAbilities($abilities);
 
-        /* Templates are expanded before analysis, not skipped: the decision table
-           reads "no `can` rule lists the ability" as NEVER, so an ability granted
-           only through a template would otherwise come back unreachable. Expansion
-           happens once for the whole map rather than per ability. */
-        $ruleSet = $abilities === []
-            ? null
-            : (new RuleTemplateExpander)->expand($this->resolvedRuleSet(), $this->schema);
-
-        $analyzer = new ReachabilityAnalyzer;
+        /* The analysis reads the expanded rule set, not the one as written: an
+           ability granted only through a template, or hinging on a derived
+           condition, would otherwise be judged on what the author abbreviated.
+           One analyzer serves the whole map, so an ability several others lean
+           on through `can(...)` is analyzed once. */
+        $analyzer = new ReachabilityAnalyzer($this->reachabilityRuleSetFor(...));
 
         $map = [];
         foreach ($abilities as $ability) {
-            $map[$ability] = $analyzer->analyze($ruleSet, $ability);
+            $map[$ability] = $analyzer->analyze($this->expandedRuleSet(), $ability);
         }
 
         return $map;
+    }
+
+    /**
+     * The expanded rule set this guard's user is given for $schemaKey — the
+     * guard's own, or the one the user's guard for another schema resolves, which
+     * is where a `can(... for <schema>)` in the rules leads. Null for a schema
+     * nobody registered, which validation reports.
+     */
+    private function reachabilityRuleSetFor(string $schemaKey): ?ExpandedRuleSet
+    {
+        if ($schemaKey === $this->schema::schemaKey()) {
+            return $this->expandedRuleSet();
+        }
+
+        $schemaClass = $this->manager->registry()->resolveSchemaClassOrNull($schemaKey);
+
+        return $schemaClass === null
+            ? null
+            : $this->manager->forSchema($schemaClass, $this->user)->expandedRuleSet();
     }
 
     /**

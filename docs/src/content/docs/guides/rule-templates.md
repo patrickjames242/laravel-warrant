@@ -15,14 +15,14 @@ point it at.
 ## What templates are for
 
 A [condition](/guides/conditions/) already names a reusable predicate, and a
-condition may answer with an expression instead of SQL, so predicates compose
+[derived condition](/guides/conditions/#derived-conditions) composes predicates
 without templates:
 
 ```php
-#[RowCondition]
-public function needsApproval(RowConditionContext $c)
+#[DerivedCondition]
+public function needsApproval(): string
 {
-    return Warrant::condition('is_submitted and not is_approved');
+    return 'is_submitted and not is_approved';
 }
 ```
 
@@ -182,10 +182,9 @@ public function ancestor(int $depth): string|WarrantRuleTemplate
 The base case has to be a PHP one, as above: the DSL has no conditional, so a
 body cannot decide for itself when to stop.
 
-A recursion that never ends is caught and reports the chain of templates. During
-a compile it is bounded by the same budget as every other descent, so the error
-also names the ability and `check(...)` hops that led there — see
-[How it compiles](/guides/how-it-compiles/).
+A recursion that never ends is stopped at a depth of 64 and reports the chain of
+templates. Includes and [derived conditions](/guides/conditions/#derived-conditions)
+share that budget, so a chain mixing the two is reported as one.
 
 ## What sees through a template
 
@@ -194,14 +193,13 @@ also names the ability and `check(...)` hops that led there — see
 | Compiling a check or filtering a query | Expands — a template's rules decide access like any other |
 | [Reachability](/guides/reachability/) | Expands — an ability granted only by a template is still reachable |
 | [Denial messages](/guides/denial-messages/) | Expands — a template's `because` surfaces like any other |
-| `validate()` | Checks the template name, its arity and the abilities named; does **not** read the body |
+| `validate()` | Expands — a mistake inside a body is reported like one written in the rule |
 | `toSyntax()` | Renders the `@include` back out rather than what it expands to |
 
-Validation stops at the body deliberately. Reading one means calling the method
-with concrete arguments, and an argument may be a `@context` reference whose
-value arrives per check — so a mistake inside a body is reported when it is
-expanded, in the same way a mistake inside a condition's derived expression is
-reported by the compiler.
+Expansion happens before anything compiles, once per rule set, and needs no user,
+row or check context: a `@context` or `@column` argument reaches the template
+method as the reference, to be passed on through a binding. That is what lets
+validation read a body at all.
 
 ## Errors
 
@@ -212,7 +210,8 @@ reported by the compiler.
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
 | `@include x` outside a block | `An @include outside an ability block must name the abilities it applies to` |
 | `can they view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
-| A body that never stops including | `... exceeded the maximum nesting depth` — worded for the expansion on its own, or for the whole compile when one is under way |
+| A body that never stops including | `Expansion exceeded the maximum nesting depth of 64`, followed by the chain |
+| A mistake inside a body | Reported as it would be in the rule, e.g. `Condition [x] is not declared by the schema` |
 
-The first three are reported by `validate()` from rule text alone, so CI catches
-them without a user, a row or a query.
+All of these are reported by `validate()`, so CI catches them without a user, a
+row or a query.

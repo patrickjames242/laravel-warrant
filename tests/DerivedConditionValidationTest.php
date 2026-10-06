@@ -12,6 +12,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
@@ -23,14 +24,13 @@ require_once __DIR__.'/Support/TestSupport.php';
 | A derived condition is held to the same rules as the text it stands in
 |------------------------------------------------------------------------------
 |
-| A condition may answer with an expression instead of SQL, and the compiler walks
-| the result as though it had been written inline. That tree reaches the compiler
-| after validation has already run and cannot be seen by it at all, so anything
-| the compiler does not check for itself would go unreported here.
+| A derived condition answers with an expression instead of SQL, and the compiler
+| walks the result as though it had been written inline. Expansion puts that tree
+| in place before validation runs, so validation reads it too; the compiler's own
+| checks stay as the backstop for a rule set nobody validated.
 |
-| Each test pairs the mistake as rule text — caught by validation — with the same
-| mistake produced by PHP, which has to be caught by the compiler. The two need
-| not report identically, but both have to report.
+| Each test pairs the mistake as rule text with the same mistake produced by PHP.
+| The two need not report identically, but both have to report.
 |
 | A malformed handle is not the same as an unanswerable question: a row condition
 | with no row, an absent @context key or a @column about another frame all still
@@ -109,7 +109,7 @@ it('rejects an ability a schema-less can names, which stays on the frame it sits
     /* The third leaf that reaches an ability: can(<ability>) crosses to no schema,
        so the name is read against whichever frame the expression is about. */
     expect(fn () => compileDvRule('if bare_can_missing_ability they can view'))
-        ->toThrow(InvalidArgumentException::class, 'Ability [nope] is not declared by schema [dv_docs]');
+        ->toThrow(InvalidArgumentException::class, 'Ability [nope] is not declared by the schema');
 });
 
 it('still denies an ability that is declared but granted by no rule', function () {
@@ -233,15 +233,15 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Hops to an ability no schema declares. */
-    #[RowCondition]
-    public function hopToMissingAbility(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function hopToMissingAbility(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('nope', DvDocSchema::class, Ref::column('id'));
     }
 
     /** Names the model-less target's own key, which stands for no frame at all. */
-    #[RowCondition]
-    public function derivedCapColOwn(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColOwn(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('dv_caps', 'x')]),
@@ -250,8 +250,8 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Names no frame, so it means whichever rows the frame is about — none. */
-    #[RowCondition]
-    public function derivedCapColBare(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColBare(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('x')]),
@@ -260,8 +260,8 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Correlates back to the frame the predicate was written in. */
-    #[RowCondition]
-    public function derivedCapColCaller(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCapColCaller(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             fn ($p) => $p->if('cap_col', [Ref::column('dv_docs', 'id')]),
@@ -270,29 +270,29 @@ class DvDocSchema extends WarrantSchema
     }
 
     /** Asks about another ability of this same frame, naming no schema. */
-    #[RowCondition]
-    public function bareCanMissingAbility(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function bareCanMissingAbility(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('nope');
     }
 
     /** Row-binds a hop into a schema that has no model, and so no rows. */
-    #[RowCondition]
-    public function rowBoundCapability(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function rowBoundCapability(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_ok', DvCapSchema::class, Ref::column('id'));
     }
 
     /** Names the rows of a handle that selects none. */
-    #[RowCondition]
-    public function aliasWithoutRow(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function aliasWithoutRow(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, as: 'f');
     }
 
     /** Stays row-bound while naming no row — an explicit null, not an omission. */
-    #[RowCondition]
-    public function nullRowSelector(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function nullRowSelector(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck('is_owner', DvDocSchema::class, key: null);
     }

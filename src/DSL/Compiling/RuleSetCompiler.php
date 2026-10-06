@@ -9,12 +9,15 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
 use Warrant\AbilityMatchMode;
-use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\Units\AbilityUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
+use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -25,14 +28,12 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\Rules\RuleTemplateExpander;
 use Warrant\WarrantManager;
 
 /**
- * Compiles a {@see RuleSetNode} into SQL predicates.
+ * Compiles an {@see ExpandedRuleSet} into SQL predicates.
  *
  * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
  * a {@see CompilationResult}. The context names what to compile (a
@@ -81,11 +82,12 @@ use Warrant\WarrantManager;
  * rebinds it, so the same rule text compiles against whichever table its frame
  * actually selects.
  *
- * A condition answers in one of four ways: with a bool it decides outright, with
- * an expression (or the builder that composes one) it *derives* itself from other
- * conditions and the compiler walks the result as if the author had written it in
- * the rule, with a null it answers unknown, and otherwise it constrains the
- * builder it was handed. Every condition leaf of that last kind is applied inline
+ * A row or global condition answers in one of three ways: with a bool it decides
+ * outright, with a null it answers unknown, and otherwise it constrains the
+ * builder it was handed. A derived condition never reaches a leaf: the expansion
+ * phase has already replaced it with its expression, wrapped in a
+ * {@see DerivedConditionNode} the compiler walks as if the author had written it
+ * in the rule. Every condition leaf of that last kind is applied inline
  * as a nested where-group and negated inline (`not (…)`, which for an author's
  * `whereExists` is `not exists (…)`).
  * There is no EXISTS wrapping and no attempt to normalize SQL's three-valued
@@ -210,17 +212,6 @@ final class RuleSetCompiler
            caught, and it puts the ability on the stack every leaf below reads. */
         $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
 
-        /* Templates are expanded before the rules are folded, on the stack the
-           ability is already on: a runaway expansion is then bounded by the same
-           budget as every other descent, and reports the hops that led here. What
-           comes back is rules alone, ability blocks opened up and each include's
-           rules in the place it stood. */
-        $ruleSet = (new RuleTemplateExpander)->expand(
-            $ruleSet,
-            $this->conditions,
-            new CallStackTrail($ctx->callStack, $this->conditions::class),
-        );
-
         $abilityNode = new CompiledWhereClauseNode;
 
         /** @var list<IBooleanExpressionNode|null> $grants */
@@ -228,7 +219,7 @@ final class RuleSetCompiler
         /** @var list<IBooleanExpressionNode|null> $denies */
         $denies = [];
 
-        foreach ($ruleSet->rules() as $rule) {
+        foreach ($ruleSet->rules as $rule) {
             $this->assertRuleAbilitiesDeclared($rule);
 
             if ($this->listsAbility($rule->canAbilities(), $ability)) {
@@ -312,9 +303,8 @@ final class RuleSetCompiler
      * Assert the schema being compiled declares $ability.
      *
      * The compiler's own guard against a name that resolves to nothing, held
-     * separately from validation because the two see different things: validation
-     * reads the rule text before a compile, and cannot see an ability a condition
-     * names by deriving itself into a `can(...)` at compile time. Both paths reach
+     * separately from validation because nothing makes validation run: a rule set
+     * can reach a compile without the guard that validates it. Both paths reach
      * here.
      *
      * A rule may still grant an ability with `*`, which is why this asks the schema
@@ -403,6 +393,16 @@ final class RuleSetCompiler
 
         if ($node instanceof BooleanNode) {
             return (new CompiledWhereClauseNode)->addAnd($node->value, negated: $ctx->negate);
+        }
+
+        if ($node instanceof DerivedConditionNode) {
+            return $this->derivedCondition($node, $ctx);
+        }
+
+        /* A derived condition that answered null: the third truth value, which
+           negates to itself, so the negation flag is deliberately not passed on. */
+        if ($node instanceof UnknownNode) {
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         throw new InvalidArgumentException(sprintf('Unsupported expression node [%s].', $node::class));
@@ -602,7 +602,7 @@ final class RuleSetCompiler
             ));
         }
 
-        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->resolvedRuleSet();
+        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->expandedRuleSet();
 
         /* A unit is always entered unnegated — {@see abilityNode} sets the deny
            side's polarity itself — so the reference's own negation rides on the
@@ -652,7 +652,7 @@ final class RuleSetCompiler
 
         $bContext = array_combine(array_keys($node->contextMap), $bValues);
 
-        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->resolvedRuleSet();
+        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));
@@ -764,8 +764,8 @@ final class RuleSetCompiler
      * by dispatching the target schema B's conditions and splicing the emitted SQL.
      * The dispatch itself enters no ability, so this leaf looks for no cycle of its
      * own. It does enter a {@see Call}, because the predicate can reach further —
-     * a condition that expands into another expression, a nested `check(...)`, a
-     * `can(...)` whose rules are compiled — and those chains are bounded by the
+     * a derived condition's expression, a nested `check(...)`, a `can(...)` whose
+     * rules are compiled — and those chains are bounded by the
      * depth budget, with a `can(...)` among them caught by the ability cycle guard
      * wherever it is reached from. A
      * row-bound reference wraps B's predicate as `EXISTS` over B's table
@@ -961,9 +961,8 @@ final class RuleSetCompiler
      *  - an alias on a handle that selects no rows, leaving the name standing for
      *    nothing.
      *
-     * Validation makes the same three checks over rule text. This is the same
-     * reasoning applied where a handle a condition built by deriving itself also
-     * arrives, which validation never sees.
+     * Validation makes the same three checks over the expanded rule set. They are
+     * made again here for a rule set that reached the compile without it.
      */
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
@@ -1099,7 +1098,7 @@ final class RuleSetCompiler
      */
     private function resolveColumnRef(ColumnRef $ref, CompilationContext $ctx): Expression
     {
-        $qualifier = $this->aliases($ctx)->resolve($ref->alias);
+        $qualifier = $this->aliases($ctx)->resolveColumn($ref);
 
         return $ctx->queries->wrap($qualifier . '.' . $ref->column);
     }
@@ -1121,7 +1120,7 @@ final class RuleSetCompiler
         $resolved = [];
 
         foreach ($arguments as $argument) {
-            if ($argument instanceof ColumnRef && $this->aliases($ctx)->resolve($argument->alias) === null) {
+            if ($argument instanceof ColumnRef && $this->aliases($ctx)->resolveColumn($argument) === null) {
                 return null;
             }
 
@@ -1133,11 +1132,26 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
+        $definition = $this->conditions->getConditionDefinition($node->conditionKey);
+
+        /* A derived condition has no SQL of its own; the expansion phase replaces
+           it with the expression it answers with. Meeting one here means the tree
+           never went through that phase. */
+        if ($definition?->isDerived()) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; '
+                    .'compile a rule set expanded by %s.',
+                $node->conditionKey,
+                $this->conditions::class,
+                RuleSetExpander::class,
+            ));
+        }
+
         /* A row condition cannot be evaluated without a row, so a no-target
            compile answers it with the third truth value: an unknown negates to
            itself, so it neither grants nor lifts a deny. The negation flag is
            deliberately not passed on — it would mean nothing to an unknown. */
-        if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
+        if (! $ctx->targeted && ($definition?->isRow() ?? false)) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
@@ -1190,24 +1204,6 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd($result, negated: $ctx->negate);
         }
 
-        /* Or it may answer with structure instead of SQL — an expression built
-           from other conditions, composed with the same builder an author writes
-           rules with. The tree compiles as if it had been written inline in the
-           rule, negation included: that rides on the context and lands on the
-           leaves, so `not <derived condition>` is De Morgan'd like anything else.
-           Entering a call first is what bounds it — a condition that expands into
-           itself has no base case to reach, since compilation never reads a row —
-           and it is what puts the expansion in the trace when something does run
-           away. The names it compiles against are its own; see
-           {@see expansionAliases}. */
-        if ($result instanceof WarrantConditionBuilder || $result instanceof IBooleanExpressionNode) {
-            return $this->expression(
-                $this->expandedCondition($result, $node->conditionKey),
-                $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters))
-                    ->withAliases($this->expansionAliases($ctx)),
-            );
-        }
-
         // A condition must be a spliceable boolean, so it may only add where
         // clauses. Anything that changes the query's row shape — a join, group,
         // having, aggregate, or union — cannot be inlined, ANDed/ORed, or negated
@@ -1221,6 +1217,33 @@ final class RuleSetCompiler
         // follows SQL's three-valued logic and an author's whereExists reads as
         // `not exists (…)`.
         return (new CompiledWhereClauseNode)->addAnd($conditionQuery, negated: $ctx->negate);
+    }
+
+    /**
+     * Compile a derived condition's expanded body as if it had been written inline
+     * in the rule, negation included: that rides on the context and lands on the
+     * leaves, so `not <derived condition>` is De Morgan'd like anything else.
+     *
+     * Two things set it apart from text written inline. It compiles under the
+     * names its own author could see; see {@see expansionAliases}. And it enters a
+     * call, so a compile trace shows the layer the rule text cannot — a `can(...)`
+     * that closes a cycle from inside a condition, say. The body was bounded when
+     * it was expanded, so the call is counted against the depth budget like any
+     * other but can no longer recur.
+     *
+     * The arguments are the exception to the names. They are the caller's text,
+     * so a `@column` among them is resolved here, before the body's scope is
+     * entered, and keeps that answer wherever the body passes it on.
+     */
+    private function derivedCondition(DerivedConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
+    {
+        $ctx = $ctx->withAliases($this->aliases($ctx)->forwardingColumns($node->parameters));
+
+        return $this->expression(
+            $node->body,
+            $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters))
+                ->withAliases($this->expansionAliases($ctx)),
+        );
     }
 
     /**
@@ -1248,38 +1271,6 @@ final class RuleSetCompiler
         return $this->conditions::modelClass() === ''
             ? $scope->enteringRowlessRuleSet()
             : $scope->enteringRuleSet($this->conditions::schemaKey(), $scope->current);
-    }
-
-    /**
-     * The expression a condition answered with, as a node.
-     *
-     * A {@see WarrantConditionBuilder} is unwrapped to the tree it composed — the
-     * same node type the parser produces, so nothing downstream can tell the two
-     * apart. A builder with no terms is the structural twin of a condition that
-     * added no where clause: it would mean "match everything", which is almost
-     * always a forgotten branch rather than an intent to grant universally.
-     */
-    private function expandedCondition(
-        WarrantConditionBuilder|IBooleanExpressionNode $result,
-        string $conditionKey,
-    ): IBooleanExpressionNode {
-        if ($result instanceof IBooleanExpressionNode) {
-            return $result;
-        }
-
-        $expression = $result->buildConditions();
-
-        if ($expression === null) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition [%s] on schema [%s] returned a condition builder with no terms, which would '
-                    .'silently match every row; add at least one term, return true/false to decide '
-                    .'the outcome outright, or return null to answer unknown.',
-                $conditionKey,
-                $this->conditions::class,
-            ));
-        }
-
-        return $expression;
     }
 
     /**

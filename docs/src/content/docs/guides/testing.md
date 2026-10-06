@@ -9,7 +9,7 @@ sidebar:
 
 Warrant's own suite drives real SQLite and asserts on rows and ability lists
 rather than SQL strings. The same approach works for your schemas: register a
-fake resolver that returns a fixed `WarrantRuleSet`, seed a table, and assert what
+fake resolver that returns a fixed `RuleSetNode`, seed a table, and assert what
 comes back.
 
 ## Swap in a fake resolver
@@ -18,17 +18,16 @@ Bind an anonymous `RuleResolver` for the test so you control exactly which rules
 apply, independent of your production rule store:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 app()->instance(RuleResolver::class, new class implements RuleResolver {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
-        return WarrantRuleSet::fromSyntax(
-            'if is_self they can view',
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse('if is_self they can view')
+            ->scopedTo($context->schemaKey);
     }
 });
 
@@ -64,11 +63,15 @@ Test against real data, the way your app queries it:
 ## Validate stored rules in CI
 
 If you store rule strings as data, catch typos before they reach production by
-compiling them against the schema in a test. `WarrantRuleSet::validate()` (and
-`validateAll()` for a batch) runs the same name-checking the compiler does:
+compiling them against the schema in a test. `Warrant::validate()` takes one rule
+set, several, or an array of them, and runs the same name-checking the compiler
+does:
 
 ```php
-WarrantRuleSet::fromSyntax($storedRuleString, 'documents')->validate();
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\Facades\Warrant;
+
+Warrant::validate(WarrantSyntax::parse($storedRuleString)->scopedTo('documents'));
 // throws if the string names an unknown ability or condition
 ```
 

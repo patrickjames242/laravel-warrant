@@ -65,20 +65,19 @@ Warrant ships no default — this small class is required.
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         // In a real app you'd look these rules up per user/role/tenant.
         // Here we return the same rule for everyone, for the documents schema.
-        return WarrantRuleSet::fromSyntax(
-            'if is_self they can view, update',
-            $context->schemaKey,
-        );
+        return WarrantSyntax::parse('if is_self they can view, update')
+            ->scopedTo($context->schemaKey);
     }
 }
 ```

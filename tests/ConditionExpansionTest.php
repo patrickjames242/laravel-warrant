@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\DSL\Compiling\CompileDepthException;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
@@ -14,9 +13,8 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
-use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
@@ -72,6 +70,8 @@ function adjacentExpansionSql(string $conditionKey): string
         "if check({$conditionKey} for dc_folders(@column parent_id) as p) they can view",
         schemaKey: 'dc_folders',
     );
+    // The guard memoizes the rule set it resolved, so drop it for the new one.
+    Warrant::flush();
 
     return normalizeWarrantSql(
         Warrant::guard(makeWarrantTestUser('role-1'))
@@ -153,6 +153,7 @@ it('emits the same SQL as the hand-written rule it expands to', function () {
         ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])->toRawSql();
 
     bindWarrantRules("if is_owner or owner_is('role-9') they can view", schemaKey: 'dc_folders');
+    Warrant::flush();
     $inline = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new DcFolderSchema))
         ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])->toRawSql();
 
@@ -186,25 +187,21 @@ it('rejects a builder with no terms, which would silently match every row', func
 
 // -- the call stack bounds what cycle detection cannot decide ------------------
 
-it('stops a condition that expands into itself with a depth error, not a cycle error', function () {
+it('stops a condition that expands into itself at expansion, with a depth error', function () {
     bindWarrantRules('if runaway they can view', schemaKey: 'dc_folders');
 
     try {
         Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new DcFolderSchema))
             ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])->toRawSql();
 
-        $this->fail('Expected a CompileDepthException.');
-    } catch (CompileDepthException $e) {
-        // The trace names the expansion, collapses the repetition rather than
-        // printing it sixty times, and says why it can never terminate.
+        $this->fail('Expected an expansion depth error.');
+    } catch (RuntimeException $e) {
+        // The chain names the condition, collapses the repetition rather than
+        // printing it sixty-five times, and says why it can never terminate.
         expect($e->getMessage())
-            ->toContain('maximum nesting depth')
-            ->toContain('dc_folders:view')
-            ->toContain('dc_folders.runaway')
-            ->toContain('repeat this 1-frame segment')
-            ->toContain('cannot terminate');
-
-        expect($e->calls())->toHaveCount(65);
+            ->toContain('maximum nesting depth of 64')
+            ->toContain('dc_folders.runaway  (repeated 65 times)')
+            ->toContain('no base case to reach');
     }
 });
 
@@ -244,8 +241,8 @@ it('reads a qualified @column in an expansion as the frame the condition was ask
                     select * from "dc_folders" as "p"
                     where "p"."id" = "dc_folders"."parent_id" and (
                         exists (
-                            select * from "dc_folders" as "gp"
-                            where "gp"."id" = "p"."parent_id" and (gp.owner = 'role-1')
+                            select * from "dc_folders" as "parent"
+                            where "parent"."id" = "p"."parent_id" and (parent.owner = 'role-1')
                         )
                     )
                 )
@@ -291,8 +288,8 @@ it('names the schema key in an expansion reached from another schema', function 
                 select * from "dc_folders" as "f"
                 where "f"."id" = "dc_files"."folder_id" and (
                     exists (
-                        select * from "dc_folders" as "gp"
-                        where "gp"."id" = "f"."parent_id" and (gp.owner = 'role-1')
+                        select * from "dc_folders" as "parent"
+                        where "parent"."id" = "f"."parent_id" and (parent.owner = 'role-1')
                     )
                 )
             )
@@ -346,8 +343,8 @@ class DcFolderSchema extends WarrantSchema
     }
 
     /** Derived: answers with the expression rather than SQL of its own. */
-    #[RowCondition]
-    public function isEditable(RowConditionContext $c): IBooleanExpressionNode
+    #[DerivedCondition]
+    public function isEditable(): IBooleanExpressionNode
     {
         return WarrantSyntax::parse(<<<WARRANT
             is_owner or owner_is('role-9')
@@ -360,8 +357,8 @@ class DcFolderSchema extends WarrantSchema
      * a derived condition cannot express by constraining its own builder, since
      * the correlated frame is not the one it was handed.
      */
-    #[RowCondition]
-    public function parentIsOwned(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function parentIsOwned(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             'is_owner',
@@ -375,20 +372,20 @@ class DcFolderSchema extends WarrantSchema
      * The same expansion, written with the qualified form of the reference — the
      * author of dc_folders naming dc_folders' rows.
      */
-    #[RowCondition]
-    public function qualifiedParentOwned(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function qualifiedParentOwned(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             'is_owner',
             DcFolderSchema::class,
             Ref::column('dc_folders', 'parent_id'),
-            as: 'gp',
+            as: 'parent',
         );
     }
 
     /** Names a frame only the calling rule's text could have known about. */
-    #[RowCondition]
-    public function namesCallersAlias(RowConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function namesCallersAlias(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             'is_owner',
@@ -402,8 +399,8 @@ class DcFolderSchema extends WarrantSchema
      * A global condition — asked without a row — expanding into a reference that
      * names this schema's rows.
      */
-    #[GlobalCondition]
-    public function qualifiedGlobal(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function qualifiedGlobal(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCheck(
             'is_owner',
@@ -413,28 +410,28 @@ class DcFolderSchema extends WarrantSchema
         );
     }
 
-    #[GlobalCondition]
-    public function alwaysTrue(GlobalConditionContext $c): BooleanNode
+    #[DerivedCondition]
+    public function alwaysTrue(): BooleanNode
     {
         return new BooleanNode(true);
     }
 
-    #[GlobalCondition]
-    public function emptyExpansion(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function emptyExpansion(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build();
     }
 
     /** Expands into itself with the same arguments: no base case, ever. */
-    #[GlobalCondition]
-    public function runaway(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function runaway(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->if('runaway');
     }
 
     /** Closes a can(...) loop from inside a condition. */
-    #[GlobalCondition]
-    public function derivedCan(GlobalConditionContext $c): WarrantConditionBuilder
+    #[DerivedCondition]
+    public function derivedCan(): WarrantConditionBuilder
     {
         return WarrantConditionBuilder::build()->ifCan('view', DcFolderSchema::class);
     }

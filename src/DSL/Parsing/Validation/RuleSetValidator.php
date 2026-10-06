@@ -6,6 +6,10 @@ use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
+use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -20,7 +24,6 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleTemplateExpander;
 
 /**
  * Validates every condition and ability name in a {@see RuleSetNode} against
@@ -39,11 +42,10 @@ use Warrant\Rules\RuleTemplateExpander;
  * needs, and it sees every rule in a set rather
  * than only the paths a particular check happens to compile.
  *
- * Its blind spot is the mirror of that. A condition may answer with an expression
- * instead of SQL, and that expression exists only once the condition has run, so
- * no amount of reading rule text will find a mistake inside one. The compiler is
- * the only place such a tree can be checked, which is why correctness lives there
- * and this class is free to be a pass an author can forget to run.
+ * It reads the rule set as the compiler will: expanded, with every template's
+ * rules in place and every derived condition replaced by its expression. Expansion
+ * reads no user, row or check context, so nothing a compile could reach in this
+ * rule set is out of its sight.
  *
  * Own-schema checks depend only on the schema's {@see SchemaVocabulary} — name
  * existence, no SQL. A cross-schema `can(...)` reference is additionally resolved
@@ -74,27 +76,64 @@ final class RuleSetValidator
 
     /**
      * Validate every condition and ability name in the rule set against the
-     * schema. Throws {@see InvalidArgumentException} on the first unknown name.
-     *
-     * Ability blocks are read opened up, each header applied to its entries, so
-     * a block's abilities are checked through the rules they end up on.
+     * schema, as written and then expanded. Throws {@see InvalidArgumentException}
+     * on the first unknown name.
      */
     public function validate(RuleSetNode $ruleSet): void
     {
-        foreach ($ruleSet->flatEntries() as $rule) {
-            if ($rule instanceof IncludeInvocationNode) {
-                $this->assertIncludeValid($rule);
+        $this->validateWritten($ruleSet);
 
-                continue;
+        $this->validateExpanded((new RuleSetExpander)->expand($ruleSet, $this->schema));
+    }
+
+    /**
+     * Validate a rule set as written, before expansion: every rule, and the
+     * abilities every block header and include names.
+     *
+     * Those abilities are checked here, where they are written, because the
+     * expansion only carries them on the rules they end up on, and an empty block
+     * or a template with an empty body puts them on none. An include naming a
+     * template the schema does not declare, or giving it too few arguments, is the
+     * expansion's to reject.
+     */
+    public function validateWritten(RuleSetNode $ruleSet): void
+    {
+        foreach ($ruleSet->entries as $entry) {
+            if ($entry instanceof AbilityBlockNode) {
+                $this->assertAbilitiesDeclared($entry->abilities);
+
+                foreach ($entry->entries as $blockEntry) {
+                    if ($blockEntry instanceof WarrantRuleNode) {
+                        $this->validateRule($blockEntry);
+                    }
+                }
+            } elseif ($entry instanceof IncludeInvocationNode) {
+                $this->assertAbilitiesDeclared($entry->abilities);
+            } elseif ($entry instanceof WarrantRuleNode) {
+                $this->validateRule($entry);
             }
+        }
+    }
 
-            $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
+    /**
+     * Validate a rule set after expansion: every rule a template supplied, and
+     * every derived condition's expression, read as the compiler will read them.
+     */
+    public function validateExpanded(ExpandedRuleSet $ruleSet): void
+    {
+        foreach ($ruleSet->rules as $rule) {
+            $this->validateRule($rule);
+        }
+    }
 
-            $this->assertNoDuplicateCannotAbility($rule);
+    private function validateRule(WarrantRuleNode $rule): void
+    {
+        $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
 
-            if ($rule->conditions !== null) {
-                $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
-            }
+        $this->assertNoDuplicateCannotAbility($rule);
+
+        if ($rule->conditions !== null) {
+            $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
         }
     }
 
@@ -122,27 +161,6 @@ final class RuleSetValidator
                 );
             }
         }
-    }
-
-    /**
-     * Validate an `@include`: the abilities it names, the template it names, and
-     * that it supplies the arguments that template requires.
-     *
-     * The template checks are {@see RuleTemplateExpander::resolveTemplate()}'s own,
-     * called rather than restated, so this rejects exactly what an expansion would
-     * and says the same thing when it does.
-     *
-     * The body is out of reach, as the docblock above explains: it exists only
-     * once the template has been called with concrete arguments, and an argument
-     * may be a `@context` reference filled per check. A mistake inside a body is
-     * therefore the expansion's to report, in the same way a mistake inside a
-     * condition's derived expression is the compiler's.
-     */
-    private function assertIncludeValid(IncludeInvocationNode $include): void
-    {
-        $this->assertAbilitiesDeclared($include->abilities);
-
-        RuleTemplateExpander::resolveTemplate($this->schema, $this->schemaKey, $include);
     }
 
     /**
@@ -202,30 +220,72 @@ final class RuleSetValidator
      *   selected until a compile, and only the names matter here.
      * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
      *   predicate this is, or null for a rule's own expression.
+     * @param bool $inDerivedBody Whether $node is part of a derived condition's
+     *   expression rather than text written in the predicate itself.
      */
     private function validateExpression(
         IBooleanExpressionNode $node,
         SchemaVocabulary $vocabulary,
         AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
+        bool $inDerivedBody = false,
     ): void {
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $scope, $predicateOf),
+            $node instanceof DerivedConditionNode => $this->validateDerivedCondition($node, $vocabulary, $scope, $predicateOf),
             $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $scope),
-            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf): void {
-                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf);
-                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf);
+            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf, $inDerivedBody),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf, $inDerivedBody): void {
+                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf, $inDerivedBody);
+                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf, $inDerivedBody);
             })(),
             /* A rule may be written around a constant; a predicate may not, because
-               a `check(...)` that decides itself asks the target nothing. */
-            default => $predicateOf === null ? null : throw new InvalidArgumentException(sprintf(
+               a `check(...)` that decides itself asks the target nothing. A derived
+               condition answering with a constant or unknown is another matter: that
+               is the condition's answer, decided by its author, wherever it is
+               asked. */
+            default => $predicateOf === null || $inDerivedBody ? null : throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
                 $predicateOf->schemaKey,
             )),
         };
+    }
+
+    /**
+     * Validate an expanded derived condition: its arguments where the caller wrote
+     * them, and its expression under the condition's own names, as the compiler
+     * reads it.
+     *
+     * The expression's author cannot see where the condition is reached from, so
+     * it is checked in a fresh scope binding only its own schema's key, to the
+     * frame it was asked about — the scope {@see \Warrant\DSL\Compiling\RuleSetCompiler}
+     * compiles it under. A `@column` argument is the caller's text, so it is read
+     * in the caller's scope first and keeps that answer wherever the expression
+     * passes it on.
+     *
+     * Its name and argument count were settled by the expansion that produced it.
+     */
+    private function validateDerivedCondition(
+        DerivedConditionNode $node,
+        SchemaVocabulary $vocabulary,
+        AliasScope $scope,
+        ?CrossSchemaConditionNode $predicateOf,
+    ): void {
+        $this->assertColumnRefsInScope($node->parameters, $scope);
+
+        $scope = $scope->forwardingColumns($node->parameters);
+
+        $this->validateExpression(
+            $node->body,
+            $vocabulary,
+            $vocabulary::hasRows()
+                ? $scope->enteringRuleSet($predicateOf?->schemaKey ?? $this->schemaKey, null)
+                : $scope->enteringRowlessRuleSet(),
+            $predicateOf,
+            inDerivedBody: true,
+        );
     }
 
     /**
@@ -608,7 +668,7 @@ final class RuleSetValidator
                    is the mistake, and a name bound to nothing is a frame no compile
                    selected here, which is not. A null alias asks about this frame's
                    own rows and is answered without a name at all. */
-                $scope->resolve($argument->alias);
+                $scope->resolveColumn($argument);
             }
         }
     }

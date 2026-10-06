@@ -141,14 +141,14 @@ hardcoded. They're inline here just for the example:
 ```php
 class DocumentRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         // $context->user and $context->schemaKey tell you who's asking, and about what
-        return WarrantRuleSet::fromSyntax('
+        return WarrantSyntax::parse('
             if is_self or manages_team they can update
             if is_locked and not is_admin they cannot update
             if is_admin they can *
-        ', $context->schemaKey);
+        ')->scopedTo($context->schemaKey);
     }
 }
 ```
@@ -248,22 +248,22 @@ your **source of roles**, while Warrant does the actual authorization. Your
 for a resource:
 
 ```php
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleResolutionContext;
 use Warrant\Rules\RuleResolver;
-use Warrant\Rules\WarrantRuleSet;
 
 class DatabaseRuleResolver implements RuleResolver
 {
-    public function resolve(RuleResolutionContext $context): WarrantRuleSet
+    public function resolve(RuleResolutionContext $context): RuleSetNode
     {
         if ($context->user->hasRole('admin')) {          // Spatie answers "what role?"
-            return WarrantRuleSet::fromSyntax('they can *', $context->schemaKey);
+            return WarrantSyntax::parse('they can *')->scopedTo($context->schemaKey);
         }
 
-        return WarrantRuleSet::fromSyntax(
+        return WarrantSyntax::parse(
             'if is_self they can view, update',           // Warrant answers "on which rows?"
-            $context->schemaKey,
-        );
+        )->scopedTo($context->schemaKey);
     }
 }
 ```

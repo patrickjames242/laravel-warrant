@@ -3,9 +3,8 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
-use Warrant\DSL\Compiling\Call;
-use Warrant\DSL\Compiling\CallStack;
-use Warrant\DSL\Compiling\CompileDepthException;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
@@ -15,8 +14,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\IncludeTrail;
-use Warrant\Rules\RuleTemplateExpander;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
 use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\RuleTemplate;
 
@@ -123,35 +122,49 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
+    public function emptyBody(): string
+    {
+        return '';
+    }
+
+    #[RuleTemplate]
+    public function namesAnUnknownCondition(): string
+    {
+        return 'if no_such_condition they can';
+    }
+
+    #[RuleTemplate]
     public function namesTheWildcard(): string
     {
         return 'if is_teacher they can *';
     }
 }
 
-/**
- * A trail with a bound and a message of its own, standing in for the compiling
- * one so the seam is exercised without a compile.
- */
-final readonly class ShallowTrail implements IncludeTrail
+class TemplateHopModel extends Model
 {
-    public function __construct(public int $depth = 0)
-    {
-    }
+    use HasWarrantSchema;
 
-    public function entering(IncludeInvocationNode $include): static
-    {
-        if ($this->depth >= 3) {
-            throw new RuntimeException("ShallowTrail stopped at depth 3 in [{$include->templateKey}].");
-        }
+    protected $table = 'template_hops';
 
-        return new self($this->depth + 1);
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return TemplateHopSchema::class;
     }
 }
 
-function expandSyntax(string $syntax): RuleSetNode
+/** A second schema with the same templates, for a rule set reached through a hop. */
+class TemplateHopSchema extends TemplateExpansionSchema
 {
-    return (new RuleTemplateExpander)->expand(
+    public const model = TemplateHopModel::class;
+}
+
+function expandSyntax(string $syntax): ExpandedRuleSet
+{
+    return (new RuleSetExpander)->expand(
         WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
         new TemplateExpansionSchema,
     );
@@ -167,16 +180,36 @@ it('expands an include into the rules its longhand would produce', function () {
     $expanded = expandSyntax('can they view { @include requires_approval }');
     $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->scopedTo('course_sections');
 
-    expect($expanded->flatEntries())->toHaveCount(1);
-    expect($expanded->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($expanded->flatEntries()[0]->cannotAbilities())->toBe($longhand->flatEntries()[0]->cannotAbilities());
-    expect($expanded->flatEntries()[0]->messageFor('view'))->toBe('Needs approval.');
+    expect($expanded->rules)->toHaveCount(1);
+    expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->entries[0]->cannotAbilities());
+    expect($expanded->rules[0]->messageFor('view'))->toBe('Needs approval.');
+});
+
+it('opens an ability block, applying its header to every rule and include in it', function () {
+    $expanded = expandSyntax(<<<'WARRANT'
+        can they view, publish {
+            if is_teacher they can
+            if is_advisor they cannot because 'Locked.'
+            @include grants_it
+        }
+        WARRANT);
+
+    expect($expanded->rules)->toHaveCount(3);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view', 'publish']);
+    expect($expanded->rules[1]->cannotAbilities())->toBe(['view', 'publish']);
+    expect($expanded->rules[1]->messageFor('view'))->toBe('Locked.');
+    expect($expanded->rules[2]->canAbilities())->toBe(['view', 'publish']);
+});
+
+it('opens an empty ability block to no rules', function () {
+    expect(expandSyntax('can they view { }')->rules)->toBe([]);
 });
 
 it('gives the expanded rules the abilities the include named', function () {
     $expanded = expandSyntax('@include grants_it for view, publish');
 
-    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view', 'publish']);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view', 'publish']);
 });
 
 it('splices the expansion in where the include was written', function () {
@@ -186,41 +219,54 @@ it('splices the expansion in where the include was written', function () {
         if is_advisor they can archive
         WARRANT);
 
-    expect($expanded->flatEntries())->toHaveCount(3);
-    expect($expanded->flatEntries()[0]->conditions->conditionKey)->toBe('is_teacher');
-    expect($expanded->flatEntries()[1]->canAbilities())->toBe(['publish']);
-    expect($expanded->flatEntries()[1]->conditions)->toBeNull();
-    expect($expanded->flatEntries()[2]->conditions->conditionKey)->toBe('is_advisor');
+    expect($expanded->rules)->toHaveCount(3);
+    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->rules[1]->canAbilities())->toBe(['publish']);
+    expect($expanded->rules[1]->conditions)->toBeNull();
+    expect($expanded->rules[2]->conditions->conditionKey)->toBe('is_advisor');
 });
 
 it('hands a template its arguments through bindings', function () {
     $expanded = expandSyntax("@include with_relation('folder') for view");
 
-    expect($expanded->flatEntries()[0]->conditions->parameters)->toBe(['folder']);
+    expect($expanded->rules[0]->conditions->parameters)->toBe(['folder']);
 });
 
 it('expands a template that includes another', function () {
     $expanded = expandSyntax('@include nests_another for view');
 
-    expect($expanded->flatEntries())->toHaveCount(1);
-    expect($expanded->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
+    expect($expanded->rules)->toHaveCount(1);
+    expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
 });
 
 it('terminates a recursion whose argument decreases per level', function () {
     $expanded = expandSyntax('@include counts_down(3) for view');
 
-    expect($expanded->flatEntries())->toHaveCount(1);
-    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
+    expect($expanded->rules)->toHaveCount(1);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
 });
 
 it('leaves a set holding no includes exactly as it was', function () {
     $set = WarrantSyntax::parse("if is_teacher they can view\nthey cannot archive")->scopedTo('course_sections');
 
-    $expanded = (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema);
+    $expanded = (new RuleSetExpander)->expand($set, new TemplateExpansionSchema);
 
     expect($expanded->schemaKey)->toBe($set->schemaKey);
-    expect($expanded->flatEntries())->toBe($set->flatEntries());
+    expect($expanded->rules)->toBe($set->entries);
+});
+
+it('refuses an expanded rule set holding anything but rules that name their abilities', function () {
+    // What the compiler, reachability and diagnosis read can never hold shorthand
+    // nobody expanded: an include, or a clause with no abilities to be about.
+    expect(fn () => new ExpandedRuleSet('course_sections', [new IncludeInvocationNode('grants_it', [], ['view'])]))
+        ->toThrow(InvalidArgumentException::class, 'holds rules alone');
+
+    $headless = WarrantSyntax::parse('can they view { if is_teacher they can }')->scopedTo('course_sections')
+        ->entries[0]->entries[0];
+
+    expect(fn () => new ExpandedRuleSet('course_sections', [$headless]))
+        ->toThrow(InvalidArgumentException::class, 'names the abilities it applies to');
 });
 
 // -- failures -----------------------------------------------------------------
@@ -231,7 +277,7 @@ it('bounds a recursion that cannot terminate, naming the chain', function () {
 
     // The chain is reported so the templates responsible can be found.
     expect(fn () => expandSyntax('@include loops for view'))
-        ->toThrow(RuntimeException::class, 'Include chain (outermost first)');
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
 it('rejects an include naming a template the schema does not declare', function () {
@@ -312,26 +358,19 @@ it('still reports an ability no template grants as NEVER', function () {
 
 // -- the trail ----------------------------------------------------------------
 
-it('takes a caller\'s own trail, letting it bound and report the descent', function () {
-    $set = WarrantSyntax::parse('@include loops for view')->scopedTo('course_sections');
-
-    expect(fn () => (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema, new ShallowTrail))
-        ->toThrow(RuntimeException::class, 'ShallowTrail stopped at depth 3');
-});
-
 it('derives a fresh trail per branch rather than sharing one', function () {
-    // Two includes side by side each descend one level; neither sees the other's,
-    // so a shallow bound that admits one admits both.
+    // Each include side by side descends 41 levels, within the bound of 64. Shared,
+    // the two would count 82 and be rejected; neither may see the other's descent.
     $set = WarrantSyntax::parse(<<<'WARRANT'
-        @include grants_it for view
-        @include grants_it for publish
+        @include counts_down(40) for view
+        @include counts_down(40) for publish
         WARRANT)->scopedTo('course_sections');
 
-    $expanded = (new RuleTemplateExpander)->expand($set, new TemplateExpansionSchema, new ShallowTrail);
+    $expanded = (new RuleSetExpander)->expand($set, new TemplateExpansionSchema);
 
-    expect($expanded->flatEntries())->toHaveCount(2);
-    expect($expanded->flatEntries()[0]->canAbilities())->toBe(['view']);
-    expect($expanded->flatEntries()[1]->canAbilities())->toBe(['publish']);
+    expect($expanded->rules)->toHaveCount(2);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->rules[1]->canAbilities())->toBe(['publish']);
 });
 
 // -- compiling ----------------------------------------------------------------
@@ -369,37 +408,53 @@ it('compiles a recursion that terminates', function () {
     expect($guard->can('publish'))->toBeTrue();
 });
 
-it('bounds a runaway template against the compile budget, naming the ability hop', function () {
+it('bounds a runaway template in the guard\'s own rule set by the expansion depth limit', function () {
+    /* The guard expands its rule set once, before any ability is compiled: the
+       chain of templates is the whole story. */
     bindWarrantRules('@include loops for publish');
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
 
-    try {
-        $guard->can('publish');
-        expect(false)->toBeTrue('expected a depth error');
-    } catch (CompileDepthException $e) {
-        // The include frames sit under the ability that reached this rule set, so
-        // the trace says which check led here, not only which templates looped.
-        expect($e->getMessage())->toContain('@include');
-        expect($e->getMessage())->toContain('loops');
-        expect($e->getMessage())->toContain(':publish');
-    }
+    expect(fn () => $guard->can('publish'))
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
-it('renders an include frame with its arguments in a trace', function () {
-    $call = Call::include(TemplateExpansionSchema::class, 'inherited_from', ['folder']);
+it('bounds a runaway template reached through a hop by the same expansion depth limit', function () {
+    useWarrantSchemas([
+        'course_sections' => TemplateExpansionSchema::class,
+        'template_hops' => TemplateHopSchema::class,
+    ]);
 
-    expect($call->signature())->toBe("@include course_sections.inherited_from('folder')");
+    $sets = [
+        'course_sections' => WarrantSyntax::parse('if can(publish for template_hops) they can publish')
+            ->scopedTo('course_sections'),
+        'template_hops' => WarrantSyntax::parse('@include loops for publish')->scopedTo('template_hops'),
+    ];
+
+    app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
+        /** @param array<string, RuleSetNode> $sets */
+        public function __construct(private array $sets) {}
+
+        public function resolve(RuleResolutionContext $context): RuleSetNode
+        {
+            return $this->sets[$context->schemaKey];
+        }
+    });
+
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
+
+    /* The hop's rule set is expanded on its own guard, exactly as a top-level one
+       is, so the error is the same whichever check first asked for it. */
+    expect(fn () => $guard->can('publish'))
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
-it('counts include frames rather than rejecting a repeated template', function () {
-    // Same template twice on one stack is legal — it is the argument that decides
-    // whether it terminates, exactly as for a condition.
-    $stack = CallStack::root()
-        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [2]))
-        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [1]))
-        ->enter(Call::include(TemplateExpansionSchema::class, 'counts_down', [1]));
+it('expands a guard\'s rule set once, however many abilities are asked about', function () {
+    bindWarrantRules('@include grants_it for view, publish');
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
 
-    expect($stack->depth())->toBe(3);
+    expect($guard->expandedRuleSet())->toBe($guard->expandedRuleSet());
+    expect($guard->can(['view', 'publish']))->toBeTrue();
+    expect($guard->reachabilityOf('publish'))->toBe(Reachability::ALWAYS);
 });
 
 
@@ -432,6 +487,24 @@ it('rejects an undeclared ability in an include for list', function () {
         ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
 });
 
+it('rejects an undeclared ability on an include whose template expands to nothing', function () {
+    // No rule carries the ability, so it is checked as the include names it.
+    expect(fn () => validateSyntax('@include empty_body for not_an_ability'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on an empty block', function () {
+    expect(fn () => validateSyntax('can they not_an_ability { }'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on an include whose template expands to nothing, through the guard', function () {
+    bindWarrantRules('@include empty_body for not_an_ability');
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class)->can('view'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
 it('rejects an undeclared ability on the block an include sits in', function () {
     expect(fn () => validateSyntax('can they not_an_ability { @include grants_it }'))
         ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
@@ -447,11 +520,10 @@ it('still validates the rules around an include', function () {
         ->toThrow(InvalidArgumentException::class, 'no_such_condition');
 });
 
-it('says nothing about what is inside a template body', function () {
-    // opens_a_block is malformed, but a body is only read at an expansion, so
-    // validation passes and the expansion is what reports it.
-    expect(fn () => validateSyntax('@include opens_a_block for view'))->not->toThrow(Exception::class);
+it('reports a mistake inside a template body, which it reads through the expansion', function () {
+    expect(fn () => validateSyntax('@include opens_a_block for view'))
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not open an ability block");
 
-    expect(fn () => expandSyntax('@include opens_a_block for view'))
-        ->toThrow(WarrantSyntaxException::class);
+    expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
+        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
 });

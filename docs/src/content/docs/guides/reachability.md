@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Reachability
-description: Ask "could this user ever?" structurally — no conditions, no SQL — to drive navigation and gate whole sections.
+description: Ask "could this user ever?" from the rules alone — no row, no SQL — to drive navigation and gate whole sections.
 sidebar:
   order: 8
 ---
@@ -12,37 +12,62 @@ check](/guides/checking-access/#no-target-checks)). A different,
 cheaper question is *"could this user **ever** update a document — is it even
 worth showing the button, or building the section?"*
 
-That's **reachability**: a purely **structural** look at the rules the resolver
-hands this user. It evaluates **no conditions** and runs **no SQL** — it only asks
-whether a grant is *conceivable*.
+That's **reachability**: a look at the rules the resolver hands this user,
+asked without a row. It runs **no SQL** and never evaluates a row or global
+condition. It does follow everything that can be answered without a row, so the
+answer is as sharp as the rules allow.
 
 ## The three states
 
-The rule of thumb is *unconditionality*. A rule with an `if` is a "maybe" — whether
-it fires depends on a condition we don't evaluate here; only unconditional rules
-make us certain. Each ability lands in one of three states:
-
 | `Warrant\Reachability` | Meaning | Typical UI use |
 |---|---|---|
-| `NEVER` | No rule grants it, or an unconditional `cannot` forbids it. | Hide the control entirely. |
-| `MAYBE` | A condition decides — they might or might not. | Show it, but check per row. |
-| `ALWAYS` | Unconditionally granted, with no unconditional deny. | Show it, enabled. |
+| `NEVER` | No rule can ever grant it: nothing grants it, an unconditional `cannot` forbids it, or every grant needs something that is never true. | Hide the control entirely. |
+| `MAYBE` | A condition decides. They might or might not have it. | Show it, but check per row. |
+| `ALWAYS` | Every way the rules can come out grants it. | Show it, enabled. |
 
-The decision table, resolved top to bottom for one ability:
+## How an ability is judged
 
-1. an unconditional `cannot` → `NEVER` (an undodgeable deny wins);
-2. no `can` rule lists it → `NEVER` (no grant path at all);
-3. an unconditional `can` and no *conditional* `cannot` → `ALWAYS`;
-4. otherwise → `MAYBE`.
+Reachability folds an ability the same way the [compiler](/guides/how-it-compiles/)
+does: the `can` rules are ORed together, then ANDed with the negation of every
+`cannot`. The difference is that it has no row, so for each part of a condition it
+tracks every value that part could still take (true, false, or unknown).
 
-A *conditional* `cannot` is intentionally ignored: a different row or state can
-dodge it, so it never lowers certainty. This mirrors the compiler's own hard edges
-(see [How it compiles to SQL](/guides/how-it-compiles/)).
+- **A row or global condition** (`is_owner`, `is_admin`) could be anything. It
+  is never evaluated here.
+- **A [derived condition](/guides/conditions/#derived-conditions)** is read through to what it
+  answers with. If it answers `true`, the condition is always true. If it answers
+  `false`, it is never true. If it answers `null`, it is unknown, which never
+  grants. If it answers with an expression, that expression is judged by these
+  same rules.
+- **`can(x)`, `can(x for other_schema)`:** whatever ability `x` comes out as. It
+  is judged the same way, against the rules this user is given for that schema.
+- **`check(... for other_schema)`:** whatever its predicate comes out as. A
+  `can(...)` inside the predicate asks about an ability of the schema it checks.
+- **A row-bound reference** (`can(x for folders(@column folder_id))`,
+  `check(... for folders(@context id))`): as above, but the row may not exist. So
+  it can rule a grant out, but never guarantee one.
 
-:::caution[`ALWAYS` is a shape guarantee, not a per-row one]
-Because `ALWAYS` ignores conditional denies, it means "granted by the rules'
-shape" — **not** a promise that every row passes. The per-row check is still the
-source of truth; reachability just tells you whether it's worth asking.
+So an ability that leans on another depends on how the two are combined:
+
+```text
+if can(manage for folders) or is_owner they can edit     # MAYBE, even if nothing grants `manage`
+if can(manage for folders) and is_owner they can edit    # NEVER, if nothing grants `manage` to this user
+if can(publish) they can view                            # ALWAYS, if `publish` is granted unconditionally
+```
+
+The same goes for denies. A `cannot` whose condition can never be true leaves an
+unconditional grant `ALWAYS`. A `cannot` that hinges on an ability the user always
+has is as good as unconditional, so the result is `NEVER`.
+
+When the analysis is unsure it answers `MAYBE`, never a wrong `NEVER` or `ALWAYS`.
+That covers an ability that refers back to itself (a cycle, which the compiler
+rejects), a schema whose rules cannot be resolved, and a condition that appears
+twice (`a or not a` is judged as if the two `a`s were independent).
+
+:::caution[`ALWAYS` is a guarantee about the rules, not about a row]
+`ALWAYS` means that no row, context or condition outcome can make the rules deny
+the ability. The per-row check is still the source of truth; reachability just
+tells you whether it's worth asking.
 :::
 
 ## Asking the question
@@ -76,7 +101,7 @@ while `couldEverHaveAny`/`alwaysHasAny`/`neverHasAny` require **any** one.
 
 :::note[No `context:`, but a user is still required]
 There is **no** `context:` argument: [`@context`](/guides/context/) only ever feeds
-condition evaluation, which reachability never does. The user *is* still needed,
+row and global conditions, which reachability never evaluates. The user *is* still needed,
 because the resolver may hand a different rule set to each user, role, or tenant.
 :::
 

@@ -268,9 +268,11 @@ if not check(is_open for pay_periods(@context period_id))
 they cannot submit because 'That pay period is closed.'
 ```
 
-[Reachability](/guides/reachability/) treats a rule containing either builtin like
-any other conditional rule — it is structural, so a `can(...)` never turns into
-`ALWAYS` or `NEVER` on its own.
+[Reachability](/guides/reachability/) follows both builtins into the other
+schema's rules for the same user. A `can(x for other)` that nothing in `other`
+grants makes a rule that needs it `NEVER`. One that is always granted makes it
+`ALWAYS`, unless the reference is row-bound: the row may not exist, so a row-bound
+reference can rule a grant out, but never guarantee one.
 
 ## What it compiles to
 
@@ -328,9 +330,9 @@ better than a string:
 
 ```php
 use Warrant\Builders\Ref;
-use Warrant\Rules\WarrantRule;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 
-WarrantRule::build()
+WarrantRuleNode::build()
     ->if('is_author')
     ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
     ->andIfCheck(
@@ -361,7 +363,7 @@ on the ability being compiled.
 
 The guard is **path-scoped**, so two sibling references to the same schema are
 fine — only re-entering a frame already on the path is a cycle. Nesting is also
-capped at a depth of 32.
+capped at a depth of 64.
 
 A `check(...)` dispatch touches no rules of its own, so the dispatch itself
 cannot close a loop. A `can(...)` inside its predicate can, and is guarded by the

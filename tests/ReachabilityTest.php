@@ -2,13 +2,29 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
+use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
+use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
+use Warrant\Rules\RuleResolutionContext;
+use Warrant\Rules\RuleResolver;
+use Warrant\Schema\Ability;
+use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\DerivedCondition;
+use Warrant\Schema\RowCondition;
+use Warrant\Schema\WarrantSchema;
 
 beforeEach(function () {
-    useWarrantSchemas(['course_sections' => WarrantScopedModelSchema::class]);
+    useWarrantSchemas([
+        'course_sections' => WarrantScopedModelSchema::class,
+        'rch_docs' => RchDocSchema::class,
+        'rch_folders' => RchFolderSchema::class,
+    ]);
 });
 
 /*
@@ -17,10 +33,15 @@ beforeEach(function () {
 |--------------------------------------------------------------------------
 */
 
-function analyze(string $syntax, string $ability): Reachability
+function analyze(string $syntax, string $ability, ?WarrantSchema $schema = null): Reachability
 {
+    $schema ??= new WarrantScopedModelSchema;
+
     return (new ReachabilityAnalyzer)->analyze(
-        WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
+        (new RuleSetExpander)->expand(
+            WarrantSyntax::parse($syntax)->scopedTo($schema::schemaKey()),
+            $schema,
+        ),
         $ability,
     );
 }
@@ -157,3 +178,292 @@ it('proxies through the facade by schema key', function () {
         ->and(Warrant::alwaysHas('course_sections', 'publish', $user))->toBeTrue()
         ->and(Warrant::reachabilityOf('course_sections', 'archive', $user))->toBe(Reachability::NEVER);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Ability references — a grant that leans on another ability.
+|--------------------------------------------------------------------------
+|
+| `can(x)` may answer whatever ability x may come out as, so a grant ANDed with
+| one nothing grants is never made, while one ORed with it still might be.
+|
+*/
+
+it('is NEVER when a grant requires an ability nothing grants', function () {
+    expect(analyze('if can(publish) and is_teacher they can view', 'view'))->toBe(Reachability::NEVER)
+        ->and(analyze('if can(publish) they can view', 'view'))->toBe(Reachability::NEVER);
+});
+
+it('is MAYBE when an ability nothing grants is only one way in', function () {
+    expect(analyze('if can(publish) or is_teacher they can view', 'view'))->toBe(Reachability::MAYBE);
+});
+
+it('is MAYBE when the required ability is itself only conditionally granted', function () {
+    expect(analyze("if is_teacher they can publish\nif can(publish) and is_advisor they can view", 'view'))
+        ->toBe(Reachability::MAYBE);
+});
+
+it('is ALWAYS when a grant requires an ability that is always held', function () {
+    expect(analyze("they can publish\nif can(publish) they can view", 'view'))->toBe(Reachability::ALWAYS)
+        ->and(analyze("they can publish\nif can(publish) or is_teacher they can view", 'view'))->toBe(Reachability::ALWAYS);
+});
+
+it('follows a chain of ability references', function () {
+    expect(analyze("if can(publish) they can update\nif can(update) they can view", 'view'))->toBe(Reachability::NEVER)
+        ->and(analyze("they can publish\nif can(publish) they can update\nif can(update) they can view", 'view'))
+        ->toBe(Reachability::ALWAYS);
+});
+
+it('negates an ability reference', function () {
+    expect(analyze('if not can(publish) they can view', 'view'))->toBe(Reachability::ALWAYS)
+        ->and(analyze("they can publish\nif not can(publish) they can view", 'view'))->toBe(Reachability::NEVER);
+});
+
+it('lets a deny that can never fire leave a grant ALWAYS', function () {
+    expect(analyze("they can view\nif can(publish) they cannot view", 'view'))->toBe(Reachability::ALWAYS)
+        ->and(analyze("they can view\nif can(publish) and is_teacher they cannot view", 'view'))->toBe(Reachability::ALWAYS);
+});
+
+it('makes a deny on an ability that is always held unconditional', function () {
+    expect(analyze("they can publish\nthey can view\nif can(publish) they cannot view", 'view'))->toBe(Reachability::NEVER)
+        ->and(analyze("they can publish\nthey can view\nif can(publish) and is_teacher they cannot view", 'view'))
+        ->toBe(Reachability::MAYBE);
+});
+
+it('is MAYBE through a cycle, rather than looping', function () {
+    expect(analyze('if can(view) they can view', 'view'))->toBe(Reachability::MAYBE)
+        ->and(analyze("if can(update) they can view\nif can(view) they can update", 'view'))->toBe(Reachability::MAYBE);
+});
+
+it('is MAYBE for an ability on another schema when no rule set can be had', function () {
+    expect(analyze('if can(manage for rch_folders) they can view', 'view'))->toBe(Reachability::MAYBE);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Derived conditions — read through, not assumed.
+|--------------------------------------------------------------------------
+*/
+
+it('reads a derived condition that answers a constant', function () {
+    $schema = new RchDocSchema;
+
+    expect(analyze('if always_open they can view', 'view', $schema))->toBe(Reachability::ALWAYS)
+        ->and(analyze('if never_open they can view', 'view', $schema))->toBe(Reachability::NEVER)
+        ->and(analyze('if never_open or is_owner they can view', 'view', $schema))->toBe(Reachability::MAYBE)
+        ->and(analyze("they can view\nif never_open they cannot view", 'view', $schema))->toBe(Reachability::ALWAYS);
+});
+
+it('reads a derived condition that answers unknown as never granting', function () {
+    $schema = new RchDocSchema;
+
+    expect(analyze('if undecided they can view', 'view', $schema))->toBe(Reachability::NEVER)
+        ->and(analyze('if not undecided they can view', 'view', $schema))->toBe(Reachability::NEVER)
+        ->and(analyze('if undecided or always_open they can view', 'view', $schema))->toBe(Reachability::ALWAYS);
+});
+
+it('reads through a derived condition to the expression it answers with', function () {
+    $schema = new RchDocSchema;
+
+    expect(analyze('if owned_or_open they can view', 'view', $schema))->toBe(Reachability::ALWAYS)
+        ->and(analyze('if editable they can view', 'view', $schema))->toBe(Reachability::NEVER)
+        ->and(analyze("they can edit\nif editable they can view", 'view', $schema))->toBe(Reachability::ALWAYS);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Through the guard — references to other schemas, resolved for the user.
+|--------------------------------------------------------------------------
+*/
+
+/** @param array<string, string> $syntaxByKey */
+function bindRchRules(array $syntaxByKey): void
+{
+    $sets = [];
+    foreach ($syntaxByKey as $key => $syntax) {
+        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
+    }
+
+    app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
+        /** @param array<string, RuleSetNode> $sets */
+        public function __construct(private array $sets) {}
+
+        public function resolve(RuleResolutionContext $context): RuleSetNode
+        {
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+        }
+    });
+}
+
+function rchReachability(string $ability = 'edit'): Reachability
+{
+    return Warrant::guard(makeWarrantTestUser())->forSchema(RchDocSchema::class)->reachabilityOf($ability);
+}
+
+it('follows an unbound can(... for <schema>) into that schema\'s rules for the user', function (string $folders, Reachability $expected) {
+    bindRchRules([
+        'rch_docs' => 'if can(manage for rch_folders) they can edit',
+        'rch_folders' => $folders,
+    ]);
+
+    expect(rchReachability())->toBe($expected);
+})->with([
+    'nothing grants it' => ['', Reachability::NEVER],
+    'granted on a condition' => ['if is_owner they can manage', Reachability::MAYBE],
+    'always granted' => ['they can manage', Reachability::ALWAYS],
+]);
+
+it('could ever grant on an ability nothing grants when it is only one way in', function () {
+    bindRchRules(['rch_docs' => 'if can(manage for rch_folders) or is_owner they can edit']);
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(RchDocSchema::class);
+
+    expect($guard->couldEverHave('edit'))->toBeTrue()
+        ->and($guard->alwaysHas('edit'))->toBeFalse();
+});
+
+it('never grants on an ability nothing grants when it is required', function () {
+    bindRchRules(['rch_docs' => 'if can(manage for rch_folders) and is_owner they can edit']);
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(RchDocSchema::class);
+
+    expect($guard->couldEverHave('edit'))->toBeFalse()
+        ->and($guard->neverHas('edit'))->toBeTrue()
+        ->and($guard->impossibleAbilities())->toContain('edit');
+});
+
+it('can rule a row-bound reference out, but never guarantee it', function (string $folders, Reachability $expected) {
+    bindRchRules([
+        'rch_docs' => 'if can(manage for rch_folders(@column folder_id)) they can edit',
+        'rch_folders' => $folders,
+    ]);
+
+    expect(rchReachability())->toBe($expected);
+})->with([
+    'nothing grants it' => ['', Reachability::NEVER],
+    'always granted, but the row may be missing' => ['they can manage', Reachability::MAYBE],
+]);
+
+it('reads a can(...) inside a check(...) predicate as an ability of the schema checked', function (string $docs, string $folders, Reachability $expected) {
+    bindRchRules(['rch_docs' => $docs, 'rch_folders' => $folders]);
+
+    expect(rchReachability())->toBe($expected);
+})->with([
+    'unbound, nothing grants it' => ['if check(can(manage) for rch_folders) they can edit', '', Reachability::NEVER],
+    'unbound, always granted' => ['if check(can(manage) for rch_folders) they can edit', 'they can manage', Reachability::ALWAYS],
+    'unbound, ANDed with a condition' => ['if check(is_owner and can(manage) for rch_folders) they can edit', '', Reachability::NEVER],
+    'row-bound, nothing grants it' => ['if check(can(manage) for rch_folders(@column folder_id)) they can edit', '', Reachability::NEVER],
+    'row-bound, always granted' => ['if check(can(manage) for rch_folders(@column folder_id)) they can edit', 'they can manage', Reachability::MAYBE],
+]);
+
+it('is MAYBE through a cycle that crosses schemas', function () {
+    bindRchRules([
+        'rch_docs' => 'if can(view for rch_folders) they can view',
+        'rch_folders' => 'if can(view for rch_docs) they can view',
+    ]);
+
+    expect(rchReachability('view'))->toBe(Reachability::MAYBE);
+});
+
+it('reads derived conditions through the guard', function () {
+    bindRchRules(['rch_docs' => "if always_open they can view\nif never_open they can edit\nif editable they can publish"]);
+    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(RchDocSchema::class);
+
+    expect($guard->guaranteedAbilities())->toBe(['view'])
+        ->and($guard->possibleAbilities())->toBe(['view']);
+});
+
+// -- fixtures -----------------------------------------------------------------
+
+class RchDoc extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'rch_docs';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return RchDocSchema::class;
+    }
+}
+
+class RchDocSchema extends WarrantSchema
+{
+    public const model = RchDoc::class;
+
+    #[Ability]
+    public const VIEW = 'view';
+
+    #[Ability]
+    public const EDIT = 'edit';
+
+    #[Ability]
+    public const PUBLISH = 'publish';
+
+    #[RowCondition]
+    public function isOwner(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+    }
+
+    #[DerivedCondition]
+    public function alwaysOpen(): bool
+    {
+        return true;
+    }
+
+    #[DerivedCondition]
+    public function neverOpen(): bool
+    {
+        return false;
+    }
+
+    #[DerivedCondition]
+    public function undecided(): ?bool
+    {
+        return null;
+    }
+
+    #[DerivedCondition]
+    public function ownedOrOpen(): string
+    {
+        return 'is_owner or always_open';
+    }
+
+    #[DerivedCondition]
+    public function editable(): string
+    {
+        return 'can(edit)';
+    }
+}
+
+class RchFolder extends Model
+{
+    use HasWarrantSchema;
+
+    protected $table = 'rch_folders';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return RchFolderSchema::class;
+    }
+}
+
+class RchFolderSchema extends WarrantSchema
+{
+    public const model = RchFolder::class;
+
+    #[Ability]
+    public const VIEW = 'view';
+
+    #[Ability]
+    public const MANAGE = 'manage';
+
+    #[RowCondition]
+    public function isOwner(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+    }
+}

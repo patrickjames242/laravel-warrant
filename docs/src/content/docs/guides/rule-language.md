@@ -62,9 +62,9 @@ if is_public they can view
 if is_locked they cannot view because 'This document is locked.'
 ```
 
-A block is grouping and nothing more. It produces exactly those rules, and since
-[rule order never matters](/guides/grants-and-denials/), the two forms are
-indistinguishable to everything downstream.
+A block is grouping and nothing more. It grants and denies exactly what those
+rules do, and since [rule order never matters](/guides/grants-and-denials/), the
+two forms decide every check the same way.
 
 A header may list several abilities, or use the `*` wildcard:
 
@@ -114,10 +114,11 @@ can they view, edit {
 }
 ```
 
-:::note[Blocks do not survive parsing]
-A block is expanded into ordinary rules as it is read, so
-[`toSyntax()`](/reference/rule-building-api/) renders the longhand form rather
-than reconstructing the block.
+:::note[Blocks in the parsed tree]
+A block stays in the parsed tree as an `AbilityBlockNode` over a headless body,
+just as it was written, so [`toSyntax()`](/reference/rule-building-api/) renders
+it back as a block. It is opened up into ordinary rules only where the rules are
+read to decide a check.
 :::
 
 ## `can`, `cannot`, and how they combine
@@ -222,13 +223,13 @@ may be reused any number of times, appear anywhere in the string (even across
 rules), and array order is irrelevant.
 
 ```php
-WarrantRuleSet::fromSyntax('
+WarrantSyntax::parse('
+    for documents
     if is_specific_user(:uid) they can view
     if delegated_to(:uid) they can approve
-',
-    'documents',
-    ['uid' => $currentUserId],   // one value, used twice
-);
+', [
+    'uid' => $currentUserId,     // one value, used twice
+])->ruleSet();
 ```
 
 ### Positional bindings (`?`)
@@ -236,11 +237,10 @@ WarrantRuleSet::fromSyntax('
 Filled left-to-right across the *entire* string from a flat array.
 
 ```php
-WarrantRuleSet::fromSyntax(
-    'if in_team(?, ?) they can view',
-    'documents',
+WarrantSyntax::parse(
+    'for documents if in_team(?, ?) they can view',
     ['sales', 'eng'],            // ? ? -> 'sales', 'eng'
-);
+)->ruleSet();
 ```
 
 ### Rules for bindings — enforced at parse time
@@ -464,9 +464,42 @@ in the surrounding query and that the fragment is valid SQL for your connection.
   `[A-Za-z_][A-Za-z0-9_-]*` — start with a letter or underscore; may contain
   letters, digits, underscores, and dashes. No dots.
 
+## Naming the schema with `for`
+
+Rule text may open with a `for <schema>` header naming the schema its conditions
+and abilities belong to. The header travels with the text, so editor tooling can
+check the names; text without one is given its schema by the code that reads it.
+
+```text
+for documents
+if is_self they can view
+```
+
+One source may hold rule sets for several schemas, but then every one is braced,
+because a bare `for` body runs to the end of the input:
+
+```text
+for documents { if is_self they can view }
+for timesheets { if is_self they can view, submit }
+```
+
+A header may also stand over a single condition expression,
+`for documents is_owner or is_admin`, which scopes the names without changing the
+expression. Braces need a header in front of them, and rules with no header
+cannot be followed by a `for` block. How each form comes back from a parse is in
+the [Rule-building API](/reference/rule-building-api/#what-a-parse-returns).
+
 ## Formal grammar
 
 ```text
+syntax      = scoped | entries | expr | (* empty *) ;
+scoped      = header body
+            | ( header "{" body "}" )+ ;
+              (* the bare form runs to the end of the input, so a second rule
+                 set needs braces, and so does the first *)
+header      = "for" IDENTIFIER ;
+body        = ruleset | expr ;   (* a rule set, or a condition for that schema *)
+entries     = ruleset ;          (* headless, at least one entry *)
 ruleset     = ( clause+ | "if" expr clause+ | ability_block | include )* ;
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
 include     = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]

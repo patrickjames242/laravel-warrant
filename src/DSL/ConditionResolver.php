@@ -5,8 +5,6 @@ namespace Warrant\DSL;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
-use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 
 /**
  * The seam between a compiled {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode} and the host schema. The
@@ -49,25 +47,21 @@ interface ConditionResolver extends SchemaVocabulary
     public static function modelClass(): string;
 
     /**
-     * Dispatch a named condition, which may answer in any of four ways:
+     * Dispatch a named row or global condition, which may answer in any of three
+     * ways:
      *
      *  - Apply its predicate to $whereClause (mutating it) and return the builder.
      *  - Return a boolean, deciding the outcome outright — a global condition
      *    evaluated in PHP, or a row condition handed the row it is judging.
-     *  - Return an expression, or the {@see WarrantConditionBuilder} that composes
-     *    one, *deriving* itself from other conditions rather than emitting SQL of
-     *    its own. The compiler walks the result as though the author had written it
-     *    in the rule, so it may name this schema's conditions or, through
-     *    `can(...)` / `check(...)`, another schema's. Such an expansion is bounded
-     *    by the compiler's {@see \Warrant\DSL\Compiling\CallStack} depth budget
-     *    and not by cycle detection: compilation never reads a row, so a condition
-     *    that expands into itself has no base case to reach.
      *  - Return null, answering *unknown*: the question has no answer here. An
      *    unknown negates to itself, so it neither grants nor lifts a deny. A
      *    condition answering unknown must leave $whereClause untouched — PHP
      *    returns null from a method with no `return` statement, so the builder's
      *    state is what tells a deliberate unknown from a forgotten return, and
      *    doing both is rejected.
+     *
+     * A derived condition is never dispatched: it is expanded into its expression
+     * by {@see \Warrant\DSL\Expanding\RuleSetExpander} before anything compiles.
      *
      * @param bool $targeted Whether a target row is in scope. A row condition
      *   needs one and is rejected without it.
@@ -95,7 +89,7 @@ interface ConditionResolver extends SchemaVocabulary
         array $context = [],
         ?Model $targetModel = null,
         ?string $rowQualifier = null,
-    ): Builder|bool|IBooleanExpressionNode|WarrantConditionBuilder|null;
+    ): Builder|bool|null;
 
     /**
      * Narrow $whereClause to the row a handle's arguments name, by dispatching the
