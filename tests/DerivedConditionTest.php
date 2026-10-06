@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -113,6 +114,27 @@ it('reads a @column argument naming the caller\'s alias, which the condition can
 
 it('answers with rule text, parsed as a condition expression', function () {
     expect(dkFilterSql('if as_text they can view'))->toBe(dkFilterSql('if is_owned they can view'));
+});
+
+it('reports rule text that does not parse, naming the condition that answered with it', function () {
+    try {
+        dkFilterSql('if dangling_text they can view');
+        $this->fail('Expected the rule text to be rejected.');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toContain('Derived condition [DkDocSchema::danglingText] answered with rule text');
+        expect($e->getPrevious())->toBeInstanceOf(WarrantSyntaxException::class);
+    }
+});
+
+it('reports rule text that is not a condition expression, naming the condition that answered with it', function () {
+    expect(fn () => dkFilterSql('if rule_text they can view'))->toThrow(
+        RuntimeException::class,
+        'Derived condition [DkDocSchema::ruleText] answered with rule text that is not a condition expression',
+    );
+
+    // The parser's own account of what it found is kept.
+    expect(fn () => dkFilterSql('if rule_text they can view'))
+        ->toThrow(RuntimeException::class, 'Expected a condition expression, but the source holds a single rule');
 });
 
 it('answers with a constant, deciding the outcome outright', function () {
@@ -346,6 +368,20 @@ class DkDocSchema extends WarrantSchema
         self::$asTextCalls++;
 
         return 'is_owned';
+    }
+
+    /** Rule text that stops halfway. */
+    #[DerivedCondition]
+    public function danglingText(): string
+    {
+        return 'is_owned and';
+    }
+
+    /** Rule text for a whole rule, where an expression was wanted. */
+    #[DerivedCondition]
+    public function ruleText(): string
+    {
+        return 'if is_owned they can view';
     }
 
     #[DerivedCondition]

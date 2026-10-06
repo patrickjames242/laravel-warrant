@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Expanding;
 
 use InvalidArgumentException;
+use LogicException;
 use OutOfBoundsException;
 use RuntimeException;
 use Warrant\Builders\WarrantConditionBuilder;
@@ -18,6 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\WarrantRuleTemplate;
@@ -297,7 +299,7 @@ final class RuleSetExpander
 
         return match (true) {
             $answer instanceof IBooleanExpressionNode => $answer,
-            is_string($answer) => WarrantSyntax::parse($answer)->conditionExpression(),
+            is_string($answer) => $this->parseDerivedText($answer, $schema, $definition),
             is_bool($answer) => new BooleanNode($answer),
             $answer === null => new UnknownNode,
             default => throw new RuntimeException(sprintf(
@@ -309,6 +311,28 @@ final class RuleSetExpander
                 get_debug_type($answer),
             )),
         };
+    }
+
+    /**
+     * The rule text a derived condition answered with, parsed as a condition
+     * expression.
+     *
+     * Text that does not parse, or parses to something other than an expression,
+     * is the condition's mistake, but the parser can only point at a position in
+     * the text. Naming the method that answered with it is what makes it findable.
+     */
+    private function parseDerivedText(string $text, SchemaVocabulary $schema, ConditionDefinition $definition): IBooleanExpressionNode
+    {
+        try {
+            return WarrantSyntax::parse($text)->conditionExpression();
+        } catch (WarrantSyntaxException|LogicException $e) {
+            throw new RuntimeException(sprintf(
+                "Derived condition [%s::%s] answered with rule text that is not a condition expression:\n\n%s",
+                $schema::class,
+                $definition->methodName,
+                $e->getMessage(),
+            ), previous: $e);
+        }
     }
 
     /**
