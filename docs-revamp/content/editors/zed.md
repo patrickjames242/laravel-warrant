@@ -36,6 +36,11 @@ $rules = Warrant::parse(<<<'WARRANT'
 WARRANT)->ruleSet();
 ```
 
+A plain string passed to `warrant('...')` or `Warrant::parse('...')` is not
+highlighted in Zed. The injections into PHP belong to Zed's PHP extension, which
+keys them on the heredoc label, so a `WARRANT` heredoc is the way to get rule text
+highlighted there.
+
 ## SQL inside `@sql`
 
 The one thing Zed does that the TextMate editors cannot. A tree-sitter grammar can

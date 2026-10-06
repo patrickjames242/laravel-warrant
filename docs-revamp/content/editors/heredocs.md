@@ -2,13 +2,18 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Highlighting rules in PHP
-description: The WARRANT heredoc label, and how to write rule text inside PHP.
+description: What makes rule text inside PHP highlight, and how to write it.
 sidebar:
   order: 5
 ---
 
-Rule text inside PHP is highlighted when the heredoc's label is `WARRANT`. That
-label is the whole mechanism: the injection grammar matches on it.
+Rule text inside PHP is highlighted in two places: a heredoc labelled `WARRANT`,
+wherever it stands, and a string passed where the package expects rule text.
+
+## The `WARRANT` label
+
+A heredoc or nowdoc whose label is `WARRANT` is highlighted as rule text, whatever
+it is passed to:
 
 ```php
 use Warrant\Facades\Warrant;
@@ -21,8 +26,43 @@ $rules = Warrant::parse(<<<'WARRANT'
 WARRANT)->ruleSet();
 ```
 
-Automatic in VS Code and Zed. PhpStorm needs a
-[Language Injection rule](/editors/phpstorm/) or an `@lang` annotation.
+This works in VS Code, PhpStorm and Zed.
+
+## Strings where rule text is expected
+
+In VS Code and PhpStorm, the rule-text argument of a parsing call is highlighted
+without any label. It may be a single- or double-quoted string, or a heredoc with
+any label:
+
+```php
+warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression();
+
+Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
+
+Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+```
+
+The calls that count are `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
+`WarrantParser::parse()`, and a builder's `ifRaw()` and `orIfRaw()`. The argument
+is recognised when it is passed first or by its parameter name. A variable or a
+concatenation is plain PHP, since there is no rule text to see until it runs.
+
+PhpStorm also highlights a string a schema method returns as rule text: from
+`rules()` on a schema or a [rule provider](/supplying-rules/provider/), and from a
+`#[DerivedCondition]` or `#[RuleTemplate]` method, alone or inside a returned array:
+
+```php
+#[DerivedCondition]
+public function isEditable(): string
+{
+    return 'is_mine and not is_locked';
+}
+```
+
+VS Code cannot do that one. Its grammar reads text a line at a time and cannot
+tell which method a `return` belongs to, so there a returned string needs the
+`WARRANT` label. Zed highlights `WARRANT` heredocs only, because the injections
+into PHP belong to Zed's PHP extension.
 
 ## Prefer the nowdoc
 
@@ -95,7 +135,7 @@ Anything reading your source, including a future language server, can check the
 first against a schema and cannot check the second. A header that disagrees with
 `scopedTo()` is an error, so there is no ambiguity in having both.
 
-## Where a heredoc is the right home
+## Where rule text in PHP is the right home
 
 Rules that belong in your repository and change with deploys: a base policy, a
 schema's own rules, the rules for a role that is part of the product rather

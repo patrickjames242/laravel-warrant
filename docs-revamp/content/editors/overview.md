@@ -13,12 +13,12 @@ in sync.
 
 ## What each editor has
 
-| Editor | Highlighting | Heredoc injection | SQL inside `@sql` |
-|---|---|---|---|
-| [VS Code](/editors/vscode/) | yes | automatic | no |
-| [PhpStorm](/editors/phpstorm/) | yes | needs setup | no |
-| [Zed](/editors/zed/) | yes | automatic | yes, with a SQL extension |
-| Sublime Text | yes | no | no |
+| Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | SQL inside `@sql` |
+|---|---|---|---|---|---|
+| [VS Code](/editors/vscode/) | yes | yes | yes | no | no |
+| [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | no |
+| [Zed](/editors/zed/) | yes | yes | no | no | yes, with a SQL extension |
+| Sublime Text | yes | no | no | no | no |
 
 Highlighting is step one. Diagnostics, hover, and completion are
 [on the roadmap](/roadmap/planned/).
@@ -26,8 +26,8 @@ Highlighting is step one. Diagnostics, hover, and completion are
 ## Two grammars
 
 `editors/vscode/syntaxes/warrant.tmLanguage.json` is the canonical TextMate
-grammar. VS Code, PhpStorm, and Sublime all read TextMate, so for those three
-everything else is just pointing the editor at that file.
+grammar. VS Code and Sublime read it directly. PhpStorm has a small native plugin,
+in `editors/phpstorm/`, whose lexer mirrors the same token rules.
 
 Zed is the exception. It has no TextMate support: every language it highlights is
 defined by a tree-sitter grammar, a real generated parser, plus queries mapping the
@@ -61,8 +61,18 @@ $rules = Warrant::parse(<<<'WARRANT'
 WARRANT)->ruleSet();
 ```
 
-That works automatically in VS Code and Zed. PhpStorm needs a Language Injection
-rule, which is [one dialog](/editors/phpstorm/).
+That works in VS Code, PhpStorm and Zed.
+
+**A string where rule text is expected**, in VS Code and PhpStorm: the first
+argument of `warrant()`, `Warrant::parse()` and the other parsing calls, with no
+label needed:
+
+```php
+warrant('is_owner or in_team(:team)', ['team' => $team]);
+```
+
+PhpStorm also highlights rule text a schema method returns. See
+[highlighting rules in PHP](/editors/heredocs/) for exactly what counts.
 
 ## Not shipped with the package
 

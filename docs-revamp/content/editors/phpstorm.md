@@ -2,24 +2,33 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: PhpStorm
-description: Importing the TextMate bundle, and injecting the language into heredocs.
+description: Installing the plugin, and where it highlights rule text.
 sidebar:
   order: 3
 ---
 
-PhpStorm and the other IntelliJ IDEs read TextMate grammars, so the same grammar
-VS Code uses works here. It is two pieces of setup rather than an extension
-install.
+PhpStorm has a native plugin, in `editors/phpstorm/` in the repository. It
+registers Warrant as a language, highlights `.warrant` files, and injects the
+language into the PHP strings that hold rule text, with nothing to configure.
 
 See `editors/phpstorm/README.md` in the repository for the current details.
 
-## 1. Import the grammar
+## Install
 
-Settings, then Editor, then TextMate Bundles. Add the `editors/vscode` directory
-from the repository: the bundle format is close enough that PhpStorm reads the
-extension folder directly.
+Build the plugin from a checkout:
 
-That gets `.warrant` files highlighted immediately.
+```bash
+cd editors/phpstorm
+./gradlew buildPlugin
+```
+
+That produces `build/distributions/warrant-phpstorm-<version>.zip`. In PhpStorm,
+open Settings, then Plugins, then the gear menu, then Install Plugin from Disk,
+pick the zip, and restart the IDE.
+
+## What it covers
+
+**`.warrant` files**, by extension:
 
 ```warrant
 for documents {
@@ -28,25 +37,42 @@ for documents {
 }
 ```
 
-## 2. Inject into heredocs
-
-PhpStorm does not inject by heredoc label on its own, so `WARRANT` heredocs need a
-Language Injection rule.
-
-Settings, then Editor, then Language Injections, then add a PHP injection matching
-heredocs whose label is `WARRANT`, with Warrant as the injected language.
-
-The quick version, per occurrence, is the `@lang` annotation comment, which also
-documents the intent for anyone reading the file:
+**`WARRANT` heredocs in PHP**, wherever they stand:
 
 ```php
-/** @lang Warrant */
-$rules = <<<'WARRANT'
+$rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT;
+WARRANT)->ruleSet();
 ```
+
+**Rule-text arguments**: the first argument of `warrant()`, `Warrant::parse()`,
+`WarrantSyntax::parse()`, `WarrantParser::parse()`, and a builder's `ifRaw()` and
+`orIfRaw()`, as a quoted string or a heredoc of any label, passed first or by
+name:
+
+```php
+warrant('is_owner or in_team(:team)', ['team' => $team]);
+Warrant::parse(syntax: 'for documents { if is_mine they can view }');
+Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+```
+
+**Returned rule text**: a string returned, alone or inside a returned array, from
+`rules()` on a schema or a [rule provider](/supplying-rules/provider/), or from a
+`#[DerivedCondition]` or `#[RuleTemplate]` method:
+
+```php
+#[DerivedCondition]
+public function isEditable(): string
+{
+    return 'is_mine and not is_locked';
+}
+```
+
+The plugin reads PHP's own syntax tree, so it knows which call an argument
+belongs to and which method a `return` is in. That is why it covers returned
+rule text, which the [VS Code](/editors/vscode/) grammar cannot.
 
 ## What you get
 
@@ -55,11 +81,12 @@ placeholders, string literals, comments, and names.
 
 ## What you do not
 
-No diagnostics, no completion, no go-to-definition on a condition name. A TextMate
-grammar is a lexer and knows nothing about your schemas.
+No diagnostics, no completion, no go-to-definition on a condition name. The
+plugin's parser is deliberately flat: it exists to carry the highlighting and
+knows nothing about your schemas.
 
-A native plugin backed by a language server is [planned](/roadmap/planned/), and
-PhpStorm is one of the two editors it is designed for.
+A language server is [planned](/roadmap/planned/), and PhpStorm is one of the two
+editors it is designed for.
 
 ## Until then
 

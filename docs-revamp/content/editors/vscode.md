@@ -7,8 +7,9 @@ sidebar:
   order: 2
 ---
 
-The extension bundles the canonical TextMate grammar plus a PHP heredoc injection,
-so both places you write rules are highlighted with nothing to configure.
+The extension bundles the canonical TextMate grammar plus a PHP injection grammar,
+so rule text is highlighted in `.warrant` files and inside PHP with nothing to
+configure.
 
 ## Install
 
@@ -48,6 +49,19 @@ $rules = Warrant::parse(<<<'WARRANT'
     }
 WARRANT)->ruleSet();
 ```
+
+**Rule-text arguments in PHP**: the first argument of `warrant()`,
+`Warrant::parse()`, `WarrantSyntax::parse()`, `WarrantParser::parse()`, and a
+builder's `ifRaw()` and `orIfRaw()`, as a quoted string or a heredoc of any label:
+
+```php
+warrant('is_owner or in_team(:team)', ['team' => $team]);
+Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+```
+
+A string returned from `rules()` or a `#[DerivedCondition]` method is not
+highlighted unless it is a `WARRANT` heredoc: a TextMate grammar cannot tell which
+method a `return` belongs to. [PhpStorm](/editors/phpstorm/) can.
 
 The nowdoc form with quoted `'WARRANT'` is the one to prefer, since rule text
 should not be interpolating PHP variables. Values belong in
