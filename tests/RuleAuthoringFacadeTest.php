@@ -64,6 +64,25 @@ it('parses a file through parseFile', function () {
     }
 });
 
+// -- the global helpers ---------------------------------------------------------
+
+it('parses through warrant() exactly as Warrant::parse does', function () {
+    expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1']))
+        ->toEqual(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1']));
+});
+
+it('parses a file through warrant_file(), with the extension left off', function () {
+    $base = sys_get_temp_dir().'/'.uniqid('warrant_', true);
+    file_put_contents($base.'.warrant', 'for timesheets { if is_owner(:id) they can view }');
+
+    try {
+        expect(warrant_file($base, ['id' => 'x-1']))
+            ->toEqual(Warrant::parseFile($base.'.warrant', ['id' => 'x-1']));
+    } finally {
+        unlink($base.'.warrant');
+    }
+});
+
 // -- the language-server case: the schema lives in the string ------------------
 
 it('takes the schema from the string\'s own for header', function () {

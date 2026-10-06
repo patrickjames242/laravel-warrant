@@ -36,6 +36,17 @@ a `.warrant` file; the extension may be left off, and a path naming no file is
 read with `.warrant` appended. `condition()` and `rule()` take no arguments and
 return the fluent builder for each.
 
+`parse()` and `parseFile()` are also global helpers, taking the same arguments
+and returning the same `WarrantSyntax`:
+
+```php
+warrant(string $syntax, array $bindings = []): WarrantSyntax;     // = Warrant::parse
+warrant_file(string $path, array $bindings = []): WarrantSyntax;  // = Warrant::parseFile
+
+warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression();
+warrant_file(resource_path('warrant/documents'))->ruleSet();
+```
+
 ```php
 Warrant::parse('is_owner or is_admin')->conditionExpression();            // IBooleanExpressionNode
 Warrant::parse('if is_self they can view')->rule();                        // WarrantRuleNode
