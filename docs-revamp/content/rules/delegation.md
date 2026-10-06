@@ -29,7 +29,9 @@ for documents {
 Change who may edit and the other two follow.
 
 Nothing is crossed, so there is no boundary to declare: the check-time context
-comes along unchanged, and the form takes no `with` map and no `as`. It emits no
+comes along unchanged, and the form takes no `with` map and no `as`. If that
+context lacks a key the named ability requires, the reference answers unknown
+rather than throwing. It emits no
 subquery either. The named ability's predicate compiles straight into the frame the
 reference sits in, so the whole chain above collapses to a single
 `documents.owner_id = ? or documents.editor_id = ?`.
@@ -54,7 +56,9 @@ if can(edit for projects(@column project_id) with tenant_id = @context tenant_id
 they can edit
 ```
 
-See [context across boundaries](/concepts/context/across-boundaries/).
+A key the other schema requires that neither the `with` map nor its defaults
+supply throws when the rule compiles. See
+[context across boundaries](/concepts/context/across-boundaries/).
 
 ## Delegating downward
 

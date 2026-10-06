@@ -179,10 +179,11 @@ if can(view for folders(@column folder_id) with tenant_id = @context tenant_id)
 they can view
 ```
 
-A target with no default for the key, and no `with` to supply it, sees it absent.
-Since `#[RequiredContext]` is not enforced at a boundary, that shows up as a
-condition comparing against `null`, which grants nothing. If you are scoping by
-tenant, give every tenant-scoped schema the default, and audit your hops for the
+A target that requires the key, has no default for it, and gets no `with` to
+supply it throws when the rule compiles, naming the reference to fix. A target
+that does not require it sees it absent, which shows up as a condition comparing
+against `null` and grants nothing. If you are scoping by tenant, require the key
+and give it a default on every tenant-scoped schema, and audit your hops for the
 `with` clause wherever a check may name a tenant other than the current one.
 
 ## Testing

@@ -163,9 +163,13 @@ they can submit
 That is a case where forgetting the `with` is easy and the failure is quiet, since
 the target falls back to the real `now()` and behaves almost right. It goes wrong
 only when the check was made with a different clock, such as a report run for last
-month: `timesheets` is judged at that time and `pay_periods` at this one. A
-`#[RequiredContext]` on the target does not catch it, because a boundary does not
-enforce required context, so the `with` is the only guard.
+month: `timesheets` is judged at that time and `pay_periods` at this one. If the
+clock matters, require it on the target schema, with no default, so a reference
+that forgets the `with` throws instead:
+
+```php
+#[RequiredContext] public const NOW = 'now';
+```
 
 ## Watch the null
 

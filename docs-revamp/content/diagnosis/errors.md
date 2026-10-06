@@ -179,6 +179,15 @@ See [depth and cycles](/diagnosis/depth-and-cycles/).
 Schema [%s] requires context key(s) [%s]; supply them at the check or via defaultContext().
 ```
 
+From a `can(... for <schema>)` or `check(... for <schema>)` whose bag, the
+referenced schema's defaults and the `with` map, lacks a required key, while the
+rule compiles:
+
+```text
+Schema [%s] requires context key(s) [%s]; pass them in the `with` map of the reference to [%s], or via its defaultContext().
+Ability [%s] requires context key(s) [%s]; pass them in the `with` map of the reference to [%s], or via its defaultContext().
+```
+
 An *optional* key that is absent does not throw. It is passed to its condition as
 `null`, and standard SQL logic applies, which is fail-closed.
 

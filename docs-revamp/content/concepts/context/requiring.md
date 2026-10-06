@@ -64,6 +64,20 @@ because one ability wanted a frame nobody supplied:
 Warrant::abilities($document);   // 'publish' is simply absent from the list
 ```
 
+## Inside a rule
+
+A `can(...)` or `check(...)` in rule text is not a check, and how it treats a
+missing required key depends on where its context comes from.
+
+A `can(publish)` of the same schema keeps the context the check was given. A key it
+lacks is one the caller did not pass, so the reference answers unknown, which
+neither grants nor lifts a deny.
+
+A `can(... for <schema>)` or `check(... for <schema>)` hands the other schema only
+its own defaults and the `with` map. A required key missing from those throws,
+because only the rule text can supply it. See
+[context across boundaries](/concepts/context/across-boundaries/#required-keys-at-the-boundary).
+
 ## Your own ability attribute
 
 When the required context follows from something you would rather say once, write

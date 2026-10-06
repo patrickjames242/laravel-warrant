@@ -55,15 +55,26 @@ they can view
 A key in the map overrides any default the target gives it. Duplicate keys in one
 map are a syntax error.
 
-## What the boundary does not do
+## Required keys at the boundary
 
-The boundary is not a check entry point. The target's `defaultContext()` is
-applied, under the map, but its `#[RequiredContext]` declarations are not enforced.
-Those belong to the check APIs.
+The bag is exactly the target's defaults and the map. A key the target requires,
+by `#[RequiredContext]` or on the ability a `can(...)` names, must be in it, or the
+rule throws when it compiles:
 
-The bag is exactly the target's defaults and the map. A key you forget, and the
-target gives no default, is simply absent, and an absent optional key is
-fail-closed: it can remove access, never restore it.
+```text
+Schema [App\Warrant\FolderSchema] requires context key(s) [tenant_id]; pass them in
+the `with` map of the reference to [folders], or via its defaultContext().
+```
+
+That is always a mistake in the rule text. The caller's context never crosses, so
+no context passed to a check could supply the key. Only the `with` map or the
+target's own default can.
+
+A `with` entry whose value is an absent `@context` key still supplies the key, as
+`null`. The rule named it, and the value is the caller's to pass.
+
+A key the target does not require that you forget is simply absent, and an absent
+optional key is fail-closed: it can remove access, never restore it.
 
 :::caution[`for` is what resets the context]
 These two are not the same rule.
@@ -92,6 +103,8 @@ for documents {
 ```
 
 Nothing is crossed, so it takes no `with` map and no `as`, the context comes along
-unchanged, and it emits no subquery. The named ability's predicate compiles
+unchanged, and it emits no subquery. If that context lacks a key the named ability
+requires, the caller did not pass it, so the reference answers unknown rather than
+throwing: it neither grants nor lifts a deny. The named ability's predicate compiles
 straight into the frame the reference sits in, so the whole chain above collapses
 to one `documents.owner_id = ?`.
