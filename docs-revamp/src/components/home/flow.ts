@@ -24,9 +24,9 @@ export interface Box {
 
 /**
  * Where an element is laid out on the page, ignoring any transform on it or its
- * ancestors. The choreography slides and scales things as they appear, and a
- * path measured mid-animation would point at where they were passing through
- * rather than where they come to rest.
+ * ancestors. The hero's intro and a question's new panels slide in as they
+ * appear, and a path measured mid-animation would point at where they were
+ * passing through rather than where they come to rest.
  */
 export function layoutBox(element: HTMLElement): Box {
   let left = 0

@@ -16,8 +16,8 @@ export const REVEAL_LENGTH = 1000
  * same path whose single dash covers its whole length: with `pathLength` set to
  * `REVEAL_LENGTH`, a `stroke-dashoffset` of that much hides the line and 0 shows
  * all of it, whatever its real length or shape. The mask's path carries
- * `data-flow-reveal`, which is what the choreography animates; with no offset
- * set, the line shows in full.
+ * `data-flow-reveal`, which is what a question's redraw animates; with no
+ * offset set, the line shows in full.
  *
  * `d` may be left out and set on both paths directly, for a line whose shape is
  * measured rather than rendered.

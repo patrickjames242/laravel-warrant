@@ -8,7 +8,7 @@ import { Fit } from '../components/home/Fit'
 import { FlowBridge } from '../components/home/FlowBridge'
 import { Hero } from '../components/home/Hero'
 import { MentalModel } from '../components/home/MentalModel'
-import { useFlowChoreography } from '../components/home/useFlowChoreography'
+import { useHeroIntro } from '../components/home/useHeroIntro'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -16,7 +16,7 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   const flow = useRef<HTMLDivElement>(null)
-  useFlowChoreography(flow)
+  useHeroIntro(flow)
 
   useEffect(() => {
     document.title = 'Laravel Warrant · Row-level authorization for Laravel'

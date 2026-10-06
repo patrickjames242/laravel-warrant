@@ -279,7 +279,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
   return (
     <div className="mx-auto max-w-260 min-w-0 flex-[1_1_100%]">
-      <div data-choreo="rules" className="overflow-hidden rounded-[17px] border border-line-4 bg-pane shadow-pane light:border-pane-edge">
+      <div className="overflow-hidden rounded-[17px] border border-line-4 bg-pane shadow-pane light:border-pane-edge">
         <div className="flex items-center gap-2.5 border-b border-line-2 light:border-pane-edge px-4 py-3 font-mono text-xs leading-none font-medium text-sand">
           <span className="size-1.75 rounded-full bg-coral" />
           DOCUMENT RULES
@@ -293,7 +293,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         />
       </div>
 
-      <div ref={fanRef} data-choreo="fan" aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
+      <div ref={fanRef} aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
         <Connector height={ELBOW_HEIGHT}>
           {/*
             Keyed by the tab each branch leads to, not by where it lands, so a
@@ -321,7 +321,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
               key={key}
               type="button"
               role="tab"
-              data-choreo="tab"
               aria-selected={on}
               onClick={() => {
                 if (on) return
@@ -355,7 +354,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 
       <div
         ref={toCodeRef}
-        data-choreo="to-code"
         aria-hidden="true"
         className="relative"
         style={{ height: ELBOW_HEIGHT }}
@@ -366,14 +364,13 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         <Dot />
       </div>
 
-      <div ref={codeRef} data-choreo="code" className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-edge">
+      <div ref={codeRef} className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-edge">
         <PanelHeading title="YOUR CODE" aside="php" />
         <CodeLines source={mode.code} language="php" gutter={44} className="py-3 text-[15px] leading-[1.7]" />
       </div>
 
       <div
         ref={toOutputRef}
-        data-choreo="to-output"
         aria-hidden="true"
         className="relative"
         style={{ height: DROP_HEIGHT }}
@@ -387,7 +384,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
       <div
         ref={outputRef}
         data-flow-start
-        data-choreo="output"
         className="overflow-hidden rounded-[17px] border border-line-2 bg-pane shadow-pane light:border-pane-edge"
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line-2 bg-pane-head px-3.5 py-1.5 light:border-pane-edge">

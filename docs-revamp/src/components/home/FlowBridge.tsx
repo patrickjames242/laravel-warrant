@@ -62,9 +62,9 @@ export function FlowBridge() {
     const resized = new ResizeObserver(draw)
     resized.observe(frame)
     resized.observe(start)
-    // The timeline places its nodes by setting their `top` after it measures. The
-    // choreography animates their transform through the same style attribute,
-    // which moves nothing that is measured here, so only a new `top` redraws.
+    // The timeline places its nodes by setting their `top` after it measures.
+    // Anything else written to the same style attribute moves nothing measured
+    // here, so only a new `top` redraws.
     let placedAt = end.style.top
     const moved = new MutationObserver(() => {
       if (end.style.top === placedAt) return
@@ -82,7 +82,6 @@ export function FlowBridge() {
   return (
     <svg
       ref={svg}
-      data-choreo="bridge"
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 z-1 size-full overflow-visible"
     >
