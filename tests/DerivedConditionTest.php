@@ -14,6 +14,7 @@ use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -90,6 +91,19 @@ it('reads a @column argument with the caller\'s names, not the condition\'s', fu
     expect(dkFilterSql('if check(owner_matches(@column dk_docs.owner_id) for dk_docs(@column id) as other) they can view'))
         ->toBe(dkFilterSql('if check(owner_is_column(@column dk_docs.owner_id) for dk_docs(@column id) as other) they can view'))
         ->toContain('"other"."owner_id" = "dk_docs"."owner_id"');
+});
+
+it('keeps the caller\'s reading of a @column passed on through a second derived condition', function () {
+    /* owner_matches_again hands its argument to owner_matches, which hands it to
+       the row condition. Both bodies bind `dk_docs` to `other`; the argument still
+       means the caller's outer row. */
+    $rule = 'if check(owner_matches_again(@column dk_docs.owner_id) for dk_docs(@column id) as other) they can view';
+
+    expect(dkFilterSql($rule))
+        ->toBe(dkFilterSql('if check(owner_is_column(@column dk_docs.owner_id) for dk_docs(@column id) as other) they can view'))
+        ->toContain('"other"."owner_id" = "dk_docs"."owner_id"');
+
+    expect(fn () => validateDkExpanded($rule))->not->toThrow(Exception::class);
 });
 
 it('reads a @column argument naming the caller\'s alias, which the condition cannot see', function () {
@@ -169,6 +183,40 @@ it('refuses to compile a derived condition nobody expanded', function () {
             new ExpandedRuleSet('dk_docs', [$rule]),
         )->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'reached the compiler unexpanded');
+});
+
+// -- validating the expansion ------------------------------------------------
+
+function validateDkExpanded(string $syntax): void
+{
+    $expanded = (new RuleSetExpander)->expand(WarrantSyntax::parse($syntax)->scopedTo('dk_docs'), new DkDocSchema);
+
+    (new RuleSetValidator(new DkDocSchema, 'dk_docs'))->validateExpanded($expanded);
+}
+
+it('validates the expression a derived condition answered with', function () {
+    expect(fn () => validateDkExpanded('if misspelled they can view'))
+        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
+});
+
+it('validates a derived condition\'s expression under its own names, not the caller\'s', function () {
+    expect(fn () => validateDkExpanded('if check(names_other for dk_docs(@column id) as other) they can view'))
+        ->toThrow(InvalidArgumentException::class, 'names [other], which is not in scope here');
+});
+
+it('validates a @column argument with the caller\'s names', function () {
+    expect(fn () => validateDkExpanded(
+        'if check(owner_matches(@column other.tenant_id) for dk_docs(@column id) as other) they can view'
+    ))->not->toThrow(Exception::class);
+});
+
+it('accepts a derived condition answering with a constant inside a check(...) predicate', function () {
+    // The predicate's own text may not be a constant; a condition's answer may.
+    expect(fn () => validateDkExpanded('if check(yes for dk_docs(@column id)) they can view'))
+        ->not->toThrow(Exception::class);
+
+    expect(fn () => validateDkExpanded('if check(unanswerable for dk_docs(@column id)) they can view'))
+        ->not->toThrow(Exception::class);
 });
 
 // -- a row or global condition answers with SQL, a constant or unknown --------
@@ -266,10 +314,30 @@ class DkDocSchema extends WarrantSchema
         return WarrantSyntax::parse('owner_is_column(:column)', ['column' => $column])->conditionExpression();
     }
 
+    /** Passes its argument on to another derived condition. */
+    #[DerivedCondition]
+    public function ownerMatchesAgain(mixed $column): IBooleanExpressionNode
+    {
+        return WarrantSyntax::parse('owner_matches(:column)', ['column' => $column])->conditionExpression();
+    }
+
     #[RowCondition]
     public function ownerIsColumn(RowConditionContext $c, mixed $column): BuilderContract
     {
         return $c->query->where($c->row('owner_id'), '=', $column);
+    }
+
+    #[DerivedCondition]
+    public function misspelled(): string
+    {
+        return 'no_such_condition';
+    }
+
+    /** Names a frame only the calling rule's text could have known about. */
+    #[DerivedCondition]
+    public function namesOther(): string
+    {
+        return 'owner_is_column(@column other.owner_id)';
     }
 
     #[DerivedCondition]

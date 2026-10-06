@@ -6,6 +6,8 @@ use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -88,13 +90,29 @@ final class RuleSetValidator
                 continue;
             }
 
-            $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
+            $this->validateRule($rule);
+        }
+    }
 
-            $this->assertNoDuplicateCannotAbility($rule);
+    /**
+     * Validate a rule set after expansion: every rule a template supplied, and
+     * every derived condition's expression, read as the compiler will read them.
+     */
+    public function validateExpanded(ExpandedRuleSet $ruleSet): void
+    {
+        foreach ($ruleSet->rules as $rule) {
+            $this->validateRule($rule);
+        }
+    }
 
-            if ($rule->conditions !== null) {
-                $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
-            }
+    private function validateRule(WarrantRuleNode $rule): void
+    {
+        $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
+
+        $this->assertNoDuplicateCannotAbility($rule);
+
+        if ($rule->conditions !== null) {
+            $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
         }
     }
 
@@ -202,30 +220,72 @@ final class RuleSetValidator
      *   selected until a compile, and only the names matter here.
      * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
      *   predicate this is, or null for a rule's own expression.
+     * @param bool $inDerivedBody Whether $node is part of a derived condition's
+     *   expression rather than text written in the predicate itself.
      */
     private function validateExpression(
         IBooleanExpressionNode $node,
         SchemaVocabulary $vocabulary,
         AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
+        bool $inDerivedBody = false,
     ): void {
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $scope, $predicateOf),
+            $node instanceof DerivedConditionNode => $this->validateDerivedCondition($node, $vocabulary, $scope, $predicateOf),
             $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $scope),
-            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf): void {
-                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf);
-                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf);
+            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf, $inDerivedBody),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf, $inDerivedBody): void {
+                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf, $inDerivedBody);
+                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf, $inDerivedBody);
             })(),
             /* A rule may be written around a constant; a predicate may not, because
-               a `check(...)` that decides itself asks the target nothing. */
-            default => $predicateOf === null ? null : throw new InvalidArgumentException(sprintf(
+               a `check(...)` that decides itself asks the target nothing. A derived
+               condition answering with a constant or unknown is another matter: that
+               is the condition's answer, decided by its author, wherever it is
+               asked. */
+            default => $predicateOf === null || $inDerivedBody ? null : throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
                 $predicateOf->schemaKey,
             )),
         };
+    }
+
+    /**
+     * Validate an expanded derived condition: its arguments where the caller wrote
+     * them, and its expression under the condition's own names, as the compiler
+     * reads it.
+     *
+     * The expression's author cannot see where the condition is reached from, so
+     * it is checked in a fresh scope binding only its own schema's key, to the
+     * frame it was asked about — the scope {@see \Warrant\DSL\Compiling\RuleSetCompiler}
+     * compiles it under. A `@column` argument is the caller's text, so it is read
+     * in the caller's scope first and keeps that answer wherever the expression
+     * passes it on.
+     *
+     * Its name and argument count were settled by the expansion that produced it.
+     */
+    private function validateDerivedCondition(
+        DerivedConditionNode $node,
+        SchemaVocabulary $vocabulary,
+        AliasScope $scope,
+        ?CrossSchemaConditionNode $predicateOf,
+    ): void {
+        $this->assertColumnRefsInScope($node->parameters, $scope);
+
+        $scope = $scope->forwardingColumns($node->parameters);
+
+        $this->validateExpression(
+            $node->body,
+            $vocabulary,
+            $vocabulary::hasRows()
+                ? $scope->enteringRuleSet($predicateOf?->schemaKey ?? $this->schemaKey, null)
+                : $scope->enteringRowlessRuleSet(),
+            $predicateOf,
+            inDerivedBody: true,
+        );
     }
 
     /**
@@ -608,7 +668,7 @@ final class RuleSetValidator
                    is the mistake, and a name bound to nothing is a frame no compile
                    selected here, which is not. A null alias asks about this frame's
                    own rows and is answered without a name at all. */
-                $scope->resolve($argument->alias);
+                $scope->resolveColumn($argument);
             }
         }
     }
