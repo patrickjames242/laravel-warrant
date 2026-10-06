@@ -303,9 +303,8 @@ final class RuleSetCompiler
      * Assert the schema being compiled declares $ability.
      *
      * The compiler's own guard against a name that resolves to nothing, held
-     * separately from validation because the two see different things: validation
-     * reads the rule text before it is expanded, and cannot see an ability a
-     * derived condition's expression names in a `can(...)`. Both paths reach
+     * separately from validation because nothing makes validation run: a rule set
+     * can reach a compile without the guard that validates it. Both paths reach
      * here.
      *
      * A rule may still grant an ability with `*`, which is why this asks the schema
@@ -962,9 +961,8 @@ final class RuleSetCompiler
      *  - an alias on a handle that selects no rows, leaving the name standing for
      *    nothing.
      *
-     * Validation makes the same three checks over rule text. This is the same
-     * reasoning applied where a handle a derived condition's expression built also
-     * arrives, which validation never sees.
+     * Validation makes the same three checks over the expanded rule set. They are
+     * made again here for a rule set that reached the compile without it.
      */
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,

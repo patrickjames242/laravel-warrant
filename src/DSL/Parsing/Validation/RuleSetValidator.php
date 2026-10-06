@@ -9,12 +9,14 @@ use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -74,17 +76,43 @@ final class RuleSetValidator
 
     /**
      * Validate every condition and ability name in the rule set against the
-     * schema. Throws {@see InvalidArgumentException} on the first unknown name.
-     *
-     * The set is expanded first and the expansion validated, so a block's
-     * abilities are checked through the rules they end up on, and a template's
-     * body and a derived condition's expression are checked like anything written
-     * in the rule. An include naming a template the schema does not declare, or
-     * giving it too few arguments, is rejected by the expansion itself.
+     * schema, as written and then expanded. Throws {@see InvalidArgumentException}
+     * on the first unknown name.
      */
     public function validate(RuleSetNode $ruleSet): void
     {
+        $this->validateWritten($ruleSet);
+
         $this->validateExpanded((new RuleSetExpander)->expand($ruleSet, $this->schema));
+    }
+
+    /**
+     * Validate a rule set as written, before expansion: every rule, and the
+     * abilities every block header and include names.
+     *
+     * Those abilities are checked here, where they are written, because the
+     * expansion only carries them on the rules they end up on, and an empty block
+     * or a template with an empty body puts them on none. An include naming a
+     * template the schema does not declare, or giving it too few arguments, is the
+     * expansion's to reject.
+     */
+    public function validateWritten(RuleSetNode $ruleSet): void
+    {
+        foreach ($ruleSet->entries as $entry) {
+            if ($entry instanceof AbilityBlockNode) {
+                $this->assertAbilitiesDeclared($entry->abilities);
+
+                foreach ($entry->entries as $blockEntry) {
+                    if ($blockEntry instanceof WarrantRuleNode) {
+                        $this->validateRule($blockEntry);
+                    }
+                }
+            } elseif ($entry instanceof IncludeInvocationNode) {
+                $this->assertAbilitiesDeclared($entry->abilities);
+            } elseif ($entry instanceof WarrantRuleNode) {
+                $this->validateRule($entry);
+            }
+        }
     }
 
     /**

@@ -122,6 +122,12 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
+    public function emptyBody(): string
+    {
+        return '';
+    }
+
+    #[RuleTemplate]
     public function namesAnUnknownCondition(): string
     {
         return 'if no_such_condition they can';
@@ -458,6 +464,24 @@ it('rejects too few include arguments from rule text', function () {
 
 it('rejects an undeclared ability in an include for list', function () {
     expect(fn () => validateSyntax('@include grants_it for not_an_ability'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on an include whose template expands to nothing', function () {
+    // No rule carries the ability, so it is checked as the include names it.
+    expect(fn () => validateSyntax('@include empty_body for not_an_ability'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on an empty block', function () {
+    expect(fn () => validateSyntax('can they not_an_ability { }'))
+        ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
+});
+
+it('rejects an undeclared ability on an include whose template expands to nothing, through the guard', function () {
+    bindWarrantRules('@include empty_body for not_an_ability');
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class)->can('view'))
         ->toThrow(InvalidArgumentException::class, 'Ability [not_an_ability] is not declared');
 });
 

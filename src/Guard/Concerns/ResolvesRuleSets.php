@@ -14,8 +14,8 @@ use Warrant\Rules\RuleResolver;
  * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
  * access to the managed entity: asking the bound {@see RuleResolver}, confirming
  * its answer is about the schema it was asked about, prepending the schema's
- * implicit rules, expanding the set, and running the expansion past
- * {@see RuleSetValidator} on the way to the compiler.
+ * implicit rules, and running the set past {@see RuleSetValidator} as written
+ * and again expanded, on the way to the compiler.
  *
  * That validation pass reports a mistake earlier than the compiler would, and
  * against every rule in the set rather than the ones a given check reaches —
@@ -80,10 +80,13 @@ trait ResolvesRuleSets
             return;
         }
 
-        $ruleSet = $this->resolveRuleSet();
-        $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
+        $validator = new RuleSetValidator($this->schema, $this->schema::schemaKey());
 
-        (new RuleSetValidator($this->schema, $this->schema::schemaKey()))->validateExpanded($expanded);
+        $ruleSet = $this->resolveRuleSet();
+        $validator->validateWritten($ruleSet);
+
+        $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
+        $validator->validateExpanded($expanded);
 
         $this->resolvedRuleSet = $ruleSet;
         $this->expandedRuleSet = $expanded;
