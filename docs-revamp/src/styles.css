@@ -233,6 +233,28 @@
     stroke-dashoffset: calc(-1 * var(--flow-gap));
   }
 }
+/* The search dialog's coral hairline, drawn outward from its middle. */
+@keyframes search-line {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+/* A search result or message rising into place. */
+@keyframes search-rise {
+  from {
+    transform: translateY(22px) scale(0.97);
+    filter: blur(4px);
+    opacity: 0;
+  }
+}
+/* The search dialog's icon, turning into place as the dialog opens. */
+@keyframes search-pop {
+  from {
+    transform: scale(0.6) rotate(-35deg);
+    opacity: 0;
+  }
+}
 /* Starts half a gap up, so a dot sits centred on the rail's top edge. */
 @keyframes flow-down-rail {
   from {
