@@ -203,7 +203,7 @@ it can be filtered but not asked about a single row. The full list is in the
 |---|---|
 | `public static function virtualTable(): ?Builder` | The query this schema's rows come from, instead of a model's table. Default `null`. See [above](#schemas-whose-rows-come-from-a-query). |
 | `public function matchKey(RowConditionContext $c, ...): ?Builder` | How a row is addressed. Declare it — it is not inherited — when the rows are not addressed by their key. See [Schema API](/reference/schema-api/#matchkey). |
-| `public function implicitRules(): array\|RuleSetNode` | Rules always merged into every rule set — an admin escape hatch, a suspension lockout. See [Resolvers](/guides/resolvers/#implicit-rules). |
+| `public function rules(RuleProviderContext $context): RuleSetNode\|IRuleEntryNode\|WarrantSyntax\|string\|iterable` | The schema's own rules (a rule set, a rule, rule text, or an iterable of them), merged ahead of the provider's — an admin escape hatch, a suspension lockout, or rules for this user alone. See [Providing rules](/guides/providers/#schema-rules). |
 | `protected function defaultContext(): array` | Default check-time context, merged *under* explicit values. See [Check-time context](/guides/context/). |
 
 ## Registering the schema
@@ -219,7 +219,7 @@ Unlisted schemas are unknown to checks, lookups, and middleware:
 ```
 
 The array key *is* the schema key — the identifier that appears in your rule
-strings and in the `RuleResolutionContext` handed to your resolver. Treat it like a
+strings and in the `RuleProviderContext` handed to your provider. Treat it like a
 database identifier: renaming one changes the meaning of every stored rule that
 references it.
 

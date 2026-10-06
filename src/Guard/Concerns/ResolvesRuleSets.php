@@ -5,16 +5,18 @@ namespace Warrant\Guard\Concerns;
 use InvalidArgumentException;
 use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 
 /**
  * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
- * access to the managed entity: asking the bound {@see RuleResolver}, confirming
- * its answer is about the schema it was asked about, prepending the schema's
- * implicit rules, and running the set past {@see RuleSetValidator} as written
+ * access to the managed entity: asking the bound {@see RuleProvider}, if any,
+ * confirming its answer is about the schema it was asked about, prepending the
+ * schema's own rules, and running the set past {@see RuleSetValidator} as written
  * and again expanded, on the way to the compiler.
  *
  * That validation pass reports a mistake earlier than the compiler would, and
@@ -23,12 +25,8 @@ use Warrant\Rules\RuleResolver;
  * answered with. It is not what makes the set safe to compile: the compiler
  * rejects a name that resolves to nothing at the lookup that needs it.
  *
- * The resolver is an application's own class and may build a rule set however it
- * likes, so which schema it targets is worth checking rather than assuming. The
- * names in it are validated against this guard's schema either way, so a foreign
- * rule set would otherwise be caught only when a condition it names happens to be
- * one this schema does not declare — and silently compiled when both schemas
- * share the vocabulary.
+ * Either provider may answer in any form {@see providedRuleEntries()} reads, which
+ * also checks that every rule set among it targets this guard's schema.
  *
  * The guard is fixed to one (schema, user), so the rule set is resolved, expanded
  * and validated once: every check, filter, diagnosis, and reachability query on
@@ -94,44 +92,85 @@ trait ResolvesRuleSets
 
     private function resolveRuleSet(): RuleSetNode
     {
-        $resolver = app(RuleResolver::class);
+        $schemaKey = $this->schema::schemaKey();
 
-        $ruleSet = $resolver->resolve(new RuleResolutionContext(
-            schemaKey: $this->schema::schemaKey(),
+        $context = new RuleProviderContext(
+            schemaKey: $schemaKey,
             schema: $this->schema::class,
             user: $this->user,
             model: $this->schema::model !== '' ? $this->schema::model : null,
-        ));
+        );
 
-        if ($ruleSet->schemaKey !== $this->schema::schemaKey()) {
-            throw new InvalidArgumentException(sprintf(
-                'The rule resolver was asked for schema [%s] but returned a rule set targeting [%s].',
-                $this->schema::schemaKey(),
-                $ruleSet->schemaKey,
-            ));
+        $providerRules = $this->providedRuleEntries(
+            app()->bound(RuleProvider::class) ? app(RuleProvider::class)->rules($context) : [],
+            'The rule provider',
+        );
+
+        $schemaRules = $this->providedRuleEntries(
+            $this->schema->rules($context),
+            sprintf('The rules() of schema [%s]', $this->schema::class),
+        );
+
+        return new RuleSetNode($schemaKey, [...$schemaRules, ...$providerRules]);
+    }
+
+    /**
+     * The rule entries in what a provider returned, in whichever form it built
+     * them: a {@see RuleSetNode}, a rule entry, rule text as a string or
+     * {@see WarrantSyntax}, or an iterable of any of these.
+     *
+     * Every rule set among them must target this guard's schema. A provider is an
+     * application's own code, so that is checked rather than assumed: the names
+     * in a foreign rule set would otherwise be caught only when one happens to be
+     * missing from this schema, and silently compiled when both schemas share the
+     * vocabulary.
+     *
+     * @param  string  $provider  who returned $rules, for the error message
+     * @return list<IRuleEntryNode>
+     */
+    private function providedRuleEntries(mixed $rules, string $provider): array
+    {
+        if (is_string($rules)) {
+            $rules = WarrantSyntax::parse($rules);
         }
 
-        $implicitRules = $this->schema->implicitRules();
+        if ($rules instanceof WarrantSyntax) {
+            $rules = $rules->isEmpty() || $rules->isRuleEntries()
+                ? $rules->ruleEntries()
+                : $rules->ruleSets();
+        }
 
-        if ($implicitRules instanceof RuleSetNode) {
-            if ($implicitRules->schemaKey !== $ruleSet->schemaKey) {
+        if ($rules instanceof IRuleEntryNode) {
+            return [$rules];
+        }
+
+        if ($rules instanceof RuleSetNode) {
+            if ($rules->schemaKey !== $this->schema::schemaKey()) {
                 throw new InvalidArgumentException(sprintf(
-                    'Implicit rule set for schema [%s] targets a different schema [%s].',
-                    $ruleSet->schemaKey,
-                    $implicitRules->schemaKey,
+                    '%s was asked for schema [%s] but returned a rule set targeting [%s].',
+                    $provider,
+                    $this->schema::schemaKey(),
+                    $rules->schemaKey,
                 ));
             }
 
-            $implicitRules = $implicitRules->entries;
+            return $rules->entries;
         }
 
-        if ($implicitRules !== []) {
-            $ruleSet = new RuleSetNode($ruleSet->schemaKey, [
-                ...$implicitRules,
-                ...$ruleSet->entries,
-            ]);
+        if (is_iterable($rules)) {
+            $entries = [];
+
+            foreach ($rules as $rule) {
+                array_push($entries, ...$this->providedRuleEntries($rule, $provider));
+            }
+
+            return $entries;
         }
 
-        return $ruleSet;
+        throw new InvalidArgumentException(sprintf(
+            '%s returned %s; expected a rule set, a rule entry, rule text, or an iterable of them.',
+            $provider,
+            get_debug_type($rules),
+        ));
     }
 }

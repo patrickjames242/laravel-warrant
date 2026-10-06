@@ -9,8 +9,11 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
@@ -19,9 +22,10 @@ use Warrant\Schema\Conditions\RowConditionContext;
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
- * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). It is NOT where the
- * rules live — those come from the {@see \Warrant\Rules\RuleResolver} as a
- * {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode}, compiled against this schema.
+ * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). Rules come
+ * from the optional global {@see \Warrant\Rules\RuleProvider} and from this
+ * schema's own {@see rules()}, merged into one
+ * {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode} compiled against this schema.
  *
  * The schema is pure definition: it holds no user and performs no authorization.
  * Every user-scoped operation — checks, query filtering, ability listing, denial
@@ -206,28 +210,32 @@ abstract class WarrantSchema implements ConditionResolver
      */
 
     /**
-     * Rules that are always in force for this schema, regardless of what the
-     * resolver returns. They are merged into every resolved rule set before
-     * compilation, so they are validated and compiled exactly like resolver
-     * rules (deny-overrides still applies across both).
+     * This schema's own rules, merged ahead of whatever the global
+     * {@see RuleProvider} returns (when one is configured) before compilation, so
+     * they are validated and compiled exactly like provider rules (deny-overrides
+     * still applies across both). Without a global provider, these are the rules.
      *
-     * Override to establish baseline access — e.g. a super-admin escape hatch or
-     * a universal deny. Return either a plain list of rule entries or a
-     * fully-formed {@see RuleSetNode} for this schema:
+     * The context is the one the global provider receives, so the rules may
+     * depend on the user — a super-admin escape hatch, a universal deny, or rules
+     * looked up for this user alone. Return them in any form the global
+     * provider may — a rule set, a rule entry, rule text, or an iterable of
+     * those:
      *
      * ```php
-     * public function implicitRules(): array|RuleSetNode
+     * public function rules(RuleProviderContext $context): string
      * {
-     *     return WarrantSyntax::parse(<<<'WARRANT'
+     *     return <<<'WARRANT'
      *         if is_super_admin they can *
      *         if is_suspended they cannot *
-     *     WARRANT)->ruleEntries();
+     *     WARRANT;
      * }
      * ```
      *
-     * @return array<int, IRuleEntryNode>|RuleSetNode
+     * Called once per guard, which is fixed to one (schema, user).
+     *
+     * @return RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantSyntax|string>
      */
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable
     {
         return [];
     }

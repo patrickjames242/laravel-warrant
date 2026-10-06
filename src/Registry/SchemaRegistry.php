@@ -132,7 +132,7 @@ final class SchemaRegistry
      *
      * A schema reference must still be registered: an unregistered schema has no
      * schema key, so it can neither be written back into rule syntax nor named in
-     * the {@see RuleResolutionContext} handed to the rule resolver.
+     * the {@see RuleProviderContext} handed to the rule provider.
      *
      * @return class-string<WarrantSchema>|null
      */

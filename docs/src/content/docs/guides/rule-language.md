@@ -9,9 +9,9 @@ sidebar:
 
 Rules are the *policy itself*, written as a plain string. You'll typically store
 these strings (per role, per user, per tenant) and load them in your
-[resolver](/guides/resolvers/).
+[provider](/guides/providers/).
 
-Throughout, **"they" is the current user** — the one your resolver was asked
+Throughout, **"they" is the current user** — the one your provider was asked
 about. A rule set describes what *this* user can do with the resource it's scoped
 to, not what everyone can do.
 

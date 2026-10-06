@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -43,7 +44,7 @@ beforeEach(function () {
 
 class DenialCustomException extends RuntimeException {}
 
-/** A schema whose implicit rules carry a message-bearing cannot. */
+/** A schema whose own rules carry a message-bearing cannot. */
 class DenialImplicitModel extends Model
 {
     use HasWarrantSchema;
@@ -64,7 +65,7 @@ class DenialImplicitSchema extends WarrantTestSchema
 {
     public const model = DenialImplicitModel::class;
 
-    public function implicitRules(): array
+    public function rules(RuleProviderContext $context): array
     {
         return [
             WarrantRuleNode::build()->theyCannotBecause('update', 'implicit locked')->toRule(),
@@ -574,14 +575,14 @@ it('skips an earlier matching cannot that has no message', function () {
         ->toThrow(WarrantAuthorizationException::class, 'teacher msg');
 });
 
-it('lets an implicit-rule message win over a resolver-rule message', function () {
+it('lets a schema-rule message win over a provider-rule message', function () {
     seedDenialSections();
     bindDenialRules([
         WarrantRuleNode::build()->theyCan('update')->toRule(),
         WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('update', 'resolver msg')->toRule(),
     ], DenialImplicitSchema::class);
 
-    // Implicit rules are prepended, so their unconditional cannot is diagnosed first.
+    // Schema rules are prepended, so their unconditional cannot is diagnosed first.
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(DenialImplicitSchema::class)->authorize('update', 'teacher:teacher-role'))
         ->toThrow(WarrantAuthorizationException::class, 'implicit locked');
 });

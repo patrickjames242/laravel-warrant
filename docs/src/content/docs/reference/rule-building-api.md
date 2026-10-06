@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Reference for constructing rules. Conceptual coverage is in
-[Providing rules](/guides/resolvers/) and [The rule language](/guides/rule-language/).
+[Providing rules](/guides/providers/) and [The rule language](/guides/rule-language/).
 
 Every syntax node lives in `Warrant\DSL\Parsing\ASTNodes`: `WarrantSyntax`,
 `RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `WarrantRuleNode`, `IncludeInvocationNode`,

@@ -136,7 +136,7 @@ it('throws when the rule set names an undeclared condition', function () {
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
 });
 
-it('throws when the resolver returns a rule set for a different schema', function () {
+it('throws when the provider returns a rule set for a different schema', function () {
     /* `view` is declared by both schemas, so validation would pass and the foreign
        rules would compile against this schema's table. The mismatch itself is what
        makes it an error. */
@@ -151,57 +151,82 @@ it('throws when the resolver returns a rule set for a different schema', functio
         ->toThrow(InvalidArgumentException::class, 'asked for schema [course_sections] but returned a rule set targeting [join_sections]');
 });
 
-// -- implicit rules -----------------------------------------------------------
+// -- schema rules -------------------------------------------------------------
 
-it('always applies implicit rules, even when the resolver returns nothing', function () {
-    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
+it('always applies schema rules, even when the provider returns nothing', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRulesSchema::class]);
     seedCourseSections();
-    bindWarrantRules(''); // resolver contributes no rules
+    bindWarrantRules(''); // provider contributes no rules
 
     $user = makeWarrantTestUser('teacher-role');
 
-    // `publish` comes solely from the schema's implicitRules().
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'teacher:teacher-role'))->toBeTrue();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeFalse();
+    // `publish` comes solely from the schema's rules().
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('publish', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeFalse();
 });
 
-it('merges implicit rules with resolver rules', function () {
-    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
+it('merges schema rules with provider rules', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRulesSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
     $user = makeWarrantTestUser('teacher-role');
 
-    // view from the resolver (teacher row only), publish from implicit rules (every row).
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('view', 'other-section'))->toBeFalse();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    // view from the provider (teacher row only), publish from the schema's rules (every row).
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('view', 'other-section'))->toBeFalse();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
 });
 
-it('accepts a RuleSetNode from implicitRules and merges it like a rule list', function () {
-    useWarrantSchemas(['course_sections' => WarrantImplicitRuleSetSchema::class]);
+it('accepts a RuleSetNode from the schema\'s rules() and merges it like a rule list', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRuleSetSchema::class]);
     seedCourseSections();
     bindWarrantRules('if is_teacher they can view');
 
     $user = makeWarrantTestUser('teacher-role');
 
-    // Identical behaviour to the array-returning variant: view from the resolver,
-    // publish from the implicit rule set, archive denied by the implicit set.
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('publish', 'other-section'))->toBeTrue();
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRuleSetSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
+    // Identical behaviour to the array-returning variant: view from the provider,
+    // publish from the schema's rule set, archive denied by the schema's rule set.
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRuleSetSchema::class)->can('view', 'teacher:teacher-role'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRuleSetSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRuleSetSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
 });
 
-it('lets an implicit unconditional cannot override a resolver grant (deny-overrides)', function () {
-    useWarrantSchemas(['course_sections' => WarrantImplicitRulesSchema::class]);
+it('lets a schema rule\'s unconditional cannot override a provider grant (deny-overrides)', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRulesSchema::class]);
     seedCourseSections();
-    bindWarrantRules('they can archive'); // resolver grants archive unconditionally
+    bindWarrantRules('they can archive'); // provider grants archive unconditionally
 
     $user = makeWarrantTestUser('teacher-role');
 
-    // implicitRules() has `they cannot archive`, which wins.
-    expect(Warrant::guard($user)->forSchema(WarrantImplicitRulesSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
+    // The schema's rules() has `they cannot archive`, which wins.
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('archive', 'teacher:teacher-role'))->toBeFalse();
+});
+
+it('governs access by the schema\'s rules alone when no provider is configured', function () {
+    useWarrantSchemas(['course_sections' => WarrantSchemaRulesSchema::class]);
+    seedCourseSections();
+
+    $user = makeWarrantTestUser('teacher-role');
+
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard($user)->forSchema(WarrantSchemaRulesSchema::class)->can('view', 'teacher:teacher-role'))->toBeFalse();
+});
+
+it('denies everything without throwing when there is neither a provider nor schema rules', function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+    seedCourseSections();
+
+    expect(Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->can('view', 'teacher:teacher-role'))->toBeFalse();
+});
+
+it('hands the schema\'s rules() the provider context, so they may depend on the user', function () {
+    useWarrantSchemas(['course_sections' => WarrantUserRulesSchema::class]);
+    seedCourseSections();
+
+    expect(Warrant::guard(makeWarrantTestUser('editor-role'))->forSchema(WarrantUserRulesSchema::class)->can('publish', 'other-section'))->toBeTrue();
+    expect(Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantUserRulesSchema::class)->can('publish', 'other-section'))->toBeFalse();
 });
 
 // -- reflection helpers -------------------------------------------------------

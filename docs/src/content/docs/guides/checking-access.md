@@ -7,7 +7,7 @@ sidebar:
   order: 6
 ---
 
-Once schema, resolver, and rules are in place, you never touch the compiler
+Once schema, provider, and rules are in place, you never touch the compiler
 directly. You ask questions through the authorization engine, query scopes, or
 [middleware](/guides/middleware/).
 

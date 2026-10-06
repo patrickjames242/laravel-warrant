@@ -18,7 +18,7 @@ The whole surface at a glance. Follow the links for full signatures and behaviou
 - `#[Ability] const X = '...'` — declare an ability (add `requiredContext: [...]` for per-ability required context keys)
 - `#[RequiredContext] const X = '...'` — mark a context key required on every check (context keys need no declaration to be *used*)
 - `#[RowCondition]` / `#[GlobalCondition]` methods — declare conditions
-- `public function implicitRules(): array|RuleSetNode` — always-on rules
+- `public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable` — the schema's own rules, merged ahead of the provider's (may depend on `$context->user`)
 - `protected function defaultContext(): array` — default check-time context
 - `public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null` — message when a `cannot` denied
 - `public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null` — message when nothing granted
@@ -47,11 +47,11 @@ Nodes live in `Warrant\DSL\Parsing\ASTNodes`.
 
 ## Provide rules
 
-Implement `Warrant\Rules\RuleResolver` — see [Providing rules](/guides/resolvers/).
+Optionally implement `Warrant\Rules\RuleProvider` — see [Providing rules](/guides/providers/).
 
-- `resolve(RuleResolutionContext $context): RuleSetNode` — typically `WarrantSyntax::parse($text)->scopedTo($context->schemaKey)`
+- `rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable` — a rule set, a rule, rule text, or an iterable (array/Collection) of those; every rule set must target `$context->schemaKey`
 - context: `->user`, `->schemaKey`, `->schema`, `->model`
-- register in `config/warrant.php` → `rule_resolver`, `schemas`
+- register in `config/warrant.php` → `rule_provider`, `schemas`
 
 ## Check access
 
@@ -62,7 +62,7 @@ live on the engine, not the model/schema.
 - `Warrant::canAny(...)` — ANY (ALL is `can`; there is **no** `matchMode` argument)
 - `Warrant::cannot(...)`, `Warrant::authorize(...): void`, `Warrant::authorizeAny(...): void` — throwing; 403 on denial ([denial messages](/guides/denial-messages/))
 - `Warrant::abilities($target, $context = [], $user = null): array`
-- `Warrant::flush($user = null): void` — drop memoized rule sets for one user, or (with no argument) all of them ([resolution lifetime](/guides/resolvers/#resolution-lifetime))
+- `Warrant::flush($user = null): void` — drop memoized rule sets for one user, or (with no argument) all of them ([resolution lifetime](/guides/providers/#resolution-lifetime))
 - target forms: `$model` (row), `[Model::class|Schema::class, $id]` (row by key), `Model::class` / `Schema::class` / `'schema_key'` (no-target)
 - User-bound guard: `Warrant::guard($user)` or `$user->warrant()` (`use Warrant\AuthorizesWithWarrant`) → `WarrantGuard` (`->can/canAny/cannot/authorize/authorizeAny/abilities`, `->forSchema(...)`)
 - Schema-bound guard: `Warrant::forSchema($schemaOrModel, $user)` or `Schema::guard($user)` → `WarrantGuardForSchema` (same methods; target is just the row or `null`)
@@ -98,6 +98,6 @@ Judged from the rules alone — no row or global conditions, no SQL, no `context
 
 ## Config — `config/warrant.php`
 
-- `rule_resolver` — class implementing `Warrant\Rules\RuleResolver` (no default; required)
+- `rule_provider` — class implementing `Warrant\Rules\RuleProvider` (optional; default `null`)
 - `schemas` — array of schema class-strings (registration is mandatory)
 - `register_gate` — register the `Gate::before` hook so abilities resolve through Laravel's Gate (default `true`)

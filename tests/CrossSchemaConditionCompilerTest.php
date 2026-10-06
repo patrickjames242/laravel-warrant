@@ -11,8 +11,8 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -73,10 +73,10 @@ function bindCheckDocRules(string|RuleSetNode $docSyntax): void
 {
     $set = $docSyntax instanceof RuleSetNode ? $docSyntax : WarrantSyntax::parse($docSyntax)->scopedTo('chk_docs');
 
-    app()->instance(RuleResolver::class, new class($set) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === 'chk_docs'
                 ? $this->set

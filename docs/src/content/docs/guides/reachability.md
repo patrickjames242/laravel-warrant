@@ -12,7 +12,7 @@ check](/guides/checking-access/#no-target-checks)). A different,
 cheaper question is *"could this user **ever** update a document — is it even
 worth showing the button, or building the section?"*
 
-That's **reachability**: a look at the rules the resolver hands this user,
+That's **reachability**: a look at the rules the provider hands this user,
 asked without a row. It runs **no SQL** and never evaluates a row or global
 condition. It does follow everything that can be answered without a row, so the
 answer is as sharp as the rules allow.
@@ -102,7 +102,7 @@ while `couldEverHaveAny`/`alwaysHasAny`/`neverHasAny` require **any** one.
 :::note[No `context:`, but a user is still required]
 There is **no** `context:` argument: [`@context`](/guides/context/) only ever feeds
 row and global conditions, which reachability never evaluates. The user *is* still needed,
-because the resolver may hand a different rule set to each user, role, or tenant.
+because the provider may hand a different rule set to each user, role, or tenant.
 :::
 
 The same helpers are also reachable through the two bound guards, where the schema

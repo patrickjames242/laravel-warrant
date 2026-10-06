@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Warrant combines every `can` and `cannot` — across all rules, including
-[implicit rules](/guides/resolvers/#implicit-rules) — with one rule: **a `cannot`
+[schema rules](/guides/providers/#schema-rules) — with one rule: **a `cannot`
 always beats a `can`**. For a given ability the compiled predicate is:
 
 ```text
@@ -18,7 +18,7 @@ predicate(ability) =
 ```
 
 Because it's a symmetric AND/OR combination, **rule order never matters**. You can
-merge rules from a resolver, implicit rules, and multiple clauses in any order.
+merge rules from a provider, schema rules, and multiple clauses in any order.
 
 This is also why an
 [ability block](/guides/rule-language/#grouping-rules-by-ability) changes nothing
@@ -51,11 +51,11 @@ if is_suspended
 they cannot *
 ```
 
-Since the combination is order-independent, an **implicit** `cannot` beats any
-resolver-supplied `can`:
+Since the combination is order-independent, a **schema's own** `cannot` beats any
+provider-supplied `can`:
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return WarrantSyntax::parse('if is_suspended they cannot *')->ruleEntries();
 }

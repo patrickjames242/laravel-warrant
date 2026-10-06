@@ -14,8 +14,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\RuleTemplate;
 
@@ -430,11 +430,11 @@ it('bounds a runaway template reached through a hop by the same expansion depth 
         'template_hops' => WarrantSyntax::parse('@include loops for publish')->scopedTo('template_hops'),
     ];
 
-    app()->instance(RuleResolver::class, new class($sets) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
         /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $this->sets[$context->schemaKey];
         }

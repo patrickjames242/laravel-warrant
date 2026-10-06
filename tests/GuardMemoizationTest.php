@@ -5,21 +5,21 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
 
 /**
  * Counts resolutions so a test can assert the rule set was resolved once rather
  * than once per check.
  */
-class CountingWarrantRuleResolver implements RuleResolver
+class CountingWarrantRuleProvider implements RuleProvider
 {
     public int $calls = 0;
 
     public function __construct(private RuleSetNode $ruleSet) {}
 
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $this->calls++;
 
@@ -27,13 +27,13 @@ class CountingWarrantRuleResolver implements RuleResolver
     }
 }
 
-function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can publish'): CountingWarrantRuleResolver
+function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can publish'): CountingWarrantRuleProvider
 {
-    $resolver = new CountingWarrantRuleResolver(
+    $resolver = new CountingWarrantRuleProvider(
         WarrantSyntax::parse($syntax)->scopedTo('course_sections')
     );
 
-    app()->instance(RuleResolver::class, $resolver);
+    app()->instance(RuleProvider::class, $resolver);
 
     return $resolver;
 }

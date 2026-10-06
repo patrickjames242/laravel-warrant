@@ -70,7 +70,7 @@ Full docs live at **[laravel-warrant.dev](https://laravel-warrant.dev)**:
 
 - [Quick start](https://laravel-warrant.dev/getting-started/quick-start/) · [Core concepts](https://laravel-warrant.dev/getting-started/core-concepts/) · [vs. spatie/laravel-permission](https://laravel-warrant.dev/getting-started/vs-spatie-laravel-permission/)
 - [Schemas](https://laravel-warrant.dev/guides/schemas/) · [Conditions](https://laravel-warrant.dev/guides/conditions/) · [Check-time context](https://laravel-warrant.dev/guides/context/)
-- [The rule language](https://laravel-warrant.dev/guides/rule-language/) · [Building rules](https://laravel-warrant.dev/guides/rule-builder/) · [Providing rules](https://laravel-warrant.dev/guides/resolvers/)
+- [The rule language](https://laravel-warrant.dev/guides/rule-language/) · [Building rules](https://laravel-warrant.dev/guides/rule-builder/) · [Providing rules](https://laravel-warrant.dev/guides/providers/)
 - [Checking access](https://laravel-warrant.dev/guides/checking-access/) · [Reachability](https://laravel-warrant.dev/guides/reachability/) · [Route middleware](https://laravel-warrant.dev/guides/middleware/) · [Denial messages](https://laravel-warrant.dev/guides/denial-messages/)
 - [How it compiles to SQL](https://laravel-warrant.dev/guides/how-it-compiles/) · [Testing](https://laravel-warrant.dev/guides/testing/)
 - API reference: [Checking](https://laravel-warrant.dev/reference/checking-api/) · [Schema](https://laravel-warrant.dev/reference/schema-api/) · [Rule building](https://laravel-warrant.dev/reference/rule-building-api/) · [Middleware](https://laravel-warrant.dev/reference/middleware-api/) · [Errors](https://laravel-warrant.dev/reference/errors/) · [Cheat sheet](https://laravel-warrant.dev/reference/api-cheat-sheet/)
@@ -169,19 +169,19 @@ class TimesheetSchema extends WarrantSchema
 }
 ```
 
-**3. The resolver** hands rules (as data) to Warrant for the current user:
+**3. The provider** hands rules (as data) to Warrant for the current user:
 
 ```php
 namespace App\Warrant;
 
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
 
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         // Load the raw rule string + any binding values for this user/resource.
         [$syntax, $bindings] = MyRuleStore::for(
@@ -202,10 +202,10 @@ if in_department(?, ?) they can view, approve
 if is_admin they can *
 ```
 
-**4. Register** the resolver and schema in `config/warrant.php`:
+**4. Register** the provider and schema in `config/warrant.php`:
 
 ```php
-'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 'schemas' => ['timesheets' => App\Warrant\TimesheetSchema::class],
 ```
 
