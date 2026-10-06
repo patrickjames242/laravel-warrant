@@ -14,15 +14,14 @@ use Warrant\Rules\RuleResolver;
  * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
  * access to the managed entity: asking the bound {@see RuleResolver}, confirming
  * its answer is about the schema it was asked about, prepending the schema's
- * implicit rules, and running the set past {@see RuleSetValidator} on the way to
- * the compiler.
+ * implicit rules, expanding the set, and running the expansion past
+ * {@see RuleSetValidator} on the way to the compiler.
  *
- * That validation pass reports a mistake in the rule text earlier than the
- * compiler would, and against every rule in the set rather than the ones a given
- * check reaches. It is not what makes the set safe to compile — the compiler
- * rejects a name that resolves to nothing at the lookup that needs it, including
- * in a tree a condition built by deriving itself, which no pass over rule text
- * can see.
+ * That validation pass reports a mistake earlier than the compiler would, and
+ * against every rule in the set rather than the ones a given check reaches —
+ * including the rules a template supplied and the expression a derived condition
+ * answered with. It is not what makes the set safe to compile: the compiler
+ * rejects a name that resolves to nothing at the lookup that needs it.
  *
  * The resolver is an application's own class and may build a rule set however it
  * likes, so which schema it targets is worth checking rather than assuming. The
@@ -31,9 +30,9 @@ use Warrant\Rules\RuleResolver;
  * one this schema does not declare — and silently compiled when both schemas
  * share the vocabulary.
  *
- * The guard is fixed to one (schema, user), so the resolved rule set is memoized
- * once, and so is its expansion: every check, filter, diagnosis, and reachability
- * query on this instance reads the same {@see ExpandedRuleSet}.
+ * The guard is fixed to one (schema, user), so the rule set is resolved, expanded
+ * and validated once: every check, filter, diagnosis, and reachability query on
+ * this instance reads the same {@see ExpandedRuleSet}.
  */
 trait ResolvesRuleSets
 {
@@ -44,24 +43,50 @@ trait ResolvesRuleSets
     /**
      * This guard's resolved, validated rule set, memoized for the instance. It is
      * the rule set as written — ability blocks and includes intact — which is what
-     * validation and writing want; compiling wants {@see expandedRuleSet()}.
+     * writing it back out wants; compiling wants {@see expandedRuleSet()}.
      */
     public function resolvedRuleSet(): RuleSetNode
     {
-        return $this->resolvedRuleSet ??= $this->resolveRuleSet();
+        $this->resolveOnce();
+
+        return $this->resolvedRuleSet;
     }
 
     /**
-     * This guard's rule set after the expansion phase — rules alone, every ability
-     * block opened up and every include replaced by its template's rules —
-     * memoized for the instance.
-     *
-     * Expansion reads no row and no check context, so one expansion serves every
-     * check this guard answers.
+     * This guard's validated rule set after the expansion phase — rules alone,
+     * every ability block opened up, every include replaced by its template's
+     * rules and every derived condition by its expression — memoized for the
+     * instance.
      */
     public function expandedRuleSet(): ExpandedRuleSet
     {
-        return $this->expandedRuleSet ??= (new RuleSetExpander)->expand($this->resolvedRuleSet(), $this->schema);
+        $this->resolveOnce();
+
+        return $this->expandedRuleSet;
+    }
+
+    /**
+     * Resolve, expand and validate the rule set, the first time either form of it
+     * is asked for.
+     *
+     * Both forms are kept only once the expansion has validated, so a rule set
+     * that fails is reported again by the next call rather than handed out.
+     * Expansion reads no row and no check context, so one expansion serves every
+     * check this guard answers.
+     */
+    private function resolveOnce(): void
+    {
+        if ($this->expandedRuleSet !== null) {
+            return;
+        }
+
+        $ruleSet = $this->resolveRuleSet();
+        $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
+
+        (new RuleSetValidator($this->schema, $this->schema::schemaKey()))->validateExpanded($expanded);
+
+        $this->resolvedRuleSet = $ruleSet;
+        $this->expandedRuleSet = $expanded;
     }
 
     private function resolveRuleSet(): RuleSetNode
@@ -103,8 +128,6 @@ trait ResolvesRuleSets
                 ...$ruleSet->entries,
             ]);
         }
-
-        (new RuleSetValidator($this->schema, $this->schema::schemaKey()))->validate($ruleSet);
 
         return $ruleSet;
     }

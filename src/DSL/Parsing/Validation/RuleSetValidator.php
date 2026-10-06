@@ -15,7 +15,6 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -41,11 +40,10 @@ use Warrant\Facades\Warrant;
  * needs, and it sees every rule in a set rather
  * than only the paths a particular check happens to compile.
  *
- * Its blind spot is the mirror of that. A condition may answer with an expression
- * instead of SQL, and that expression exists only once the condition has run, so
- * no amount of reading rule text will find a mistake inside one. The compiler is
- * the only place such a tree can be checked, which is why correctness lives there
- * and this class is free to be a pass an author can forget to run.
+ * It reads the rule set as the compiler will: expanded, with every template's
+ * rules in place and every derived condition replaced by its expression. Expansion
+ * reads no user, row or check context, so nothing a compile could reach in this
+ * rule set is out of its sight.
  *
  * Own-schema checks depend only on the schema's {@see SchemaVocabulary} — name
  * existence, no SQL. A cross-schema `can(...)` reference is additionally resolved
@@ -78,20 +76,15 @@ final class RuleSetValidator
      * Validate every condition and ability name in the rule set against the
      * schema. Throws {@see InvalidArgumentException} on the first unknown name.
      *
-     * Ability blocks are read opened up, each header applied to its entries, so
-     * a block's abilities are checked through the rules they end up on.
+     * The set is expanded first and the expansion validated, so a block's
+     * abilities are checked through the rules they end up on, and a template's
+     * body and a derived condition's expression are checked like anything written
+     * in the rule. An include naming a template the schema does not declare, or
+     * giving it too few arguments, is rejected by the expansion itself.
      */
     public function validate(RuleSetNode $ruleSet): void
     {
-        foreach ($ruleSet->flatEntries() as $rule) {
-            if ($rule instanceof IncludeInvocationNode) {
-                $this->assertIncludeValid($rule);
-
-                continue;
-            }
-
-            $this->validateRule($rule);
-        }
+        $this->validateExpanded((new RuleSetExpander)->expand($ruleSet, $this->schema));
     }
 
     /**
@@ -140,27 +133,6 @@ final class RuleSetValidator
                 );
             }
         }
-    }
-
-    /**
-     * Validate an `@include`: the abilities it names, the template it names, and
-     * that it supplies the arguments that template requires.
-     *
-     * The template checks are {@see RuleSetExpander::resolveTemplate()}'s own,
-     * called rather than restated, so this rejects exactly what an expansion would
-     * and says the same thing when it does.
-     *
-     * The body is out of reach, as the docblock above explains: it exists only
-     * once the template has been called with concrete arguments, and an argument
-     * may be a `@context` reference filled per check. A mistake inside a body is
-     * therefore the expansion's to report, in the same way a mistake inside a
-     * condition's derived expression is the compiler's.
-     */
-    private function assertIncludeValid(IncludeInvocationNode $include): void
-    {
-        $this->assertAbilitiesDeclared($include->abilities);
-
-        RuleSetExpander::resolveTemplate($this->schema, $this->schemaKey, $include);
     }
 
     /**

@@ -24,14 +24,13 @@ require_once __DIR__.'/Support/TestSupport.php';
 | A derived condition is held to the same rules as the text it stands in
 |------------------------------------------------------------------------------
 |
-| A condition may answer with an expression instead of SQL, and the compiler walks
-| the result as though it had been written inline. That tree reaches the compiler
-| after validation has already run and cannot be seen by it at all, so anything
-| the compiler does not check for itself would go unreported here.
+| A derived condition answers with an expression instead of SQL, and the compiler
+| walks the result as though it had been written inline. Expansion puts that tree
+| in place before validation runs, so validation reads it too; the compiler's own
+| checks stay as the backstop for a rule set nobody validated.
 |
-| Each test pairs the mistake as rule text — caught by validation — with the same
-| mistake produced by PHP, which has to be caught by the compiler. The two need
-| not report identically, but both have to report.
+| Each test pairs the mistake as rule text with the same mistake produced by PHP.
+| The two need not report identically, but both have to report.
 |
 | A malformed handle is not the same as an unanswerable question: a row condition
 | with no row, an absent @context key or a @column about another frame all still
@@ -110,7 +109,7 @@ it('rejects an ability a schema-less can names, which stays on the frame it sits
     /* The third leaf that reaches an ability: can(<ability>) crosses to no schema,
        so the name is read against whichever frame the expression is about. */
     expect(fn () => compileDvRule('if bare_can_missing_ability they can view'))
-        ->toThrow(InvalidArgumentException::class, 'Ability [nope] is not declared by schema [dv_docs]');
+        ->toThrow(InvalidArgumentException::class, 'Ability [nope] is not declared by the schema');
 });
 
 it('still denies an ability that is declared but granted by no rule', function () {

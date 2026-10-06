@@ -122,6 +122,12 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
+    public function namesAnUnknownCondition(): string
+    {
+        return 'if no_such_condition they can';
+    }
+
+    #[RuleTemplate]
     public function namesTheWildcard(): string
     {
         return 'if is_teacher they can *';
@@ -470,11 +476,10 @@ it('still validates the rules around an include', function () {
         ->toThrow(InvalidArgumentException::class, 'no_such_condition');
 });
 
-it('says nothing about what is inside a template body', function () {
-    // opens_a_block is malformed, but a body is only read at an expansion, so
-    // validation passes and the expansion is what reports it.
-    expect(fn () => validateSyntax('@include opens_a_block for view'))->not->toThrow(Exception::class);
+it('reports a mistake inside a template body, which it reads through the expansion', function () {
+    expect(fn () => validateSyntax('@include opens_a_block for view'))
+        ->toThrow(WarrantSyntaxException::class, "A rule template's body may not open an ability block");
 
-    expect(fn () => expandSyntax('@include opens_a_block for view'))
-        ->toThrow(WarrantSyntaxException::class);
+    expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
+        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
 });

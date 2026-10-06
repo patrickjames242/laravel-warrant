@@ -338,14 +338,8 @@ final class RuleSetExpander
     /**
      * The template an include names, rejecting one the schema does not declare and
      * one the include gives too few arguments.
-     *
-     * Static, and reached from outside, because
-     * {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator} makes exactly these
-     * two checks over rule text before anything is expanded, and the two have to
-     * agree — the same rejection, in the same words. Sharing one implementation is
-     * what makes that true rather than intended.
      */
-    public static function resolveTemplate(
+    private static function resolveTemplate(
         SchemaVocabulary $schema,
         string $schemaKey,
         IncludeInvocationNode $include,
