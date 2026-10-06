@@ -245,7 +245,7 @@ it('bounds a recursion that cannot terminate, naming the chain', function () {
 
     // The chain is reported so the templates responsible can be found.
     expect(fn () => expandSyntax('@include loops for view'))
-        ->toThrow(RuntimeException::class, 'Include chain (outermost first)');
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
 it('rejects an include naming a template the schema does not declare', function () {
@@ -383,7 +383,7 @@ it('bounds a runaway template in the guard\'s own rule set by the expansion dept
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(TemplateExpansionSchema::class);
 
     expect(fn () => $guard->can('publish'))
-        ->toThrow(RuntimeException::class, 'Include chain (outermost first)');
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
 it('bounds a runaway template reached through a hop by the same expansion depth limit', function () {
@@ -413,7 +413,7 @@ it('bounds a runaway template reached through a hop by the same expansion depth 
     /* The hop's rule set is expanded on its own guard, exactly as a top-level one
        is, so the error is the same whichever check first asked for it. */
     expect(fn () => $guard->can('publish'))
-        ->toThrow(RuntimeException::class, 'Include chain (outermost first)');
+        ->toThrow(RuntimeException::class, 'Expansion chain (outermost first)');
 });
 
 it('expands a guard\'s rule set once, however many abilities are asked about', function () {
