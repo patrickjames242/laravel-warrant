@@ -200,16 +200,18 @@ for documents {
 
 Because there is no boundary, there is nothing to declare across one: the
 check-time context comes along unchanged, and the form takes no `with` map and no
-`as`. It also emits no subquery — the named ability's predicate is compiled
-straight into the frame the reference sits in, so the whole chain above collapses
-to a single `documents.owner_id = ?`.
+`as`. If that context lacks a key the named ability requires, the caller did not
+pass it, so the reference answers unknown rather than throwing. It also emits no
+subquery — the named ability's predicate is compiled straight into the frame the
+reference sits in, so the whole chain above collapses to a single
+`documents.owner_id = ?`.
 
 :::caution[`for` is what resets the context]
 These two are *not* the same rule:
 
 ```text
 if can(read)                                  # keeps the context it was given
-if can(read for documents(@column id))        # a boundary: context starts empty
+if can(read for documents(@column id))        # a boundary: context starts afresh
 ```
 
 Both ask about the same ability on the same row, but the second crosses a
@@ -243,12 +245,26 @@ they can view
 
 :::caution[The boundary is not a check entry point]
 B's bag is B's `defaultContext()` and the `with` map — nothing more. A's ambient
-context does not leak in, and `#[RequiredContext]` enforcement belongs to the
-[check APIs](/guides/checking-access/), not to this boundary. If a rule of B's
-needs a key B has no default for, pass it in the map; a key you forget is simply
-absent, and an absent optional key is
-[fail-closed](/guides/context/#missing-optional-context) — it can remove access,
-never restore it.
+context does not leak in. If a rule of B's needs a key B has no default for, pass
+it in the map.
+
+A key B requires — a `#[RequiredContext]` key, or one the ability a `can(...)`
+names requires — that is missing from the bag **throws** when the rule compiles.
+A's context never crosses, so a missing key is one the `with` map does not name
+and B does not default: no context a caller passes could supply it, and only the
+rule text can.
+
+```text
+Schema [App\Warrant\FolderSchema] requires context key(s) [region]; pass them in
+the `with` map of the reference to [folders], or via its defaultContext().
+```
+
+A `with` entry whose value is an absent `@context` key still supplies the key, as
+`null`.
+
+A key B does not require that you forget is simply absent, and an absent optional
+key is [fail-closed](/guides/context/#missing-optional-context) — it can remove
+access, never restore it.
 :::
 
 ## Combining and negating

@@ -116,4 +116,17 @@ interface ConditionResolver extends SchemaVocabulary
         ?Model $targetModel = null,
         ?string $rowQualifier = null,
     ): ?Builder;
+
+    /**
+     * The context a `can(<ability>)` of this schema compiles under: $context merged
+     * over the schema's default context, explicit values winning.
+     *
+     * Answers null when that context lacks a key the schema requires, or a key
+     * $ability requires. The reference then has no answer, which is unknown: it
+     * neither grants nor lifts a deny.
+     *
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>|null
+     */
+    public function contextForReference(array $context, string $ability): ?array;
 }

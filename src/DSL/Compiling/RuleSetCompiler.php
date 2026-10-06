@@ -591,6 +591,9 @@ final class RuleSetCompiler
      * Recursion is bounded exactly as it is for a hop: {@see abilityNode} enters a
      * {@see Call}, so an ability that names itself is a cycle and everything else
      * spends the depth budget.
+     *
+     * A context missing a key the ability or this schema requires leaves the
+     * reference unknown.
      */
     private function ownAbilityLeaf(CrossSchemaCanNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
@@ -600,6 +603,12 @@ final class RuleSetCompiler
                     .'the manager; construct RuleSetCompiler with a WarrantManager.',
                 $node->ability,
             ));
+        }
+
+        /* A check naming this ability directly would throw for a key it requires;
+           a reference is not a check entry point, so it answers unknown instead. */
+        if ($this->conditions->contextForReference($ctx->checkContext, $node->ability) === null) {
+            return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->expandedRuleSet();
@@ -621,7 +630,8 @@ final class RuleSetCompiler
      * a row-bound reference wraps B's per-row predicate as `EXISTS` over B's table;
      * an unbound reference splices B's no-target boolean predicate inline. B's
      * context is its own `defaultContext()` with the `with` map merged over it —
-     * never A's ambient context.
+     * never A's ambient context. A context missing a key B's schema or the named
+     * ability requires throws, because only the rule text can supply it.
      */
     private function crossSchemaCanLeaf(CrossSchemaCanNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
@@ -644,14 +654,19 @@ final class RuleSetCompiler
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
            resolved against A's context and A's frame. A's bag is never inherited.
-           A value A cannot resolve here settles the whole reference. */
+           A value A cannot resolve here settles the whole reference. A bag
+           missing a key B requires is a mistake in the rule text, and throws. */
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = $bSchema->withDefaultContext(array_combine(array_keys($node->contextMap), $bValues));
+        $bContext = $bSchema->resolveBoundaryContext(
+            array_combine(array_keys($node->contextMap), $bValues),
+            $node->schemaKey,
+            $node->ability,
+        );
 
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
         $bCompiler = new self($bSchema, $this->manager);
@@ -773,7 +788,8 @@ final class RuleSetCompiler
      * (`NOT EXISTS` when negated); an unbound reference splices B's boolean predicate
      * inline. The predicate's condition leaves are compiled with B's own resolver,
      * and B's context is its own `defaultContext()` with the `with` map merged over
-     * it — never A's ambient bag.
+     * it — never A's ambient bag. A context missing a key B's schema requires
+     * throws, because only the rule text can supply it.
      */
     private function crossSchemaCheckLeaf(CrossSchemaConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
@@ -796,14 +812,18 @@ final class RuleSetCompiler
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
            resolved against A's context and A's frame. A's bag is never inherited.
-           A value A cannot resolve here settles the whole reference. */
+           A value A cannot resolve here settles the whole reference. A bag
+           missing a key B requires is a mistake in the rule text, and throws. */
         $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = $bSchema->withDefaultContext(array_combine(array_keys($node->contextMap), $bValues));
+        $bContext = $bSchema->resolveBoundaryContext(
+            array_combine(array_keys($node->contextMap), $bValues),
+            $node->schemaKey,
+        );
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.

@@ -164,6 +164,16 @@ or via defaultContext().
 
 That loud failure is a feature — a required frame is never silently skipped.
 
+A reference inside a rule is judged by where its context comes from:
+
+- A `can(... for B)` or `check(... for B)` throws when B's bag — B's defaults and
+  the `with` map — lacks a key B or the named ability requires, because only the
+  rule text can supply it. See
+  [cross-schema checks](/guides/cross-schema-checks/#the-with-map-context-across-the-boundary).
+- A `can(<ability>)` of the same schema keeps the context the check was given, so
+  a key it lacks is one the caller did not pass. It answers unknown, which neither
+  grants nor lifts a deny.
+
 ## Missing optional context
 
 An unmarked key is optional and may be absent at check time. When an

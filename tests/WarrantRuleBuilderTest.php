@@ -59,6 +59,11 @@ final class BuilderFakeResolver implements ConditionResolver
 
     public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1); }
 
+    public function contextForReference(array $context, string $ability): ?array
+    {
+        return $context;
+    }
+
     public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
     {
         return ($arguments[0] ?? null) === null

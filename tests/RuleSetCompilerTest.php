@@ -125,6 +125,11 @@ final class FakeConditionResolver implements ConditionResolver
         return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1);
     }
 
+    public function contextForReference(array $context, string $ability): ?array
+    {
+        return $context;
+    }
+
     /** The default key: primary-key equality, unknown when nothing was named. */
     public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
     {
