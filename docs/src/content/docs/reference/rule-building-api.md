@@ -33,8 +33,9 @@ Warrant::ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate
 There is one parse for every form of rule text. `parse()` reads the source and
 returns a `WarrantSyntax` tree whose children say what the source held; you ask
 the tree for the shape you expect. `parseFile()` does the same for a file, such as
-a `.warrant` file. `condition()` and `rule()` take no arguments and return the
-fluent builder for each.
+a `.warrant` file; the extension may be left off, and a path naming no file is
+read with `.warrant` appended. `condition()` and `rule()` take no arguments and
+return the fluent builder for each.
 
 ```php
 Warrant::parse('is_owner or is_admin')->conditionExpression();            // IBooleanExpressionNode
@@ -42,6 +43,7 @@ Warrant::parse('if is_self they can view')->rule();                        // Wa
 Warrant::parse('if is_self they can view')->scopedTo('documents');         // RuleSetNode
 Warrant::parse('for documents { they can view }')->ruleSet();              // RuleSetNode
 Warrant::parse('for documents { … } for timesheets { … }')->forSchema('documents'); // ?RuleSetNode
+Warrant::parseFile(resource_path('warrant/documents'))->ruleSet();         // reads documents.warrant
 Warrant::condition()->if('is_owner')->orIf('is_admin');                    // WarrantConditionBuilder
 ```
 
