@@ -47,6 +47,9 @@ Warrant::parse('for documents { they can view }')->ruleSet()
 Warrant::parse('for documents { … } for folders { … }')->forSchema('folders')
 ```
 
+`warrant($syntax, $bindings)` and `warrant_file($path, $bindings)` are global
+helpers for `Warrant::parse()` and `Warrant::parseFile()`.
+
 `Warrant::rule()` and `WarrantRuleNode::build()` are the same call.
 :::
 

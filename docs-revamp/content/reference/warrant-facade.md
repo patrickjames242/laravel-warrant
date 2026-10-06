@@ -93,6 +93,17 @@ Warrant::condition()->if('is_owner')->orIf('is_admin');                    // Wa
 Warrant::rule()->if('is_mine')->theyCan('view');                           // WarrantRuleBuilder
 ```
 
+`parse()` and `parseFile()` are also global helpers, taking the same arguments
+and returning the same `WarrantSyntax`:
+
+```php
+warrant(string $syntax, array $bindings = []): WarrantSyntax;     // = Warrant::parse
+warrant_file(string $path, array $bindings = []): WarrantSyntax;  // = Warrant::parseFile
+
+warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression();
+warrant_file(base_path('warrant/documents'))->ruleSet();          // reads documents.warrant
+```
+
 `conditionExpression()` answers the expression under a `for <schema>` header as
 well as a bare one. The header names the schema whose conditions the expression
 uses, so a condition written as a string is as checkable as every other

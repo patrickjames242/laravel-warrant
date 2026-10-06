@@ -152,6 +152,9 @@ Warrant::validate($set);
 $file = Warrant::parseFile(base_path('warrant/editor.warrant'));
 $file->forSchema('documents');
 $file->schemaKeys();
+
+warrant($text, $bindings);                     // = Warrant::parse
+warrant_file(base_path('warrant/editor'));     // = Warrant::parseFile, .warrant optional
 ```
 
 ## Builder
