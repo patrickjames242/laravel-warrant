@@ -158,19 +158,17 @@ public static function build(
 public static function merge(RuleSetNode $first, RuleSetNode ...$rest): self; // same schema, argument order
 public function mergeWith(RuleSetNode $other): self;
 
-public function rules(): array;        // list<WarrantRuleNode>, ability blocks opened up, includes left out
-public function includes(): array;     // list<IncludeInvocationNode>, ability blocks opened up
-public function flatEntries(): array;  // list<WarrantRuleNode|IncludeInvocationNode>, ability blocks opened up
+public array $entries;                 // list<IRuleEntryNode>: rules, ability blocks and includes, as written
 ```
 
 An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
 `$entries`). Its body is headless, as the source writes it: the clauses and
 includes inside name no abilities, and the header is the only place they are
-said. Opening the block up applies the header to each entry, so the flattened
-lists grant and deny exactly what the block does, and writing the tree back
-renders the block as a block. Every rule and include held directly in `$entries`
-must name its own abilities; a headless one there throws
-`InvalidArgumentException`. Merging rule sets for two different schemas throws
+said. [Expansion](/guides/how-it-compiles/#before-compiling-expansion) applies the
+header to each entry, so the rules it produces grant and deny exactly what the
+block does, and writing the tree back renders the block as a block. Every rule
+and include held directly in `$entries` must name its own abilities; a headless
+one there throws `InvalidArgumentException`. Merging rule sets for two different schemas throws
 `InvalidArgumentException`.
 
 ### Validating

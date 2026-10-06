@@ -41,7 +41,7 @@ Nodes live in `Warrant\DSL\Parsing\ASTNodes`.
   - several rule sets in one source must each be braced
 - `RuleSetNode::fromRules(string $schemaKey, WarrantRuleNode|WarrantRuleBuilder|array ...$rules)`
 - `RuleSetNode::build(string $schemaKey, Closure $callback)`
-- `RuleSetNode::merge(...)` / `->mergeWith($other)`, `->rules()`, `->includes()`, `->entries`
+- `RuleSetNode::merge(...)` / `->mergeWith($other)`, `->entries`
 - `Warrant::validate(RuleSetNode|array ...$ruleSets): void` — name-check against each set's registered schema
 - `WarrantRuleNode::build()` (= `Warrant::rule()`; `Warrant::condition()` for a condition alone) — fluent builder: `->if/andIf/orIf/ifNot/…`, `->ifCan/->ifCheck` (+ `and`/`or` forms, with `Ref::context/column/sql`), `->theyCan/theyCannot`, `->toRule()`
 

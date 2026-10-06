@@ -58,57 +58,6 @@ final readonly class RuleSetNode implements ISchemaScopedNode
     }
 
     /**
-     * The entries with every ability block opened up, in source order, each
-     * block's header applied to its entries. The flattened list grants and denies
-     * exactly what the blocks do.
-     *
-     * @return list<WarrantRuleNode|IncludeInvocationNode>
-     */
-    public function flatEntries(): array
-    {
-        $flat = [];
-
-        foreach ($this->entries as $entry) {
-            if ($entry instanceof AbilityBlockNode) {
-                array_push($flat, ...$entry->expand());
-
-                continue;
-            }
-
-            /** @var WarrantRuleNode|IncludeInvocationNode $entry */
-            $flat[] = $entry;
-        }
-
-        return $flat;
-    }
-
-    /**
-     * The rules, ability blocks opened up and includes left out.
-     *
-     * @return list<WarrantRuleNode>
-     */
-    public function rules(): array
-    {
-        return array_values(array_filter(
-            $this->flatEntries(),
-            static fn (IRuleEntryNode $entry): bool => $entry instanceof WarrantRuleNode,
-        ));
-    }
-
-    /**
-     * The `@include` directives, ability blocks opened up.
-     *
-     * @return list<IncludeInvocationNode>
-     */
-    public function includes(): array
-    {
-        return array_values(array_filter(
-            $this->flatEntries(),
-            static fn (IRuleEntryNode $entry): bool => $entry instanceof IncludeInvocationNode,
-        ));
-    }
-
-    /**
      * This rule set's entries followed by $other's, as one rule set. The schema
      * keys must match.
      */

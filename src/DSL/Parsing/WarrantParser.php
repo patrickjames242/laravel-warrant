@@ -416,7 +416,7 @@ final class WarrantParser
      *
      * The block is grouping and nothing more. Its entries are headless, as the
      * source writes them, and the header alone says which abilities they take;
-     * {@see AbilityBlockNode::expand()} applies it.
+     * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
      */
     private function parseAbilityBlock(): AbilityBlockNode
     {

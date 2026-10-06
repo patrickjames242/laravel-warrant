@@ -10,7 +10,8 @@ use InvalidArgumentException;
  *
  * The header is the only place the abilities live. Every entry in the body is
  * headless — its clauses and includes name no abilities — exactly as the source
- * writes them, and {@see expand()} applies the header to each one. The
+ * writes them, and expansion applies the header to each one
+ * ({@see \Warrant\DSL\Expanding\RuleSetExpander}). The
  * constructor holds every entry to that, so the header is the complete account
  * of what the body grants and denies.
  */
@@ -47,20 +48,5 @@ final readonly class AbilityBlockNode implements IRuleEntryNode
                 ));
             }
         }
-    }
-
-    /**
-     * The body with the header's abilities applied to every entry: the rules and
-     * includes the longhand clauses would have been, in source order.
-     *
-     * @return list<WarrantRuleNode|IncludeInvocationNode>
-     */
-    public function expand(): array
-    {
-        return array_map(
-            fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
-                => $entry->withAbilities($this->abilities),
-            $this->entries,
-        );
     }
 }

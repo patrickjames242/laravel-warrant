@@ -1,5 +1,7 @@
 <?php
 
+use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -46,9 +48,9 @@ it('parses a single rule with can and cannot clauses', function () {
         WARRANT)->scopedTo('timesheets');
 
     expect($set->schemaKey)->toBe('timesheets');
-    expect($set->flatEntries())->toHaveCount(1);
+    expect($set->entries)->toHaveCount(1);
 
-    $rule = $set->flatEntries()[0];
+    $rule = $set->entries[0];
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
     expect($rule->conditions->conditionKey)->toBe('is_self');
     expect($rule->canAbilities())->toBe(['edit', 'view', 'delete']);
@@ -64,9 +66,9 @@ it('parses multiple rules in one string', function () {
         they can view
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[1]->conditions->conditionKey)->toBe('has_access_control_level');
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[1]->conditions->conditionKey)->toBe('has_access_control_level');
 });
 
 it('parses an unconditional rule (no if) with null conditions', function () {
@@ -75,16 +77,16 @@ it('parses an unconditional rule (no if) with null conditions', function () {
         they cannot delete
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(1);
-    expect($set->flatEntries()[0]->conditions)->toBeNull();
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['view']);
-    expect($set->flatEntries()[0]->cannotAbilities())->toBe(['delete']);
+    expect($set->entries)->toHaveCount(1);
+    expect($set->entries[0]->conditions)->toBeNull();
+    expect($set->entries[0]->canAbilities())->toBe(['view']);
+    expect($set->entries[0]->cannotAbilities())->toBe(['delete']);
 });
 
 it('allows an empty rule set', function () {
     $set = WarrantSyntax::parse('   ')->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toBe([]);
+    expect($set->entries)->toBe([]);
 });
 
 // -- Whitespace ---------------------------------------------------------------
@@ -94,12 +96,12 @@ it('treats whitespace as insignificant (whole ruleset on one line)', function ()
         'if is_self they can edit if is_manager they can approve they cannot delete',
     )->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit']);
-    expect($set->flatEntries()[1]->conditions->conditionKey)->toBe('is_manager');
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['approve']);
-    expect($set->flatEntries()[1]->cannotAbilities())->toBe(['delete']);
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->canAbilities())->toBe(['edit']);
+    expect($set->entries[1]->conditions->conditionKey)->toBe('is_manager');
+    expect($set->entries[1]->canAbilities())->toBe(['approve']);
+    expect($set->entries[1]->cannotAbilities())->toBe(['delete']);
 });
 
 // -- Boolean expressions ------------------------------------------------------
@@ -108,7 +110,7 @@ it('applies precedence not > and > or', function () {
     $set = WarrantSyntax::parse('if is_self or not is_manager and is_owner they can view')->scopedTo('timesheets');
 
     // Expect: Or(is_self, And(Not(is_manager), is_owner))
-    $expr = $set->flatEntries()[0]->conditions;
+    $expr = $set->entries[0]->conditions;
     expect($expr)->toBeInstanceOf(OrNode::class);
     expect($expr->leftSide)->toBeInstanceOf(ConditionNode::class);
     expect($expr->leftSide->conditionKey)->toBe('is_self');
@@ -123,14 +125,14 @@ it('treats ! as a synonym for not', function () {
     $bang = WarrantSyntax::parse('if !is_manager they can view')->scopedTo('timesheets');
     $word = WarrantSyntax::parse('if not is_manager they can view')->scopedTo('timesheets');
 
-    expect($bang->flatEntries()[0]->conditions)->toBeInstanceOf(NotNode::class);
-    expect($word->flatEntries()[0]->conditions)->toBeInstanceOf(NotNode::class);
+    expect($bang->entries[0]->conditions)->toBeInstanceOf(NotNode::class);
+    expect($word->entries[0]->conditions)->toBeInstanceOf(NotNode::class);
 });
 
 it('honours parentheses over precedence', function () {
     $set = WarrantSyntax::parse('if !(is_self or is_manager) they cannot edit')->scopedTo('timesheets');
 
-    $expr = $set->flatEntries()[0]->conditions;
+    $expr = $set->entries[0]->conditions;
     expect($expr)->toBeInstanceOf(NotNode::class);
     expect($expr->operand)->toBeInstanceOf(OrNode::class);
 });
@@ -140,46 +142,46 @@ it('honours parentheses over precedence', function () {
 it('parses inline literals of every supported type', function () {
     $set = WarrantSyntax::parse("if is_thing('a-string', 42, 3.14, true, null) they can view")->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params)->toBe(['a-string', 42, 3.14, true, null]);
 });
 
 it('unescapes quotes and backslashes in string literals', function () {
     $set = WarrantSyntax::parse("if is_thing('a\\'b\\\\c') they can view")->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(["a'b\\c"]);
+    expect($set->entries[0]->conditions->parameters)->toBe(["a'b\\c"]);
 });
 
 it('parses a double-quoted string literal', function () {
     $set = WarrantSyntax::parse('if is_thing("a-string") they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(['a-string']);
+    expect($set->entries[0]->conditions->parameters)->toBe(['a-string']);
 });
 
 it('keeps a single quote literal inside a double-quoted string', function () {
     $set = WarrantSyntax::parse('if is_thing("can\'t touch this") they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(["can't touch this"]);
+    expect($set->entries[0]->conditions->parameters)->toBe(["can't touch this"]);
 });
 
 it('keeps a double quote literal inside a single-quoted string', function () {
     $set = WarrantSyntax::parse('if is_thing(\'she said "hi"\') they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(['she said "hi"']);
+    expect($set->entries[0]->conditions->parameters)->toBe(['she said "hi"']);
 });
 
 it('unescapes quotes and backslashes in double-quoted string literals', function () {
     $set = WarrantSyntax::parse('if is_thing("a\\"b\\\\c") they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(['a"b\\c']);
+    expect($set->entries[0]->conditions->parameters)->toBe(['a"b\\c']);
 });
 
 it('allows escaping either quote regardless of the delimiter', function () {
     $single = WarrantSyntax::parse("if is_thing('a\\\"b') they can view")->scopedTo('timesheets');
     $double = WarrantSyntax::parse('if is_thing("a\\\'b") they can view')->scopedTo('timesheets');
 
-    expect($single->flatEntries()[0]->conditions->parameters)->toBe(['a"b']);
-    expect($double->flatEntries()[0]->conditions->parameters)->toBe(["a'b"]);
+    expect($single->entries[0]->conditions->parameters)->toBe(['a"b']);
+    expect($double->entries[0]->conditions->parameters)->toBe(["a'b"]);
 });
 
 // -- Bindings -----------------------------------------------------------------
@@ -193,7 +195,7 @@ it('resolves named bindings inline, reused and order-independent', function () {
         'user_id' => 'some-user-id',
     ])->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe([
+    expect($set->entries[0]->conditions->parameters)->toBe([
         'some-user-id',
         'some-user-id',
         [1, null, false, 'x'],
@@ -205,14 +207,14 @@ it('resolves positional bindings left-to-right across the whole string', functio
         'a', 'b', 'c',
     ])->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters)->toBe(['a', 'b', 'c']);
+    expect($set->entries[0]->conditions->parameters)->toBe(['a', 'b', 'c']);
 });
 
 it('accepts any value type through a binding', function () {
     $object = new stdClass;
     $set = WarrantSyntax::parse('if is_thing(:v) they can view', ['v' => $object])->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toBe($object);
+    expect($set->entries[0]->conditions->parameters[0])->toBe($object);
 });
 
 // -- Context references (@context) --------------------------------------------
@@ -220,7 +222,7 @@ it('accepts any value type through a binding', function () {
 it('parses @context <key> into a symbolic ContextRef, not a value', function () {
     $set = WarrantSyntax::parse('if is_teacher(@context academic_year_id) they can view')->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params)->toHaveCount(1);
     expect($params[0])->toBeInstanceOf(ContextRef::class);
     expect($params[0]->key)->toBe('academic_year_id');
@@ -232,7 +234,7 @@ it('mixes a context ref with literals and bindings in one condition', function (
         ['b' => 42],
     )->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params[0])->toBe('x');
     expect($params[1])->toBeInstanceOf(ContextRef::class);
     expect($params[1]->key)->toBe('year');
@@ -244,7 +246,7 @@ it('exempts a context ref from binding finalize (no "unused binding" error)', fu
     // all-bindings-used / mixing checks — it is resolved later, at check time.
     $set = WarrantSyntax::parse('if is_teacher(@context year) they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toBeInstanceOf(ContextRef::class);
+    expect($set->entries[0]->conditions->parameters[0])->toBeInstanceOf(ContextRef::class);
 });
 
 it('errors on a bad context sigil or a missing key', function (string $syntax, string $needle) {
@@ -260,7 +262,7 @@ it('errors on a bad context sigil or a missing key', function (string $syntax, s
 it('parses @column <name>.<column> into a symbolic ColumnRef, not a value', function () {
     $set = WarrantSyntax::parse('if is_teacher(@column timesheets.pay_period_id) they can view')->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params)->toHaveCount(1);
     expect($params[0])->toBeInstanceOf(ColumnRef::class);
     expect($params[0]->alias)->toBe('timesheets');
@@ -273,7 +275,7 @@ it('mixes a column ref with literals, context refs, and bindings in one conditio
         ['b' => 42],
     )->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params[0])->toBe('x');
     expect($params[1])->toEqual(new ColumnRef('timesheets', 'id'));
     expect($params[2])->toEqual(new ContextRef('year'));
@@ -285,7 +287,7 @@ it('exempts a column ref from binding finalize (no "unused binding" error)', fun
     // the all-bindings-used / mixing checks — it is resolved later, at compile time.
     $set = WarrantSyntax::parse('if is_teacher(@column timesheets.id) they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toBeInstanceOf(ColumnRef::class);
+    expect($set->entries[0]->conditions->parameters[0])->toBeInstanceOf(ColumnRef::class);
 });
 
 it('parses a @column row selector in a can(...) handle', function () {
@@ -326,13 +328,13 @@ it('errors on a bad @-sigil or a malformed @column reference', function (string 
 it('parses a bare @column <column> with no qualifier at all', function () {
     $set = WarrantSyntax::parse('if is_teacher(@column pay_period_id) they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toEqual(new ColumnRef(null, 'pay_period_id'));
+    expect($set->entries[0]->conditions->parameters[0])->toEqual(new ColumnRef(null, 'pay_period_id'));
 });
 
 it('renders a bare @column without a stray dot', function () {
     $set = WarrantSyntax::parse('if is_teacher(@column pay_period_id) they can view')->scopedTo('timesheets');
 
-    expect(argToString($set->flatEntries()[0]->conditions->parameters[0]))->toBe('@column pay_period_id');
+    expect(argToString($set->entries[0]->conditions->parameters[0]))->toBe('@column pay_period_id');
 });
 
 // -- can(<ability>) with no for clause ----------------------------------------
@@ -422,7 +424,7 @@ it('errors on an as with no alias name, and on a reserved word as one', function
 it('parses @sql "<sql>" into a symbolic SqlRef, not a value', function () {
     $set = WarrantSyntax::parse('if is_teacher(@sql "select 1") they can view')->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params)->toHaveCount(1);
     expect($params[0])->toBeInstanceOf(SqlRef::class);
     expect($params[0]->sql)->toBe('select 1');
@@ -432,8 +434,8 @@ it('accepts single- or double-quoted @sql bodies, keeping the inner quote', func
     $double = WarrantSyntax::parse('if is_teacher(@sql "id = \'blah\'") they can view')->scopedTo('timesheets');
     $single = WarrantSyntax::parse("if is_teacher(@sql 'name = \"x\"') they can view")->scopedTo('timesheets');
 
-    expect($double->flatEntries()[0]->conditions->parameters[0])->toEqual(new SqlRef("id = 'blah'"));
-    expect($single->flatEntries()[0]->conditions->parameters[0])->toEqual(new SqlRef('name = "x"'));
+    expect($double->entries[0]->conditions->parameters[0])->toEqual(new SqlRef("id = 'blah'"));
+    expect($single->entries[0]->conditions->parameters[0])->toEqual(new SqlRef('name = "x"'));
 });
 
 it('resolves a :name binding as the @sql body at parse time', function () {
@@ -442,7 +444,7 @@ it('resolves a :name binding as the @sql body at parse time', function () {
         ['q' => 'select 1'],
     )->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toEqual(new SqlRef('select 1'));
+    expect($set->entries[0]->conditions->parameters[0])->toEqual(new SqlRef('select 1'));
 });
 
 it('resolves a ? binding as the @sql body at parse time', function () {
@@ -451,7 +453,7 @@ it('resolves a ? binding as the @sql body at parse time', function () {
         ['select 2'],
     )->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toEqual(new SqlRef('select 2'));
+    expect($set->entries[0]->conditions->parameters[0])->toEqual(new SqlRef('select 2'));
 });
 
 it('rejects a @sql binding that resolves to a non-string', function () {
@@ -467,7 +469,7 @@ it('mixes a @sql ref with literals, column/context refs, and bindings in one con
         ['b' => 42],
     )->scopedTo('timesheets');
 
-    $params = $set->flatEntries()[0]->conditions->parameters;
+    $params = $set->entries[0]->conditions->parameters;
     expect($params[0])->toBe('x');
     expect($params[1])->toEqual(new SqlRef('select 1'));
     expect($params[2])->toEqual(new ColumnRef('timesheets', 'id'));
@@ -480,7 +482,7 @@ it('exempts a @sql ref from binding finalize (no "unused binding" error)', funct
     // mixing checks — it carries no value at parse time and never consumes a `?`.
     $set = WarrantSyntax::parse('if is_teacher(@sql "select 1") they can view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->parameters[0])->toBeInstanceOf(SqlRef::class);
+    expect($set->entries[0]->conditions->parameters[0])->toBeInstanceOf(SqlRef::class);
 });
 
 it('parses a @sql row selector in a can(...) handle', function () {
@@ -528,8 +530,8 @@ it('parses wildcard abilities on can and cannot', function () {
         they cannot *
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['*']);
-    expect($set->flatEntries()[1]->cannotAbilities())->toBe(['*']);
+    expect($set->entries[0]->canAbilities())->toBe(['*']);
+    expect($set->entries[1]->cannotAbilities())->toBe(['*']);
 });
 
 // -- Identifiers --------------------------------------------------------------
@@ -537,8 +539,8 @@ it('parses wildcard abilities on can and cannot', function () {
 it('allows dashes inside condition and ability names', function () {
     $set = WarrantSyntax::parse('if is-department-manager they can soft-delete')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is-department-manager');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['soft-delete']);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is-department-manager');
+    expect($set->entries[0]->canAbilities())->toBe(['soft-delete']);
 });
 
 // -- Single-rule factory ------------------------------------------------------
@@ -571,8 +573,8 @@ it('composes resolved rules variadically and via a single array', function () {
     $variadic = RuleSetNode::fromRules('timesheets', $a, $b);
     $array = RuleSetNode::fromRules('timesheets', [$a, $b]);
 
-    expect($variadic->flatEntries())->toBe([$a, $b]);
-    expect($array->flatEntries())->toBe([$a, $b]);
+    expect($variadic->entries)->toBe([$a, $b]);
+    expect($array->entries)->toBe([$a, $b]);
 });
 
 it('silently flattens a mix of variadic rules and arrays', function () {
@@ -582,7 +584,7 @@ it('silently flattens a mix of variadic rules and arrays', function () {
 
     $set = RuleSetNode::fromRules('timesheets', $a, [$b, $c]);
 
-    expect($set->flatEntries())->toBe([$a, $b, $c]);
+    expect($set->entries)->toBe([$a, $b, $c]);
 });
 
 it('rejects non-rule elements inside a fromRules array', function () {
@@ -744,9 +746,9 @@ it('ignores a full-line comment', function () {
         they can edit
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(1);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit']);
+    expect($set->entries)->toHaveCount(1);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->canAbilities())->toBe(['edit']);
 });
 
 it('ignores a trailing comment on a line', function () {
@@ -756,9 +758,9 @@ it('ignores a trailing comment on a line', function () {
         they cannot approve
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit']);
-    expect($set->flatEntries()[0]->cannotAbilities())->toBe(['approve']);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->canAbilities())->toBe(['edit']);
+    expect($set->entries[0]->cannotAbilities())->toBe(['approve']);
 });
 
 it('ignores a comment with no trailing newline at end of source', function () {
@@ -1141,6 +1143,17 @@ it('reads a header with nothing after it as an empty rule set, not a condition',
 
 // -- Ability blocks -----------------------------------------------------------
 
+/**
+ * The rules a rule set's ability blocks stand for. The parser keeps a block as
+ * written; expansion is what applies its header.
+ *
+ * @return list<WarrantRuleNode>
+ */
+function openBlocks(RuleSetNode $set): array
+{
+    return (new RuleSetExpander)->expand($set, new WarrantTestSchema)->rules;
+}
+
 it('parses an ability block into the rules its longhand would produce', function () {
     $block = WarrantSyntax::parse(<<<'WARRANT'
         can they view {
@@ -1154,15 +1167,15 @@ it('parses an ability block into the rules its longhand would produce', function
         if is_locked they cannot view because 'Locked.'
         WARRANT)->scopedTo('timesheets');
 
-    expect($block->flatEntries())->toHaveCount(2);
+    expect(openBlocks($block))->toHaveCount(2);
 
-    foreach ($block->flatEntries() as $index => $rule) {
-        expect($rule->canAbilities())->toBe($longhand->flatEntries()[$index]->canAbilities());
-        expect($rule->cannotAbilities())->toBe($longhand->flatEntries()[$index]->cannotAbilities());
-        expect($rule->conditions->conditionKey)->toBe($longhand->flatEntries()[$index]->conditions->conditionKey);
+    foreach (openBlocks($block) as $index => $rule) {
+        expect($rule->canAbilities())->toBe($longhand->entries[$index]->canAbilities());
+        expect($rule->cannotAbilities())->toBe($longhand->entries[$index]->cannotAbilities());
+        expect($rule->conditions->conditionKey)->toBe($longhand->entries[$index]->conditions->conditionKey);
     }
 
-    expect($block->flatEntries()[1]->messageFor('view'))->toBe('Locked.');
+    expect(openBlocks($block)[1]->messageFor('view'))->toBe('Locked.');
 });
 
 it('gives every clause of a block the whole header ability list', function () {
@@ -1172,7 +1185,7 @@ it('gives every clause of a block the whole header ability list', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit', 'delete']);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['edit', 'delete']);
 });
 
 it('accepts a wildcard block header', function () {
@@ -1183,8 +1196,8 @@ it('accepts a wildcard block header', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['*']);
-    expect($set->flatEntries()[1]->cannotAbilities())->toBe(['*']);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['*']);
+    expect(openBlocks($set)[1]->cannotAbilities())->toBe(['*']);
 });
 
 it('carries several clauses of one block rule onto the same rule', function () {
@@ -1196,9 +1209,9 @@ it('carries several clauses of one block rule onto the same rule', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(1);
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['view']);
-    expect($set->flatEntries()[0]->cannotAbilities())->toBe(['view']);
+    expect(openBlocks($set))->toHaveCount(1);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['view']);
+    expect(openBlocks($set)[0]->cannotAbilities())->toBe(['view']);
 });
 
 it('mixes plain rules and ability blocks in one rule set', function () {
@@ -1212,10 +1225,10 @@ it('mixes plain rules and ability blocks in one rule set', function () {
         if is_archived they cannot edit because 'Archived.'
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(3);
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['*']);
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['view']);
-    expect($set->flatEntries()[2]->cannotAbilities())->toBe(['edit']);
+    expect(openBlocks($set))->toHaveCount(3);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['*']);
+    expect(openBlocks($set)[1]->canAbilities())->toBe(['view']);
+    expect(openBlocks($set)[2]->cannotAbilities())->toBe(['edit']);
 });
 
 it('allows an unconditional rule after an ability block', function () {
@@ -1227,9 +1240,9 @@ it('allows an unconditional rule after an ability block', function () {
         they can list
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[1]->conditions)->toBeNull();
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['list']);
+    expect(openBlocks($set))->toHaveCount(2);
+    expect(openBlocks($set)[1]->conditions)->toBeNull();
+    expect(openBlocks($set)[1]->canAbilities())->toBe(['list']);
 });
 
 it('parses an ability block inside a for block and in a group', function () {
@@ -1242,13 +1255,13 @@ it('parses an ability block inside a for block and in a group', function () {
         WARRANT)->ruleSet();
 
     expect($set->schemaKey)->toBe('timesheets');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['view']);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['view']);
 });
 
 it('accepts an empty ability block, as a for block does', function () {
     $set = WarrantSyntax::parse('can they view { }')->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toBe([]);
+    expect(openBlocks($set))->toBe([]);
 });
 
 it('allows the same ability in more than one block header', function () {
@@ -1262,9 +1275,9 @@ it('allows the same ability in more than one block header', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['view', 'edit']);
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['view']);
+    expect(openBlocks($set))->toHaveCount(2);
+    expect(openBlocks($set)[0]->canAbilities())->toBe(['view', 'edit']);
+    expect(openBlocks($set)[1]->canAbilities())->toBe(['view']);
 });
 
 it('rejects a clause inside an ability block naming its own abilities', function () {
@@ -1327,30 +1340,35 @@ it('rejects a headless clause outside an ability block', function () {
 
 // -- @include -----------------------------------------------------------------
 
-it('takes the abilities of the ability block it sits in', function () {
+it('sits headless in the ability block whose header names its abilities', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         can they view, edit {
             @include requires_approval
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(1);
-    expect($set->flatEntries()[0])->toBeInstanceOf(IncludeInvocationNode::class);
-    expect($set->flatEntries()[0]->templateKey)->toBe('requires_approval');
-    expect($set->flatEntries()[0]->abilities)->toBe(['view', 'edit']);
-    expect($set->flatEntries()[0]->arguments)->toBe([]);
+    expect($set->entries)->toHaveCount(1);
+    expect($set->entries[0])->toBeInstanceOf(AbilityBlockNode::class);
+    expect($set->entries[0]->abilities)->toBe(['view', 'edit']);
+
+    $include = $set->entries[0]->entries[0];
+
+    expect($include)->toBeInstanceOf(IncludeInvocationNode::class);
+    expect($include->templateKey)->toBe('requires_approval');
+    expect($include->abilities)->toBe([]);
+    expect($include->arguments)->toBe([]);
 });
 
 it('names its own abilities with a for list outside a block', function () {
     $set = WarrantSyntax::parse('@include requires_approval for view, edit')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->abilities)->toBe(['view', 'edit']);
+    expect($set->entries[0]->abilities)->toBe(['view', 'edit']);
 });
 
 it('accepts a wildcard in an include for list', function () {
     $set = WarrantSyntax::parse('@include locked for *')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->abilities)->toBe(['*']);
+    expect($set->entries[0]->abilities)->toBe(['*']);
 });
 
 it('parses include arguments as a condition\'s are', function () {
@@ -1359,7 +1377,7 @@ it('parses include arguments as a condition\'s are', function () {
         ['depth' => 2],
     )->scopedTo('timesheets');
 
-    $arguments = $set->flatEntries()[0]->arguments;
+    $arguments = $set->entries[0]->arguments;
 
     expect($arguments[0])->toBe('folder');
     expect($arguments[1])->toBe(2);
@@ -1370,7 +1388,7 @@ it('parses include arguments as a condition\'s are', function () {
 it('accepts an include with empty parentheses', function () {
     $set = WarrantSyntax::parse('@include locked() for view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->arguments)->toBe([]);
+    expect($set->entries[0]->arguments)->toBe([]);
 });
 
 it('keeps an include in source order among the rules', function () {
@@ -1384,11 +1402,12 @@ it('keeps an include in source order among the rules', function () {
         if is_last they can view
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(3);
-    expect($set->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_first');
-    expect($set->flatEntries()[1])->toBeInstanceOf(IncludeInvocationNode::class);
-    expect($set->flatEntries()[2]->conditions->conditionKey)->toBe('is_last');
+    expect($set->entries)->toHaveCount(3);
+    expect($set->entries[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_first');
+    expect($set->entries[1])->toBeInstanceOf(AbilityBlockNode::class);
+    expect($set->entries[1]->entries[0])->toBeInstanceOf(IncludeInvocationNode::class);
+    expect($set->entries[2]->conditions->conditionKey)->toBe('is_last');
 });
 
 it('rejects a for list on an include inside an ability block', function () {
@@ -1450,10 +1469,12 @@ it('parses several includes in one ability block', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->templateKey)->toBe('requires_approval');
-    expect($set->flatEntries()[1]->templateKey)->toBe('not_archived');
-    expect($set->flatEntries()[1]->abilities)->toBe(['view']);
+    $block = $set->entries[0];
+
+    expect($block->abilities)->toBe(['view']);
+    expect($block->entries)->toHaveCount(2);
+    expect($block->entries[0]->templateKey)->toBe('requires_approval');
+    expect($block->entries[1]->templateKey)->toBe('not_archived');
 });
 
 it('keeps rules and includes interleaved inside one block', function () {
@@ -1465,15 +1486,18 @@ it('keeps rules and includes interleaved inside one block', function () {
         }
         WARRANT)->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($set->flatEntries()[1])->toBeInstanceOf(IncludeInvocationNode::class);
-    expect($set->flatEntries()[2])->toBeInstanceOf(WarrantRuleNode::class);
+    $body = $set->entries[0]->entries;
+
+    expect($body[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($body[1])->toBeInstanceOf(IncludeInvocationNode::class);
+    expect($body[2])->toBeInstanceOf(WarrantRuleNode::class);
 });
 
 it('takes a wildcard block header for an include', function () {
     $set = WarrantSyntax::parse('can they * { @include suspended }')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->abilities)->toBe(['*']);
+    expect($set->entries[0]->abilities)->toBe(['*']);
+    expect($set->entries[0]->entries[0])->toBeInstanceOf(IncludeInvocationNode::class);
 });
 
 it('parses an include inside a braced for block', function () {
@@ -1484,7 +1508,7 @@ it('parses an include inside a braced for block', function () {
         WARRANT)->ruleSet();
 
     expect($set->schemaKey)->toBe('timesheets');
-    expect($set->flatEntries()[0])->toBeInstanceOf(IncludeInvocationNode::class);
+    expect($set->entries[0])->toBeInstanceOf(IncludeInvocationNode::class);
 });
 
 it('carries includes per block through a group', function () {
@@ -1499,10 +1523,10 @@ it('carries includes per block through a group', function () {
         WARRANT);
 
     expect($group->ruleSets())->toHaveCount(2);
-    expect($group->ruleSets()[0]->flatEntries()[0]->templateKey)->toBe('requires_approval');
-    expect($group->ruleSets()[0]->flatEntries()[0]->abilities)->toBe(['view']);
-    expect($group->ruleSets()[1]->flatEntries()[0]->templateKey)->toBe('other');
-    expect($group->ruleSets()[1]->flatEntries()[0]->abilities)->toBe(['publish']);
+    expect($group->ruleSets()[0]->entries[0]->abilities)->toBe(['view']);
+    expect($group->ruleSets()[0]->entries[0]->entries[0]->templateKey)->toBe('requires_approval');
+    expect($group->ruleSets()[1]->entries[0]->templateKey)->toBe('other');
+    expect($group->ruleSets()[1]->entries[0]->abilities)->toBe(['publish']);
 });
 
 it('keeps includes and their order when two rule sets merge', function () {
@@ -1511,10 +1535,10 @@ it('keeps includes and their order when two rule sets merge', function () {
 
     $merged = $first->mergeWith($second);
 
-    expect($merged->flatEntries())->toHaveCount(3);
-    expect($merged->flatEntries()[0]->templateKey)->toBe('a');
-    expect($merged->flatEntries()[1])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($merged->flatEntries()[2]->templateKey)->toBe('b');
+    expect($merged->entries)->toHaveCount(3);
+    expect($merged->entries[0]->templateKey)->toBe('a');
+    expect($merged->entries[1])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($merged->entries[2]->templateKey)->toBe('b');
 });
 
 it('accepts an include built directly, without going through the parser', function () {
@@ -1523,8 +1547,8 @@ it('accepts an include built directly, without going through the parser', functi
         WarrantSyntax::parse('they can update')->rule(),
     ]);
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->abilities)->toBe(['view']);
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->abilities)->toBe(['view']);
 });
 
 it('rejects an entry that is neither a rule, a block nor an include', function () {
@@ -1537,20 +1561,20 @@ it('rejects an entry that is neither a rule, a block nor an include', function (
 it('resolves positional bindings in include arguments', function () {
     $set = WarrantSyntax::parse('@include inherited(?, ?) for view', ['folder', 3])->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->arguments)->toBe(['folder', 3]);
+    expect($set->entries[0]->arguments)->toBe(['folder', 3]);
 });
 
 it('takes every literal kind as an include argument', function () {
     $set = WarrantSyntax::parse("@include t('s', 4, 1.5, true, null) for view")->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->arguments)->toBe(['s', 4, 1.5, true, null]);
+    expect($set->entries[0]->arguments)->toBe(['s', 4, 1.5, true, null]);
 });
 
 it('takes a qualified column reference as an include argument', function () {
     $set = WarrantSyntax::parse('@include t(@column timesheets.parent_id) for view')->scopedTo('timesheets');
 
-    expect($set->flatEntries()[0]->arguments[0])->toBeInstanceOf(ColumnRef::class);
-    expect($set->flatEntries()[0]->arguments[0]->alias)->toBe('timesheets');
+    expect($set->entries[0]->arguments[0])->toBeInstanceOf(ColumnRef::class);
+    expect($set->entries[0]->arguments[0]->alias)->toBe('timesheets');
 });
 
 it('counts an unused binding against an include like any other', function () {
@@ -1574,9 +1598,9 @@ it('round-trips an include through toSyntax', function () {
 
     $reparsed = WarrantSyntax::parse(writeSyntax($original))->ruleSet();
 
-    expect($reparsed->flatEntries()[0]->templateKey)->toBe('inherited');
-    expect($reparsed->flatEntries()[0]->arguments)->toBe(['folder', 2]);
-    expect($reparsed->flatEntries()[0]->abilities)->toBe(['view', 'update']);
+    expect($reparsed->entries[0]->templateKey)->toBe('inherited');
+    expect($reparsed->entries[0]->arguments)->toBe(['folder', 2]);
+    expect($reparsed->entries[0]->abilities)->toBe(['view', 'update']);
 });
 
 it('round-trips an include through toBoundSyntax', function () {
@@ -1586,7 +1610,7 @@ it('round-trips an include through toBoundSyntax', function () {
     $reparsed = WarrantSyntax::parse($bound->syntax, $bound->bindings)->ruleSet();
 
     expect($bound->bindings)->toBe(['folder', 2]);
-    expect($reparsed->flatEntries()[0]->arguments)->toBe(['folder', 2]);
+    expect($reparsed->entries[0]->arguments)->toBe(['folder', 2]);
 });
 
 it('renders an argument-less include with no parentheses', function () {

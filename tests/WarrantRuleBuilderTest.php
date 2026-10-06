@@ -507,9 +507,9 @@ it('accepts builders directly in fromRules', function () {
         WarrantRuleNode::build()->theyCannot('delete'),
     );
 
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[1]->conditions)->toBeNull();
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[1]->conditions)->toBeNull();
 });
 
 // -- RuleSetNode::build (callback, one rule per $rule() call) ----------------
@@ -521,17 +521,17 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
     });
 
     expect($set->schemaKey)->toBe('timesheets');
-    expect($set->flatEntries())->toHaveCount(2);
-    expect($set->flatEntries()[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->flatEntries()[0]->canAbilities())->toBe(['edit', 'view']);
-    expect($set->flatEntries()[1]->conditions)->toBeNull();
-    expect($set->flatEntries()[1]->canAbilities())->toBe(['list']);
+    expect($set->entries)->toHaveCount(2);
+    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->canAbilities())->toBe(['edit', 'view']);
+    expect($set->entries[1]->conditions)->toBeNull();
+    expect($set->entries[1]->canAbilities())->toBe(['list']);
 });
 
 it('produces an empty rule set when the callback adds nothing', function () {
     $set = RuleSetNode::build('timesheets', function ($rule) {});
 
-    expect($set->flatEntries())->toBe([]);
+    expect($set->entries)->toBe([]);
 });
 
 it('rejects a $rule() with no they-can/they-cannot clause', function () {

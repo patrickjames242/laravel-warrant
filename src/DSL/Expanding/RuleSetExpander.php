@@ -7,12 +7,14 @@ use LogicException;
 use OutOfBoundsException;
 use RuntimeException;
 use Warrant\Builders\WarrantConditionBuilder;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -65,7 +67,7 @@ final class RuleSetExpander
     public function expand(RuleSetNode $set, SchemaVocabulary $schema): ExpandedRuleSet
     {
         return new ExpandedRuleSet($set->schemaKey, $this->expandEntries(
-            $set->flatEntries(),
+            $set->entries,
             $schema,
             $set->schemaKey,
             ExpansionTrail::root(),
@@ -73,7 +75,7 @@ final class RuleSetExpander
     }
 
     /**
-     * @param list<WarrantRuleNode|IncludeInvocationNode> $entries
+     * @param list<IRuleEntryNode> $entries
      * @return list<WarrantRuleNode>
      */
     private function expandEntries(
@@ -86,18 +88,41 @@ final class RuleSetExpander
         $expanded = [];
 
         foreach ($entries as $entry) {
-            if (! $entry instanceof IncludeInvocationNode) {
-                $expanded[] = $this->expandRule($entry, $schema, $schemaKey, $trail);
+            $rules = match (true) {
+                $entry instanceof AbilityBlockNode => $this->expandAbilityBlock($entry, $schema, $schemaKey, $trail),
+                $entry instanceof IncludeInvocationNode => $this->expandInclude($entry, $schema, $schemaKey, $trail),
+                default => [$this->expandRule($entry, $schema, $schemaKey, $trail)],
+            };
 
-                continue;
-            }
-
-            foreach ($this->expandInclude($entry, $schema, $schemaKey, $trail) as $rule) {
+            foreach ($rules as $rule) {
                 $expanded[] = $rule;
             }
         }
 
         return $expanded;
+    }
+
+    /**
+     * The rules an ability block stands for: its header applied to every headless
+     * entry in its body, and those entries expanded in turn.
+     *
+     * A block is grouping and nothing more, so it spends nothing of the trail.
+     *
+     * @return list<WarrantRuleNode>
+     */
+    private function expandAbilityBlock(
+        AbilityBlockNode $block,
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        ExpansionTrail $trail,
+    ): array {
+        $entries = array_map(
+            static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
+                => $entry->withAbilities($block->abilities),
+            $block->entries,
+        );
+
+        return $this->expandEntries($entries, $schema, $schemaKey, $trail);
     }
 
     /**
@@ -125,10 +150,12 @@ final class RuleSetExpander
             ));
         }
 
-        $headless = WarrantParser::parseTemplateBody(
-            is_string($body) ? $body : $body->syntax,
-            is_string($body) ? [] : $body->bindings,
-        );
+        /* A plain string is a body with nothing to fill. */
+        if (is_string($body)) {
+            $body = new WarrantRuleTemplate($body);
+        }
+
+        $headless = WarrantParser::parseTemplateBody($body->syntax, $body->bindings);
 
         /* The body is headless, as an ability block's is: the include names the
            abilities its clauses take, so they are applied here. */

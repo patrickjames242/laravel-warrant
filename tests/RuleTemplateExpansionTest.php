@@ -182,8 +182,28 @@ it('expands an include into the rules its longhand would produce', function () {
 
     expect($expanded->rules)->toHaveCount(1);
     expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
-    expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->flatEntries()[0]->cannotAbilities());
+    expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->entries[0]->cannotAbilities());
     expect($expanded->rules[0]->messageFor('view'))->toBe('Needs approval.');
+});
+
+it('opens an ability block, applying its header to every rule and include in it', function () {
+    $expanded = expandSyntax(<<<'WARRANT'
+        can they view, publish {
+            if is_teacher they can
+            if is_advisor they cannot because 'Locked.'
+            @include grants_it
+        }
+        WARRANT);
+
+    expect($expanded->rules)->toHaveCount(3);
+    expect($expanded->rules[0]->canAbilities())->toBe(['view', 'publish']);
+    expect($expanded->rules[1]->cannotAbilities())->toBe(['view', 'publish']);
+    expect($expanded->rules[1]->messageFor('view'))->toBe('Locked.');
+    expect($expanded->rules[2]->canAbilities())->toBe(['view', 'publish']);
+});
+
+it('opens an empty ability block to no rules', function () {
+    expect(expandSyntax('can they view { }')->rules)->toBe([]);
 });
 
 it('gives the expanded rules the abilities the include named', function () {
@@ -233,7 +253,7 @@ it('leaves a set holding no includes exactly as it was', function () {
     $expanded = (new RuleSetExpander)->expand($set, new TemplateExpansionSchema);
 
     expect($expanded->schemaKey)->toBe($set->schemaKey);
-    expect($expanded->rules)->toBe($set->flatEntries());
+    expect($expanded->rules)->toBe($set->entries);
 });
 
 it('refuses an expanded rule set holding anything but rules that name their abilities', function () {
