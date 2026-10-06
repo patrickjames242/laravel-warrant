@@ -44,7 +44,7 @@ Highlighted by extension in every editor that has the
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 
-$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor'));
 
 $file->forSchema('documents');   // the RuleSetNode, or null
 $file->schemaKeys();             // ['documents', 'folders', 'comments']
@@ -53,13 +53,17 @@ $file->ruleSets();               // every block, in source order
 Warrant::validate($file->ruleSets());
 ```
 
+The `.warrant` extension is optional. A path that names an existing file is read
+as given; otherwise `.warrant` is appended, so `warrant/editor` reads
+`warrant/editor.warrant`.
+
 Bindings work the same as anywhere:
 
 ```php
-WarrantSyntax::parseFile(base_path('warrant/editor.warrant'), ['region' => 'west']);
+WarrantSyntax::parseFile(base_path('warrant/editor'), ['region' => 'west']);
 ```
 
-An unreadable path throws:
+An unreadable path throws, naming the path that was tried, `.warrant` included:
 
 ```text
 Unable to read Warrant rule file [/app/warrant/editor.warrant].

@@ -278,3 +278,5 @@ Also from the builder:
 From `WarrantSyntax::parseFile()`, an `InvalidArgumentException`:
 
 - `Unable to read Warrant rule file [%s].`
+  The path is the one read: for a path naming no file, that is the path with
+  `.warrant` appended.
