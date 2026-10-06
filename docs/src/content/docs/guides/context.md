@@ -146,6 +146,10 @@ protected function defaultContext(): array
 A default can satisfy a *required* key, so a required key with a default never
 throws.
 
+A schema's defaults also apply when another schema reaches it through a
+[cross-schema `can(...)` or `check(...)`](/guides/cross-schema-checks/#the-with-map-context-across-the-boundary),
+under whatever that handle's `with` map passes.
+
 ## Required vs. optional
 
 **Keys are optional by default** — a check runs fine with the key absent. Mark a

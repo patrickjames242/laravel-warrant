@@ -44,7 +44,8 @@ require_once __DIR__.'/Support/TestSupport.php';
 |     returning a bool therefore only shows up as `1 = 1` / `1 = 0` when it
 |     decides the *whole* predicate; one returning SQL splices its where-group
 |     verbatim.
-|   - B sees only the explicit `with` map as its context — never A's ambient bag.
+|   - B's context is its own defaultContext() with the explicit `with` map merged
+|     over it — never A's ambient bag.
 |
 | Fixture conditions (defined at the foot of this file), with the acting user's
 | role ("role-1") already substituted:
@@ -419,6 +420,40 @@ it('carries an @sql with-map value across the boundary as an expression', functi
     );
 });
 
+it('fills the referenced condition\'s bag from its schema\'s defaultContext()', function () {
+    // chk_targets defaults `fallback` to role-default; A's bag holds a different
+    // `fallback`, which does not cross without a with map.
+    assertChkFilterSql(
+        'if check(owner_is(@context fallback) for chk_targets(@context tid)) they can view',
+        ['tid' => 'f-owned', 'fallback' => 'role-2'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and (chk_targets.owner = 'role-default')
+                )
+            )
+        SQL,
+    );
+});
+
+it('lets a with-map value override the referenced condition schema\'s default', function () {
+    assertChkFilterSql(
+        'if check(owner_is(@context fallback) for chk_targets(@context tid) with fallback = @context outer) they can view',
+        ['tid' => 'f-owned', 'outer' => 'role-2'],
+        <<<SQL
+            select * from "chk_docs" where (
+                exists (
+                    select * from "chk_targets"
+                    where "chk_targets"."id" = 'f-owned'
+                        and (chk_targets.owner = 'role-2')
+                )
+            )
+        SQL,
+    );
+});
+
 // -- fixtures -----------------------------------------------------------------
 
 class ChkDoc extends Model
@@ -460,6 +495,11 @@ class ChkTarget extends Model
 class ChkTargetSchema extends WarrantSchema
 {
     public const model = ChkTarget::class;
+
+    protected function defaultContext(): array
+    {
+        return ['fallback' => 'role-default'];
+    }
 
     #[Ability]
     public const VIEW = 'view';

@@ -27,7 +27,7 @@ trait ResolvesContext
      */
     public function resolveEffectiveContext(array $context): array
     {
-        $effective = array_merge($this->defaultContext(), $context);
+        $effective = $this->withDefaultContext($context);
 
         $missing = array_values(array_diff(static::requiredContextKeys(), array_keys($effective)));
 
@@ -40,6 +40,18 @@ trait ResolvesContext
         }
 
         return $effective;
+    }
+
+    /**
+     * $context merged over the schema's {@see \Warrant\Schema\WarrantSchema::defaultContext},
+     * explicit values winning, with no required-context enforcement.
+     *
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    public function withDefaultContext(array $context): array
+    {
+        return array_merge($this->defaultContext(), $context);
     }
 
     /**
