@@ -10,7 +10,6 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\WarrantManager;
 
 /**
@@ -148,27 +147,5 @@ class Warrant extends Facade
     public static function rule(): WarrantRuleBuilder
     {
         return WarrantRuleNode::build();
-    }
-
-    /**
-     * A rule template's body: generic rule text and the values for its
-     * placeholders, for a `#[RuleTemplate]` method to answer with.
-     *
-     *     Warrant::ruleTemplate('if not is_approved they cannot')
-     *     Warrant::ruleTemplate('if is_child_of(:rel) they cannot because :why', ['rel' => $rel, 'why' => $why])
-     *
-     * Bindings are how a template takes a value: interpolating one into the text
-     * is unsafe, and a closure denial message has no inline form at all. A body
-     * with no placeholders may be returned as a plain string instead.
-     *
-     * The text is not parsed here. A template's clauses name no abilities, so
-     * there is nothing to parse them into until the `@include` that expands it
-     * supplies them.
-     *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
-     */
-    public static function ruleTemplate(string $syntax, array $bindings = []): WarrantRuleTemplate
-    {
-        return new WarrantRuleTemplate($syntax, $bindings);
     }
 }

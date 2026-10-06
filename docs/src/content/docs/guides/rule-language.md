@@ -105,8 +105,14 @@ Three things are rejected:
   of what the block is about.
 - **A block inside a block.** An inner header would answer a question the outer
   one already settled.
-- **A generic clause outside a block** — `if is_public they can` at the top level
-  has nothing to take its abilities from.
+- **A generic clause in a rule set** — `if is_public they can` outside a block
+  has nothing to take its abilities from. Inside a `for` body that is a syntax
+  error. Rules with no `for` header may all leave the abilities off, so the same
+  text can be a [template's](/guides/rule-templates/) body; it is rejected when it
+  is placed in a rule set instead.
+- **Mixing the two in rules with no `for` header** — the first clause, `@include`
+  or ability block decides whether the text names its abilities, and one that
+  disagrees, `if a they can view  if b they cannot`, is a syntax error.
 
 The same ability may appear in more than one header. Nothing is lost when it does:
 both blocks' rules apply, exactly as the longhand would.
@@ -510,11 +516,13 @@ ruleset     = ( clause+ | "if" expr clause+ | ability_block | include )* ;
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
 include     = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]
                          [ "for" ability { "," ability } ] ;
-              (* the `for` list is required outside an ability block and
-                 forbidden inside one *)
+              (* the `for` list is required in a `for` body and forbidden
+                 inside an ability block *)
 clause      = "they" ( "can" ability ( "," ability )*
                      | "cannot" ability ( "," ability )* ( "because" message )? ) ;
-              (* inside an ability block the ability list is omitted entirely *)
+              (* inside an ability block the ability list is omitted entirely.
+                 In rules with no `for` header, clauses and includes either all
+                 name their abilities or all leave them off; the first decides *)
 ability     = IDENTIFIER | "*" ;
 message     = STRING | NAMED_BINDING | POSITIONAL ;
 expr        = or ;

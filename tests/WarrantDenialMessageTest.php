@@ -13,7 +13,6 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\GlobalCondition;
@@ -304,9 +303,9 @@ class DenialTemplateSchema extends WarrantTestSchema
 
     /** A closure message, which can only reach the DSL through a binding. */
     #[RuleTemplate]
-    public function archivedWithReason(string $reason): WarrantRuleTemplate
+    public function archivedWithReason(string $reason): WarrantSyntax
     {
-        return Warrant::ruleTemplate(
+        return Warrant::parse(
             'if is_teacher they cannot because :why',
             ['why' => fn (WarrantDenialContext $c) => "You cannot {$c->deniedAbilities[0]} {$c->target->getKey()}: {$reason}."],
         );

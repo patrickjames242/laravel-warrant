@@ -20,11 +20,9 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\WarrantRuleTemplate;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\RuleTemplateDefinition;
 
@@ -138,24 +136,11 @@ final class RuleSetExpander
 
         $definition = self::resolveTemplate($schema, $schemaKey, $include);
 
-        $body = $schema->{$definition->methodName}(...$include->arguments);
-
-        if (! is_string($body) && ! $body instanceof WarrantRuleTemplate) {
-            throw new RuntimeException(sprintf(
-                'Rule template [%s::%s] must answer with a string or a %s, got %s.',
-                $schema::class,
-                $definition->methodName,
-                WarrantRuleTemplate::class,
-                get_debug_type($body),
-            ));
-        }
-
-        /* A plain string is a body with nothing to fill. */
-        if (is_string($body)) {
-            $body = new WarrantRuleTemplate($body);
-        }
-
-        $generic = WarrantParser::parseTemplateBody($body->syntax, $body->bindings);
+        $generic = $this->templateEntries(
+            $schema->{$definition->methodName}(...$include->arguments),
+            $schema,
+            $definition,
+        );
 
         /* The body is generic, as an ability block's is: the include names the
            abilities its clauses take, so they are applied here. */
@@ -169,6 +154,85 @@ final class RuleSetExpander
            are expanded here rather than left for the caller so that what comes
            back is rules and only rules, however deep the templates went. */
         return $this->expandEntries($entries, $schema, $schemaKey, $deeper);
+    }
+
+    /**
+     * The generic rules and includes in what a rule template answered with, in
+     * whichever form it built them: rule text as a string or {@see WarrantSyntax},
+     * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, or an
+     * iterable of any of these.
+     *
+     * Every entry must be generic. The `@include` expanding the template names the
+     * abilities its clauses take, so an entry naming its own has two answers to the
+     * one question, and a rule set or ability block, which always name theirs, has
+     * no place in a template at all.
+     *
+     * A string is parsed as any rule text is; rule text with bindings arrives
+     * already parsed, as a {@see WarrantSyntax}.
+     *
+     * @return list<WarrantRuleNode|IncludeInvocationNode>
+     */
+    private function templateEntries(mixed $body, SchemaVocabulary $schema, RuleTemplateDefinition $definition): array
+    {
+        if (is_string($body)) {
+            $body = WarrantSyntax::parse($body);
+        }
+
+        if ($body instanceof WarrantSyntax) {
+            if (! $body->isEmpty() && ! $body->isRuleEntries()) {
+                throw new RuntimeException(sprintf(
+                    'Rule template [%s::%s] answered with rule text that is not unscoped rules and includes; '
+                        .'a template answers with rules and includes that name no abilities.',
+                    $schema::class,
+                    $definition->methodName,
+                ));
+            }
+
+            $body = $body->ruleEntries();
+        }
+
+        if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
+            if (! $body->isGeneric()) {
+                throw new RuntimeException(sprintf(
+                    'Rule template [%s::%s] answered with %s that names abilities; the @include that '
+                        .'expands a template names the abilities its rules and includes take.',
+                    $schema::class,
+                    $definition->methodName,
+                    $body instanceof WarrantRuleNode ? 'a rule' : 'an @include',
+                ));
+            }
+
+            return [$body];
+        }
+
+        if ($body instanceof AbilityBlockNode || $body instanceof RuleSetNode) {
+            throw new RuntimeException(sprintf(
+                'Rule template [%s::%s] answered with %s, which names abilities; the @include that expands '
+                    .'a template names the abilities its rules and includes take.',
+                $schema::class,
+                $definition->methodName,
+                $body instanceof AbilityBlockNode ? 'an ability block' : 'a rule set',
+            ));
+        }
+
+        if (is_iterable($body)) {
+            $entries = [];
+
+            foreach ($body as $item) {
+                array_push($entries, ...$this->templateEntries($item, $schema, $definition));
+            }
+
+            return $entries;
+        }
+
+        throw new RuntimeException(sprintf(
+            'Rule template [%s::%s] must answer with rule text, a %s, a rule or @include that names no '
+                .'abilities, or an iterable of them; got %s.',
+            $schema::class,
+            $definition->methodName,
+            WarrantSyntax::class,
+            get_debug_type($body),
+        ));
     }
 
     /**
@@ -290,7 +354,7 @@ final class RuleSetExpander
             $node->conditionKey,
             $node->parameters,
             $this->expandExpression(
-                $this->derivedExpression($answer, $node->conditionKey, $schema, $definition),
+                $this->derivedExpression($answer, $node->conditionKey, $schema, $schemaKey, $definition),
                 $schema,
                 $schemaKey,
                 $deeper,
@@ -301,14 +365,16 @@ final class RuleSetExpander
     /**
      * What a derived condition answered with, as an expression node.
      *
-     * A string is rule text, parsed as a condition expression. A
-     * {@see WarrantConditionBuilder} is unwrapped to the tree it composed. A bool
-     * decides the outcome outright, and null answers unknown.
+     * Rule text, as a string or a {@see WarrantSyntax} parsed with bindings, must
+     * hold a condition expression, bare or under a `for` header naming this
+     * schema. A {@see WarrantConditionBuilder} is unwrapped to the tree it
+     * composed. A bool decides the outcome outright, and null answers unknown.
      */
     private function derivedExpression(
         mixed $answer,
         string $conditionKey,
         SchemaVocabulary $schema,
+        string $schemaKey,
         ConditionDefinition $definition,
     ): IBooleanExpressionNode {
         if ($answer instanceof WarrantConditionBuilder) {
@@ -326,32 +392,42 @@ final class RuleSetExpander
 
         return match (true) {
             $answer instanceof IBooleanExpressionNode => $answer,
-            is_string($answer) => $this->parseDerivedText($answer, $schema, $definition),
+            is_string($answer) => $this->derivedSyntaxExpression($answer, $schema, $schemaKey, $definition),
+            $answer instanceof WarrantSyntax => $this->derivedSyntaxExpression($answer, $schema, $schemaKey, $definition),
             is_bool($answer) => new BooleanNode($answer),
             $answer === null => new UnknownNode,
             default => throw new RuntimeException(sprintf(
-                'Derived condition [%s::%s] must answer with an expression, a %s, rule text, a bool or null; '
-                    .'got %s.',
+                'Derived condition [%s::%s] must answer with an expression, a %s, rule text, a %s, a bool '
+                    .'or null; got %s.',
                 $schema::class,
                 $definition->methodName,
                 WarrantConditionBuilder::class,
+                WarrantSyntax::class,
                 get_debug_type($answer),
             )),
         };
     }
 
     /**
-     * The rule text a derived condition answered with, parsed as a condition
-     * expression.
+     * The condition expression in the rule text a derived condition answered with.
      *
      * Text that does not parse, or parses to something other than an expression,
      * is the condition's mistake, but the parser can only point at a position in
      * the text. Naming the method that answered with it is what makes it findable.
+     *
+     * A `for` header scopes the names to the schema it names, and the expression
+     * is expanded and compiled against this one, so a header naming another is
+     * rejected rather than read against the wrong vocabulary.
      */
-    private function parseDerivedText(string $text, SchemaVocabulary $schema, ConditionDefinition $definition): IBooleanExpressionNode
-    {
+    private function derivedSyntaxExpression(
+        string|WarrantSyntax $text,
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        ConditionDefinition $definition,
+    ): IBooleanExpressionNode {
         try {
-            return WarrantSyntax::parse($text)->conditionExpression();
+            $syntax = is_string($text) ? WarrantSyntax::parse($text) : $text;
+            $expression = $syntax->conditionExpression();
         } catch (WarrantSyntaxException|LogicException $e) {
             throw new RuntimeException(sprintf(
                 "Derived condition [%s::%s] answered with rule text that is not a condition expression:\n\n%s",
@@ -360,6 +436,19 @@ final class RuleSetExpander
                 $e->getMessage(),
             ), previous: $e);
         }
+
+        if ($syntax->isSchemaCondition() && $syntax->schemaKeys() !== [$schemaKey]) {
+            throw new RuntimeException(sprintf(
+                'Derived condition [%s::%s] answered with a condition for schema [%s]; it is a condition of '
+                    .'schema [%s].',
+                $schema::class,
+                $definition->methodName,
+                $syntax->schemaKeys()[0],
+                $schemaKey,
+            ));
+        }
+
+        return $expression;
     }
 
     /**

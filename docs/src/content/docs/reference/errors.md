@@ -47,6 +47,7 @@ Representative messages:
 - ``Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.``
 - ``A `{ ... }` block needs a `for <schema>` header before it.``
 - ``Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.``
+- ``%s names abilities, but the rules before it name none; rules with no `for` header either all name their abilities or all leave them to be named where the rules are placed.`` (or `names none` / `name theirs`; `%s` is `This clause`, `This @include` or `An ability block`)
 
 ### Shape errors
 
@@ -133,9 +134,13 @@ Thrown while a rule set is expanded — by the guard before its first check, and
 
 - `InvalidArgumentException` — `Schema [%s] declares no rule template [%s], named by an @include.`
 - `InvalidArgumentException` — `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
-- `RuntimeException` — `Rule template [%s::%s] must answer with a string or a WarrantRuleTemplate, got %s.`
+- `RuntimeException` — `Rule template [%s::%s] must answer with rule text, a Warrant\DSL\Parsing\ASTNodes\WarrantSyntax, a rule or @include that names no abilities, or an iterable of them; got %s.`
+- `RuntimeException` — `Rule template [%s::%s] answered with a rule that names abilities; the @include that expands a template names the abilities its rules and includes take.` (or `an @include that names abilities`)
+- `RuntimeException` — `Rule template [%s::%s] answered with a rule set, which names abilities; ...` (or `an ability block`)
+- `RuntimeException` — `Rule template [%s::%s] answered with rule text that is not unscoped rules and includes; a template answers with rules and includes that name no abilities.`
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (a derived condition given too few arguments)
-- `RuntimeException` — `Derived condition [%s::%s] must answer with an expression, a WarrantConditionBuilder, rule text, a bool or null; got %s.`
+- `RuntimeException` — `Derived condition [%s::%s] must answer with an expression, a WarrantConditionBuilder, rule text, a WarrantSyntax, a bool or null; got %s.`
+- `RuntimeException` — `Derived condition [%s::%s] answered with a condition for schema [%s]; it is a condition of schema [%s].` (rule text whose `for` header names another schema)
 - `RuntimeException` — `Derived condition [%s::%s] answered with rule text that is not a condition expression: ...` (the parser's own error follows, and is the previous exception)
 - `InvalidArgumentException` — `Condition [%s] on schema [%s] returned a condition builder with no terms, which would silently match every row; ...`
 - `RuntimeException` — `Expansion exceeded the maximum nesting depth of 64.` — a template or derived condition that expands into itself with the same arguments; the message lists the chain, collapsing repeats.

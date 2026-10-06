@@ -116,6 +116,30 @@ it('answers with rule text, parsed as a condition expression', function () {
     expect(dkFilterSql('if as_text they can view'))->toBe(dkFilterSql('if is_owned they can view'));
 });
 
+it('answers with a WarrantSyntax parsed with bindings', function () {
+    expect(dkFilterSql('if as_syntax they can view'))
+        ->toBe(dkFilterSql("if is_owned or in_tenant('t-1') they can view"));
+});
+
+it('answers with a condition under a for header naming its own schema', function () {
+    expect(dkFilterSql('if as_scoped_syntax they can view'))->toBe(dkFilterSql('if is_owned they can view'));
+});
+
+it('rejects a condition under a for header naming another schema', function () {
+    expect(fn () => dkFilterSql('if as_foreign_syntax they can view'))->toThrow(
+        RuntimeException::class,
+        'Derived condition [DkDocSchema::asForeignSyntax] answered with a condition for schema [other_docs]; '
+            .'it is a condition of schema [dk_docs].',
+    );
+});
+
+it('rejects a WarrantSyntax that is not a condition expression, naming the condition', function () {
+    expect(fn () => dkFilterSql('if as_rule_syntax they can view'))->toThrow(
+        RuntimeException::class,
+        'Derived condition [DkDocSchema::asRuleSyntax] answered with rule text that is not a condition expression',
+    );
+});
+
 it('reports rule text that does not parse, naming the condition that answered with it', function () {
     try {
         dkFilterSql('if dangling_text they can view');
@@ -360,6 +384,34 @@ class DkDocSchema extends WarrantSchema
     public function namesOther(): string
     {
         return 'owner_is_column(@column other.owner_id)';
+    }
+
+    /** Rule text with a binding, parsed by the condition itself. */
+    #[DerivedCondition]
+    public function asSyntax(): WarrantSyntax
+    {
+        return Warrant::parse('is_owned or in_tenant(:tenant)', ['tenant' => 't-1']);
+    }
+
+    /** A condition under a `for` header naming this schema. */
+    #[DerivedCondition]
+    public function asScopedSyntax(): WarrantSyntax
+    {
+        return Warrant::parse('for dk_docs { is_owned }');
+    }
+
+    /** A condition under a `for` header naming another schema. */
+    #[DerivedCondition]
+    public function asForeignSyntax(): WarrantSyntax
+    {
+        return Warrant::parse('for other_docs { is_owned }');
+    }
+
+    /** Parsed rule text holding a whole rule, where an expression was wanted. */
+    #[DerivedCondition]
+    public function asRuleSyntax(): WarrantSyntax
+    {
+        return Warrant::parse('if is_owned they can view');
     }
 
     #[DerivedCondition]
