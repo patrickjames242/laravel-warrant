@@ -38,10 +38,10 @@ you are removing.
 **2. Write the schema, do not register it.** Conditions and abilities only. Nothing
 changes yet.
 
-**3. Write the rules and a resolver** covering just that schema:
+**3. Write the rules and a provider** covering just that schema:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     return match ($context->schemaKey) {
         'documents' => $this->documentRules($context),
@@ -124,7 +124,7 @@ translating. See [what rules cannot do](/concepts/what-rules-cannot-do/).
 
 **Warrant has no `before` of its own.** A policy `before()` method granting admins
 everything becomes `if is_admin they can *`, ideally in
-[`implicitRules()`](/schemas/schema-policy/).
+[`rules()`](/schemas/schema-policy/).
 
 **Warrant denies by default and cannot be appealed.** A policy returning `null` to
 abstain has no equivalent, since silence already means denial, and a `cannot`

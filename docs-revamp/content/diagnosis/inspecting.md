@@ -31,11 +31,11 @@ for documents {
 }
 ```
 
-That is what your resolver returned plus the schema's
-[implicit rules](/schemas/schema-policy/), merged and validated. Start here.
+That is what your provider returned plus the schema's
+[schema rules](/schemas/schema-policy/), merged and validated. Start here.
 
 The first two rules above are the ones people are surprised by, because they were
-never in the resolver.
+never in the provider.
 
 If `toSyntax()` throws, a rule holds a value with no inline form. Use the bound
 form:

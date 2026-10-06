@@ -2,39 +2,51 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Schema-level policy
-description: Implicit rules and default context, the two places a schema is allowed to decide something.
+description: Schema rules and default context, the two places a schema is allowed to decide something.
 sidebar:
   order: 6
 ---
 
-A schema is vocabulary. Two hooks are the deliberate exceptions, for guarantees
-that must not depend on what a resolver happened to return.
+A schema is vocabulary. Two hooks are the deliberate exceptions: rules the schema
+supplies itself, and context it fills in for callers.
 
-## Implicit rules
+## Schema rules
 
-`implicitRules()` declares rules merged into every resolved rule set for this
-schema, before compilation. They are validated and combine exactly like resolver
-rules:
+`rules()` returns rules merged ahead of whatever the
+[global provider](/supplying-rules/provider/) returns, before compilation. With no
+global provider configured, they are this schema's only rules. Either way they are
+validated and combine exactly like provider rules:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\Rules\RuleProviderContext;
 
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): string
 {
-    return [
-        WarrantSyntax::parse('if is_admin they can *')->rule(),
-        WarrantSyntax::parse('if is_suspended they cannot *')->rule(),
-    ];
+    return '
+        if is_admin they can *
+        if is_suspended they cannot *
+    ';
 }
 ```
 
-Return a plain list of rule entries, or a fully formed `RuleSetNode` for this schema, whichever
-your baseline logic produces most naturally. A returned set must target this
-schema.
+It may return [any form a provider may](/supplying-rules/provider/#what-you-may-return):
+rule text, a `RuleSetNode`, a single rule entry, or an array or collection of
+those. A returned rule set must target this schema.
 
-Because [rule order never matters](/concepts/grants-and-denials/), an implicit
-`cannot` beats any `can` a resolver supplies. That is the whole point: a suspension
+It is handed the same `RuleProviderContext` as the global provider, so the rules
+may depend on who is asking:
+
+```php
+public function rules(RuleProviderContext $context): iterable
+{
+    return DB::table('document_grants')
+        ->where('user_id', $context->user?->getAuthIdentifier())
+        ->pluck('rule');
+}
+```
+
+Because [rule order never matters](/concepts/grants-and-denials/), a schema's
+`cannot` beats any `can` a provider supplies. That is the whole point: a suspension
 lockout that cannot be undone by a badly built rule set, an admin escape hatch that
 does not depend on every role definition remembering it.
 
@@ -43,14 +55,18 @@ conditions. `is_suspended` is a condition like any other.
 
 ### What belongs here
 
-Guarantees, not policy. Ask whether it would be a bug for a resolver to be able to
-override it.
+With a global provider in place: guarantees, not policy. Ask whether it would be a
+bug for the provider to be able to override it.
 
 Good: a suspension lockout, a lockout for an unverified email, a hard denial on
 soft-deleted rows, an admin escape hatch your operations team depends on.
 
 Not good: "editors can update". That varies, it belongs in data, and putting it
 here means an administrator cannot change it without a deploy.
+
+Without a global provider, this is where all of the schema's rules live, so the
+line moves: policy belongs here too, ideally read from data through the context as
+above rather than written into the class.
 
 ## Default context
 

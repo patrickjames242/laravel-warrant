@@ -11,7 +11,7 @@ export const links = {
   vsSpatie: pagePath('getting-started/vs-spatie-laravel-permission'),
   guides: pagePath('schemas/anatomy'),
   ruleLanguage: pagePath('rules/basics'),
-  resolvers: pagePath('supplying-rules/resolver'),
+  providers: pagePath('supplying-rules/provider'),
   checkingAccess: pagePath('checking/ways-in'),
   howItCompiles: pagePath('sql/rule-to-query'),
   cheatSheet: pagePath('reference/cheat-sheet'),

@@ -113,7 +113,7 @@ Thrown the first time a schema's conditions are reflected:
 
 ## Applying a condition
 
-From the resolver:
+From the provider:
 
 - `BadMethodCallException`: `Condition [%s] is not defined on schema [%s].`
 - `Condition [%s] on schema [%s] requires a target row.`
@@ -221,10 +221,11 @@ Deferred to first resolution, since each requires loading a class:
 The model-end pair is what catches a subclass inheriting `warrantSchema()` from its
 parent.
 
-## Resolver
+## Provider
 
-- `The rule resolver was asked for schema [%s] but returned a rule set targeting [%s].`
-- `Implicit rule set for schema [%s] targets a different schema [%s].`
+- `The rule provider was asked for schema [%s] but returned a rule set targeting [%s].`
+- `The rules() of schema [%s] was asked for schema [%s] but returned a rule set targeting [%s].`
+- `The rule provider returned %s; expected a rule set, a rule entry, rule text, or an iterable of them.` (also from a schema's `rules()`, an element of an iterable that holds no rules)
 - `Cannot merge rule sets for different schemas: [%s] and [%s].`
 
 ## Authorization, `WarrantAuthorizationException`
@@ -272,7 +273,6 @@ Also from the builder:
 
 ## Configuration and drivers, `RuntimeException`
 
-- `No Warrant rule resolver configured. Set warrant.rule_resolver to a class implementing Warrant\Rules\RuleResolver.`
 - `Warrant ability selection does not support the [%s] database driver.`
 
 From `WarrantSyntax::parseFile()`, an `InvalidArgumentException`:

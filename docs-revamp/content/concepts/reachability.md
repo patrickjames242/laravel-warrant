@@ -10,7 +10,7 @@ sidebar:
 Every check so far asks about rows. A different question asks about the rules
 themselves: *could this user ever update a document, whatever the row?*
 
-That is reachability. It reads the rule set your resolver returned, asked without a
+That is reachability. It reads the rule set your provider returned, asked without a
 row. It runs no SQL and never evaluates a row or global condition, and it takes no
 context, because context only ever feeds those conditions. Everything that can be
 answered without a row, it follows.
@@ -109,7 +109,7 @@ Warrant::guaranteedAbilities(Document::class);        // ['view']
 Warrant::impossibleAbilities(Document::class);        // ['delete']
 ```
 
-A user is still required, even though no row or global condition runs, because your resolver may
+A user is still required, even though no row or global condition runs, because your provider may
 hand a different rule set to each user, role, or tenant.
 
 The practical surface, including route guards and the `*Any` variants, is in

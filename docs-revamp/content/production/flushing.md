@@ -13,7 +13,7 @@ Warrant::flush();        // everyone
 ```
 
 Flushing drops the memoized guard and rule set, so the next check re-runs your
-resolver.
+provider.
 
 :::caution[A bare `flush()` means everyone]
 Unlike the check methods, `flush()`'s `$user` argument does **not** fall back to
@@ -55,7 +55,7 @@ Warrant::flush();
 **Switching tenant or impersonating** mid-request, since the memo is keyed by user
 rather than by frame.
 
-**In tests**, after rebinding the resolver or changing roles.
+**In tests**, after rebinding the provider or changing roles.
 
 ## When you do not
 
@@ -78,7 +78,7 @@ explains what the memo actually holds.
 
 ## Clearing your own cache too
 
-If your resolver caches, Warrant's flush does not reach it:
+If your provider caches, Warrant's flush does not reach it:
 
 ```php
 public function updateRules(RoleRule $rule, string $text): void

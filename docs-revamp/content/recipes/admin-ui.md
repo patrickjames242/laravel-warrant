@@ -131,10 +131,10 @@ public function preview(Request $request, RoleRule $roleRule)
     $subject = User::findOrFail($request->integer('user_id'));
 
     return app()->call(function () use ($proposed, $subject, $roleRule) {
-        app()->instance(RuleResolver::class, new class($proposed) implements RuleResolver {
+        app()->instance(RuleProvider::class, new class($proposed) implements RuleProvider {
             public function __construct(private RuleSetNode $set) {}
 
-            public function resolve(RuleResolutionContext $context): RuleSetNode
+            public function rules(RuleProviderContext $context): RuleSetNode
             {
                 return $this->set;
             }
@@ -155,7 +155,7 @@ public function preview(Request $request, RoleRule $roleRule)
 ```
 
 Run that in a transaction you roll back, or in a separate request, since it swaps
-the resolver for the process.
+the provider for the process.
 
 ## Showing the effective policy
 
@@ -177,7 +177,7 @@ public function effective(User $user, string $schemaKey)
 }
 ```
 
-That includes the schema's [implicit rules](/schemas/schema-policy/), which is
+That includes the schema's [own rules](/schemas/schema-policy/), which is
 usually the answer to "why can they still not do it".
 
 ## Flushing
@@ -211,5 +211,5 @@ class SettingsSchema extends WarrantSchema
 Warrant::authorize('manage_permissions', 'settings');
 ```
 
-Do that with an [implicit rule](/schemas/schema-policy/) rather than a stored one,
+Do that with a [schema rule](/schemas/schema-policy/) rather than a stored one,
 so nobody can edit their way into editing permissions.

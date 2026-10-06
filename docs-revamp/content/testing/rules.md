@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Testing rules
-description: Swap in a fake resolver, seed rows, and assert on what comes back.
+description: Swap in a fake provider, seed rows, and assert on what comes back.
 sidebar:
   order: 1
 ---
@@ -10,7 +10,7 @@ sidebar:
 Test against a real database and assert on rows and ability lists. Warrant's own
 suite drives real SQLite and does exactly that.
 
-## Swap in a resolver
+## Swap in a provider
 
 Bind an anonymous one so the test controls which rules apply, independent of your
 production rule store:
@@ -18,15 +18,15 @@ production rule store:
 ```php
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProviderContext;
+use Warrant\Rules\RuleProvider;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
-    app()->instance(RuleResolver::class, new class($syntax, $schemaKey) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($syntax, $schemaKey) implements RuleProvider {
         public function __construct(private string $syntax, private string $schemaKey) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return WarrantSyntax::parse($this->syntax)->scopedTo($context->schemaKey);
         }
@@ -53,7 +53,7 @@ it('shows a user only their own documents', function () {
 
 :::note[Flush when you rebind]
 A test is one long-lived request, and Warrant memoizes the rule set per user for
-its life. If you swap the resolver or change a user's roles after a check has run,
+its life. If you swap the provider or change a user's roles after a check has run,
 call `Warrant::flush()` or the next check answers from the old rules. The helper
 above does it for you.
 :::
@@ -154,7 +154,7 @@ expect($visible)->toContain($mine->id);
 The exception is a test about compilation itself, such as proving a constant folds
 away. Warrant's own suite normalizes SQL before comparing for exactly that reason.
 
-## Testing a real resolver
+## Testing a real provider
 
 Bind the real one and control its inputs instead:
 
@@ -172,5 +172,5 @@ it('gives an approver approve on their team', function () {
 });
 ```
 
-That tests your storage and your resolver together, which is where the real
+That tests your storage and your provider together, which is where the real
 mistakes are.

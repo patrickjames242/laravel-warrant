@@ -77,7 +77,7 @@ for documents { if is_mine they can view, update }
 for documents { if in_my_team they can view }
 ```
 
-## A resolver built on files
+## A provider built on files
 
 One file per role is the usual layout:
 
@@ -91,9 +91,9 @@ warrant/
 ```
 
 ```php
-class FileRuleResolver implements RuleResolver
+class FileRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $sets = [];
 
@@ -186,5 +186,5 @@ The database when policy differs per tenant, or an administrator edits it. See
 [an admin permissions UI](/recipes/admin-ui/).
 
 Both, commonly: files for the baseline, the database for per-tenant overrides,
-merged in the resolver. See
+merged in the provider. See
 [composing from several sources](/supplying-rules/composing/).

@@ -58,12 +58,12 @@ class DocumentSchema extends WarrantSchema
 }
 ```
 
-## The resolver
+## The provider
 
 ```php
-class RoleRuleResolver implements RuleResolver
+class RoleRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $texts = DB::table('role_rules')
             ->whereIn('role', $context->user->roles->pluck('name'))
@@ -94,7 +94,7 @@ Which compiles, for `view`, to an unconditional grant, and for `approve`, to
 If your roles rarely change and belong in version control, skip the table:
 
 ```php
-class RoleRuleResolver implements RuleResolver
+class RoleRuleProvider implements RuleProvider
 {
     private const RULES = [
         'viewer'   => ['documents' => 'they can view'],
@@ -103,7 +103,7 @@ class RoleRuleResolver implements RuleResolver
         'admin'    => ['documents' => 'they can *'],
     ];
 
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $texts = collect($context->user->roleNames())
             ->map(fn (string $role) => self::RULES[$role][$context->schemaKey] ?? null)

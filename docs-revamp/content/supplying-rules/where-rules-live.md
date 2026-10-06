@@ -98,10 +98,10 @@ and for the case where you want the [editor
 tooling](/editors/overview/) working on it. `.warrant` files are what the tooling
 targets by extension, so they get highlighting everywhere with no configuration.
 
-A resolver built on them:
+A provider built on them:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     $path = base_path("warrant/{$context->user->role}.warrant");
 

@@ -91,7 +91,7 @@ Unable to read Warrant rule file [/app/warrant/editor.warrant].
 ### `scopedTo()`
 
 `scopedTo($schemaKey)` turns a source into one rule set for that schema, and is
-how text with no `for` header is given its schema. Headless entries, or an empty
+how text with no `for` header is given its schema. Unscoped entries, or an empty
 source, are placed in a `RuleSetNode` for `$schemaKey`. A single `for <schema>`
 rule set is returned as it is, after checking its header names the same schema;
 a mismatch throws `InvalidArgumentException`. Any other shape throws
@@ -105,7 +105,7 @@ WarrantSyntax::parse('for folders { they can view }')->scopedTo('documents');   
 
 ## `RuleSetNode` (final, readonly)
 
-The rules for one schema: the body of a `for <schema>` header, or headless rules
+The rules for one schema: the body of a `for <schema>` header, or unscoped rules
 given their schema by `scopedTo()`.
 
 ```php
@@ -139,12 +139,12 @@ public array $entries;   // list<IRuleEntryNode>: rules, ability blocks and incl
 ```
 
 An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
-`$entries`). Its body is headless, as the source writes it: the clauses and
+`$entries`). Its body is generic, as the source writes it: the clauses and
 includes inside name no abilities, and the header is the only place they are
 said. [Expansion](/sql/rule-to-query/#before-compiling-expansion) applies the
 header to each entry, so the rules it produces grant and deny exactly what the
 block does, and writing the tree back renders the block as a block. Every rule
-and include held directly in `$entries` must name its own abilities; a headless
+and include held directly in `$entries` must name its own abilities; a generic
 one there throws `InvalidArgumentException`.
 
 The expanded rules are on the guard, as an `ExpandedRuleSet` whose `$rules` is a
@@ -191,8 +191,8 @@ public function cannotAbilities(): array;
 public function deniesAbility(string $ability): bool;
 public function messageFor(string $ability): string|Closure|null;
 public function hasCannot(): bool;
-public function isHeadless(): bool;                      // no clause names an ability
-public function withAbilities(array $abilities): self;   // a headless rule with $abilities on every clause
+public function isGeneric(): bool;                      // no clause names an ability
+public function withAbilities(array $abilities): self;   // a generic rule with $abilities on every clause
 ```
 
 `WarrantSyntax::parse($text)->rule()` throws if the text holds anything other
@@ -203,7 +203,7 @@ A denial message lives on a `cannot` **clause**, not on the rule, so one rule ca
 deny two sets of abilities for two reasons. Give a clause its message with
 `because` in rule text, or with `theyCannotBecause()` on the builder.
 
-Inside an ability block or a rule template's body a rule is headless: each clause
+Inside an ability block or a rule template's body a rule is generic: each clause
 has an empty `$abilities` list, because the block header or the `@include` names
 them. `withAbilities()` gives such a rule its abilities, and throws on a rule that
 already names its own.
@@ -217,17 +217,18 @@ public static function parse(string $source, array $bindings = []): WarrantSynta
 The parser behind `WarrantSyntax::parse()`. Bindings are resolved as the tree is
 built, so the nodes hold only concrete values.
 
-## `RuleResolver`
+## `RuleProvider`
 
 ```php
-interface RuleResolver
+interface RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode;
+    /** Any of: a rule set, a rule entry, rule text, or an iterable of those. */
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable;
 }
 ```
 
 ```php
-final readonly class RuleResolutionContext
+final readonly class RuleProviderContext
 {
     public string $schemaKey;
     public string $schema;

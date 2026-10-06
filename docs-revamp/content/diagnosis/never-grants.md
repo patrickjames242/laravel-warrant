@@ -20,7 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 (new WarrantSyntax([Warrant::forSchema(Document::class, $user)->resolvedRuleSet()]))->toSyntax();
 ```
 
-That is the merged, validated set actually in play, including the schema's implicit
+That is the merged, validated set actually in play, including the schema's own
 rules. Most investigations end here, because either the rule you expected is not in
 the output or something you forgot about is.
 
@@ -53,7 +53,7 @@ Warrant::impossibleAbilities(Document::class, $user);
 
 If the ability is in there, a `cannot` is winning and nothing can appeal it. Look
 for it in the `toSyntax()` output, and check the schema's
-[`implicitRules()`](/schemas/schema-policy/), which is the source people forget.
+[`rules()`](/schemas/schema-policy/), which is the source people forget.
 
 The usual culprits: a suspension lockout whose condition is true when you did not
 expect, or a `they cannot *` inherited from a base schema.

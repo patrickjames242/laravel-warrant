@@ -9,7 +9,7 @@ sidebar:
 ---
 
 Some values a rule needs are not in the database and are not known when the
-resolver runs. They are known at the moment of the check: the current tenant, the
+provider runs. They are known at the moment of the check: the current tenant, the
 academic year being viewed, an as-of date, the IP the request came from, the user
 being impersonated.
 

@@ -21,9 +21,10 @@ unregistered reference throws here.
 **2. Get a guard.** A guard is fixed to one user and one schema, and it is
 memoized for the request. Every later check on the same pair reuses it.
 
-**3. Resolve the rule set, once.** The guard calls your resolver, checks that the
-returned set targets this schema, merges the schema's
-[implicit rules](/schemas/schema-policy/), and validates every ability and
+**3. Resolve the rule set, once.** The guard asks your provider, if
+there is one, and the schema's own [`rules()`](/schemas/schema-policy/) — both
+handed the same context — checks that what they returned targets this schema,
+merges the two, and validates every ability and
 condition name against the schema. This happens at most once per user and schema
 per request, no matter how many checks follow.
 
@@ -70,7 +71,7 @@ filter, or as a correlated subquery per ability for the ability column.
 ## When the answer is no
 
 `can` stops at `false`. `authorize` goes one step further and asks why, by walking
-the rules in resolver order and finding the first message-bearing `cannot` whose
+the rules in provider order and finding the first message-bearing `cannot` whose
 condition actually matched. Diagnosis runs the same condition SQL as the check, so
 it can never blame a rule that did not fire.
 

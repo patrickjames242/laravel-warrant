@@ -42,7 +42,7 @@ class DocumentSchema extends WarrantSchema
         return "if not is_approved they cannot because 'Needs approval.'";
     }
 
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): array|RuleSetNode
     {
         return Warrant::parse('if is_suspended they cannot *')->ruleEntries();
     }
@@ -199,7 +199,7 @@ Warrant::flush();        // everyone
 ## Config
 
 ```php
-'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 'schemas'       => ['documents' => App\Warrant\DocumentSchema::class],
 'register_gate' => true,
 ```

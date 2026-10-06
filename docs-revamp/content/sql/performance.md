@@ -12,7 +12,7 @@ means the usual query tuning applies rather than anything special.
 
 ## Where the cost sits
 
-**Not in resolving rules.** Your resolver is called at most once per user and
+**Not in resolving rules.** Your provider is called at most once per user and
 schema per request. Twenty checks in a Blade loop hit it once.
 
 **Not in compiling.** Assembling the predicate is tree work on a handful of nodes.
@@ -134,8 +134,8 @@ $nav = collect($resources)->filter(fn ($s) => Warrant::couldEverHave($s, 'view')
 
 ## Cache the rule lookup, not the answer
 
-Warrant's memo covers one request. If your resolver hits the database, cache in the
-resolver:
+Warrant's memo covers one request. If your provider hits the database, cache in the
+provider:
 
 ```php
 $text = Cache::remember(

@@ -32,7 +32,7 @@ discovery — there is nothing to add to `config/app.php`.
 
 ## Publish the config
 
-Warrant reads its settings from `config/warrant.php`: which resolver supplies your
+Warrant reads its settings from `config/warrant.php`: which provider supplies your
 rules, which schemas exist, and whether to hook into Laravel's Gate. Publish the
 file so you can edit it in place:
 
@@ -46,7 +46,7 @@ This writes `config/warrant.php`:
 return [
     // The class that hands Warrant the rules for the current request.
     // Warrant ships NO default — you must set this.
-    'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 
     // Every schema Warrant should know about.
     'schemas' => [
@@ -59,9 +59,9 @@ return [
 ];
 ```
 
-:::caution
-There is no built-in resolver. Until you set `rule_resolver` to a class that
-implements `Warrant\Rules\RuleResolver`, checks cannot run. Writing that class is the
+:::note
+`rule_provider` is optional. Without it, each schema's own `rules()` decides
+access; with neither, every check denies. Writing a provider is part of the
 [Quick start](/getting-started/quick-start/).
 :::
 
@@ -72,7 +72,7 @@ the four pieces below are yours to write:
 
 1. A **schema** per resource — the vocabulary of abilities and conditions.
 2. **Rules** in Warrant's rule language — the actual policy, stored as data.
-3. A **resolver** — the glue that fetches this user's rules at request time.
+3. A **provider** — the glue that fetches this user's rules at request time.
 4. The **checks** in your app — query scopes, model helpers, middleware, and
    Laravel's native Gate (`$user->can()`, `@can`, `can:` routes).
 

@@ -27,8 +27,8 @@ $guard->expandedRuleSet()->rules; // WarrantRuleNode[]: blocks, includes and der
 
 `toSyntax()` is the one to reach for. Writing back to text lives on
 `WarrantSyntax`, the root of a parse, so wrap the rule set in one to render it. It includes the schema's
-[implicit rules](/schemas/schema-policy/), so it shows what actually applies rather
-than what your resolver returned:
+[schema rules](/schemas/schema-policy/), so it shows what actually applies rather
+than what your provider returned:
 
 ```warrant
 for documents {

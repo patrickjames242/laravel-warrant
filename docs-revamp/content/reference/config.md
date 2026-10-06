@@ -17,7 +17,7 @@ php artisan vendor:publish --tag=warrant-config
 return [
     // The class that hands Warrant the rules for the current request.
     // Warrant ships NO default; you must set this.
-    'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 
     // Every schema Warrant should know about, keyed by its schema key.
     'schemas' => [
@@ -32,24 +32,20 @@ return [
 ];
 ```
 
-## `rule_resolver`
+## `rule_provider`
 
-A class-string implementing `Warrant\Rules\RuleResolver`. Built through the
+A class-string implementing `Warrant\Rules\RuleProvider`. Built through the
 container, so constructor dependencies are injected.
 
-No default ships. Until it is set, checks cannot run:
+Optional, and `null` by default. Left unset, each schema's own `rules()` governs
+access to that schema alone; with neither, every check denies.
 
-```text
-No Warrant rule resolver configured. Set warrant.rule_resolver to a class
-implementing Warrant\Rules\RuleResolver.
-```
-
-See [the resolver contract](/supplying-rules/resolver/).
+See [the provider contract](/supplying-rules/provider/).
 
 ## `schemas`
 
 A map of schema key to schema class. The array key **is** the schema key: what rule
-strings write, and what your resolver is handed.
+strings write, and what your provider is handed.
 
 Listing a schema does not load it. The index is a plain string-to-string map, so
 registering hundreds costs one array, and a schema class and its model are loaded

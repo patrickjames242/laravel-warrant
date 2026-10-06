@@ -133,15 +133,15 @@ if is_locked and not is_admin they cannot update
 if is_admin they can *
 ```
 
-You hand those rules to Warrant in a **resolver** — one class, called per request,
+You hand those rules to Warrant in a **provider** — one class, called per request,
 that returns the rule set for the current user and resource. Because the rules are
 just strings, they can come from anywhere: a database, derived from UI settings, or
 hardcoded. They're inline here just for the example:
 
 ```php
-class DocumentRuleResolver implements RuleResolver
+class DocumentRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         // $context->user and $context->schemaKey tell you who's asking, and about what
         return WarrantSyntax::parse('
@@ -237,25 +237,25 @@ into memory and filtered in PHP — and the check, the filter, and the per-row c
 | "Which rows can they act on?" | not addressed — you write a query scope by hand | `Model::query()->userHasAbility('update')` → a `WHERE` clause |
 | Per-row abilities for a list | a check per row × ability | [`->selectUserAbilities()`](/checking/ways-in/#per-row-abilities) → one query, a JSON column |
 | Keeping the check and the filter in sync | your problem (two hand-written copies) | one source of truth; they compile together |
-| Storage | ships migrations + permission / role tables | owns **no** tables; rules come from a [resolver](/supplying-rules/resolver/) |
+| Storage | ships migrations + permission / role tables | owns **no** tables; rules come from a [provider](/supplying-rules/provider/) |
 | Best at | assigning and looking up flat permissions | expressing and enforcing row-dependent rules |
 
 ## Can you use them together?
 
 Yes — they operate at different layers, so Spatie (or any role system) can stay as
 your **source of roles**, while Warrant does the actual authorization. Your
-[resolver](/supplying-rules/resolver/) translates the current user's roles into the rules
+[provider](/supplying-rules/provider/) translates the current user's roles into the rules
 for a resource:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProviderContext;
+use Warrant\Rules\RuleProvider;
 
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         if ($context->user->hasRole('admin')) {          // Spatie answers "what role?"
             return WarrantSyntax::parse('they can *')->scopedTo($context->schemaKey);
@@ -273,9 +273,9 @@ actually took all the work: *"so what can they do to these rows?"*
 
 ## Next steps
 
-- [Quick start](/getting-started/quick-start/) — a schema, a rule, a resolver, and
+- [Quick start](/getting-started/quick-start/) — a schema, a rule, a provider, and
   the checks that use them, end to end.
 - [Core concepts](/getting-started/core-concepts/) — how schemas, rules, and the
-  resolver divide the work.
+  provider divide the work.
 - [How it compiles to SQL](/sql/rule-to-query/) — why the single-record check,
   the list filter, and the per-row abilities can never disagree.

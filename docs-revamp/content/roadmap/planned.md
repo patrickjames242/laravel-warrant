@@ -67,7 +67,7 @@ Status: **design**, with the highlighting step shipped.
 ## Until then
 
 For the scopes gap, write exceptions into the denial with `and not`, and keep
-absolute denials in [`implicitRules()`](/schemas/schema-policy/) where nothing can
+absolute denials in [`rules()`](/schemas/schema-policy/) where nothing can
 edit around them.
 
 For the language-server gap, run

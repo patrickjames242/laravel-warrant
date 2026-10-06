@@ -28,17 +28,15 @@ if is_super_admin they can *
 `*` is every ability the schema declares, so an ability added tomorrow is covered
 with no edit.
 
-## Put it in implicit rules
+## Put it in schema rules
 
-A super admin grant that lives in the resolver is one refactor away from being
+A super admin grant that lives in the provider is one refactor away from being
 dropped, and it is exactly the kind of thing your operations team depends on:
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): string
 {
-    return [
-        WarrantSyntax::parse('if is_super_admin they can *')->rule(),
-    ];
+    return 'if is_super_admin they can *';
 }
 ```
 
@@ -53,21 +51,22 @@ abstract class AppSchema extends WarrantSchema
         return $c->user->is_super_admin;
     }
 
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): string|iterable
     {
-        return [WarrantSyntax::parse('if is_super_admin they can *')->rule()];
+        return 'if is_super_admin they can *';
     }
 }
 ```
 
-A subclass overriding `implicitRules()` should merge rather than replace:
+A subclass overriding `rules()` should merge rather than replace. Any list of
+rule forms is read as one, so wrapping the parent's answer is enough:
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array
 {
     return [
-        ...parent::implicitRules(),
-        WarrantSyntax::parse('if is_suspended they cannot *')->rule(),
+        parent::rules($context),
+        'if is_suspended they cannot *',
     ];
 }
 ```
@@ -101,7 +100,7 @@ A bypass has no way to express that exception.
 **Reachability cannot tell them apart.** `is_super_admin` is a global condition,
 which [reachability](/concepts/reachability/) never evaluates, so every ability it
 grants comes back `MAYBE` for everyone, super admin or not. If the UI should treat
-a super admin as `ALWAYS`, have your resolver hand them an unconditional
+a super admin as `ALWAYS`, have your provider hand them an unconditional
 `they can *`, which reachability does read.
 
 **It shows up in the list.** `selectUserAbilities()` gives them every ability on

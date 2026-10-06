@@ -81,12 +81,12 @@ if is_document_locked and not is_admin they cannot view, update
 if is_admin they can *
 ```
 
-You can return any rule you want to for any entity in this global rule resolver. You can fetch them from the database, derive them from some ui settings, or simply hard code them in your app.
+You can return any rule you want to for any entity in this global rule provider. You can fetch them from the database, derive them from some ui settings, or simply hard code them in your app.
 
 ```php
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $user = $context->user; // the user these rules are for
 

@@ -11,10 +11,10 @@ Counting queries, for one request.
 
 ## Resolving rules
 
-Once per user and schema, whatever your resolver does. A page checking twenty
+Once per user and schema, whatever your provider does. A page checking twenty
 documents and filtering two lists calls it once for `documents`.
 
-Whether that is one query, none, or a cache hit is entirely your resolver's
+Whether that is one query, none, or a cache hit is entirely your provider's
 business. Rules in a file or in code cost nothing.
 
 ## A boolean check
@@ -91,7 +91,7 @@ $documents = Document::query()
     ->paginate();                                               // the query you had
 ```
 
-One query, plus whatever your resolver spent. The naive version of the same page,
+One query, plus whatever your provider spent. The naive version of the same page,
 with a policy call per row per button, is a hundred and one.
 
 ## Where it actually gets slow

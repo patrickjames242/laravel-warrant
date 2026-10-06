@@ -11,7 +11,7 @@ Warrant memoizes two things, both for the life of one request.
 
 **A guard per user.** `Warrant::guard($user)` twice returns the same object.
 
-**A resolved rule set per guard.** So `resolve()` runs at most once per user and
+**A resolved rule set per guard.** So `rules()` runs at most once per user and
 schema, and the set is validated once. Nothing else is cached.
 
 ## What is not memoized
@@ -90,15 +90,15 @@ Warrant::flush($staff);
 ## Tests
 
 A test is one long-lived request, so the memo lives for the whole test. Changing
-rules, roles, or the resolver mid-test needs a flush. See
+rules, roles, or the provider mid-test needs a flush. See
 [test helpers](/testing/helpers/).
 
 ## Adding your own layer
 
-If your resolver reads from storage, cache there, where you control invalidation:
+If your provider reads from storage, cache there, where you control invalidation:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     $text = Cache::remember(
         "warrant.rules.{$context->user->role_id}.{$context->schemaKey}",

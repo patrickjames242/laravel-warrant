@@ -24,7 +24,7 @@ public function isSuspended(GlobalConditionContext $c): bool
 ```
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return [
         WarrantSyntax::parse(
@@ -39,8 +39,8 @@ Two decisions in there, and both matter.
 **`*` rather than a list.** Every ability the schema declares, including ones added
 later.
 
-**`implicitRules()` rather than the resolver.** The lockout holds whatever your
-resolver returns, including a resolver with a bug in it. That is the whole point of
+**`rules()` rather than the provider.** The lockout holds whatever your
+provider returns, including a provider with a bug in it. That is the whole point of
 a lockout.
 
 On a base schema, every resource inherits it:
@@ -54,7 +54,7 @@ abstract class AppSchema extends WarrantSchema
         return $c->user->suspended_at !== null;
     }
 
-    public function implicitRules(): array|RuleSetNode
+    public function rules(RuleProviderContext $context): array|RuleSetNode
     {
         return [WarrantSyntax::parse("if is_suspended they cannot * because 'Your account is suspended.'")->rule()];
     }
@@ -79,7 +79,7 @@ select * from "documents" where (1 = 0)
 [Reachability](/concepts/reachability/) does not see this. It never evaluates a
 global condition, so `is_suspended` could be anything, and an ability granted
 elsewhere comes back `MAYBE` rather than `NEVER`. To hide controls from a suspended
-user, check the suspension directly, or have your resolver return an unconditional
+user, check the suspension directly, or have your provider return an unconditional
 `they cannot *` for that user, which reachability does read as `NEVER`.
 
 ## Partial suspension
@@ -87,7 +87,7 @@ user, check the suspension directly, or have your resolver return an uncondition
 The same shape, narrower:
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return [
         WarrantSyntax::parse(

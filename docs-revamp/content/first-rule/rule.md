@@ -14,7 +14,7 @@ if is_mine they can view, update
 ```
 
 Read it left to right. `is_mine` is the condition we declared on the schema.
-`they` is the user being asked about, the one your resolver was handed. `can view,
+`they` is the user being asked about, the one your provider was handed. `can view,
 update` grants two abilities. So: when a document is mine, I may view and update
 it.
 
@@ -73,4 +73,4 @@ PHP function halfway through. Every rule compiles into a `WHERE` clause, which i
 what lets the same rule answer "can I?" and "which ones?". That constraint is the
 whole design, and [it has its own page](/concepts/rules-compile-to-sql/).
 
-Next: [hand the rule to Warrant](/first-rule/resolver/).
+Next: [hand the rule to Warrant](/first-rule/provider/).

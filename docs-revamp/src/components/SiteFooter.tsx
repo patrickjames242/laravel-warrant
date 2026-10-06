@@ -16,7 +16,7 @@ const COLUMNS = [
     title: 'GUIDES',
     items: [
       { label: 'Rule language', href: links.ruleLanguage },
-      { label: 'Providing rules', href: links.resolvers },
+      { label: 'Providing rules', href: links.providers },
       { label: 'Checking access', href: links.checkingAccess },
       { label: 'How it compiles', href: links.howItCompiles },
     ],

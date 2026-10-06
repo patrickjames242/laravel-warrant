@@ -76,8 +76,8 @@ class DocumentSchema extends WarrantSchema
         return "if not is_approved they cannot because 'This needs approval first.'";
     }
 
-    // 8. Rules merged into every resolved set, whatever the resolver returned.
-    public function implicitRules(): array|RuleSetNode
+    // 8. Rules merged into every resolved set, whatever the provider returned.
+    public function rules(RuleProviderContext $context): array|RuleSetNode
     {
         return [WarrantSyntax::parse('if is_suspended they cannot *')->rule()];
     }

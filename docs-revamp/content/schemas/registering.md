@@ -21,7 +21,7 @@ schemas are unknown to checks, lookups, and middleware.
 ```
 
 The array key **is** the schema key: the identifier your rule strings write, and
-the one handed to your resolver in the `RuleResolutionContext`. Treat it like a
+the one handed to your provider in the `RuleProviderContext`. Treat it like a
 database identifier. Renaming one changes the meaning of every stored rule that
 references it.
 
@@ -50,7 +50,7 @@ needs a single key to write back into rule syntax.
 
 ## Inspecting the registry
 
-The registry normalizes any accepted reference to a coordinate. Every resolver
+The registry normalizes any accepted reference to a coordinate. Every provider
 comes in an `OrNull` form and an `OrFail` form:
 
 ```php

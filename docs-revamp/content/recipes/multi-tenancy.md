@@ -137,11 +137,11 @@ the predicate. The two are not redundant.
 
 ## Tenant-specific rules
 
-Tenancy usually means the policy differs per tenant too, which is the resolver's
+Tenancy usually means the policy differs per tenant too, which is the provider's
 job:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     $tenantId = app(Tenancy::class)->currentId();
 

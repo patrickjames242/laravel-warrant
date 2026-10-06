@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Every `can` and every `cannot` across the whole rule set, including
-[implicit rules](/schemas/schema-policy/), combine into one predicate per ability:
+[schema rules](/schemas/schema-policy/), combine into one predicate per ability:
 
 ```text
 predicate(ability) =
@@ -17,7 +17,7 @@ predicate(ability) =
 ```
 
 An `AND` of `OR`s has no order in it, so **rule order never matters**. You can
-concatenate rules from a role table, a team table, a schema's implicit rules, and a
+concatenate rules from a role table, a team table, a schema's own rules, and a
 hard-coded string in any sequence and get the same answer.
 
 ## The four edges
@@ -61,11 +61,11 @@ they cannot *
 
 Grant everything, then take everything back from a suspended account. Because
 order does not matter, it does not matter that the grant was written first, and it
-does not matter which source each rule came from. An implicit `cannot` declared on
-the schema beats any `can` a resolver returns:
+does not matter which source each rule came from. A `cannot` declared on
+the schema beats any `can` a provider returns:
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return WarrantSyntax::parse('if is_suspended they cannot *')->ruleEntries();
 }

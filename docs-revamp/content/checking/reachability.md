@@ -62,7 +62,7 @@ $guard->reachabilitySatisfies(['view'], fn ($r) => $r !== Reachability::NEVER, A
 $guard->abilitiesWhereReachability(fn ($r) => $r === Reachability::ALWAYS);
 ```
 
-A user is still required, since your resolver may hand a different rule set to each
+A user is still required, since your provider may hand a different rule set to each
 user, role, or tenant.
 
 ## Rendering from it

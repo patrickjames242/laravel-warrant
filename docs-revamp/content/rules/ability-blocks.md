@@ -25,7 +25,12 @@ if is_public they can view
 if is_locked they cannot view because 'This document is locked.'
 ```
 
-Clauses inside a block name no abilities, because the header already did.
+Clauses inside a block name no abilities, because the header already did. A rule
+like that is **generic**: it can grant or deny whichever abilities it is given,
+and the block gives it the header's. A rule whose clauses name their abilities is
+**specific**, and a block is how generic rules become specific. A rule template's
+body is generic in the same way, and its [`@include`](/rules/templates/) supplies
+the abilities.
 
 ## Several abilities, and wildcards
 
@@ -74,7 +79,7 @@ Three things, each because the header is the one place the ability is said:
 ```warrant
 can they view { if x they can edit }   # a clause naming its own abilities
 can they view { can they edit { … } }  # a block inside a block
-if is_public they can                  # a headless clause at the top level
+if is_public they can                  # a generic clause at the top level
 ```
 
 ## Where templates fit

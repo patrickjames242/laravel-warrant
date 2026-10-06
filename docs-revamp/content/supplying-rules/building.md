@@ -71,7 +71,7 @@ RuleSetNode::build('documents', function ($rule) {
 });
 ```
 
-This is usually the most readable shape to return from a resolver when the policy
+This is usually the most readable shape to return from a provider when the policy
 is code rather than data. The full builder surface is in
 [the PHP builder](/rules/builder/).
 

@@ -106,7 +106,7 @@ abilities it is about.
 
 ## How the responsible rule is chosen
 
-After a denial, Warrant walks the rules in resolver order, implicit rules first,
+After a denial, Warrant walks the rules in provider order, schema rules first,
 and surfaces the first message-bearing `cannot` whose condition actually matched.
 If several forbid, the earliest one carrying a message wins.
 

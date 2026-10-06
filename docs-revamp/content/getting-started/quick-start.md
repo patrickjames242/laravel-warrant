@@ -2,12 +2,12 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Quick start
-description: The smallest end-to-end Warrant setup — a schema, a rule, a resolver, and a check.
+description: The smallest end-to-end Warrant setup — a schema, a rule, a provider, and a check.
 sidebar:
   order: 2
 ---
 
-This is the smallest working Warrant setup: one schema, one rule, one resolver,
+This is the smallest working Warrant setup: one schema, one rule, one provider,
 and the checks that use them. We'll gate a `Document` model so a user can only
 view and update their own rows.
 
@@ -56,23 +56,24 @@ This one grants view and update on the user's own rows:
 if is_self they can view, update
 ```
 
-## 3. Write a resolver
+## 3. Write a provider
 
-The resolver is the glue between *your* access model and Warrant. At request
+The provider is the glue between *your* access model and Warrant. At request
 time it returns the rules that apply to the current user for a given resource.
-Warrant ships no default — this small class is required.
+(It is optional — a schema can return its own rules — but a provider is the usual
+home for rules stored as data.)
 
 ```php
 namespace App\Warrant;
 
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProviderContext;
+use Warrant\Rules\RuleProvider;
 
-class DatabaseRuleResolver implements RuleResolver
+class DatabaseRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         // In a real app you'd look these rules up per user/role/tenant.
         // Here we return the same rule for everyone, for the documents schema.
@@ -84,11 +85,11 @@ class DatabaseRuleResolver implements RuleResolver
 
 ## 4. Wire it up
 
-Point Warrant at the resolver and register the schema in `config/warrant.php`:
+Point Warrant at the provider and register the schema in `config/warrant.php`:
 
 ```php
 return [
-    'rule_resolver' => App\Warrant\DatabaseRuleResolver::class,
+    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
     'schemas'       => [App\Warrant\DocumentSchema::class],
 ];
 ```

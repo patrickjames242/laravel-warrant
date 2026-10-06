@@ -20,7 +20,7 @@ they cannot delete
 - `they can <abilities>` grants. Abilities are comma-separated.
 - `they cannot <abilities>` denies, and may carry a message.
 
-`they` is always the current user, the one your resolver was asked about.
+`they` is always the current user, the one your provider was asked about.
 
 ## Where one rule ends
 

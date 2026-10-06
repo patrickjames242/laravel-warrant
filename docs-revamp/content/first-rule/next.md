@@ -7,7 +7,7 @@ sidebar:
   order: 7
 ---
 
-You have a schema, a rule, a resolver, a boolean check, a filtered list, and a
+You have a schema, a rule, a provider, a boolean check, a filtered list, and a
 denial that explains itself. Everything else is depth on those six things.
 
 Three routes through the rest of it.

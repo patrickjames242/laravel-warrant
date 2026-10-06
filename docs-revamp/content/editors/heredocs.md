@@ -97,12 +97,12 @@ first against a schema and cannot check the second. A header that disagrees with
 
 ## Where a heredoc is the right home
 
-Rules that belong in your repository and change with deploys: a base policy, an
-implicit rule on a schema, the rules for a role that is part of the product rather
+Rules that belong in your repository and change with deploys: a base policy, a
+schema's own rules, the rules for a role that is part of the product rather
 than configuration.
 
 ```php
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return Warrant::parse(<<<'WARRANT'
         if is_suspended they cannot * because 'Your account is suspended.'

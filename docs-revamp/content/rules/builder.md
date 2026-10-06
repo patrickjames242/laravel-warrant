@@ -214,7 +214,7 @@ $set = RuleSetNode::build('documents', function ($rule) {
 ```
 
 This is the shape you will most often return from a
-[resolver](/supplying-rules/resolver/).
+[provider](/supplying-rules/provider/).
 
 ## Why the compiler checks the builder too
 

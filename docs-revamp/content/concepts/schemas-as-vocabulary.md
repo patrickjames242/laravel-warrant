@@ -72,9 +72,10 @@ That distinction is what keeps a schema stable while the policy changes.
 
 The split is not absolute, and two escape hatches are deliberate.
 
-[`implicitRules()`](/schemas/schema-policy/) declares rules merged into every
-resolved set, for guarantees that must not depend on what a resolver returned. A
-suspension lockout belongs here.
+[`rules()`](/schemas/schema-policy/) returns the schema's own rules, merged ahead
+of whatever the provider returns, for guarantees that must not depend on it. A
+suspension lockout belongs here. Without a global provider, they are the schema's
+only rules.
 
 [`defaultContext()`](/concepts/context/supplying/) supplies values so callers may
 omit them, which is what makes param-less paths such as route middleware and query

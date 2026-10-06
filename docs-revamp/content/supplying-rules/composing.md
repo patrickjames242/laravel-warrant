@@ -31,11 +31,11 @@ Cannot merge rule sets for different schemas: [documents] and [folders].
 ## The shape most applications end up with
 
 ```php
-class CompositeRuleResolver implements RuleResolver
+class CompositeRuleProvider implements RuleProvider
 {
     public function __construct(private RoleRules $roles, private TeamRules $teams) {}
 
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         $key = $context->schemaKey;
 
@@ -125,7 +125,7 @@ When each source is a `.warrant` file covering several schemas, parse each file,
 pull out the schema you were asked for, and merge what is left:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     $files = array_map(
         fn (string $role) => Warrant::parseFile(base_path("warrant/{$role}.warrant")),
@@ -165,6 +165,6 @@ return $stored->mergeWith($dynamic);
 
 ## What not to merge in
 
-Anything that must hold whatever the resolver does belongs in
-[`implicitRules()`](/schemas/schema-policy/) on the schema instead. A suspension
-lockout that lives in the resolver is one refactor away from being dropped.
+Anything that must hold whatever the provider does belongs in
+[`rules()`](/schemas/schema-policy/) on the schema instead. A suspension
+lockout that lives in the provider is one refactor away from being dropped.

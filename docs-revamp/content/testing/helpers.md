@@ -18,8 +18,8 @@ pays for itself is three helpers of your own.
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleResolutionContext;
-use Warrant\Rules\RuleResolver;
+use Warrant\Rules\RuleProviderContext;
+use Warrant\Rules\RuleProvider;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
@@ -33,10 +33,10 @@ function bindGroup(string $syntax): void
 
 function bindSyntax(WarrantSyntax $syntax): void
 {
-    app()->instance(RuleResolver::class, new class($syntax) implements RuleResolver {
+    app()->instance(RuleProvider::class, new class($syntax) implements RuleProvider {
         public function __construct(private WarrantSyntax $syntax) {}
 
-        public function resolve(RuleResolutionContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $this->syntax->forSchema($context->schemaKey)
                 ?? new RuleSetNode($context->schemaKey);
@@ -97,7 +97,7 @@ expect(visibleIds('view', $user))->toEqualCanonicalizing([$a->id, $b->id]);
 ## Remember to flush
 
 A test is one long-lived request, so the memo persists across everything in it. Any
-change to rules, roles, or the resolver needs a flush:
+change to rules, roles, or the provider needs a flush:
 
 ```php
 beforeEach(fn () => Warrant::flush());
@@ -161,4 +161,4 @@ it('has not changed the editor policy', function () {
 });
 ```
 
-That includes the schema's implicit rules, so it catches a change to either source.
+That includes the schema's own rules, so it catches a change to either source.

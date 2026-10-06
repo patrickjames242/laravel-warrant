@@ -10,7 +10,7 @@ sidebar:
 Three nouns, used precisely throughout.
 
 **The subject** is whoever is being asked about. In a rule, the word is `they`.
-Your resolver was handed a user and returned rules describing what *that* user may
+Your provider was handed a user and returned rules describing what *that* user may
 do, so a rule set is always one person's policy, never everybody's.
 
 **An ability** is a verb you can check for. `view`, `update`, `approve`, `submit`,
@@ -87,7 +87,7 @@ That is what a [`.warrant` file](/editors/warrant-files/) holds, and what
 
 ## Who supplies them
 
-Your [resolver](/supplying-rules/resolver/) does, per user and per schema, at
+Your [provider](/supplying-rules/provider/) does, per user and per schema, at
 request time. Warrant has no opinion about where they come from. A table, a role
 lookup, a JWT claim, a file on disk, a fluent builder, or a literal string in your
-resolver are all fine.
+provider are all fine.

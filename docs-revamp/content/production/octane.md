@@ -27,27 +27,27 @@ carries one job's user into the next.
 
 ## What is yours
 
-**A resolver holding state.** Warrant builds your resolver through the container.
+**A provider holding state.** Warrant builds your provider through the container.
 If you registered it as a singleton and it caches anything in a property, that
 property survives requests under Octane:
 
 ```php
 // Dangerous under Octane.
-class CachingRuleResolver implements RuleResolver
+class CachingRuleProvider implements RuleProvider
 {
     private array $cache = [];
 
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): RuleSetNode
     {
         return $this->cache[$context->user->id] ??= $this->build($context);
     }
 }
 ```
 
-Either do not cache in a property, or bind the resolver as a scoped instance:
+Either do not cache in a property, or bind the provider as a scoped instance:
 
 ```php
-$this->app->scoped(RuleResolver::class, CachingRuleResolver::class);
+$this->app->scoped(RuleProvider::class, CachingRuleProvider::class);
 ```
 
 Or use the cache, which has explicit invalidation.

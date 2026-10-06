@@ -101,7 +101,7 @@ pair read the constant and return without querying.
 ## Reading the resolved rule set
 
 ```php
-$guard->resolvedRuleSet();   // what your resolver returned, plus implicit rules
+$guard->resolvedRuleSet();   // what your provider returned, plus schema rules
 ```
 
 Memoized per guard, validated once. This is the entry point for debugging and for

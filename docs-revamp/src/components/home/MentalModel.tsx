@@ -40,17 +40,16 @@ if is_manager and same_department
     they can approve`,
   },
   {
-    title: 'Resolver',
+    title: 'Provider',
     tagline: 'Which rules apply.',
-    body: 'One class you write. At request time it hands Warrant the rule set for this user and this resource, from wherever your app keeps them.',
-    label: 'RuleResolver.php',
+    body: 'An optional class you write. At request time it hands Warrant the rules for this user and this resource, from wherever your app keeps them.',
+    label: 'RuleProvider.php',
     language: 'php',
-    source: `class RoleRuleResolver implements RuleResolver
+    source: `class RoleRuleProvider implements RuleProvider
 {
-    public function resolve(RuleResolutionContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
-        return WarrantSyntax::parse($context->user->role->rules)
-            ->scopedTo($context->schemaKey);
+        return $context->user->role->rules;
     }
 }`,
   },

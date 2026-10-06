@@ -2,17 +2,17 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Memoization and flushing
-description: When your resolver is called, when the memo is dropped, and how to flush after a change.
+description: When your provider is called, when the memo is dropped, and how to flush after a change.
 sidebar:
   order: 6
 ---
 
-Your resolver is not called once per check. Warrant memoizes a guard per user for
+Your provider is not called once per check. Warrant memoizes a guard per user for
 the life of the request, and each guard memoizes the rule set it resolved. So
-`resolve()` runs at most once per user and schema, however many checks follow:
+`rules()` runs at most once per user and schema, however many checks follow:
 
 ```php
-Warrant::can('view', $documentA);      // resolve() runs
+Warrant::can('view', $documentA);      // rules() runs
 Warrant::can('update', $documentB);    // memoized
 Warrant::abilities($documentC);        // memoized
 Warrant::couldEverHave(Document::class, 'delete');   // memoized
@@ -28,8 +28,8 @@ your rule store once per row.
 Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
 ```
 
-That is the merged, validated set actually in play: whatever your resolver
-returned, plus the schema's [implicit rules](/schemas/schema-policy/). It is the
+That is the merged, validated set actually in play: whatever your provider
+returned, plus the schema's [own rules](/schemas/schema-policy/). It is the
 first thing to look at when a rule is not behaving, and
 [inspecting what is loaded](/diagnosis/inspecting/) covers using it.
 
@@ -72,7 +72,7 @@ leave every other memo stale.
 ## Where it bites in tests
 
 A test is one long-lived request, so the memo persists across everything in it. If
-you swap the resolver, or change a user's roles, after a check has already run, the
+you swap the provider, or change a user's roles, after a check has already run, the
 next check answers from the old rules:
 
 ```php
@@ -91,12 +91,12 @@ See [testing rules](/testing/rules/).
 In-request memoization, and nothing more. It does not survive a request, it is not
 shared between processes, and it has no TTL.
 
-If your resolver reads from a store that changes rarely, this may be all the
-caching you need. Anything longer lived belongs in your resolver, where you control
+If your provider reads from a store that changes rarely, this may be all the
+caching you need. Anything longer lived belongs in your provider, where you control
 invalidation:
 
 ```php
-public function resolve(RuleResolutionContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode
 {
     $text = Cache::remember(
         "warrant.rules.{$context->user->role_id}.{$context->schemaKey}",

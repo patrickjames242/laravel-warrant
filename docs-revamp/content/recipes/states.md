@@ -128,7 +128,7 @@ See [true, false, and unknown](/concepts/three-truth-values/).
 ## Soft deletes
 
 A soft-deleted row is a state like any other, and it is a good use for an
-[implicit rule](/schemas/schema-policy/), since nobody should be able to grant
+[schema rule](/schemas/schema-policy/), since nobody should be able to grant
 around it:
 
 ```php
@@ -138,7 +138,7 @@ public function isTrashed(RowConditionContext $c): Builder
     return $c->query->whereNotNull($c->row('deleted_at'));
 }
 
-public function implicitRules(): array|RuleSetNode
+public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return [
         WarrantSyntax::parse(

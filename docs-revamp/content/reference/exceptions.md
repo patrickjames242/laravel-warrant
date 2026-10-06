@@ -94,7 +94,7 @@ missing subset.
 | a `for` header that disagrees with `scopedTo()` | `InvalidArgumentException` |
 | an unreadable rule file | `InvalidArgumentException` |
 | a builder rule with no clause | `LogicException` |
-| no resolver configured, an unsupported driver | `RuntimeException` |
+| an unsupported driver | `RuntimeException` |
 | an authorization denial | `WarrantAuthorizationException` |
 | no user available, from the engine | `InvalidArgumentException` |
 | no user available, from a query scope | `LogicException` |
