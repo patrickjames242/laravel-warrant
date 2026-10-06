@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/schibsted-grotesk';
 @import '@fontsource-variable/jetbrains-mono';
-@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/roboto-mono';
 
 /*
  * `static` has every variable here written out, whether or not a utility class
@@ -25,7 +25,7 @@
   --font-sans: 'Schibsted Grotesk Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   /* A monospace with more character, for the home page's tagline. */
-  --font-tagline: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-tagline: 'Roboto Mono Variable', ui-monospace, monospace;
 
   /* Surfaces, darkest to lightest. */
   --color-ink-deep: #0f0b09;

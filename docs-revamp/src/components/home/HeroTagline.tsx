@@ -50,11 +50,15 @@ export function HeroTagline() {
         A prompt chevron, centred on the lowercase letters' middle, since the line
         is mostly lowercase and a capital-height chevron reads as too big and too high.
       */}
-      <svg aria-hidden viewBox="0 0 10 16" className="h-[0.56em] w-[0.35em] flex-none translate-y-[0.07em] overflow-visible text-coral">
+      <svg aria-hidden viewBox="0 0 10 16" className="h-[0.56em] w-[0.35em] flex-none -translate-y-[0.02em] overflow-visible text-coral">
         <path d="M2 1.5 L8.5 8 L2 14.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span aria-hidden className="grid">
-        <span className="invisible col-start-1 row-start-1 whitespace-pre">{FULL}</span>
+        {/* Sized to the finished line: every letter but the last, then the cursor's cell holding it. */}
+        <span className="invisible col-start-1 row-start-1 whitespace-pre">
+          {FULL.slice(0, -1)}
+          <Cursor letter={FULL.at(-1)} inName={false} />
+        </span>
         <span className="col-start-1 row-start-1 whitespace-pre">
           <span className="text-cream">{name}</span>
           <span className="text-coral">{rest}</span>
