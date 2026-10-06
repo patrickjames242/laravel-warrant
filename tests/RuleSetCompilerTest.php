@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\ConditionKind;
 use Warrant\Schema\RuleTemplateDefinition;
 use Warrant\WarrantGate;
 
@@ -111,12 +112,17 @@ final class FakeConditionResolver implements ConditionResolver
         // is_owner and id_is read $parameters[0]; the rest take no required args.
         $required = in_array($name, ['is_owner', 'id_is'], true) ? 1 : 0;
 
-        return new ConditionDefinition($name, $name, self::TARGETED[$name], $required);
+        return new ConditionDefinition(
+            $name,
+            $name,
+            self::TARGETED[$name] ? ConditionKind::Row : ConditionKind::Global,
+            $required,
+        );
     }
 
     public function getKeyDefinition(): ConditionDefinition
     {
-        return new ConditionDefinition('matchKey', 'matchKey', true, 1);
+        return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1);
     }
 
     /** The default key: primary-key equality, unknown when nothing was named. */

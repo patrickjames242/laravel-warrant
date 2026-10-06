@@ -12,9 +12,11 @@ use ReflectionNamedType;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\ConditionKind;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DeclaresAbility;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
@@ -23,8 +25,8 @@ use Warrant\Schema\RuleTemplateDefinition;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`
- * constants), the conditions (from `#[RowCondition]` / `#[GlobalCondition]`
- * methods) and the rule templates (from `#[RuleTemplate]` methods) that a rule
+ * constants), the conditions (from `#[RowCondition]` / `#[GlobalCondition]` /
+ * `#[DerivedCondition]` methods) and the rule templates (from `#[RuleTemplate]` methods) that a rule
  * string is allowed to reference.
  */
 trait ReflectsSchemaDefinition
@@ -65,7 +67,7 @@ trait ReflectsSchemaDefinition
     public static function rowConditionKeys(): array
     {
         return collect(static::conditionDefinitions())
-            ->filter(fn(ConditionDefinition $definition): bool => $definition->isRow)
+            ->filter(fn(ConditionDefinition $definition): bool => $definition->isRow())
             ->map(fn(ConditionDefinition $definition): string => $definition->key)
             ->filter()
             ->sort()
@@ -93,7 +95,26 @@ trait ReflectsSchemaDefinition
     }
 
     /**
-     * Returns all condition keys declared by the schema (row and global).
+     * Returns all derived condition keys declared by the schema.
+     *
+     * A derived condition key is discovered from each public method marked with
+     * `#[DerivedCondition(...)]`.
+     *
+     * @return array<int, string>
+     */
+    public static function derivedConditionKeys(): array
+    {
+        return collect(static::conditionDefinitions())
+            ->filter(fn(ConditionDefinition $definition): bool => $definition->isDerived())
+            ->map(fn(ConditionDefinition $definition): string => $definition->key)
+            ->filter()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Returns all condition keys declared by the schema (row, global and derived).
      *
      * @return array<int, string>
      */
@@ -102,6 +123,7 @@ trait ReflectsSchemaDefinition
         return collect([
             ...static::rowConditionKeys(),
             ...static::globalConditionKeys(),
+            ...static::derivedConditionKeys(),
         ])
             ->unique()
             ->sort()
@@ -221,7 +243,7 @@ trait ReflectsSchemaDefinition
            because PHP forbids an override from adding required parameters, and a
            key of several parts has to be able to declare them. */
         if (! method_exists(static::class, 'matchKey')) {
-            return new ConditionDefinition('matchKey', 'defaultMatchKey', true, 1);
+            return new ConditionDefinition('matchKey', 'defaultMatchKey', ConditionKind::Row, 1);
         }
 
         $method = new ReflectionMethod(static::class, 'matchKey');
@@ -229,6 +251,7 @@ trait ReflectsSchemaDefinition
         if (
             $method->getAttributes(RowCondition::class) !== []
             || $method->getAttributes(GlobalCondition::class) !== []
+            || $method->getAttributes(DerivedCondition::class) !== []
             || $method->getAttributes(RuleTemplate::class) !== []
         ) {
             throw new InvalidArgumentException(sprintf(
@@ -260,7 +283,7 @@ trait ReflectsSchemaDefinition
         return new ConditionDefinition(
             $method->getName(),
             $method->getName(),
-            true,
+            ConditionKind::Row,
             max(0, $method->getNumberOfRequiredParameters() - 1),
         );
     }
@@ -333,6 +356,7 @@ trait ReflectsSchemaDefinition
                 if (
                     $method->getAttributes(RowCondition::class) !== []
                     || $method->getAttributes(GlobalCondition::class) !== []
+                    || $method->getAttributes(DerivedCondition::class) !== []
                 ) {
                     throw new InvalidArgumentException(sprintf(
                         'Method [%s::%s] cannot be both a condition and a rule template.',
@@ -412,33 +436,37 @@ trait ReflectsSchemaDefinition
                     return null;
                 }
 
-                $rowAttributes = $method->getAttributes(RowCondition::class);
-                $globalAttributes = $method->getAttributes(GlobalCondition::class);
+                $attributesByKind = array_filter([
+                    ConditionKind::Row->name => $method->getAttributes(RowCondition::class),
+                    ConditionKind::Global->name => $method->getAttributes(GlobalCondition::class),
+                    ConditionKind::Derived->name => $method->getAttributes(DerivedCondition::class),
+                ]);
 
-                if ($rowAttributes === [] && $globalAttributes === []) {
+                if ($attributesByKind === []) {
                     return null;
                 }
 
-                if (count($rowAttributes) > 1 || count($globalAttributes) > 1) {
+                foreach ($attributesByKind as $attributes) {
+                    if (count($attributes) > 1) {
+                        throw new InvalidArgumentException(sprintf(
+                            'Condition method [%s::%s] must not declare duplicate condition attributes.',
+                            static::class,
+                            $method->getName()
+                        ));
+                    }
+                }
+
+                if (count($attributesByKind) > 1) {
                     throw new InvalidArgumentException(sprintf(
-                        'Condition method [%s::%s] must not declare duplicate condition attributes.',
+                        'Condition method [%s::%s] must declare exactly one of #[RowCondition], '
+                            .'#[GlobalCondition] and #[DerivedCondition].',
                         static::class,
                         $method->getName()
                     ));
                 }
 
-                if ($rowAttributes !== [] && $globalAttributes !== []) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].',
-                        static::class,
-                        $method->getName()
-                    ));
-                }
-
-                $isRow = $rowAttributes !== [];
-                $attributeInstance = $isRow
-                    ? $rowAttributes[0]->newInstance()
-                    : $globalAttributes[0]->newInstance();
+                $kind = constant(ConditionKind::class.'::'.array_key_first($attributesByKind));
+                $attributeInstance = reset($attributesByKind)[0]->newInstance();
                 $conditionKey = $attributeInstance->key ?? static::conditionKeyFromMethodName($method->getName());
 
                 if (!is_string($conditionKey) || $conditionKey === '') {
@@ -449,6 +477,42 @@ trait ReflectsSchemaDefinition
                     ));
                 }
 
+                $parameters = $method->getParameters();
+                $parameterType = ($parameters[0] ?? null)?->getType();
+
+                /* A derived condition is expanded before anything compiles, so there
+                   is no user, row, query or check context to hand it — only its DSL
+                   arguments, bound positionally from the first parameter, which is
+                   why the required count is read whole. A leading context object is
+                   the mark of a condition written for the old contract, which could
+                   answer with an expression from a row or global condition; say so
+                   here rather than as a TypeError at expansion. */
+                if ($kind === ConditionKind::Derived) {
+                    if (
+                        $parameterType instanceof ReflectionNamedType
+                        && in_array(
+                            $parameterType->getName(),
+                            [RowConditionContext::class, GlobalConditionContext::class],
+                            true,
+                        )
+                    ) {
+                        throw new InvalidArgumentException(sprintf(
+                            'Derived condition [%s::%s] takes no context object; its parameters are its DSL '
+                                .'arguments alone. Move anything that reads the user, the row or the check context '
+                                .'into a row or global condition, and compose it into the expression.',
+                            static::class,
+                            $method->getName()
+                        ));
+                    }
+
+                    return new ConditionDefinition(
+                        $conditionKey,
+                        $method->getName(),
+                        $kind,
+                        $method->getNumberOfRequiredParameters(),
+                    );
+                }
+
                 /* The attribute chooses the context: a row condition receives a
                    RowConditionContext (carrying the target row's SQL identity), a
                    global one a GlobalConditionContext. The context object is always
@@ -457,11 +521,9 @@ trait ReflectsSchemaDefinition
                    condition's DSL arguments, bound positionally at call time
                    (parameter #2 -> argument[0], #3 -> argument[1], …), so they are
                    left unconstrained here. */
-                $expectedContext = $isRow
+                $expectedContext = $kind === ConditionKind::Row
                     ? RowConditionContext::class
                     : GlobalConditionContext::class;
-                $parameters = $method->getParameters();
-                $parameterType = ($parameters[0] ?? null)?->getType();
 
                 if (
                     $parameters === []
@@ -479,7 +541,7 @@ trait ReflectsSchemaDefinition
                 return new ConditionDefinition(
                     $conditionKey,
                     $method->getName(),
-                    $isRow,
+                    $kind,
                     max(0, $method->getNumberOfRequiredParameters() - 1),
                 );
             })

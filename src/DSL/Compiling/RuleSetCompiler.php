@@ -1125,7 +1125,7 @@ final class RuleSetCompiler
            compile answers it with the third truth value: an unknown negates to
            itself, so it neither grants nor lifts a deny. The negation flag is
            deliberately not passed on — it would mean nothing to an unknown. */
-        if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow ?? false)) {
+        if (! $ctx->targeted && ($this->conditions->getConditionDefinition($node->conditionKey)?->isRow() ?? false)) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 

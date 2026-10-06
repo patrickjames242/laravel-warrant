@@ -194,7 +194,7 @@ trait ResolvesConditions
     {
         $methodName = $definition->methodName;
 
-        if ($definition->isRow) {
+        if ($definition->isRow()) {
             if (! $targeted) {
                 throw new InvalidArgumentException(
                     sprintf('Condition [%s] on schema [%s] requires a target row.', $label, static::class)
