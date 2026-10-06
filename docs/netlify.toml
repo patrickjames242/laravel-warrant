@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Every docs URL, such as /getting-started/installation/, is a route in the app,
+# so each one is answered with index.html and the app picks the page.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
