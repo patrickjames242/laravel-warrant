@@ -16,8 +16,8 @@ AGENTS.md
 # Design specs (local only)
 /specs/
 
-# docs-revamp build output and dependencies
-/docs-revamp/node_modules/
-/docs-revamp/dist/
-/docs-revamp/.tanstack/
-/docs-revamp/*.tsbuildinfo
+# Docs site build output and dependencies
+/docs/node_modules/
+/docs/dist/
+/docs/.tanstack/
+/docs/*.tsbuildinfo
