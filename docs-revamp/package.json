@@ -17,6 +17,7 @@
     "@gsap/react": "^2.1.2",
     "@tanstack/react-router": "^1.170.40",
     "gsap": "^3.15.0",
+    "minisearch": "^7.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
@@ -30,6 +31,7 @@
     "@eslint/js": "^9.39.5",
     "@floating-ui/react": "^0.27.20",
     "@lezer/highlight": "^1.2.5",
+    "@mdx-js/mdx": "^3.1.1",
     "@mdx-js/rollup": "^3.1.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.41",

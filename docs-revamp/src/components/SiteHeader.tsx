@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { links } from '../lib/links'
 import { Logo } from './Logo'
+import { Search } from './Search'
 import { SiteLink } from './SiteLink'
 import { ThemeMenu } from './ThemeMenu'
 
@@ -53,6 +54,10 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
         </div>
 
         <div className="ml-auto flex flex-none items-center gap-2.5">
+          {/* At phone width the home page's header has no room for search beside its call to action; the shortcuts still open it. */}
+          <div className={docs ? 'contents' : 'hidden sm:contents'}>
+            <Search />
+          </div>
           <ThemeMenu />
           <a
             href={links.github}

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
-import type { Plugin } from 'vite'
+import type { Plugin, ViteDevServer } from 'vite'
 import { parse } from 'yaml'
 
 const MODULE_ID = 'virtual:docs-pages'
@@ -21,7 +21,8 @@ interface Frontmatter {
   sidebar?: { order?: unknown; label?: unknown }
 }
 
-function markdownFiles(directory: string): string[] {
+/** Every Markdown file under `directory`, at any depth. */
+export function markdownFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) return markdownFiles(path)
@@ -38,7 +39,7 @@ export function slugFor(root: string, file: string): string {
     .replace(/(^|\/)index$/, '')
 }
 
-function readPage(root: string, file: string): PageMeta {
+export function readPage(root: string, file: string): PageMeta {
   const source = readFileSync(file, 'utf8')
   const block = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source)
   const data = (block ? parse(block[1]) : {}) as Frontmatter
@@ -76,15 +77,23 @@ export function docsPages(root: string): Plugin {
     },
     configureServer(server) {
       // A page added, removed or retitled changes the list, not just that page.
-      const refresh = (file: string) => {
-        if (!file.startsWith(root) || !file.endsWith('.md')) return
-        const module = server.moduleGraph.getModuleById(RESOLVED_ID)
-        if (module) void server.reloadModule(module)
-      }
-      server.watcher.add(root)
-      server.watcher.on('add', refresh)
-      server.watcher.on('unlink', refresh)
-      server.watcher.on('change', refresh)
+      reloadOnContentChange(server, root, RESOLVED_ID)
     },
   }
+}
+
+/**
+ * Reloads the module `id` whenever a Markdown file under `root` is added,
+ * removed or changed, for a module built from every page at once.
+ */
+export function reloadOnContentChange(server: ViteDevServer, root: string, id: string): void {
+  const refresh = (file: string) => {
+    if (!file.startsWith(root) || !file.endsWith('.md')) return
+    const module = server.moduleGraph.getModuleById(id)
+    if (module) void server.reloadModule(module)
+  }
+  server.watcher.add(root)
+  server.watcher.on('add', refresh)
+  server.watcher.on('unlink', refresh)
+  server.watcher.on('change', refresh)
 }
