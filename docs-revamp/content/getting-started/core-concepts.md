@@ -288,8 +288,8 @@ See [Route middleware](/checking/middleware/).
 ## Reachability
 
 Distinct from "can they act on _this_ row right now?" is "**could they ever**?" — a
-structural question used to hide UI that's impossible for a user, without a query
-per link:
+question answered from the rules alone, used to hide UI that's impossible for a
+user, without a query per link:
 
 ```php
 Warrant::reachabilityOf(Document::class, 'update'); // Reachability::NEVER | MAYBE | ALWAYS

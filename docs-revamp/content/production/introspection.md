@@ -15,11 +15,12 @@ answer it, and all three are available at runtime.
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
+$guard = Warrant::forSchema(Document::class, $user);
+$set = $guard->resolvedRuleSet();
 
 $set->schemaKey;
-$set->entries;      // rules, ability blocks and @includes, as written
-$set->rules();      // WarrantRuleNode[], ability blocks opened up
+$set->entries;                    // rules, ability blocks and @includes, as written
+$guard->expandedRuleSet()->rules; // WarrantRuleNode[]: blocks, includes and derived conditions expanded
 
 (new WarrantSyntax([$set]))->toSyntax();   // rendered back to the language
 ```
@@ -55,7 +56,7 @@ $bound->bindings;
 
 ```php
 Warrant::possibleAbilities(Document::class, $user);     // could ever
-Warrant::guaranteedAbilities(Document::class, $user);   // by the rules' shape
+Warrant::guaranteedAbilities(Document::class, $user);   // whatever the row
 Warrant::impossibleAbilities(Document::class, $user);   // never
 ```
 

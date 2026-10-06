@@ -123,7 +123,7 @@ Cross-schema can(...) cycle detected: timesheets:create → pay_periods:approve 
 timesheets:create.
 ```
 
-Nesting is also capped at a depth of 32.
+Nesting is also capped at a depth of 64.
 
 **The way out** is usually to restructure so the dependency runs one way, or to use
 `check(...)`, which asks about a row's state and consults no rules.

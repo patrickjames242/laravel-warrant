@@ -30,6 +30,12 @@ class DocumentSchema extends WarrantSchema
         return $c->user->is_admin;
     }
 
+    #[DerivedCondition]
+    public function canEdit(): string
+    {
+        return 'is_mine or is_admin';
+    }
+
     #[RuleTemplate]
     public function requiresApproval(): string
     {
@@ -177,6 +183,7 @@ Warrant::registry()->resolveSchemaKeyOrFail(Document::class);
 DocumentSchema::abilityNames();
 DocumentSchema::rowConditionKeys();
 DocumentSchema::globalConditionKeys();
+DocumentSchema::derivedConditionKeys();
 DocumentSchema::requiredContextKeys();
 DocumentSchema::hasRows();
 DocumentSchema::hasRowKey();

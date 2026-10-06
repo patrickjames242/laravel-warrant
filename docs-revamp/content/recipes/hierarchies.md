@@ -132,7 +132,7 @@ public function inheritedFrom(int $levels): string|WarrantRuleTemplate
 ```
 
 Worth knowing about; rarely the right answer. The SQL grows a nesting level per
-step, and the compiler's depth cap of 32 is a hard ceiling.
+step, and the compiler's depth cap of 64 is a hard ceiling.
 
 ## Denials flow down too
 

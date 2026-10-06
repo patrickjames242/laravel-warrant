@@ -98,9 +98,11 @@ if is_legally_sealed they cannot view, export
 
 A bypass has no way to express that exception.
 
-**It shows up in reachability.** `Warrant::guaranteedAbilities(Document::class)`
-returns everything for a super admin, so the UI renders correctly with no separate
-admin branch.
+**Reachability cannot tell them apart.** `is_super_admin` is a global condition,
+which [reachability](/concepts/reachability/) never evaluates, so every ability it
+grants comes back `MAYBE` for everyone, super admin or not. If the UI should treat
+a super admin as `ALWAYS`, have your resolver hand them an unconditional
+`they can *`, which reachability does read.
 
 **It shows up in the list.** `selectUserAbilities()` gives them every ability on
 every row, so your frontend needs no special case.

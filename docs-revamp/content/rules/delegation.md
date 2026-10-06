@@ -98,10 +98,10 @@ When two abilities genuinely share a condition rather than one depending on the
 other, name the condition instead:
 
 ```php
-#[RowCondition]
-public function isContributor(RowConditionContext $c)
+#[DerivedCondition]
+public function isContributor(): string
 {
-    return Warrant::parse('is_owner or is_editor')->conditionExpression();
+    return 'is_owner or is_editor';
 }
 ```
 

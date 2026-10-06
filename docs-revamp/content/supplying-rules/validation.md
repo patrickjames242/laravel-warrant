@@ -83,17 +83,17 @@ Syntax is checked earlier, at parse time, and throws eagerly with a caret. What
 - an `@include` names a declared template with the right arity, and its abilities
   exist.
 
+It checks the rule set twice: as written, and again once
+[expanded](/sql/rule-to-query/#before-compiling-expansion), with every template's body and every
+[derived condition](/schemas/conditions-beyond-sql/)'s expression in place. So a
+mistake inside a template body or a derived condition is reported like one written
+in the rule. Expansion needs no user, row or check context, which is what lets
+validation read them at all.
+
 Context keys need no declaration to be referenced, so there is no unknown-context-key
 error.
 
 ## What it deliberately does not check
-
-**A rule template's body.** Reading one means calling the method with concrete
-arguments, and an argument may be a `@context` reference whose value arrives per
-check. So a mistake inside a body is reported when it is expanded.
-
-**A derived condition's expression.** Same reason, from the other direction: that
-tree is produced by PHP at compile time and no pass over rule text can see it.
 
 **Anything that depends on a value.** Whether a `@context` key turned out to be
 present, whether a frame is in scope for *this* compile. Those are compile-time
@@ -105,9 +105,8 @@ Validation is not the only thing standing between a bad rule and bad SQL. The
 compiler makes every check the validator makes, independently.
 
 That matters because rules reach the compiler without ever passing through the
-validator: one built with the [fluent builder](/rules/builder/), one produced by a
-[derived condition](/schemas/conditions-beyond-sql/), a set assembled
-programmatically. If a check lived only in the validator, every one of those paths
+validator: one built with the [fluent builder](/rules/builder/), a set assembled
+programmatically and never passed to `validate()`. If a check lived only in the validator, every one of those paths
 would compile a rule the language forbids, and the mistake would surface as wrong
 SQL or wrong access rather than as an error.
 

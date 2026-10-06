@@ -62,8 +62,8 @@ Narrowing is the highest-value change available here.
 
 ## Reachability
 
-Zero queries. It reads the resolved rule set's shape, evaluates no conditions, and
-runs no SQL. Building a nav from it costs nothing beyond resolving the rules once.
+Zero queries. It reads the resolved rule set, evaluates no row or global
+condition, and runs no SQL. Building a nav from it costs nothing beyond resolving the rules once.
 
 ```php
 Warrant::couldEverHave(Document::class, 'view');    // no SQL

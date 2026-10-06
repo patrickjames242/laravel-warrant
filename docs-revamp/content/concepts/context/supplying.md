@@ -88,7 +88,7 @@ protected function defaultContext(): array
 ## Reachability takes none
 
 There is no `context:` argument on any reachability method. Context only ever
-feeds condition evaluation, and reachability evaluates no conditions.
+feeds row and global conditions, and reachability evaluates neither.
 
 ```php
 Warrant::couldEverHave(Document::class, 'update');   // no context, by design

@@ -82,9 +82,33 @@ still emit SQL when `$c->model` is `null`.
 A condition may return `null` to answer unknown, and must then add no `where`
 clause.
 
-A condition may also return an expression or a condition builder, which the
-compiler walks as though written inline. See
+A row or global condition may not return an expression or a condition builder;
+that is a [`#[DerivedCondition]`](#derivedcondition).
+
+## `#[DerivedCondition]`
+
+Marks a public method as a condition built from other conditions. The key works as
+for the other two.
+
+```php
+use Warrant\Schema\DerivedCondition;
+
+#[DerivedCondition]
+public function canEdit(): string
+{
+    return 'is_owner or is_editor';
+}
+```
+
+It takes **no context object**: every parameter is a DSL argument, so all of them
+without a default are required. A `@context` or `@column` argument arrives as the
+reference (`ContextRef`, `ColumnRef`), to be passed on through a binding. It
+answers with rule text, a `WarrantConditionBuilder`, an expression node, a `bool`,
+or `null` for unknown, and is expanded once per rule set before compiling. See
 [conditions that are not query constraints](/schemas/conditions-beyond-sql/).
+
+A method may carry only one of `#[RowCondition]`, `#[GlobalCondition]`,
+`#[DerivedCondition]` and `#[RuleTemplate]`.
 
 ## `#[RequiredContext]`
 

@@ -67,7 +67,6 @@ abstract class AppSchema extends WarrantSchema
 Warrant::can('view', $document);                 // false
 Document::query()->userHasAbility('view')->get(); // empty
 Warrant::abilities($document);                    // []
-Warrant::possibleAbilities(Document::class);      // []
 ```
 
 ```sql
@@ -77,9 +76,11 @@ select * from "documents" where (1 = 0)
 `is_suspended` is `true` in PHP, so the unconditional denial makes every predicate
 `false` and nothing else is emitted.
 
-Because the denial is unconditional for a suspended user, reachability reports
-`NEVER` for everything, so a well-built UI hides the controls rather than showing
-them and failing.
+[Reachability](/concepts/reachability/) does not see this. It never evaluates a
+global condition, so `is_suspended` could be anything, and an ability granted
+elsewhere comes back `MAYBE` rather than `NEVER`. To hide controls from a suspended
+user, check the suspension directly, or have your resolver return an unconditional
+`they cannot *` for that user, which reachability does read as `NEVER`.
 
 ## Partial suspension
 

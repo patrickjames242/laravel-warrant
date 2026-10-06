@@ -61,8 +61,8 @@ Each maps to the matching
 
 ## Reachability guards
 
-Backed by the [reachability](/checking/reachability/) system, which runs no
-conditions and no SQL.
+Backed by the [reachability](/checking/reachability/) system, which evaluates no
+row or global condition and runs no SQL.
 
 ```php
 public static function couldEver(

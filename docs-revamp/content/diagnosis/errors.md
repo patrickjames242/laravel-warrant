@@ -15,6 +15,7 @@ misconfigured schema throws rather than silently granting or denying.
 | Stage | What is checked |
 |---|---|
 | parse | rule syntax, binding consistency |
+| expansion | templates and derived conditions resolve, answer sensibly, and terminate |
 | compile or validate | ability and condition names against the schema |
 | check | the requested ability exists, required context present, a user is available |
 | first resolution | schema registry consistency, condition method signatures |
@@ -102,7 +103,9 @@ fires at check time when the **requested** ability is not declared:
 Thrown the first time a schema's conditions are reflected:
 
 - `Condition method [%s::%s] must not declare duplicate condition attributes.`
-- `Condition method [%s::%s] cannot declare both #[RowCondition] and #[GlobalCondition].`
+- `Condition method [%s::%s] must declare exactly one of #[RowCondition], #[GlobalCondition] and #[DerivedCondition].`
+- `Derived condition [%s::%s] takes no context object; its parameters are its DSL arguments alone. ...`: a derived condition written with a `RowConditionContext` or `GlobalConditionContext` parameter.
+- `Method [%s::%s] cannot be both a condition and a rule template.`
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
 - `Condition method [%s::%s] must accept a [%s] as its first parameter.`
 - `Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.`
@@ -115,6 +118,8 @@ From the resolver:
 - `BadMethodCallException`: `Condition [%s] is not defined on schema [%s].`
 - `Condition [%s] on schema [%s] requires a target row.`
 - `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.`
+- `Condition [%s] on schema [%s] returned an expression; a row or global condition answers with the query it constrained, a bool or null. Declare a condition built from other conditions #[DerivedCondition] instead, ...`
+- `Condition [%s] on schema [%s] is a derived condition, which has no SQL of its own; ...`: applying a derived condition to a query directly.
 
 From the compiler, on what a condition emitted:
 
@@ -160,8 +165,13 @@ requiring no arguments. Only `null` means a no-row check.
 ## Cycles and depth
 
 - `Cross-schema can(...) cycle detected: … A can(...) reference must not, directly or transitively, depend on the ability being compiled.`
-- `... exceeded the maximum nesting depth`: worded for a template expansion on its
-  own, or for the whole compile when one is under way.
+- `Warrant compilation exceeded the maximum nesting depth of 64.`: `can(...)` hops
+  and `check(...)` dispatches nested too deep. The message lists the chain.
+- `Expansion exceeded the maximum nesting depth of 64.`: a template or derived
+  condition that expands into itself with the same arguments. The message lists
+  the chain, collapsing repeats.
+
+See [depth and cycles](/diagnosis/depth-and-cycles/).
 
 ## Context, `InvalidArgumentException`
 
@@ -172,10 +182,25 @@ Schema [%s] requires context key(s) [%s]; supply them at the check or via defaul
 An *optional* key that is absent does not throw. It is passed to its condition as
 `null`, and standard SQL logic applies, which is fail-closed.
 
+## Expansion
+
+Thrown while a rule set is expanded, by the guard before its first check and by
+`validate()`:
+
+- `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.`
+- `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
+- `RuntimeException`: `Rule template [%s::%s] must answer with a string or a WarrantRuleTemplate, got %s.`
+- `InvalidArgumentException`: `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (a derived condition given too few arguments)
+- `RuntimeException`: `Derived condition [%s::%s] must answer with an expression, a WarrantConditionBuilder, rule text, a bool or null; got %s.`
+- `RuntimeException`: `Derived condition [%s::%s] answered with rule text that is not a condition expression: ...` (the parser's own error follows, and is the previous exception)
+- `InvalidArgumentException`: `Condition [%s] on schema [%s] returned a condition builder with no terms, which would silently match every row; ...`
+- `RuntimeException`: `Expansion exceeded the maximum nesting depth of 64.`
+
+The compiler rejects a derived condition that never went through expansion:
+`Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; ...`
+
 ## Rule templates
 
-- `Schema [%s] declares no rule template [%s]`
-- `Rule template [%s] requires N argument(s), but the @include supplies M`
 - `An @include outside an ability block must name the abilities it applies to`
 - `An @include inside an ability block may not name abilities`
 

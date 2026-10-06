@@ -7,7 +7,7 @@ sidebar:
   order: 4
 ---
 
-Two related errors, from the same budget.
+Two related errors: a cycle, and a chain that nests too deep.
 
 ## A cycle
 
@@ -90,10 +90,10 @@ When two abilities genuinely share a condition rather than one depending on the
 other, name the condition instead:
 
 ```php
-#[RowCondition]
-public function isContributor(RowConditionContext $c)
+#[DerivedCondition]
+public function isContributor(): string
 {
-    return Warrant::parse('is_owner or is_editor')->conditionExpression();
+    return 'is_owner or is_editor';
 }
 ```
 
@@ -107,14 +107,20 @@ That composes with no dependency between abilities. See
 ## Depth
 
 ```text
-... exceeded the maximum nesting depth
+Warrant compilation exceeded the maximum nesting depth of 64.
+Expansion exceeded the maximum nesting depth of 64.
 ```
 
-Nesting is capped at 32, and everything counts toward it: `can(...)` hops,
-`check(...)` dispatches, [rule template](/rules/templates/) expansions, and
-[derived condition](/schemas/conditions-beyond-sql/) expansions.
+There are two budgets of 64, one per phase:
 
-Hitting 32 is rare by accident, so the cause is usually one of two things.
+- **Compiling** counts `can(...)` hops and `check(...)` dispatches.
+- **Expansion**, which runs once per rule set before anything compiles, counts
+  [rule template](/rules/templates/) includes and
+  [derived condition](/schemas/conditions-beyond-sql/) expansions, on one shared
+  budget.
+
+Hitting either by accident is rare. For expansion the cause is usually one of two
+things.
 
 **A template with no base case.** The language has no conditional, so a body cannot
 decide for itself when to stop. The base case has to be a PHP one:
@@ -136,19 +142,28 @@ would ban exactly those.
 **A derived condition expanding into itself:**
 
 ```php
-#[GlobalCondition]
-public function runaway(GlobalConditionContext $c): WarrantConditionBuilder
+#[DerivedCondition]
+public function runaway(): WarrantConditionBuilder
 {
     return WarrantConditionBuilder::build()->if('runaway');
 }
 ```
 
-The error names the chain that got there, including the ability and the hops, so
-the offending name is in the message.
+Each error names the chain that got there, so the offending name is in the
+message. An expansion chain collapses repeats:
+
+```text
+Expansion exceeded the maximum nesting depth of 64.
+
+Expansion chain (outermost first):
+  documents.runaway  (repeated 65 times)
+```
+
+A compile chain names the abilities and hops instead.
 
 ## Before you raise the depth
 
-You cannot, and that is deliberate. A predicate 32 subqueries deep would be
+You cannot, and that is deliberate. A predicate 64 subqueries deep would be
 unreadable and very likely unindexable. Treat the error as a signal to flatten the
 relationship into something the database can answer in one step, which is nearly
 always a closure table, a denormalized column, or a materialized path.

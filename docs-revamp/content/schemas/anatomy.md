@@ -20,6 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
@@ -62,10 +63,10 @@ class DocumentSchema extends WarrantSchema
     }
 
     // 6. A question answered by composing other questions.
-    #[RowCondition]
-    public function isEditable(RowConditionContext $c)
+    #[DerivedCondition]
+    public function isEditable(): string
     {
-        return Warrant::parse('is_mine and not is_locked')->conditionExpression();
+        return 'is_mine and not is_locked';
     }
 
     // 7. A reusable shape a rule may expand.

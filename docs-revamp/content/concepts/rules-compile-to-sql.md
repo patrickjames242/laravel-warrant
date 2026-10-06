@@ -82,8 +82,8 @@ a bound value, or a value supplied at check time. [What a rule cannot
 do](/concepts/what-rules-cannot-do/).
 
 **Reachability is cheap.** Asking "could this user ever edit anything?" is a
-question about the shape of the rules, not about rows. Warrant can answer it by
-reading the rule set with no conditions evaluated and no query run.
+question about the rules, not about rows. Warrant can answer it by reading the rule
+set with no row or global condition evaluated and no query run.
 [Reachability](/concepts/reachability/).
 
 **One rule answers both questions.** "Can this user?" and "which rows can they?"

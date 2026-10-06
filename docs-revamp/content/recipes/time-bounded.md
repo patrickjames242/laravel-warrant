@@ -120,8 +120,9 @@ if not engagement_is_current they cannot *
 ```
 
 Because it is a global condition returning a `bool`, a lapsed contractor gets
-`where (1 = 0)` with nothing else emitted, and reachability reports `NEVER` for
-everything, so the UI hides rather than fails.
+`where (1 = 0)` with nothing else emitted. [Reachability](/concepts/reachability/)
+does not evaluate it, though, so it still reports a granted ability as `MAYBE`. To
+hide the UI for a lapsed contractor, check the engagement directly.
 
 ## Periods as another schema
 

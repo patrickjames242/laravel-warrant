@@ -165,14 +165,14 @@ actually applies:
 ```php
 public function effective(User $user, string $schemaKey)
 {
-    $set = Warrant::forSchema(
+    $guard = Warrant::forSchema(
         Warrant::registry()->resolveSchemaClassOrFail($schemaKey),
         $user,
-    )->resolvedRuleSet();
+    );
 
     return [
-        'syntax' => (new WarrantSyntax([$set]))->toSyntax(),
-        'rules'  => count($set->rules()),
+        'syntax' => (new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax(),
+        'rules'  => count($guard->expandedRuleSet()->rules),
     ];
 }
 ```

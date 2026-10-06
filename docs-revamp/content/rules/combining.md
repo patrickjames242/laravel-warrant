@@ -91,14 +91,14 @@ they can submit
 ```
 
 If an expression is getting long enough to be hard to read, that is usually a sign
-the shape wants a name. A condition can answer with an expression rather than SQL,
-which is [a derived condition](/schemas/conditions-beyond-sql/):
+the shape wants a name. A condition built from other conditions is
+[a derived condition](/schemas/conditions-beyond-sql/):
 
 ```php
-#[RowCondition]
-public function isEditable(RowConditionContext $c)
+#[DerivedCondition]
+public function isEditable(): string
 {
-    return Warrant::parse('is_submitted and not is_approved and not is_locked')->conditionExpression();
+    return 'is_submitted and not is_approved and not is_locked';
 }
 ```
 

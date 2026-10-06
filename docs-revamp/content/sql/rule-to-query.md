@@ -10,6 +10,24 @@ sidebar:
 You do not need this page to use Warrant. It explains why the semantics are what
 they are.
 
+## Before compiling: expansion
+
+A rule set goes through three steps. It is **parsed** into a tree, **expanded**,
+and **compiled**. Expansion spells out the shorthand an author wrote:
+
+- an [ability block](/rules/ability-blocks/)'s header is applied to every clause
+  under it;
+- an [`@include`](/rules/templates/) is replaced by its template's rules, where the
+  include stood;
+- a [derived condition](/schemas/conditions-beyond-sql/) is replaced by the
+  expression it answers with.
+
+Expansion reads no user, row or check context, so it happens once per rule set and
+every check against it compiles the same rules. The rule set is
+[validated](/supplying-rules/validation/) as written and again once expanded,
+before anything compiles. A `can(... for <schema>)` reaches rules resolved for that
+schema, which are expanded the same way when it is first compiled.
+
 ## The example
 
 A `documents` schema with three abilities and four conditions:

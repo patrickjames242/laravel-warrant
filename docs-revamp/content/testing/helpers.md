@@ -144,9 +144,9 @@ each against the schema its own key names:
 Warrant::validate($setA, $setB, [$setC, $setD]);
 ```
 
-Note what validation does not cover: a rule template's body, a derived condition's
-expression, and anything depending on a value. Those are checked by the compiler
-when a check runs. See
+Validation expands the rule set first, so it covers a rule template's body and a
+derived condition's expression too. What it does not cover is anything depending on
+a value, which the compiler checks when a check runs. See
 [validation](/supplying-rules/validation/).
 
 ## A snapshot of the effective policy

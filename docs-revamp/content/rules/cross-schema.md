@@ -64,9 +64,10 @@ loop. A `can(...)` inside its predicate can, and is guarded the same way.
 
 ## Depth
 
-Nesting is capped at 32, counting `can(...)` hops, `check(...)` dispatches,
-[template](/rules/templates/) expansions, and derived conditions together. The
-error names the chain that got there.
+Compiling is capped at a depth of 64, counting `can(...)` hops and `check(...)`
+dispatches together. [Template](/rules/templates/) and derived condition expansions
+have a 64-deep budget of their own, spent before anything compiles. Either error
+names the chain that got there. See [depth and cycles](/diagnosis/depth-and-cycles/).
 
 ## Same connection only
 
@@ -148,4 +149,4 @@ Caught at compile time:
 - A row selector that is a model of the wrong schema, or any object with no meaning
   as a row key.
 - A target on a different connection.
-- A cycle, or nesting deeper than 32.
+- A cycle, or nesting deeper than 64.

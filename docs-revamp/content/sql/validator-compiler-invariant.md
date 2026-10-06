@@ -30,12 +30,13 @@ WarrantRuleNode::build()
     ->toRule();
 ```
 
-A [derived condition](/schemas/conditions-beyond-sql/) produces an expression at
-compile time, after validation has already run, and no pass over text can see it:
+A [derived condition](/schemas/conditions-beyond-sql/) may build its expression
+the same way. `validate()` expands it and reads the result, but only for a rule set
+someone validates:
 
 ```php
-#[RowCondition]
-public function parentIsOwned(RowConditionContext $c): WarrantConditionBuilder
+#[DerivedCondition]
+public function parentIsOwned(): WarrantConditionBuilder
 {
     return WarrantConditionBuilder::build()->ifCheck('is_owner', FolderSchema::class, Ref::column('parent_id'));
 }

@@ -98,8 +98,8 @@ Outside a block, the include has to name them:
 A block stays in the parsed tree as an `AbilityBlockNode` holding its body exactly
 as written, with clauses and includes that name no abilities. The header is the
 only place the abilities live, so [`toSyntax()`](/reference/warrant-rule-set/)
-writes the block back as a block. A rule set's `rules()` and `flatEntries()` apply
-the header to each entry, and since [rule order never
+writes the block back as a block. [Expansion](/sql/rule-to-query/#before-compiling-expansion)
+applies the header to each entry, and since [rule order never
 matters](/concepts/grants-and-denials/), every check decides the same way either
 form is written.
 :::

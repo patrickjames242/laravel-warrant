@@ -2,27 +2,27 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Conditions that are not query constraints
-description: Derived conditions that answer with an expression, and Eloquent scopes used as conditions.
+description: Derived conditions built from other conditions, and Eloquent scopes used as conditions.
 sidebar:
   order: 4
 ---
 
-A condition usually constrains the builder it was handed. Two other shapes are
-allowed, and both are underused.
+A row or global condition constrains the builder it was handed. Two other shapes
+are allowed, and both are underused.
 
-## A condition that answers with an expression
+## A condition built from other conditions
 
-Return an expression instead of SQL and the compiler walks the result as though you
-had written it inline in the rule:
+When a condition is just a combination of others, mark it `#[DerivedCondition]` and
+return the expression instead of SQL. Expansion puts the expression where the
+condition was named, before anything compiles:
 
 ```php
-use Warrant\Facades\Warrant;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\Schema\DerivedCondition;
 
-#[RowCondition]
-public function isEditable(RowConditionContext $c): IBooleanExpressionNode
+#[DerivedCondition]
+public function isEditable(): string
 {
-    return Warrant::parse('is_mine and not is_locked')->conditionExpression();
+    return 'is_mine and not is_locked';
 }
 ```
 
@@ -38,30 +38,70 @@ This is the answer to a schema whose conditions repeat the same combination in s
 rules. Name the combination once, and rules stay short:
 
 ```php
-#[RowCondition]
-public function needsApproval(RowConditionContext $c)
+#[DerivedCondition]
+public function needsApproval(): string
 {
-    return Warrant::parse('is_submitted and not is_approved')->conditionExpression();
+    return 'is_submitted and not is_approved';
 }
 
-#[RowCondition]
-public function isVisibleInternally(RowConditionContext $c)
+#[DerivedCondition]
+public function isVisibleInternally(): string
 {
-    return Warrant::parse('not is_draft or is_mine')->conditionExpression();
+    return 'not is_draft or is_mine';
 }
 ```
 
+A derived condition takes **no context object**. It is expanded once per rule set,
+before any check, so there is no user, row or check context to hand it. Its
+parameters are its DSL arguments alone. Anything that needs the user or the row
+belongs in a row or global condition, which the derived one then names.
+
+It may answer with:
+
+| Answer | Meaning |
+| --- | --- |
+| a `string` | rule text, parsed as a condition expression |
+| `Warrant::condition()->…` | the expression the builder composed |
+| an expression node | used as it is |
+| `true` / `false` | decides the outcome outright |
+| `null` | [unknown](/sql/unknown/) |
+
+Returning an expression or a builder from a `#[RowCondition]` or
+`#[GlobalCondition]` throws. Move it to a `#[DerivedCondition]` and drop the context
+parameter.
+
+## Passing arguments on
+
+An argument written as `@context` or `@column` reaches the method as the
+*reference*, not its value: at expansion there is no value yet. The method can't
+read it, only pass it on. Pass it back into the expression through a binding, never
+by writing it into the string:
+
+```php
+#[DerivedCondition]
+public function ownedOrInTeam(mixed $team): IBooleanExpressionNode
+{
+    return Warrant::parse('is_owner or in_team(:team)', ['team' => $team])
+        ->conditionExpression();
+}
+```
+
+`if owned_or_in_team(@context team) they can view` then reads `team` from the
+check's context, exactly as `in_team(@context team)` written inline would. A
+`@column` argument keeps meaning the row the *rule* named, however many derived
+conditions pass it on.
+
 ## Building one structurally
 
-The builder form is what you want when the expression depends on runtime data, or
-when it needs a cross-schema reference:
+The builder form is what you want when the expression needs a cross-schema
+reference:
 
 ```php
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
 
-#[RowCondition]
-public function parentIsOwned(RowConditionContext $c): WarrantConditionBuilder
+#[DerivedCondition]
+public function parentIsOwned(): WarrantConditionBuilder
 {
     return WarrantConditionBuilder::build()->ifCheck(
         'is_owner',
@@ -72,43 +112,47 @@ public function parentIsOwned(RowConditionContext $c): WarrantConditionBuilder
 }
 ```
 
-That is the case a derived condition can express and a plain condition cannot: the
+That is the case a derived condition can express and a row condition cannot: the
 correlated frame is not the one the condition was handed, so there is no builder to
 constrain.
 
-A condition may also answer with a bare AST node:
+A builder with no terms throws rather than matching every row: it is almost always
+a forgotten branch. Return `true` or `false` to decide the outcome outright.
 
-```php
-use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+## Its own names
 
-#[GlobalCondition]
-public function featureEnabled(GlobalConditionContext $c): BooleanNode
-{
-    return new BooleanNode(config('features.sharing'));
-}
-```
+The expression is written by the schema's author, who can't see where it's reached
+from, so it is read with names of its own. The schema's key means the row the
+condition is being asked about, and an alias the calling rule introduced
+(`check(… as p)`) is not in scope.
 
 ## What holds a derived condition to the rules
 
-The expression a derived condition returns reaches the compiler after validation
-has already run, and no pass over rule text can see it. So everything the validator
-would have caught has to be caught again by the compiler, and it is: an unknown
-condition name, a bad handle, a wrong arity, a `@column` naming a frame that is not
-in scope. See [the validator is never stricter than the
-compiler](/sql/validator-compiler-invariant/).
+A rule set is [validated](/supplying-rules/validation/) as written and again once
+expanded, so a mistake inside a derived condition's expression is reported like one
+written in the rule: an unknown condition name, a bad handle, a wrong arity, a
+`@column` naming a frame that is not in scope. The compiler checks the same things
+again, for a rule set nobody validated. See [the validator is never stricter than
+the compiler](/sql/validator-compiler-invariant/).
 
-Expansion is bounded by the same depth budget as everything else. A condition that
-expands into itself with no base case is caught:
+A derived condition may name another, or itself with different arguments. The base
+case has to be a PHP one. A chain that never ends is stopped at a depth of 64, a
+budget it shares with [templates](/rules/templates/):
 
 ```php
-#[GlobalCondition]
-public function runaway(GlobalConditionContext $c): WarrantConditionBuilder
+#[DerivedCondition]
+public function runaway(): WarrantConditionBuilder
 {
-    return WarrantConditionBuilder::build()->if('runaway');   // caught at depth
+    return WarrantConditionBuilder::build()->if('runaway');   // stopped at depth 64
 }
 ```
 
-An empty expansion folds to `false`, the same as any empty group.
+```
+Expansion exceeded the maximum nesting depth of 64.
+
+Expansion chain (outermost first):
+  documents.runaway  (repeated 65 times)
+```
 
 ## Eloquent scopes as conditions
 

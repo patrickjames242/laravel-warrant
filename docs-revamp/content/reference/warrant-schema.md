@@ -38,6 +38,7 @@ public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinit
 public static function conditionKeys(): array;        // sorted
 public static function rowConditionKeys(): array;     // sorted
 public static function globalConditionKeys(): array;  // sorted
+public static function derivedConditionKeys(): array; // sorted
 public static function ruleTemplateKeys(): array;
 public static function requiredContextKeys(): array;  // schema-wide #[RequiredContext] values
 public static function hasRows(): bool;
@@ -170,10 +171,13 @@ middleware. The check helpers express the mode through the method name.
 
 ### `Reachability`
 
-A pure enum with cases `NEVER`, `MAYBE`, `ALWAYS`. Decision per ability, top to
-bottom: an unconditional `cannot` gives `NEVER`; no `can` rule listing it gives
-`NEVER`; an unconditional `can` with no *conditional* `cannot` gives `ALWAYS`;
-otherwise `MAYBE`.
+A pure enum with cases `NEVER`, `MAYBE`, `ALWAYS`. Each ability is folded the way
+the compiler does it (grants ORed, every deny negated and ANDed), over the values
+each condition could still take. Row and global conditions could be anything,
+derived conditions are read through, and `can(...)` references take the
+reachability of the ability they name, on whichever schema they name. `NEVER` when
+true is impossible, `ALWAYS` when only true is possible, otherwise `MAYBE`. See
+[how an ability is judged](/concepts/reachability/#how-an-ability-is-judged).
 
 ### `StandardAbilities`
 

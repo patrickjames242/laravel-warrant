@@ -10,7 +10,8 @@ sidebar:
 A condition is a public method marked `#[RowCondition]` or `#[GlobalCondition]`.
 Its job is to emit SQL. There is no in-memory evaluation path, so a condition
 behaves identically whether it is filtering ten thousand rows or answering about
-one.
+one. A third kind, `#[DerivedCondition]`, emits no SQL of its own: it is
+[built from other conditions](/schemas/conditions-beyond-sql/).
 
 The name a rule uses is the method name snake-cased, with nothing added or
 stripped: `isMine` becomes `is_mine`, `managesTeam` becomes `manages_team`.

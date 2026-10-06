@@ -81,5 +81,6 @@ precedence is in [denial messages](/rules/denial-messages/).
 ## The part that is not a decision
 
 [Reachability](/concepts/reachability/) does not follow this path at all. It reads
-the rule set's shape, evaluates no conditions, takes no context, and runs no SQL.
+the rule set without a row: it evaluates no row or global condition, takes no
+context, and runs no SQL.
 It answers whether a grant is conceivable, not whether it holds.

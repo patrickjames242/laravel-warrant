@@ -112,12 +112,17 @@ $set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();   // a Rul
 
 $set->schemaKey;
 $set->entries;       // rules, ability blocks and @includes, as written
-$set->rules();       // WarrantRuleNode[], with each block's header applied
-$set->includes();    // the @includes, with each block's header applied
 ```
 
+The rules every check actually compiles are the
+[expanded](/sql/rule-to-query/#before-compiling-expansion) set: ability blocks
+opened, includes replaced by their templates' rules, and derived conditions by
+their expressions. It is memoized beside the resolved set:
+
 ```php
-foreach ($set->rules() as $rule) {
+$expanded = $guard->expandedRuleSet();   // an ExpandedRuleSet
+
+foreach ($expanded->rules as $rule) {
     $rule->canAbilities();
     $rule->cannotAbilities();
     $rule->conditions;            // null for an unconditional rule

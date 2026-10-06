@@ -7,9 +7,9 @@ sidebar:
   order: 6
 ---
 
-Reachability asks whether a grant is conceivable, by reading the shape of the rules
-rather than the rows. No conditions run, no SQL runs, and there is no `context:`
-argument. The concepts are in [reachability](/concepts/reachability/); this is the
+Reachability asks whether a grant is conceivable, by reading the rules rather than
+the rows. No row or global condition runs, no SQL runs, and there is no `context:`
+argument. Derived conditions and `can(...)` references are followed. The concepts are in [reachability](/concepts/reachability/); this is the
 surface.
 
 ## One ability
@@ -99,7 +99,7 @@ use Warrant\Middleware\WarrantMiddleware;
 Route::get('/documents', ...)
     ->middleware(WarrantMiddleware::couldEver('documents', 'view'));
 
-// Only when the ability is guaranteed by the rules' shape:
+// Only when the rules guarantee the ability:
 WarrantMiddleware::always('documents', 'create', fn () => Route::post('/documents', ...));
 
 // Only when the user provably never can, for an upsell page:
@@ -130,6 +130,7 @@ per subclass: which outcomes pass, and how several abilities combine.
 
 ## What it will not tell you
 
-`ALWAYS` ignores conditional denials, so it means "granted by the rules' shape" and
-not "every row passes". Use it to decide whether to render a control, and the
-per-row check to decide whether the action succeeds.
+`MAYBE` says a condition decides, not which way. And a row-bound `can(...)` or
+`check(...)` can never make an ability `ALWAYS`, because the row it names may not
+exist. Use reachability to decide whether to render a control, and the per-row
+check to decide whether the action succeeds.
