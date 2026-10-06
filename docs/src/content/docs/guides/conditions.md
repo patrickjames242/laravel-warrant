@@ -2,15 +2,17 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Conditions
-description: Row vs. global conditions, how they emit SQL, arguments, and the context bag.
+description: Row, global and derived conditions, how they emit SQL, arguments, and the context bag.
 sidebar:
   order: 2
 ---
 
 Conditions are the predicates a rule's `if` may test. Each is a public method on
-the schema, marked `#[RowCondition]` or `#[GlobalCondition]`. A condition's
-one job is to **emit SQL** — there is no in-memory evaluation path, so a
-condition behaves identically when filtering a list or checking one row.
+the schema, marked `#[RowCondition]`, `#[GlobalCondition]` or
+`#[DerivedCondition]`. A row or global condition's one job is to **emit SQL** —
+there is no in-memory evaluation path, so a condition behaves identically when
+filtering a list or checking one row. A [derived condition](#derived-conditions)
+emits none of its own: it is built from other conditions.
 
 ## Condition names
 
@@ -182,9 +184,89 @@ constraining it.
 If you see that, the fix is almost always a missing `return`.
 :::
 
+## Derived conditions
+
+When a condition is just a combination of other conditions, mark it
+`#[DerivedCondition]` and return the expression instead of SQL:
+
+```php
+use Warrant\Schema\DerivedCondition;
+
+#[DerivedCondition]
+public function canEdit(): string
+{
+    return "is_owner or (in_team('editors') and not is_locked)";
+}
+```
+
+A rule can then say `if can_edit they can update`, and it compiles exactly as if
+that expression had been written in its place.
+
+A derived condition takes **no context object** — only its
+[arguments](#arguments). It is expanded before anything compiles, once per rule
+set, so there is no user, row or check context to hand it. Anything that needs
+those belongs in a row or global condition, which the derived one then names.
+
+It may answer with:
+
+| Answer | Meaning |
+| --- | --- |
+| a `string` | rule text, parsed as a condition expression |
+| `Warrant::condition()->…` | the expression the builder composed |
+| an expression node | used as it is |
+| `true` / `false` | decides the outcome outright |
+| `null` | [unknown](#answering-unknown) |
+
+### Passing arguments on
+
+An argument written as `@context` or `@column` reaches the method as the
+*reference*, not its value — at expansion there is no value yet. The method can't
+read it, only pass it on. Pass values back into the expression through
+bindings, never by writing them into the string:
+
+```php
+#[DerivedCondition]
+public function ownedOrInTeam(mixed $team): IBooleanExpressionNode
+{
+    return WarrantSyntax::parse('is_owner or in_team(:team)', ['team' => $team])
+        ->conditionExpression();
+}
+```
+
+`if owned_or_in_team(@context team) they can view` then reads `team` from the
+check's context, exactly as `in_team(@context team)` written inline would. A
+`@column` argument keeps meaning the row the *rule* named, however many derived
+conditions pass it on.
+
+### Its own names
+
+The expression is written by the schema's author, who can't see where it's
+reached from, so it is read with names of its own: the schema's key means the
+row the condition is being asked about, and an alias the calling rule
+introduced (`check(… as p)`) is not in scope.
+
+### Recursion
+
+A derived condition may name another, or itself with different arguments. The
+base case has to be a PHP one, and a chain that never ends is stopped at a depth
+of 64:
+
+```
+Expansion exceeded the maximum nesting depth of 64.
+
+Expansion chain (outermost first):
+  documents.runaway  (repeated 65 times)
+```
+
+:::note[Row and global conditions no longer return expressions]
+Returning an expression or a builder from a `#[RowCondition]` or
+`#[GlobalCondition]` throws. Move it to a `#[DerivedCondition]` and drop the
+context parameter.
+:::
+
 ## The context object
 
-Every condition method takes the **context object as its first parameter** and
+Every row and global condition method takes the **context object as its first parameter** and
 returns `Builder` (mutated), a `bool` that decides the outcome outright — for a
 global condition always, and for a row condition when it was handed `$c->model` —
 or `null` to answer unknown.

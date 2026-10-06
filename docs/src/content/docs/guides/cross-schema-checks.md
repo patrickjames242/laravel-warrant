@@ -361,7 +361,7 @@ on the ability being compiled.
 
 The guard is **path-scoped**, so two sibling references to the same schema are
 fine — only re-entering a frame already on the path is a cycle. Nesting is also
-capped at a depth of 32.
+capped at a depth of 64.
 
 A `check(...)` dispatch touches no rules of its own, so the dispatch itself
 cannot close a loop. A `can(...)` inside its predicate can, and is guarded by the

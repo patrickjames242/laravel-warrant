@@ -50,6 +50,7 @@ public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinit
 public static function conditionKeys(): array;        // sorted
 public static function rowConditionKeys(): array;     // sorted
 public static function globalConditionKeys(): array;  // sorted
+public static function derivedConditionKeys(): array; // sorted
 public static function requiredContextKeys(): array;  // schema-wide required keys (#[RequiredContext])
 ```
 
@@ -259,6 +260,32 @@ A condition may also return `null`, answering **unknown** — see
 nothing and cannot lift a `cannot`. A condition answering `null` must add no where
 clause; doing both throws, because PHP cannot distinguish a deliberate `null` from
 a missing `return`.
+
+A row or global condition may not return an expression or a
+`WarrantConditionBuilder`; that is a [`#[DerivedCondition]`](#derivedcondition).
+
+### `#[DerivedCondition]`
+
+Mark a public method as a condition built from other conditions. The key works as
+for the other two.
+
+```php
+#[DerivedCondition]
+public function canEdit(): string
+{
+    return 'is_owner or is_editor';
+}
+```
+
+It takes **no context object**: every parameter is a DSL argument, so all of
+them without a default are required. A `@context` or `@column` argument arrives as
+the reference (`ContextRef`, `ColumnRef`), to be passed on through a binding. It
+answers with rule text, a `WarrantConditionBuilder`, an expression node, a `bool`,
+or `null` for unknown, and is expanded once per rule set before compiling — see
+[Derived conditions](/guides/conditions/#derived-conditions).
+
+A method may carry only one of `#[RowCondition]`, `#[GlobalCondition]`,
+`#[DerivedCondition]` and `#[RuleTemplate]`.
 
 ### `#[RequiredContext]`
 
