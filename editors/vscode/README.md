@@ -6,19 +6,29 @@ authorization rule language.
 ## Features
 
 - Highlighting for standalone `.warrant` files.
-- Highlighting **inside PHP** for heredocs/nowdocs labelled `WARRANT`:
+- Highlighting **inside PHP** for heredocs/nowdocs labelled `WARRANT`, wherever
+  they stand:
 
   ```php
-  $rules = WarrantRuleSet::fromSyntax('timesheets', <<<'WARRANT'
+  $rules = Warrant::parse(<<<'WARRANT'
       # only the author may edit their own draft
-      if is_self
-      they can edit, view
-      they cannot approve
+      for timesheets {
+          if is_self they can edit, view
+      }
       WARRANT);
   ```
 
-  The label is the trigger — name the heredoc `WARRANT` and the body lights up.
-  Any other label is treated as a plain PHP string.
+- Highlighting **inside PHP** for the rule-text argument of `warrant()`,
+  `Warrant::parse()`, `WarrantSyntax::parse()`, `WarrantParser::parse()` and the
+  builders' `->ifRaw()` / `->orIfRaw()` — a single- or double-quoted string, or a
+  heredoc/nowdoc of any label, passed first or by name:
+
+  ```php
+  warrant('is_owner or in_team(:team)', ['team' => $team]);
+  Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+  ```
+
+  A variable or a concatenation is left as PHP.
 
 ## Highlighted tokens
 

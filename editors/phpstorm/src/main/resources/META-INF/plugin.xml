@@ -7,12 +7,19 @@
     <description><![CDATA[
         Syntax highlighting for the <b>Warrant</b> authorization rule language.
         Highlights standalone <code>.warrant</code> files and, more importantly,
-        the DSL embedded inside PHP heredocs/nowdocs labelled <code>WARRANT</code>
-        &mdash; e.g. <code>&lt;&lt;&lt;'WARRANT' ... WARRANT</code>.
+        the DSL embedded in PHP: heredocs/nowdocs labelled <code>WARRANT</code>, and
+        strings wherever rule text is expected, such as <code>warrant('...')</code>
+        and <code>Warrant::parse('...')</code>.
     ]]></description>
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.5.0</b> &mdash; Highlight Warrant inside PHP wherever rule text is
+                expected: the first argument of <code>warrant()</code>,
+                <code>Warrant::parse()</code>, <code>WarrantSyntax::parse()</code>,
+                <code>WarrantParser::parse()</code> and <code>-&gt;ifRaw()</code> /
+                <code>-&gt;orIfRaw()</code>, and a string returned from <code>rules()</code>
+                or a <code>#[DerivedCondition]</code> / <code>#[RuleTemplate]</code> method.</li>
             <li><b>0.2.0</b> &mdash; Highlight <code>@sql "&lt;sql&gt;"</code> raw SQL
                 references alongside <code>@context</code> and <code>@column</code>.</li>
             <li><b>0.1.0</b> &mdash; Initial release: Warrant DSL syntax highlighting,
@@ -46,7 +53,7 @@
             language="Warrant"
             implementationClass="com.warrant.phpstorm.WarrantSyntaxHighlighterFactory"/>
 
-        <!-- 4. Inject Warrant into PHP heredocs labelled WARRANT/DSL. -->
+        <!-- 4. Inject Warrant into PHP strings that hold rule text. -->
         <multiHostInjector
             implementationClass="com.warrant.phpstorm.WarrantInjector"/>
     </extensions>
