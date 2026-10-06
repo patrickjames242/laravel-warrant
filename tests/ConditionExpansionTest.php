@@ -70,6 +70,8 @@ function adjacentExpansionSql(string $conditionKey): string
         "if check({$conditionKey} for dc_folders(@column parent_id) as p) they can view",
         schemaKey: 'dc_folders',
     );
+    // The guard memoizes the rule set it resolved, so drop it for the new one.
+    Warrant::flush();
 
     return normalizeWarrantSql(
         Warrant::guard(makeWarrantTestUser('role-1'))
@@ -151,6 +153,7 @@ it('emits the same SQL as the hand-written rule it expands to', function () {
         ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])->toRawSql();
 
     bindWarrantRules("if is_owner or owner_is('role-9') they can view", schemaKey: 'dc_folders');
+    Warrant::flush();
     $inline = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new DcFolderSchema))
         ->filterQuery(warrantTestQuery('dc_folders'), 'view', AbilityMatchMode::ALL, [])->toRawSql();
 
@@ -238,8 +241,8 @@ it('reads a qualified @column in an expansion as the frame the condition was ask
                     select * from "dc_folders" as "p"
                     where "p"."id" = "dc_folders"."parent_id" and (
                         exists (
-                            select * from "dc_folders" as "gp"
-                            where "gp"."id" = "p"."parent_id" and (gp.owner = 'role-1')
+                            select * from "dc_folders" as "parent"
+                            where "parent"."id" = "p"."parent_id" and (parent.owner = 'role-1')
                         )
                     )
                 )
@@ -285,8 +288,8 @@ it('names the schema key in an expansion reached from another schema', function 
                 select * from "dc_folders" as "f"
                 where "f"."id" = "dc_files"."folder_id" and (
                     exists (
-                        select * from "dc_folders" as "gp"
-                        where "gp"."id" = "f"."parent_id" and (gp.owner = 'role-1')
+                        select * from "dc_folders" as "parent"
+                        where "parent"."id" = "f"."parent_id" and (parent.owner = 'role-1')
                     )
                 )
             )
@@ -376,7 +379,7 @@ class DcFolderSchema extends WarrantSchema
             'is_owner',
             DcFolderSchema::class,
             Ref::column('dc_folders', 'parent_id'),
-            as: 'gp',
+            as: 'parent',
         );
     }
 
