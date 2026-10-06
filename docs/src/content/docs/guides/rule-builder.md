@@ -24,6 +24,9 @@ Warrant::condition()                                          // WarrantConditio
 Warrant::rule()                                               // WarrantRuleBuilder
 ```
 
+`warrant($syntax, $bindings)` and `warrant_file($path, $bindings)` are global
+helpers for `Warrant::parse()` and `Warrant::parseFile()`.
+
 `Warrant::rule()` and `WarrantRuleNode::build()` are the same call; use whichever reads
 better where you are. See [the authoring front door](/reference/rule-building-api/#warrant-facade--the-authoring-front-door)
 for what a parse returns for each form of text.
