@@ -262,10 +262,10 @@ it('refuses an expanded rule set holding anything but rules that name their abil
     expect(fn () => new ExpandedRuleSet('course_sections', [new IncludeInvocationNode('grants_it', [], ['view'])]))
         ->toThrow(InvalidArgumentException::class, 'holds rules alone');
 
-    $headless = WarrantSyntax::parse('can they view { if is_teacher they can }')->scopedTo('course_sections')
+    $generic = WarrantSyntax::parse('can they view { if is_teacher they can }')->scopedTo('course_sections')
         ->entries[0]->entries[0];
 
-    expect(fn () => new ExpandedRuleSet('course_sections', [$headless]))
+    expect(fn () => new ExpandedRuleSet('course_sections', [$generic]))
         ->toThrow(InvalidArgumentException::class, 'names the abilities it applies to');
 });
 
@@ -296,7 +296,7 @@ it('rejects a template answering with neither a string nor a body', function () 
 });
 
 it('rejects an ability block inside a template body', function () {
-    // A body is headless for the same reason a block's clauses are: the abilities
+    // A body is generic for the same reason a block's clauses are: the abilities
     // are settled by the reference, so the body has nothing to open a block over.
     // The message names the template, not the block the author never opened.
     expect(fn () => expandSyntax('@include opens_a_block for view'))

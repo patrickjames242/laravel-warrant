@@ -62,6 +62,12 @@ if is_public they can view
 if is_locked they cannot view because 'This document is locked.'
 ```
 
+The rules inside a block are **generic**: their clauses name no abilities, so
+they can grant or deny whichever ones they're given — here, the header's. A rule
+whose clauses name their abilities is **specific**. A block makes its generic
+rules specific, and so does an [`@include`](/guides/rule-templates/), whose
+template body is generic too.
+
 A block is grouping and nothing more. It grants and denies exactly what those
 rules do, and since [rule order never matters](/guides/grants-and-denials/), the
 two forms decide every check the same way.
@@ -99,7 +105,7 @@ Three things are rejected:
   of what the block is about.
 - **A block inside a block.** An inner header would answer a question the outer
   one already settled.
-- **A headless clause outside a block** — `if is_public they can` at the top level
+- **A generic clause outside a block** — `if is_public they can` at the top level
   has nothing to take its abilities from.
 
 The same ability may appear in more than one header. Nothing is lost when it does:
@@ -115,7 +121,7 @@ can they view, edit {
 ```
 
 :::note[Blocks in the parsed tree]
-A block stays in the parsed tree as an `AbilityBlockNode` over a headless body,
+A block stays in the parsed tree as an `AbilityBlockNode` over a generic body,
 just as it was written, so [`toSyntax()`](/reference/rule-building-api/) renders
 it back as a block. It is opened up into ordinary rules only where the rules are
 read to decide a check.
@@ -499,7 +505,7 @@ scoped      = header body
                  set needs braces, and so does the first *)
 header      = "for" IDENTIFIER ;
 body        = ruleset | expr ;   (* a rule set, or a condition for that schema *)
-entries     = ruleset ;          (* headless, at least one entry *)
+entries     = ruleset ;          (* unscoped, at least one entry *)
 ruleset     = ( clause+ | "if" expr clause+ | ability_block | include )* ;
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
 include     = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]

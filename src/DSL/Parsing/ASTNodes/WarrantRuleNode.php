@@ -10,11 +10,11 @@ use Warrant\Schema\WarrantDenialContext;
 /**
  * One rule: a condition, and the abilities it grants and denies when that
  * condition holds. The schema comes from whatever holds the rule — a
- * {@see RuleSetNode}, or the caller of a headless parse.
+ * {@see RuleSetNode}, or the caller of an unscoped parse.
  *
- * Inside an ability block or a rule template's body the rule is headless: every
+ * Inside an ability block or a rule template's body the rule is generic: every
  * clause names no abilities, because the block header or the `@include` names
- * them. {@see withAbilities()} gives a headless rule the abilities it takes.
+ * them. {@see withAbilities()} gives a generic rule the abilities it takes.
  */
 readonly class WarrantRuleNode implements IRuleEntryNode
 {
@@ -79,9 +79,9 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Whether every clause is headless, naming no abilities of its own.
+     * Whether every clause is generic, naming no abilities of its own.
      */
-    public function isHeadless(): bool
+    public function isGeneric(): bool
     {
         foreach ([...$this->canClauses, ...$this->cannotClauses] as $clause) {
             if ($clause->abilities !== []) {
@@ -93,11 +93,11 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Whether any clause is headless. Outside an ability block or a template body
+     * Whether any clause is generic. Outside an ability block or a template body
      * such a clause grants or denies nothing, because nothing names what it is
      * about.
      */
-    public function hasHeadlessClause(): bool
+    public function hasGenericClause(): bool
     {
         foreach ([...$this->canClauses, ...$this->cannotClauses] as $clause) {
             if ($clause->abilities === []) {
@@ -109,7 +109,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * A copy of this headless rule with $abilities on every clause: the rule its
+     * A copy of this generic rule with $abilities on every clause: the rule its
      * clauses mean once the enclosing block header or `@include` has named what
      * they are about. Denial messages stay on the clauses that carried them.
      *
@@ -117,9 +117,9 @@ readonly class WarrantRuleNode implements IRuleEntryNode
      */
     public function withAbilities(array $abilities): self
     {
-        if (! $this->isHeadless()) {
+        if (! $this->isGeneric()) {
             throw new InvalidArgumentException(
-                'Only a headless rule takes abilities from outside; this rule names its own.'
+                'Only a generic rule takes abilities from outside; this rule names its own.'
             );
         }
 

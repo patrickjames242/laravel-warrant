@@ -43,12 +43,12 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
  *                 second rule set needs braces, and so does the first
  *   header   := 'for' IDENTIFIER
  *   body     := ruleset | expr                         -- a RuleSetNode, or a SchemaConditionNode
- *   entries  := ruleset                                -- headless, at least one entry
+ *   entries  := ruleset                                -- unscoped, at least one entry
  *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | include )*
  *              -- consecutive `they` clauses merge into one unconditional rule
  *   ability_block := 'can' 'they' ability (',' ability)* '{' ruleset '}'
  *              -- the header says the abilities once, so clauses inside are
- *                 headless and may not name their own; a block never contains
+ *                 generic and may not name their own; a block never contains
  *                 another
  *   include  := '@include' IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
  *                          ( 'for' ability (',' ability)* )?
@@ -92,7 +92,7 @@ final class WarrantParser
 {
     /**
      * Whether the body being read is a rule template's rather than an ability
-     * block's. Both are headless and so travel the same path, but they reject the
+     * block's. Both are generic and so travel the same path, but they reject the
      * same mistakes for different reasons, and an author told about a block they
      * never opened goes looking for one.
      *
@@ -134,7 +134,7 @@ final class WarrantParser
             $parser->check(TokenType::LBRACE) => throw $parser->errorAtCurrent(
                 'A `{ ... }` block needs a `for <schema>` header before it.'
             ),
-            $parser->ruleAhead() => $parser->parseHeadlessEntries(),
+            $parser->ruleAhead() => $parser->parseUnscopedEntries(),
             default => [$parser->parseBareExpression()],
         };
 
@@ -145,7 +145,7 @@ final class WarrantParser
     }
 
     /**
-     * Parse a rule template's body: headless rules and includes, for the
+     * Parse a rule template's body: generic rules and includes, for the
      * `@include` expanding it to give its abilities.
      *
      * The body is read exactly as an ability block's is, and the same three rules
@@ -163,7 +163,7 @@ final class WarrantParser
         $parser->inTemplateBody = true;
 
         /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
-        $entries = $parser->parseRules(headless: true);
+        $entries = $parser->parseRules(generic: true);
 
         $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
         $parser->bindings->finalize($parser->peek());
@@ -190,7 +190,7 @@ final class WarrantParser
      *
      * @return list<IRuleEntryNode>
      */
-    private function parseHeadlessEntries(): array
+    private function parseUnscopedEntries(): array
     {
         $entries = $this->parseRules();
 
@@ -302,13 +302,13 @@ final class WarrantParser
      * was written, so the position is part of what the include means; a block
      * keeps its place as an {@see AbilityBlockNode} holding its own entries.
      *
-     * @param bool $headless Whether this body is the inside of an ability block
+     * @param bool $generic Whether this body is the inside of an ability block
      *   or a template body, where clauses and includes name no abilities because
      *   something outside names them. It is also what makes a further block a
      *   nesting error.
      * @return list<IRuleEntryNode>
      */
-    private function parseRules(bool $headless = false): array
+    private function parseRules(bool $generic = false): array
     {
         $entries = [];
 
@@ -317,13 +317,13 @@ final class WarrantParser
                parseTheyCanCannotClauses() absorbs every consecutive `they`, so this is
                reachable only at the start of a body or after an ability block. */
             if ($this->check(TokenType::THEY)) {
-                $entries[] = $this->parseTheyCanCannotClauses(null, $headless);
+                $entries[] = $this->parseTheyCanCannotClauses(null, $generic);
 
                 continue;
             }
 
             if ($this->check(TokenType::INCLUDE_REF)) {
-                $entries[] = $this->parseInclude($headless);
+                $entries[] = $this->parseInclude($generic);
 
                 continue;
             }
@@ -332,13 +332,13 @@ final class WarrantParser
             if ($this->check(TokenType::IF)) {
                 $this->advance();
                 $conditions = $this->parseExpression();
-                $entries[] = $this->parseTheyCanCannotClauses($conditions, $headless);
+                $entries[] = $this->parseTheyCanCannotClauses($conditions, $generic);
 
                 continue;
             }
 
             if ($this->abilityBlockAhead()) {
-                if ($headless) {
+                if ($generic) {
                     throw $this->errorAtCurrent($this->nestedBlockError());
                 }
 
@@ -358,11 +358,11 @@ final class WarrantParser
      * abilities the clauses it expands to will take.
      *
      * Outside a block the reference names those abilities with its own `for`
-     * list. Inside a block or a template body it is headless, and a `for` list is
+     * list. Inside a block or a template body it is generic, and a `for` list is
      * rejected for the reason a clause's ability list is: the block header or the
      * outer `@include` is the one place the ability is said.
      */
-    private function parseInclude(bool $headless): IncludeInvocationNode
+    private function parseInclude(bool $generic): IncludeInvocationNode
     {
         $this->advance(); // consume '@include'
 
@@ -388,7 +388,7 @@ final class WarrantParser
             $this->expect(TokenType::RPAREN, "Expected ')' to close the @include arguments.");
         }
 
-        if ($headless) {
+        if ($generic) {
             if ($this->check(TokenType::FOR)) {
                 throw $this->errorAtCurrent($this->inTemplateBody
                     ? "An @include inside a rule template's body may not name abilities; the @include that expands it names them."
@@ -414,7 +414,7 @@ final class WarrantParser
      * Parse an ability block: an ability list, then a braced body whose clauses
      * take those abilities instead of naming any.
      *
-     * The block is grouping and nothing more. Its entries are headless, as the
+     * The block is grouping and nothing more. Its entries are generic, as the
      * source writes them, and the header alone says which abilities they take;
      * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
      */
@@ -427,7 +427,7 @@ final class WarrantParser
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
-        $entries = $this->parseRules(headless: true);
+        $entries = $this->parseRules(generic: true);
         $this->expect(TokenType::RBRACE, "Expected '}' to close the ability block body.");
 
         return new AbilityBlockNode($abilities, $entries);
@@ -470,7 +470,7 @@ final class WarrantParser
      */
     private function parseTheyCanCannotClauses(
         ?IBooleanExpressionNode $conditions,
-        bool $headless,
+        bool $generic,
     ): WarrantRuleNode {
         $canClauses = [];
         $cannotClauses = [];
@@ -482,7 +482,7 @@ final class WarrantParser
 
             if ($this->check(TokenType::CAN)) {
                 $this->advance();
-                $canClauses[] = new CanClauseNode($this->parseClauseAbilities($headless));
+                $canClauses[] = new CanClauseNode($this->parseClauseAbilities($generic));
 
                 // A `because` message only ever surfaces for a matching `cannot`;
                 // hanging one off a `can` clause can never fire, so reject it here.
@@ -493,7 +493,7 @@ final class WarrantParser
                 }
             } elseif ($this->check(TokenType::CANNOT)) {
                 $this->advance();
-                $abilities = $this->parseClauseAbilities($headless);
+                $abilities = $this->parseClauseAbilities($generic);
 
                 $message = null;
 
@@ -549,7 +549,7 @@ final class WarrantParser
     }
 
     /**
-     * The abilities one clause names: its list, or none in a headless body.
+     * The abilities one clause names: its list, or none in a generic body.
      *
      * Inside a block the list is not optional but forbidden. The header is the one
      * place the ability is said, so every clause in the block has a single reading
@@ -557,9 +557,9 @@ final class WarrantParser
      *
      * @return list<string>
      */
-    private function parseClauseAbilities(bool $headless): array
+    private function parseClauseAbilities(bool $generic): array
     {
-        if (! $headless) {
+        if (! $generic) {
             return $this->parseAbilityList();
         }
 
@@ -583,7 +583,7 @@ final class WarrantParser
 
     /**
      * Raised where a `can they ...` block is opened inside a body that is already
-     * headless, and so has the abilities the block would name.
+     * generic, and so has the abilities the block would name.
      */
     private function nestedBlockError(): string
     {

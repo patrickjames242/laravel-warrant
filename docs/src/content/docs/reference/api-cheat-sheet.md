@@ -33,8 +33,8 @@ Nodes live in `Warrant\DSL\Parsing\ASTNodes`.
 - `WarrantSyntax::parse(string $source, array $bindings = []): WarrantSyntax` (= `Warrant::parse`) — one parse for every form of rule text; `WarrantSyntax::parseFile($path, $bindings = [])` (= `Warrant::parseFile`) for a file
 - ask the result for the shape the text held ([table](/reference/rule-building-api/#what-a-parse-returns)):
   - bare condition `a or b`, or `for docs a or b` → `->conditionExpression()`
-  - one headless rule → `->rule()`
-  - headless rules / `can they … { … }` blocks / `@include`s → `->ruleEntries()`, or `->scopedTo('docs')` for a `RuleSetNode`
+  - one unscoped rule → `->rule()`
+  - unscoped rules / `can they … { … }` blocks / `@include`s → `->ruleEntries()`, or `->scopedTo('docs')` for a `RuleSetNode`
   - `for docs …` or `for docs { … }` → `->ruleSet()` (or `->scopedTo('docs')`, which checks the header)
   - `for a { … } for b { … }` → `->ruleSets()`, `->forSchema('a')` (folds same-schema blocks), `->schemaKeys()`
   - shape checks: `isEmpty/isExpression/isSingleRule/isRuleEntries/isSchemaScoped/isSingleRuleSet/isRuleSets/isSchemaCondition`; a wrong-shape accessor throws `LogicException`

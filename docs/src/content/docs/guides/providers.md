@@ -86,13 +86,13 @@ WarrantSyntax::parse('for documents { if is_self they can view }', $bindings)->r
 
 | The text holds | Ask for | You get |
 | --- | --- | --- |
-| headless rules, ability blocks, `@include`s | `scopedTo('documents')` | a `RuleSetNode` for that schema |
+| unscoped rules, ability blocks, `@include`s | `scopedTo('documents')` | a `RuleSetNode` for that schema |
 | one `for documents { … }` block, or `for documents` and a bare body | `ruleSet()` | that `RuleSetNode` |
 | several `for <schema> { … }` blocks | `forSchema('documents')`, `ruleSets()` | the blocks for one schema folded together, or every block |
 | exactly one rule | `rule()` | a `WarrantRuleNode` |
 | a bare condition | `expression()` | an `IBooleanExpressionNode` |
 
-`scopedTo()` is the call for a provider: it scopes headless text to the schema
+`scopedTo()` is the call for a provider: it gives unscoped text its schema
 being resolved, and accepts text that already names that schema in a `for`
 header, throwing if the header names a different one. A file of rules parses the
 same way with `WarrantSyntax::parseFile($path)`. Several rule sets in one source

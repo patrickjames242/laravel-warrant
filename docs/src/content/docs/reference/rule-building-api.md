@@ -117,8 +117,8 @@ The shapes never mix, and the parser rejects a source that tries:
 
 ### `scopedTo()`
 
-`scopedTo($schemaKey)` turns a source into one rule set for that schema. Headless
-entries, or an empty source, are placed in a `RuleSetNode` for `$schemaKey`. A single
+`scopedTo($schemaKey)` turns a source into one rule set for that schema. Unscoped
+entries — written with no `for <schema>` header — or an empty source, are placed in a `RuleSetNode` for `$schemaKey`. A single
 `for <schema>` rule set is returned as it is, after checking that its header names
 the same schema; a header that disagrees throws `InvalidArgumentException`. Any
 other shape throws `LogicException`.
@@ -136,7 +136,7 @@ unchecked.
 
 ## `RuleSetNode` (final, readonly)
 
-The rules for one schema: the body of a `for <schema>` header, or headless rules
+The rules for one schema: the body of a `for <schema>` header, or unscoped rules
 given their schema by `scopedTo()`.
 
 ```php
@@ -162,12 +162,12 @@ public array $entries;                 // list<IRuleEntryNode>: rules, ability b
 ```
 
 An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
-`$entries`). Its body is headless, as the source writes it: the clauses and
+`$entries`). Its body is generic, as the source writes it: the clauses and
 includes inside name no abilities, and the header is the only place they are
 said. [Expansion](/guides/how-it-compiles/#before-compiling-expansion) applies the
 header to each entry, so the rules it produces grant and deny exactly what the
 block does, and writing the tree back renders the block as a block. Every rule
-and include held directly in `$entries` must name its own abilities; a headless
+and include held directly in `$entries` must name its own abilities; a generic
 one there throws `InvalidArgumentException`. Merging rule sets for two different schemas throws
 `InvalidArgumentException`.
 
@@ -195,11 +195,11 @@ public static function build(): WarrantRuleBuilder;
 public function canAbilities(): array;                 // every granted ability, flattened
 public function cannotAbilities(): array;              // every denied ability, flattened
 public function messageFor(string $ability): string|Closure|null;
-public function isHeadless(): bool;                    // no clause names an ability
-public function withAbilities(array $abilities): self; // a headless rule with $abilities on every clause
+public function isGeneric(): bool;                    // no clause names an ability
+public function withAbilities(array $abilities): self; // a generic rule with $abilities on every clause
 ```
 
-Inside an ability block or a rule template's body a rule is headless: each
+Inside an ability block or a rule template's body a rule is generic: each
 `they can` / `they cannot` clause has an empty `$abilities` list, because the
 block header or the `@include` names them. `withAbilities()` gives such a rule the
 abilities it takes, and throws on a rule that already names its own.

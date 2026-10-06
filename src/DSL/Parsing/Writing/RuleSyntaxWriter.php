@@ -64,7 +64,7 @@ final class RuleSyntaxWriter
      * Render a whole tree to a self-contained string with inline literals.
      * `for <schema>` bodies are written as `for <schema> { ... }` blocks one blank
      * line apart, which reads back the same whether there is one or several;
-     * headless entries and a bare expression are written as they are.
+     * unscoped entries and a bare expression are written as they are.
      */
     public static function toSyntax(WarrantSyntax $syntax): string
     {
@@ -114,7 +114,7 @@ final class RuleSyntaxWriter
 
     /**
      * Render an `@include` as it was written rather than as what it expands to.
-     * Its abilities are spelled out with `for`; a headless include has none,
+     * Its abilities are spelled out with `for`; a generic include has none,
      * because the block header around it says them.
      */
     private function writeInclude(IncludeInvocationNode $include): string
@@ -125,11 +125,11 @@ final class RuleSyntaxWriter
 
         $written = "@include {$include->templateKey}{$arguments}";
 
-        return $include->isHeadless() ? $written : $written . ' for ' . implode(', ', $include->abilities);
+        return $include->isGeneric() ? $written : $written . ' for ' . implode(', ', $include->abilities);
     }
 
     /**
-     * Render a `can they <abilities> { ... }` block around its headless body.
+     * Render a `can they <abilities> { ... }` block around its generic body.
      */
     private function writeAbilityBlock(AbilityBlockNode $block): string
     {
@@ -167,7 +167,7 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * Render a rule's `if` line and clauses, one line per clause. A headless
+     * Render a rule's `if` line and clauses, one line per clause. A generic
      * clause names no abilities, so it says only `they can` or `they cannot`.
      */
     private function writeRule(WarrantRuleNode $rule): string

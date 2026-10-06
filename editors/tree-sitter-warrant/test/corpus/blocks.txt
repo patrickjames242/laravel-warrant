@@ -89,7 +89,7 @@ for timesheets {
     body: (block_body)))
 
 =========================================
-an ability block heading headless clauses
+an ability block heading generic clauses
 =========================================
 
 can they view, edit {

@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
  * A rule set after expansion: rules and nothing else, every one naming the
  * abilities it is about.
  *
- * Parsing keeps what the author wrote — ability blocks, `@include`s, headless
+ * Parsing keeps what the author wrote — ability blocks, `@include`s, generic
  * clauses — so that a rule set can be written back out as it was read. Everything
  * downstream of expansion wants the opposite: the compiler folds rules, the
  * reachability analyzer reads them, denial diagnosis blames one. Giving that the
@@ -38,7 +38,7 @@ final readonly class ExpandedRuleSet
                 ));
             }
 
-            if ($rule->hasHeadlessClause()) {
+            if ($rule->hasGenericClause()) {
                 throw new InvalidArgumentException(sprintf(
                     'Every clause in an expanded rule set names the abilities it applies to; the rule set for '
                         .'[%s] holds one that names none.',

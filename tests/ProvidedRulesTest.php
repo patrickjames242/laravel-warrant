@@ -38,7 +38,7 @@ it('reads every form a provider may return into one rule set', function (mixed $
     expect(ruleSetProvidedAs($rules))
         ->toEqual(WarrantSyntax::parse("if is_teacher they can view\nif via_join they cannot archive")->scopedTo('course_sections'));
 })->with([
-    'headless rule text' => fn () => "if is_teacher they can view\nif via_join they cannot archive",
+    'unscoped rule text' => fn () => "if is_teacher they can view\nif via_join they cannot archive",
     'scoped rule text' => fn () => "for course_sections {\n if is_teacher they can view\n}\nfor course_sections {\n if via_join they cannot archive\n}",
     'warrant syntax' => fn () => WarrantSyntax::parse("if is_teacher they can view\nif via_join they cannot archive"),
     'a rule set' => fn () => WarrantSyntax::parse("if is_teacher they can view\nif via_join they cannot archive")->scopedTo('course_sections'),
