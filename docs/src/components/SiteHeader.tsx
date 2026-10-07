@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { links } from '../lib/links'
-import { Logo } from './Logo'
 import { Search } from './Search'
 import { SiteLink } from './SiteLink'
 import { ThemeMenu } from './ThemeMenu'
+import { WarrantForLaravel } from './WarrantForLaravel'
 
 const NAV = [
   { label: 'Why Warrant', href: links.whyWarrant },
@@ -16,8 +16,8 @@ export type NavLabel = (typeof NAV)[number]['label']
 
 interface SiteHeaderProps {
   /**
-   * Draws the header docs pages use: as wide as the docs layout, marked as the
-   * docs, and with `active` shown as the current nav link.
+   * Draws the header docs pages use: as wide as the docs layout, and with
+   * `active` shown as the current nav link.
    */
   docs?: { active: NavLabel }
 }
@@ -27,30 +27,37 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
 
   return (
     <header data-sticky-bar className="sticky top-0 z-50 border-b border-line-1 bg-ink/84 backdrop-blur-md">
-      <nav aria-label="Primary" className={`mx-auto flex h-16 items-center gap-4 ${frame}`}>
-        <Link to="/" className="flex flex-none items-center gap-2.5 text-cream sm:mr-4">
-          <Logo />
-          {docs && (
-            <span className="rounded-[4.5px] border border-line-3 px-1.5 py-1 font-mono text-[11.5px] leading-none font-medium tracking-[.08em] text-taupe">
-              DOCS
-            </span>
-          )}
+      <nav aria-label="Primary" className={`mx-auto flex h-18 items-center gap-4 ${frame}`}>
+        <Link to="/" className="flex flex-none items-center gap-2.5 text-cream sm:mr-2">
+          <WarrantForLaravel className="text-[19px]" />
         </Link>
 
         {/*
           Links that do not fit on one row wrap out of sight rather than onto a
-          second one. At phone width there is no room for even the first.
+          second one. At phone width there is no room for even the first. The
+          left padding is room for the first link's ×, which the clipping would
+          otherwise cut off.
         */}
-        <div className="hidden h-5 min-w-0 flex-1 flex-wrap gap-x-6.5 gap-y-1 overflow-hidden text-sm leading-5 font-medium sm:mr-4 sm:flex">
-          {NAV.map((item) => (
-            <SiteLink
-              key={item.label}
-              href={item.href}
-              className={item.label === docs?.active ? 'text-cream' : 'text-tan'}
-            >
-              {item.label}
-            </SiteLink>
-          ))}
+        <div className="hidden h-5 min-w-0 flex-1 flex-wrap gap-x-9 gap-y-1 overflow-hidden text-sm leading-5 font-medium sm:mr-4 sm:flex sm:pl-4">
+          {NAV.map((item) => {
+            const active = item.label === docs?.active
+            return (
+              <SiteLink
+                key={item.label}
+                href={item.href}
+                className={`relative ${active ? 'text-cream' : 'text-tan hover:text-cream'}`}
+              >
+                {/* The signature's ×, full coral before the page the reader is on and faded before the rest. */}
+                <span
+                  aria-hidden
+                  className={`absolute top-0 -left-4 text-[15.5px] leading-5 font-bold text-coral ${active ? '' : 'opacity-40'}`}
+                >
+                  ×
+                </span>
+                {item.label}
+              </SiteLink>
+            )
+          })}
         </div>
 
         <div className="ml-auto flex flex-none items-center gap-2.5">

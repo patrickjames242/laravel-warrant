@@ -2,6 +2,8 @@
 @import '@fontsource-variable/schibsted-grotesk';
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/roboto-mono';
+@import '@fontsource-variable/caveat';
+@import '@fontsource-variable/big-shoulders-display';
 
 /*
  * `static` has every variable here written out, whether or not a utility class
@@ -24,8 +26,12 @@
 
   --font-sans: 'Schibsted Grotesk Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-  /* A monospace with more character, for the home page's tagline. */
-  --font-tagline: 'Roboto Mono Variable', ui-monospace, monospace;
+  /* The terminal prompt in the home page's headline. */
+  --font-prompt: 'Roboto Mono Variable', ui-monospace, monospace;
+  /* The handwritten signature under the site's stamped name. */
+  --font-signature: 'Caveat Variable', cursive;
+  /* The stamped name itself, in tall, condensed capitals like a rubber stamp's type. */
+  --font-stamp: 'Big Shoulders Display Variable', 'Schibsted Grotesk Variable', system-ui, sans-serif;
 
   /* Surfaces, darkest to lightest. */
   --color-ink-deep: #0f0b09;
@@ -332,7 +338,7 @@
     scroll-behavior: smooth;
     background: var(--color-ink);
     /* Clears the sticky header, and below 990px the docs menu bar under it. */
-    scroll-padding-top: calc(var(--spacing) * 28 + 26px);
+    scroll-padding-top: calc(var(--spacing) * 30 + 26px);
   }
 
   /*
@@ -348,7 +354,7 @@
   }
   @media (min-width: 990px) {
     html {
-      scroll-padding-top: calc(var(--spacing) * 16 + 26px);
+      scroll-padding-top: calc(var(--spacing) * 18 + 26px);
     }
   }
   * {

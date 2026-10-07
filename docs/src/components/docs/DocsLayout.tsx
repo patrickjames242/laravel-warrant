@@ -54,7 +54,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
     <>
       <SiteHeader docs={{ active: headerLink(entry) }} />
 
-      <div data-sticky-bar className="sticky top-16 z-[45] flex h-12 items-center gap-3 border-b border-line-1 bg-ink/90 px-[clamp(17.5px,3.5vw,35px)] backdrop-blur-md min-[990px]:hidden">
+      <div data-sticky-bar className="sticky top-18 z-[45] flex h-12 items-center gap-3 border-b border-line-1 bg-ink/90 px-[clamp(17.5px,3.5vw,35px)] backdrop-blur-md min-[990px]:hidden">
         <button
           type="button"
           onClick={() => {
@@ -110,7 +110,7 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
         {editing && PageEditor ? (
           <div
             data-editor-pane
-            className="fixed inset-x-0 bottom-0 z-[46] flex h-[var(--editor-height,60dvh)] flex-col bg-surface-2 border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*16)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
+            className="fixed inset-x-0 bottom-0 z-[46] flex h-[var(--editor-height,60dvh)] flex-col bg-surface-2 border-t border-line-3 shadow-[0_-24px_48px_-24px_var(--color-shade)] min-[990px]:sticky min-[990px]:top-18 min-[990px]:bottom-auto min-[990px]:h-[calc(100dvh-var(--spacing)*18)] min-[990px]:border-t-0 min-[990px]:border-l min-[990px]:shadow-none">
             <Suspense>
               <PageEditor
                 key={page.slug}

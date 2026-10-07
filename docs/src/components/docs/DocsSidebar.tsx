@@ -164,7 +164,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
       aria-label="Documentation"
       className={`fixed top-[calc(var(--spacing)*28)] bottom-0 left-0 z-40 w-[min(352px,86vw)] overflow-y-auto border-r border-line-1 bg-ink-raised pt-6 pr-4 pb-12 pl-[clamp(17.5px,3.5vw,35px)] shadow-drawer transition-[translate,visibility] duration-450 ease-glide ${
         open ? 'visible translate-x-0' : 'invisible -translate-x-full'
-      } min-[990px]:visible min-[990px]:sticky min-[990px]:top-16 min-[990px]:bottom-auto min-[990px]:h-[calc(100vh-var(--spacing)*16)] min-[990px]:w-auto min-[990px]:translate-x-0 min-[990px]:bg-transparent min-[990px]:shadow-none min-[990px]:transition-none`}
+      } min-[990px]:visible min-[990px]:sticky min-[990px]:top-18 min-[990px]:bottom-auto min-[990px]:h-[calc(100vh-var(--spacing)*18)] min-[990px]:w-auto min-[990px]:translate-x-0 min-[990px]:bg-transparent min-[990px]:shadow-none min-[990px]:transition-none`}
     >
       <nav className="grid gap-7">
         {SECTIONS.map((section, i) => {

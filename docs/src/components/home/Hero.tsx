@@ -9,7 +9,8 @@ import { PanelHeading } from './PanelHeading'
 import { SiteLink } from '../SiteLink'
 import { bend } from './flow'
 import { FlowSegment, REVEAL_LENGTH } from './FlowSegment'
-import { HeroTagline } from './HeroTagline'
+import { HeroPrompt } from './HeroPrompt'
+import { WarrantForLaravel } from '../WarrantForLaravel'
 import type { Document, HeroQuestion } from './heroData'
 import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
 import { themed, tint } from './sectionStyles'
@@ -78,19 +79,20 @@ export function Hero() {
           in it, so the page opens on the pitch alone and the workspace waits below.
         */}
         <div
-          className="flex min-h-[calc(100svh-var(--spacing)*16)] min-w-0 flex-[1_1_462px] flex-col justify-center py-[clamp(44px,5.5vw,70px)] text-center"
+          className="flex min-h-[calc(100svh-var(--spacing)*18)] min-w-0 flex-[1_1_462px] flex-col justify-center py-[clamp(44px,5.5vw,70px)] text-center"
           style={{ maxWidth: 1276 }}
         >
-          <div data-choreo="intro" className="flex justify-center">
-            <HeroTagline />
-          </div>
+          <p data-choreo="intro">
+            <WarrantForLaravel className="text-[clamp(34px,4.6vw,56px)]" />
+          </p>
 
-          <h1 className="mt-7 text-[clamp(44px,6.6vw,79px)] leading-[0.92] font-extrabold tracking-[-0.05em] wrap-break-word text-balance text-title">
+          <h1 className="mt-6 text-[clamp(44px,6.6vw,79px)] leading-[0.92] font-extrabold tracking-[-0.05em] wrap-break-word text-balance text-title">
             <span data-choreo="intro" className="block text-balance">
               Write authorization once.
             </span>
-            <span data-choreo="intro" className="block text-balance text-coral">
-              Ask any question.
+            <span className="sr-only">Use it to filter queries, check a row, and list abilities.</span>
+            <span data-choreo="intro" className="mt-[0.3em] flex justify-center">
+              <HeroPrompt />
             </span>
           </h1>
 
@@ -98,10 +100,8 @@ export function Hero() {
             data-choreo="intro"
             className="mx-auto mt-8 max-w-150 text-[clamp(18.5px,2.2vw,23px)] leading-[1.6] text-pretty text-tan"
           >
-            Warrant compiles your authorization rules to SQL. The same rule answers{' '}
-            <span className="text-cream">can they update this document</span>,{' '}
-            <span className="text-cream">which documents can they update</span>, and{' '}
-            <span className="text-cream">what can they do with every row</span>. You write it once.
+            Warrant compiles your authorization rules to SQL, so{' '}
+            <span className="text-cream">one rule answers every access question</span> your app asks.
           </p>
 
           <div data-choreo="intro" className="mt-10 flex flex-wrap justify-center gap-3">
