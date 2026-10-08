@@ -259,6 +259,12 @@
     opacity: 0;
   }
 }
+/* The header's loading line, drawn out from the left. */
+@keyframes route-loading {
+  from {
+    transform: scaleX(0);
+  }
+}
 /* A search result or message rising into place. */
 @keyframes search-rise {
   from {

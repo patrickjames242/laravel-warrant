@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { links } from '../lib/links'
 import { Search } from './Search'
 import { SiteLink } from './SiteLink'
@@ -84,7 +84,25 @@ export function SiteHeader({ docs }: SiteHeaderProps) {
           )}
         </div>
       </nav>
+      <LoadingLine />
     </header>
+  )
+}
+
+/**
+ * A coral line along the header's bottom edge while the next page loads. It
+ * waits a moment before it starts drawing, so a page that arrives at once
+ * shows nothing, and it slows as it goes, so a long load never reaches the end.
+ */
+function LoadingLine() {
+  const loading = useRouterState({ select: (state) => state.status === 'pending' })
+  if (!loading) return null
+
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-x-0 -bottom-px h-0.5 origin-left scale-x-90 bg-coral animate-[route-loading_10s_cubic-bezier(0.05,0.7,0.1,1)_150ms_both]"
+    />
   )
 }
 
