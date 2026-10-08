@@ -1,6 +1,6 @@
 import { links } from '../lib/links'
-import { Logo } from './Logo'
 import { SiteLink } from './SiteLink'
+import { WarrantForLaravel } from './WarrantForLaravel'
 
 const COLUMNS = [
   {
@@ -36,7 +36,7 @@ export function SiteFooter() {
     <footer className="border-t border-line-1 bg-ink-deep">
       <div className="mx-auto flex max-w-330 flex-wrap justify-between gap-x-16 gap-y-10 px-[clamp(22px,4.4vw,53px)] pt-14 pb-10">
         <div className="max-w-95">
-          <Logo label="Laravel Warrant" />
+          <WarrantForLaravel className="text-[19px] text-cream" />
           <p className="mt-4.5 text-[15px] leading-[1.6] text-taupe">
             Not an official Laravel package. Laravel Warrant is an independent, open-source project and is not
             affiliated with, maintained by, or endorsed by the Laravel team. MIT licensed.

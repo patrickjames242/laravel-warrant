@@ -73,6 +73,7 @@ export function ThemeMenu() {
       selectedIndex: chosenIndex,
       onNavigate: setActiveIndex,
       loop: true,
+      focusItemOnOpen: true,
     }),
   ])
 
@@ -93,7 +94,13 @@ export function ThemeMenu() {
 
       {isMounted && (
         <FloatingPortal>
-          <FloatingFocusManager context={context} modal={false}>
+          {/*
+            The chosen theme is focused on opening by the list navigation, which
+            focuses without scrolling. The focus manager's own initial focus would
+            scroll to it, and as it sits within the page's scroll padding, under the
+            sticky header, that scrolls the page.
+          */}
+          <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
             <div ref={setFloating} style={floatingStyles} className="z-[60]" {...getFloatingProps()}>
               <div
                 style={transitionStyles}
