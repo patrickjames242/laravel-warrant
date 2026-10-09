@@ -66,19 +66,16 @@ home for rules stored as data.)
 ```php
 namespace App\Warrant;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\RuleProvider;
 
 class DatabaseRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
         // In a real app you'd look these rules up per user/role/tenant.
         // Here we return the same rule for everyone, for the documents schema.
-        return WarrantSyntax::parse('if is_self they can view, update')
-            ->scopedTo($context->schemaKey);
+        return 'if is_self they can view, update';
     }
 }
 ```

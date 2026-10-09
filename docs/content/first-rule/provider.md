@@ -39,19 +39,17 @@ $context->model;      // App\Models\Document, or null for a schema with no model
 A real provider usually reads from somewhere. Rules stored per role:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): iterable
 {
-    $lines = DB::table('role_rules')
+    return DB::table('role_rules')
         ->where('role_id', $context->user->role_id)
         ->where('schema_key', $context->schemaKey)
         ->pluck('rule');
-
-    return WarrantSyntax::parse($lines->implode("\n"))->scopedTo($context->schemaKey);
 }
 ```
 
-Rules concatenate freely, so gluing strings together with newlines is a legitimate
-way to compose a policy.
+A collection of rule text is a valid return. Each row is read as rule text for the
+schema you were asked about, and the rows merge into one set.
 
 ## Wire it up
 

@@ -16,8 +16,6 @@ Bind an anonymous one so the test controls which rules apply, independent of you
 production rule store:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\RuleProvider;
 
@@ -26,9 +24,9 @@ function bindRules(string $syntax, string $schemaKey = 'documents'): void
     app()->instance(RuleProvider::class, new class($syntax, $schemaKey) implements RuleProvider {
         public function __construct(private string $syntax, private string $schemaKey) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): string
         {
-            return WarrantSyntax::parse($this->syntax)->scopedTo($context->schemaKey);
+            return $context->schemaKey === $this->schemaKey ? $this->syntax : '';
         }
     });
 

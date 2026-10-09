@@ -63,18 +63,12 @@ class DocumentSchema extends WarrantSchema
 ```php
 class RoleRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): iterable
     {
-        $texts = DB::table('role_rules')
+        return DB::table('role_rules')
             ->whereIn('role', $context->user->roles->pluck('name'))
             ->where('schema_key', $context->schemaKey)
             ->pluck('rules');
-
-        if ($texts->isEmpty()) {
-            return RuleSetNode::fromRules($context->schemaKey);
-        }
-
-        return WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```
@@ -103,15 +97,11 @@ class RoleRuleProvider implements RuleProvider
         'admin'    => ['documents' => 'they can *'],
     ];
 
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): iterable
     {
-        $texts = collect($context->user->roleNames())
+        return collect($context->user->roleNames())
             ->map(fn (string $role) => self::RULES[$role][$context->schemaKey] ?? null)
             ->filter();
-
-        return $texts->isEmpty()
-            ? RuleSetNode::fromRules($context->schemaKey)
-            : WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```

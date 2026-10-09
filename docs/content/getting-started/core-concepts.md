@@ -141,20 +141,18 @@ the rules for the current user and resource. This is where "rules are data" pays
 ```php
 class DatabaseRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): iterable
     {
-        $rules = DB::table('role_rules')
+        return DB::table('role_rules')
             ->where('role_id', $context->user->role_id)
             ->where('resource', $context->schemaKey)   // e.g. 'documents'
             ->pluck('rule');
-
-        return WarrantSyntax::parse($rules->implode("\n"))->scopedTo($context->schemaKey);
     }
 }
 ```
 
 Warrant owns no tables and has no opinion about where rules live — it only asks your
-provider for a `RuleSetNode`. A schema can also return its own
+provider for the rules, as text or as a `RuleSetNode`. A schema can also return its own
 [rules](/schemas/schema-policy/#schema-rules), given the same context, with or
 without a global provider. See [Providing rules](/supplying-rules/provider/).
 

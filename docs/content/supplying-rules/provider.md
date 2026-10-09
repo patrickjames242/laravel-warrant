@@ -94,8 +94,8 @@ denies.
 
 ## Shapes that work
 
-**Rules stored as text, per role.** The example above. Strings concatenate freely,
-so gluing them with newlines composes a policy.
+**Rules stored as text, per role.** The example above. Each row is read as rule
+text, and the rows merge into one set.
 
 **Rules built in code, per role name.** No storage at all, and the policy lives in
 your repository where it can be reviewed:

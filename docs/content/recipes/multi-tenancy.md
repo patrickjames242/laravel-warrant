@@ -141,19 +141,15 @@ Tenancy usually means the policy differs per tenant too, which is the provider's
 job:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): iterable
 {
     $tenantId = app(Tenancy::class)->currentId();
 
-    $texts = DB::table('tenant_role_rules')
+    return DB::table('tenant_role_rules')
         ->where('tenant_id', $tenantId)
         ->whereIn('role', $context->user->roleNamesFor($tenantId))
         ->where('schema_key', $context->schemaKey)
         ->pluck('rules');
-
-    return $texts->isEmpty()
-        ? RuleSetNode::fromRules($context->schemaKey)
-        : WarrantSyntax::parse($texts->implode("\n"))->scopedTo($context->schemaKey);
 }
 ```
 

@@ -141,14 +141,14 @@ hardcoded. They're inline here just for the example:
 ```php
 class DocumentRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
         // $context->user and $context->schemaKey tell you who's asking, and about what
-        return WarrantSyntax::parse('
+        return '
             if is_self or manages_team they can update
             if is_locked and not is_admin they cannot update
             if is_admin they can *
-        ')->scopedTo($context->schemaKey);
+        ';
     }
 }
 ```
@@ -248,22 +248,18 @@ your **source of roles**, while Warrant does the actual authorization. Your
 for a resource:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\RuleProvider;
 
 class DatabaseRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
         if ($context->user->hasRole('admin')) {          // Spatie answers "what role?"
-            return WarrantSyntax::parse('they can *')->scopedTo($context->schemaKey);
+            return 'they can *';
         }
 
-        return WarrantSyntax::parse(
-            'if is_self they can view, update',           // Warrant answers "on which rows?"
-        )->scopedTo($context->schemaKey);
+        return 'if is_self they can view, update';       // Warrant answers "on which rows?"
     }
 }
 ```
