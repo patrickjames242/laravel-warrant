@@ -114,7 +114,11 @@ final class WarrantParser
         private readonly string $source,
         array $bindings = [],
     ) {
-        $this->tokens = (new Lexer($source))->tokenize();
+        // Comments say nothing about what a rule means, so the grammar never sees them.
+        $this->tokens = array_values(array_filter(
+            (new Lexer($source))->tokenize(),
+            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
+        ));
         $this->bindings = new BindingState($source, $bindings);
     }
 

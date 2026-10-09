@@ -4,6 +4,7 @@ use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 const EVERY_TOKEN_KIND = <<<'WARRANT'
@@ -87,6 +88,51 @@ it('ends a token at its own last byte, not at the trivia after it', function () 
 
     expect(array_map(static fn (Token $token): array => [$token->offset, $token->endOffset()], $tokens))
         ->toBe([[0, 4], [7, 10], [13, 17], [17, 17]]);
+});
+
+// -- comments -----------------------------------------------------------------
+
+it('reads a comment as a token running to the end of its line', function () {
+    expect(lexedTokens("they can view # first\n# second\nthey can edit #"))->toBe([
+        [TokenType::THEY, 'they'], [TokenType::CAN, 'can'], [TokenType::IDENTIFIER, 'view'],
+        [TokenType::COMMENT, '# first'], [TokenType::COMMENT, '# second'],
+        [TokenType::THEY, 'they'], [TokenType::CAN, 'can'], [TokenType::IDENTIFIER, 'edit'],
+        [TokenType::COMMENT, '#'], [TokenType::EOF, ''],
+    ]);
+});
+
+it('reads a # inside a string as part of the string', function () {
+    expect(lexedTokens("f('# not a comment')"))->toBe([
+        [TokenType::IDENTIFIER, 'f'], [TokenType::LPAREN, '('], [TokenType::STRING, "'# not a comment'"],
+        [TokenType::RPAREN, ')'], [TokenType::EOF, ''],
+    ]);
+});
+
+it('reads a comment on a line an unterminated string is ended before', function () {
+    expect(lexedTokens("'no\n# note\nthey can view"))->toBe([
+        [TokenType::STRING, "'no"], [TokenType::COMMENT, '# note'],
+        [TokenType::THEY, 'they'], [TokenType::CAN, 'can'], [TokenType::IDENTIFIER, 'view'], [TokenType::EOF, ''],
+    ]);
+});
+
+it('parses rules with comments between any two tokens as it parses them without', function () {
+    $commented = <<<'WARRANT'
+        for docs { # rules
+            if # why
+                is_owner( # whose
+                    @context org # org
+                ) and # both
+                can # the block
+                    (view) they # who
+                can # what
+                    view # done
+            can # the block
+                they share { they can } # shared
+        }
+        WARRANT;
+
+    expect(WarrantParser::parse($commented))
+        ->toEqual(WarrantParser::parse('for docs { if is_owner(@context org) and can(view) they can view can they share { they can } }'));
 });
 
 // -- strict reading -----------------------------------------------------------
@@ -236,7 +282,7 @@ it('agrees with a strict read on whether there is an error, and accounts for eve
 
     foreach ($scanned->tokens as $token) {
         expect($token->offset)->toBeGreaterThanOrEqual($position)
-            ->and(substr($source, $position, $token->offset - $position))->toMatch('/\A(?:\s+|#[^\n]*)*\z/')
+            ->and(substr($source, $position, $token->offset - $position))->toMatch('/\A\s*\z/')
             ->and(substr($source, $token->offset, $token->endOffset() - $token->offset))->toBe($token->lexeme);
 
         $position = $token->endOffset();

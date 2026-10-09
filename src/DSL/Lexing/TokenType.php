@@ -48,6 +48,8 @@ enum TokenType
     case BOOL;
     case NULL;
 
+    case COMMENT; // `# ...` to the end of the line; the parser drops these
+
     case ERROR; // text a tolerant scan could not read; see Lexer::scan()
 
     case EOF;

@@ -10,8 +10,9 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  *
  * Whitespace (including newlines) is insignificant and simply separates tokens.
  * A `#` begins a line comment that runs to the end of the line (or the end of
- * the source); comments are trivia and never reach the parser. A `#` inside a
- * string literal is literal, since comments are only recognised between tokens.
+ * the source), and is a COMMENT token in the stream with the rest. The parser
+ * drops them; tooling reads them to tell a comment from blank space. A `#` inside
+ * a string literal is literal, since comments are only recognised between tokens.
  * String literals may be delimited by single (`'`) or double (`"`) quotes; the
  * closing quote must match the opener, and `\'`, `\"`, and `\\` are the escapes.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
@@ -97,7 +98,7 @@ final class Lexer
         $tokens = [];
 
         while (true) {
-            $this->skipTrivia();
+            $this->skipWhitespace();
 
             if ($this->pos >= $this->length) {
                 $tokens[] = $this->makeToken(TokenType::EOF, '');
@@ -121,6 +122,7 @@ final class Lexer
             $char === '*' => $this->single(TokenType::STAR),
             $char === '=' => $this->single(TokenType::EQUALS),
             $char === '.' => $this->single(TokenType::DOT),
+            $char === '#' => $this->scanComment(),
             $char === '!' => $this->single(TokenType::NOT),
             $char === '?' => $this->single(TokenType::POSITIONAL),
             $char === ':' => $this->scanNamedBinding(),
@@ -475,28 +477,30 @@ final class Lexer
         return new Token($type, $lexeme, $this->pos, $this->line, $this->col);
     }
 
-    /**
-     * Skip anything the parser never sees: whitespace and `#` line comments.
-     */
-    private function skipTrivia(): void
+    private function skipWhitespace(): void
     {
-        while ($this->pos < $this->length) {
-            $char = $this->source[$this->pos];
-
-            if (ctype_space($char)) {
-                $this->advance();
-                continue;
-            }
-
-            if ($char === '#') {
-                while ($this->pos < $this->length && $this->source[$this->pos] !== "\n") {
-                    $this->advance();
-                }
-                continue;
-            }
-
-            break;
+        while ($this->pos < $this->length && ctype_space($this->source[$this->pos])) {
+            $this->advance();
         }
+    }
+
+    /**
+     * Scan a `#` comment: everything up to the line break that ends it, or the
+     * end of the source. The line break is not part of the comment.
+     */
+    private function scanComment(): Token
+    {
+        $startOffset = $this->pos;
+        $startLine = $this->line;
+        $startCol = $this->col;
+
+        while ($this->pos < $this->length && $this->source[$this->pos] !== "\n") {
+            $this->advance();
+        }
+
+        $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
+
+        return new Token(TokenType::COMMENT, $lexeme, $startOffset, $startLine, $startCol);
     }
 
     private function advance(): void
