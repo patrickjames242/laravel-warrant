@@ -26,6 +26,7 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SourceMap;
 
 /**
  * Recursive-descent parser for Warrant rule syntax. Bindings are resolved inline
@@ -109,10 +110,13 @@ final class WarrantParser
 
     /**
      * @param array<int|string, mixed> $bindings
+     * @param SourceMap|null $positions Where to record where each node was
+     *   written, or null to record nothing.
      */
     private function __construct(
         private readonly string $source,
         array $bindings = [],
+        private readonly ?SourceMap $positions = null,
     ) {
         // Comments say nothing about what a rule means, so the grammar never sees them.
         $this->tokens = array_values(array_filter(
@@ -129,20 +133,37 @@ final class WarrantParser
      */
     public static function parse(string $source, array $bindings = []): WarrantSyntax
     {
-        $parser = new self($source, $bindings);
+        return (new self($source, $bindings))->parseSyntax();
+    }
 
+    /**
+     * Parse Warrant syntax of any form, as {@see parse()} does, and record where
+     * every node of the tree was written. The root {@see WarrantSyntax} stands
+     * for the whole text and is not recorded.
+     *
+     * @param array<int|string, mixed> $bindings
+     */
+    public static function parseWithPositions(string $source, array $bindings = []): ParseResult
+    {
+        $positions = new SourceMap;
+
+        return new ParseResult((new self($source, $bindings, $positions))->parseSyntax(), $positions);
+    }
+
+    private function parseSyntax(): WarrantSyntax
+    {
         $children = match (true) {
-            $parser->check(TokenType::EOF) => [],
-            $parser->check(TokenType::FOR) => $parser->parseScopedBodies(),
-            $parser->check(TokenType::LBRACE) => throw $parser->errorAtCurrent(
+            $this->check(TokenType::EOF) => [],
+            $this->check(TokenType::FOR) => $this->parseScopedBodies(),
+            $this->check(TokenType::LBRACE) => throw $this->errorAtCurrent(
                 'A `{ ... }` block needs a `for <schema>` header before it.'
             ),
-            $parser->ruleAhead() => $parser->parseUnscopedEntries(),
-            default => [$parser->parseBareExpression()],
+            $this->ruleAhead() => $this->parseUnscopedEntries(),
+            default => [$this->parseBareExpression()],
         };
 
-        $parser->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
-        $parser->bindings->finalize($parser->peek());
+        $this->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        $this->bindings->finalize($this->peek());
 
         return new WarrantSyntax($children);
     }
@@ -189,10 +210,11 @@ final class WarrantParser
      */
     private function parseScopedBodies(): array
     {
+        $header = $this->peek();
         $schemaKey = $this->parseHeader();
 
         if (! $this->check(TokenType::LBRACE)) {
-            $body = $this->parseScopedBody($schemaKey);
+            $body = $this->recording(fn () => $this->parseScopedBody($schemaKey), $header);
 
             if ($this->check(TokenType::FOR) || $this->check(TokenType::LBRACE)) {
                 throw $this->errorAtCurrent(
@@ -203,7 +225,7 @@ final class WarrantParser
             return [$body];
         }
 
-        $bodies = [$this->parseBracedScopedBody($schemaKey)];
+        $bodies = [$this->recording(fn () => $this->parseBracedScopedBody($schemaKey), $header)];
 
         while (! $this->check(TokenType::EOF)) {
             if (! $this->check(TokenType::FOR)) {
@@ -212,7 +234,7 @@ final class WarrantParser
                 );
             }
 
-            $bodies[] = $this->parseBracedScopedBody($this->parseHeader());
+            $bodies[] = $this->recording(fn () => $this->parseBracedScopedBody($this->parseHeader()));
         }
 
         return $bodies;
@@ -292,22 +314,24 @@ final class WarrantParser
                parseTheyCanCannotClauses() absorbs every consecutive `they`, so this is
                reachable only at the start of a body or after an ability block. */
             if ($this->check(TokenType::THEY)) {
-                $entries[] = $this->parseTheyCanCannotClauses(null, $naming);
+                $entries[] = $this->recording(fn () => $this->parseTheyCanCannotClauses(null, $naming));
 
                 continue;
             }
 
             if ($this->check(TokenType::INCLUDE_REF)) {
-                $entries[] = $this->parseInclude($naming);
+                $entries[] = $this->recording(fn () => $this->parseInclude($naming));
 
                 continue;
             }
 
             // Each `if` starts a new conditional rule.
             if ($this->check(TokenType::IF)) {
-                $this->advance();
-                $conditions = $this->parseExpression();
-                $entries[] = $this->parseTheyCanCannotClauses($conditions, $naming);
+                $entries[] = $this->recording(function () use ($naming): WarrantRuleNode {
+                    $this->advance();
+
+                    return $this->parseTheyCanCannotClauses($this->parseExpression(), $naming);
+                });
 
                 continue;
             }
@@ -323,7 +347,7 @@ final class WarrantParser
                     $this->holdToNaming(true, 'An ability block');
                 }
 
-                $entries[] = $this->parseAbilityBlock();
+                $entries[] = $this->recording($this->parseAbilityBlock(...));
 
                 continue;
             }
@@ -471,8 +495,11 @@ final class WarrantParser
             $sawClause = true;
 
             if ($this->check(TokenType::CAN)) {
-                $this->advance();
-                $canClauses[] = new CanClauseNode($this->parseClauseAbilities($naming));
+                $canClauses[] = $this->recording(function () use ($naming): CanClauseNode {
+                    $this->advance();
+
+                    return new CanClauseNode($this->parseClauseAbilities($naming));
+                });
 
                 // A `because` message only ever surfaces for a matching `cannot`;
                 // hanging one off a `can` clause can never fire, so reject it here.
@@ -482,17 +509,19 @@ final class WarrantParser
                     );
                 }
             } elseif ($this->check(TokenType::CANNOT)) {
-                $this->advance();
-                $abilities = $this->parseClauseAbilities($naming);
-
-                $message = null;
-
-                if ($this->check(TokenType::BECAUSE)) {
+                $cannotClauses[] = $this->recording(function () use ($naming): CannotClauseNode {
                     $this->advance();
-                    $message = $this->parseDenialMessage();
-                }
+                    $abilities = $this->parseClauseAbilities($naming);
 
-                $cannotClauses[] = new CannotClauseNode($abilities, $message);
+                    $message = null;
+
+                    if ($this->check(TokenType::BECAUSE)) {
+                        $this->advance();
+                        $message = $this->parseDenialMessage();
+                    }
+
+                    return new CannotClauseNode($abilities, $message);
+                });
             } else {
                 throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'.");
             }
@@ -649,11 +678,12 @@ final class WarrantParser
 
     private function parseOr(): IBooleanExpressionNode
     {
+        $start = $this->peek();
         $left = $this->parseAnd();
 
         while ($this->check(TokenType::OR)) {
             $this->advance();
-            $left = new OrNode($left, $this->parseAnd());
+            $left = $this->recording(fn () => new OrNode($left, $this->parseAnd()), $start);
         }
 
         return $left;
@@ -661,11 +691,12 @@ final class WarrantParser
 
     private function parseAnd(): IBooleanExpressionNode
     {
+        $start = $this->peek();
         $left = $this->parseNot();
 
         while ($this->check(TokenType::AND)) {
             $this->advance();
-            $left = new AndNode($left, $this->parseNot());
+            $left = $this->recording(fn () => new AndNode($left, $this->parseNot()), $start);
         }
 
         return $left;
@@ -674,9 +705,11 @@ final class WarrantParser
     private function parseNot(): IBooleanExpressionNode
     {
         if ($this->check(TokenType::NOT)) {
-            $this->advance();
+            return $this->recording(function (): NotNode {
+                $this->advance();
 
-            return new NotNode($this->parseNot());
+                return new NotNode($this->parseNot());
+            });
         }
 
         return $this->parsePrimary();
@@ -693,15 +726,15 @@ final class WarrantParser
         }
 
         if ($this->check(TokenType::CAN)) {
-            return $this->parseCan();
+            return $this->recording($this->parseCan(...));
         }
 
         if ($this->check(TokenType::CHECK)) {
-            return $this->parseCheck();
+            return $this->recording($this->parseCheck(...));
         }
 
         if ($this->check(TokenType::IDENTIFIER)) {
-            return $this->parseCondition();
+            return $this->recording($this->parseCondition(...));
         }
 
         throw $this->nameError("a condition, 'can(', 'check(', or '('");
@@ -1029,6 +1062,36 @@ final class WarrantParser
     private function peekAhead(int $distance = 1): Token
     {
         return $this->tokens[min($this->index + $distance, count($this->tokens) - 1)];
+    }
+
+    /**
+     * The last token read.
+     */
+    private function previous(): Token
+    {
+        return $this->tokens[$this->index - 1];
+    }
+
+    /**
+     * Run $parse, and record the node it returns as written from $start to the
+     * last token read.
+     *
+     * $start is the token $parse begins on unless given: a node whose first
+     * token was read before $parse runs — the left operand of `and` / `or`, the
+     * `for` header of a body — names it.
+     *
+     * @template T of object
+     * @param callable(): T $parse
+     * @return T
+     */
+    private function recording(callable $parse, ?Token $start = null): object
+    {
+        $start ??= $this->peek();
+        $node = $parse();
+
+        $this->positions?->record($node, $start, $this->previous());
+
+        return $node;
     }
 
     private function check(TokenType $type): bool
