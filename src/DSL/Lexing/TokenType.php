@@ -48,5 +48,7 @@ enum TokenType
     case BOOL;
     case NULL;
 
+    case ERROR; // text a tolerant scan could not read; see Lexer::scan()
+
     case EOF;
 }

@@ -34,7 +34,7 @@ Reserved word 'can' cannot be used as a name; expected an ability name. (line 1,
 
 Representative messages:
 
-- `Unexpected character %s.`
+- `Unexpected character %s.`, or `Unexpected byte 0x%02X.` for a byte that is not valid UTF-8
 - `Unterminated string literal.`
 - `Invalid escape sequence "\%s"; only \', \", and \\ are allowed.`
 - `Expected 'context', 'column', 'sql', or 'include' after '@'.`, `Expected a context key after '@context'.`
