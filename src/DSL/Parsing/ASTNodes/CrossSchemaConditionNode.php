@@ -36,6 +36,19 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_SCHEMA_KEY = 'schemaKey';
+    public const PART_BOUND_KEY = 'boundKey';
+    public const PART_ALIAS = 'alias';
+    public const PART_CONTEXT_MAP = 'contextMap';
+
+    /**
+     * A `with` map's key names, recorded apart from their values, which are
+     * {@see PART_CONTEXT_MAP}; there is no property of this name.
+     */
+    public const PART_CONTEXT_MAP_KEY = 'contextMapKey';
+
     /**
      * @param array<int, mixed> $boundKey The handle's row-selector arguments, bound
      *   positionally to the target schema's row key. Empty on an unbound handle,

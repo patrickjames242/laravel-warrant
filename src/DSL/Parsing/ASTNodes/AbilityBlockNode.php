@@ -17,6 +17,10 @@ use InvalidArgumentException;
  */
 final readonly class AbilityBlockNode implements IRuleEntryNode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_ABILITIES = 'abilities';
+
     /**
      * @param list<string> $abilities The abilities every clause in the body takes.
      * @param list<WarrantRuleNode|IncludeInvocationNode> $entries The generic body,

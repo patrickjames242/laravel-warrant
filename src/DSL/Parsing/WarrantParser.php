@@ -109,6 +109,14 @@ final class WarrantParser
     private readonly BindingState $bindings;
 
     /**
+     * The parts read so far of each node being parsed, innermost last; see
+     * {@see part()}.
+     *
+     * @var list<list<array{0: string, 1: int|string|null, 2: Token, 3: Token}>>
+     */
+    private array $pendingParts = [];
+
+    /**
      * @param array<int|string, mixed> $bindings
      * @param SourceMap|null $positions Where to record where each node was
      *   written, or null to record nothing.
@@ -210,11 +218,9 @@ final class WarrantParser
      */
     private function parseScopedBodies(): array
     {
-        $header = $this->peek();
-        $schemaKey = $this->parseHeader();
-
-        if (! $this->check(TokenType::LBRACE)) {
-            $body = $this->recording(fn () => $this->parseScopedBody($schemaKey), $header);
+        // `for <schema> {` opens a braced body; anything else after the header is a bare one.
+        if ($this->peekAhead(2)->type !== TokenType::LBRACE) {
+            $body = $this->recording(fn () => $this->parseScopedBody($this->parseHeader()));
 
             if ($this->check(TokenType::FOR) || $this->check(TokenType::LBRACE)) {
                 throw $this->errorAtCurrent(
@@ -225,9 +231,9 @@ final class WarrantParser
             return [$body];
         }
 
-        $bodies = [$this->recording(fn () => $this->parseBracedScopedBody($schemaKey), $header)];
+        $bodies = [];
 
-        while (! $this->check(TokenType::EOF)) {
+        do {
             if (! $this->check(TokenType::FOR)) {
                 throw $this->errorAtCurrent(
                     'Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.'
@@ -235,7 +241,7 @@ final class WarrantParser
             }
 
             $bodies[] = $this->recording(fn () => $this->parseBracedScopedBody($this->parseHeader()));
-        }
+        } while (! $this->check(TokenType::EOF));
 
         return $bodies;
     }
@@ -288,7 +294,10 @@ final class WarrantParser
             throw $this->nameError('a schema name after `for`');
         }
 
-        return $this->advance()->lexeme;
+        $schema = $this->advance();
+        $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
+
+        return $schema->lexeme;
     }
 
     /**
@@ -376,21 +385,14 @@ final class WarrantParser
             throw $this->nameError('a rule template name');
         }
 
-        $templateKey = $this->advance()->lexeme;
+        $template = $this->advance();
+        $this->part(IncludeInvocationNode::PART_TEMPLATE_KEY, null, $template);
+        $templateKey = $template->lexeme;
         $arguments = [];
 
         if ($this->check(TokenType::LPAREN)) {
             $this->advance();
-
-            if (! $this->check(TokenType::RPAREN)) {
-                $arguments[] = $this->parseArgument();
-
-                while ($this->check(TokenType::COMMA)) {
-                    $this->advance();
-                    $arguments[] = $this->parseArgument();
-                }
-            }
-
+            $arguments = $this->parseArguments(IncludeInvocationNode::PART_ARGUMENTS);
             $this->expect(TokenType::RPAREN, "Expected ')' to close the @include arguments.");
         }
 
@@ -421,7 +423,7 @@ final class WarrantParser
 
         $this->advance();
 
-        return new IncludeInvocationNode($templateKey, $arguments, $this->parseAbilityList());
+        return new IncludeInvocationNode($templateKey, $arguments, $this->parseAbilityList(IncludeInvocationNode::PART_ABILITIES));
     }
 
     /**
@@ -437,7 +439,7 @@ final class WarrantParser
         $this->advance(); // consume 'can'
         $this->advance(); // consume 'they'
 
-        $abilities = $this->parseAbilityList();
+        $abilities = $this->parseAbilityList(AbilityBlockNode::PART_ABILITIES);
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
@@ -498,7 +500,7 @@ final class WarrantParser
                 $canClauses[] = $this->recording(function () use ($naming): CanClauseNode {
                     $this->advance();
 
-                    return new CanClauseNode($this->parseClauseAbilities($naming));
+                    return new CanClauseNode($this->parseClauseAbilities($naming, CanClauseNode::PART_ABILITIES));
                 });
 
                 // A `because` message only ever surfaces for a matching `cannot`;
@@ -511,7 +513,7 @@ final class WarrantParser
             } elseif ($this->check(TokenType::CANNOT)) {
                 $cannotClauses[] = $this->recording(function () use ($naming): CannotClauseNode {
                     $this->advance();
-                    $abilities = $this->parseClauseAbilities($naming);
+                    $abilities = $this->parseClauseAbilities($naming, CannotClauseNode::PART_ABILITIES);
 
                     $message = null;
 
@@ -556,6 +558,8 @@ final class WarrantParser
             ),
         };
 
+        $this->part(CannotClauseNode::PART_MESSAGE, null, $token);
+
         if (! is_string($message) && ! $message instanceof Closure) {
             throw WarrantSyntaxException::at(
                 sprintf('A denial message must be a string or a closure, got %s.', get_debug_type($message)),
@@ -579,12 +583,13 @@ final class WarrantParser
      * reserved word written as an ability is reported as one rather than as an
      * ability-less clause followed by a stray token.
      *
+     * @param string $part The clause's part the abilities are, as its node names it.
      * @return list<string>
      */
-    private function parseClauseAbilities(AbilityNaming $naming): array
+    private function parseClauseAbilities(AbilityNaming $naming, string $part): array
     {
         if ($naming === AbilityNaming::Required) {
-            return $this->parseAbilityList();
+            return $this->parseAbilityList($part);
         }
 
         if ($naming === AbilityNaming::Forbidden) {
@@ -600,7 +605,7 @@ final class WarrantParser
         $names = ! $this->clauseEndAhead();
         $this->holdToNaming($names, 'This clause');
 
-        return $names ? $this->parseAbilityList() : [];
+        return $names ? $this->parseAbilityList($part) : [];
     }
 
     /**
@@ -642,16 +647,19 @@ final class WarrantParser
     }
 
     /**
+     * Parse a comma-separated list of abilities, noting each as $part of the node
+     * being parsed, by its index.
+     *
      * @return list<string>
      */
-    private function parseAbilityList(): array
+    private function parseAbilityList(string $part): array
     {
-        $abilities = [$this->parseAbility()];
+        $abilities = [];
 
-        while ($this->check(TokenType::COMMA)) {
-            $this->advance();
+        do {
             $abilities[] = $this->parseAbility();
-        }
+            $this->part($part, count($abilities) - 1, $this->previous());
+        } while ($this->check(TokenType::COMMA) && $this->advance());
 
         return $abilities;
     }
@@ -757,7 +765,9 @@ final class WarrantParser
             throw $this->nameError('an ability name');
         }
 
-        $ability = $this->advance()->lexeme;
+        $abilityToken = $this->advance();
+        $this->part(CrossSchemaCanNode::PART_ABILITY, null, $abilityToken);
+        $ability = $abilityToken->lexeme;
 
         /* No `for`, no boundary: the reference stays on this schema and this row,
            so there is no handle to read. A `with` map is still read, so that
@@ -769,7 +779,7 @@ final class WarrantParser
 
             if ($this->check(TokenType::WITH)) {
                 $this->advance();
-                $contextMap = $this->parseWithMap();
+                $contextMap = $this->parseWithMap(CrossSchemaCanNode::class);
             }
 
             $this->expect(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
@@ -779,13 +789,13 @@ final class WarrantParser
 
         $this->advance(); // consume 'for'
 
-        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle(CrossSchemaCanNode::class);
 
         $contextMap = [];
 
         if ($this->check(TokenType::WITH)) {
             $this->advance();
-            $contextMap = $this->parseWithMap();
+            $contextMap = $this->parseWithMap(CrossSchemaCanNode::class);
         }
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
@@ -811,13 +821,13 @@ final class WarrantParser
 
         $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 
-        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle();
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parseHandle(CrossSchemaConditionNode::class);
 
         $contextMap = [];
 
         if ($this->check(TokenType::WITH)) {
             $this->advance();
-            $contextMap = $this->parseWithMap();
+            $contextMap = $this->parseWithMap(CrossSchemaConditionNode::class);
         }
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
@@ -839,15 +849,19 @@ final class WarrantParser
      * with the rest of the handle's coherence — including whether the alias is
      * allowed, since an unbound handle selects nothing to name.
      *
+     * @param class-string<CrossSchemaCanNode|CrossSchemaConditionNode> $owner The
+     *   node the handle belongs to, whose constants name the parts read here.
      * @return array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string} [schemaKey, isRowBound, boundKey, alias]
      */
-    private function parseHandle(): array
+    private function parseHandle(string $owner): array
     {
         if (! $this->check(TokenType::IDENTIFIER)) {
             throw $this->nameError('a schema name');
         }
 
-        $schemaKey = $this->advance()->lexeme;
+        $schema = $this->advance();
+        $this->part($owner::PART_SCHEMA_KEY, null, $schema);
+        $schemaKey = $schema->lexeme;
 
         $isRowBound = false;
         $boundKey = [];
@@ -856,16 +870,7 @@ final class WarrantParser
         if ($this->check(TokenType::LPAREN)) {
             $this->advance();
             $isRowBound = true;
-
-            if (! $this->check(TokenType::RPAREN)) {
-                $boundKey[] = $this->parseArgument();
-
-                while ($this->check(TokenType::COMMA)) {
-                    $this->advance();
-                    $boundKey[] = $this->parseArgument();
-                }
-            }
-
+            $boundKey = $this->parseArguments($owner::PART_BOUND_KEY);
             $this->expect(TokenType::RPAREN, "Expected ')' to close the row selector.");
         }
 
@@ -876,7 +881,9 @@ final class WarrantParser
                 throw $this->nameError("an alias name after 'as'");
             }
 
-            $alias = $this->advance()->lexeme;
+            $aliasToken = $this->advance();
+            $this->part($owner::PART_ALIAS, null, $aliasToken);
+            $alias = $aliasToken->lexeme;
         }
 
         return [$schemaKey, $isRowBound, $boundKey, $alias];
@@ -886,9 +893,11 @@ final class WarrantParser
      * Parse a `with` context map: `key = arg (, key = arg)*`. Keys are the target
      * schema's context key names; duplicate keys are rejected.
      *
+     * @param class-string<CrossSchemaCanNode|CrossSchemaConditionNode> $owner The
+     *   node the map belongs to, whose constants name the parts read here.
      * @return array<string, mixed>
      */
-    private function parseWithMap(): array
+    private function parseWithMap(string $owner): array
     {
         $map = [];
 
@@ -908,8 +917,12 @@ final class WarrantParser
                 );
             }
 
+            $this->part($owner::PART_CONTEXT_MAP_KEY, $key, $keyToken);
+
             $this->expect(TokenType::EQUALS, "Expected '=' after the 'with' key.");
+            $value = $this->peek();
             $map[$key] = $this->parseArgument();
+            $this->part($owner::PART_CONTEXT_MAP, $key, $value);
         } while ($this->check(TokenType::COMMA) && $this->advance());
 
         return $map;
@@ -917,25 +930,41 @@ final class WarrantParser
 
     private function parseCondition(): ConditionNode
     {
-        $name = $this->advance()->lexeme;
+        $nameToken = $this->advance();
+        $this->part(ConditionNode::PART_CONDITION_KEY, null, $nameToken);
+        $name = $nameToken->lexeme;
         $parameters = [];
 
         if ($this->check(TokenType::LPAREN)) {
             $this->advance();
-
-            if (! $this->check(TokenType::RPAREN)) {
-                $parameters[] = $this->parseArgument();
-
-                while ($this->check(TokenType::COMMA)) {
-                    $this->advance();
-                    $parameters[] = $this->parseArgument();
-                }
-            }
-
+            $parameters = $this->parseArguments(ConditionNode::PART_PARAMETERS);
             $this->expect(TokenType::RPAREN, "Expected ')' to close the condition arguments.");
         }
 
         return new ConditionNode($name, $parameters);
+    }
+
+    /**
+     * Parse the arguments inside a pair of parentheses, up to the closing one,
+     * noting each as $part of the node being parsed, by its index.
+     *
+     * @return list<mixed>
+     */
+    private function parseArguments(string $part): array
+    {
+        $arguments = [];
+
+        if ($this->check(TokenType::RPAREN)) {
+            return $arguments;
+        }
+
+        do {
+            $first = $this->peek();
+            $arguments[] = $this->parseArgument();
+            $this->part($part, count($arguments) - 1, $first);
+        } while ($this->check(TokenType::COMMA) && $this->advance());
+
+        return $arguments;
     }
 
     private function parseArgument(): mixed
@@ -1086,12 +1115,40 @@ final class WarrantParser
      */
     private function recording(callable $parse, ?Token $start = null): object
     {
-        $start ??= $this->peek();
-        $node = $parse();
+        if ($this->positions === null) {
+            return $parse();
+        }
 
-        $this->positions?->record($node, $start, $this->previous());
+        $start ??= $this->peek();
+        $this->pendingParts[] = [];
+
+        try {
+            $node = $parse();
+        } finally {
+            $parts = array_pop($this->pendingParts);
+        }
+
+        $this->positions->record($node, $start, $this->previous());
+
+        foreach ($parts as [$part, $key, $first, $last]) {
+            $this->positions->recordPart($node, $part, $key, $first, $last);
+        }
 
         return $node;
+    }
+
+    /**
+     * Note that the text from $first to the last token read is $part of the node
+     * being parsed — the innermost {@see recording()} — to be recorded once that
+     * node is built.
+     */
+    private function part(string $part, int|string|null $key, Token $first): void
+    {
+        if ($this->positions === null) {
+            return;
+        }
+
+        $this->pendingParts[array_key_last($this->pendingParts)][] = [$part, $key, $first, $this->previous()];
     }
 
     private function check(TokenType $type): bool

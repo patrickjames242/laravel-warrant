@@ -23,10 +23,10 @@ function mappedCan(): array
     $map = new SourceMap;
 
     $map->record($node, $tokens[0], $tokens[10]);
-    $map->recordPart($node, 'ability', null, $tokens[2]);
-    $map->recordPart($node, 'schemaKey', null, $tokens[4]);
-    $map->recordPart($node, 'boundKey', 0, $tokens[6]);
-    $map->recordPart($node, 'boundKey', 1, $tokens[8]);
+    $map->recordPart($node, CrossSchemaCanNode::PART_ABILITY, null, $tokens[2]);
+    $map->recordPart($node, CrossSchemaCanNode::PART_SCHEMA_KEY, null, $tokens[4]);
+    $map->recordPart($node, CrossSchemaCanNode::PART_BOUND_KEY, 0, $tokens[6]);
+    $map->recordPart($node, CrossSchemaCanNode::PART_BOUND_KEY, 1, $tokens[8]);
 
     return [$map, $node, $tokens];
 }
@@ -44,10 +44,10 @@ it('finds where a node and each of its parts were written', function () {
     [$map, $node] = mappedCan();
 
     expect($map->spanOf($node))->toEqual(new Span(0, 24))
-        ->and($map->spanOf($node, 'ability'))->toEqual(new Span(4, 8))
-        ->and($map->spanOf($node, 'schemaKey'))->toEqual(new Span(13, 17))
-        ->and($map->spanOf($node, 'boundKey', 0))->toEqual(new Span(18, 19))
-        ->and($map->spanOf($node, 'boundKey', 1))->toEqual(new Span(21, 22));
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_ABILITY))->toEqual(new Span(4, 8))
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_SCHEMA_KEY))->toEqual(new Span(13, 17))
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_BOUND_KEY, 0))->toEqual(new Span(18, 19))
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_BOUND_KEY, 1))->toEqual(new Span(21, 22));
 });
 
 it('spans a part written over several tokens from the first to the last', function () {
@@ -55,18 +55,18 @@ it('spans a part written over several tokens from the first to the last', functi
     $node = new ConditionNode('f');
     $map = new SourceMap;
 
-    $map->recordPart($node, 'parameters', 0, $tokens[2], $tokens[3]);
+    $map->recordPart($node, ConditionNode::PART_PARAMETERS, 0, $tokens[2], $tokens[3]);
 
-    expect($map->spanOf($node, 'parameters', 0))->toEqual(new Span(2, 14));
+    expect($map->spanOf($node, ConditionNode::PART_PARAMETERS, 0))->toEqual(new Span(2, 14));
 });
 
 it('knows nothing of a node or part it did not record', function () {
     [$map, $node] = mappedCan();
 
     expect($map->spanOf(new CrossSchemaCanNode('docs', 'view', true, [1, 2])))->toBeNull()
-        ->and($map->spanOf($node, 'alias'))->toBeNull()
-        ->and($map->spanOf($node, 'boundKey', 2))->toBeNull()
-        ->and($map->spanOf($node, 'boundKey'))->toBeNull();
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_ALIAS))->toBeNull()
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_BOUND_KEY, 2))->toBeNull()
+        ->and($map->spanOf($node, CrossSchemaCanNode::PART_BOUND_KEY))->toBeNull();
 });
 
 it('tells apart equal nodes written in different places', function () {
@@ -86,16 +86,16 @@ it('tells apart equal nodes written in different places', function () {
 it('lists what an offset is inside, widest first', function () {
     [$map] = mappedCan();
 
-    expect(entryParts($map->containing(6)))->toBe([[null, null], ['ability', null]])
+    expect(entryParts($map->containing(6)))->toBe([[null, null], [CrossSchemaCanNode::PART_ABILITY, null]])
         ->and(entryParts($map->containing(1)))->toBe([[null, null]])
-        ->and(entryParts($map->containing(18)))->toBe([[null, null], ['boundKey', 0]])
+        ->and(entryParts($map->containing(18)))->toBe([[null, null], [CrossSchemaCanNode::PART_BOUND_KEY, 0]])
         ->and($map->containing(25))->toBe([]);
 });
 
 it('counts the offset just past a part as on it, where a cursor sits after typing it', function () {
     [$map] = mappedCan();
 
-    expect(entryParts($map->containing(8)))->toBe([[null, null], ['ability', null]]);
+    expect(entryParts($map->containing(8)))->toBe([[null, null], [CrossSchemaCanNode::PART_ABILITY, null]]);
 });
 
 it('puts a node before its own part when they cover the same text', function () {
@@ -103,15 +103,15 @@ it('puts a node before its own part when they cover the same text', function () 
     $node = new ConditionNode('is_owner');
     $map = new SourceMap;
 
-    $map->recordPart($node, 'conditionKey', null, $tokens[0]);
+    $map->recordPart($node, ConditionNode::PART_CONDITION_KEY, null, $tokens[0]);
     $map->record($node, $tokens[0], $tokens[0]);
 
-    expect(entryParts($map->containing(3)))->toBe([[null, null], ['conditionKey', null]]);
+    expect(entryParts($map->containing(3)))->toBe([[null, null], [ConditionNode::PART_CONDITION_KEY, null]]);
 });
 
 it('refuses to record where something was written twice', function () {
     [$map, $node, $tokens] = mappedCan();
 
-    expect(fn () => $map->recordPart($node, 'ability', null, $tokens[2]))
+    expect(fn () => $map->recordPart($node, CrossSchemaCanNode::PART_ABILITY, null, $tokens[2]))
         ->toThrow(LogicException::class, 'Where '.CrossSchemaCanNode::class.' part [ability] was written is already recorded.');
 });

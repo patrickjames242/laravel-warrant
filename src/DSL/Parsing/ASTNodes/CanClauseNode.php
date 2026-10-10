@@ -12,6 +12,10 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class CanClauseNode implements INode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_ABILITIES = 'abilities';
+
     /**
      * @param list<string> $abilities Granted ability names (or `*`); empty on a
      *   generic clause.

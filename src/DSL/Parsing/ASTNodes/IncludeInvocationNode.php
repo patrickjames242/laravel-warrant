@@ -21,6 +21,12 @@ use InvalidArgumentException;
  */
 final readonly class IncludeInvocationNode implements IRuleEntryNode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_TEMPLATE_KEY = 'templateKey';
+    public const PART_ARGUMENTS = 'arguments';
+    public const PART_ABILITIES = 'abilities';
+
     /**
      * @param list<mixed> $arguments The template's DSL arguments, resolved as a
      *   condition's are: literals, bindings already substituted, and the symbolic

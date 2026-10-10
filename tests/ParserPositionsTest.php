@@ -1,5 +1,14 @@
 <?php
 
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ParseResult;
@@ -164,15 +173,117 @@ it('records every node, and never two over the same text', function (string $sou
     expect($ranges)->toBe(array_unique($ranges));
 })->with(POSITIONS_CORPUS);
 
-it('finds what an offset is inside, from the rule set down', function () {
+it('finds what an offset is inside, from the rule set down to the part', function () {
     $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
     $result = WarrantParser::parseWithPositions($source);
 
     $chain = array_map(
-        static fn (SourceEntry $entry): string => (new ReflectionClass($entry->node))->getShortName(),
+        static fn (SourceEntry $entry): array => [(new ReflectionClass($entry->node))->getShortName(), $entry->part],
         $result->positions->containing(strpos($source, 'is_locked') + 3),
     );
 
     expect($result)->toBeInstanceOf(ParseResult::class)
-        ->and($chain)->toBe(['RuleSetNode', 'WarrantRuleNode', 'AndNode', 'NotNode', 'OrNode', 'ConditionNode']);
+        ->and($chain)->toBe([
+            ['RuleSetNode', null], ['WarrantRuleNode', null], ['AndNode', null], ['NotNode', null],
+            ['OrNode', null], ['ConditionNode', null], ['ConditionNode', ConditionNode::PART_CONDITION_KEY],
+        ]);
 });
+
+// -- parts ----------------------------------------------------------------------
+
+/**
+ * The text a part of a node was recorded as written in, or null.
+ */
+function partText(ParseResult $result, string $source, object $node, string $part, int|string|null $key = null): ?string
+{
+    $span = $result->positions->spanOf($node, $part, $key);
+
+    return $span === null ? null : substr($source, $span->offset, $span->length());
+}
+
+it('records the names and arguments of a rule set\'s entries', function () {
+    $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
+    $result = WarrantParser::parseWithPositions($source);
+    $ruleSet = $result->syntax->children[0];
+    [$rule, $block, $include] = $ruleSet->entries;
+    $isOwner = $rule->conditions->leftSide;
+
+    expect(partText($result, $source, $ruleSet, RuleSetNode::PART_SCHEMA_KEY))->toBe('docs')
+        ->and(partText($result, $source, $isOwner, ConditionNode::PART_CONDITION_KEY))->toBe('is_owner')
+        ->and(partText($result, $source, $isOwner, ConditionNode::PART_PARAMETERS, 0))->toBe('@context org')
+        ->and(partText($result, $source, $rule->canClauses[0], CanClauseNode::PART_ABILITIES, 0))->toBe('view')
+        ->and(partText($result, $source, $rule->cannotClauses[0], CannotClauseNode::PART_ABILITIES, 0))->toBe('edit')
+        ->and(partText($result, $source, $rule->cannotClauses[0], CannotClauseNode::PART_MESSAGE))->toBe("'no'")
+        ->and(partText($result, $source, $block, AbilityBlockNode::PART_ABILITIES, 0))->toBe('share')
+        ->and(partText($result, $source, $block->entries[0]->conditions, CrossSchemaCanNode::PART_ABILITY))->toBe('view')
+        ->and(partText($result, $source, $include, IncludeInvocationNode::PART_TEMPLATE_KEY))->toBe('admin')
+        ->and(partText($result, $source, $include, IncludeInvocationNode::PART_ARGUMENTS, 0))->toBe('1')
+        ->and(partText($result, $source, $include, IncludeInvocationNode::PART_ABILITIES, 0))->toBe('delete');
+});
+
+it('records each part of a cross-schema reference', function () {
+    $source = 'if check(is_open(@column docs.org_id, 2) for folders(@context folder, 7) as f with org = @context org, n = 1) '
+        .'they can edit, *';
+    $result = WarrantParser::parseWithPositions($source);
+    $rule = $result->syntax->children[0];
+    $check = $rule->conditions;
+
+    expect(partText($result, $source, $check, CrossSchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_BOUND_KEY, 0))->toBe('@context folder')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_BOUND_KEY, 1))->toBe('7')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_ALIAS))->toBe('f')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_CONTEXT_MAP_KEY, 'org'))->toBe('org')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_CONTEXT_MAP, 'org'))->toBe('@context org')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_CONTEXT_MAP_KEY, 'n'))->toBe('n')
+        ->and(partText($result, $source, $check, CrossSchemaConditionNode::PART_CONTEXT_MAP, 'n'))->toBe('1')
+        ->and(partText($result, $source, $check->predicate, ConditionNode::PART_PARAMETERS, 0))->toBe('@column docs.org_id')
+        ->and(partText($result, $source, $rule->canClauses[0], CanClauseNode::PART_ABILITIES, 0))->toBe('edit')
+        ->and(partText($result, $source, $rule->canClauses[0], CanClauseNode::PART_ABILITIES, 1))->toBe('*');
+});
+
+it('records the schema of every for header', function () {
+    $source = POSITIONS_CORPUS['braced blocks'];
+    $result = WarrantParser::parseWithPositions($source);
+
+    expect(array_map(
+        static fn (object $body): ?string => partText($result, $source, $body, RuleSetNode::PART_SCHEMA_KEY),
+        $result->syntax->children,
+    ))->toBe(['docs', 'folders', 'docs'])
+        ->and(partText($result, $source, $result->syntax->children[1], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders');
+
+    $bare = WarrantParser::parseWithPositions(POSITIONS_CORPUS['a scoped expression']);
+
+    expect(partText($bare, POSITIONS_CORPUS['a scoped expression'], $bare->syntax->children[0], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('docs');
+});
+
+it('records every value a node holds as a part of it, named by one of its constants', function (string $source) {
+    $result = WarrantParser::parseWithPositions($source);
+
+    foreach (treeNodes($result->syntax) as $node) {
+        foreach (get_object_vars($node) as $name => $value) {
+            if ($value === null || is_bool($value) || $value instanceof INode) {
+                continue;
+            }
+
+            if (! is_array($value)) {
+                expect($result->positions->spanOf($node, $name))->not->toBeNull($node::class." [$name]")
+                    ->and((new ReflectionClass($node))->getConstants())->toContain($name);
+
+                continue;
+            }
+
+            foreach ($value as $key => $item) {
+                if ($item instanceof INode) {
+                    continue;
+                }
+
+                expect($result->positions->spanOf($node, $name, $key))->not->toBeNull($node::class." [$name][$key]")
+                    ->and((new ReflectionClass($node))->getConstants())->toContain($name);
+
+                if ($name === CrossSchemaCanNode::PART_CONTEXT_MAP) {
+                    expect($result->positions->spanOf($node, $node::PART_CONTEXT_MAP_KEY, $key))->not->toBeNull();
+                }
+            }
+        }
+    }
+})->with(POSITIONS_CORPUS);

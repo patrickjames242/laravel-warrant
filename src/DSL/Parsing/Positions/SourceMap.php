@@ -12,7 +12,9 @@ use Warrant\DSL\Lexing\Token;
  *
  * A node is found by identity. A string inside a node has none, so it is found
  * by its owner, the property it is stored in, and its index or key there: the
- * ability in `can(view for docs)` is that node's `ability` part.
+ * ability in `can(view for docs)` is that node's
+ * {@see \Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode::PART_ABILITY} part. Each node
+ * declares its part names as constants.
  */
 final class SourceMap
 {

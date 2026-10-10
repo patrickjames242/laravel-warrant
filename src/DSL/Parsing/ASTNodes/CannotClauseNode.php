@@ -19,6 +19,11 @@ use Warrant\Schema\WarrantDenialContext;
  */
 readonly class CannotClauseNode implements INode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_ABILITIES = 'abilities';
+    public const PART_MESSAGE = 'message';
+
     /**
      * @param list<string> $abilities Denied ability names (or `*`).
      * @param string|Closure(WarrantDenialContext):(string|\Throwable)|null $message
