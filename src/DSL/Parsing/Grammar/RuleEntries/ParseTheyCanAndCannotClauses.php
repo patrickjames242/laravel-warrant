@@ -2,7 +2,6 @@
 
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
-use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\Grammar\GrammarParser;
@@ -26,33 +25,12 @@ final class ParseTheyCanAndCannotClauses extends GrammarParser
      */
     protected function read(): array
     {
-        if (! $this->check(TokenType::THEY)) {
-            throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause.");
-        }
+        $clauses = ($this->parseRepeated(new ParseTheyClause($this->naming))
+            ?? throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause."))->value;
 
-        $canClauses = [];
-        $cannotClauses = [];
-
-        while ($this->check(TokenType::THEY)) {
-            $this->advance();
-
-            if ($can = $this->parse(new ParseCanClause($this->naming))) {
-                $canClauses[] = $can->value;
-
-                // A `because` message only ever surfaces for a matching `cannot`;
-                // hanging one off a `can` clause can never fire, so reject it here.
-                if ($this->check(TokenType::BECAUSE)) {
-                    throw $this->errorAtCurrent(
-                        "'because' may only follow a 'they cannot ...' clause, not 'they can ...'."
-                    );
-                }
-            } elseif ($cannot = $this->parse(new ParseCannotClause($this->naming))) {
-                $cannotClauses[] = $cannot->value;
-            } else {
-                throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'.");
-            }
-        }
-
-        return [$canClauses, $cannotClauses];
+        return [
+            array_values(array_filter($clauses, static fn ($clause) => $clause instanceof CanClauseNode)),
+            array_values(array_filter($clauses, static fn ($clause) => $clause instanceof CannotClauseNode)),
+        ];
     }
 }

@@ -33,18 +33,12 @@ final class ParseRuleEntries extends GrammarParser
      */
     protected function read(): array
     {
-        $entry = new ParseOneOf([
+        $entries = $this->parseRepeated(new ParseOneOf([
             new ParseUnconditionalRule($this->naming),
             new ParseIncludeInvocation($this->naming),
             new ParseConditionalRule($this->naming),
             new ParseAbilityBlock($this->naming),
-        ]);
-
-        $entries = [];
-
-        while (($next = $this->parse($entry)) !== null) {
-            $entries[] = $next->value;
-        }
+        ]))?->value ?? [];
 
         $this->assertNoAbilityListWithoutCanThey();
 

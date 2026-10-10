@@ -2,7 +2,9 @@
 
 namespace Warrant\DSL\Parsing\Parsers;
 
+use Closure;
 use LogicException;
+use Throwable;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -115,6 +117,46 @@ abstract class Parser
         }
 
         return $result === self::NOTHING ? null : new Parsed($result);
+    }
+
+    /**
+     * Read the first of $parsers that matches here. See {@see ParseOneOf}.
+     *
+     * @param list<class-string<Parser>|Parser> $parsers In the order to try them.
+     * @return Parsed<mixed>|null Null when none matched.
+     */
+    final protected function parseOneOf(array $parsers): ?Parsed
+    {
+        return $this->parse(new ParseOneOf($parsers));
+    }
+
+    /**
+     * Read $item back to back for as long as one is here. See {@see ParseRepeated}.
+     *
+     * @template R
+     * @param class-string<Parser<R>>|Parser<R> $item
+     * @return Parsed<list<R>>|null Null when not even one item is here.
+     */
+    final protected function parseRepeated(string|Parser $item): ?Parsed
+    {
+        return $this->parse(new ParseRepeated($item));
+    }
+
+    /**
+     * Read $item with $separator between them. See {@see ParseSeparatedList}.
+     *
+     * @template R
+     * @param class-string<Parser<R>>|Parser<R> $item
+     * @param Closure(): Throwable $missingAfterSeparator
+     * @return Parsed<list<R>>|null Null when not even one item is here.
+     */
+    final protected function parseSeparatedList(
+        string|Parser $item,
+        TokenType $separator,
+        Closure $missingAfterSeparator,
+        ?string $part = null,
+    ): ?Parsed {
+        return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part));
     }
 
     // -- recording ------------------------------------------------------------

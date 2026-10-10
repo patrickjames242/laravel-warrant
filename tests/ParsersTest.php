@@ -1,5 +1,6 @@
 <?php
 
+use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
 use Warrant\DSL\Parsing\Grammar\ParseSyntax;
@@ -72,6 +73,68 @@ it('reads a null argument as a value, not as nothing read', function () {
         ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 1)?->offset)->toBe(8)
         ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 2)?->offset)->toBe(11);
 });
+
+it('reads repeated items until one is not there, and nothing when none is', function () {
+    $root = new class extends Parser
+    {
+        protected function read(): mixed
+        {
+            return [$this->parseRepeated(ParseCondition::class)?->value, $this->parseRepeated(ParseCondition::class)];
+        }
+    };
+
+    [[$conditions, $none]] = runParser($root, 'a b(1) c');
+
+    expect($conditions)->toEqual([new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')])
+        ->and($none)->toBeNull();
+});
+
+it('refuses a repeated item that matches without reading anything', function () {
+    $readsNothing = new class extends Parser
+    {
+        protected function read(): mixed
+        {
+            return [];
+        }
+    };
+
+    $root = new class($readsNothing) extends Parser
+    {
+        public function __construct(private readonly Parser $item)
+        {
+        }
+
+        protected function read(): mixed
+        {
+            return $this->parseRepeated($this->item);
+        }
+    };
+
+    expect(fn () => runParser($root, 'a'))->toThrow(LogicException::class, 'matched without reading anything');
+});
+
+it('reads separated items, and reports an item missing after a separator', function (string $source, ?array $expected, bool $throws = false) {
+    $root = new class extends Parser
+    {
+        protected function read(): mixed
+        {
+            return $this->parseSeparatedList(
+                ParseCondition::class,
+                TokenType::COMMA,
+                fn () => new RuntimeException('Missing after a comma.'),
+            )?->value;
+        }
+    };
+
+    $throws
+        ? expect(fn () => runParser($root, $source))->toThrow(RuntimeException::class, 'Missing after a comma.')
+        : expect(runParser($root, $source)[0])->toEqual($expected);
+})->with([
+    'several' => ['a, b(1), c', [new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')]],
+    'one' => ['a', [new ConditionNode('a')]],
+    'none' => ['', null],
+    'a trailing separator' => ['a, b,', null, true],
+]);
 
 it('refuses a part read outside any node', function () {
     $root = new class extends Parser

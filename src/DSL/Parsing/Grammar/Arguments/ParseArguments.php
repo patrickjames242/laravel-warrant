@@ -39,15 +39,12 @@ final class ParseArguments extends GrammarParser
         }
 
         $this->advance();
-        $arguments = [];
+        $missingArgument = fn () => $this->missingArgumentError();
 
-        if (! $this->check(TokenType::RPAREN)) {
-            do {
-                $first = $this->peek();
-                $arguments[] = ($this->parse(ParseArgument::class) ?? throw $this->missingArgumentError())->value;
-                $this->part($this->part, count($arguments) - 1, $first);
-            } while ($this->check(TokenType::COMMA) && $this->advance());
-        }
+        $arguments = $this->check(TokenType::RPAREN)
+            ? []
+            : ($this->parseSeparatedList(ParseArgument::class, TokenType::COMMA, $missingArgument, $this->part)
+                ?? throw $missingArgument())->value;
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close {$this->closes}.");
 

@@ -42,14 +42,13 @@ final class ParseForSchemaBlocks extends GrammarParser
             return [$block];
         }
 
-        $blocks = [];
-        $braced = new ParseForSchemaBlock(braced: true);
+        $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true))->value;
 
-        do {
-            $blocks[] = ($this->parse($braced) ?? throw $this->errorAtCurrent(
+        if (! $this->check(TokenType::EOF)) {
+            throw $this->errorAtCurrent(
                 'Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.'
-            ))->value;
-        } while (! $this->check(TokenType::EOF));
+            );
+        }
 
         return $blocks;
     }

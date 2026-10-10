@@ -6,8 +6,8 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\GrammarParser;
 
 /**
- * A comma-separated list of abilities, each a name or `*`, with each noted as a
- * part of the node around it, by its index.
+ * A comma-separated list of at least one ability, each a name or `*`, with
+ * each noted as a part of the node around it, by its index.
  *
  * @extends GrammarParser<list<string>>
  */
@@ -26,17 +26,9 @@ final class ParseAbilityList extends GrammarParser
      */
     protected function read(): array
     {
-        $abilities = [];
+        $missingAbility = fn () => $this->nameError('an ability name');
 
-        do {
-            $abilities[] = match (true) {
-                $this->check(TokenType::STAR),
-                $this->check(TokenType::IDENTIFIER) => $this->advance()->lexeme,
-                default => throw $this->nameError('an ability name'),
-            };
-            $this->part($this->part, count($abilities) - 1, $this->previous());
-        } while ($this->check(TokenType::COMMA) && $this->advance());
-
-        return $abilities;
+        return ($this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility, $this->part)
+            ?? throw $missingAbility())->value;
     }
 }

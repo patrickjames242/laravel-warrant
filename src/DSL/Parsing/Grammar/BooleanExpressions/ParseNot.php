@@ -7,7 +7,6 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
-use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 
 /**
  * Any number of `not` (or `!`) before a parenthesized boolean expression,
@@ -20,12 +19,12 @@ final class ParseNot extends GrammarParser
     protected function read(): IBooleanExpressionNode|NoMatch
     {
         if (! $this->check(TokenType::NOT)) {
-            return $this->parse(new ParseOneOf([
+            return $this->parseOneOf([
                 ParseParenthesizedBooleanExpression::class,
                 ParseCrossSchemaCan::class,
                 ParseCrossSchemaCondition::class,
                 ParseCondition::class,
-            ]))?->value ?? self::NOTHING;
+            ])?->value ?? self::NOTHING;
         }
 
         $this->advance();
