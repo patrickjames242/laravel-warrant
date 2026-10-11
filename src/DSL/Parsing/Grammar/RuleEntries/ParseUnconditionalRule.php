@@ -4,16 +4,16 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A rule with no `if`: a run of `they can` / `they cannot` clauses, which form
  * one unconditional rule.
  *
- * @extends GrammarParser<WarrantRuleNode>
+ * @extends Parser<WarrantRuleNode>
  */
-final class ParseUnconditionalRule extends GrammarParser
+final class ParseUnconditionalRule extends Parser
 {
     public function __construct(private readonly AbilityNaming $naming)
     {

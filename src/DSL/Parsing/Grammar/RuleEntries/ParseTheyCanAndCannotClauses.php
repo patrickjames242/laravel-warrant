@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The run of `they can ...` / `they cannot ...` clauses that one rule holds:
@@ -12,9 +12,9 @@ use Warrant\DSL\Parsing\Grammar\GrammarParser;
  * least one. Each clause is its own node, so distinct `cannot` clauses keep
  * distinct messages on the same rule.
  *
- * @extends GrammarParser<array{0: list<CanClauseNode>, 1: list<CannotClauseNode>}>
+ * @extends Parser<array{0: list<CanClauseNode>, 1: list<CannotClauseNode>}>
  */
-final class ParseTheyCanAndCannotClauses extends GrammarParser
+final class ParseTheyCanAndCannotClauses extends Parser
 {
     public function __construct(private readonly AbilityNaming $naming)
     {

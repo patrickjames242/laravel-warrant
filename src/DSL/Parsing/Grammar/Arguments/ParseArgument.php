@@ -6,16 +6,16 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * One argument: a literal, a binding, or an `@context`, `@column` or `@sql`
  * reference. Its value can be null, as the literal `null` is, or a binding
  * whose value is null.
  *
- * @extends GrammarParser<mixed>
+ * @extends Parser<mixed>
  */
-final class ParseArgument extends GrammarParser
+final class ParseArgument extends Parser
 {
     protected function read(): mixed
     {

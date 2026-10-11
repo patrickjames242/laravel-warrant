@@ -3,15 +3,15 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * One ability: a name, or `*` for every ability.
  *
- * @extends GrammarParser<string>
+ * @extends Parser<string>
  */
-final class ParseAbility extends GrammarParser
+final class ParseAbility extends Parser
 {
     protected function read(): string|NoMatch
     {

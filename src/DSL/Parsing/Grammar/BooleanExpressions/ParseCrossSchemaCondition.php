@@ -4,8 +4,9 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A cross-schema condition check:
@@ -15,10 +16,12 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * conditions. It stops at `for`, which is neither an operator nor the start of
  * an operand.
  *
- * @extends GrammarParser<CrossSchemaConditionNode>
+ * @extends Parser<CrossSchemaConditionNode>
  */
-final class ParseCrossSchemaCondition extends GrammarParser
+final class ParseCrossSchemaCondition extends Parser
 {
+    use ReportsMissingSyntax;
+
     protected function read(): CrossSchemaConditionNode|NoMatch
     {
         if (! $this->check(TokenType::CHECK)) {

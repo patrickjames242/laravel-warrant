@@ -6,8 +6,8 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * Whether the rule entry here, written with no `for` header, names the
@@ -24,10 +24,12 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * reading the entry for real fails at the same place, before its naming is
  * looked at.
  *
- * @extends GrammarParser<bool>
+ * @extends Parser<bool>
  */
-final class ParseWhetherRuleEntryNamesAbilities extends GrammarParser
+final class ParseWhetherRuleEntryNamesAbilities extends Parser
 {
+    use LooksAheadAtRuleEntries;
+
     protected function read(): bool|NoMatch
     {
         if ($this->abilityBlockAhead()) {

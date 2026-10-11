@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The abilities one `they can` / `they cannot` clause names after its keyword:
@@ -13,10 +13,13 @@ use Warrant\DSL\Parsing\Grammar\GrammarParser;
  * the ability is said, so every clause in the block has a single reading and
  * the header stays a complete account of what the block is about.
  *
- * @extends GrammarParser<list<string>>
+ * @extends Parser<list<string>>
  */
-final class ParseClauseAbilityList extends GrammarParser
+final class ParseClauseAbilityList extends Parser
 {
+    use LooksAheadAtRuleEntries;
+    use ReportsAbilityNamingMismatches;
+
     /**
      * @param string $part The clause's part the abilities are, as its node
      *   names it.

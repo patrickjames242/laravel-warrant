@@ -6,18 +6,21 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A `with` context map: `with key = arg (, key = arg)*`, or {@see NOTHING}
  * when no `with` is here. Keys are the target schema's context key names, and each may be
  * given once.
  *
- * @extends GrammarParser<array<string, mixed>>
+ * @extends Parser<array<string, mixed>>
  */
-final class ParseWithContextMap extends GrammarParser
+final class ParseWithContextMap extends Parser
 {
+    use ReportsMissingSyntax;
+
     /**
      * @param class-string<CrossSchemaCanNode|CrossSchemaConditionNode> $owner The
      *   node the map belongs to, whose constants name the parts read here.

@@ -6,8 +6,8 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * An ability block: `can they <ability>, ... { <rules> }`, whose rules take the
@@ -17,10 +17,13 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * source writes them, and the header alone says which abilities they take;
  * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
  *
- * @extends GrammarParser<AbilityBlockNode>
+ * @extends Parser<AbilityBlockNode>
  */
-final class ParseAbilityBlock extends GrammarParser
+final class ParseAbilityBlock extends Parser
 {
+    use LooksAheadAtRuleEntries;
+    use ReportsAbilityNamingMismatches;
+
     /**
      * @param AbilityNaming $naming The naming of the body the block is written
      *   in, not of the block's own body.

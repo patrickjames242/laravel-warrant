@@ -5,16 +5,16 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * One `they can ...` or `they cannot ...` clause. The clause node is recorded
  * from its `can` / `cannot`, without the `they`.
  *
- * @extends GrammarParser<CanClauseNode|CannotClauseNode>
+ * @extends Parser<CanClauseNode|CannotClauseNode>
  */
-final class ParseTheyClause extends GrammarParser
+final class ParseTheyClause extends Parser
 {
     public function __construct(private readonly AbilityNaming $naming)
     {

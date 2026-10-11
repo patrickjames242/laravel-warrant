@@ -5,16 +5,16 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A condition: its name, and its arguments when it is written with
  * parentheses. A condition written without them takes no arguments.
  *
- * @extends GrammarParser<ConditionNode>
+ * @extends Parser<ConditionNode>
  */
-final class ParseCondition extends GrammarParser
+final class ParseCondition extends Parser
 {
     protected function read(): ConditionNode|NoMatch
     {

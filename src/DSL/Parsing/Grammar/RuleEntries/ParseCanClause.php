@@ -4,15 +4,15 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The `can <abilities>` of a `they can` clause, from the `can` on.
  *
- * @extends GrammarParser<CanClauseNode>
+ * @extends Parser<CanClauseNode>
  */
-final class ParseCanClause extends GrammarParser
+final class ParseCanClause extends Parser
 {
     public function __construct(private readonly AbilityNaming $naming)
     {

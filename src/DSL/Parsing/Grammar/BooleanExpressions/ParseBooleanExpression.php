@@ -7,8 +7,9 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A boolean expression: operands joined by `and` and `or`, where `and` binds
@@ -18,10 +19,12 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  *
  * Each `and` / `or` node is recorded from its first operand to its last.
  *
- * @extends GrammarParser<IBooleanExpressionNode>
+ * @extends Parser<IBooleanExpressionNode>
  */
-final class ParseBooleanExpression extends GrammarParser
+final class ParseBooleanExpression extends Parser
 {
+    use ReportsMissingSyntax;
+
     protected function read(): IBooleanExpressionNode|NoMatch
     {
         $start = $this->peek();

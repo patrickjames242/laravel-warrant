@@ -3,8 +3,8 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\ParseOneOf;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The entries of a rule body: unconditional rules, `if` rules, ability blocks
@@ -16,10 +16,12 @@ use Warrant\DSL\Parsing\Parsers\ParseOneOf;
  * keeps its place as an {@see \Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode}
  * holding its own entries.
  *
- * @extends GrammarParser<list<IRuleEntryNode>>
+ * @extends Parser<list<IRuleEntryNode>>
  */
-final class ParseRuleEntries extends GrammarParser
+final class ParseRuleEntries extends Parser
 {
+    use LooksAheadAtRuleEntries;
+
     /**
      * @param AbilityNaming $naming Whether clauses and includes in this body name
      *   their abilities.

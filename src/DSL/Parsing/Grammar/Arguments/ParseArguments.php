@@ -3,8 +3,9 @@
 namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A parenthesized argument list, `(arg, ...)`, with each argument noted as a
@@ -13,10 +14,12 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * handle reads as selecting no rows and a condition as taking no arguments,
  * where `()` is a list that is empty.
  *
- * @extends GrammarParser<list<mixed>>
+ * @extends Parser<list<mixed>>
  */
-final class ParseArguments extends GrammarParser
+final class ParseArguments extends Parser
 {
+    use ReportsMissingSyntax;
+
     /**
      * @param string $part The part of the node around them the arguments are,
      *   as that node names it.

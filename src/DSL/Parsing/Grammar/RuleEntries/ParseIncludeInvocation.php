@@ -5,8 +5,9 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * An `@include`: the template to expand, its arguments, and the abilities the
@@ -17,10 +18,13 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * clause's ability list is: the block header is the one place the ability is
  * said. In rules with no `for` header it does what the first entry did.
  *
- * @extends GrammarParser<IncludeInvocationNode>
+ * @extends Parser<IncludeInvocationNode>
  */
-final class ParseIncludeInvocation extends GrammarParser
+final class ParseIncludeInvocation extends Parser
 {
+    use ReportsMissingSyntax;
+    use ReportsAbilityNamingMismatches;
+
     public function __construct(private readonly AbilityNaming $naming)
     {
     }

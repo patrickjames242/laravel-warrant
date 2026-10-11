@@ -3,16 +3,16 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * One operand of `and` / `or`: a negation, a parenthesized boolean expression,
  * a `can(...)`, a `check(...)` or a condition.
  *
- * @extends GrammarParser<IBooleanExpressionNode>
+ * @extends Parser<IBooleanExpressionNode>
  */
-final class ParseBooleanOperand extends GrammarParser
+final class ParseBooleanOperand extends Parser
 {
     protected function read(): IBooleanExpressionNode|NoMatch
     {

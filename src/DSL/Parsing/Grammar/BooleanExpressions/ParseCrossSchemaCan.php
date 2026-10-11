@@ -4,8 +4,9 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * An ability check: `can(<ability>)`, or
@@ -14,10 +15,12 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * In expression position `can` is always this builtin: the clause keyword in
  * `they can ...` is read by {@see \Warrant\DSL\Parsing\Grammar\RuleEntries\ParseCanClause} and never reaches here.
  *
- * @extends GrammarParser<CrossSchemaCanNode>
+ * @extends Parser<CrossSchemaCanNode>
  */
-final class ParseCrossSchemaCan extends GrammarParser
+final class ParseCrossSchemaCan extends Parser
 {
+    use ReportsMissingSyntax;
+
     protected function read(): CrossSchemaCanNode|NoMatch
     {
         if (! $this->check(TokenType::CAN)) {

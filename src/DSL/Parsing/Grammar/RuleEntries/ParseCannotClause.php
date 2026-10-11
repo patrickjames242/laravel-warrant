@@ -5,16 +5,16 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Closure;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The `cannot <abilities> [because <message>]` of a `they cannot` clause, from
  * the `cannot` on.
  *
- * @extends GrammarParser<CannotClauseNode>
+ * @extends Parser<CannotClauseNode>
  */
-final class ParseCannotClause extends GrammarParser
+final class ParseCannotClause extends Parser
 {
     public function __construct(private readonly AbilityNaming $naming)
     {

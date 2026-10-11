@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The `for <schema>` blocks of a text: one unbraced block running to the end of
@@ -16,9 +17,9 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * {@see \Warrant\DSL\Parsing\ASTNodes\WarrantSyntax::forSchema()} folds
  * same-schema rule sets together.
  *
- * @extends GrammarParser<list<ISchemaScopedNode>>
+ * @extends Parser<list<ISchemaScopedNode>>
  */
-final class ParseForSchemaBlocks extends GrammarParser
+final class ParseForSchemaBlocks extends Parser
 {
     /**
      * @return list<ISchemaScopedNode>|NoMatch

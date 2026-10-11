@@ -6,7 +6,8 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
-use Warrant\DSL\Parsing\Grammar\GrammarParser;
+use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * The schema handle after `for` in `can(...)` and `check(...)`: a schema name
@@ -21,10 +22,12 @@ use Warrant\DSL\Parsing\Grammar\GrammarParser;
  * of the handle's coherence, including whether the alias is allowed, since an
  * unbound handle selects nothing to name.
  *
- * @extends GrammarParser<array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string}>
+ * @extends Parser<array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string}>
  */
-final class ParseSchemaHandle extends GrammarParser
+final class ParseSchemaHandle extends Parser
 {
+    use ReportsMissingSyntax;
+
     /**
      * @param class-string<CrossSchemaCanNode|CrossSchemaConditionNode> $owner The
      *   node the handle belongs to, whose constants name the parts read here.

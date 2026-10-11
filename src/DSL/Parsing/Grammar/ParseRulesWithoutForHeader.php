@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseWhetherRuleEntryNamesAbilities;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * Rule entries written with no `for` header, running to the end of the input;
@@ -17,9 +18,9 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * them to be named where the rules are placed, as a rule template's body does.
  * The first entry decides which, and the entries are read held to it.
  *
- * @extends GrammarParser<list<IRuleEntryNode>>
+ * @extends Parser<list<IRuleEntryNode>>
  */
-final class ParseRulesWithoutForHeader extends GrammarParser
+final class ParseRulesWithoutForHeader extends Parser
 {
     /**
      * @return list<IRuleEntryNode>|NoMatch

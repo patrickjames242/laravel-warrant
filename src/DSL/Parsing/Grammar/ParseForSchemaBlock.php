@@ -8,8 +8,10 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
+use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A `for <schema>` header and the body it scopes, braced as
@@ -20,10 +22,13 @@ use Warrant\DSL\Parsing\Parsers\NoMatch;
  * the node, so the body is read here rather than by a parser of its own, which
  * would record the node from where the body starts.
  *
- * @extends GrammarParser<ISchemaScopedNode>
+ * @extends Parser<ISchemaScopedNode>
  */
-final class ParseForSchemaBlock extends GrammarParser
+final class ParseForSchemaBlock extends Parser
 {
+    use ReportsMissingSyntax;
+    use LooksAheadAtRuleEntries;
+
     public function __construct(private readonly bool $braced)
     {
     }
