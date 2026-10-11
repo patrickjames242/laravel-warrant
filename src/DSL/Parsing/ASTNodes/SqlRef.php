@@ -17,7 +17,12 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * neither the schema registry nor the query grammar: the body is emitted verbatim.
  * The SQL is entirely the rule author's responsibility (table scoping, injection).
  */
-readonly class SqlRef
+readonly class SqlRef implements INode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. The SQL is
+       recorded as the string literal or binding it was written as. */
+    public const PART_SQL = 'sql';
+
     public function __construct(public string $sql) {}
 }

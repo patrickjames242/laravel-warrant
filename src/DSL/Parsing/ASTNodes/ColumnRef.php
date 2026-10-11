@@ -22,8 +22,13 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * can splice it straight into the query builder without it being re-quoted or
  * bound as a value.
  */
-readonly class ColumnRef
+readonly class ColumnRef implements INode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_ALIAS = 'alias';
+    public const PART_COLUMN = 'column';
+
     /**
      * @param string|null $alias The name of the frame whose rows this column
      *   belongs to: a schema key, or an alias a surrounding `check(...)` handle

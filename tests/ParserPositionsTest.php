@@ -3,12 +3,15 @@
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ParseResult;
@@ -74,6 +77,7 @@ const POSITIONS_CORPUS = [
     'braced blocks' => 'for docs { they can view } for folders { is_open } for docs { }',
     'an empty scoped body' => 'for docs',
     'comments' => "for docs { # rules\n  if is_owner # why\n they can view # done\n} # end",
+    'symbolic references' => 'if in_period(@context year, @column docs.org_id, @column org_id, @sql "select 1") they can view',
 ];
 
 it('records every node with the text it was written as', function () {
@@ -82,6 +86,7 @@ it('records every node with the text it was written as', function () {
         ['WarrantRuleNode', "if is_owner(@context org) and not (is_archived or is_locked) they can view they cannot edit because 'no'"],
         ['AndNode', 'is_owner(@context org) and not (is_archived or is_locked)'],
         ['ConditionNode', 'is_owner(@context org)'],
+        ['ContextRef', '@context org'],
         ['NotNode', 'not (is_archived or is_locked)'],
         ['OrNode', 'is_archived or is_locked'],
         ['ConditionNode', 'is_archived'],
@@ -105,6 +110,8 @@ it('records cross-schema references whole, and the predicate inside', function (
         ['ConditionNode', 'is_open'],
         ['NotNode', 'not is_locked'],
         ['ConditionNode', 'is_locked'],
+        ['ContextRef', '@context folder'],
+        ['ContextRef', '@context org'],
         ['CrossSchemaCanNode', 'can(edit for folders)'],
         ['CanClauseNode', 'can view'],
     ]);
@@ -142,6 +149,18 @@ it('records each for body from its header', function () {
         ['RuleSetNode', 'for docs { }'],
     ])->and(recordedNodes(POSITIONS_CORPUS['an empty scoped body']))->toBe([
         ['RuleSetNode', 'for docs'],
+    ]);
+});
+
+it('records each symbolic reference as written', function () {
+    expect(recordedNodes(POSITIONS_CORPUS['symbolic references']))->toBe([
+        ['WarrantRuleNode', POSITIONS_CORPUS['symbolic references']],
+        ['ConditionNode', 'in_period(@context year, @column docs.org_id, @column org_id, @sql "select 1")'],
+        ['ContextRef', '@context year'],
+        ['ColumnRef', '@column docs.org_id'],
+        ['ColumnRef', '@column org_id'],
+        ['SqlRef', '@sql "select 1"'],
+        ['CanClauseNode', 'can view'],
     ]);
 });
 
@@ -187,6 +206,22 @@ it('finds what an offset is inside, from the rule set down to the part', functio
             ['RuleSetNode', null], ['WarrantRuleNode', null], ['AndNode', null], ['NotNode', null],
             ['OrNode', null], ['ConditionNode', null], ['ConditionNode', ConditionNode::PART_CONDITION_KEY],
         ]);
+});
+
+it('puts an argument inside the part of the node it is passed to', function () {
+    $source = POSITIONS_CORPUS['symbolic references'];
+    $result = WarrantParser::parseWithPositions($source);
+
+    $chain = array_map(
+        static fn (SourceEntry $entry): array => [(new ReflectionClass($entry->node))->getShortName(), $entry->part, $entry->key],
+        $result->positions->containing(strpos($source, 'org_id') + 2),
+    );
+
+    expect($chain)->toBe([
+        ['WarrantRuleNode', null, null], ['ConditionNode', null, null],
+        ['ConditionNode', ConditionNode::PART_PARAMETERS, 1], ['ColumnRef', null, null],
+        ['ColumnRef', ColumnRef::PART_COLUMN, null],
+    ]);
 });
 
 // -- parts ----------------------------------------------------------------------
@@ -239,6 +274,27 @@ it('records each part of a cross-schema reference', function () {
         ->and(partText($result, $source, $check->predicate, ConditionNode::PART_PARAMETERS, 0))->toBe('@column docs.org_id')
         ->and(partText($result, $source, $rule->canClauses[0], CanClauseNode::PART_ABILITIES, 0))->toBe('edit')
         ->and(partText($result, $source, $rule->canClauses[0], CanClauseNode::PART_ABILITIES, 1))->toBe('*');
+});
+
+it('records the names inside each symbolic reference', function () {
+    $source = POSITIONS_CORPUS['symbolic references'];
+    $result = WarrantParser::parseWithPositions($source);
+    [$context, $qualified, $unqualified, $sql] = $result->syntax->children[0]->conditions->parameters;
+
+    expect(partText($result, $source, $context, ContextRef::PART_KEY))->toBe('year')
+        ->and(partText($result, $source, $qualified, ColumnRef::PART_ALIAS))->toBe('docs')
+        ->and(partText($result, $source, $qualified, ColumnRef::PART_COLUMN))->toBe('org_id')
+        ->and(partText($result, $source, $unqualified, ColumnRef::PART_ALIAS))->toBeNull()
+        ->and(partText($result, $source, $unqualified, ColumnRef::PART_COLUMN))->toBe('org_id')
+        ->and(partText($result, $source, $sql, SqlRef::PART_SQL))->toBe('"select 1"');
+});
+
+it('records a bound @sql string as the binding it was written as', function () {
+    $source = 'if in_period(@sql :query) they can view';
+    $result = WarrantParser::parseWithPositions($source, ['query' => 'select 1']);
+    $sql = $result->syntax->children[0]->conditions->parameters[0];
+
+    expect(partText($result, $source, $sql, SqlRef::PART_SQL))->toBe(':query');
 });
 
 it('records the schema of every for header', function () {

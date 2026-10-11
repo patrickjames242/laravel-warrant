@@ -13,6 +13,10 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * reference. Its value can be null, as the literal `null` is, or a binding
  * whose value is null.
  *
+ * A reference is a node, and each name or string inside it is one of its parts,
+ * so the key of `@context org` and the frame and column of `@column docs.org_id`
+ * each have a place in the text of their own.
+ *
  * @extends Parser<mixed>
  */
 final class ParseArgument extends Parser
@@ -43,9 +47,10 @@ final class ParseArgument extends Parser
     {
         $this->advance(); // consume '@context'
 
-        return new ContextRef(
-            $this->expect(TokenType::IDENTIFIER, "Expected a context key after '@context'.")->lexeme,
-        );
+        $key = $this->expect(TokenType::IDENTIFIER, "Expected a context key after '@context'.");
+        $this->part(ContextRef::PART_KEY, null, $key);
+
+        return new ContextRef($key->lexeme);
     }
 
     /**
@@ -57,18 +62,21 @@ final class ParseArgument extends Parser
     {
         $this->advance(); // consume '@column'
 
-        $first = $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column'.")->lexeme;
+        $first = $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column'.");
 
         if (! $this->check(TokenType::DOT)) {
-            return new ColumnRef(null, $first);
+            $this->part(ColumnRef::PART_COLUMN, null, $first);
+
+            return new ColumnRef(null, $first->lexeme);
         }
 
+        $this->part(ColumnRef::PART_ALIAS, null, $first);
         $this->advance(); // consume '.'
 
-        return new ColumnRef(
-            $first,
-            $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column {$first}.'.")->lexeme,
-        );
+        $column = $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column {$first->lexeme}.'.");
+        $this->part(ColumnRef::PART_COLUMN, null, $column);
+
+        return new ColumnRef($first->lexeme, $column->lexeme);
     }
 
     /**
@@ -93,6 +101,8 @@ final class ParseArgument extends Parser
         if (! is_string($sql)) {
             throw $this->errorAt(sprintf('An @sql binding must resolve to a string, got %s.', get_debug_type($sql)), $token);
         }
+
+        $this->part(SqlRef::PART_SQL, null, $token);
 
         return new SqlRef($sql);
     }

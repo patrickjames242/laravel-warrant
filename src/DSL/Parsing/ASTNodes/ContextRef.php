@@ -9,7 +9,11 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * the compiled AST (inside {@see ConditionNode::$parameters}) and is filled per
  * check from the context bag by {@see RuleSetCompiler}.
  */
-readonly class ContextRef
+readonly class ContextRef implements INode
 {
+    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
+       node's parts under: each is the property the part is stored in. */
+    public const PART_KEY = 'key';
+
     public function __construct(public string $key) {}
 }

@@ -52,22 +52,27 @@ final class SourceMap
      * offset is on; the ones before it say what that sits inside, such as the
      * check(...) whose schema a condition name belongs to.
      *
-     * A node and its own part can cover the same text — a condition written
-     * without arguments is just its name — and then the node comes first.
+     * Entries can cover the same text: a node and its own part, as a condition
+     * written without arguments is just its name, or a node and the part of the
+     * node around it that it is, as `@context org` is both a reference and an
+     * argument of the condition it is passed to. The one holding the other comes
+     * first. Entries are kept in the order they were recorded, and a node is
+     * recorded only once everything inside it has been, so of two over the same
+     * text the one recorded later holds the other.
      *
      * @return list<SourceEntry>
      */
     public function containing(int $offset): array
     {
-        $found = array_values(array_filter(
+        $found = array_filter(
             $this->entries,
             static fn (SourceEntry $entry): bool => $entry->span->contains($offset),
-        ));
+        );
 
-        usort($found, static fn (SourceEntry $a, SourceEntry $b): int =>
-            [$b->span->length(), $a->part !== null] <=> [$a->span->length(), $b->part !== null]);
+        uksort($found, static fn (int $a, int $b): int =>
+            [$found[$b]->span->length(), $b] <=> [$found[$a]->span->length(), $a]);
 
-        return $found;
+        return array_values($found);
     }
 
     /**
