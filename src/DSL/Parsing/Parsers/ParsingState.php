@@ -9,6 +9,8 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\BindingState;
 use Warrant\DSL\Parsing\Positions\SourceMap;
+use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * One parse of one text, shared by every {@see Parser} reading it: where the
@@ -19,10 +21,17 @@ use Warrant\DSL\Parsing\Positions\SourceMap;
  * {@see SourceMap} only once the parse is done. A parser that does not match
  * has its records cut off the end of the log, so nothing it read reaches the
  * map.
+ *
+ * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
+ * has it: the lexer reports its errors instead of throwing them, and the
+ * placeholders have no values.
  */
 final class ParsingState
 {
     public int $index = 0;
+
+    /** @var list<SyntaxDiagnostic> Every syntax error found so far, for analysis. */
+    public array $diagnostics = [];
 
     /**
      * The owner of a part is null until the node it belongs to is returned.
@@ -60,13 +69,38 @@ final class ParsingState
      */
     public static function forSource(string $source, array $bindings = []): self
     {
-        // Comments say nothing about what a rule means, so the grammar never sees them.
-        $tokens = array_values(array_filter(
-            (new Lexer($source))->tokenize(),
-            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
-        ));
+        return new self($source, self::withoutComments((new Lexer($source))->tokenize()), new BindingState($source, $bindings));
+    }
 
-        return new self($source, $tokens, new BindingState($source, $bindings));
+    /**
+     * The state for analysing $source: every lexical error becomes a diagnostic
+     * and text the lexer could not read an ERROR token, and the placeholders
+     * stand for values that are not known.
+     */
+    public static function forAnalysis(string $source): self
+    {
+        $scanned = (new Lexer($source))->scan();
+        $state = new self($source, self::withoutComments($scanned->tokens), BindingState::placeholdersAsTheirOwnText($source));
+        $state->diagnostics = $scanned->diagnostics;
+
+        return $state;
+    }
+
+    /**
+     * Note $error as a diagnostic, over the token it was raised at.
+     */
+    public function diagnose(WarrantSyntaxException $error): void
+    {
+        $endOffset = $error->offset;
+
+        foreach ($this->tokens as $token) {
+            if ($token->offset === $error->offset) {
+                $endOffset = $token->endOffset();
+                break;
+            }
+        }
+
+        $this->diagnostics[] = new SyntaxDiagnostic($error->reason, $error->offset, $endOffset);
     }
 
     public function checkpoint(): Checkpoint
@@ -150,6 +184,20 @@ final class ParsingState
                 ? $map->record($node, $first, $last)
                 : $map->recordPart($node, $part, $key, $first, $last);
         }
+    }
+
+    /**
+     * Comments say nothing about what a rule means, so the grammar never sees them.
+     *
+     * @param list<Token> $tokens
+     * @return list<Token>
+     */
+    private static function withoutComments(array $tokens): array
+    {
+        return array_values(array_filter(
+            $tokens,
+            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
+        ));
     }
 
     private function isRecorded(INode $node): bool

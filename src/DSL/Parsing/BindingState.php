@@ -11,6 +11,10 @@ use Warrant\DSL\Lexing\Token;
  *  - Named and positional bindings may not be mixed in one parse.
  *  - Every `:name` must have a matching binding; every `?` must have a value.
  *  - Every provided binding must be referenced by at least one placeholder.
+ *
+ * Text being analysed for an editor has no values to bind;
+ * {@see placeholdersAsTheirOwnText()} makes a state for it, where only the
+ * first rule applies.
  */
 final class BindingState
 {
@@ -30,12 +34,26 @@ final class BindingState
 
     /**
      * @param array<int|string, mixed> $bindings
+     * @param bool $placeholdersAsTheirOwnText Whether there are no values at
+     *   all, and each placeholder resolves to its own text.
      */
     public function __construct(
         private readonly string $source,
         private readonly array $bindings,
+        private readonly bool $placeholdersAsTheirOwnText = false,
     ) {
         $this->positional = array_values($bindings);
+    }
+
+    /**
+     * The state for text whose values are not known, as an editor has it. Each
+     * placeholder resolves to its own text, `:name` or `?`: a string, because a
+     * denial message and an `@sql` body must be one, and the text says which
+     * placeholder it stands for.
+     */
+    public static function placeholdersAsTheirOwnText(string $source): self
+    {
+        return new self($source, [], placeholdersAsTheirOwnText: true);
     }
 
     public function resolveNamed(Token $token): mixed
@@ -45,6 +63,10 @@ final class BindingState
         }
 
         $this->mode = self::MODE_NAMED;
+
+        if ($this->placeholdersAsTheirOwnText) {
+            return $token->lexeme;
+        }
 
         $name = $token->value;
 
@@ -65,6 +87,10 @@ final class BindingState
 
         $this->mode = self::MODE_POSITIONAL;
 
+        if ($this->placeholdersAsTheirOwnText) {
+            return $token->lexeme;
+        }
+
         if ($this->positionalCursor >= count($this->positional)) {
             throw WarrantSyntaxException::at('More positional placeholders (?) than bindings provided.', $this->source, $token);
         }
@@ -77,6 +103,10 @@ final class BindingState
      */
     public function finalize(Token $eof): void
     {
+        if ($this->placeholdersAsTheirOwnText) {
+            return;
+        }
+
         if ($this->mode === self::MODE_POSITIONAL) {
             $remaining = count($this->positional) - $this->positionalCursor;
 

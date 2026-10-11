@@ -100,4 +100,30 @@ final class WarrantParser
 
         return new ParseResult($syntax, $positions);
     }
+
+    /**
+     * Read Warrant syntax of any form as an editor has it — mid-edit, and with
+     * no values for its placeholders — reporting syntax errors as diagnostics
+     * instead of throwing them.
+     *
+     * Each `:name` or `?` stands for a value that is not known; see
+     * {@see BindingState::placeholdersAsTheirOwnText()}. Every lexical error is
+     * reported, and the read goes on past it. An error the grammar meets ends
+     * the read: it is reported too, and the tree is then empty.
+     */
+    public static function analyze(string $source): ParseResult
+    {
+        $state = ParsingState::forAnalysis($source);
+        $positions = new SourceMap;
+
+        try {
+            $syntax = Parser::run(new ParseSyntax, $state);
+            $state->commitTo($positions);
+        } catch (WarrantSyntaxException $error) {
+            $state->diagnose($error);
+            $syntax = new WarrantSyntax([]);
+        }
+
+        return new ParseResult($syntax, $positions, $state->diagnostics);
+    }
 }

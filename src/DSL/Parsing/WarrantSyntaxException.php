@@ -15,14 +15,18 @@ use Warrant\DSL\Lexing\Token;
  */
 class WarrantSyntaxException extends RuntimeException
 {
+    /**
+     * @param string $reason The error alone, without the position and the
+     *   excerpt of the source that the exception's message adds to it.
+     */
     public function __construct(
-        string $message,
+        public readonly string $reason,
         public readonly string $source,
         public readonly int $offset,
         public readonly int $sourceLine,
         public readonly int $sourceColumn,
     ) {
-        parent::__construct($this->decorate($message));
+        parent::__construct($this->decorate($reason));
     }
 
     /**
