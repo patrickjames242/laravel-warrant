@@ -18,6 +18,10 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * clause's ability list is: the block header is the one place the ability is
  * said. In rules with no `for` header it does what the first entry did.
  *
+ * A `for` list written inside a block is reported, and read and dropped. One
+ * written, or left off, against the first entry of rules with no `for` header is
+ * reported, and the include takes what is written.
+ *
  * @extends Parser<IncludeInvocationNode>
  */
 final class ParseIncludeInvocation extends Parser
@@ -51,13 +55,17 @@ final class ParseIncludeInvocation extends Parser
         $names = $this->check(TokenType::FOR);
 
         if ($this->naming === AbilityNaming::Forbidden && $names) {
-            throw $this->errorAtCurrent(
+            $this->report($this->errorAtCurrent(
                 'An @include inside an ability block may not name abilities; the block header already names them.'
-            );
+            ));
+            $this->advance(); // consume 'for'
+            $this->parse(new ParseAbilityList(null));
+
+            return new IncludeInvocationNode($template->lexeme, $arguments);
         }
 
         if ($this->naming->followsFirstEntry() && $names !== $this->naming->names()) {
-            throw $this->abilityNamingMismatchError($names, 'This @include');
+            $this->report($this->abilityNamingMismatchError($names, 'This @include'));
         }
 
         if ($this->naming === AbilityNaming::Required && ! $names) {

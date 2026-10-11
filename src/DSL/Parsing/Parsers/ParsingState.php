@@ -23,8 +23,9 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * map.
  *
  * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
- * has it: the lexer reports its errors instead of throwing them, and the
- * placeholders have no values.
+ * has it: the lexer reports its errors instead of throwing them, so does the
+ * grammar where it can read on past one, and the placeholders have no values.
+ * A parser that does not match has its diagnostics cut off too.
  */
 final class ParsingState
 {
@@ -54,11 +55,14 @@ final class ParsingState
 
     /**
      * @param list<Token> $tokens Ending in the EOF token.
+     * @param bool $reportsErrors Whether an error the parse can read on past is
+     *   noted as a diagnostic rather than thrown.
      */
     public function __construct(
         public readonly string $source,
         public readonly array $tokens,
         public BindingState $bindings,
+        public readonly bool $reportsErrors = false,
     ) {
     }
 
@@ -80,17 +84,31 @@ final class ParsingState
     public static function forAnalysis(string $source): self
     {
         $scanned = (new Lexer($source))->scan();
-        $state = new self($source, self::withoutComments($scanned->tokens), BindingState::placeholdersAsTheirOwnText($source));
+        $state = new self(
+            $source,
+            self::withoutComments($scanned->tokens),
+            BindingState::placeholdersAsTheirOwnText($source),
+            reportsErrors: true,
+        );
         $state->diagnostics = $scanned->diagnostics;
 
         return $state;
     }
 
     /**
-     * Note $error as a diagnostic, over the token it was raised at.
+     * Note $error as a diagnostic, over the token it was raised at, unless an
+     * error is already noted there. The first error at a place is the one that
+     * says what is wrong with it, and the rest follow from it, as a parser
+     * reading an ERROR token follows from the lexer failing to read the text.
      */
     public function diagnose(WarrantSyntaxException $error): void
     {
+        foreach ($this->diagnostics as $diagnostic) {
+            if ($diagnostic->offset === $error->offset) {
+                return;
+            }
+        }
+
         $endOffset = $error->offset;
 
         foreach ($this->tokens as $token) {
@@ -105,7 +123,13 @@ final class ParsingState
 
     public function checkpoint(): Checkpoint
     {
-        return new Checkpoint($this->index, clone $this->bindings, count($this->records), count($this->unclaimed));
+        return new Checkpoint(
+            $this->index,
+            clone $this->bindings,
+            count($this->records),
+            count($this->unclaimed),
+            count($this->diagnostics),
+        );
     }
 
     /**
@@ -118,6 +142,7 @@ final class ParsingState
         $this->bindings = clone $checkpoint->bindings;
         array_splice($this->records, $checkpoint->records);
         array_splice($this->unclaimed, $checkpoint->unclaimed);
+        array_splice($this->diagnostics, $checkpoint->diagnostics);
     }
 
     /**

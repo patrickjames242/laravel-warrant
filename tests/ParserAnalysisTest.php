@@ -2,8 +2,10 @@
 
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\SyntaxDiagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * The diagnostics of an analysis, as [message, the text each covers].
@@ -59,18 +61,101 @@ it('reports a lexical error and reads on past it', function () {
     ])->and(WarrantParser::analyze($source)->syntax->children)->toHaveCount(1);
 });
 
-it('reports the error a strict read throws, over the token it is at, with an empty tree', function () {
-    $source = 'if a they can view )';
+it('reports an error it cannot read past, over the token it is at, with an empty tree', function () {
+    $source = 'if a( they can view';
     $analysed = WarrantParser::analyze($source);
 
-    expect(analysisDiagnostics($source))->toBe([['Unexpected token; expected end of input.', ')']])
+    expect(analysisDiagnostics($source))->toBe([[
+        'Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <column> or '
+            .'@column <name>.<column>, or @sql "<sql>".',
+        'they',
+    ]])
         ->and($analysed->syntax->children)->toBe([])
         ->and($analysed->positions->containing(0))->toBe([]);
 });
 
-it('reports a lexical error before the grammar error it leads to', function () {
+it('reports only the first error at a place, as the lexer\'s before the grammar\'s it leads to', function () {
     expect(analysisDiagnostics('if a they can view ~'))->toBe([
         ["Unexpected character '~'.", '~'],
-        ['Unexpected token; expected end of input.', '~'],
     ]);
+});
+
+// -- errors the read goes on past -------------------------------------------------
+
+/**
+ * The analysis of $source, which must be the tree a strict read gives $sound,
+ * with $diagnostics.
+ *
+ * @param list<array{0: string, 1: string}> $diagnostics
+ */
+function expectAnalysedAs(string $source, string $sound, array $diagnostics): void
+{
+    expect(WarrantParser::analyze($source)->syntax)->toEqual(WarrantParser::parse($sound))
+        ->and(analysisDiagnostics($source))->toBe($diagnostics);
+}
+
+it('keeps what it read when text follows it', function () {
+    expectAnalysedAs('if a they can view ) b', 'if a they can view', [
+        ['Unexpected token; expected end of input.', ')'],
+    ]);
+});
+
+it('keeps what it read before a block that cannot follow it, and reports the block once', function () {
+    expectAnalysedAs('for a they can view for b they can edit', 'for a they can view', [
+        ['Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.', 'for'],
+    ]);
+    expectAnalysedAs('for a { they can view } they can edit', 'for a { they can view }', [
+        ['Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.', 'they'],
+    ]);
+    expectAnalysedAs('they can view for b they can edit', 'they can view', [
+        ['Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.', 'for'],
+    ]);
+    expectAnalysedAs('{ they can view }', '', [
+        ['A `{ ... }` block needs a `for <schema>` header before it.', '{'],
+    ]);
+});
+
+it('reports abilities named or left off against the rules around them, and keeps what is written', function () {
+    $mismatch = static fn (string $entry, bool $names): string => sprintf(
+        '%s %s, but the rules before it %s; rules with no `for` header either all name their abilities '
+            .'or all leave them to be named where the rules are placed.',
+        $entry,
+        $names ? 'names abilities' : 'names none',
+        $names ? 'name none' : 'name theirs',
+    );
+
+    $syntax = WarrantParser::analyze('they can view they cannot')->syntax;
+
+    expect($syntax->children[0]->canClauses[0]->abilities)->toBe(['view'])
+        ->and($syntax->children[0]->cannotClauses[0]->abilities)->toBe([])
+        ->and(analysisDiagnostics('they can view they cannot'))->toBe([[$mismatch('This clause', false), '']]);
+
+    expect(analysisDiagnostics('they can if a they can view'))->toBe([[$mismatch('This clause', true), 'view']])
+        ->and(analysisDiagnostics('they can @include t for view'))->toBe([[$mismatch('This @include', true), 'for']])
+        ->and(analysisDiagnostics('they can can they view { they can }'))->toBe([[$mismatch('An ability block', true), 'can']]);
+});
+
+it('reports abilities named in an ability block, and reads and drops them', function () {
+    $source = 'for d { can they a { they can b @include t for c } }';
+
+    expectAnalysedAs($source, 'for d { can they a { they can @include t } }', [
+        ['A clause inside an ability block may not name abilities; the block header already names them.', 'b'],
+        ['An @include inside an ability block may not name abilities; the block header already names them.', 'for'],
+    ]);
+});
+
+it('reports a denial message on a can clause and steps over it', function () {
+    expectAnalysedAs("they can view because 'no' they cannot edit", 'they can view they cannot edit', [
+        ["'because' may only follow a 'they cannot ...' clause, not 'they can ...'.", 'because'],
+    ]);
+});
+
+it('drops what a parser that does not match reported', function () {
+    $state = ParsingState::forAnalysis('if a they can view');
+    $checkpoint = $state->checkpoint();
+
+    $state->diagnose(WarrantSyntaxException::atOffset('Wrong.', 'if a they can view', 0, 1, 1));
+    $state->restore($checkpoint);
+
+    expect($state->diagnostics)->toBe([]);
 });

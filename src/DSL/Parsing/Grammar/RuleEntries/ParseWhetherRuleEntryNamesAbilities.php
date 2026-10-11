@@ -3,9 +3,6 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
-use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -20,9 +17,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * it has one, names them unless its `can` / `cannot` is followed by what
  * follows a finished clause.
  *
- * Where the entry is malformed before that is settled, the answer is false:
- * reading the entry for real fails at the same place, before its naming is
- * looked at.
+ * The condition and the arguments are stepped over rather than read, so this
+ * never fails. Where they are malformed, whatever the answer, reading the entry
+ * for real fails at the same place, before its naming is looked at.
  *
  * @extends Parser<bool>
  */
@@ -44,16 +41,15 @@ final class ParseWhetherRuleEntryNamesAbilities extends Parser
             }
 
             $this->advance();
-            $this->parse(new ParseArguments(IncludeInvocationNode::PART_ARGUMENTS, 'the @include arguments'));
+            $this->skipParenthesized();
 
             return $this->check(TokenType::FOR);
         }
 
         if ($this->check(TokenType::IF)) {
-            $this->advance();
-
-            if ($this->parse(ParseBooleanExpression::class) === null) {
-                return false;
+            // A condition never holds a `they`, so the first one ends it.
+            while (! $this->check(TokenType::THEY) && ! $this->check(TokenType::EOF)) {
+                $this->advance();
             }
         } elseif (! $this->check(TokenType::THEY)) {
             return self::NOTHING;
@@ -72,5 +68,28 @@ final class ParseWhetherRuleEntryNamesAbilities extends Parser
         $this->advance();
 
         return ! $this->clauseEndAhead();
+    }
+
+    /**
+     * Step over the parenthesized text here, to its matching `)` or the end of
+     * the input, when a `(` opens it.
+     */
+    private function skipParenthesized(): void
+    {
+        if (! $this->check(TokenType::LPAREN)) {
+            return;
+        }
+
+        $depth = 0;
+
+        do {
+            if ($this->check(TokenType::LPAREN)) {
+                $depth++;
+            } elseif ($this->check(TokenType::RPAREN)) {
+                $depth--;
+            }
+
+            $this->advance();
+        } while ($depth > 0 && ! $this->check(TokenType::EOF));
     }
 }

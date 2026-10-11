@@ -17,6 +17,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * source writes them, and the header alone says which abilities they take;
  * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
  *
+ * In rules with no `for` header whose first entry names no abilities, a block
+ * is reported, and read as written.
+ *
  * @extends Parser<AbilityBlockNode>
  */
 final class ParseAbilityBlock extends Parser
@@ -45,7 +48,7 @@ final class ParseAbilityBlock extends Parser
         }
 
         if ($this->naming === AbilityNaming::FirstEntryNamesNone) {
-            throw $this->abilityNamingMismatchError(true, 'An ability block');
+            $this->report($this->abilityNamingMismatchError(true, 'An ability block'));
         }
 
         $this->advance(); // consume 'can'

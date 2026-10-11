@@ -35,9 +35,9 @@ final class ParseForSchemaBlocks extends Parser
             $block = $this->parse(new ParseForSchemaBlock(braced: false))->value;
 
             if ($this->check(TokenType::FOR) || $this->check(TokenType::LBRACE)) {
-                throw $this->errorAtCurrent(
+                $this->report($this->errorAtCurrent(
                     'Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.'
-                );
+                ));
             }
 
             return [$block];
@@ -46,9 +46,9 @@ final class ParseForSchemaBlocks extends Parser
         $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true))->value;
 
         if (! $this->check(TokenType::EOF)) {
-            throw $this->errorAtCurrent(
+            $this->report($this->errorAtCurrent(
                 'Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.'
-            );
+            ));
         }
 
         return $blocks;

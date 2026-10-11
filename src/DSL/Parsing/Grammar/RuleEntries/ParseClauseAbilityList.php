@@ -13,6 +13,10 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * the ability is said, so every clause in the block has a single reading and
  * the header stays a complete account of what the block is about.
  *
+ * A list written where none belongs, or missing where one does, is reported.
+ * In rules with no `for` header the clause takes what is written; in an ability
+ * block a list is read and dropped, since a clause there names none.
+ *
  * @extends Parser<list<string>>
  */
 final class ParseClauseAbilityList extends Parser
@@ -36,23 +40,29 @@ final class ParseClauseAbilityList extends Parser
     protected function read(): array
     {
         if ($this->naming === AbilityNaming::Forbidden) {
-            if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
-                throw $this->errorAtCurrent(
-                    'A clause inside an ability block may not name abilities; the block header already names them.'
-                );
+            if (! $this->check(TokenType::IDENTIFIER) && ! $this->check(TokenType::STAR)) {
+                return [];
             }
+
+            $this->report($this->errorAtCurrent(
+                'A clause inside an ability block may not name abilities; the block header already names them.'
+            ));
+            $this->parse(new ParseAbilityList(null));
 
             return [];
         }
 
-        if ($this->naming->followsFirstEntry()) {
-            $names = ! $this->clauseEndAhead();
+        $names = $this->naming->names();
 
-            if ($names !== $this->naming->names()) {
-                throw $this->abilityNamingMismatchError($names, 'This clause');
+        if ($this->naming->followsFirstEntry()) {
+            $written = ! $this->clauseEndAhead();
+
+            if ($written !== $names) {
+                $this->report($this->abilityNamingMismatchError($written, 'This clause'));
+                $names = $written;
             }
         }
 
-        return $this->naming->names() ? $this->parse(new ParseAbilityList($this->part))->value : [];
+        return $names ? $this->parse(new ParseAbilityList($this->part))->value : [];
     }
 }

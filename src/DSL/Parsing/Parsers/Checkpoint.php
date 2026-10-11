@@ -17,12 +17,14 @@ final readonly class Checkpoint
      *   parser that did not match does not use up a positional value.
      * @param int $records How many records had been made.
      * @param int $unclaimed How many parts were waiting for a node.
+     * @param int $diagnostics How many diagnostics had been made.
      */
     public function __construct(
         public int $index,
         public BindingState $bindings,
         public int $records,
         public int $unclaimed,
+        public int $diagnostics,
     ) {
     }
 }

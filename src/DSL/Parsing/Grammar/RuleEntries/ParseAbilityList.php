@@ -17,10 +17,10 @@ final class ParseAbilityList extends Parser
     use ReportsMissingSyntax;
 
     /**
-     * @param string $part The part of the node around them the abilities are,
-     *   as that node names it.
+     * @param string|null $part The part of the node around them the abilities
+     *   are, as that node names it; null for a list the node does not keep.
      */
-    public function __construct(private readonly string $part)
+    public function __construct(private readonly ?string $part)
     {
     }
 

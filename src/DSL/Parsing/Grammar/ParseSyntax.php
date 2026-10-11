@@ -27,7 +27,9 @@ final class ParseSyntax extends Parser
         }
 
         if ($this->check(TokenType::LBRACE)) {
-            throw $this->errorAtCurrent('A `{ ... }` block needs a `for <schema>` header before it.');
+            $this->report($this->errorAtCurrent('A `{ ... }` block needs a `for <schema>` header before it.'));
+
+            return new WarrantSyntax([]);
         }
 
         $children = $this->parse(ParseForSchemaBlocks::class)

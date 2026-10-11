@@ -36,9 +36,9 @@ final class ParseRulesWithoutForHeader extends Parser
         $entries = $this->parse(new ParseRuleEntries(AbilityNaming::likeFirstEntry($names->value)))->value;
 
         if ($this->check(TokenType::FOR)) {
-            throw $this->errorAtCurrent(
+            $this->report($this->errorAtCurrent(
                 'Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.'
-            );
+            ));
         }
 
         return $entries;

@@ -18,7 +18,9 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * {@see NOTHING} when what it reads is not here. NOTHING puts back everything
  * the parser read, so it can look as far as it needs before deciding. Once it
  * has decided the text is its own, a mistake is an exception: nothing else gets
- * to try, so the error is reported where the mistake is.
+ * to try, so the error is reported where the mistake is. A mistake the parse
+ * can read on past goes through {@see report()} instead, which throws it in a
+ * strict read and notes it in an analysis.
  *
  * A node a parser returns is recorded as written over every token the parser
  * read, and every part read inside it, by this parser or by one it called that
@@ -45,7 +47,8 @@ abstract class Parser
 
     /**
      * Read $root as the whole text: nothing may follow what it reads, and every
-     * binding must have been used. Its result stands for the whole text and is
+     * binding must have been used. In an analysis, text that follows is
+     * reported and left unread. Its result stands for the whole text and is
      * not recorded. A root reads something from any text, if only an error, so
      * {@see NOTHING} from it is a mistake in the parser.
      *
@@ -62,7 +65,10 @@ abstract class Parser
             throw new LogicException(sprintf('%s read nothing as the whole parse.', $root::class));
         }
 
-        $root->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        if (! $root->check(TokenType::EOF)) {
+            $root->report($root->errorAtCurrent('Unexpected token; expected end of input.'));
+        }
+
         $state->bindings->finalize($root->peek());
 
         return $result;
@@ -250,6 +256,19 @@ abstract class Parser
     final protected function errorAtCurrent(string $message): WarrantSyntaxException
     {
         return $this->errorAt($message, $this->peek());
+    }
+
+    /**
+     * Throw $error, or in an analysis note it and go on: for a mistake the
+     * parse can read on past, where what follows reads the same either way.
+     */
+    final protected function report(WarrantSyntaxException $error): void
+    {
+        if (! $this->state->reportsErrors) {
+            throw $error;
+        }
+
+        $this->state->diagnose($error);
     }
 
     /**

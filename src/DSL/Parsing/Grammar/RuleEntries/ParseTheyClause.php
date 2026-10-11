@@ -31,10 +31,16 @@ final class ParseTheyClause extends Parser
         if ($can = $this->parse(new ParseCanClause($this->naming))) {
             // A `because` message only ever surfaces for a matching `cannot`;
             // hanging one off a `can` clause can never fire, so reject it here.
+            // A `can` clause has nowhere to keep one, so it is stepped over.
             if ($this->check(TokenType::BECAUSE)) {
-                throw $this->errorAtCurrent(
+                $this->report($this->errorAtCurrent(
                     "'because' may only follow a 'they cannot ...' clause, not 'they can ...'."
-                );
+                ));
+                $this->advance();
+
+                if (in_array($this->peek()->type, [TokenType::STRING, TokenType::NAMED_BINDING, TokenType::POSITIONAL], true)) {
+                    $this->advance();
+                }
             }
 
             return $can->value;
