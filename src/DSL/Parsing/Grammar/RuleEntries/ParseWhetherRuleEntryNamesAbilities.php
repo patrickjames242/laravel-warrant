@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
-use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseOr;
+use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
 
@@ -50,7 +50,7 @@ final class ParseWhetherRuleEntryNamesAbilities extends GrammarParser
         if ($this->check(TokenType::IF)) {
             $this->advance();
 
-            if ($this->parse(ParseOr::class) === null) {
+            if ($this->parse(ParseBooleanExpression::class) === null) {
                 return false;
             }
         } elseif (! $this->check(TokenType::THEY)) {

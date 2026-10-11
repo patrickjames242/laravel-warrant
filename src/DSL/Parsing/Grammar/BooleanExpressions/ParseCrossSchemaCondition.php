@@ -28,7 +28,7 @@ final class ParseCrossSchemaCondition extends GrammarParser
         $this->advance();
         $this->expect(TokenType::LPAREN, "Expected '(' after 'check'.");
 
-        $predicate = ($this->parse(ParseOr::class) ?? throw $this->missingBooleanExpressionError())->value;
+        $predicate = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
 
         $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 

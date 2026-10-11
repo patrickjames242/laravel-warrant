@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseOr;
+use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\GrammarParser;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
 
@@ -27,7 +27,7 @@ final class ParseConditionalRule extends GrammarParser
         }
 
         $this->advance();
-        $conditions = ($this->parse(ParseOr::class) ?? throw $this->missingBooleanExpressionError())->value;
+        $conditions = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses($this->naming))->value;
 
         return new WarrantRuleNode($conditions, $canClauses, $cannotClauses);

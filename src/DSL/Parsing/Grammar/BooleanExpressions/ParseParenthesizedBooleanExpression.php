@@ -24,7 +24,7 @@ final class ParseParenthesizedBooleanExpression extends GrammarParser
         }
 
         $this->advance();
-        $expression = ($this->parse(ParseOr::class) ?? throw $this->missingBooleanExpressionError())->value;
+        $expression = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
         $this->expect(TokenType::RPAREN, "Expected ')' to close the group.");
 
         return $expression;

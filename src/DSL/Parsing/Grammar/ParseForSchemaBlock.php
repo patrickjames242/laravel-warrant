@@ -6,7 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
-use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseOr;
+use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
@@ -67,7 +67,7 @@ final class ParseForSchemaBlock extends GrammarParser
 
         return new SchemaConditionNode(
             $schemaKey,
-            ($this->parse(ParseOr::class) ?? throw $this->missingBooleanExpressionError())->value,
+            ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value,
         );
     }
 }

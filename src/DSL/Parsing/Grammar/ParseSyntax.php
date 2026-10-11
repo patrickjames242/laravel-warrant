@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseOr;
+use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 
 /**
  * The whole of a text, read with {@see \Warrant\DSL\Parsing\Parsers\Parser::run()}:
@@ -35,7 +35,7 @@ final class ParseSyntax extends GrammarParser
         $this->assertNoAbilityListWithoutCanThey();
 
         return new WarrantSyntax([
-            ($this->parse(ParseOr::class) ?? throw $this->missingBooleanExpressionError())->value,
+            ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value,
         ]);
     }
 }
