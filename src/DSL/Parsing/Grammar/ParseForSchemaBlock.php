@@ -61,10 +61,11 @@ final class ParseForSchemaBlock extends Parser
 
     private function body(string $schemaKey): ISchemaScopedNode
     {
-        $atEnd = $this->check(TokenType::EOF) || $this->check(TokenType::RBRACE);
+        $start = $this->peek();
         $entries = $this->parse(new ParseRuleEntries(AbilityNaming::Required))->value;
 
-        if ($atEnd || $entries !== []) {
+        // Entries read, even ones an analysis stepped over, make the body a rule set.
+        if ($start->type === TokenType::EOF || $start->type === TokenType::RBRACE || $this->peek() !== $start) {
             return new RuleSetNode($schemaKey, $entries);
         }
 

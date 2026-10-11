@@ -38,6 +38,11 @@ abstract class Parser
      */
     final public const NOTHING = NoMatch::NoMatch;
 
+    /**
+     * Read by {@see parseOrSkip()} in place of text it stepped over.
+     */
+    final public const SKIPPED = Skipped::Skipped;
+
     private ParsingState $state;
 
     /**
@@ -163,6 +168,55 @@ abstract class Parser
         ?string $part = null,
     ): ?Parsed {
         return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part));
+    }
+
+    /**
+     * Read $parser here, as {@see parse()} does. In an analysis, an error it
+     * throws is reported instead: everything it read is put back, and the text
+     * from here is stepped over to where reading can start again, and read as
+     * {@see SKIPPED}.
+     *
+     * The step goes at least one token, and at least to where $parser stopped,
+     * so the same error is never met twice and every skip moves the parse on.
+     * From there it goes on to the first token where $restartsHere is true
+     * outside any braces opened along the way, since a brace opens a body of
+     * its own whose tokens restart nothing out here, or to the end of the
+     * input.
+     *
+     * @template R
+     * @param class-string<Parser<R>>|Parser<R> $parser
+     * @param Closure(): bool $restartsHere Whether reading can start again at
+     *   the current token.
+     * @return Parsed<R|Skipped>|null Null when $parser did not match.
+     */
+    final protected function parseOrSkip(string|Parser $parser, Closure $restartsHere): ?Parsed
+    {
+        $checkpoint = $this->state->checkpoint();
+
+        try {
+            return $this->parse($parser);
+        } catch (WarrantSyntaxException $error) {
+            if (! $this->state->reportsErrors) {
+                throw $error;
+            }
+
+            $stoppedAt = $this->state->index;
+            $this->state->restore($checkpoint);
+            $this->state->diagnose($error);
+            $depth = 0;
+
+            do {
+                $depth += match ($this->peek()->type) {
+                    TokenType::LBRACE => 1,
+                    TokenType::RBRACE => -1,
+                    default => 0,
+                };
+                $this->advance();
+            } while (! $this->check(TokenType::EOF)
+                && ($this->state->index < $stoppedAt || $depth > 0 || ! $restartsHere()));
+
+            return new Parsed(self::SKIPPED);
+        }
     }
 
     // -- recording ------------------------------------------------------------

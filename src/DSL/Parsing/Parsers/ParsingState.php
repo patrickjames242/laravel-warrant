@@ -29,6 +29,12 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  */
 final class ParsingState
 {
+    /**
+     * The most diagnostics an analysis notes. Past this many, text is so far
+     * from the grammar that more say nothing new.
+     */
+    public const MAX_DIAGNOSTICS = 100;
+
     public int $index = 0;
 
     /** @var list<SyntaxDiagnostic> Every syntax error found so far, for analysis. */
@@ -103,6 +109,10 @@ final class ParsingState
      */
     public function diagnose(WarrantSyntaxException $error): void
     {
+        if (count($this->diagnostics) >= self::MAX_DIAGNOSTICS) {
+            return;
+        }
+
         foreach ($this->diagnostics as $diagnostic) {
             if ($diagnostic->offset === $error->offset) {
                 return;

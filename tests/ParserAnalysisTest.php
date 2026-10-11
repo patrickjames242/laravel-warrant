@@ -2,6 +2,7 @@
 
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ParseResult;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\SyntaxDiagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -62,14 +63,10 @@ it('reports a lexical error and reads on past it', function () {
 });
 
 it('reports an error it cannot read past, over the token it is at, with an empty tree', function () {
-    $source = 'if a( they can view';
+    $source = 'is_owner and (is_admin or )';
     $analysed = WarrantParser::analyze($source);
 
-    expect(analysisDiagnostics($source))->toBe([[
-        'Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <column> or '
-            .'@column <name>.<column>, or @sql "<sql>".',
-        'they',
-    ]])
+    expect(analysisDiagnostics($source))->toBe([["Expected a condition, 'can(', 'check(', or '('.", ')']])
         ->and($analysed->syntax->children)->toBe([])
         ->and($analysed->positions->containing(0))->toBe([]);
 });
@@ -158,4 +155,50 @@ it('drops what a parser that does not match reported', function () {
     $state->restore($checkpoint);
 
     expect($state->diagnostics)->toBe([]);
+});
+
+// -- recovering from a broken rule entry ------------------------------------------
+
+it('steps over a broken entry and reads the entries after it', function () {
+    expectAnalysedAs('if a they can view if b they can , if d they can share', 'if a they can view if d they can share', [
+        ['Expected an ability name.', ','],
+    ]);
+});
+
+it('steps over a broken entry inside an ability block, and keeps the block', function () {
+    expectAnalysedAs(
+        'for x { can they a { if b and and c they can if d they can } they can e }',
+        'for x { can they a { they can if d they can } they can e }',
+        [["Reserved word 'and' cannot be used as a name; expected a condition, 'can(', 'check(', or '('.", 'and']],
+    );
+});
+
+it('steps over braces a broken entry runs into, rather than restarting inside them', function () {
+    expectAnalysedAs('for x { if a they can , y { they can z } they can w }', 'for x { they can w }', [
+        ['Expected an ability name.', ','],
+    ]);
+});
+
+it('reads a for body as a rule set when its only entry was stepped over', function () {
+    $syntax = WarrantParser::analyze('for x { if b they can , }')->syntax;
+
+    expect($syntax->children)->toHaveCount(1)
+        ->and($syntax->children[0]->entries)->toBe([]);
+});
+
+it('notes at most a hundred diagnostics', function () {
+    expect(WarrantParser::analyze(str_repeat('they can view, , ', 150))->diagnostics)
+        ->toHaveCount(ParsingState::MAX_DIAGNOSTICS);
+});
+
+it('finishes on every prefix of every example rule text, with a source map it can commit', function () {
+    preg_match_all("/<<<'WARRANT'\n(.*?)\n\s*WARRANT/s", file_get_contents(__DIR__.'/../src/DSL/RuleSyntaxExamples.php'), $matches);
+
+    expect($matches[1])->not->toBe([]);
+
+    foreach ($matches[1] as $source) {
+        for ($length = 0; $length <= strlen($source); $length++) {
+            expect(WarrantParser::analyze(substr($source, 0, $length)))->toBeInstanceOf(ParseResult::class);
+        }
+    }
 });
