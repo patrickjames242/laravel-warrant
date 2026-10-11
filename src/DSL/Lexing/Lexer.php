@@ -52,9 +52,38 @@ final class Lexer
         'as' => TokenType::AS,
     ];
 
+    /** The tokens that are one character, by that character. */
+    private const SINGLE_CHARACTER_TOKENS = [
+        '(' => TokenType::LPAREN,
+        ')' => TokenType::RPAREN,
+        '{' => TokenType::LBRACE,
+        '}' => TokenType::RBRACE,
+        ',' => TokenType::COMMA,
+        '*' => TokenType::STAR,
+        '=' => TokenType::EQUALS,
+        '.' => TokenType::DOT,
+        '!' => TokenType::NOT,
+        '?' => TokenType::POSITIONAL,
+    ];
+
+    /** The characters `ctype_space()` accepts, which separate tokens. */
+    private const WHITESPACE = " \t\n\r\x0B\f";
+
+    private const DIGITS = '0123456789';
+
+    /** What may follow an identifier's first character. */
+    private const IDENTIFIER_PART = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';
+
     private int $pos = 0;
     private int $line = 1;
-    private int $col = 1;
+
+    /**
+     * The byte offset where the current line starts, so a column is the
+     * distance from it. The position moves over whole runs of text, and only a
+     * run that crosses a line break moves this.
+     */
+    private int $lineStart = 0;
+
     private readonly int $length;
 
     private bool $tolerant = false;
@@ -113,18 +142,12 @@ final class Lexer
     {
         $char = $this->source[$this->pos];
 
+        if (isset(self::SINGLE_CHARACTER_TOKENS[$char])) {
+            return $this->single(self::SINGLE_CHARACTER_TOKENS[$char]);
+        }
+
         return match (true) {
-            $char === '(' => $this->single(TokenType::LPAREN),
-            $char === ')' => $this->single(TokenType::RPAREN),
-            $char === '{' => $this->single(TokenType::LBRACE),
-            $char === '}' => $this->single(TokenType::RBRACE),
-            $char === ',' => $this->single(TokenType::COMMA),
-            $char === '*' => $this->single(TokenType::STAR),
-            $char === '=' => $this->single(TokenType::EQUALS),
-            $char === '.' => $this->single(TokenType::DOT),
             $char === '#' => $this->scanComment(),
-            $char === '!' => $this->single(TokenType::NOT),
-            $char === '?' => $this->single(TokenType::POSITIONAL),
             $char === ':' => $this->scanNamedBinding(),
             $char === '@' => $this->scanAtRef(),
             $char === "'" => $this->scanString(),
@@ -148,11 +171,12 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
         $char = $this->characterAt($this->pos);
 
-        $this->advanceBy(strlen($char));
+        // Never a line break: those are whitespace, read before any token starts.
+        $this->pos += strlen($char);
 
         return $this->errorToken(
             $this->isValidUtf8($char)
@@ -168,9 +192,9 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
-        $this->advance(); // consume ':'
+        $this->pos++; // consume ':'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
             return $this->errorToken("Expected a binding name after ':'.", $startOffset, $startLine, $startCol);
@@ -201,9 +225,9 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
-        $this->advance(); // consume '@'
+        $this->pos++; // consume '@'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
             return $this->errorToken(
@@ -246,11 +270,11 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
         $quote = $this->source[$this->pos];
 
-        $this->advance(); // consume opening quote
+        $this->pos++; // consume opening quote
 
         $value = '';
         $diagnosticsBefore = count($this->diagnostics);
@@ -260,7 +284,17 @@ final class Lexer
            value lies before it, and how many errors had been reported by then. */
         $firstLineEnd = null;
 
+        // The characters that end a run of plain text inside the string.
+        $runEnds = $quote . "\\\n";
+
         while (true) {
+            $run = strcspn($this->source, $runEnds, $this->pos);
+
+            if ($run > 0) {
+                $value .= substr($this->source, $this->pos, $run);
+                $this->pos += $run;
+            }
+
             if ($this->pos >= $this->length) {
                 return $this->unterminatedString($startOffset, $startLine, $startCol, $value, $firstLineEnd, $diagnosticsBefore);
             }
@@ -269,14 +303,17 @@ final class Lexer
 
             if ($char === "\n") {
                 $firstLineEnd ??= $this->resumePoint($value);
+                $value .= $char;
+                $this->moveTo($this->pos + 1);
+                continue;
             }
 
             if ($char === '\\') {
                 $escapeOffset = $this->pos;
                 $escapeLine = $this->line;
-                $escapeCol = $this->col;
+                $escapeCol = $this->col();
 
-                $this->advance();
+                $this->pos++;
 
                 if ($this->pos >= $this->length) {
                     return $this->unterminatedString($startOffset, $startLine, $startCol, $value, $firstLineEnd, $diagnosticsBefore);
@@ -311,19 +348,14 @@ final class Lexer
                 }
 
                 $value .= $resolved;
-                $this->advanceBy(strlen($escaped));
+                $this->moveTo($this->pos + strlen($escaped));
                 continue;
             }
 
-            if ($char === $quote) {
-                $this->advance(); // consume closing quote
-                $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
+            $this->pos++; // consume closing quote
+            $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
 
-                return new Token(TokenType::STRING, $lexeme, $startOffset, $startLine, $startCol, $value);
-            }
-
-            $value .= $char;
-            $this->advance();
+            return new Token(TokenType::STRING, $lexeme, $startOffset, $startLine, $startCol, $value);
         }
     }
 
@@ -333,7 +365,7 @@ final class Lexer
      * dropped, because the text there is lexed again as rules; the ones before it
      * follow the unterminated-string error, which starts at the opening quote.
      *
-     * @param array{offset: int, line: int, col: int, valueLength: int, diagnosticCount: int}|null $firstLineEnd
+     * @param array{offset: int, line: int, lineStart: int, valueLength: int, diagnosticCount: int}|null $firstLineEnd
      * @param int $diagnosticsBefore How many errors had been reported when the
      *   string began.
      */
@@ -356,7 +388,7 @@ final class Lexer
         if ($firstLineEnd !== null) {
             $this->pos = $firstLineEnd['offset'];
             $this->line = $firstLineEnd['line'];
-            $this->col = $firstLineEnd['col'];
+            $this->lineStart = $firstLineEnd['lineStart'];
             $value = substr($value, 0, $firstLineEnd['valueLength']);
         }
 
@@ -369,14 +401,14 @@ final class Lexer
      * The current position, as a place an unterminated string can be ended and
      * lexing resumed from.
      *
-     * @return array{offset: int, line: int, col: int, valueLength: int, diagnosticCount: int}
+     * @return array{offset: int, line: int, lineStart: int, valueLength: int, diagnosticCount: int}
      */
     private function resumePoint(string $value): array
     {
         return [
             'offset' => $this->pos,
             'line' => $this->line,
-            'col' => $this->col,
+            'lineStart' => $this->lineStart,
             'valueLength' => strlen($value),
             'diagnosticCount' => count($this->diagnostics),
         ];
@@ -386,25 +418,23 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
         if ($this->source[$this->pos] === '-') {
-            $this->advance();
+            $this->pos++;
 
             if ($this->pos >= $this->length || ! $this->isDigit($this->source[$this->pos])) {
                 return $this->errorToken('Expected a digit after "-".', $startOffset, $startLine, $startCol);
             }
         }
 
-        while ($this->pos < $this->length && $this->isDigit($this->source[$this->pos])) {
-            $this->advance();
-        }
+        $this->pos += strspn($this->source, self::DIGITS, $this->pos);
 
         $isFloat = false;
 
         if ($this->pos < $this->length && $this->source[$this->pos] === '.') {
             $isFloat = true;
-            $this->advance();
+            $this->pos++;
 
             // A tolerant scan reads `1.` as the number it plainly is.
             if ($this->pos >= $this->length || ! $this->isDigit($this->source[$this->pos])) {
@@ -417,9 +447,7 @@ final class Lexer
                 );
             }
 
-            while ($this->pos < $this->length && $this->isDigit($this->source[$this->pos])) {
-                $this->advance();
-            }
+            $this->pos += strspn($this->source, self::DIGITS, $this->pos);
         }
 
         $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
@@ -432,7 +460,7 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
         $word = $this->consumeIdentifier();
 
@@ -455,11 +483,7 @@ final class Lexer
     private function consumeIdentifier(): string
     {
         $start = $this->pos;
-        $this->advance();
-
-        while ($this->pos < $this->length && $this->isIdentifierPart($this->source[$this->pos])) {
-            $this->advance();
-        }
+        $this->pos += 1 + strspn($this->source, self::IDENTIFIER_PART, $this->pos + 1);
 
         return substr($this->source, $start, $this->pos - $start);
     }
@@ -467,21 +491,19 @@ final class Lexer
     private function single(TokenType $type): Token
     {
         $token = $this->makeToken($type, $this->source[$this->pos]);
-        $this->advance();
+        $this->pos++;
 
         return $token;
     }
 
     private function makeToken(TokenType $type, string $lexeme): Token
     {
-        return new Token($type, $lexeme, $this->pos, $this->line, $this->col);
+        return new Token($type, $lexeme, $this->pos, $this->line, $this->col());
     }
 
     private function skipWhitespace(): void
     {
-        while ($this->pos < $this->length && ctype_space($this->source[$this->pos])) {
-            $this->advance();
-        }
+        $this->moveTo($this->pos + strspn($this->source, self::WHITESPACE, $this->pos));
     }
 
     /**
@@ -492,34 +514,42 @@ final class Lexer
     {
         $startOffset = $this->pos;
         $startLine = $this->line;
-        $startCol = $this->col;
+        $startCol = $this->col();
 
-        while ($this->pos < $this->length && $this->source[$this->pos] !== "\n") {
-            $this->advance();
-        }
+        $this->pos += strcspn($this->source, "\n", $this->pos);
 
         $lexeme = substr($this->source, $startOffset, $this->pos - $startOffset);
 
         return new Token(TokenType::COMMENT, $lexeme, $startOffset, $startLine, $startCol);
     }
 
-    private function advance(): void
+    /**
+     * The 1-based byte column of the current position.
+     */
+    private function col(): int
     {
-        if ($this->source[$this->pos] === "\n") {
-            $this->line++;
-            $this->col = 1;
-        } else {
-            $this->col++;
-        }
-
-        $this->pos++;
+        return $this->pos - $this->lineStart + 1;
     }
 
-    private function advanceBy(int $bytes): void
+    /**
+     * Move to byte $offset, counting the line breaks passed on the way. Text
+     * known to hold none is passed by moving the position alone.
+     */
+    private function moveTo(int $offset): void
     {
-        for ($i = 0; $i < $bytes; $i++) {
-            $this->advance();
+        if ($offset === $this->pos) {
+            return;
         }
+
+        $lineBreaks = substr_count($this->source, "\n", $this->pos, $offset - $this->pos);
+
+        if ($lineBreaks > 0) {
+            $this->line += $lineBreaks;
+            // Searching back from the byte before $offset finds the last line break passed.
+            $this->lineStart = strrpos($this->source, "\n", $offset - $this->length - 1) + 1;
+        }
+
+        $this->pos = $offset;
     }
 
     /**
@@ -557,11 +587,6 @@ final class Lexer
         return ($char >= 'a' && $char <= 'z')
             || ($char >= 'A' && $char <= 'Z')
             || $char === '_';
-    }
-
-    private function isIdentifierPart(string $char): bool
-    {
-        return $this->isIdentifierStart($char) || $this->isDigit($char) || $char === '-';
     }
 
     /**
