@@ -24,6 +24,9 @@ final class SourceMap
     /** @var array<string, SourceEntry> */
     private array $index = [];
 
+    /** @var array<int, list<int>> Where in $entries each node's entries are, by object id. */
+    private array $entriesOf = [];
+
     public function record(object $node, Token $start, Token $end): void
     {
         $this->add(new SourceEntry($node, null, null, Span::between($start, $end)));
@@ -45,6 +48,25 @@ final class SourceMap
     public function spanOf(object $node, ?string $part = null, int|string|null $key = null): ?Span
     {
         return ($this->index[self::keyOf($node, $part, $key)] ?? null)?->span;
+    }
+
+    /**
+     * Make every entry about $old, the node and each of its parts, an entry
+     * about $new: for a tree rebuilt with $new in the place of $old, which was
+     * written exactly where $old was. Each entry keeps its place in the order
+     * entries were recorded, which {@see containing()} reads.
+     */
+    public function replace(object $old, object $new): void
+    {
+        $positions = $this->entriesOf[spl_object_id($old)] ?? [];
+        unset($this->entriesOf[spl_object_id($old)]);
+
+        foreach ($positions as $position) {
+            $entry = $this->entries[$position];
+            unset($this->index[self::keyOf($old, $entry->part, $entry->key)]);
+
+            $this->add(new SourceEntry($new, $entry->part, $entry->key, $entry->span), $position);
+        }
     }
 
     /**
@@ -78,8 +100,11 @@ final class SourceMap
     /**
      * A node or part is written in one place, so recording it twice is a parser
      * mistake.
+     *
+     * @param int|null $position Where in the recording order the entry goes:
+     *   the end, or the place of the entry it stands in for.
      */
-    private function add(SourceEntry $entry): void
+    private function add(SourceEntry $entry, ?int $position = null): void
     {
         $key = self::keyOf($entry->node, $entry->part, $entry->key);
 
@@ -91,8 +116,10 @@ final class SourceMap
             ));
         }
 
-        $this->entries[] = $entry;
+        $position ??= count($this->entries);
+        $this->entries[$position] = $entry;
         $this->index[$key] = $entry;
+        $this->entriesOf[spl_object_id($entry->node)][] = $position;
     }
 
     /**

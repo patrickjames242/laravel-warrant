@@ -48,8 +48,9 @@ final class BindingResolver
 
     /**
      * $syntax with the value of every binding in its place. Nodes are
-     * immutable, so every node on the way to a binding is built anew; a tree
-     * with no bindings is returned as it is.
+     * immutable, so a tree with bindings is built anew, and each new node takes
+     * over the positions of the one it replaces in the map this resolver was
+     * given. A tree with no bindings is returned as it is.
      *
      * @param array<int|string, mixed> $bindings
      */
@@ -77,6 +78,7 @@ final class BindingResolver
         return $this->withBindings(
             $syntax,
             static fn (BindingNode $binding): mixed => $values[spl_object_id($binding)],
+            $this->positions,
         );
     }
 
@@ -115,7 +117,7 @@ final class BindingResolver
             $found[] = [$binding, $standsFor];
 
             return $binding;
-        });
+        }, null);
 
         usort($found, fn (array $a, array $b): int => $this->offsetOf($a[0]) <=> $this->offsetOf($b[0]));
 
@@ -151,47 +153,51 @@ final class BindingResolver
      * $node built anew with every binding in it replaced by what $replace
      * answers for it, given the binding and what it stands for.
      *
+     * Given $positions, every node built anew takes over the entries of the one
+     * it replaces, so the new tree is found where the old one was written. A
+     * binding's own entry stays: it says where the placeholder was written.
+     *
      * @template N
      * @param N $node
      * @param Closure(BindingNode, string): mixed $replace
      * @return N
      */
-    private function withBindings(mixed $node, Closure $replace, string $standsFor = self::AS_ARGUMENT): mixed
-    {
-        $each = fn (array $nodes): array => array_map(fn (mixed $one): mixed => $this->withBindings($one, $replace), $nodes);
+    private function withBindings(
+        mixed $node,
+        Closure $replace,
+        ?SourceMap $positions,
+        string $standsFor = self::AS_ARGUMENT,
+    ): mixed {
+        $walk = fn (mixed $one, string $standsFor = self::AS_ARGUMENT): mixed
+            => $this->withBindings($one, $replace, $positions, $standsFor);
+        $each = static fn (array $nodes): array => array_map($walk, $nodes);
 
-        return match (true) {
-            $node instanceof BindingNode => $replace($node, $standsFor),
+        if ($node instanceof BindingNode) {
+            return $replace($node, $standsFor);
+        }
+
+        $rebuilt = match (true) {
             $node instanceof WarrantSyntax => new WarrantSyntax($each($node->children)),
             $node instanceof RuleSetNode => new RuleSetNode($node->schemaKey, $each($node->entries)),
-            $node instanceof SchemaConditionNode => new SchemaConditionNode(
-                $node->schemaKey,
-                $this->withBindings($node->expression, $replace),
-            ),
+            $node instanceof SchemaConditionNode => new SchemaConditionNode($node->schemaKey, $walk($node->expression)),
             $node instanceof AbilityBlockNode => new AbilityBlockNode($node->abilities, $each($node->entries)),
             $node instanceof WarrantRuleNode => new WarrantRuleNode(
-                $this->withBindings($node->conditions, $replace),
+                $walk($node->conditions),
                 $node->canClauses,
                 $each($node->cannotClauses),
             ),
             $node instanceof CannotClauseNode => new CannotClauseNode(
                 $node->abilities,
-                $this->withBindings($node->message, $replace, self::AS_MESSAGE),
+                $walk($node->message, self::AS_MESSAGE),
             ),
             $node instanceof IncludeInvocationNode => new IncludeInvocationNode(
                 $node->templateKey,
                 $each($node->arguments),
                 $node->abilities,
             ),
-            $node instanceof AndNode => new AndNode(
-                $this->withBindings($node->leftSide, $replace),
-                $this->withBindings($node->rightSide, $replace),
-            ),
-            $node instanceof OrNode => new OrNode(
-                $this->withBindings($node->leftSide, $replace),
-                $this->withBindings($node->rightSide, $replace),
-            ),
-            $node instanceof NotNode => new NotNode($this->withBindings($node->operand, $replace)),
+            $node instanceof AndNode => new AndNode($walk($node->leftSide), $walk($node->rightSide)),
+            $node instanceof OrNode => new OrNode($walk($node->leftSide), $walk($node->rightSide)),
+            $node instanceof NotNode => new NotNode($walk($node->operand)),
             $node instanceof ConditionNode => new ConditionNode($node->conditionKey, $each($node->parameters)),
             $node instanceof CrossSchemaCanNode => new CrossSchemaCanNode(
                 $node->schemaKey,
@@ -203,14 +209,20 @@ final class BindingResolver
             ),
             $node instanceof CrossSchemaConditionNode => new CrossSchemaConditionNode(
                 $node->schemaKey,
-                $this->withBindings($node->predicate, $replace),
+                $walk($node->predicate),
                 $node->isRowBound,
                 $each($node->boundKey),
                 $each($node->contextMap),
                 $node->alias,
             ),
-            $node instanceof SqlRef => new SqlRef($this->withBindings($node->sql, $replace, self::AS_SQL)),
+            $node instanceof SqlRef => new SqlRef($walk($node->sql, self::AS_SQL)),
             default => $node,
         };
+
+        if ($positions !== null && $rebuilt !== $node) {
+            $positions->replace($node, $rebuilt);
+        }
+
+        return $rebuilt;
     }
 }
