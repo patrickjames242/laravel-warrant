@@ -52,7 +52,7 @@ function treeNodes(mixed $value): array
  */
 function recordedNodes(string $source): array
 {
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
 
     return array_map(static function (INode $node) use ($result, $source): array {
         $span = $result->positions->spanOf($node);
@@ -176,12 +176,12 @@ it('leaves a comment after a node out of its range', function () {
     ]);
 });
 
-it('parses to the same tree whether or not it records positions', function (string $source) {
-    expect(WarrantParser::parseWithPositions($source)->children)->toEqual(WarrantParser::parse($source)->children);
+it('reads the same tree through WarrantSyntax::parse() as through the parser', function (string $source) {
+    expect(WarrantSyntax::parse($source)->resolve()->children)->toEqual(WarrantParser::parse($source)->children);
 })->with(POSITIONS_CORPUS);
 
 it('records every node, and never two over the same text', function (string $source) {
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
     $ranges = [];
 
     foreach (treeNodes($result) as $node) {
@@ -197,7 +197,7 @@ it('records every node, and never two over the same text', function (string $sou
 
 it('finds what an offset is inside, from the rule set down to the part', function () {
     $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
 
     $chain = array_map(
         static fn (SourceEntry $entry): array => [(new ReflectionClass($entry->node))->getShortName(), $entry->part],
@@ -213,7 +213,7 @@ it('finds what an offset is inside, from the rule set down to the part', functio
 
 it('puts an argument inside the part of the node it is passed to', function () {
     $source = POSITIONS_CORPUS['symbolic references'];
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
 
     $chain = array_map(
         static fn (SourceEntry $entry): array => [(new ReflectionClass($entry->node))->getShortName(), $entry->part, $entry->key],
@@ -241,7 +241,7 @@ function partText(WarrantSyntax $result, string $source, object $node, string $p
 
 it('records the names and arguments of a rule set\'s entries', function () {
     $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
     $ruleSet = $result->children[0];
     [$rule, $block, $include] = $ruleSet->entries;
     $isOwner = $rule->conditions->leftSide;
@@ -262,7 +262,7 @@ it('records the names and arguments of a rule set\'s entries', function () {
 it('records each part of a cross-schema reference', function () {
     $source = 'if check(is_open(@column docs.org_id, 2) for folders(@context folder, 7) as f with org = @context org, n = 1) '
         .'they can edit, *';
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
     $rule = $result->children[0];
     $check = $rule->conditions;
 
@@ -281,7 +281,7 @@ it('records each part of a cross-schema reference', function () {
 
 it('records the names inside each symbolic reference', function () {
     $source = POSITIONS_CORPUS['symbolic references'];
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
     [$context, $qualified, $unqualified, $sql] = $result->children[0]->conditions->parameters;
 
     expect(partText($result, $source, $context, ContextRef::PART_KEY))->toBe('year')
@@ -294,7 +294,7 @@ it('records the names inside each symbolic reference', function () {
 
 it('records a bound @sql string as the binding it was written as', function () {
     $source = 'if in_period(@sql :query) they can view';
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
     $sql = $result->children[0]->conditions->parameters[0];
 
     expect(partText($result, $source, $sql, SqlRef::PART_SQL))->toBe(':query');
@@ -302,7 +302,7 @@ it('records a bound @sql string as the binding it was written as', function () {
 
 it('records the schema of every for header', function () {
     $source = POSITIONS_CORPUS['braced blocks'];
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
 
     expect(array_map(
         static fn (object $body): ?string => partText($result, $source, $body, RuleSetNode::PART_SCHEMA_KEY),
@@ -310,13 +310,13 @@ it('records the schema of every for header', function () {
     ))->toBe(['docs', 'folders', 'docs'])
         ->and(partText($result, $source, $result->children[1], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders');
 
-    $bare = WarrantParser::parseWithPositions(POSITIONS_CORPUS['a scoped expression']);
+    $bare = WarrantParser::parse(POSITIONS_CORPUS['a scoped expression']);
 
     expect(partText($bare, POSITIONS_CORPUS['a scoped expression'], $bare->children[0], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('docs');
 });
 
 it('records every value a node holds as a part of it, named by one of its constants', function (string $source) {
-    $result = WarrantParser::parseWithPositions($source);
+    $result = WarrantParser::parse($source);
 
     foreach (treeNodes($result) as $node) {
         foreach (get_object_vars($node) as $name => $value) {

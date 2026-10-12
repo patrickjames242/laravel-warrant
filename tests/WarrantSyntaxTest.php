@@ -445,7 +445,7 @@ it('round-trips every block losslessly through bound syntax', function () {
     $bound = $syntax->toBoundSyntax();
 
     expect($bound->bindings)->toBe(['x-1', [1, 2, 3]]);
-    expect(WarrantSyntax::parse($bound->syntax, $bound->bindings)->children)->toEqual($syntax->children);
+    expect(WarrantSyntax::parse($bound->syntax, $bound->bindings)->resolve()->children)->toEqual($syntax->resolve()->children);
 });
 
 it('renders a lone rule set as one braced block', function () {

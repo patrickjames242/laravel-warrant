@@ -50,7 +50,7 @@ final class BindingResolver
      * $syntax with the value of every binding in its children. Nodes are
      * immutable, so a tree with bindings is built anew; what was written stays
      * as it was, in the syntax's {@see WarrantSyntax::$written}, which is the
-     * tree $positions describes. A tree with no bindings is returned as it is.
+     * tree $positions describes. A tree with no bindings keeps its nodes.
      *
      * @param array<int|string, mixed> $bindings
      */
@@ -72,7 +72,7 @@ final class BindingResolver
         $state->finalize();
 
         if ($values === []) {
-            return $syntax;
+            return new WarrantSyntax($syntax->children, $syntax->source, $syntax->positions, $syntax->written);
         }
 
         return $this->withBindings(

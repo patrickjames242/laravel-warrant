@@ -207,14 +207,14 @@ final class RuleSetExpander
                 ));
             }
 
-            $entries = $this->templateEntries($body->ruleEntries(), $schema, $schemaKey, $definition, false);
-
             if ($validate) {
                 self::validateAnswer($answeredBy, static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))
                     ->validateWritten($body));
             }
 
-            return $entries;
+            /* Taking the entries out puts the values of the text's bindings in
+               place, now that the text has been validated as written. */
+            return $this->templateEntries($body->ruleEntries(), $schema, $schemaKey, $definition, false);
         }
 
         if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
@@ -490,7 +490,10 @@ final class RuleSetExpander
     ): IBooleanExpressionNode {
         try {
             $syntax = is_string($text) ? WarrantSyntax::parse($text) : $text;
-            $expression = $syntax->conditionExpression();
+
+            /* Its shape alone, asked of the children as written: no value is put
+               in place until the text has been validated. */
+            (new WarrantSyntax($syntax->children))->conditionExpression();
         } catch (WarrantSyntaxException|LogicException $e) {
             throw new RuntimeException(sprintf(
                 "Derived condition [%s::%s] answered with rule text that is not a condition expression:\n\n%s",
@@ -516,7 +519,7 @@ final class RuleSetExpander
             static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))->validateWritten($syntax),
         );
 
-        return $expression;
+        return $syntax->conditionExpression();
     }
 
     /**

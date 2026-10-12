@@ -10,9 +10,9 @@ use Warrant\DSL\Parsing\Positions\SourceMap;
 
 /**
  * Parses Warrant rule syntax. The parse reads each `:name` and `?` as a
- * {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode}; {@see parse()} then
- * puts the values in their place with a {@see BindingResolver}, so the tree it
- * returns holds only concrete values.
+ * {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode} and puts no value in its
+ * place: that is {@see WarrantSyntax::resolve()}'s, once the text has been
+ * validated as it was written.
  *
  * Every source parses through {@see parse()} to a {@see WarrantSyntax}, whose
  * children say which form the source took; nothing about the text needs to be
@@ -78,25 +78,12 @@ use Warrant\DSL\Parsing\Positions\SourceMap;
 final class WarrantParser
 {
     /**
-     * Parse Warrant syntax of any form, and put the value of each of its
-     * bindings in its place.
-     *
-     * @param array<int|string, mixed> $bindings
-     */
-    public static function parse(string $source, array $bindings = []): WarrantSyntax
-    {
-        $written = self::parseWithPositions($source);
-
-        return (new BindingResolver($source, $written->positions))->resolve($written, $bindings);
-    }
-
-    /**
      * Parse Warrant syntax of any form as it was written, its bindings left as
      * the placeholders they are, and record where every node of the tree was
      * written. The root {@see WarrantSyntax} stands for the whole text and is
      * not recorded.
      */
-    public static function parseWithPositions(string $source): WarrantSyntax
+    public static function parse(string $source): WarrantSyntax
     {
         $state = ParsingState::forSource($source);
         $syntax = Parser::run(new ParseSyntax, $state);
@@ -110,7 +97,7 @@ final class WarrantParser
      * no values for its placeholders — reporting syntax errors as diagnostics
      * instead of throwing them.
      *
-     * The tree is the one {@see parseWithPositions()} reads, its bindings left
+     * The tree is the one {@see parse()} reads, its bindings left
      * as placeholders. Every lexical error is reported, and the read goes on
      * past it. An error the grammar meets ends the read: it is reported too,
      * and the tree is then empty. Named and positional placeholders mixed are

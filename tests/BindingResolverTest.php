@@ -2,6 +2,7 @@
 
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -14,7 +15,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 function bindingError(string $source, array $bindings): WarrantSyntaxException
 {
     try {
-        WarrantParser::parse($source, $bindings);
+        WarrantSyntax::parse($source, $bindings)->resolve();
     } catch (WarrantSyntaxException $error) {
         return $error;
     }
@@ -23,7 +24,7 @@ function bindingError(string $source, array $bindings): WarrantSyntaxException
 }
 
 it('gives positional values in the order the placeholders were written', function () {
-    $check = WarrantParser::parse('check(a(?) for folders(?))', [1, 2])->conditionExpression();
+    $check = WarrantSyntax::parse('check(a(?) for folders(?))', [1, 2])->conditionExpression();
 
     expect($check->predicate)->toEqual(new ConditionNode('a', [1]))
         ->and($check->boundKey)->toBe([2]);
@@ -58,16 +59,24 @@ it('reports binding errors in the order the bindings were written', function () 
         ->toBe('An @sql binding must resolve to a string, got int.');
 });
 
-it('hands back a tree with no bindings as it is', function () {
-    $written = WarrantParser::parseWithPositions('if a(1) they can view');
+it('keeps the nodes of a tree with no bindings', function () {
+    $written = WarrantParser::parse('if a(1) they can view');
 
-    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve($written, []))
-        ->toBe($written);
+    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve($written, [])->children)
+        ->toBe($written->children);
+});
+
+it('puts no value in place until the syntax is resolved', function () {
+    $syntax = WarrantSyntax::parse('if a(:x) they can view', ['x' => 5]);
+
+    expect($syntax->children[0]->conditions)->toEqual(new ConditionNode('a', [new BindingNode('x')]))
+        ->and($syntax->rule()->conditions)->toEqual(new ConditionNode('a', [5]))
+        ->and($syntax->resolve()->bindings)->toBeNull();
 });
 
 it('keeps the tree as written beside the resolved one, with the positions describing it', function () {
     $source = 'if a(:x) and b they can view';
-    $syntax = WarrantParser::parse($source, ['x' => 5]);
+    $syntax = WarrantSyntax::parse($source, ['x' => 5])->resolve();
     $written = $syntax->written[0]->conditions;
     $span = $syntax->positions->spanOf($written->leftSide, ConditionNode::PART_PARAMETERS, 0);
 

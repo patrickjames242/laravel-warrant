@@ -24,7 +24,7 @@ function analysisDiagnostics(string $source): array
 
 it('reads sound text to the same tree and positions as a strict read, with no diagnostics', function (string $source) {
     $analysed = WarrantParser::analyze($source);
-    $strict = WarrantParser::parseWithPositions($source);
+    $strict = WarrantParser::parse($source);
 
     expect($analysed->syntax->children)->toEqual($strict->children)
         ->and($analysed->diagnostics)->toBe([])

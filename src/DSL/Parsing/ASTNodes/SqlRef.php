@@ -7,7 +7,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * rule (e.g. `@sql "select id from pay_periods where closed = 0"`). Like
  * {@see ColumnRef} it stays symbolic in the compiled AST — inside
  * {@see ConditionNode::$parameters}, a cross-schema handle's row selector, or a
- * `with` map value — rather than being resolved to a value at parse time.
+ * `with` map value — rather than being resolved to a value as a binding is.
  *
  * It resolves late, in {@see RuleSetCompiler}, to an
  * {@see \Illuminate\Database\Query\Expression} holding the author's SQL wrapped in

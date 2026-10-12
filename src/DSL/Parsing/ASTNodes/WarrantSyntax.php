@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
 use LogicException;
+use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Writing\BoundSyntax;
@@ -22,12 +23,16 @@ use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
  * reads every form of rule text and nothing about the text is known before it
  * is read.
  *
- * A parsed syntax keeps the text it was read from, the tree as it was written
- * there — every `:name` and `?` still a {@see BindingNode} — and where each node
- * of that tree was written. Its children are the same tree with the value of
- * each binding in place. A validator reads what was written, so a value never
- * reaches it; everything else reads the children. Two parses of the same rules
- * written differently hold equal children, but are not equal as a whole.
+ * A parsed syntax keeps the text it was read from, where each node of it was
+ * written, and the values given for its bindings. Parsing puts no value in
+ * place: every `:name` and `?` is a {@see BindingNode} in the children, so the
+ * text can be validated as it was written. {@see resolve()} then puts the values
+ * in, keeping the tree as written in {@see $written}. The accessors that hand
+ * nodes out — {@see rule()}, {@see scopedTo()} and the rest — hand out the
+ * resolved nodes, so a binding never leaves the syntax as a placeholder.
+ *
+ * Two parses of the same rules written differently hold equal children, but
+ * are not equal as a whole.
  */
 final readonly class WarrantSyntax implements INode
 {
@@ -39,12 +44,16 @@ final readonly class WarrantSyntax implements INode
      *   in $source; null for a syntax built by hand.
      * @param list<INode>|null $written The children as written, bindings and
      *   all; the children themselves when they hold no binding values.
+     * @param array<int|string, mixed>|null $bindings The values for the
+     *   bindings in the children, not yet put in place; null once they are, or
+     *   when there is nothing to put in place.
      */
     public function __construct(
         public array $children = [],
         public ?string $source = null,
         public ?SourceMap $positions = null,
         ?array $written = null,
+        public ?array $bindings = null,
     ) {
         self::assertOneShape($children);
 
@@ -55,14 +64,33 @@ final readonly class WarrantSyntax implements INode
     public array $written;
 
     /**
-     * Parse rule text of any form, resolving named (:name) or positional (?)
-     * placeholders against $bindings.
+     * Parse rule text of any form, keeping $bindings for its named (:name) or
+     * positional (?) placeholders until it is resolved.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parse(string $source, array $bindings = []): self
     {
-        return WarrantParser::parse($source, $bindings);
+        $read = WarrantParser::parse($source);
+
+        return new self($read->children, $source, $read->positions, bindings: $bindings);
+    }
+
+    /**
+     * This syntax with the value of every binding in its place, the tree as
+     * written kept in {@see $written}. Throws when the bindings do not fit the
+     * placeholders: one missing, one never used, or a value that cannot stand
+     * where its placeholder was written. A syntax already resolved is returned
+     * as it is.
+     */
+    public function resolve(): self
+    {
+        if ($this->bindings === null) {
+            return $this;
+        }
+
+        return (new BindingResolver((string) $this->source, $this->positions ?? new SourceMap))
+            ->resolve($this, $this->bindings);
     }
 
     /**
@@ -166,13 +194,13 @@ final readonly class WarrantSyntax implements INode
      */
     public function conditionExpression(): IBooleanExpressionNode
     {
-        $child = $this->children[0] ?? null;
+        if (! $this->isExpression() && ! $this->isSchemaCondition()) {
+            throw $this->shapeError('a condition expression');
+        }
 
-        return match (true) {
-            $this->isExpression() && $child instanceof IBooleanExpressionNode => $child,
-            $this->isSchemaCondition() && $child instanceof SchemaConditionNode => $child->expression,
-            default => throw $this->shapeError('a condition expression'),
-        };
+        $child = $this->resolve()->children[0];
+
+        return $child instanceof SchemaConditionNode ? $child->expression : $child;
     }
 
     /**
@@ -180,13 +208,11 @@ final readonly class WarrantSyntax implements INode
      */
     public function rule(): WarrantRuleNode
     {
-        $child = $this->children[0] ?? null;
-
-        if (! $this->isSingleRule() || ! $child instanceof WarrantRuleNode) {
+        if (! $this->isSingleRule()) {
             throw $this->shapeError('a single rule');
         }
 
-        return $child;
+        return $this->resolve()->children[0];
     }
 
     /**
@@ -202,7 +228,7 @@ final readonly class WarrantSyntax implements INode
         }
 
         /** @var list<IRuleEntryNode> */
-        return $this->children;
+        return $this->resolve()->children;
     }
 
     /**
@@ -210,13 +236,11 @@ final readonly class WarrantSyntax implements INode
      */
     public function ruleSet(): RuleSetNode
     {
-        $child = $this->children[0] ?? null;
-
-        if (! $this->isSingleRuleSet() || ! $child instanceof RuleSetNode) {
+        if (! $this->isSingleRuleSet()) {
             throw $this->shapeError('a single `for <schema>` rule set');
         }
 
-        return $child;
+        return $this->resolve()->children[0];
     }
 
     /**
@@ -232,7 +256,7 @@ final readonly class WarrantSyntax implements INode
         }
 
         /** @var list<RuleSetNode> */
-        return $this->children;
+        return $this->resolve()->children;
     }
 
     /**
@@ -248,7 +272,7 @@ final readonly class WarrantSyntax implements INode
         }
 
         /** @var list<ISchemaScopedNode> */
-        return $this->children;
+        return $this->resolve()->children;
     }
 
     /**
@@ -258,9 +282,13 @@ final readonly class WarrantSyntax implements INode
      */
     public function schemaKeys(): array
     {
+        if (! $this->isEmpty() && ! $this->isSchemaScoped()) {
+            throw $this->shapeError('`for <schema>` bodies');
+        }
+
         return array_values(array_unique(array_map(
             static fn (ISchemaScopedNode $node): string => $node->schemaKey(),
-            $this->scoped(),
+            $this->children,
         )));
     }
 
@@ -310,7 +338,7 @@ final readonly class WarrantSyntax implements INode
      */
     public function toSyntax(): string
     {
-        return RuleSyntaxWriter::toSyntax($this);
+        return RuleSyntaxWriter::toSyntax($this->resolve());
     }
 
     /**
@@ -319,7 +347,7 @@ final readonly class WarrantSyntax implements INode
      */
     public function toBoundSyntax(): BoundSyntax
     {
-        return RuleSyntaxWriter::toBoundSyntax($this);
+        return RuleSyntaxWriter::toBoundSyntax($this->resolve());
     }
 
     /**

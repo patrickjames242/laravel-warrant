@@ -145,17 +145,21 @@ trait ResolvesRuleSets
         }
 
         if ($rules instanceof WarrantSyntax) {
-            $entries = $this->providedRuleEntries(
-                $rules->isEmpty() || $rules->isRuleEntries() ? $rules->ruleEntries() : $rules->ruleSets(),
-                $provider,
-                validate: false,
-            );
+            foreach ($rules->isSchemaScoped() ? $rules->schemaKeys() : [] as $schemaKey) {
+                $this->assertTargetsThisSchema($schemaKey, $provider);
+            }
 
             if ($validate) {
                 (new WarrantSyntaxValidator($this->schema, $this->schema::schemaKey()))->validateWritten($rules);
             }
 
-            return $entries;
+            /* Taking the rules out puts the values of the text's bindings in
+               place, now that the text has been validated as written. */
+            return $this->providedRuleEntries(
+                $rules->isEmpty() || $rules->isRuleEntries() ? $rules->ruleEntries() : $rules->ruleSets(),
+                $provider,
+                validate: false,
+            );
         }
 
         if ($rules instanceof IRuleEntryNode) {
@@ -167,14 +171,7 @@ trait ResolvesRuleSets
         }
 
         if ($rules instanceof RuleSetNode) {
-            if ($rules->schemaKey !== $this->schema::schemaKey()) {
-                throw new InvalidArgumentException(sprintf(
-                    '%s was asked for schema [%s] but returned a rule set targeting [%s].',
-                    $provider,
-                    $this->schema::schemaKey(),
-                    $rules->schemaKey,
-                ));
-            }
+            $this->assertTargetsThisSchema($rules->schemaKey, $provider);
 
             if ($validate) {
                 $this->writtenRulesValidator()->validateWritten($rules);
@@ -198,6 +195,21 @@ trait ResolvesRuleSets
             $provider,
             get_debug_type($rules),
         ));
+    }
+
+    /**
+     * A rule set $provider returned must be about this guard's schema.
+     */
+    private function assertTargetsThisSchema(string $schemaKey, string $provider): void
+    {
+        if ($schemaKey !== $this->schema::schemaKey()) {
+            throw new InvalidArgumentException(sprintf(
+                '%s was asked for schema [%s] but returned a rule set targeting [%s].',
+                $provider,
+                $this->schema::schemaKey(),
+                $schemaKey,
+            ));
+        }
     }
 
     /**

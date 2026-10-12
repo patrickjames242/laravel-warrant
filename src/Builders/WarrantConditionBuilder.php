@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\WarrantSchema;
 
@@ -295,7 +295,7 @@ class WarrantConditionBuilder
      */
     private function addRaw(string $boolean, string $expression, array $bindings): static
     {
-        return $this->pushTerm($boolean, WarrantParser::parse($expression, $bindings)->conditionExpression());
+        return $this->pushTerm($boolean, WarrantSyntax::parse($expression, $bindings)->conditionExpression());
     }
 
     /**

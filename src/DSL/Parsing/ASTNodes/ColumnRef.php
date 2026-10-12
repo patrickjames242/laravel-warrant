@@ -8,7 +8,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * `@column timesheets.pay_period_id`). Like {@see ContextRef} it stays symbolic in
  * the compiled AST — inside {@see ConditionNode::$parameters}, a cross-schema
  * handle's row selector, or a `with` map value — rather than being resolved to a
- * value at parse time.
+ * value as a binding is.
  *
  * Unlike a context ref its value never depends on the check-time context. It still
  * resolves late, in {@see \Warrant\DSL\Compiling\RuleSetCompiler}, and for a reason
