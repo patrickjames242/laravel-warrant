@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
 use LogicException;
+use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Writing\BoundSyntax;
 use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
@@ -20,14 +21,25 @@ use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
  * The shapes never mix. The caller asks which one it got, so one {@see parse()}
  * reads every form of rule text and nothing about the text is known before it
  * is read.
+ *
+ * A parsed syntax keeps the text it was read from and where each of its nodes
+ * was written, so an error about any node in it can point into that text. Two
+ * parses of the same rules written differently hold equal children, but are
+ * not equal as a whole.
  */
 final readonly class WarrantSyntax implements INode
 {
     /**
      * @param list<INode> $children
+     * @param string|null $source The text the children were read from; null
+     *   for a syntax built by hand.
+     * @param SourceMap|null $positions Where each node of the children was
+     *   written in $source; null for a syntax built by hand.
      */
     public function __construct(
         public array $children = [],
+        public ?string $source = null,
+        public ?SourceMap $positions = null,
     ) {
         self::assertOneShape($children);
     }

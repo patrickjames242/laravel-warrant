@@ -1,0 +1,93 @@
+<?php
+
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\Facades\Warrant;
+use Warrant\Rules\RuleProvider;
+use Warrant\Rules\RuleProviderContext;
+use Warrant\WarrantManager;
+
+require_once __DIR__.'/Support/TestSupport.php';
+
+beforeEach(function () {
+    useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
+});
+
+/**
+ * The validation error a guard raises when the global provider returns $rules.
+ */
+function providedRulesError(mixed $rules): InvalidArgumentException
+{
+    app()->instance(RuleProvider::class, new class($rules) implements RuleProvider
+    {
+        public function __construct(private RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable $rules) {}
+
+        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable
+        {
+            return $this->rules;
+        }
+    });
+
+    app(WarrantManager::class)->flush();
+
+    try {
+        Warrant::guard(makeWarrantTestUser())->forSchema(WarrantTestSchema::class)->resolvedRuleSet();
+    } catch (InvalidArgumentException $error) {
+        return $error;
+    }
+
+    throw new RuntimeException('Expected the provided rules to be rejected.');
+}
+
+it('points an error in provided rule text at the condition it is about', function () {
+    $error = providedRulesError("if is_teacher they can view\nif is_teachr they can archive");
+
+    expect($error)->toBeInstanceOf(RuleValidationException::class)
+        ->and($error->reason)->toContain('is_teachr')
+        ->and($error->position->line)->toBe(2)
+        ->and($error->position->column)->toBe(4)
+        ->and($error->getMessage())->toContain("(line 2, column 4)\n\n    if is_teachr they can archive\n       ^");
+});
+
+it('points an undeclared ability at the ability', function () {
+    $error = providedRulesError('if is_teacher they can view, frobnicate');
+
+    expect($error->reason)->toBe('Ability [frobnicate] is not declared by the schema.')
+        ->and($error->position->column)->toBe(30);
+});
+
+it('points into the text an error is in, when a provider answers with several', function () {
+    $error = providedRulesError(['if is_teacher they can view', "\n\nthey cannot frobnicate"]);
+
+    expect($error->position->source)->toBe("\n\nthey cannot frobnicate")
+        ->and($error->position->line)->toBe(3);
+});
+
+it('says only what is wrong with rules built in code, which have no text', function () {
+    $error = providedRulesError(WarrantSyntax::parse('they cannot frobnicate')->rule());
+
+    expect($error->getMessage())->toBe('Ability [frobnicate] is not declared by the schema.');
+});
+
+it('checks each for body against the schema its header names', function () {
+    expect(fn () => Warrant::validate(WarrantSyntax::parse('for course_sections { if is_teacher they can view }')))
+        ->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Warrant::validate(WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")))
+        ->toThrow(RuleValidationException::class, 'Ability [frobnicate] is not declared by the schema. (line 2, column 12)');
+});
+
+it('reports a for header that names no schema, at the name', function () {
+    expect(fn () => Warrant::validate(WarrantSyntax::parse('for nope { they can view }')))
+        ->toThrow(RuleValidationException::class, 'The `for` header names unknown schema [nope]. (line 1, column 5)');
+});
+
+it('checks rules with no header only against a schema it is given', function () {
+    $syntax = WarrantSyntax::parse('if no_such_condition they can view');
+
+    expect(fn () => (new WarrantSyntaxValidator)->validateWritten($syntax))->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => (new WarrantSyntaxValidator(new WarrantTestSchema, 'course_sections'))->validateWritten($syntax))
+        ->toThrow(RuleValidationException::class, 'no_such_condition');
+});

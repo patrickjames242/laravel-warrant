@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing;
 
 use RuntimeException;
 use Warrant\DSL\Lexing\Token;
+use Warrant\DSL\Parsing\Positions\SourcePosition;
 
 /**
  * Thrown eagerly when raw Warrant syntax (or its bindings) is malformed. Carries
@@ -26,7 +27,7 @@ class WarrantSyntaxException extends RuntimeException
         public readonly int $sourceLine,
         public readonly int $sourceColumn,
     ) {
-        parent::__construct($this->decorate($reason));
+        parent::__construct((new SourcePosition($source, $offset, $sourceLine, $sourceColumn))->describe($reason));
     }
 
     /**
@@ -51,32 +52,8 @@ class WarrantSyntaxException extends RuntimeException
      */
     public static function atSourceOffset(string $message, string $source, int $offset): self
     {
-        $before = substr($source, 0, $offset);
-        $lineBreak = strrpos($before, "\n");
-        $lineStart = $lineBreak === false ? 0 : $lineBreak + 1;
+        $position = SourcePosition::at($source, $offset);
 
-        return new self($message, $source, $offset, substr_count($before, "\n") + 1, $offset - $lineStart + 1);
-    }
-
-    private function decorate(string $message): string
-    {
-        return sprintf('%s (line %d, column %d)%s', $message, $this->sourceLine, $this->sourceColumn, $this->snippet());
-    }
-
-    /**
-     * Render the offending line with a caret under the reported column.
-     */
-    private function snippet(): string
-    {
-        $lines = preg_split('/\r\n|\n|\r/', $this->source) ?: [];
-        $lineText = $lines[$this->sourceLine - 1] ?? null;
-
-        if ($lineText === null) {
-            return '';
-        }
-
-        $caret = str_repeat(' ', max(0, $this->sourceColumn - 1)) . '^';
-
-        return "\n\n    " . $lineText . "\n    " . $caret;
+        return new self($message, $source, $offset, $position->line, $position->column);
     }
 }

@@ -9,6 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
@@ -16,8 +17,14 @@ use Warrant\Rules\RuleProviderContext;
  * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
  * access to the managed entity: asking the bound {@see RuleProvider}, if any,
  * confirming its answer is about the schema it was asked about, prepending the
- * schema's own rules, and running the set past {@see RuleSetValidator} as written
- * and again expanded, on the way to the compiler.
+ * schema's own rules, and running them past the validator on the way to the
+ * compiler: each answer as written, on its own, and then the assembled set
+ * again expanded.
+ *
+ * An answer given as rule text is validated as that text, so an error in it
+ * points into the text that holds it, before its rules are taken out of it and
+ * combined with the others. An answer built in code is validated as the nodes
+ * it is.
  *
  * That validation pass reports a mistake earlier than the compiler would, and
  * against every rule in the set rather than the ones a given check reaches —
@@ -78,13 +85,10 @@ trait ResolvesRuleSets
             return;
         }
 
-        $validator = new RuleSetValidator($this->schema, $this->schema::schemaKey());
-
         $ruleSet = $this->resolveRuleSet();
-        $validator->validateWritten($ruleSet);
 
         $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
-        $validator->validateExpanded($expanded);
+        (new RuleSetValidator($this->schema, $this->schema::schemaKey()))->validateExpanded($expanded);
 
         $this->resolvedRuleSet = $ruleSet;
         $this->expandedRuleSet = $expanded;
@@ -125,22 +129,40 @@ trait ResolvesRuleSets
      * missing from this schema, and silently compiled when both schemas share the
      * vocabulary.
      *
+     * Every answer is validated as written, here, before its rules are combined
+     * with any other: rule text as the text it is, and nodes built in code as
+     * those nodes.
+     *
      * @param  string  $provider  who returned $rules, for the error message
+     * @param  bool  $validate  false for the nodes taken out of rule text that has
+     *   already been validated as a whole
      * @return list<IRuleEntryNode>
      */
-    private function providedRuleEntries(mixed $rules, string $provider): array
+    private function providedRuleEntries(mixed $rules, string $provider, bool $validate = true): array
     {
         if (is_string($rules)) {
             $rules = WarrantSyntax::parse($rules);
         }
 
         if ($rules instanceof WarrantSyntax) {
-            $rules = $rules->isEmpty() || $rules->isRuleEntries()
-                ? $rules->ruleEntries()
-                : $rules->ruleSets();
+            $entries = $this->providedRuleEntries(
+                $rules->isEmpty() || $rules->isRuleEntries() ? $rules->ruleEntries() : $rules->ruleSets(),
+                $provider,
+                validate: false,
+            );
+
+            if ($validate) {
+                (new WarrantSyntaxValidator($this->schema, $this->schema::schemaKey()))->validateWritten($rules);
+            }
+
+            return $entries;
         }
 
         if ($rules instanceof IRuleEntryNode) {
+            if ($validate) {
+                $this->writtenRulesValidator()->validateEntries([$rules]);
+            }
+
             return [$rules];
         }
 
@@ -154,6 +176,10 @@ trait ResolvesRuleSets
                 ));
             }
 
+            if ($validate) {
+                $this->writtenRulesValidator()->validateWritten($rules);
+            }
+
             return $rules->entries;
         }
 
@@ -161,7 +187,7 @@ trait ResolvesRuleSets
             $entries = [];
 
             foreach ($rules as $rule) {
-                array_push($entries, ...$this->providedRuleEntries($rule, $provider));
+                array_push($entries, ...$this->providedRuleEntries($rule, $provider, $validate));
             }
 
             return $entries;
@@ -172,5 +198,13 @@ trait ResolvesRuleSets
             $provider,
             get_debug_type($rules),
         ));
+    }
+
+    /**
+     * The validator for rules built in code, which have no text to point into.
+     */
+    private function writtenRulesValidator(): RuleSetValidator
+    {
+        return new RuleSetValidator($this->schema, $this->schema::schemaKey());
     }
 }

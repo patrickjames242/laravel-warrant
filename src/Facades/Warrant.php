@@ -10,6 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\WarrantManager;
 
 /**
@@ -101,19 +102,32 @@ class Warrant extends Facade
      * unknown name. Runs before compilation so mistakes surface loudly rather
      * than as an empty predicate.
      *
-     * To validate against a schema you already hold, construct a
-     * {@see RuleSetValidator} directly rather than routing through the registry.
+     * Rule text is best validated as the {@see WarrantSyntax} it was parsed to:
+     * every `for <schema>` body in it is checked against its own schema, and an
+     * error says where in the text it is. Rules with no `for` header belong to no
+     * schema until they are used, so they are not checked here.
      *
-     * @param RuleSetNode|array<int, RuleSetNode> ...$ruleSets
+     * To validate against a schema you already hold, construct a
+     * {@see RuleSetValidator} or {@see WarrantSyntaxValidator} directly rather
+     * than routing through the registry.
+     *
+     * @param WarrantSyntax|RuleSetNode|array<int, WarrantSyntax|RuleSetNode> ...$ruleSets
      */
-    public static function validate(RuleSetNode|array ...$ruleSets): void
+    public static function validate(WarrantSyntax|RuleSetNode|array ...$ruleSets): void
     {
         foreach ($ruleSets as $ruleSet) {
             foreach (is_array($ruleSet) ? $ruleSet : [$ruleSet] as $one) {
+                if ($one instanceof WarrantSyntax) {
+                    (new WarrantSyntaxValidator)->validate($one);
+
+                    continue;
+                }
+
                 if (! $one instanceof RuleSetNode) {
-                    throw new InvalidArgumentException(
-                        sprintf('validate expects RuleSetNode instances, got %s.', get_debug_type($one))
-                    );
+                    throw new InvalidArgumentException(sprintf(
+                        'validate expects WarrantSyntax or RuleSetNode instances, got %s.',
+                        get_debug_type($one),
+                    ));
                 }
 
                 $schemaClass = static::registry()->resolveSchemaClassOrFail($one->schemaKey);

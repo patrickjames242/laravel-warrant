@@ -11,17 +11,22 @@ use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 
@@ -61,16 +66,27 @@ use Warrant\Facades\Warrant;
  * as the walk descends into a `check(...)` predicate, mirroring the
  * {@see \Warrant\DSL\Compiling\AliasScope} the compiler builds, so a reference
  * to an unrelated table is an error here rather than a SQL error at execution.
+ *
+ * ## Where an error points
+ *
+ * Given the {@see WarrantSyntax} the rules were parsed from, an error says where
+ * in that text it is: at the ability it is about, or else the innermost node it
+ * was found in that the text holds. A rule the text does not hold — one built in
+ * code, or put in place by expansion — has nowhere to point, and its error is
+ * placed at the nearest node around it that the text does hold, if any.
  */
 final class RuleSetValidator
 {
     /**
      * @param string $schemaKey The owning schema's key — the name its own rows go
      *   by in a `@column` reference.
+     * @param WarrantSyntax|null $writtenIn The text the rules were parsed from,
+     *   for errors to point into; null for rules built in code.
      */
     public function __construct(
         private readonly SchemaVocabulary $schema,
         private readonly string $schemaKey,
+        private readonly ?WarrantSyntax $writtenIn = null,
     ) {
     }
 
@@ -98,9 +114,21 @@ final class RuleSetValidator
      */
     public function validateWritten(RuleSetNode $ruleSet): void
     {
-        foreach ($ruleSet->entries as $entry) {
+        $this->validateEntries($ruleSet->entries);
+    }
+
+    /**
+     * Validate rule entries as written, as {@see validateWritten()} does, whether
+     * or not they name their abilities: the entries of rule text with no `for`
+     * header may leave them to the `@include` that places them.
+     *
+     * @param list<IRuleEntryNode> $entries
+     */
+    public function validateEntries(array $entries): void
+    {
+        foreach ($entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
-                $this->assertAbilitiesDeclared($entry->abilities);
+                $this->assertAbilitiesDeclared($entry->abilities, $entry, AbilityBlockNode::PART_ABILITIES);
 
                 foreach ($entry->entries as $blockEntry) {
                     if ($blockEntry instanceof WarrantRuleNode) {
@@ -108,7 +136,7 @@ final class RuleSetValidator
                     }
                 }
             } elseif ($entry instanceof IncludeInvocationNode) {
-                $this->assertAbilitiesDeclared($entry->abilities);
+                $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
             } elseif ($entry instanceof WarrantRuleNode) {
                 $this->validateRule($entry);
             }
@@ -128,12 +156,22 @@ final class RuleSetValidator
 
     private function validateRule(WarrantRuleNode $rule): void
     {
-        $this->assertAbilitiesDeclared([...$rule->canAbilities(), ...$rule->cannotAbilities()]);
+        try {
+            foreach ([...$rule->canClauses, ...$rule->cannotClauses] as $clause) {
+                $this->assertAbilitiesDeclared(
+                    $clause->abilities,
+                    $clause,
+                    $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
+                );
+            }
 
-        $this->assertNoDuplicateCannotAbility($rule);
+            $this->assertNoDuplicateCannotAbility($rule);
 
-        if ($rule->conditions !== null) {
-            $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
+            if ($rule->conditions !== null) {
+                $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
+            }
+        } catch (InvalidArgumentException $e) {
+            throw $this->placed($e, $rule);
         }
     }
 
@@ -150,14 +188,17 @@ final class RuleSetValidator
      * Every name in an ability list must be one the schema declares. `*` is not a
      * name but a stand-in for all of them, so it is passed over.
      *
-     * @param list<string> $abilities
+     * @param list<string> $abilities The ability list $part of $owner.
      */
-    private function assertAbilitiesDeclared(array $abilities): void
+    private function assertAbilitiesDeclared(array $abilities, object $owner, string $part): void
     {
-        foreach ($abilities as $ability) {
+        foreach ($abilities as $index => $ability) {
             if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
-                throw new InvalidArgumentException(
-                    sprintf('Ability [%s] is not declared by the schema.', $ability)
+                throw $this->placed(
+                    new InvalidArgumentException(sprintf('Ability [%s] is not declared by the schema.', $ability)),
+                    $owner,
+                    $part,
+                    $index,
                 );
             }
         }
@@ -174,17 +215,44 @@ final class RuleSetValidator
         $seen = [];
 
         foreach ($rule->cannotClauses as $clause) {
-            foreach ($clause->abilities as $ability) {
+            foreach ($clause->abilities as $index => $ability) {
                 if (isset($seen[$ability])) {
-                    throw new InvalidArgumentException(sprintf(
+                    throw $this->placed(new InvalidArgumentException(sprintf(
                         'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
                         $ability,
-                    ));
+                    )), $clause, CannotClauseNode::PART_ABILITIES, $index);
                 }
 
                 $seen[$ability] = true;
             }
         }
+    }
+
+    /**
+     * $error, placed where $node (or its $part, at $key) was written in the text
+     * these rules were parsed from. An error already placed, further in, keeps
+     * its place; one about a node the text does not hold is left for a node
+     * further out to place.
+     */
+    private function placed(
+        InvalidArgumentException $error,
+        object $node,
+        ?string $part = null,
+        int|string|null $key = null,
+    ): InvalidArgumentException {
+        if ($error instanceof RuleValidationException && $error->position !== null) {
+            return $error;
+        }
+
+        $span = $this->writtenIn?->positions?->spanOf($node, $part, $key);
+
+        if ($span === null || $this->writtenIn->source === null) {
+            return $error;
+        }
+
+        $reason = $error instanceof RuleValidationException ? $error->reason : $error->getMessage();
+
+        return new RuleValidationException($reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error);
     }
 
     /**
@@ -229,6 +297,23 @@ final class RuleSetValidator
         AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
         bool $inDerivedBody = false,
+    ): void {
+        try {
+            $this->validateExpressionNode($node, $vocabulary, $scope, $predicateOf, $inDerivedBody);
+        } catch (InvalidArgumentException $e) {
+            throw $this->placed($e, $node);
+        }
+    }
+
+    /**
+     * {@see validateExpression()} for $node itself, its errors not yet placed.
+     */
+    private function validateExpressionNode(
+        IBooleanExpressionNode $node,
+        SchemaVocabulary $vocabulary,
+        AliasScope $scope,
+        ?CrossSchemaConditionNode $predicateOf,
+        bool $inDerivedBody,
     ): void {
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $scope, $predicateOf),

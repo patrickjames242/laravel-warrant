@@ -39,7 +39,8 @@ it('returns a condition builder from condition() and a rule builder from rule()'
 // -- parse ---------------------------------------------------------------------
 
 it('parses every form exactly as WarrantSyntax::parse does', function (string $source) {
-    expect(Warrant::parse($source))->toEqual(WarrantSyntax::parse($source));
+    expect(Warrant::parse($source)->children)->toEqual(WarrantSyntax::parse($source)->children)
+        ->and(Warrant::parse($source)->source)->toBe($source);
 })->with([
     'a condition' => ['is_owner or is_admin'],
     'a rule' => ['if is_self they can view'],
@@ -67,8 +68,8 @@ it('parses a file through parseFile', function () {
 // -- the global helpers ---------------------------------------------------------
 
 it('parses through warrant() exactly as Warrant::parse does', function () {
-    expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1']))
-        ->toEqual(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1']));
+    expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1'])->children)
+        ->toEqual(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1'])->children);
 });
 
 it('parses a file through warrant_file(), with the extension left off', function () {
@@ -76,8 +77,8 @@ it('parses a file through warrant_file(), with the extension left off', function
     file_put_contents($base.'.warrant', 'for timesheets { if is_owner(:id) they can view }');
 
     try {
-        expect(warrant_file($base, ['id' => 'x-1']))
-            ->toEqual(Warrant::parseFile($base.'.warrant', ['id' => 'x-1']));
+        expect(warrant_file($base, ['id' => 'x-1'])->children)
+            ->toEqual(Warrant::parseFile($base.'.warrant', ['id' => 'x-1'])->children);
     } finally {
         unlink($base.'.warrant');
     }
@@ -107,7 +108,7 @@ it('validates each rule set against the schema registered for its key', function
 
 it('rejects anything but a rule set', function () {
     expect(fn () => Warrant::validate(['for course_sections { they can view }']))
-        ->toThrow(InvalidArgumentException::class, 'validate expects RuleSetNode instances, got string.');
+        ->toThrow(InvalidArgumentException::class, 'validate expects WarrantSyntax or RuleSetNode instances, got string.');
 });
 
 // -- a builder still needs no terminal where a value is expected ---------------

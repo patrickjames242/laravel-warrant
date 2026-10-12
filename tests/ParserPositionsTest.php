@@ -14,7 +14,6 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\ParseResult;
 use Warrant\DSL\Parsing\Positions\SourceEntry;
 use Warrant\DSL\Parsing\WarrantParser;
 
@@ -58,7 +57,7 @@ function recordedNodes(string $source): array
             (new ReflectionClass($node))->getShortName(),
             $span === null ? null : substr($source, $span->offset, $span->length()),
         ];
-    }, treeNodes($result->syntax));
+    }, treeNodes($result));
 }
 
 const POSITIONS_CORPUS = [
@@ -174,14 +173,14 @@ it('leaves a comment after a node out of its range', function () {
 });
 
 it('parses to the same tree whether or not it records positions', function (string $source) {
-    expect(WarrantParser::parseWithPositions($source)->syntax)->toEqual(WarrantParser::parse($source));
+    expect(WarrantParser::parseWithPositions($source)->children)->toEqual(WarrantParser::parse($source)->children);
 })->with(POSITIONS_CORPUS);
 
 it('records every node, and never two over the same text', function (string $source) {
     $result = WarrantParser::parseWithPositions($source);
     $ranges = [];
 
-    foreach (treeNodes($result->syntax) as $node) {
+    foreach (treeNodes($result) as $node) {
         $span = $result->positions->spanOf($node);
 
         expect($span)->not->toBeNull();
@@ -201,7 +200,7 @@ it('finds what an offset is inside, from the rule set down to the part', functio
         $result->positions->containing(strpos($source, 'is_locked') + 3),
     );
 
-    expect($result)->toBeInstanceOf(ParseResult::class)
+    expect($result)->toBeInstanceOf(WarrantSyntax::class)
         ->and($chain)->toBe([
             ['RuleSetNode', null], ['WarrantRuleNode', null], ['AndNode', null], ['NotNode', null],
             ['OrNode', null], ['ConditionNode', null], ['ConditionNode', ConditionNode::PART_CONDITION_KEY],
@@ -229,7 +228,7 @@ it('puts an argument inside the part of the node it is passed to', function () {
 /**
  * The text a part of a node was recorded as written in, or null.
  */
-function partText(ParseResult $result, string $source, object $node, string $part, int|string|null $key = null): ?string
+function partText(WarrantSyntax $result, string $source, object $node, string $part, int|string|null $key = null): ?string
 {
     $span = $result->positions->spanOf($node, $part, $key);
 
@@ -239,7 +238,7 @@ function partText(ParseResult $result, string $source, object $node, string $par
 it('records the names and arguments of a rule set\'s entries', function () {
     $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
     $result = WarrantParser::parseWithPositions($source);
-    $ruleSet = $result->syntax->children[0];
+    $ruleSet = $result->children[0];
     [$rule, $block, $include] = $ruleSet->entries;
     $isOwner = $rule->conditions->leftSide;
 
@@ -260,7 +259,7 @@ it('records each part of a cross-schema reference', function () {
     $source = 'if check(is_open(@column docs.org_id, 2) for folders(@context folder, 7) as f with org = @context org, n = 1) '
         .'they can edit, *';
     $result = WarrantParser::parseWithPositions($source);
-    $rule = $result->syntax->children[0];
+    $rule = $result->children[0];
     $check = $rule->conditions;
 
     expect(partText($result, $source, $check, CrossSchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders')
@@ -279,7 +278,7 @@ it('records each part of a cross-schema reference', function () {
 it('records the names inside each symbolic reference', function () {
     $source = POSITIONS_CORPUS['symbolic references'];
     $result = WarrantParser::parseWithPositions($source);
-    [$context, $qualified, $unqualified, $sql] = $result->syntax->children[0]->conditions->parameters;
+    [$context, $qualified, $unqualified, $sql] = $result->children[0]->conditions->parameters;
 
     expect(partText($result, $source, $context, ContextRef::PART_KEY))->toBe('year')
         ->and(partText($result, $source, $qualified, ColumnRef::PART_ALIAS))->toBe('docs')
@@ -292,7 +291,7 @@ it('records the names inside each symbolic reference', function () {
 it('records a bound @sql string as the binding it was written as', function () {
     $source = 'if in_period(@sql :query) they can view';
     $result = WarrantParser::parseWithPositions($source);
-    $sql = $result->syntax->children[0]->conditions->parameters[0];
+    $sql = $result->children[0]->conditions->parameters[0];
 
     expect(partText($result, $source, $sql, SqlRef::PART_SQL))->toBe(':query');
 });
@@ -303,19 +302,19 @@ it('records the schema of every for header', function () {
 
     expect(array_map(
         static fn (object $body): ?string => partText($result, $source, $body, RuleSetNode::PART_SCHEMA_KEY),
-        $result->syntax->children,
+        $result->children,
     ))->toBe(['docs', 'folders', 'docs'])
-        ->and(partText($result, $source, $result->syntax->children[1], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders');
+        ->and(partText($result, $source, $result->children[1], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('folders');
 
     $bare = WarrantParser::parseWithPositions(POSITIONS_CORPUS['a scoped expression']);
 
-    expect(partText($bare, POSITIONS_CORPUS['a scoped expression'], $bare->syntax->children[0], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('docs');
+    expect(partText($bare, POSITIONS_CORPUS['a scoped expression'], $bare->children[0], SchemaConditionNode::PART_SCHEMA_KEY))->toBe('docs');
 });
 
 it('records every value a node holds as a part of it, named by one of its constants', function (string $source) {
     $result = WarrantParser::parseWithPositions($source);
 
-    foreach (treeNodes($result->syntax) as $node) {
+    foreach (treeNodes($result) as $node) {
         foreach (get_object_vars($node) as $name => $value) {
             if ($value === null || is_bool($value) || $value instanceof INode) {
                 continue;

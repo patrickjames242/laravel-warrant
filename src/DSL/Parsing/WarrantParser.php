@@ -87,7 +87,7 @@ final class WarrantParser
     {
         $written = self::parseWithPositions($source);
 
-        return (new BindingResolver($source, $written->positions))->resolve($written->syntax, $bindings);
+        return (new BindingResolver($source, $written->positions))->resolve($written, $bindings);
     }
 
     /**
@@ -96,13 +96,13 @@ final class WarrantParser
      * written. The root {@see WarrantSyntax} stands for the whole text and is
      * not recorded.
      */
-    public static function parseWithPositions(string $source): ParseResult
+    public static function parseWithPositions(string $source): WarrantSyntax
     {
         $state = ParsingState::forSource($source);
         $syntax = Parser::run(new ParseSyntax, $state);
         $state->commitTo($positions = new SourceMap);
 
-        return new ParseResult($syntax, $positions);
+        return new WarrantSyntax($syntax->children, $source, $positions);
     }
 
     /**
@@ -116,25 +116,25 @@ final class WarrantParser
      * and the tree is then empty. Named and positional placeholders mixed are
      * reported, and the tree is kept.
      */
-    public static function analyze(string $source): ParseResult
+    public static function analyze(string $source): AnalysisResult
     {
         $state = ParsingState::forAnalysis($source);
         $positions = new SourceMap;
 
         try {
-            $syntax = Parser::run(new ParseSyntax, $state);
+            $children = Parser::run(new ParseSyntax, $state)->children;
             $state->commitTo($positions);
         } catch (WarrantSyntaxException $error) {
             $state->diagnose($error);
-            $syntax = new WarrantSyntax([]);
+            $children = [];
         }
 
         try {
-            (new BindingResolver($source, $positions))->assertNotMixed($syntax);
+            (new BindingResolver($source, $positions))->assertNotMixed(new WarrantSyntax($children));
         } catch (WarrantSyntaxException $error) {
             $state->diagnose($error);
         }
 
-        return new ParseResult($syntax, $positions, $state->diagnostics);
+        return new AnalysisResult(new WarrantSyntax($children, $source, $positions), $state->diagnostics);
     }
 }

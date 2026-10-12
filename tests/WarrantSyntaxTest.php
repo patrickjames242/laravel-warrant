@@ -424,7 +424,7 @@ it('rejects a tree mixing shapes', function () {
 it('round-trips every form through toSyntax', function (string $source) {
     $syntax = WarrantSyntax::parse($source);
 
-    expect(WarrantSyntax::parse($syntax->toSyntax()))->toEqual($syntax);
+    expect(WarrantSyntax::parse($syntax->toSyntax())->children)->toEqual($syntax->children);
 })->with([
     'a condition' => ['is_owner or not is_admin'],
     'a rule' => ["if is_self they can edit they cannot delete because 'Locked.'"],
@@ -445,7 +445,7 @@ it('round-trips every block losslessly through bound syntax', function () {
     $bound = $syntax->toBoundSyntax();
 
     expect($bound->bindings)->toBe(['x-1', [1, 2, 3]]);
-    expect(WarrantSyntax::parse($bound->syntax, $bound->bindings))->toEqual($syntax);
+    expect(WarrantSyntax::parse($bound->syntax, $bound->bindings)->children)->toEqual($syntax->children);
 });
 
 it('renders a lone rule set as one braced block', function () {
@@ -455,4 +455,20 @@ it('renders a lone rule set as one braced block', function () {
             they can view, edit
         }
         TXT);
+});
+
+it('keeps the text it was read from and where each node was written', function () {
+    $source = 'if is_owner(:id) they can view';
+    $syntax = WarrantSyntax::parse($source, ['id' => 5]);
+    $span = $syntax->positions->spanOf($syntax->children[0]->conditions);
+
+    expect($syntax->source)->toBe($source)
+        ->and(substr($source, $span->offset, $span->length()))->toBe('is_owner(:id)');
+});
+
+it('has no text or positions when built by hand', function () {
+    $syntax = new WarrantSyntax([]);
+
+    expect($syntax->source)->toBeNull()
+        ->and($syntax->positions)->toBeNull();
 });

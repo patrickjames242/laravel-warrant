@@ -131,8 +131,8 @@ it('parses rules with comments between any two tokens as it parses them without'
         }
         WARRANT;
 
-    expect(WarrantParser::parse($commented))
-        ->toEqual(WarrantParser::parse('for docs { if is_owner(@context org) and can(view) they can view can they share { they can } }'));
+    expect(WarrantParser::parse($commented)->children)
+        ->toEqual(WarrantParser::parse('for docs { if is_owner(@context org) and can(view) they can view can they share { they can } }')->children);
 });
 
 // -- strict reading -----------------------------------------------------------

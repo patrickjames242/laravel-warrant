@@ -26,9 +26,9 @@ it('reads sound text to the same tree and positions as a strict read, with no di
     $analysed = WarrantParser::analyze($source);
     $strict = WarrantParser::parseWithPositions($source);
 
-    expect($analysed->syntax)->toEqual($strict->syntax)
+    expect($analysed->syntax->children)->toEqual($strict->children)
         ->and($analysed->diagnostics)->toBe([])
-        ->and(count($analysed->positions->containing(0)))->toBe(count($strict->positions->containing(0)));
+        ->and(count($analysed->syntax->positions->containing(0)))->toBe(count($strict->positions->containing(0)));
 })->with([
     'a rule set' => "for docs {\n  if is_owner(@context org) they can view # mine\n  can they share { they can }\n}",
     'unscoped rules' => 'they can view if is_owner they can edit @include shared for view',
@@ -68,7 +68,7 @@ it('reports the error a strict read throws, over the token it is at, with an emp
 
     expect(analysisDiagnostics($source))->toBe([['Unexpected token; expected end of input.', ')']])
         ->and($analysed->syntax->children)->toBe([])
-        ->and($analysed->positions->containing(0))->toBe([]);
+        ->and($analysed->syntax->positions->containing(0))->toBe([]);
 });
 
 it('reports a lexical error before the grammar error it leads to', function () {

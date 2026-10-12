@@ -177,7 +177,7 @@ final class BindingResolver
         }
 
         $rebuilt = match (true) {
-            $node instanceof WarrantSyntax => new WarrantSyntax($each($node->children)),
+            $node instanceof WarrantSyntax => new WarrantSyntax($each($node->children), $node->source, $node->positions),
             $node instanceof RuleSetNode => new RuleSetNode($node->schemaKey, $each($node->entries)),
             $node instanceof SchemaConditionNode => new SchemaConditionNode($node->schemaKey, $walk($node->expression)),
             $node instanceof AbilityBlockNode => new AbilityBlockNode($node->abilities, $each($node->entries)),

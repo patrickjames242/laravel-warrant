@@ -62,16 +62,16 @@ it('reports binding errors in the order the bindings were written', function () 
 it('hands back a tree with no bindings as it is', function () {
     $written = WarrantParser::parseWithPositions('if a(1) they can view');
 
-    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve($written->syntax, []))
-        ->toBe($written->syntax);
+    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve($written, []))
+        ->toBe($written);
 });
 
 it('moves the positions of every node it builds anew onto the new node', function () {
     $source = 'if a(:x) and b they can view';
     $written = WarrantParser::parseWithPositions($source);
-    $before = $written->syntax->children[0]->conditions;
+    $before = $written->children[0]->conditions;
 
-    $resolved = (new BindingResolver($source, $written->positions))->resolve($written->syntax, ['x' => 5]);
+    $resolved = (new BindingResolver($source, $written->positions))->resolve($written, ['x' => 5]);
     $after = $resolved->children[0]->conditions;
     $span = static fn (?Span $span): ?string => $span === null ? null : substr($source, $span->offset, $span->length());
 
