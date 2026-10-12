@@ -7,6 +7,8 @@ use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
@@ -136,4 +138,44 @@ it('throws the first of the mistakes it would report', function () {
 
     expect(fn () => (new WarrantSyntaxValidator(new WarrantTestSchema, 'course_sections'))->validateWritten(WarrantSyntax::parse($source)))
         ->toThrow(RuleValidationException::class, validationDiagnostics($source)[0][0]);
+});
+
+/**
+ * A catalog holding only $schemas, by key, with nothing behind it.
+ *
+ * @param array<string, SchemaVocabulary> $schemas
+ */
+function catalogOf(array $schemas): SchemaCatalog
+{
+    return new class($schemas) implements SchemaCatalog
+    {
+        /** @param array<string, SchemaVocabulary> $schemas */
+        public function __construct(private array $schemas) {}
+
+        public function find(string $schemaKey): ?SchemaVocabulary
+        {
+            return $this->schemas[$schemaKey] ?? null;
+        }
+    };
+}
+
+it('looks every schema up in the catalog it is given, and nowhere else', function () {
+    $catalog = catalogOf(['lessons' => new WarrantTestSchema]);
+
+    expect(WarrantParser::analyze('for lessons { if can(view for lessons) they can view }', $catalog)->diagnostics)->toBe([])
+        ->and(array_map(
+            static fn (Diagnostic $diagnostic): string => $diagnostic->message,
+            WarrantParser::analyze('for course_sections { they can view }', $catalog)->diagnostics,
+        ))->toBe(['The `for` header names unknown schema [course_sections].']);
+});
+
+it('reports syntax errors and then the rules a text breaks, when analysed against a catalog', function () {
+    $source = 'if is_teachr they can frobnicate ~';
+    $diagnostics = WarrantParser::analyze("if is_teachr they can frobnicate\nthey can fly", catalogOf(['lessons' => new WarrantTestSchema]), 'lessons')->diagnostics;
+
+    expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([
+        'Ability [frobnicate] is not declared by the schema.',
+        'Ability [fly] is not declared by the schema.',
+        'Condition [is_teachr] is not declared by the schema.',
+    ])->and(WarrantParser::analyze($source, catalogOf([]))->diagnostics[0]->message)->toBe("Unexpected character '~'.");
 });

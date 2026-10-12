@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Validation;
 
 use Closure;
 use InvalidArgumentException;
-use OutOfBoundsException;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
@@ -14,8 +13,9 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
+use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
-use Warrant\Facades\Warrant;
+use Warrant\Registry\RegisteredSchemas;
 
 /**
  * Validates one text as its author wrote it, against the schema each part of it
@@ -39,10 +39,13 @@ final class WarrantSyntaxValidator
      * @param SchemaVocabulary|null $headerlessSchema The schema rules or a
      *   condition with no `for` header belong to, when the caller knows it.
      * @param string|null $headerlessSchemaKey That schema's key.
+     * @param SchemaCatalog $catalog Where the schema each `for` header names is
+     *   found, and the schemas cross-schema references name.
      */
     public function __construct(
         private readonly ?SchemaVocabulary $headerlessSchema = null,
         private readonly ?string $headerlessSchemaKey = null,
+        private readonly SchemaCatalog $catalog = new RegisteredSchemas,
     ) {
     }
 
@@ -112,7 +115,7 @@ final class WarrantSyntaxValidator
 
         foreach ($syntax->children as $child) {
             if ($child instanceof RuleSetNode) {
-                (new RuleSetExpander)->expand($child, $this->schemaOf($syntax, $child));
+                (new RuleSetExpander($this->catalog))->expand($child, $this->schemaOf($syntax, $child));
             }
         }
     }
@@ -121,7 +124,12 @@ final class WarrantSyntaxValidator
     {
         return $this->headerlessSchema === null || $this->headerlessSchemaKey === null
             ? null
-            : $this->reporting(new RuleSetValidator($this->headerlessSchema, $this->headerlessSchemaKey, $syntax));
+            : $this->reporting(new RuleSetValidator(
+                $this->headerlessSchema,
+                $this->headerlessSchemaKey,
+                $syntax,
+                catalog: $this->catalog,
+            ));
     }
 
     /**
@@ -132,7 +140,9 @@ final class WarrantSyntaxValidator
     {
         $schema = $this->schemaOf($syntax, $body);
 
-        return $schema === null ? null : $this->reporting(new RuleSetValidator($schema, $body->schemaKey(), $syntax));
+        return $schema === null
+            ? null
+            : $this->reporting(new RuleSetValidator($schema, $body->schemaKey(), $syntax, catalog: $this->catalog));
     }
 
     private function reporting(RuleSetValidator $validator): RuleSetValidator
@@ -142,7 +152,7 @@ final class WarrantSyntaxValidator
 
     /**
      * The schema $body's `for` header names: the headerless schema when it is
-     * the one named, otherwise the one registered under that key. A header
+     * the one named, otherwise the one the catalog has under that key. A header
      * naming no schema is an error, thrown, or reported while diagnosing.
      */
     private function schemaOf(WarrantSyntax $syntax, ISchemaScopedNode $body): ?SchemaVocabulary
@@ -151,15 +161,15 @@ final class WarrantSyntaxValidator
             return $this->headerlessSchema;
         }
 
-        try {
-            $schemaClass = Warrant::registry()->resolveSchemaClassOrFail($body->schemaKey());
-        } catch (OutOfBoundsException $e) {
+        $schema = $this->catalog->find($body->schemaKey());
+
+        if ($schema === null) {
             $reason = sprintf('The `for` header names unknown schema [%s].', $body->schemaKey());
             $span = $syntax->positions?->spanOf($body, ISchemaScopedNode::PART_SCHEMA_KEY);
 
             $error = $span === null || $syntax->source === null
-                ? new InvalidArgumentException($reason, previous: $e)
-                : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), $e, $span);
+                ? new InvalidArgumentException($reason)
+                : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
 
             if ($this->report === null) {
                 throw $error;
@@ -170,6 +180,6 @@ final class WarrantSyntaxValidator
             return null;
         }
 
-        return new $schemaClass;
+        return $schema;
     }
 }

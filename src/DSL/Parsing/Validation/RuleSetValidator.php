@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Validation;
 
 use Closure;
 use InvalidArgumentException;
-use OutOfBoundsException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\RuleSetExpander;
@@ -26,8 +25,9 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
+use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
-use Warrant\Facades\Warrant;
+use Warrant\Registry\RegisteredSchemas;
 
 /**
  * Validates every condition and ability name in a {@see RuleSetNode} against
@@ -89,12 +89,15 @@ final class RuleSetValidator
      *   the rule's, checked in the rule's scope where the rule wrote it, so it is
      *   not checked again in the scope it is passed into. Text is validated as
      *   written, its bindings still placeholders, and needs none of this.
+     * @param SchemaCatalog $catalog Where the schemas a `can(... for <schema>)`
+     *   or `check(... for <schema>)` names are found.
      */
     public function __construct(
         private readonly SchemaVocabulary $schema,
         private readonly string $schemaKey,
         private readonly ?WarrantSyntax $writtenIn = null,
         private readonly array $passedIn = [],
+        private readonly SchemaCatalog $catalog = new RegisteredSchemas,
     ) {
     }
 
@@ -125,7 +128,7 @@ final class RuleSetValidator
     {
         $this->validateWritten($ruleSet);
 
-        (new RuleSetExpander)->expand($ruleSet, $this->schema);
+        (new RuleSetExpander($this->catalog))->expand($ruleSet, $this->schema);
     }
 
     /**
@@ -302,7 +305,7 @@ final class RuleSetValidator
      */
     private function rootScope(): AliasScope
     {
-        $rowless = ! $this->schema::hasRows();
+        $rowless = ! $this->schema->describesRows();
 
         return $rowless ? AliasScope::none() : AliasScope::root($this->schemaKey, null);
     }
@@ -391,16 +394,11 @@ final class RuleSetValidator
             return;
         }
 
-        try {
-            $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
-        } catch (OutOfBoundsException $e) {
-            throw new InvalidArgumentException(
-                sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
-                previous: $e,
-            );
-        }
+        $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
+            sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
+        );
 
-        if ((new $targetClass)->getAbilityDefinition($node->ability) === null) {
+        if ($target->getAbilityDefinition($node->ability) === null) {
             throw new InvalidArgumentException(sprintf(
                 'Ability [%s] is not declared by schema [%s].',
                 $node->ability,
@@ -408,7 +406,7 @@ final class RuleSetValidator
             ));
         }
 
-        if ($node->isRowBound && ! $targetClass::hasRows()) {
+        if ($node->isRowBound && ! $target->describesRows()) {
             throw new InvalidArgumentException(sprintf(
                 'A can(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
@@ -416,8 +414,8 @@ final class RuleSetValidator
             ));
         }
 
-        $this->assertTargetCanNameARow('can', $node->schemaKey, $targetClass, $node->isRowBound);
-        $this->assertKeyArityIsSatisfied('can', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
+        $this->assertTargetCanNameARow('can', $node->schemaKey, $target, $node->isRowBound);
+        $this->assertKeyArityIsSatisfied('can', $node->schemaKey, $target, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value. A
         // literal `null` (or a `:name`/`?` binding that resolved to null) can
@@ -456,16 +454,11 @@ final class RuleSetValidator
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, AliasScope $scope): void
     {
-        try {
-            $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
-        } catch (OutOfBoundsException $e) {
-            throw new InvalidArgumentException(
-                sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
-                previous: $e,
-            );
-        }
+        $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
+            sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
+        );
 
-        if ($node->isRowBound && ! $targetClass::hasRows()) {
+        if ($node->isRowBound && ! $target->describesRows()) {
             throw new InvalidArgumentException(sprintf(
                 'A check(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
@@ -473,8 +466,8 @@ final class RuleSetValidator
             ));
         }
 
-        $this->assertTargetCanNameARow('check', $node->schemaKey, $targetClass, $node->isRowBound);
-        $this->assertKeyArityIsSatisfied('check', $node->schemaKey, $targetClass, $node->isRowBound, $node->boundKey);
+        $this->assertTargetCanNameARow('check', $node->schemaKey, $target, $node->isRowBound);
+        $this->assertKeyArityIsSatisfied('check', $node->schemaKey, $target, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value; a
         // literal `null` (or a binding that resolved to null) can never match a
@@ -505,8 +498,8 @@ final class RuleSetValidator
            row out of reach. */
         $this->validateExpression(
             $node->predicate,
-            new $targetClass,
-            ! $targetClass::hasRows()
+            $target,
+            ! $target->describesRows()
                 ? $scope->enteringRowlessPredicate()
                 : $scope->enteringPredicate($node->schemaKey, $node->alias, null),
             $node,
@@ -585,15 +578,14 @@ final class RuleSetValidator
      * was never there. The compiler makes the same check, for the handles that
      * never pass through the parser.
      *
-     * @param class-string<\Warrant\Schema\WarrantSchema> $targetClass
      */
     private function assertTargetCanNameARow(
         string $builtin,
         string $schemaKey,
-        string $targetClass,
+        SchemaVocabulary $target,
         bool $isRowBound,
     ): void {
-        if (! $isRowBound || ! $targetClass::hasRows() || $targetClass::hasRowKey()) {
+        if (! $isRowBound || ! $target->describesRows() || $target->canNameARow()) {
             return;
         }
 
@@ -619,13 +611,12 @@ final class RuleSetValidator
      * Extra arguments are allowed, exactly as they are for a condition: they are
      * ignored by the call and stay reachable on `$c->arguments`.
      *
-     * @param class-string<\Warrant\Schema\WarrantSchema> $targetClass
      * @param array<int, mixed> $boundKey
      */
     private function assertKeyArityIsSatisfied(
         string $builtin,
         string $schemaKey,
-        string $targetClass,
+        SchemaVocabulary $target,
         bool $isRowBound,
         array $boundKey,
     ): void {
@@ -633,7 +624,7 @@ final class RuleSetValidator
             return;
         }
 
-        $required = $targetClass::keyDefinition()->requiredArgumentCount;
+        $required = $target->getKeyDefinition()->requiredArgumentCount;
 
         if (count($boundKey) >= $required) {
             return;

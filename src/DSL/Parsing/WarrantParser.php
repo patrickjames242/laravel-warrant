@@ -7,6 +7,8 @@ use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\Positions\SourceMap;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\SchemaCatalog;
 
 /**
  * Parses Warrant rule syntax. The parse reads each `:name` and `?` as a
@@ -102,8 +104,13 @@ final class WarrantParser
      * past it. An error the grammar meets ends the read: it is reported too,
      * and the tree is then empty. Named and positional placeholders mixed are
      * reported, and the tree is kept.
+     *
+     * Given a $catalog, the text is validated too, and every rule of the
+     * language it breaks is reported after the syntax errors: each `for` body
+     * against the schema its header names, and rules with no header against the
+     * schema $schemaKey names, or not at all when it names none.
      */
-    public static function analyze(string $source): AnalysisResult
+    public static function analyze(string $source, ?SchemaCatalog $catalog = null, ?string $schemaKey = null): AnalysisResult
     {
         $state = ParsingState::forAnalysis($source);
         $positions = new SourceMap;
@@ -122,6 +129,15 @@ final class WarrantParser
             $state->diagnose($error);
         }
 
-        return new AnalysisResult(new WarrantSyntax($children, $source, $positions), $state->diagnostics);
+        $syntax = new WarrantSyntax($children, $source, $positions);
+
+        if ($catalog === null) {
+            return new AnalysisResult($syntax, $state->diagnostics);
+        }
+
+        $headerlessSchema = $schemaKey === null ? null : $catalog->find($schemaKey);
+        $validator = new WarrantSyntaxValidator($headerlessSchema, $headerlessSchema === null ? null : $schemaKey, $catalog);
+
+        return new AnalysisResult($syntax, [...$state->diagnostics, ...$validator->diagnose($syntax)]);
     }
 }

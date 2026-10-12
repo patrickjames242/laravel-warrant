@@ -169,6 +169,16 @@ abstract class WarrantSchema implements ConditionResolver
             && (static::model !== '' || static::key !== '' || method_exists(static::class, 'matchKey'));
     }
 
+    public function describesRows(): bool
+    {
+        return static::hasRows();
+    }
+
+    public function canNameARow(): bool
+    {
+        return static::hasRowKey();
+    }
+
     /**
      * Whether this schema overrides {@see virtualTable}.
      *

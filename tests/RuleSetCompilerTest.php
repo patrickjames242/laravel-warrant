@@ -82,6 +82,16 @@ final class FakeConditionResolver implements ConditionResolver
         return true;
     }
 
+    public function describesRows(): bool
+    {
+        return static::hasRows();
+    }
+
+    public function canNameARow(): bool
+    {
+        return static::hasRowKey();
+    }
+
     public static function virtualTable(): ?Builder
     {
         return null;

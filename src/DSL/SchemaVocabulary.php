@@ -35,6 +35,19 @@ interface SchemaVocabulary
     public static function hasRowKey(): bool;
 
     /**
+     * {@see hasRows()}, asked of this vocabulary: whether the schema has rows at
+     * all. What validation asks, so a vocabulary built from anything — a schema
+     * class, or an index of one — can answer for itself.
+     */
+    public function describesRows(): bool;
+
+    /**
+     * {@see hasRowKey()}, asked of this vocabulary: whether one of the schema's
+     * rows can be named.
+     */
+    public function canNameARow(): bool;
+
+    /**
      * The definition for a single ability, or null if the schema declares no such
      * ability.
      */

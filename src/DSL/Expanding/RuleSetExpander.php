@@ -5,7 +5,6 @@ namespace Warrant\DSL\Expanding;
 use Closure;
 use InvalidArgumentException;
 use LogicException;
-use OutOfBoundsException;
 use RuntimeException;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
@@ -26,8 +25,9 @@ use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
-use Warrant\Facades\Warrant;
+use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\RuleTemplateDefinition;
 
@@ -62,6 +62,14 @@ use Warrant\Schema\RuleTemplateDefinition;
  */
 final class RuleSetExpander
 {
+    /**
+     * @param SchemaCatalog $catalog Where the schema a `check(... for <schema>)`
+     *   names is found, to expand its predicate against.
+     */
+    public function __construct(private readonly SchemaCatalog $catalog = new RegisteredSchemas)
+    {
+    }
+
     /**
      * Expand $set into rules alone: ability blocks opened up, every include
      * replaced by what its template expands to, and every derived condition by
@@ -208,7 +216,7 @@ final class RuleSetExpander
             }
 
             if ($validate) {
-                self::validateAnswer($answeredBy, static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))
+                self::validateAnswer($answeredBy, fn () => (new WarrantSyntaxValidator($schema, $schemaKey, $this->catalog))
                     ->validateWritten($body));
             }
 
@@ -229,7 +237,7 @@ final class RuleSetExpander
             }
 
             if ($validate) {
-                self::validateAnswer($answeredBy, static fn () => (new RuleSetValidator($schema, $schemaKey))
+                self::validateAnswer($answeredBy, fn () => (new RuleSetValidator($schema, $schemaKey, catalog: $this->catalog))
                     ->validateEntries([$body]));
             }
 
@@ -338,13 +346,13 @@ final class RuleSetExpander
         /* A schema nobody registered has no vocabulary to expand against. Leaving
            the reference as it is lets the validator and the compiler reject it with
            the message they give for any unknown schema. */
-        try {
-            $targetClass = Warrant::registry()->resolveSchemaClassOrFail($node->schemaKey);
-        } catch (OutOfBoundsException) {
+        $target = $this->catalog->find($node->schemaKey);
+
+        if ($target === null) {
             return $node;
         }
 
-        $predicate = $this->expandExpression($node->predicate, new $targetClass, $node->schemaKey, $trail);
+        $predicate = $this->expandExpression($node->predicate, $target, $node->schemaKey, $trail);
 
         return $predicate === $node->predicate ? $node : new CrossSchemaConditionNode(
             $node->schemaKey,
@@ -425,7 +433,7 @@ final class RuleSetExpander
 
         self::validateAnswer(
             sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
-            static fn () => (new RuleSetValidator($schema, $schemaKey, passedIn: $node->parameters))
+            fn () => (new RuleSetValidator($schema, $schemaKey, passedIn: $node->parameters, catalog: $this->catalog))
                 ->validateCondition(new SchemaConditionNode($schemaKey, $expression)),
         );
 
@@ -516,7 +524,7 @@ final class RuleSetExpander
 
         self::validateAnswer(
             sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
-            static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))->validateWritten($syntax),
+            fn () => (new WarrantSyntaxValidator($schema, $schemaKey, $this->catalog))->validateWritten($syntax),
         );
 
         return $syntax->conditionExpression();
