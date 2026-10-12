@@ -13,21 +13,15 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * An `@include`: the template to expand, its arguments, and the abilities the
  * clauses it expands to will take.
  *
- * In a `for` body the include names those abilities with its own `for` list.
- * Inside a block it is generic, and a `for` list is rejected for the reason a
- * clause's ability list is: the block header is the one place the ability is
- * said. In rules with no `for` header it does what the first entry did.
+ * The include names those abilities with a `for` list, or leaves them to the
+ * ability block it is written in. Whether it may name them where it is written
+ * is the validator's to report, as for a clause.
  *
  * @extends Parser<IncludeInvocationNode>
  */
 final class ParseIncludeInvocation extends Parser
 {
     use ReportsMissingSyntax;
-    use ReportsAbilityNamingMismatches;
-
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
 
     protected function read(): IncludeInvocationNode|CouldNotParse
     {
@@ -48,26 +42,7 @@ final class ParseIncludeInvocation extends Parser
             new ParseArguments(IncludeInvocationNode::PART_ARGUMENTS, 'the @include arguments')
         )?->value ?? [];
 
-        $names = $this->check(TokenType::FOR);
-
-        if ($this->naming === AbilityNaming::Forbidden && $names) {
-            throw $this->errorAtCurrent(
-                'An @include inside an ability block may not name abilities; the block header already names them.'
-            );
-        }
-
-        if ($this->naming->followsFirstEntry() && $names !== $this->naming->names()) {
-            throw $this->abilityNamingMismatchError($names, 'This @include');
-        }
-
-        if ($this->naming === AbilityNaming::Required && ! $names) {
-            throw $this->errorAtCurrent(
-                'An @include outside an ability block must name the abilities it applies to, as '
-                    .'`@include <template> for <ability>, ...`.'
-            );
-        }
-
-        if (! $names) {
+        if (! $this->check(TokenType::FOR)) {
             return new IncludeInvocationNode($template->lexeme, $arguments);
         }
 

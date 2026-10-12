@@ -14,10 +14,6 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseCanClause extends Parser
 {
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     protected function read(): CanClauseNode|CouldNotParse
     {
         if (! $this->check(TokenType::CAN)) {
@@ -27,7 +23,7 @@ final class ParseCanClause extends Parser
         $this->advance();
 
         return new CanClauseNode(
-            $this->parse(new ParseClauseAbilityList($this->naming, CanClauseNode::PART_ABILITIES))->value,
+            $this->parse(new ParseClauseAbilityList(CanClauseNode::PART_ABILITIES))->value,
         );
     }
 }

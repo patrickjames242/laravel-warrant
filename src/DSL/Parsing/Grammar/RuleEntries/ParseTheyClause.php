@@ -16,10 +16,6 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseTheyClause extends Parser
 {
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     protected function read(): CanClauseNode|CannotClauseNode|CouldNotParse
     {
         if (! $this->check(TokenType::THEY)) {
@@ -28,7 +24,7 @@ final class ParseTheyClause extends Parser
 
         $this->advance();
 
-        if ($can = $this->parse(new ParseCanClause($this->naming))) {
+        if ($can = $this->parse(new ParseCanClause)) {
             // A `because` message only ever surfaces for a matching `cannot`;
             // hanging one off a `can` clause can never fire, so reject it here.
             if ($this->check(TokenType::BECAUSE)) {
@@ -40,7 +36,7 @@ final class ParseTheyClause extends Parser
             return $can->value;
         }
 
-        return ($this->parse(new ParseCannotClause($this->naming))
+        return ($this->parse(new ParseCannotClause)
             ?? throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'."))->value;
     }
 }

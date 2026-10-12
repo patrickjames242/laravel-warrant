@@ -4,9 +4,8 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
+use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
-use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseWhetherRuleEntryNamesAbilities;
 use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -15,25 +14,25 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * {@see COULD_NOT_PARSE} when no rule entry starts here.
  *
  * They either all name their abilities, as a provider's rules do, or all leave
- * them to be named where the rules are placed, as a rule template's body does.
- * The first entry decides which, and the entries are read held to it.
+ * them to be named where the rules are placed, as a rule template's body does;
+ * entries that do not agree are the validator's to report.
  *
  * @extends Parser<list<IRuleEntryNode>>
  */
 final class ParseRulesWithoutForHeader extends Parser
 {
+    use LooksAheadAtRuleEntries;
+
     /**
      * @return list<IRuleEntryNode>|CouldNotParse
      */
     protected function read(): array|CouldNotParse
     {
-        $names = $this->lookahead(ParseWhetherRuleEntryNamesAbilities::class);
-
-        if ($names === null) {
+        if (! $this->ruleEntryAhead()) {
             return self::COULD_NOT_PARSE;
         }
 
-        $entries = $this->parse(new ParseRuleEntries(AbilityNaming::likeFirstEntry($names->value)))->value;
+        $entries = $this->parse(ParseRuleEntries::class)->value;
 
         if ($this->check(TokenType::FOR)) {
             throw $this->errorAtCurrent(

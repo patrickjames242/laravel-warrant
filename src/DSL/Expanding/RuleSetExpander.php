@@ -21,6 +21,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\AbilityNamingMessages;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
@@ -77,6 +78,21 @@ final class RuleSetExpander
      */
     public function expand(RuleSetNode $set, SchemaVocabulary $schema): ExpandedRuleSet
     {
+        /* Outside an ability block nothing names abilities on an entry's behalf.
+           The validator reports a generic one against the text; this rejects it
+           in any rule set, built in code or not. */
+        foreach ($set->entries as $entry) {
+            $generic = match (true) {
+                $entry instanceof WarrantRuleNode => $entry->hasGenericClause(),
+                $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
+                default => false,
+            };
+
+            if ($generic) {
+                throw new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($set->schemaKey));
+            }
+        }
+
         return new ExpandedRuleSet($set->schemaKey, $this->expandEntries(
             $set->entries,
             $schema,
@@ -127,6 +143,24 @@ final class RuleSetExpander
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {
+        /* The header names the abilities, and nothing in the body may. The
+           validator reports these against the text; this rejects them in any
+           block, built in code or not. */
+        if ($block->abilities === []) {
+            throw new InvalidArgumentException(AbilityNamingMessages::blockNamesNone());
+        }
+
+        foreach ($block->entries as $entry) {
+            match (true) {
+                $entry instanceof AbilityBlockNode => throw new InvalidArgumentException(AbilityNamingMessages::blockInsideBlock()),
+                $entry instanceof WarrantRuleNode && ! $entry->isGeneric()
+                    => throw new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('A clause')),
+                $entry instanceof IncludeInvocationNode && ! $entry->isGeneric()
+                    => throw new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('An @include')),
+                default => null,
+            };
+        }
+
         $entries = array_map(
             static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
                 => $entry->withAbilities($block->abilities),

@@ -7,7 +7,6 @@ use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
-use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Parsers\CouldNotParse;
@@ -62,7 +61,7 @@ final class ParseForSchemaBlock extends Parser
     private function body(string $schemaKey): ISchemaScopedNode
     {
         $atEnd = $this->check(TokenType::EOF) || $this->check(TokenType::RBRACE);
-        $entries = $this->parse(new ParseRuleEntries(AbilityNaming::Required))->value;
+        $entries = $this->parse(ParseRuleEntries::class)->value;
 
         if ($atEnd || $entries !== []) {
             return new RuleSetNode($schemaKey, $entries);

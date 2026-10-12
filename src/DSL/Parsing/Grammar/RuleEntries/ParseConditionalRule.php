@@ -19,10 +19,6 @@ final class ParseConditionalRule extends Parser
 {
     use ReportsMissingSyntax;
 
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     protected function read(): WarrantRuleNode|CouldNotParse
     {
         if (! $this->check(TokenType::IF)) {
@@ -31,7 +27,7 @@ final class ParseConditionalRule extends Parser
 
         $this->advance();
         $conditions = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
-        [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses($this->naming))->value;
+        [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
         return new WarrantRuleNode($conditions, $canClauses, $cannotClauses);
     }

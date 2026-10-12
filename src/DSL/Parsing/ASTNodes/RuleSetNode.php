@@ -19,8 +19,9 @@ final readonly class RuleSetNode implements ISchemaScopedNode
 {
     /**
      * Outside an ability block nothing names abilities on a clause's behalf, so
-     * every rule and include held directly here names its own. A generic one
-     * would grant or deny nothing.
+     * every rule and include held directly here should name its own; a generic
+     * one would grant or deny nothing. The node holds the entries as they were
+     * written, and the validator and the expander hold them to that.
      *
      * @param list<IRuleEntryNode> $entries
      */
@@ -36,19 +37,6 @@ final readonly class RuleSetNode implements ISchemaScopedNode
                 ));
             }
 
-            $generic = match (true) {
-                $entry instanceof WarrantRuleNode => $entry->hasGenericClause(),
-                $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
-                default => false,
-            };
-
-            if ($generic) {
-                throw new InvalidArgumentException(sprintf(
-                    'Every clause and @include outside an ability block names the abilities it applies to; '
-                        .'the rule set for [%s] holds one that names none.',
-                    $schemaKey,
-                ));
-            }
         }
     }
 

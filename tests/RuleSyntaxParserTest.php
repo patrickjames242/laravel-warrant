@@ -16,10 +16,41 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\Validation\AbilityNamingMessages;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 
 require_once __DIR__.'/Support/TestSupport.php';
+
+/**
+ * What validating $syntax as written reports about where it names abilities,
+ * with no schema to look its names up in.
+ *
+ * @return list<string>
+ */
+function abilityNamingErrors(string $syntax): array
+{
+    $noSchemas = new class implements SchemaCatalog
+    {
+        public function find(string $schemaKey): ?SchemaVocabulary
+        {
+            return null;
+        }
+    };
+
+    return array_values(array_filter(
+        array_map(
+            static fn (Diagnostic $diagnostic): string => $diagnostic->message,
+            (new WarrantSyntaxValidator(catalog: $noSchemas))->diagnose(WarrantSyntax::parse($syntax)),
+        ),
+        static fn (string $message): bool => ! str_contains($message, 'names unknown schema'),
+    ));
+}
 
 // -- unscoped rules -----------------------------------------------------------
 
@@ -713,9 +744,9 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     'bare if' => ['if is_self', [], "Expected at least one 'they can"],
     'reserved word as ability' => ['they can can', [], "Reserved word 'can' cannot be used"],
     'reserved word as condition' => ['if if they can view', [], "Reserved word 'if' cannot be used"],
-    // Rules with no `for` header may leave the ability list off, and `they can
-    // because` then reads as a `because` after a `can`; a `for` body may not.
-    'because reserved as ability' => ['for timesheets { they can because }', [], "Reserved word 'because' cannot be used"],
+    // An ability list may be left off anywhere, so `they can because` reads as a
+    // `because` after a `can`.
+    'because after an empty can' => ['for timesheets { they can because }', [], "'because' may only follow a 'they cannot ...' clause"],
     // `as` became a keyword for the cross-schema handle alias, so it stopped
     // being available as a condition, ability or schema name.
     'as reserved as condition' => ['if as they can view', [], "Reserved word 'as' cannot be used"],
@@ -1283,34 +1314,34 @@ it('allows the same ability in more than one block header', function () {
 });
 
 it('rejects a clause inside an ability block naming its own abilities', function () {
-    expect(fn () => WarrantSyntax::parse('can they view { if x they can edit }')->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
+    expect(abilityNamingErrors('can they view { if x they can edit }'))
+        ->toBe(['A clause inside an ability block may not name abilities; the block header already names them.']);
 });
 
 it('rejects a wildcard clause inside an ability block', function () {
-    expect(fn () => WarrantSyntax::parse('can they view { if x they cannot * }')->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'A clause inside an ability block may not name abilities');
+    expect(abilityNamingErrors('can they view { if x they cannot * }'))
+        ->toBe([AbilityNamingMessages::namedInsideBlock('A clause')]);
 });
 
 it('rejects a nested ability block', function () {
-    expect(fn () => WarrantSyntax::parse(<<<'WARRANT'
+    expect(abilityNamingErrors(<<<'WARRANT'
         can they view {
             can they edit {
                 if is_owner they can
             }
         }
-        WARRANT)->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
+        WARRANT))
+        ->toBe(['An ability block may not contain another; the enclosing block already names the abilities.']);
 });
 
 it('rejects a nested block opened after a clause', function () {
-    expect(fn () => WarrantSyntax::parse(<<<'WARRANT'
+    expect(abilityNamingErrors(<<<'WARRANT'
         can they view {
             if is_public they can
             can they edit { if is_owner they can }
         }
-        WARRANT)->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'An ability block may not contain another');
+        WARRANT))
+        ->toBe([AbilityNamingMessages::blockInsideBlock()]);
 });
 
 it('refuses to answer a single rule for an ability block', function () {
@@ -1331,8 +1362,8 @@ it('rejects a bare header list that never reaches its brace', function () {
 });
 
 it('rejects a block header naming no ability', function () {
-    expect(fn () => WarrantSyntax::parse('can they { if is_public they can }')->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'an ability name');
+    expect(abilityNamingErrors('can they { if is_public they can }'))
+        ->toBe(['An ability block names at least one ability.']);
 });
 
 it('reads a generic clause in rules with no for header', function () {
@@ -1345,26 +1376,25 @@ it('reads a generic clause in rules with no for header', function () {
 });
 
 it('rejects a generic clause after rules that name their abilities', function () {
-    expect(fn () => WarrantSyntax::parse('if is_public they can view  if is_locked they cannot'))->toThrow(
-        WarrantSyntaxException::class,
+    expect(abilityNamingErrors('if is_public they can view  if is_locked they cannot'))->toBe([
         'This clause names none, but the rules before it name theirs; rules with no `for` header either all '
             .'name their abilities or all leave them to be named where the rules are placed.',
-    );
+    ]);
 });
 
 it('rejects a named clause after generic rules', function () {
-    expect(fn () => WarrantSyntax::parse('if is_public they can  if is_locked they cannot view'))
-        ->toThrow(WarrantSyntaxException::class, 'This clause names abilities, but the rules before it name none');
+    expect(abilityNamingErrors('if is_public they can  if is_locked they cannot view'))
+        ->toBe([AbilityNamingMessages::namingDisagrees('This clause', true)]);
 });
 
 it('rejects a rule mixing named and generic clauses', function () {
-    expect(fn () => WarrantSyntax::parse('if is_public they can view they cannot'))
-        ->toThrow(WarrantSyntaxException::class, 'This clause names none, but the rules before it name theirs');
+    expect(abilityNamingErrors('if is_public they can view they cannot'))
+        ->toBe([AbilityNamingMessages::namingDisagrees('This clause', false)]);
 });
 
 it('rejects an ability block after generic rules', function () {
-    expect(fn () => WarrantSyntax::parse('if is_public they can  can they view { they can }'))
-        ->toThrow(WarrantSyntaxException::class, 'An ability block names abilities, but the rules before it name none');
+    expect(abilityNamingErrors('if is_public they can  can they view { they can }'))
+        ->toBe([AbilityNamingMessages::namingDisagrees('An ability block', true)]);
 });
 
 it('reads an ability block among rules that name their abilities', function () {
@@ -1375,13 +1405,13 @@ it('reads an ability block among rules that name their abilities', function () {
 });
 
 it('rejects a generic clause outside an ability block once it is placed in a rule set', function () {
-    expect(fn () => WarrantSyntax::parse('if is_public they can')->scopedTo('timesheets'))
+    expect(fn () => (new RuleSetValidator(null, null))->validateWritten(WarrantSyntax::parse('if is_public they can')->scopedTo('timesheets')))
         ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
 });
 
-it('rejects a generic clause in a for body as a syntax error', function () {
-    expect(fn () => WarrantSyntax::parse('for timesheets { if is_public they can }'))
-        ->toThrow(WarrantSyntaxException::class, 'an ability name');
+it('rejects a generic clause in a for body', function () {
+    expect(abilityNamingErrors('for timesheets { if is_public they can }'))
+        ->toBe([AbilityNamingMessages::unnamedOutsideBlock('timesheets')]);
 });
 
 // -- @include -----------------------------------------------------------------
@@ -1457,8 +1487,8 @@ it('keeps an include in source order among the rules', function () {
 });
 
 it('rejects a for list on an include inside an ability block', function () {
-    expect(fn () => WarrantSyntax::parse('can they view { @include x for edit }')->scopedTo('timesheets'))
-        ->toThrow(WarrantSyntaxException::class, 'An @include inside an ability block may not name abilities');
+    expect(abilityNamingErrors('can they view { @include x for edit }'))
+        ->toBe(['An @include inside an ability block may not name abilities; the block header already names them.']);
 });
 
 it('reads a generic include in rules with no for header', function () {
@@ -1470,18 +1500,18 @@ it('reads a generic include in rules with no for header', function () {
 });
 
 it('rejects a generic include after rules that name their abilities', function () {
-    expect(fn () => WarrantSyntax::parse('@include x for view  @include y'))
-        ->toThrow(WarrantSyntaxException::class, 'This @include names none, but the rules before it name theirs');
+    expect(abilityNamingErrors('@include x for view  @include y'))
+        ->toBe([AbilityNamingMessages::namingDisagrees('This @include', false)]);
 });
 
 it('rejects an include that names no abilities once it is placed in a rule set', function () {
-    expect(fn () => WarrantSyntax::parse('@include x')->scopedTo('timesheets'))
+    expect(fn () => (new RuleSetValidator(null, null))->validateWritten(WarrantSyntax::parse('@include x')->scopedTo('timesheets')))
         ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
 });
 
-it('rejects an include that names no abilities in a for body as a syntax error', function () {
-    expect(fn () => WarrantSyntax::parse('for timesheets { @include x }'))
-        ->toThrow(WarrantSyntaxException::class, 'must name the abilities it applies to');
+it('rejects an include that names no abilities in a for body', function () {
+    expect(abilityNamingErrors('for timesheets { @include x }'))
+        ->toBe([AbilityNamingMessages::unnamedOutsideBlock('timesheets')]);
 });
 
 it('rejects an include with no template name', function () {

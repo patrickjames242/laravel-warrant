@@ -464,7 +464,7 @@ it('rejects the wildcard named in a template body', function () {
 
 it('rejects a template body mixing generic and named rules where the text mixes them', function () {
     expect(fn () => expandSyntax('@include mixes_naming for view'))
-        ->toThrow(WarrantSyntaxException::class, 'This clause names abilities, but the rules before it name none');
+        ->toThrow(RuleValidationException::class, 'This clause names abilities, but the rules before it name none');
 });
 
 // -- reachability -------------------------------------------------------------

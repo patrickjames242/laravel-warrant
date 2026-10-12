@@ -150,7 +150,8 @@ trait ResolvesRuleSets
             }
 
             if ($validate) {
-                (new WarrantSyntaxValidator($this->schema, $this->schema::schemaKey()))->validateWritten($rules);
+                (new WarrantSyntaxValidator($this->schema, $this->schema::schemaKey(), headerlessRulesFormARuleSet: true))
+                    ->validateWritten($rules);
             }
 
             /* Taking the rules out puts the values of the text's bindings in
@@ -164,7 +165,7 @@ trait ResolvesRuleSets
 
         if ($rules instanceof IRuleEntryNode) {
             if ($validate) {
-                $this->writtenRulesValidator()->validateEntries([$rules]);
+                $this->writtenRulesValidator()->validateEntries([$rules], $this->schema::schemaKey());
             }
 
             return [$rules];

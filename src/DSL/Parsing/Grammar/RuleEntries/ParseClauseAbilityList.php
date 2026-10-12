@@ -6,53 +6,31 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
- * The abilities one `they can` / `they cannot` clause names after its keyword:
- * its list, or none.
+ * The abilities one `they can` / `they cannot` clause, or an ability block's
+ * header, names after its keyword: its list, or none when the clause ends right
+ * there — at the next entry, a `because`, a `for`, a brace or the end.
  *
- * Inside an ability block the list is forbidden. The header is the one place
- * the ability is said, so every clause in the block has a single reading and
- * the header stays a complete account of what the block is about.
+ * Whether a clause may name its abilities depends on where it is written — not
+ * inside an ability block, whose header names them; always in a `for` body —
+ * and that is the validator's to report. A name after `can` / `cannot` begins
+ * nothing else, so the list reads the same wherever it is.
  *
  * @extends Parser<list<string>>
  */
 final class ParseClauseAbilityList extends Parser
 {
     use LooksAheadAtRuleEntries;
-    use ReportsAbilityNamingMismatches;
 
-    /**
-     * @param string $part The clause's part the abilities are, as its node
-     *   names it.
-     */
-    public function __construct(
-        private readonly AbilityNaming $naming,
-        private readonly string $part,
-    ) {
+    public function __construct(private readonly string $part)
+    {
     }
 
-    /**
-     * @return list<string>
-     */
     protected function read(): array
     {
-        if ($this->naming === AbilityNaming::Forbidden) {
-            if ($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR)) {
-                throw $this->errorAtCurrent(
-                    'A clause inside an ability block may not name abilities; the block header already names them.'
-                );
-            }
-
+        if ($this->clauseEndAhead() || $this->check(TokenType::LBRACE) || $this->check(TokenType::RBRACE)) {
             return [];
         }
 
-        if ($this->naming->followsFirstEntry()) {
-            $names = ! $this->clauseEndAhead();
-
-            if ($names !== $this->naming->names()) {
-                throw $this->abilityNamingMismatchError($names, 'This clause');
-            }
-        }
-
-        return $this->naming->names() ? $this->parse(new ParseAbilityList($this->part))->value : [];
+        return $this->parse(new ParseAbilityList($this->part))->value;
     }
 }

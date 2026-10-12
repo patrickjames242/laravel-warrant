@@ -78,8 +78,12 @@ use Warrant\Registry\RegisteredSchemas;
 final class RuleSetValidator
 {
     /**
-     * @param string $schemaKey The owning schema's key — the name its own rows go
-     *   by in a `@column` reference.
+     * @param SchemaVocabulary|null $schema The schema the rules belong to; null
+     *   when that is not known, as for rules with no `for` header read with no
+     *   schema given. The rules are then held to the rules of the language that
+     *   need no vocabulary, and their names are not looked up.
+     * @param string|null $schemaKey The owning schema's key — the name its own
+     *   rows go by in a `@column` reference; null with no schema.
      * @param WarrantSyntax|null $writtenIn The text the rules were parsed from,
      *   for errors to point into; null for rules built in code.
      * @param list<mixed> $passedIn The arguments a rule passed to the derived
@@ -93,8 +97,8 @@ final class RuleSetValidator
      *   or `check(... for <schema>)` names are found.
      */
     public function __construct(
-        private readonly SchemaVocabulary $schema,
-        private readonly string $schemaKey,
+        private readonly ?SchemaVocabulary $schema,
+        private readonly ?string $schemaKey,
         private readonly ?WarrantSyntax $writtenIn = null,
         private readonly array $passedIn = [],
         private readonly SchemaCatalog $catalog = new RegisteredSchemas,
@@ -128,7 +132,9 @@ final class RuleSetValidator
     {
         $this->validateWritten($ruleSet);
 
-        (new RuleSetExpander($this->catalog))->expand($ruleSet, $this->schema);
+        if ($this->schema !== null) {
+            (new RuleSetExpander($this->catalog))->expand($ruleSet, $this->schema);
+        }
     }
 
     /**
@@ -143,31 +149,119 @@ final class RuleSetValidator
      */
     public function validateWritten(RuleSetNode $ruleSet): void
     {
-        $this->validateEntries($ruleSet->entries);
+        $this->validateEntries($ruleSet->entries, $ruleSet->schemaKey);
     }
 
     /**
-     * Validate rule entries as written, as {@see validateWritten()} does, whether
-     * or not they name their abilities: the entries of rule text with no `for`
-     * header may leave them to the `@include` that places them.
+     * Validate rule entries as written, as {@see validateWritten()} does.
+     *
+     * Entries in a rule set name their abilities, every one outside an ability
+     * block, since nothing else names them; pass the rule set's $ruleSetKey to
+     * hold them to it. Rule text with no `for` header may instead leave every
+     * one to the `@include` that places it, as a template's body does; with no
+     * $ruleSetKey the entries are only held to agreeing with one another.
      *
      * @param list<IRuleEntryNode> $entries
      */
-    public function validateEntries(array $entries): void
+    public function validateEntries(array $entries, ?string $ruleSetKey = null): void
     {
+        if ($ruleSetKey === null) {
+            $this->assertNamingAgrees($entries);
+        }
+
         foreach ($entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
-                $this->assertAbilitiesDeclared($entry->abilities, $entry, AbilityBlockNode::PART_ABILITIES);
-
-                foreach ($entry->entries as $blockEntry) {
-                    if ($blockEntry instanceof WarrantRuleNode) {
-                        $this->validateRule($blockEntry);
-                    }
-                }
+                $this->validateAbilityBlock($entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
+                if ($ruleSetKey !== null && $entry->isGeneric()) {
+                    $this->fail(new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
+                }
+
                 $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
             } elseif ($entry instanceof WarrantRuleNode) {
+                foreach ($ruleSetKey === null ? [] : [...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
+                    if ($clause->abilities === []) {
+                        $this->fail(new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
+                    }
+                }
+
                 $this->validateRule($entry);
+            }
+        }
+    }
+
+    /**
+     * An ability block names at least one ability in its header, and the rules
+     * and includes in its body name none: the header names them all. A block
+     * inside it is reported and not read further, having no header of its own
+     * to stand under.
+     */
+    private function validateAbilityBlock(AbilityBlockNode $block): void
+    {
+        if ($block->abilities === []) {
+            $this->fail(new InvalidArgumentException(AbilityNamingMessages::blockNamesNone()), $block);
+        }
+
+        $this->assertAbilitiesDeclared($block->abilities, $block, AbilityBlockNode::PART_ABILITIES);
+
+        foreach ($block->entries as $entry) {
+            if ($entry instanceof AbilityBlockNode) {
+                $this->fail(new InvalidArgumentException(AbilityNamingMessages::blockInsideBlock()), $entry);
+            } elseif ($entry instanceof IncludeInvocationNode) {
+                if (! $entry->isGeneric()) {
+                    $this->fail(
+                        new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('An @include')),
+                        $entry,
+                        IncludeInvocationNode::PART_ABILITIES,
+                        0,
+                    );
+                }
+            } elseif ($entry instanceof WarrantRuleNode) {
+                foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
+                    if ($clause->abilities !== []) {
+                        $this->fail(
+                            new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('A clause')),
+                            $clause,
+                            $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
+                            0,
+                        );
+                    }
+                }
+
+                $this->validateRule($entry);
+            }
+        }
+    }
+
+    /**
+     * Rules with no `for` header either all name their abilities or all leave
+     * them to be named where the rules are placed: the first clause, include or
+     * block decides, and each one after it that does not do the same is
+     * reported.
+     *
+     * @param list<IRuleEntryNode> $entries
+     */
+    private function assertNamingAgrees(array $entries): void
+    {
+        $first = null;
+
+        foreach ($entries as $entry) {
+            $named = match (true) {
+                $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
+                $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],
+                $entry instanceof WarrantRuleNode => array_map(
+                    static fn (CanClauseNode|CannotClauseNode $clause): array => ['This clause', $clause->abilities !== [], $clause],
+                    [...$entry->canClauses, ...$entry->cannotClauses],
+                ),
+                default => [],
+            };
+
+            foreach ($named as [$what, $names, $node]) {
+                $first ??= $names;
+
+                if ($names !== $first) {
+                    $this->fail(new InvalidArgumentException(AbilityNamingMessages::namingDisagrees($what, $names)), $node);
+                }
             }
         }
     }
@@ -185,7 +279,7 @@ final class RuleSetValidator
 
             $this->assertNoDuplicateCannotAbility($rule);
 
-            if ($rule->conditions !== null) {
+            if ($rule->conditions !== null && $this->schema !== null) {
                 $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
             }
         } catch (InvalidArgumentException $e) {
@@ -199,7 +293,9 @@ final class RuleSetValidator
      */
     public function validateCondition(SchemaConditionNode $condition): void
     {
-        $this->validateExpression($condition->expression, $this->schema, $this->rootScope());
+        if ($this->schema !== null) {
+            $this->validateExpression($condition->expression, $this->schema, $this->rootScope());
+        }
     }
 
     /**
@@ -210,6 +306,10 @@ final class RuleSetValidator
      */
     private function assertAbilitiesDeclared(array $abilities, object $owner, string $part): void
     {
+        if ($this->schema === null) {
+            return;
+        }
+
         foreach ($abilities as $index => $ability) {
             if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
                 $this->fail(

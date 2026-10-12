@@ -15,17 +15,13 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseUnconditionalRule extends Parser
 {
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     protected function read(): WarrantRuleNode|CouldNotParse
     {
         if (! $this->check(TokenType::THEY)) {
             return self::COULD_NOT_PARSE;
         }
 
-        [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses($this->naming))->value;
+        [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
         return new WarrantRuleNode(null, $canClauses, $cannotClauses);
     }

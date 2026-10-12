@@ -26,7 +26,7 @@ use Warrant\Registry\RegisteredSchemas;
  * which only its user knows: the guard reading a provider's rules, or the
  * expander reading a template's. Given that schema, they are checked against
  * it; without one, there is nothing to look their names up in, and they are
- * not checked.
+ * held only to the rules of the language that need no vocabulary.
  *
  * A text is validated on its own, before anything splits it up or combines it
  * with other rules, so every error is about the text it points into. It is read
@@ -41,11 +41,17 @@ final class WarrantSyntaxValidator
      * @param string|null $headerlessSchemaKey That schema's key.
      * @param SchemaCatalog $catalog Where the schema each `for` header names is
      *   found, and the schemas cross-schema references name.
+     * @param bool $headerlessRulesFormARuleSet Whether rules with no `for` header
+     *   are placed in a rule set for the headerless schema as they are, as a
+     *   provider's are, and so must each name their abilities. Otherwise they
+     *   need only agree with one another, as a template's body may leave every
+     *   one to the `@include` that places it.
      */
     public function __construct(
         private readonly ?SchemaVocabulary $headerlessSchema = null,
         private readonly ?string $headerlessSchemaKey = null,
         private readonly SchemaCatalog $catalog = new RegisteredSchemas,
+        private readonly bool $headerlessRulesFormARuleSet = false,
     ) {
     }
 
@@ -56,7 +62,7 @@ final class WarrantSyntaxValidator
      * Every rule of the language $syntax breaks, as written, each over the text
      * it is about: what {@see validateWritten()} would throw first, and every
      * error after it. A `for` header naming no schema is reported, and the body
-     * under it is not checked further.
+     * under it gets no vocabulary checks.
      *
      * @return list<Diagnostic>
      */
@@ -89,10 +95,10 @@ final class WarrantSyntaxValidator
 
         foreach ($syntax->written as $child) {
             match (true) {
-                $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)?->validateWritten($child),
-                $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)?->validateCondition($child),
+                $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)->validateWritten($child),
+                $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)->validateCondition($child),
                 $child instanceof IRuleEntryNode => $headerless[] = $child,
-                $child instanceof IBooleanExpressionNode => $this->headerlessValidator($syntax)?->validateCondition(
+                $child instanceof IBooleanExpressionNode => $this->headerlessValidator($syntax)->validateCondition(
                     new SchemaConditionNode((string) $this->headerlessSchemaKey, $child),
                 ),
                 default => null,
@@ -100,7 +106,10 @@ final class WarrantSyntaxValidator
         }
 
         if ($headerless !== []) {
-            $this->headerlessValidator($syntax)?->validateEntries($headerless);
+            $this->headerlessValidator($syntax)->validateEntries(
+                $headerless,
+                $this->headerlessRulesFormARuleSet ? $this->headerlessSchemaKey : null,
+            );
         }
     }
 
@@ -120,29 +129,38 @@ final class WarrantSyntaxValidator
         }
     }
 
-    private function headerlessValidator(WarrantSyntax $syntax): ?RuleSetValidator
+    /**
+     * The validator for rules with no `for` header: against the headerless
+     * schema when there is one, and otherwise held only to what needs no
+     * vocabulary.
+     */
+    private function headerlessValidator(WarrantSyntax $syntax): RuleSetValidator
     {
-        return $this->headerlessSchema === null || $this->headerlessSchemaKey === null
-            ? null
-            : $this->reporting(new RuleSetValidator(
-                $this->headerlessSchema,
-                $this->headerlessSchemaKey,
-                $syntax,
-                catalog: $this->catalog,
-            ));
+        $known = $this->headerlessSchema !== null && $this->headerlessSchemaKey !== null;
+
+        return $this->reporting(new RuleSetValidator(
+            $known ? $this->headerlessSchema : null,
+            $known ? $this->headerlessSchemaKey : null,
+            $syntax,
+            catalog: $this->catalog,
+        ));
     }
 
     /**
-     * The validator for $body, against the schema its header names; null when
-     * it names none and this is diagnosing, the error reported.
+     * The validator for $body, against the schema its header names. When it
+     * names none, which is reported, the body is still held to the rules of the
+     * language that need no vocabulary.
      */
-    private function validatorFor(WarrantSyntax $syntax, ISchemaScopedNode $body): ?RuleSetValidator
+    private function validatorFor(WarrantSyntax $syntax, ISchemaScopedNode $body): RuleSetValidator
     {
         $schema = $this->schemaOf($syntax, $body);
 
-        return $schema === null
-            ? null
-            : $this->reporting(new RuleSetValidator($schema, $body->schemaKey(), $syntax, catalog: $this->catalog));
+        return $this->reporting(new RuleSetValidator(
+            $schema,
+            $schema === null ? null : $body->schemaKey(),
+            $syntax,
+            catalog: $this->catalog,
+        ));
     }
 
     private function reporting(RuleSetValidator $validator): RuleSetValidator

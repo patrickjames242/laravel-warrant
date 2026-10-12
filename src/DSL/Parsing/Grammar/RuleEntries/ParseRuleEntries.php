@@ -26,20 +26,16 @@ final class ParseRuleEntries extends Parser
      * @param AbilityNaming $naming Whether clauses and includes in this body name
      *   their abilities.
      */
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     /**
      * @return list<IRuleEntryNode>
      */
     protected function read(): array
     {
         $entries = $this->parseRepeated(new ParseOneOf([
-            new ParseUnconditionalRule($this->naming),
-            new ParseIncludeInvocation($this->naming),
-            new ParseConditionalRule($this->naming),
-            new ParseAbilityBlock($this->naming),
+            ParseUnconditionalRule::class,
+            ParseIncludeInvocation::class,
+            ParseConditionalRule::class,
+            ParseAbilityBlock::class,
         ]))?->value ?? [];
 
         $this->assertNoAbilityListWithoutCanThey();

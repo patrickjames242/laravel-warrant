@@ -1,16 +1,20 @@
 <?php
 
+use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+
+require_once __DIR__.'/Support/TestSupport.php';
 
 /*
 |------------------------------------------------------------------------------
@@ -364,10 +368,21 @@ it('keeps an ability block as a node over a generic body', function () {
     expect($block->entries[2]->abilities)->toBe([]);
 });
 
-it('rejects a block entry that names abilities of its own', function (WarrantRuleNode|IncludeInvocationNode $entry) {
-    expect(fn () => new AbilityBlockNode(['view'], [$entry]))->toThrow(
+/**
+ * Expand $entries as a rule set for `docs`, as one built in code reaches the
+ * expander without passing through the validator.
+ *
+ * @param list<IRuleEntryNode> $entries
+ */
+function expandBuiltInCode(array $entries): void
+{
+    (new RuleSetExpander)->expand(new RuleSetNode('docs', $entries), new WarrantTestSchema);
+}
+
+it('rejects a block entry built in code that names abilities of its own', function (WarrantRuleNode|IncludeInvocationNode $entry) {
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode(['view'], [$entry])]))->toThrow(
         InvalidArgumentException::class,
-        'A clause or @include inside a `can they view` block may not name abilities; the block header already names them.',
+        'inside an ability block may not name abilities; the block header already names them.',
     );
 })->with([
     'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode(['view'])], []),
@@ -376,8 +391,8 @@ it('rejects a block entry that names abilities of its own', function (WarrantRul
     'an include' => fn () => new IncludeInvocationNode('t', [], ['view']),
 ]);
 
-it('rejects a generic clause or include outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
-    expect(fn () => new RuleSetNode('docs', [$entry]))->toThrow(
+it('rejects a generic clause or include built in code outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
+    expect(fn () => expandBuiltInCode([$entry]))->toThrow(
         InvalidArgumentException::class,
         'Every clause and @include outside an ability block names the abilities it applies to; the rule set for [docs] holds one that names none.',
     );
@@ -395,12 +410,17 @@ it('refuses to give abilities to a rule or include that names its own', function
         ->toThrow(InvalidArgumentException::class, 'Only a generic @include takes abilities from outside; @include t names its own.');
 });
 
-it('rejects a block inside a block, and a block with no abilities', function () {
-    expect(fn () => new AbilityBlockNode(['view'], [new AbilityBlockNode(['view'])]))
-        ->toThrow(InvalidArgumentException::class, 'ability blocks do not nest');
+it('rejects a block built in code inside a block, and one with no abilities', function () {
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode(['view'], [new AbilityBlockNode(['view'])])]))
+        ->toThrow(InvalidArgumentException::class, 'An ability block may not contain another');
 
-    expect(fn () => new AbilityBlockNode([]))
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode([])]))
         ->toThrow(InvalidArgumentException::class, 'An ability block names at least one ability.');
+});
+
+it('holds a block or rule set as it was written, for the validator to report on', function () {
+    expect((new AbilityBlockNode([], [new AbilityBlockNode(['view'])]))->entries)->toHaveCount(1)
+        ->and((new RuleSetNode('docs', [new WarrantRuleNode(null, [new CanClauseNode([])], [])]))->entries)->toHaveCount(1);
 });
 
 // -- the tree holds one shape --------------------------------------------------

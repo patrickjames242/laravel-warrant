@@ -4,8 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -17,20 +15,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * source writes them, and the header alone says which abilities they take;
  * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
  *
+ * The block is read as it is written: a header naming no ability, an entry
+ * naming its own, or a block inside it are the validator's to report.
+ *
  * @extends Parser<AbilityBlockNode>
  */
 final class ParseAbilityBlock extends Parser
 {
     use LooksAheadAtRuleEntries;
-    use ReportsAbilityNamingMismatches;
-
-    /**
-     * @param AbilityNaming $naming The naming of the body the block is written
-     *   in, not of the block's own body.
-     */
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
 
     protected function read(): AbilityBlockNode|CouldNotParse
     {
@@ -38,24 +30,13 @@ final class ParseAbilityBlock extends Parser
             return self::COULD_NOT_PARSE;
         }
 
-        if ($this->naming === AbilityNaming::Forbidden) {
-            throw $this->errorAtCurrent(
-                'An ability block may not contain another; the enclosing block already names the abilities.'
-            );
-        }
-
-        if ($this->naming === AbilityNaming::FirstEntryNamesNone) {
-            throw $this->abilityNamingMismatchError(true, 'An ability block');
-        }
-
         $this->advance(); // consume 'can'
         $this->advance(); // consume 'they'
 
-        $abilities = $this->parse(new ParseAbilityList(AbilityBlockNode::PART_ABILITIES))->value;
+        $abilities = $this->parse(new ParseClauseAbilityList(AbilityBlockNode::PART_ABILITIES))->value;
 
         $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
-        /** @var list<WarrantRuleNode|IncludeInvocationNode> $entries */
-        $entries = $this->parse(new ParseRuleEntries(AbilityNaming::Forbidden))->value;
+        $entries = $this->parse(ParseRuleEntries::class)->value;
         $this->expect(TokenType::RBRACE, "Expected '}' to close the ability block body.");
 
         return new AbilityBlockNode($abilities, $entries);

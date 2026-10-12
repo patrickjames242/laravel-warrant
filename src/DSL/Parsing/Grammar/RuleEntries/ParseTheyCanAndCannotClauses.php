@@ -16,16 +16,12 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseTheyCanAndCannotClauses extends Parser
 {
-    public function __construct(private readonly AbilityNaming $naming)
-    {
-    }
-
     /**
      * @return array{0: list<CanClauseNode>, 1: list<CannotClauseNode>}
      */
     protected function read(): array
     {
-        $clauses = ($this->parseRepeated(new ParseTheyClause($this->naming))
+        $clauses = ($this->parseRepeated(new ParseTheyClause)
             ?? throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause."))->value;
 
         return [
