@@ -33,7 +33,7 @@ final class ParseArgument extends Parser
             TokenType::CONTEXT_REF => $this->contextRef(),
             TokenType::COLUMN_REF => $this->columnRef(),
             TokenType::SQL_REF => $this->sqlRef(),
-            default => self::NOTHING,
+            default => self::COULD_NOT_PARSE,
         };
     }
 

@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -13,10 +13,10 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseAbility extends Parser
 {
-    protected function read(): string|NoMatch
+    protected function read(): string|CouldNotParse
     {
         if (! $this->check(TokenType::STAR) && ! $this->check(TokenType::IDENTIFIER)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         return $this->advance()->lexeme;

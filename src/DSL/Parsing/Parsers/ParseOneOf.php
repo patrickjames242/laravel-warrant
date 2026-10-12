@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Parsers;
 
 /**
  * What the first of several parsers that matches here read, or
- * {@see Parser::NOTHING} when none does.
+ * {@see Parser::COULD_NOT_PARSE} when none does.
  *
  * @extends Parser<mixed>
  */
@@ -29,6 +29,6 @@ final class ParseOneOf extends Parser
             }
         }
 
-        return self::NOTHING;
+        return self::COULD_NOT_PARSE;
     }
 }

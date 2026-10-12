@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\AbilityNaming;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -33,10 +33,10 @@ final class ParseForSchemaBlock extends Parser
     {
     }
 
-    protected function read(): ISchemaScopedNode|NoMatch
+    protected function read(): ISchemaScopedNode|CouldNotParse
     {
         if (! $this->check(TokenType::FOR)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $this->advance();

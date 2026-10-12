@@ -6,7 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -32,10 +32,10 @@ final class ParseAbilityBlock extends Parser
     {
     }
 
-    protected function read(): AbilityBlockNode|NoMatch
+    protected function read(): AbilityBlockNode|CouldNotParse
     {
         if (! $this->abilityBlockAhead()) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         if ($this->naming === AbilityNaming::Forbidden) {

@@ -6,7 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -23,10 +23,10 @@ final class ParseConditionalRule extends Parser
     {
     }
 
-    protected function read(): WarrantRuleNode|NoMatch
+    protected function read(): WarrantRuleNode|CouldNotParse
     {
         if (! $this->check(TokenType::IF)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $this->advance();

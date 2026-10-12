@@ -14,9 +14,9 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * Reads one piece of the grammar from a {@see ParsingState}.
  *
  * A parser returns what it read, of any type, null included, or
- * {@see NOTHING} when what it reads is not here. NOTHING puts back everything
- * the parser read, so it can look as far as it needs before deciding. Once it
- * has decided the text is its own, a mistake is an exception: nothing else gets
+ * {@see COULD_NOT_PARSE} when what it reads is not here. COULD_NOT_PARSE puts
+ * back everything the parser read, so it can look as far as it needs before
+ * deciding. Once it has decided the text is its own, a mistake is an exception: nothing else gets
  * to try, so the error is reported where the mistake is.
  *
  * A node a parser returns is recorded as written over every token the parser
@@ -33,19 +33,19 @@ abstract class Parser
     /**
      * Returned by {@see read()} when what this parser reads is not here.
      */
-    final public const NOTHING = NoMatch::NoMatch;
+    final public const COULD_NOT_PARSE = CouldNotParse::CouldNotParse;
 
     private ParsingState $state;
 
     /**
-     * @return T|NoMatch
+     * @return T|CouldNotParse
      */
     abstract protected function read(): mixed;
 
     /**
      * Read $root as the whole text: nothing may follow what it reads. Its result stands for the whole text and is
      * not recorded. A root reads something from any text, if only an error, so
-     * {@see NOTHING} from it is a mistake in the parser.
+     * {@see COULD_NOT_PARSE} from it is a mistake in the parser.
      *
      * @template R
      * @param Parser<R> $root
@@ -56,7 +56,7 @@ abstract class Parser
         $root->state = $state;
         $result = $root->read();
 
-        if ($result === self::NOTHING) {
+        if ($result === self::COULD_NOT_PARSE) {
             throw new LogicException(sprintf('%s read nothing as the whole parse.', $root::class));
         }
 
@@ -80,7 +80,7 @@ abstract class Parser
 
         $result = $parser->read();
 
-        if ($result === self::NOTHING) {
+        if ($result === self::COULD_NOT_PARSE) {
             $this->state->restore($checkpoint);
 
             return null;
@@ -113,7 +113,7 @@ abstract class Parser
             $this->state->restore($checkpoint);
         }
 
-        return $result === self::NOTHING ? null : new Parsed($result);
+        return $result === self::COULD_NOT_PARSE ? null : new Parsed($result);
     }
 
     /**

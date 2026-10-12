@@ -33,7 +33,7 @@ it('puts back the position and records of a parser that does not match', functio
         {
             $this->parse(ParseCondition::class);
 
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
     };
 

@@ -7,13 +7,13 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
- * A `with` context map: `with key = arg (, key = arg)*`, or {@see NOTHING}
- * when no `with` is here. Keys are the target schema's context key names, and each may be
- * given once.
+ * A `with` context map: `with key = arg (, key = arg)*`, or
+ * {@see COULD_NOT_PARSE} when no `with` is here. Keys are the target schema's
+ * context key names, and each may be given once.
  *
  * @extends Parser<array<string, mixed>>
  */
@@ -30,12 +30,12 @@ final class ParseWithContextMap extends Parser
     }
 
     /**
-     * @return array<string, mixed>|NoMatch
+     * @return array<string, mixed>|CouldNotParse
      */
-    protected function read(): array|NoMatch
+    protected function read(): array|CouldNotParse
     {
         if (! $this->check(TokenType::WITH)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $this->advance();

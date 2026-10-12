@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseBooleanOperand extends Parser
 {
-    protected function read(): IBooleanExpressionNode|NoMatch
+    protected function read(): IBooleanExpressionNode|CouldNotParse
     {
         // Each alternative starts with a different token, so the order decides
         // nothing but how many are tried; conditions are the most common, and go first.
@@ -26,6 +26,6 @@ final class ParseBooleanOperand extends Parser
             ParseCrossSchemaCondition::class,
         ]);
 
-        return $operand === null ? self::NOTHING : $operand->value;
+        return $operand === null ? self::COULD_NOT_PARSE : $operand->value;
     }
 }

@@ -6,7 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseBinding;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -21,10 +21,10 @@ final class ParseCannotClause extends Parser
     {
     }
 
-    protected function read(): CannotClauseNode|NoMatch
+    protected function read(): CannotClauseNode|CouldNotParse
     {
         if (! $this->check(TokenType::CANNOT)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $this->advance();

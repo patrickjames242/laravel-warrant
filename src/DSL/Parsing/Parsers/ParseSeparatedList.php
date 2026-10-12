@@ -8,9 +8,9 @@ use Warrant\DSL\Lexing\TokenType;
 
 /**
  * Items with a separator token between them, `a, b, c`, for as long as a
- * separator follows an item; {@see Parser::NOTHING} when not even the first
- * item is here. A caller that takes none reads the NOTHING as an empty list,
- * and one that needs at least one reports it.
+ * separator follows an item; {@see Parser::COULD_NOT_PARSE} when not even the
+ * first item is here. A caller that takes none reads the COULD_NOT_PARSE as an
+ * empty list, and one that needs at least one reports it.
  *
  * A separator promises another item, so an item missing after one is an error
  * at that spot rather than the end of the list.
@@ -36,15 +36,15 @@ final class ParseSeparatedList extends Parser
     }
 
     /**
-     * @return list<T>|NoMatch
+     * @return list<T>|CouldNotParse
      */
-    protected function read(): array|NoMatch
+    protected function read(): array|CouldNotParse
     {
         $first = $this->peek();
         $item = $this->parse($this->item);
 
         if ($item === null) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $items = [];

@@ -6,14 +6,14 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * Whether the rule entry here, written with no `for` header, names the
- * abilities it applies to; {@see NOTHING} when no rule entry starts here. Read with
- * {@see \Warrant\DSL\Parsing\Parsers\Parser::lookahead()}, ahead of reading the
- * entries for real.
+ * abilities it applies to; {@see COULD_NOT_PARSE} when no rule entry starts
+ * here. Read with {@see \Warrant\DSL\Parsing\Parsers\Parser::lookahead()},
+ * ahead of reading the entries for real.
  *
  * An ability block names them in its header. An include names them when a
  * `for` list follows its arguments. A clause, after its `if` condition when
@@ -30,7 +30,7 @@ final class ParseWhetherRuleEntryNamesAbilities extends Parser
 {
     use LooksAheadAtRuleEntries;
 
-    protected function read(): bool|NoMatch
+    protected function read(): bool|CouldNotParse
     {
         if ($this->abilityBlockAhead()) {
             return true;
@@ -56,7 +56,7 @@ final class ParseWhetherRuleEntryNamesAbilities extends Parser
                 return false;
             }
         } elseif (! $this->check(TokenType::THEY)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         if (! $this->check(TokenType::THEY)) {

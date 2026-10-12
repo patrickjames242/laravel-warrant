@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -22,12 +22,12 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 final class ParseForSchemaBlocks extends Parser
 {
     /**
-     * @return list<ISchemaScopedNode>|NoMatch
+     * @return list<ISchemaScopedNode>|CouldNotParse
      */
-    protected function read(): array|NoMatch
+    protected function read(): array|CouldNotParse
     {
         if (! $this->check(TokenType::FOR)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         // `for <schema> {` opens a braced block; anything else after the header is an unbraced one.

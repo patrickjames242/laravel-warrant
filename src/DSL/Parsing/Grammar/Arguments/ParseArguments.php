@@ -4,15 +4,15 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A parenthesized argument list, `(arg, ...)`, with each argument noted as a
  * part of the node around it, by its index. Arguments are always written in
- * parentheses, so with no `(` here there is no list: {@see NOTHING}, which a
- * handle reads as selecting no rows and a condition as taking no arguments,
- * where `()` is a list that is empty.
+ * parentheses, so with no `(` here there is no list: {@see COULD_NOT_PARSE},
+ * which a handle reads as selecting no rows and a condition as taking no
+ * arguments, where `()` is a list that is empty.
  *
  * @extends Parser<list<mixed>>
  */
@@ -33,12 +33,12 @@ final class ParseArguments extends Parser
     }
 
     /**
-     * @return list<mixed>|NoMatch
+     * @return list<mixed>|CouldNotParse
      */
-    protected function read(): array|NoMatch
+    protected function read(): array|CouldNotParse
     {
         if (! $this->check(TokenType::LPAREN)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         $this->advance();

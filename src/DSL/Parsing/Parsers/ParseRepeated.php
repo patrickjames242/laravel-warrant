@@ -6,9 +6,9 @@ use LogicException;
 
 /**
  * An item read again and again, back to back, for as long as one is here;
- * {@see Parser::NOTHING} when not even the first is. A caller that takes none
- * reads the NOTHING as an empty list, and one that needs at least one reports
- * it.
+ * {@see Parser::COULD_NOT_PARSE} when not even the first is. A caller that
+ * takes none reads the COULD_NOT_PARSE as an empty list, and one that needs at
+ * least one reports it.
  *
  * @template T
  * @extends Parser<list<T>>
@@ -23,9 +23,9 @@ final class ParseRepeated extends Parser
     }
 
     /**
-     * @return list<T>|NoMatch
+     * @return list<T>|CouldNotParse
      */
-    protected function read(): array|NoMatch
+    protected function read(): array|CouldNotParse
     {
         $items = [];
 
@@ -34,7 +34,7 @@ final class ParseRepeated extends Parser
             $item = $this->parse($this->item);
 
             if ($item === null) {
-                return $items === [] ? self::NOTHING : $items;
+                return $items === [] ? self::COULD_NOT_PARSE : $items;
             }
 
             // An item that matches without reading would match here forever.

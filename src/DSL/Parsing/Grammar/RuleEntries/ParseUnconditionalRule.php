@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Parsers\NoMatch;
+use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -19,10 +19,10 @@ final class ParseUnconditionalRule extends Parser
     {
     }
 
-    protected function read(): WarrantRuleNode|NoMatch
+    protected function read(): WarrantRuleNode|CouldNotParse
     {
         if (! $this->check(TokenType::THEY)) {
-            return self::NOTHING;
+            return self::COULD_NOT_PARSE;
         }
 
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses($this->naming))->value;
