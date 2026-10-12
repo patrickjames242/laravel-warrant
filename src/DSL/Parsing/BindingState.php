@@ -2,15 +2,16 @@
 
 namespace Warrant\DSL\Parsing;
 
-use Warrant\DSL\Lexing\Token;
-
 /**
- * Resolves placeholder arguments (`:name` and `?`) to concrete values as the
- * parser encounters them, and enforces the binding rules:
+ * Resolves placeholders (`:name` and `?`) to concrete values, one at a time in
+ * the order they were written, and enforces the binding rules:
  *
- *  - Named and positional bindings may not be mixed in one parse.
+ *  - Named and positional bindings may not be mixed in one text.
  *  - Every `:name` must have a matching binding; every `?` must have a value.
  *  - Every provided binding must be referenced by at least one placeholder.
+ *
+ * Each placeholder is given by the byte offset it was written at in $source,
+ * which is where an error about it points.
  */
 final class BindingState
 {
@@ -38,18 +39,16 @@ final class BindingState
         $this->positional = array_values($bindings);
     }
 
-    public function resolveNamed(Token $token): mixed
+    public function resolveNamed(string $name, int $offset): mixed
     {
         if ($this->mode === self::MODE_POSITIONAL) {
-            throw WarrantSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
+            throw WarrantSyntaxException::atSourceOffset('Cannot mix named and positional bindings.', $this->source, $offset);
         }
 
         $this->mode = self::MODE_NAMED;
 
-        $name = $token->value;
-
         if (! array_key_exists($name, $this->bindings)) {
-            throw WarrantSyntaxException::at(sprintf('No binding provided for ":%s".', $name), $this->source, $token);
+            throw WarrantSyntaxException::atSourceOffset(sprintf('No binding provided for ":%s".', $name), $this->source, $offset);
         }
 
         $this->usedNamed[$name] = true;
@@ -57,34 +56,37 @@ final class BindingState
         return $this->bindings[$name];
     }
 
-    public function resolvePositional(Token $token): mixed
+    public function resolvePositional(int $offset): mixed
     {
         if ($this->mode === self::MODE_NAMED) {
-            throw WarrantSyntaxException::at('Cannot mix named and positional bindings.', $this->source, $token);
+            throw WarrantSyntaxException::atSourceOffset('Cannot mix named and positional bindings.', $this->source, $offset);
         }
 
         $this->mode = self::MODE_POSITIONAL;
 
         if ($this->positionalCursor >= count($this->positional)) {
-            throw WarrantSyntaxException::at('More positional placeholders (?) than bindings provided.', $this->source, $token);
+            throw WarrantSyntaxException::atSourceOffset('More positional placeholders (?) than bindings provided.', $this->source, $offset);
         }
 
         return $this->positional[$this->positionalCursor++];
     }
 
     /**
-     * Assert that every provided binding was consumed. Called once parsing is done.
+     * Assert that every provided binding was consumed. Called once every
+     * placeholder is resolved; an error points at the end of the source.
      */
-    public function finalize(Token $eof): void
+    public function finalize(): void
     {
+        $end = strlen($this->source);
+
         if ($this->mode === self::MODE_POSITIONAL) {
             $remaining = count($this->positional) - $this->positionalCursor;
 
             if ($remaining > 0) {
-                throw WarrantSyntaxException::at(
+                throw WarrantSyntaxException::atSourceOffset(
                     sprintf('%d positional binding(s) were provided but never used.', $remaining),
                     $this->source,
-                    $eof,
+                    $end,
                 );
             }
 
@@ -96,10 +98,10 @@ final class BindingState
         $unused = array_diff(array_keys($this->bindings), array_keys($this->usedNamed));
 
         if ($unused !== []) {
-            throw WarrantSyntaxException::at(
+            throw WarrantSyntaxException::atSourceOffset(
                 sprintf('Binding(s) provided but never used: %s.', implode(', ', $unused)),
                 $this->source,
-                $eof,
+                $end,
             );
         }
     }

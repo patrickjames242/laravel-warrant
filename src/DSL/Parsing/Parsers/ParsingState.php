@@ -7,22 +7,28 @@ use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\BindingState;
 use Warrant\DSL\Parsing\Positions\SourceMap;
+use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * One parse of one text, shared by every {@see Parser} reading it: where the
- * parse is, the bindings it resolves, and where each node and part it has read
- * was written.
+ * parse is, and where each node and part it has read was written.
  *
  * Where things were written is kept as a log, and goes into a
  * {@see SourceMap} only once the parse is done. A parser that does not match
  * has its records cut off the end of the log, so nothing it read reaches the
  * map.
+ *
+ * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
+ * has it: the lexer reports its errors instead of throwing them.
  */
 final class ParsingState
 {
     public int $index = 0;
+
+    /** @var list<SyntaxDiagnostic> Every syntax error found so far, for analysis. */
+    public array $diagnostics = [];
 
     /**
      * The owner of a part is null until the node it belongs to is returned.
@@ -49,39 +55,58 @@ final class ParsingState
     public function __construct(
         public readonly string $source,
         public readonly array $tokens,
-        public BindingState $bindings,
     ) {
     }
 
     /**
-     * The state for parsing $source, with $bindings to resolve its placeholders.
-     *
-     * @param array<int|string, mixed> $bindings
+     * The state for parsing $source.
      */
-    public static function forSource(string $source, array $bindings = []): self
+    public static function forSource(string $source): self
     {
-        // Comments say nothing about what a rule means, so the grammar never sees them.
-        $tokens = array_values(array_filter(
-            (new Lexer($source))->tokenize(),
-            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
-        ));
+        return new self($source, self::withoutComments((new Lexer($source))->tokenize()));
+    }
 
-        return new self($source, $tokens, new BindingState($source, $bindings));
+    /**
+     * The state for analysing $source: every lexical error becomes a diagnostic
+     * and text the lexer could not read an ERROR token.
+     */
+    public static function forAnalysis(string $source): self
+    {
+        $scanned = (new Lexer($source))->scan();
+        $state = new self($source, self::withoutComments($scanned->tokens));
+        $state->diagnostics = $scanned->diagnostics;
+
+        return $state;
+    }
+
+    /**
+     * Note $error as a diagnostic, over the token it was raised at.
+     */
+    public function diagnose(WarrantSyntaxException $error): void
+    {
+        $endOffset = $error->offset;
+
+        foreach ($this->tokens as $token) {
+            if ($token->offset === $error->offset) {
+                $endOffset = $token->endOffset();
+                break;
+            }
+        }
+
+        $this->diagnostics[] = new SyntaxDiagnostic($error->reason, $error->offset, $endOffset);
     }
 
     public function checkpoint(): Checkpoint
     {
-        return new Checkpoint($this->index, clone $this->bindings, count($this->records), count($this->unclaimed));
+        return new Checkpoint($this->index, count($this->records), count($this->unclaimed));
     }
 
     /**
-     * Put the state back as it was at $checkpoint. The bindings are copied
-     * again, so one checkpoint can be restored any number of times.
+     * Put the state back as it was at $checkpoint.
      */
     public function restore(Checkpoint $checkpoint): void
     {
         $this->index = $checkpoint->index;
-        $this->bindings = clone $checkpoint->bindings;
         array_splice($this->records, $checkpoint->records);
         array_splice($this->unclaimed, $checkpoint->unclaimed);
     }
@@ -150,6 +175,20 @@ final class ParsingState
                 ? $map->record($node, $first, $last)
                 : $map->recordPart($node, $part, $key, $first, $last);
         }
+    }
+
+    /**
+     * Comments say nothing about what a rule means, so the grammar never sees them.
+     *
+     * @param list<Token> $tokens
+     * @return list<Token>
+     */
+    private static function withoutComments(array $tokens): array
+    {
+        return array_values(array_filter(
+            $tokens,
+            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
+        ));
     }
 
     private function isRecorded(INode $node): bool

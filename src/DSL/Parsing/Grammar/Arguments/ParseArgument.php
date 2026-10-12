@@ -10,8 +10,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * One argument: a literal, a binding, or an `@context`, `@column` or `@sql`
- * reference. Its value can be null, as the literal `null` is, or a binding
- * whose value is null.
+ * reference. Its value can be null, as the literal `null` is.
  *
  * A reference is a node, and each name or string inside it is one of its parts,
  * so the key of `@context org` and the frame and column of `@column docs.org_id`
@@ -29,8 +28,8 @@ final class ParseArgument extends Parser
             TokenType::FLOAT,
             TokenType::BOOL,
             TokenType::NULL => $this->advance()->value,
-            TokenType::NAMED_BINDING => $this->bindings()->resolveNamed($this->advance()),
-            TokenType::POSITIONAL => $this->bindings()->resolvePositional($this->advance()),
+            TokenType::NAMED_BINDING,
+            TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
             TokenType::CONTEXT_REF => $this->contextRef(),
             TokenType::COLUMN_REF => $this->columnRef(),
             TokenType::SQL_REF => $this->sqlRef(),
@@ -80,8 +79,8 @@ final class ParseArgument extends Parser
     }
 
     /**
-     * A `@sql "<sql>"` reference, whose body is a string literal or a binding
-     * that resolves to a string.
+     * A `@sql "<sql>"` reference, whose body is a string literal or a binding.
+     * Binding resolution checks that a binding's value is a string.
      */
     private function sqlRef(): SqlRef
     {
@@ -91,16 +90,12 @@ final class ParseArgument extends Parser
 
         $sql = match ($token->type) {
             TokenType::STRING => $this->advance()->value,
-            TokenType::NAMED_BINDING => $this->bindings()->resolveNamed($this->advance()),
-            TokenType::POSITIONAL => $this->bindings()->resolvePositional($this->advance()),
+            TokenType::NAMED_BINDING,
+            TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
             default => throw $this->errorAtCurrent(
                 'Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.'
             ),
         };
-
-        if (! is_string($sql)) {
-            throw $this->errorAt(sprintf('An @sql binding must resolve to a string, got %s.', get_debug_type($sql)), $token);
-        }
 
         $this->part(SqlRef::PART_SQL, null, $token);
 

@@ -30,8 +30,9 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
  *        ( OR of all can-expressions ) AND ( AND of NOT(each cannot-expression) )
  *  - Whitespace and newlines are INSIGNIFICANT; a whole rule set may sit on one
  *    line. `if` (as a standalone keyword) is the sole rule delimiter.
- *  - Bindings are resolved inline at parse time; the resulting tree holds only
- *    concrete values (no placeholder nodes, no separate resolve phase).
+ *  - The parser reads each binding as a placeholder node, and binding
+ *    resolution then puts every value in its place, so the tree parse()
+ *    returns holds only concrete values.
  *  - Malformed syntax throws WarrantSyntaxException eagerly at build time, with
  *    position information (line:col / offset) and a snippet.
  *

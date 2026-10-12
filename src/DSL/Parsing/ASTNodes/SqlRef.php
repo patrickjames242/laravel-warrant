@@ -24,5 +24,9 @@ readonly class SqlRef implements INode
        recorded as the string literal or binding it was written as. */
     public const PART_SQL = 'sql';
 
-    public function __construct(public string $sql) {}
+    /**
+     * @param string|BindingNode $sql The SQL, or the binding that supplies it
+     *   until binding resolution puts the string in its place.
+     */
+    public function __construct(public string|BindingNode $sql) {}
 }

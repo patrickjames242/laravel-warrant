@@ -291,7 +291,7 @@ it('records the names inside each symbolic reference', function () {
 
 it('records a bound @sql string as the binding it was written as', function () {
     $source = 'if in_period(@sql :query) they can view';
-    $result = WarrantParser::parseWithPositions($source, ['query' => 'select 1']);
+    $result = WarrantParser::parseWithPositions($source);
     $sql = $result->syntax->children[0]->conditions->parameters[0];
 
     expect(partText($result, $source, $sql, SqlRef::PART_SQL))->toBe(':query');

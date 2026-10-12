@@ -8,7 +8,6 @@ use Throwable;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\BindingState;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -44,8 +43,7 @@ abstract class Parser
     abstract protected function read(): mixed;
 
     /**
-     * Read $root as the whole text: nothing may follow what it reads, and every
-     * binding must have been used. Its result stands for the whole text and is
+     * Read $root as the whole text: nothing may follow what it reads. Its result stands for the whole text and is
      * not recorded. A root reads something from any text, if only an error, so
      * {@see NOTHING} from it is a mistake in the parser.
      *
@@ -63,7 +61,6 @@ abstract class Parser
         }
 
         $root->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
-        $state->bindings->finalize($root->peek());
 
         return $result;
     }
@@ -233,11 +230,6 @@ abstract class Parser
         }
 
         throw $this->errorAtCurrent($message);
-    }
-
-    final protected function bindings(): BindingState
-    {
-        return $this->state->bindings;
     }
 
     // -- errors ---------------------------------------------------------------

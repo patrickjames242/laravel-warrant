@@ -9,8 +9,10 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 
 /**
- * Parses Warrant rule syntax. Bindings are resolved inline as the tree is
- * built, so the resulting nodes hold only concrete values.
+ * Parses Warrant rule syntax. The parse reads each `:name` and `?` as a
+ * {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode}; {@see parse()} then
+ * puts the values in their place with a {@see BindingResolver}, so the tree it
+ * returns holds only concrete values.
  *
  * Every source parses through {@see parse()} to a {@see WarrantSyntax}, whose
  * children say which form the source took; nothing about the text needs to be
@@ -76,28 +78,63 @@ use Warrant\DSL\Parsing\Positions\SourceMap;
 final class WarrantParser
 {
     /**
-     * Parse Warrant syntax of any form, resolving $bindings inline.
+     * Parse Warrant syntax of any form, and put the value of each of its
+     * bindings in its place.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parse(string $source, array $bindings = []): WarrantSyntax
     {
-        return Parser::run(new ParseSyntax, ParsingState::forSource($source, $bindings));
+        $written = self::parseWithPositions($source);
+
+        return (new BindingResolver($source, $written->positions))->resolve($written->syntax, $bindings);
     }
 
     /**
-     * Parse Warrant syntax of any form, as {@see parse()} does, and record where
-     * every node of the tree was written. The root {@see WarrantSyntax} stands
-     * for the whole text and is not recorded.
-     *
-     * @param array<int|string, mixed> $bindings
+     * Parse Warrant syntax of any form as it was written, its bindings left as
+     * the placeholders they are, and record where every node of the tree was
+     * written. The root {@see WarrantSyntax} stands for the whole text and is
+     * not recorded.
      */
-    public static function parseWithPositions(string $source, array $bindings = []): ParseResult
+    public static function parseWithPositions(string $source): ParseResult
     {
-        $state = ParsingState::forSource($source, $bindings);
+        $state = ParsingState::forSource($source);
         $syntax = Parser::run(new ParseSyntax, $state);
         $state->commitTo($positions = new SourceMap);
 
         return new ParseResult($syntax, $positions);
+    }
+
+    /**
+     * Read Warrant syntax of any form as an editor has it — mid-edit, and with
+     * no values for its placeholders — reporting syntax errors as diagnostics
+     * instead of throwing them.
+     *
+     * The tree is the one {@see parseWithPositions()} reads, its bindings left
+     * as placeholders. Every lexical error is reported, and the read goes on
+     * past it. An error the grammar meets ends the read: it is reported too,
+     * and the tree is then empty. Named and positional placeholders mixed are
+     * reported, and the tree is kept.
+     */
+    public static function analyze(string $source): ParseResult
+    {
+        $state = ParsingState::forAnalysis($source);
+        $positions = new SourceMap;
+
+        try {
+            $syntax = Parser::run(new ParseSyntax, $state);
+            $state->commitTo($positions);
+        } catch (WarrantSyntaxException $error) {
+            $state->diagnose($error);
+            $syntax = new WarrantSyntax([]);
+        }
+
+        try {
+            (new BindingResolver($source, $positions))->assertNotMixed($syntax);
+        } catch (WarrantSyntaxException $error) {
+            $state->diagnose($error);
+        }
+
+        return new ParseResult($syntax, $positions, $state->diagnostics);
     }
 }

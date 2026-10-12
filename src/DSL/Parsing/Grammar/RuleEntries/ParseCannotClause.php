@@ -2,9 +2,10 @@
 
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
-use Closure;
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\Grammar\Arguments\ParseBinding;
 use Warrant\DSL\Parsing\Parsers\NoMatch;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -40,19 +41,19 @@ final class ParseCannotClause extends Parser
 
     /**
      * The denial message after `because`: a quoted string, or a `:name` / `?`
-     * binding that resolves to a string or to a closure (the
-     * `Closure(WarrantDenialContext): string|Throwable` message form). A literal
-     * must be a string, and `@context` is not allowed: a message is fixed at
-     * parse time, not resolved per check.
+     * binding, whose value binding resolution checks is a string or a closure
+     * (the `Closure(WarrantDenialContext): string|Throwable` message form).
+     * `@context` is not allowed: a message is fixed before any check, not
+     * resolved per check.
      */
-    private function denialMessage(): string|Closure
+    private function denialMessage(): string|BindingNode
     {
         $token = $this->peek();
 
         $message = match ($token->type) {
             TokenType::STRING => $this->advance()->value,
-            TokenType::NAMED_BINDING => $this->bindings()->resolveNamed($this->advance()),
-            TokenType::POSITIONAL => $this->bindings()->resolvePositional($this->advance()),
+            TokenType::NAMED_BINDING,
+            TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
             default => throw $this->errorAtCurrent(
                 "Expected a denial message after 'because': a quoted string or a binding (:name or ?). "
                     .'@context is not allowed here.'
@@ -60,13 +61,6 @@ final class ParseCannotClause extends Parser
         };
 
         $this->part(CannotClauseNode::PART_MESSAGE, null, $token);
-
-        if (! is_string($message) && ! $message instanceof Closure) {
-            throw $this->errorAt(
-                sprintf('A denial message must be a string or a closure, got %s.', get_debug_type($message)),
-                $token,
-            );
-        }
 
         return $message;
     }

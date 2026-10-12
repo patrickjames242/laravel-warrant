@@ -15,14 +15,18 @@ use Warrant\DSL\Lexing\Token;
  */
 class WarrantSyntaxException extends RuntimeException
 {
+    /**
+     * @param string $reason The error alone, without the position and the
+     *   excerpt of the source that the exception's message adds to it.
+     */
     public function __construct(
-        string $message,
+        public readonly string $reason,
         public readonly string $source,
         public readonly int $offset,
         public readonly int $sourceLine,
         public readonly int $sourceColumn,
     ) {
-        parent::__construct($this->decorate($message));
+        parent::__construct($this->decorate($reason));
     }
 
     /**
@@ -39,6 +43,19 @@ class WarrantSyntaxException extends RuntimeException
     public static function atOffset(string $message, string $source, int $offset, int $line, int $col): self
     {
         return new self($message, $source, $offset, $line, $col);
+    }
+
+    /**
+     * Build an exception at byte $offset of $source, counting its line and
+     * column as the lexer does: a line ends at each "\n".
+     */
+    public static function atSourceOffset(string $message, string $source, int $offset): self
+    {
+        $before = substr($source, 0, $offset);
+        $lineBreak = strrpos($before, "\n");
+        $lineStart = $lineBreak === false ? 0 : $lineBreak + 1;
+
+        return new self($message, $source, $offset, substr_count($before, "\n") + 1, $offset - $lineStart + 1);
     }
 
     private function decorate(string $message): string
