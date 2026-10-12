@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Parsing\Validation;
 
+use Closure;
 use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\DSL\Compiling\AliasScope;
@@ -97,6 +98,23 @@ final class RuleSetValidator
     ) {
     }
 
+    /** Called with each error instead of throwing it, while reporting. */
+    private ?Closure $report = null;
+
+    /**
+     * This validator, reporting each error to $report and going on to the next
+     * thing to check, instead of throwing the first.
+     *
+     * @param Closure(InvalidArgumentException): void $report
+     */
+    public function reportingTo(Closure $report): self
+    {
+        $reporting = clone $this;
+        $reporting->report = $report;
+
+        return $reporting;
+    }
+
     /**
      * Validate every condition and ability name in the rule set against the
      * schema, as written, and then expand it, which validates every template's
@@ -168,7 +186,7 @@ final class RuleSetValidator
                 $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
             }
         } catch (InvalidArgumentException $e) {
-            throw $this->placed($e, $rule);
+            $this->fail($e, $rule);
         }
     }
 
@@ -191,7 +209,7 @@ final class RuleSetValidator
     {
         foreach ($abilities as $index => $ability) {
             if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
-                throw $this->placed(
+                $this->fail(
                     new InvalidArgumentException(sprintf('Ability [%s] is not declared by the schema.', $ability)),
                     $owner,
                     $part,
@@ -214,7 +232,7 @@ final class RuleSetValidator
         foreach ($rule->cannotClauses as $clause) {
             foreach ($clause->abilities as $index => $ability) {
                 if (isset($seen[$ability])) {
-                    throw $this->placed(new InvalidArgumentException(sprintf(
+                    $this->fail(new InvalidArgumentException(sprintf(
                         'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
                         $ability,
                     )), $clause, CannotClauseNode::PART_ABILITIES, $index);
@@ -249,7 +267,27 @@ final class RuleSetValidator
 
         $reason = $error instanceof RuleValidationException ? $error->reason : $error->getMessage();
 
-        return new RuleValidationException($reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error);
+        return new RuleValidationException($reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error, $span);
+    }
+
+    /**
+     * $error, placed as {@see placed()} places it, thrown, or reported and left
+     * behind when this validator is reporting, so the walk goes on to the next
+     * thing to check.
+     */
+    private function fail(
+        InvalidArgumentException $error,
+        object $node,
+        ?string $part = null,
+        int|string|null $key = null,
+    ): void {
+        $error = $this->placed($error, $node, $part, $key);
+
+        if ($this->report === null) {
+            throw $error;
+        }
+
+        ($this->report)($error);
     }
 
     /**
@@ -295,7 +333,7 @@ final class RuleSetValidator
         try {
             $this->validateExpressionNode($node, $vocabulary, $scope, $predicateOf);
         } catch (InvalidArgumentException $e) {
-            throw $this->placed($e, $node);
+            $this->fail($e, $node);
         }
     }
 

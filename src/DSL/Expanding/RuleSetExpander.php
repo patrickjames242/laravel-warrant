@@ -536,6 +536,7 @@ final class RuleSetExpander
                 sprintf('%s answered with a mistake: %s', $answeredBy, $reason),
                 $e instanceof RuleValidationException ? $e->position : null,
                 $e,
+                $e instanceof RuleValidationException ? $e->span : null,
             );
         }
     }

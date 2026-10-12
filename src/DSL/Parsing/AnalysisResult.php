@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 final readonly class AnalysisResult
 {
     /**
-     * @param list<SyntaxDiagnostic> $diagnostics Every error found, in the order
+     * @param list<Diagnostic> $diagnostics Every error found, in the order
      *   it was found.
      */
     public function __construct(

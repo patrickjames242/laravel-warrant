@@ -3,8 +3,10 @@
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
@@ -90,4 +92,48 @@ it('checks rules with no header only against a schema it is given', function () 
     expect(fn () => (new WarrantSyntaxValidator)->validateWritten($syntax))->not->toThrow(InvalidArgumentException::class)
         ->and(fn () => (new WarrantSyntaxValidator(new WarrantTestSchema, 'course_sections'))->validateWritten($syntax))
         ->toThrow(RuleValidationException::class, 'no_such_condition');
+});
+
+/**
+ * Every diagnostic for $source, read against the test schema, as [message, the
+ * text it covers].
+ *
+ * @return list<array{0: string, 1: string}>
+ */
+function validationDiagnostics(string $source): array
+{
+    return array_map(
+        static fn (Diagnostic $diagnostic): array => [
+            $diagnostic->message,
+            substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset),
+        ],
+        (new WarrantSyntaxValidator(new WarrantTestSchema, 'course_sections'))->diagnose(WarrantParser::analyze($source)->syntax),
+    );
+}
+
+it('reports every mistake in a text, each over the text it is about', function () {
+    expect(validationDiagnostics("if is_teachr they can view, frobnicate\nif is_teacher and nope they cannot fly"))->toBe([
+        ['Ability [frobnicate] is not declared by the schema.', 'frobnicate'],
+        ['Condition [is_teachr] is not declared by the schema.', 'is_teachr'],
+        ['Ability [fly] is not declared by the schema.', 'fly'],
+        ['Condition [nope] is not declared by the schema.', 'nope'],
+    ]);
+});
+
+it('reports a for header that names no schema, and goes on to the bodies after it', function () {
+    expect(validationDiagnostics('for nope { they can fly } for course_sections { they can frobnicate }'))->toBe([
+        ['The `for` header names unknown schema [nope].', 'nope'],
+        ['Ability [frobnicate] is not declared by the schema.', 'frobnicate'],
+    ]);
+});
+
+it('reports nothing for a text with no mistakes', function () {
+    expect(validationDiagnostics('if is_teacher they can view'))->toBe([]);
+});
+
+it('throws the first of the mistakes it would report', function () {
+    $source = "if is_teachr they can view, frobnicate\nif nope they can view";
+
+    expect(fn () => (new WarrantSyntaxValidator(new WarrantTestSchema, 'course_sections'))->validateWritten(WarrantSyntax::parse($source)))
+        ->toThrow(RuleValidationException::class, validationDiagnostics($source)[0][0]);
 });

@@ -8,7 +8,7 @@ use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\Positions\SourceMap;
-use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -27,7 +27,7 @@ final class ParsingState
 {
     public int $index = 0;
 
-    /** @var list<SyntaxDiagnostic> Every syntax error found so far, for analysis. */
+    /** @var list<Diagnostic> Every syntax error found so far, for analysis. */
     public array $diagnostics = [];
 
     /**
@@ -93,7 +93,7 @@ final class ParsingState
             }
         }
 
-        $this->diagnostics[] = new SyntaxDiagnostic($error->reason, $error->offset, $endOffset);
+        $this->diagnostics[] = new Diagnostic($error->reason, $error->offset, $endOffset);
     }
 
     public function checkpoint(): Checkpoint

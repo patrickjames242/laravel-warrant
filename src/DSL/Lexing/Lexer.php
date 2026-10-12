@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Lexing;
 
-use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -25,7 +25,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * {@see tokenize()} reads strictly: the first syntax error throws a
  * {@see WarrantSyntaxException}. {@see scan()} reads tolerantly, for an editor,
  * where the text is mid-edit and every error in it is wanted at once: each error
- * becomes a {@see SyntaxDiagnostic} and reading carries on. Both run the same
+ * becomes a {@see Diagnostic} and reading carries on. Both run the same
  * scanning code, which calls {@see report()} at every error; only what that does
  * differs, so the two readings cannot disagree about what is an error.
  *
@@ -88,7 +88,7 @@ final class Lexer
 
     private bool $tolerant = false;
 
-    /** @var list<SyntaxDiagnostic> */
+    /** @var list<Diagnostic> */
     private array $diagnostics = [];
 
     public function __construct(private readonly string $source)
@@ -605,7 +605,7 @@ final class Lexer
             throw WarrantSyntaxException::atOffset($message, $this->source, $offset, $line, $col);
         }
 
-        $this->diagnostics[] = new SyntaxDiagnostic($message, $offset, $endOffset);
+        $this->diagnostics[] = new Diagnostic($message, $offset, $endOffset);
     }
 
     /**

@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Lexing;
 
-use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\Diagnostic;
 
 /**
  * Everything a tolerant {@see Lexer::scan()} read from one source: its tokens,
@@ -13,7 +13,7 @@ final readonly class LexResult
     /**
      * @param list<Token> $tokens Every token in source order, ending in EOF. Text
      *   the lexer could not read is an {@see TokenType::ERROR} token.
-     * @param list<SyntaxDiagnostic> $diagnostics Every syntax error, in source
+     * @param list<Diagnostic> $diagnostics Every syntax error, in source
      *   order.
      */
     public function __construct(

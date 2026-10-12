@@ -3,7 +3,7 @@
 use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
@@ -35,7 +35,7 @@ function lexedTokens(string $source): array
 function lexedDiagnostics(string $source): array
 {
     return array_map(
-        static fn (SyntaxDiagnostic $diagnostic): array => [$diagnostic->message, $diagnostic->offset, $diagnostic->endOffset],
+        static fn (Diagnostic $diagnostic): array => [$diagnostic->message, $diagnostic->offset, $diagnostic->endOffset],
         (new Lexer($source))->scan()->diagnostics,
     );
 }

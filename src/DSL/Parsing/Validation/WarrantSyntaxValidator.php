@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Parsing\Validation;
 
+use Closure;
 use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\DSL\Expanding\RuleSetExpander;
@@ -11,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
@@ -44,6 +46,36 @@ final class WarrantSyntaxValidator
     ) {
     }
 
+    /** Called with each error instead of throwing it, while diagnosing. */
+    private ?Closure $report = null;
+
+    /**
+     * Every rule of the language $syntax breaks, as written, each over the text
+     * it is about: what {@see validateWritten()} would throw first, and every
+     * error after it. A `for` header naming no schema is reported, and the body
+     * under it is not checked further.
+     *
+     * @return list<Diagnostic>
+     */
+    public function diagnose(WarrantSyntax $syntax): array
+    {
+        $found = [];
+
+        $diagnosing = clone $this;
+        $diagnosing->report = static function (InvalidArgumentException $error) use (&$found): void {
+            $found[] = $error;
+        };
+        $diagnosing->validateWritten($syntax);
+
+        /* Every node of a parsed text was recorded, so every error has a span;
+           the start of the text stands in should one ever not. */
+        return array_map(static fn (InvalidArgumentException $error): Diagnostic => new Diagnostic(
+            $error instanceof RuleValidationException ? $error->reason : $error->getMessage(),
+            $error instanceof RuleValidationException ? ($error->span?->offset ?? 0) : 0,
+            $error instanceof RuleValidationException ? ($error->span?->endOffset ?? 0) : 0,
+        ), $found);
+    }
+
     /**
      * Validate $syntax as written: every rule, condition and ability name in it,
      * against the schema each part belongs to.
@@ -54,8 +86,8 @@ final class WarrantSyntaxValidator
 
         foreach ($syntax->written as $child) {
             match (true) {
-                $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)->validateWritten($child),
-                $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)->validateCondition($child),
+                $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)?->validateWritten($child),
+                $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)?->validateCondition($child),
                 $child instanceof IRuleEntryNode => $headerless[] = $child,
                 $child instanceof IBooleanExpressionNode => $this->headerlessValidator($syntax)?->validateCondition(
                     new SchemaConditionNode((string) $this->headerlessSchemaKey, $child),
@@ -89,19 +121,31 @@ final class WarrantSyntaxValidator
     {
         return $this->headerlessSchema === null || $this->headerlessSchemaKey === null
             ? null
-            : new RuleSetValidator($this->headerlessSchema, $this->headerlessSchemaKey, $syntax);
+            : $this->reporting(new RuleSetValidator($this->headerlessSchema, $this->headerlessSchemaKey, $syntax));
     }
 
-    private function validatorFor(WarrantSyntax $syntax, ISchemaScopedNode $body): RuleSetValidator
+    /**
+     * The validator for $body, against the schema its header names; null when
+     * it names none and this is diagnosing, the error reported.
+     */
+    private function validatorFor(WarrantSyntax $syntax, ISchemaScopedNode $body): ?RuleSetValidator
     {
-        return new RuleSetValidator($this->schemaOf($syntax, $body), $body->schemaKey(), $syntax);
+        $schema = $this->schemaOf($syntax, $body);
+
+        return $schema === null ? null : $this->reporting(new RuleSetValidator($schema, $body->schemaKey(), $syntax));
+    }
+
+    private function reporting(RuleSetValidator $validator): RuleSetValidator
+    {
+        return $this->report === null ? $validator : $validator->reportingTo($this->report);
     }
 
     /**
      * The schema $body's `for` header names: the headerless schema when it is
-     * the one named, otherwise the one registered under that key.
+     * the one named, otherwise the one registered under that key. A header
+     * naming no schema is an error, thrown, or reported while diagnosing.
      */
-    private function schemaOf(WarrantSyntax $syntax, ISchemaScopedNode $body): SchemaVocabulary
+    private function schemaOf(WarrantSyntax $syntax, ISchemaScopedNode $body): ?SchemaVocabulary
     {
         if ($this->headerlessSchema !== null && $body->schemaKey() === $this->headerlessSchemaKey) {
             return $this->headerlessSchema;
@@ -113,9 +157,17 @@ final class WarrantSyntaxValidator
             $reason = sprintf('The `for` header names unknown schema [%s].', $body->schemaKey());
             $span = $syntax->positions?->spanOf($body, ISchemaScopedNode::PART_SCHEMA_KEY);
 
-            throw $span === null || $syntax->source === null
+            $error = $span === null || $syntax->source === null
                 ? new InvalidArgumentException($reason, previous: $e)
-                : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), $e);
+                : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), $e, $span);
+
+            if ($this->report === null) {
+                throw $error;
+            }
+
+            ($this->report)($error);
+
+            return null;
         }
 
         return new $schemaClass;

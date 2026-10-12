@@ -3,7 +3,7 @@
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\SyntaxDiagnostic;
+use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
 
 /**
@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\WarrantParser;
 function analysisDiagnostics(string $source): array
 {
     return array_map(
-        static fn (SyntaxDiagnostic $diagnostic): array => [
+        static fn (Diagnostic $diagnostic): array => [
             $diagnostic->message,
             substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset),
         ],
