@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaCatalog;
@@ -39,8 +40,10 @@ final class WarrantSyntaxValidator
      * @param SchemaVocabulary|null $headerlessSchema The schema rules or a
      *   condition with no `for` header belong to, when the caller knows it.
      * @param string|null $headerlessSchemaKey That schema's key.
-     * @param SchemaCatalog $catalog Where the schema each `for` header names is
-     *   found, and the schemas cross-schema references name.
+     * @param SchemaCatalog|null $catalog Where the schema each `for` header
+     *   names is found, and the schemas cross-schema references name; null when
+     *   no schema can be known, so every body is held only to the rules of the
+     *   language that need none, and no header is reported as unknown.
      * @param bool $headerlessRulesFormARuleSet Whether rules with no `for` header
      *   are placed in a rule set for the headerless schema as they are, as a
      *   provider's are, and so must each name their abilities. Otherwise they
@@ -50,7 +53,7 @@ final class WarrantSyntaxValidator
     public function __construct(
         private readonly ?SchemaVocabulary $headerlessSchema = null,
         private readonly ?string $headerlessSchemaKey = null,
-        private readonly SchemaCatalog $catalog = new RegisteredSchemas,
+        private readonly ?SchemaCatalog $catalog = new RegisteredSchemas,
         private readonly bool $headerlessRulesFormARuleSet = false,
     ) {
     }
@@ -91,6 +94,8 @@ final class WarrantSyntaxValidator
      */
     public function validateWritten(WarrantSyntax $syntax): void
     {
+        $this->assertBindingsDoNotMix($syntax);
+
         $headerless = [];
 
         foreach ($syntax->written as $child) {
@@ -124,7 +129,7 @@ final class WarrantSyntaxValidator
 
         foreach ($syntax->children as $child) {
             if ($child instanceof RuleSetNode) {
-                (new RuleSetExpander($this->catalog))->expand($child, $this->schemaOf($syntax, $child));
+                (new RuleSetExpander($this->catalog ?? new RegisteredSchemas))->expand($child, $this->schemaOf($syntax, $child));
             }
         }
     }
@@ -142,7 +147,7 @@ final class WarrantSyntaxValidator
             $known ? $this->headerlessSchema : null,
             $known ? $this->headerlessSchemaKey : null,
             $syntax,
-            catalog: $this->catalog,
+            catalog: $this->catalog ?? new RegisteredSchemas,
         ));
     }
 
@@ -159,7 +164,7 @@ final class WarrantSyntaxValidator
             $schema,
             $schema === null ? null : $body->schemaKey(),
             $syntax,
-            catalog: $this->catalog,
+            catalog: $this->catalog ?? new RegisteredSchemas,
         ));
     }
 
@@ -179,25 +184,64 @@ final class WarrantSyntaxValidator
             return $this->headerlessSchema;
         }
 
-        $schema = $this->catalog->find($body->schemaKey());
-
-        if ($schema === null) {
-            $reason = sprintf('The `for` header names unknown schema [%s].', $body->schemaKey());
-            $span = $syntax->positions?->spanOf($body, ISchemaScopedNode::PART_SCHEMA_KEY);
-
-            $error = $span === null || $syntax->source === null
-                ? new InvalidArgumentException($reason)
-                : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
-
-            if ($this->report === null) {
-                throw $error;
-            }
-
-            ($this->report)($error);
-
+        if ($this->catalog === null) {
             return null;
         }
 
+        $schema = $this->catalog->find($body->schemaKey());
+
+        if ($schema === null) {
+            $this->fail(
+                sprintf('The `for` header names unknown schema [%s].', $body->schemaKey()),
+                $syntax,
+                $body,
+                ISchemaScopedNode::PART_SCHEMA_KEY,
+            );
+        }
+
         return $schema;
+    }
+
+    /**
+     * A text's bindings are either all named or all positional, since its
+     * values are given one way or the other: the first binding written decides,
+     * and each of the other kind is reported. Binding resolution makes the same
+     * check, for a syntax that never passed through here.
+     */
+    private function assertBindingsDoNotMix(WarrantSyntax $syntax): void
+    {
+        if ($syntax->source === null || $syntax->positions === null) {
+            return;
+        }
+
+        $written = new WarrantSyntax($syntax->written, $syntax->source, $syntax->positions);
+        $first = null;
+
+        foreach ((new BindingResolver($syntax->source, $syntax->positions))->bindingsInOrder($written) as $binding) {
+            $first ??= $binding;
+
+            if ($binding->isPositional() !== $first->isPositional()) {
+                $this->fail('Cannot mix named and positional bindings.', $syntax, $binding);
+            }
+        }
+    }
+
+    /**
+     * Report $reason about $node, or its $part, where $syntax has it written:
+     * thrown, or reported while diagnosing.
+     */
+    private function fail(string $reason, WarrantSyntax $syntax, object $node, ?string $part = null): void
+    {
+        $span = $syntax->positions?->spanOf($node, $part);
+
+        $error = $span === null || $syntax->source === null
+            ? new InvalidArgumentException($reason)
+            : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
+
+        if ($this->report === null) {
+            throw $error;
+        }
+
+        ($this->report)($error);
     }
 }

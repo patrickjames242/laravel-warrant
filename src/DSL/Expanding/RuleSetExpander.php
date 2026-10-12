@@ -21,7 +21,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Validation\AbilityNamingMessages;
+use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
@@ -89,7 +89,7 @@ final class RuleSetExpander
             };
 
             if ($generic) {
-                throw new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($set->schemaKey));
+                throw new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($set->schemaKey));
             }
         }
 
@@ -147,16 +147,16 @@ final class RuleSetExpander
            validator reports these against the text; this rejects them in any
            block, built in code or not. */
         if ($block->abilities === []) {
-            throw new InvalidArgumentException(AbilityNamingMessages::blockNamesNone());
+            throw new InvalidArgumentException(LanguageRuleMessages::blockNamesNone());
         }
 
         foreach ($block->entries as $entry) {
             match (true) {
-                $entry instanceof AbilityBlockNode => throw new InvalidArgumentException(AbilityNamingMessages::blockInsideBlock()),
+                $entry instanceof AbilityBlockNode => throw new InvalidArgumentException(LanguageRuleMessages::blockInsideBlock()),
                 $entry instanceof WarrantRuleNode && ! $entry->isGeneric()
-                    => throw new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('A clause')),
+                    => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A clause')),
                 $entry instanceof IncludeInvocationNode && ! $entry->isGeneric()
-                    => throw new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('An @include')),
+                    => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('An @include')),
                 default => null,
             };
         }
@@ -318,6 +318,21 @@ final class RuleSetExpander
         string $schemaKey,
         ExpansionTrail $trail,
     ): WarrantRuleNode {
+        /* A message after `they can` could never surface, and one that is not
+           text cannot be shown. The validator reports these against the text;
+           this rejects them in any rule, built in code or not. */
+        foreach ($rule->canClauses as $clause) {
+            if ($clause->message !== null) {
+                throw new InvalidArgumentException(LanguageRuleMessages::messageOnCanClause());
+            }
+        }
+
+        foreach ($rule->cannotClauses as $clause) {
+            if ($clause->message !== null && ! is_string($clause->message) && ! $clause->message instanceof Closure) {
+                throw new InvalidArgumentException(LanguageRuleMessages::messageIsNotText());
+            }
+        }
+
         if ($rule->conditions === null) {
             return $rule;
         }

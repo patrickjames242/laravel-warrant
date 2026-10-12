@@ -7,6 +7,7 @@ use LogicException;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
@@ -82,25 +83,13 @@ final class BindingResolver
     }
 
     /**
-     * Assert that $syntax does not use both named and positional bindings,
-     * which needs no values: the first binding written decides, and the first
-     * of the other kind is the error.
+     * Every binding in $syntax, in the order written.
+     *
+     * @return list<BindingNode>
      */
-    public function assertNotMixed(WarrantSyntax $syntax): void
+    public function bindingsInOrder(WarrantSyntax $syntax): array
     {
-        $first = null;
-
-        foreach ($this->bindingsOf($syntax) as [$binding]) {
-            $first ??= $binding;
-
-            if ($binding->isPositional() !== $first->isPositional()) {
-                throw WarrantSyntaxException::atSourceOffset(
-                    'Cannot mix named and positional bindings.',
-                    $this->source,
-                    $this->offsetOf($binding),
-                );
-            }
-        }
+        return array_map(static fn (array $found): BindingNode => $found[0], $this->bindingsOf($syntax));
     }
 
     /**
@@ -182,8 +171,12 @@ final class BindingResolver
             $node instanceof AbilityBlockNode => new AbilityBlockNode($node->abilities, $each($node->entries)),
             $node instanceof WarrantRuleNode => new WarrantRuleNode(
                 $walk($node->conditions),
-                $node->canClauses,
+                $each($node->canClauses),
                 $each($node->cannotClauses),
+            ),
+            $node instanceof CanClauseNode => new CanClauseNode(
+                $node->abilities,
+                $this->withBindings($node->message, $replace, self::AS_MESSAGE),
             ),
             $node instanceof CannotClauseNode => new CannotClauseNode(
                 $node->abilities,

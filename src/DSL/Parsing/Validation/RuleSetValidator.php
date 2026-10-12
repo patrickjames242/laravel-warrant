@@ -9,6 +9,7 @@ use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -174,14 +175,14 @@ final class RuleSetValidator
                 $this->validateAbilityBlock($entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
                 if ($ruleSetKey !== null && $entry->isGeneric()) {
-                    $this->fail(new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
+                    $this->fail(new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
                 }
 
                 $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ($ruleSetKey === null ? [] : [...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities === []) {
-                        $this->fail(new InvalidArgumentException(AbilityNamingMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
+                        $this->fail(new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
                     }
                 }
 
@@ -199,18 +200,18 @@ final class RuleSetValidator
     private function validateAbilityBlock(AbilityBlockNode $block): void
     {
         if ($block->abilities === []) {
-            $this->fail(new InvalidArgumentException(AbilityNamingMessages::blockNamesNone()), $block);
+            $this->fail(new InvalidArgumentException(LanguageRuleMessages::blockNamesNone()), $block);
         }
 
         $this->assertAbilitiesDeclared($block->abilities, $block, AbilityBlockNode::PART_ABILITIES);
 
         foreach ($block->entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
-                $this->fail(new InvalidArgumentException(AbilityNamingMessages::blockInsideBlock()), $entry);
+                $this->fail(new InvalidArgumentException(LanguageRuleMessages::blockInsideBlock()), $entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
                 if (! $entry->isGeneric()) {
                     $this->fail(
-                        new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('An @include')),
+                        new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('An @include')),
                         $entry,
                         IncludeInvocationNode::PART_ABILITIES,
                         0,
@@ -220,7 +221,7 @@ final class RuleSetValidator
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities !== []) {
                         $this->fail(
-                            new InvalidArgumentException(AbilityNamingMessages::namedInsideBlock('A clause')),
+                            new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A clause')),
                             $clause,
                             $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
                             0,
@@ -260,7 +261,7 @@ final class RuleSetValidator
                 $first ??= $names;
 
                 if ($names !== $first) {
-                    $this->fail(new InvalidArgumentException(AbilityNamingMessages::namingDisagrees($what, $names)), $node);
+                    $this->fail(new InvalidArgumentException(LanguageRuleMessages::namingDisagrees($what, $names)), $node);
                 }
             }
         }
@@ -278,6 +279,7 @@ final class RuleSetValidator
             }
 
             $this->assertNoDuplicateCannotAbility($rule);
+            $this->assertMessagesAreMessages($rule);
 
             if ($rule->conditions !== null && $this->schema !== null) {
                 $this->validateExpression($rule->conditions, $this->schema, $this->rootScope());
@@ -391,6 +393,29 @@ final class RuleSetValidator
         }
 
         ($this->report)($error);
+    }
+
+    /**
+     * A denial message follows only a `they cannot` clause, since one after
+     * `they can` could never surface, and it is text: a quoted string or a
+     * binding, or a closure in a rule built in code. A `@context` is not one,
+     * because a message is fixed before any check rather than read from it.
+     */
+    private function assertMessagesAreMessages(WarrantRuleNode $rule): void
+    {
+        foreach ($rule->canClauses as $clause) {
+            if ($clause->message !== null) {
+                $this->fail(new InvalidArgumentException(LanguageRuleMessages::messageOnCanClause()), $clause, CanClauseNode::PART_MESSAGE);
+            }
+        }
+
+        foreach ($rule->cannotClauses as $clause) {
+            $message = $clause->message;
+
+            if ($message !== null && ! is_string($message) && ! $message instanceof Closure && ! $message instanceof BindingNode) {
+                $this->fail(new InvalidArgumentException(LanguageRuleMessages::messageIsNotText()), $clause, CannotClauseNode::PART_MESSAGE);
+            }
+        }
     }
 
     /**

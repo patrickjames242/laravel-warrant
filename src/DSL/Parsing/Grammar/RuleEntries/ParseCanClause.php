@@ -24,6 +24,7 @@ final class ParseCanClause extends Parser
 
         return new CanClauseNode(
             $this->parse(new ParseClauseAbilityList(CanClauseNode::PART_ABILITIES))->value,
+            $this->parse(new ParseDenialMessage(CanClauseNode::PART_MESSAGE), record: false)?->value,
         );
     }
 }

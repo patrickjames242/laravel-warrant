@@ -125,7 +125,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         return new self(
             $this->conditions,
-            array_map(static fn (CanClauseNode $clause): CanClauseNode => new CanClauseNode($abilities), $this->canClauses),
+            array_map(static fn (CanClauseNode $clause): CanClauseNode => new CanClauseNode($abilities, $clause->message), $this->canClauses),
             array_map(
                 static fn (CannotClauseNode $clause): CannotClauseNode => new CannotClauseNode($abilities, $clause->message),
                 $this->cannotClauses,

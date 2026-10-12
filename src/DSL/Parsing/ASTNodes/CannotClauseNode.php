@@ -26,15 +26,17 @@ readonly class CannotClauseNode implements INode
 
     /**
      * @param list<string> $abilities Denied ability names (or `*`).
-     * @param string|Closure(WarrantDenialContext):(string|\Throwable)|BindingNode|null $message
+     * @param string|Closure(WarrantDenialContext):(string|\Throwable)|BindingNode|mixed|null $message
      *   The denial message shared by every ability in this clause: a string is
      *   wrapped in a {@see \Warrant\WarrantAuthorizationException}; a closure
      *   receives the denial context and returns a string (wrapped) or a Throwable
      *   (thrown as-is); a binding supplies one of those until binding resolution
-     *   puts it in its place; null means no message (a plain forbid).
+     *   puts it in its place; null means no message (a plain forbid). Anything
+     *   else written after `because`, such as `@context`, is held as written
+     *   for the validator to report.
      */
     public function __construct(
         public array $abilities,
-        public string|Closure|BindingNode|null $message = null,
+        public mixed $message = null,
     ) {}
 }

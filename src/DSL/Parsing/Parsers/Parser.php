@@ -68,11 +68,16 @@ abstract class Parser
     /**
      * Read $parser here: a class with no constructor arguments, or an instance.
      *
+     * A node $parser returns is recorded as written over what it read, unless
+     * $record is false: for a parser that reads a part of the node being built
+     * rather than a node, and records that part itself, whose value may be a
+     * node already recorded where it was read — a binding as a denial message.
+     *
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $parser
      * @return Parsed<R>|null Null when $parser did not match.
      */
-    final protected function parse(string|Parser $parser): ?Parsed
+    final protected function parse(string|Parser $parser, bool $record = true): ?Parsed
     {
         $parser = $this->share($parser);
         $start = $this->peek();
@@ -87,7 +92,7 @@ abstract class Parser
         }
 
         // A node read from no tokens has nowhere to be.
-        if ($result instanceof INode && $this->state->index > $checkpoint->index) {
+        if ($record && $result instanceof INode && $this->state->index > $checkpoint->index) {
             $this->state->recordResult($result, $start, $this->previous(), $checkpoint);
         }
 

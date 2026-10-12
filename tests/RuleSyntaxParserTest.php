@@ -17,7 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
-use Warrant\DSL\Parsing\Validation\AbilityNamingMessages;
+use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -28,12 +28,12 @@ use Warrant\Facades\Warrant;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /**
- * What validating $syntax as written reports about where it names abilities,
+ * The rules of the language validating $syntax as written reports it breaks,
  * with no schema to look its names up in.
  *
  * @return list<string>
  */
-function abilityNamingErrors(string $syntax): array
+function languageRuleErrors(string $syntax): array
 {
     $noSchemas = new class implements SchemaCatalog
     {
@@ -705,19 +705,24 @@ it('groups multiple abilities in one cannot clause under one message', function 
     expect($rule->messageFor('delete'))->toBe('locked');
 });
 
-it('rejects because after a can clause', function () {
-    expect(fn () => WarrantSyntax::parse("they can view because 'nope'")->rule())
-        ->toThrow(WarrantSyntaxException::class, "'because' may only follow a 'they cannot");
-});
+it('rejects because after a can clause, an empty one too', function (string $syntax) {
+    expect(languageRuleErrors($syntax))
+        ->toBe(["'because' may only follow a 'they cannot ...' clause, not 'they can ...'."]);
+})->with([
+    'naming abilities' => ["they can view because 'nope'"],
+    'naming none' => ["they can because 'nope'"],
+]);
 
-it('rejects a non-string literal after because', function () {
-    expect(fn () => WarrantSyntax::parse('they cannot edit because 42')->rule())
+it('rejects a denial message that is not text', function (string $syntax) {
+    expect(languageRuleErrors($syntax))->toBe([LanguageRuleMessages::messageIsNotText()]);
+})->with([
+    'a number' => ['they cannot edit because 42'],
+    'a @context' => ['they cannot edit because @context reason'],
+]);
+
+it('reads a because with nothing after it as a syntax error', function () {
+    expect(fn () => WarrantSyntax::parse('they cannot edit because'))
         ->toThrow(WarrantSyntaxException::class, "Expected a denial message after 'because'");
-});
-
-it('rejects @context after because', function () {
-    expect(fn () => WarrantSyntax::parse('they cannot edit because @context reason')->rule())
-        ->toThrow(WarrantSyntaxException::class, '@context is not allowed');
 });
 
 it('rejects a binding that resolves to a non-string, non-closure message', function () {
@@ -744,9 +749,6 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     'bare if' => ['if is_self', [], "Expected at least one 'they can"],
     'reserved word as ability' => ['they can can', [], "Reserved word 'can' cannot be used"],
     'reserved word as condition' => ['if if they can view', [], "Reserved word 'if' cannot be used"],
-    // An ability list may be left off anywhere, so `they can because` reads as a
-    // `because` after a `can`.
-    'because after an empty can' => ['for timesheets { they can because }', [], "'because' may only follow a 'they cannot ...' clause"],
     // `as` became a keyword for the cross-schema handle alias, so it stopped
     // being available as a condition, ability or schema name.
     'as reserved as condition' => ['if as they can view', [], "Reserved word 'as' cannot be used"],
@@ -1314,17 +1316,17 @@ it('allows the same ability in more than one block header', function () {
 });
 
 it('rejects a clause inside an ability block naming its own abilities', function () {
-    expect(abilityNamingErrors('can they view { if x they can edit }'))
+    expect(languageRuleErrors('can they view { if x they can edit }'))
         ->toBe(['A clause inside an ability block may not name abilities; the block header already names them.']);
 });
 
 it('rejects a wildcard clause inside an ability block', function () {
-    expect(abilityNamingErrors('can they view { if x they cannot * }'))
-        ->toBe([AbilityNamingMessages::namedInsideBlock('A clause')]);
+    expect(languageRuleErrors('can they view { if x they cannot * }'))
+        ->toBe([LanguageRuleMessages::namedInsideBlock('A clause')]);
 });
 
 it('rejects a nested ability block', function () {
-    expect(abilityNamingErrors(<<<'WARRANT'
+    expect(languageRuleErrors(<<<'WARRANT'
         can they view {
             can they edit {
                 if is_owner they can
@@ -1335,13 +1337,13 @@ it('rejects a nested ability block', function () {
 });
 
 it('rejects a nested block opened after a clause', function () {
-    expect(abilityNamingErrors(<<<'WARRANT'
+    expect(languageRuleErrors(<<<'WARRANT'
         can they view {
             if is_public they can
             can they edit { if is_owner they can }
         }
         WARRANT))
-        ->toBe([AbilityNamingMessages::blockInsideBlock()]);
+        ->toBe([LanguageRuleMessages::blockInsideBlock()]);
 });
 
 it('refuses to answer a single rule for an ability block', function () {
@@ -1362,7 +1364,7 @@ it('rejects a bare header list that never reaches its brace', function () {
 });
 
 it('rejects a block header naming no ability', function () {
-    expect(abilityNamingErrors('can they { if is_public they can }'))
+    expect(languageRuleErrors('can they { if is_public they can }'))
         ->toBe(['An ability block names at least one ability.']);
 });
 
@@ -1376,25 +1378,25 @@ it('reads a generic clause in rules with no for header', function () {
 });
 
 it('rejects a generic clause after rules that name their abilities', function () {
-    expect(abilityNamingErrors('if is_public they can view  if is_locked they cannot'))->toBe([
+    expect(languageRuleErrors('if is_public they can view  if is_locked they cannot'))->toBe([
         'This clause names none, but the rules before it name theirs; rules with no `for` header either all '
             .'name their abilities or all leave them to be named where the rules are placed.',
     ]);
 });
 
 it('rejects a named clause after generic rules', function () {
-    expect(abilityNamingErrors('if is_public they can  if is_locked they cannot view'))
-        ->toBe([AbilityNamingMessages::namingDisagrees('This clause', true)]);
+    expect(languageRuleErrors('if is_public they can  if is_locked they cannot view'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', true)]);
 });
 
 it('rejects a rule mixing named and generic clauses', function () {
-    expect(abilityNamingErrors('if is_public they can view they cannot'))
-        ->toBe([AbilityNamingMessages::namingDisagrees('This clause', false)]);
+    expect(languageRuleErrors('if is_public they can view they cannot'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', false)]);
 });
 
 it('rejects an ability block after generic rules', function () {
-    expect(abilityNamingErrors('if is_public they can  can they view { they can }'))
-        ->toBe([AbilityNamingMessages::namingDisagrees('An ability block', true)]);
+    expect(languageRuleErrors('if is_public they can  can they view { they can }'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('An ability block', true)]);
 });
 
 it('reads an ability block among rules that name their abilities', function () {
@@ -1410,8 +1412,8 @@ it('rejects a generic clause outside an ability block once it is placed in a rul
 });
 
 it('rejects a generic clause in a for body', function () {
-    expect(abilityNamingErrors('for timesheets { if is_public they can }'))
-        ->toBe([AbilityNamingMessages::unnamedOutsideBlock('timesheets')]);
+    expect(languageRuleErrors('for timesheets { if is_public they can }'))
+        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
 });
 
 // -- @include -----------------------------------------------------------------
@@ -1487,7 +1489,7 @@ it('keeps an include in source order among the rules', function () {
 });
 
 it('rejects a for list on an include inside an ability block', function () {
-    expect(abilityNamingErrors('can they view { @include x for edit }'))
+    expect(languageRuleErrors('can they view { @include x for edit }'))
         ->toBe(['An @include inside an ability block may not name abilities; the block header already names them.']);
 });
 
@@ -1500,8 +1502,8 @@ it('reads a generic include in rules with no for header', function () {
 });
 
 it('rejects a generic include after rules that name their abilities', function () {
-    expect(abilityNamingErrors('@include x for view  @include y'))
-        ->toBe([AbilityNamingMessages::namingDisagrees('This @include', false)]);
+    expect(languageRuleErrors('@include x for view  @include y'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('This @include', false)]);
 });
 
 it('rejects an include that names no abilities once it is placed in a rule set', function () {
@@ -1510,8 +1512,8 @@ it('rejects an include that names no abilities once it is placed in a rule set',
 });
 
 it('rejects an include that names no abilities in a for body', function () {
-    expect(abilityNamingErrors('for timesheets { @include x }'))
-        ->toBe([AbilityNamingMessages::unnamedOutsideBlock('timesheets')]);
+    expect(languageRuleErrors('for timesheets { @include x }'))
+        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
 });
 
 it('rejects an include with no template name', function () {

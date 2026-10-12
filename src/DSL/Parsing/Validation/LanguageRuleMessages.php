@@ -3,12 +3,13 @@
 namespace Warrant\DSL\Parsing\Validation;
 
 /**
- * The words for a rule entry that names its abilities where it may not, or
- * names none where it must. The validator reports these against rule text, and
- * the expander rejects the same entries in any rule set that reaches it, so
- * both say them here, in one way.
+ * The words for a rule of the language broken by text the parser can read: an
+ * entry naming its abilities where it may not, or naming none where it must; a
+ * denial message where none belongs, or one that cannot be one. The validator
+ * reports these against rule text, and the expander rejects the same in any
+ * rule set that reaches it, so both say them here, in one way.
  */
-final class AbilityNamingMessages
+final class LanguageRuleMessages
 {
     public static function blockNamesNone(): string
     {
@@ -35,6 +36,17 @@ final class AbilityNamingMessages
                 .'for [%s] holds one that names none.',
             $schemaKey,
         );
+    }
+
+    public static function messageOnCanClause(): string
+    {
+        return "'because' may only follow a 'they cannot ...' clause, not 'they can ...'.";
+    }
+
+    public static function messageIsNotText(): string
+    {
+        return "A denial message after 'because' is a quoted string or a binding (:name or ?). "
+            .'@context is not allowed here.';
     }
 
     /**
