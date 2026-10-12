@@ -115,16 +115,3 @@ it('refuses to record where something was written twice', function () {
     expect(fn () => $map->recordPart($node, CrossSchemaCanNode::PART_ABILITY, null, $tokens[2]))
         ->toThrow(LogicException::class, 'Where '.CrossSchemaCanNode::class.' part [ability] was written is already recorded.');
 });
-
-it('moves every entry of a replaced node onto its replacement, in the same place', function () {
-    [$map, $node] = mappedCan();
-    $replacement = new CrossSchemaCanNode('docs', 'view', true, [1, 2]);
-
-    $map->replace($node, $replacement);
-
-    expect($map->spanOf($node))->toBeNull()
-        ->and($map->spanOf($node, CrossSchemaCanNode::PART_BOUND_KEY, 1))->toBeNull()
-        ->and($map->spanOf($replacement))->toEqual(new Span(0, 24))
-        ->and($map->spanOf($replacement, CrossSchemaCanNode::PART_BOUND_KEY, 1))->toEqual(new Span(21, 22))
-        ->and(entryParts($map->containing(4)))->toBe([[null, null], [CrossSchemaCanNode::PART_ABILITY, null]]);
-});

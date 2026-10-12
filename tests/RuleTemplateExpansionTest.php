@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
@@ -674,4 +675,18 @@ it('reports a mistake inside a template body, which it reads through the expansi
 
     expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
+});
+
+it('reports a mistake in a template\'s rule text as the template\'s, pointing into that text', function () {
+    try {
+        validateSyntax('@include names_an_unknown_condition for view');
+    } catch (RuleValidationException $error) {
+        expect($error->reason)->toStartWith('Rule template [TemplateExpansionSchema::namesAnUnknownCondition] answered with a mistake: ')
+            ->and($error->position->source)->toBe('if no_such_condition they can')
+            ->and($error->position->column)->toBe(4);
+
+        return;
+    }
+
+    throw new RuntimeException('Expected the template\'s mistake to be reported.');
 });

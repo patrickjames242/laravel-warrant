@@ -457,10 +457,10 @@ it('renders a lone rule set as one braced block', function () {
         TXT);
 });
 
-it('keeps the text it was read from and where each node was written', function () {
+it('keeps the text it was read from and where each node of it was written', function () {
     $source = 'if is_owner(:id) they can view';
     $syntax = WarrantSyntax::parse($source, ['id' => 5]);
-    $span = $syntax->positions->spanOf($syntax->children[0]->conditions);
+    $span = $syntax->positions->spanOf($syntax->written[0]->conditions);
 
     expect($syntax->source)->toBe($source)
         ->and(substr($source, $span->offset, $span->length()))->toBe('is_owner(:id)');

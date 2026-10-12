@@ -18,8 +18,9 @@ use Warrant\Rules\RuleProviderContext;
  * access to the managed entity: asking the bound {@see RuleProvider}, if any,
  * confirming its answer is about the schema it was asked about, prepending the
  * schema's own rules, and running them past the validator on the way to the
- * compiler: each answer as written, on its own, and then the assembled set
- * again expanded.
+ * compiler: each answer as written, on its own, before it is combined with the
+ * others. Expanding the set validates what its templates and derived conditions
+ * answer with, each as its own text.
  *
  * An answer given as rule text is validated as that text, so an error in it
  * points into the text that holds it, before its rules are taken out of it and
@@ -88,7 +89,6 @@ trait ResolvesRuleSets
         $ruleSet = $this->resolveRuleSet();
 
         $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
-        (new RuleSetValidator($this->schema, $this->schema::schemaKey()))->validateExpanded($expanded);
 
         $this->resolvedRuleSet = $ruleSet;
         $this->expandedRuleSet = $expanded;

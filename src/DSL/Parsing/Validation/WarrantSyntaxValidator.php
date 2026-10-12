@@ -27,7 +27,9 @@ use Warrant\Facades\Warrant;
  * not checked.
  *
  * A text is validated on its own, before anything splits it up or combines it
- * with other rules, so every error is about the text it points into.
+ * with other rules, so every error is about the text it points into. It is read
+ * as written, every binding still a placeholder: a value passed in for one is
+ * not part of the text, and is not validated as if it were.
  */
 final class WarrantSyntaxValidator
 {
@@ -50,7 +52,7 @@ final class WarrantSyntaxValidator
     {
         $headerless = [];
 
-        foreach ($syntax->children as $child) {
+        foreach ($syntax->written as $child) {
             match (true) {
                 $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)->validateWritten($child),
                 $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)->validateCondition($child),
@@ -68,9 +70,9 @@ final class WarrantSyntaxValidator
     }
 
     /**
-     * Validate $syntax as written, and every `for <schema>` rule set in it again
-     * once expanded: the rules its templates supply and the expressions its
-     * derived conditions answer with, as the compiler will read them.
+     * Validate $syntax as written, and expand every `for <schema>` rule set in
+     * it, which validates the rules its templates answer with and the
+     * expressions its derived conditions answer with, each as its own text.
      */
     public function validate(WarrantSyntax $syntax): void
     {
@@ -78,8 +80,7 @@ final class WarrantSyntaxValidator
 
         foreach ($syntax->children as $child) {
             if ($child instanceof RuleSetNode) {
-                $validator = $this->validatorFor($syntax, $child);
-                $validator->validateExpanded((new RuleSetExpander)->expand($child, $this->schemaOf($syntax, $child)));
+                (new RuleSetExpander)->expand($child, $this->schemaOf($syntax, $child));
             }
         }
     }

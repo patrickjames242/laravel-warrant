@@ -22,10 +22,12 @@ use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
  * reads every form of rule text and nothing about the text is known before it
  * is read.
  *
- * A parsed syntax keeps the text it was read from and where each of its nodes
- * was written, so an error about any node in it can point into that text. Two
- * parses of the same rules written differently hold equal children, but are
- * not equal as a whole.
+ * A parsed syntax keeps the text it was read from, the tree as it was written
+ * there — every `:name` and `?` still a {@see BindingNode} — and where each node
+ * of that tree was written. Its children are the same tree with the value of
+ * each binding in place. A validator reads what was written, so a value never
+ * reaches it; everything else reads the children. Two parses of the same rules
+ * written differently hold equal children, but are not equal as a whole.
  */
 final readonly class WarrantSyntax implements INode
 {
@@ -33,16 +35,24 @@ final readonly class WarrantSyntax implements INode
      * @param list<INode> $children
      * @param string|null $source The text the children were read from; null
      *   for a syntax built by hand.
-     * @param SourceMap|null $positions Where each node of the children was
-     *   written in $source; null for a syntax built by hand.
+     * @param SourceMap|null $positions Where each node of $written was written
+     *   in $source; null for a syntax built by hand.
+     * @param list<INode>|null $written The children as written, bindings and
+     *   all; the children themselves when they hold no binding values.
      */
     public function __construct(
         public array $children = [],
         public ?string $source = null,
         public ?SourceMap $positions = null,
+        ?array $written = null,
     ) {
         self::assertOneShape($children);
+
+        $this->written = $written ?? $children;
     }
+
+    /** @var list<INode> The children as written, every binding still a {@see BindingNode}. */
+    public array $written;
 
     /**
      * Parse rule text of any form, resolving named (:name) or positional (?)

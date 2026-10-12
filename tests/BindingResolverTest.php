@@ -1,9 +1,8 @@
 <?php
 
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\BindingResolver;
-use Warrant\DSL\Parsing\Positions\SourceEntry;
-use Warrant\DSL\Parsing\Positions\Span;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
@@ -66,20 +65,13 @@ it('hands back a tree with no bindings as it is', function () {
         ->toBe($written);
 });
 
-it('moves the positions of every node it builds anew onto the new node', function () {
+it('keeps the tree as written beside the resolved one, with the positions describing it', function () {
     $source = 'if a(:x) and b they can view';
-    $written = WarrantParser::parseWithPositions($source);
-    $before = $written->children[0]->conditions;
+    $syntax = WarrantParser::parse($source, ['x' => 5]);
+    $written = $syntax->written[0]->conditions;
+    $span = $syntax->positions->spanOf($written->leftSide, ConditionNode::PART_PARAMETERS, 0);
 
-    $resolved = (new BindingResolver($source, $written->positions))->resolve($written, ['x' => 5]);
-    $after = $resolved->children[0]->conditions;
-    $span = static fn (?Span $span): ?string => $span === null ? null : substr($source, $span->offset, $span->length());
-
-    expect($after)->not->toBe($before)
-        ->and($span($written->positions->spanOf($after)))->toBe('a(:x) and b')
-        ->and($span($written->positions->spanOf($after->leftSide)))->toBe('a(:x)')
-        ->and($span($written->positions->spanOf($after->leftSide, ConditionNode::PART_PARAMETERS, 0)))->toBe(':x')
-        ->and($written->positions->spanOf($before))->toBeNull()
-        ->and(array_map(static fn (SourceEntry $entry): object => $entry->node, $written->positions->containing(3)))
-        ->toBe([$resolved->children[0], $after, $after->leftSide, $after->leftSide]);
+    expect($syntax->children[0]->conditions->leftSide)->toEqual(new ConditionNode('a', [5]))
+        ->and($written->leftSide)->toEqual(new ConditionNode('a', [new BindingNode('x')]))
+        ->and(substr($source, $span->offset, $span->length()))->toBe(':x');
 });

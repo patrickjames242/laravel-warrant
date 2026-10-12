@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
@@ -235,14 +236,26 @@ it('refuses to compile a derived condition nobody expanded', function () {
 
 function validateDkExpanded(string $syntax): void
 {
-    $expanded = (new RuleSetExpander)->expand(WarrantSyntax::parse($syntax)->scopedTo('dk_docs'), new DkDocSchema);
-
-    (new RuleSetValidator(new DkDocSchema, 'dk_docs'))->validateExpanded($expanded);
+    (new RuleSetValidator(new DkDocSchema, 'dk_docs'))->validate(WarrantSyntax::parse($syntax)->scopedTo('dk_docs'));
 }
 
 it('validates the expression a derived condition answered with', function () {
     expect(fn () => validateDkExpanded('if misspelled they can view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
+});
+
+it('reports a mistake in a derived condition\'s text as the condition\'s, pointing into that text', function () {
+    try {
+        validateDkExpanded('if misspelled they can view');
+    } catch (RuleValidationException $error) {
+        expect($error->reason)->toStartWith('Derived condition [DkDocSchema::misspelled] answered with a mistake: ')
+            ->and($error->position->source)->toBe('no_such_condition')
+            ->and($error->position->column)->toBe(1);
+
+        return;
+    }
+
+    throw new RuntimeException('Expected the derived condition\'s mistake to be reported.');
 });
 
 it('validates a derived condition\'s expression under its own names, not the caller\'s', function () {
@@ -253,6 +266,12 @@ it('validates a derived condition\'s expression under its own names, not the cal
 it('validates a @column argument with the caller\'s names', function () {
     expect(fn () => validateDkExpanded(
         'if check(owner_matches(@column other.tenant_id) for dk_docs(@column id) as other) they can view'
+    ))->not->toThrow(Exception::class);
+});
+
+it('validates a derived condition\'s text as written, so a @column bound into it is not read there', function () {
+    expect(fn () => validateDkExpanded(
+        'if check(owner_matches_text(@column other.tenant_id) for dk_docs(@column id) as other) they can view'
     ))->not->toThrow(Exception::class);
 });
 
@@ -358,6 +377,13 @@ class DkDocSchema extends WarrantSchema
     public function ownerMatches(mixed $column): IBooleanExpressionNode
     {
         return WarrantSyntax::parse('owner_is_column(:column)', ['column' => $column])->conditionExpression();
+    }
+
+    /** Compares a column with the owner, answering with the text and its binding. */
+    #[DerivedCondition]
+    public function ownerMatchesText(mixed $column): WarrantSyntax
+    {
+        return WarrantSyntax::parse('owner_is_column(:column)', ['column' => $column]);
     }
 
     /** Passes its argument on to another derived condition. */

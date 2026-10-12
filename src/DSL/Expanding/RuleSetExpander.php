@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Expanding;
 
+use Closure;
 use InvalidArgumentException;
 use LogicException;
 use OutOfBoundsException;
@@ -18,8 +19,12 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Validation\RuleSetValidator;
+use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
@@ -139,6 +144,7 @@ final class RuleSetExpander
         $generic = $this->templateEntries(
             $schema->{$definition->methodName}(...$include->arguments),
             $schema,
+            $schemaKey,
             $definition,
         );
 
@@ -170,10 +176,23 @@ final class RuleSetExpander
      * A string is parsed as any rule text is; rule text with bindings arrives
      * already parsed, as a {@see WarrantSyntax}.
      *
+     * Every answer is validated before it is spliced in: rule text as the text it
+     * is, so an error points into it, and a rule or include built in code as the
+     * node it is.
+     *
+     * @param bool $validate false for the entries taken out of rule text that has
+     *   already been validated as a whole
      * @return list<WarrantRuleNode|IncludeInvocationNode>
      */
-    private function templateEntries(mixed $body, SchemaVocabulary $schema, RuleTemplateDefinition $definition): array
-    {
+    private function templateEntries(
+        mixed $body,
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        RuleTemplateDefinition $definition,
+        bool $validate = true,
+    ): array {
+        $answeredBy = sprintf('Rule template [%s::%s]', $schema::class, $definition->methodName);
+
         if (is_string($body)) {
             $body = WarrantSyntax::parse($body);
         }
@@ -188,7 +207,14 @@ final class RuleSetExpander
                 ));
             }
 
-            $body = $body->ruleEntries();
+            $entries = $this->templateEntries($body->ruleEntries(), $schema, $schemaKey, $definition, false);
+
+            if ($validate) {
+                self::validateAnswer($answeredBy, static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))
+                    ->validateWritten($body));
+            }
+
+            return $entries;
         }
 
         if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
@@ -200,6 +226,11 @@ final class RuleSetExpander
                     $definition->methodName,
                     $body instanceof WarrantRuleNode ? 'a rule' : 'an @include',
                 ));
+            }
+
+            if ($validate) {
+                self::validateAnswer($answeredBy, static fn () => (new RuleSetValidator($schema, $schemaKey))
+                    ->validateEntries([$body]));
             }
 
             return [$body];
@@ -219,7 +250,7 @@ final class RuleSetExpander
             $entries = [];
 
             foreach ($body as $item) {
-                array_push($entries, ...$this->templateEntries($item, $schema, $definition));
+                array_push($entries, ...$this->templateEntries($item, $schema, $schemaKey, $definition, $validate));
             }
 
             return $entries;
@@ -354,7 +385,7 @@ final class RuleSetExpander
             $node->conditionKey,
             $node->parameters,
             $this->expandExpression(
-                $this->derivedExpression($answer, $node->conditionKey, $schema, $schemaKey, $definition),
+                $this->derivedExpression($answer, $node, $schema, $schemaKey, $definition),
                 $schema,
                 $schemaKey,
                 $deeper,
@@ -369,12 +400,46 @@ final class RuleSetExpander
      * hold a condition expression, bare or under a `for` header naming this
      * schema. A {@see WarrantConditionBuilder} is unwrapped to the tree it
      * composed. A bool decides the outcome outright, and null answers unknown.
+     *
+     * An expression is validated before it is spliced in: rule text as the text
+     * it is, so an error points into it, and an expression built in code as the
+     * nodes it is.
+     *
+     * @param ConditionNode $node The condition the rule wrote, with the arguments
+     *   it passed in.
      */
     private function derivedExpression(
         mixed $answer,
-        string $conditionKey,
+        ConditionNode $node,
         SchemaVocabulary $schema,
         string $schemaKey,
+        ConditionDefinition $definition,
+    ): IBooleanExpressionNode {
+        $conditionKey = $node->conditionKey;
+
+        if (is_string($answer) || $answer instanceof WarrantSyntax) {
+            return $this->derivedSyntaxExpression($answer, $schema, $schemaKey, $definition);
+        }
+
+        $expression = $this->derivedNodeExpression($answer, $conditionKey, $schema, $definition);
+
+        self::validateAnswer(
+            sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
+            static fn () => (new RuleSetValidator($schema, $schemaKey, passedIn: $node->parameters))
+                ->validateCondition(new SchemaConditionNode($schemaKey, $expression)),
+        );
+
+        return $expression;
+    }
+
+    /**
+     * What a derived condition answered with, when it answered with anything but
+     * rule text.
+     */
+    private function derivedNodeExpression(
+        mixed $answer,
+        string $conditionKey,
+        SchemaVocabulary $schema,
         ConditionDefinition $definition,
     ): IBooleanExpressionNode {
         if ($answer instanceof WarrantConditionBuilder) {
@@ -392,8 +457,6 @@ final class RuleSetExpander
 
         return match (true) {
             $answer instanceof IBooleanExpressionNode => $answer,
-            is_string($answer) => $this->derivedSyntaxExpression($answer, $schema, $schemaKey, $definition),
-            $answer instanceof WarrantSyntax => $this->derivedSyntaxExpression($answer, $schema, $schemaKey, $definition),
             is_bool($answer) => new BooleanNode($answer),
             $answer === null => new UnknownNode,
             default => throw new RuntimeException(sprintf(
@@ -448,7 +511,33 @@ final class RuleSetExpander
             ));
         }
 
+        self::validateAnswer(
+            sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
+            static fn () => (new WarrantSyntaxValidator($schema, $schemaKey))->validateWritten($syntax),
+        );
+
         return $expression;
+    }
+
+    /**
+     * Run $validate over what $answeredBy answered with, so a mistake in it is
+     * reported as that method's, still pointing into the text it is in.
+     *
+     * @param Closure(): void $validate
+     */
+    private static function validateAnswer(string $answeredBy, Closure $validate): void
+    {
+        try {
+            $validate();
+        } catch (InvalidArgumentException $e) {
+            $reason = $e instanceof RuleValidationException ? $e->reason : $e->getMessage();
+
+            throw new RuleValidationException(
+                sprintf('%s answered with a mistake: %s', $answeredBy, $reason),
+                $e instanceof RuleValidationException ? $e->position : null,
+                $e,
+            );
+        }
     }
 
     /**

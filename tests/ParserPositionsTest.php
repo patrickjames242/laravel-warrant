@@ -27,7 +27,11 @@ function treeNodes(mixed $value): array
 {
     $nodes = [];
 
-    if ($value instanceof INode && ! $value instanceof WarrantSyntax) {
+    if ($value instanceof WarrantSyntax) {
+        return treeNodes($value->children);
+    }
+
+    if ($value instanceof INode) {
         $nodes[] = $value;
     }
 
