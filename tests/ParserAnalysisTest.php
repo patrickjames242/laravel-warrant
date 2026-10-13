@@ -141,6 +141,8 @@ it('gives the error a strict read throws as its first diagnostic', function (str
     'an include with no template' => 'if a they can view @include if b they can edit',
     'an ability list with no can they' => 'for docs { view, edit { they can } }',
     'a block with no header' => '{ they can view }',
+    'a block with no header after a braced one' => 'for docs { they can view } { they can edit }',
+    'a block after an unbraced one' => 'for docs they can view for files { they can edit }',
 ]);
 
 it('reports each mistake in a text, and keeps every rule, repaired where it can be', function () {
@@ -353,4 +355,58 @@ it('reads a because with no message as giving none', function () {
     expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string or a binding (:name or ?).", '']])
         ->and(WarrantParser::analyze($source)->syntax->children)->toEqual(WarrantParser::parse('if a they cannot view')->children);
 });
+
+it('reads a block missing its for header as one whose header names no schema', function (string $source, array $mistake, array $blocks) {
+    expect(analysisDiagnostics($source))->toBe([$mistake])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual($blocks);
+})->with(function () {
+    $noHeader = ['A `{ ... }` block needs a `for <schema>` header before it.', '{'];
+
+    return [
+        'with rules' => [
+            '{ they can view }',
+            $noHeader,
+            [new RuleSetNode(INode::MISSING_NAME, [new WarrantRuleNode(null, [new CanClauseNode(['view'])], [])])],
+        ],
+        'with an expression' => [
+            '{ a and b }',
+            $noHeader,
+            [new SchemaConditionNode(INode::MISSING_NAME, new AndNode(new ConditionNode('a'), new ConditionNode('b')))],
+        ],
+        'with no name after for' => [
+            'for { they can view }',
+            ['Expected a schema name after `for`.', '{'],
+            [new RuleSetNode(INode::MISSING_NAME, [new WarrantRuleNode(null, [new CanClauseNode(['view'])], [])])],
+        ],
+    ];
+});
+
+it('reads on past a block written where it should not be, and every block after it', function (string $source, array $mistake, string $headed) {
+    expect(analysisDiagnostics($source))->toBe([$mistake]);
+
+    $children = WarrantParser::analyze($source)->syntax->children;
+    $expected = WarrantParser::parse($headed)->children;
+
+    // The text writes no header for a block that `$headed` writes `for missing` before.
+    expect(array_map(static fn ($block) => $block->schemaKey(), $children))
+        ->toBe(array_map(static fn ($block) => $block->schemaKey() === 'missing' ? INode::MISSING_NAME : $block->schemaKey(), $expected))
+        ->and(array_map(static fn ($block) => $block->entries, $children))
+        ->toEqual(array_map(static fn ($block) => $block->entries, $expected));
+})->with([
+    'a block with no header after a braced one' => [
+        'for docs { they can view } { they can edit } for files { they can share }',
+        ['Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.', '{'],
+        'for docs { they can view } for missing { they can edit } for files { they can share }',
+    ],
+    'a block after an unbraced one' => [
+        'for docs they can view for files { they can edit }',
+        ['Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.', 'for'],
+        'for docs { they can view } for files { they can edit }',
+    ],
+    'a bare brace after an unbraced block' => [
+        'for docs they can view { they can edit }',
+        ['Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.', '{'],
+        'for docs { they can view } for missing { they can edit }',
+    ],
+]);
 

@@ -111,9 +111,10 @@ final class WarrantParser
      * none is skipped to where the next one can start. After a mistake, no other
      * is reported until three tokens have been read, since the first often leads
      * to more.
-     * The first grammar error reported is the one parse() throws. An error
-     * outside any entry or block that cannot be repaired ends the read, and the
-     * tree is then empty.
+     * A `{` with no `for <schema>` header is read as a block whose header names
+     * no schema, and a block written where it should not be is read all the
+     * same, so every grammar error is repaired and the read reaches the end of
+     * the text. The first grammar error reported is the one parse() throws.
      *
      * The text is validated too, and every rule of the language it breaks is
      * reported after the syntax errors. Given a $catalog, each `for` body is
@@ -130,6 +131,9 @@ final class WarrantParser
             $children = Parser::run(new ParseSyntax, $state)->children;
             $state->commitTo($positions);
         } catch (WarrantSyntaxException $error) {
+            /* A tolerant read reports every grammar error rather than throwing it.
+               One that were thrown would end the read here, with an empty tree,
+               rather than reach the editor. */
             $state->diagnose($error);
             $children = [];
         }

@@ -17,6 +17,9 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * A `for <schema>` header and the body it scopes, braced as
  * `for <schema> { <body> }` or unbraced and running to the end of the input.
  *
+ * A braced block written as a bare `{`, with no header, is reported; a tolerant
+ * parse reads it as though its header named no schema.
+ *
  * The body is a rule set when a rule starts it or it is empty, and otherwise
  * one boolean expression scoped to the header's schema. The header is part of
  * the node, so the body is read here rather than by a parser of its own, which
@@ -35,21 +38,25 @@ final class ParseForSchemaBlock extends Parser
 
     protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $ahead->nextIs(TokenType::FOR);
+        return $ahead->nextIs(TokenType::FOR) || $ahead->nextIs(TokenType::LBRACE);
     }
 
     protected function read(): ISchemaScopedNode
     {
-        $this->advance(); // consume 'for'
-
         $schemaKey = INode::MISSING_NAME;
 
-        if ($this->check(TokenType::IDENTIFIER)) {
-            $schema = $this->advance();
-            $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
-            $schemaKey = $schema->lexeme;
+        if ($this->check(TokenType::LBRACE)) {
+            $this->report($this->errorAtCurrent('A `{ ... }` block needs a `for <schema>` header before it.'));
         } else {
-            $this->report($this->nameError('a schema name after `for`'));
+            $this->advance(); // consume 'for'
+
+            if ($this->check(TokenType::IDENTIFIER)) {
+                $schema = $this->advance();
+                $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
+                $schemaKey = $schema->lexeme;
+            } else {
+                $this->report($this->nameError('a schema name after `for`'));
+            }
         }
 
         if (! $this->braced) {
