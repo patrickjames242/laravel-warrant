@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -41,12 +42,15 @@ final class ParseSchemaHandle extends Parser
      */
     protected function read(): array
     {
-        if (! $this->check(TokenType::IDENTIFIER)) {
-            throw $this->nameError('a schema name');
-        }
+        $schemaKey = INode::MISSING_NAME;
 
-        $schema = $this->advance();
-        $this->part($this->owner::PART_SCHEMA_KEY, null, $schema);
+        if ($this->check(TokenType::IDENTIFIER)) {
+            $schema = $this->advance();
+            $this->part($this->owner::PART_SCHEMA_KEY, null, $schema);
+            $schemaKey = $schema->lexeme;
+        } else {
+            $this->report($this->nameError('a schema name'));
+        }
 
         $boundKey = $this->parse(new ParseArguments($this->owner::PART_BOUND_KEY, 'the row selector'));
         $alias = null;
@@ -54,15 +58,16 @@ final class ParseSchemaHandle extends Parser
         if ($this->check(TokenType::AS)) {
             $this->advance();
 
-            if (! $this->check(TokenType::IDENTIFIER)) {
-                throw $this->nameError("an alias name after 'as'");
+            // An `as` with no name after it is read as no alias.
+            if ($this->check(TokenType::IDENTIFIER)) {
+                $aliasToken = $this->advance();
+                $this->part($this->owner::PART_ALIAS, null, $aliasToken);
+                $alias = $aliasToken->lexeme;
+            } else {
+                $this->report($this->nameError("an alias name after 'as'"));
             }
-
-            $aliasToken = $this->advance();
-            $this->part($this->owner::PART_ALIAS, null, $aliasToken);
-            $alias = $aliasToken->lexeme;
         }
 
-        return [$schema->lexeme, $boundKey !== null, $boundKey?->value ?? [], $alias];
+        return [$schemaKey, $boundKey !== null, $boundKey?->value ?? [], $alias];
     }
 }

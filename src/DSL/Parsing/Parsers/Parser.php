@@ -3,7 +3,6 @@
 namespace Warrant\DSL\Parsing\Parsers;
 
 use Closure;
-use Throwable;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -129,8 +128,14 @@ abstract class Parser
      * Read $item with $separator between them. See {@see ParseSeparatedList}.
      *
      * @template R
-     * @param class-string<Parser<R>>|Parser<R> $item
-     * @param Closure(): Throwable $missingAfterSeparator
+     * @param class-string<Parser<R>>|Parser<R> $item What reads each item.
+     * @param TokenType $separator The token between one item and the next.
+     * @param Closure(): WarrantSyntaxException $missingAfterSeparator The error
+     *   for an item missing after a separator, built only when one is.
+     * @param string|null $part The part of the node around them each item is,
+     *   noted by the item's index; null to note none.
+     * @param (Closure(): R)|null $inPlaceOfMissingItem Makes what a tolerant parse
+     *   puts in place of an item missing after a separator; null to put nothing.
      * @return list<R> Empty when no item starts here.
      */
     final protected function parseSeparatedList(
@@ -138,8 +143,11 @@ abstract class Parser
         TokenType $separator,
         Closure $missingAfterSeparator,
         ?string $part = null,
+        ?Closure $inPlaceOfMissingItem = null,
     ): array {
-        return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part))->value;
+        return $this->parse(
+            new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part, $inPlaceOfMissingItem),
+        )->value;
     }
 
     // -- mistakes -------------------------------------------------------------
@@ -325,15 +333,6 @@ abstract class Parser
         }
 
         return $token;
-    }
-
-    final protected function expect(TokenType $type, string $message): Token
-    {
-        if ($this->check($type)) {
-            return $this->advance();
-        }
-
-        throw $this->errorAtCurrent($message);
     }
 
     // -- errors ---------------------------------------------------------------

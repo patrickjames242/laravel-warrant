@@ -5,9 +5,15 @@ use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
@@ -152,13 +158,14 @@ it('reports each mistake in a text, and keeps every rule, repaired where it can 
     ]);
 });
 
-it('records where the rules it keeps were written, and nothing of a rule it leaves out', function () {
-    $source = "if a they cannot view because\nif b they can edit";
+it('records where the rules it keeps were written, and nothing of the text it skips', function () {
+    $source = "if a they can view ) b c\nif d they can edit";
     $analysed = WarrantParser::analyze($source);
 
-    expect($analysed->syntax->children)->toEqual(WarrantParser::parse('if b they can edit')->children)
-        ->and($analysed->syntax->positions->containing(strpos($source, 'a ')))->toBe([])
-        ->and($analysed->syntax->positions->containing(strpos($source, 'b ')))->not->toBe([]);
+    expect(analysisDiagnostics($source))->toBe([['Unexpected token; expected end of input.', ')']])
+        ->and($analysed->syntax->children)->toEqual(WarrantParser::parse('if a they can view if d they can edit')->children)
+        ->and($analysed->syntax->positions->containing(strpos($source, 'b ')))->toBe([])
+        ->and($analysed->syntax->positions->containing(strpos($source, 'd ')))->not->toBe([]);
 });
 
 it('reports a stray token in a block with the error a strict read throws there, and reads the entries after it', function () {
@@ -176,14 +183,6 @@ it('keeps a block whose closing brace is missing', function () {
 
     expect(analysisDiagnostics($source))->toBe([["Expected '}' to close the rule set body.", '']])
         ->and($analysed->syntax->children)->toEqual(WarrantParser::parse('for docs { if a they can view }')->children);
-});
-
-it('leaves out a braced block with a mistake in it, and reads the blocks after it', function () {
-    $source = 'for docs { a(@context) } for files { they can view }';
-    $analysed = WarrantParser::analyze($source);
-
-    expect(analysisDiagnostics($source))->toBe([["Expected a context key after '@context'.", ')']])
-        ->and($analysed->syntax->children)->toEqual(WarrantParser::parse('for files { they can view }')->children);
 });
 
 it('keeps a mistake inside an ability block within the block', function () {
@@ -273,3 +272,85 @@ it('never throws, however the text is broken', function () {
         }
     }
 });
+
+it('reads a missing name as none, and keeps what is around it', function (string $source, array $missing, array $repaired) {
+    expect(analysisDiagnostics($source))->toBe([$missing])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual($repaired);
+})->with(function () {
+    $canEdit = [new CanClauseNode(['edit'])];
+    $canView = [new CanClauseNode(['view'])];
+
+    return [
+        'the schema of a for header' => [
+            'for if a they can view',
+            ["Reserved word 'if' cannot be used as a name; expected a schema name after `for`.", 'if'],
+            [new RuleSetNode(INode::MISSING_NAME, [new WarrantRuleNode(new ConditionNode('a'), $canView, [])])],
+        ],
+        'the ability of a can' => [
+            'if can( for docs) they can edit',
+            ["Reserved word 'for' cannot be used as a name; expected an ability name.", 'for'],
+            [new WarrantRuleNode(new CrossSchemaCanNode('docs', INode::MISSING_NAME), $canEdit, [])],
+        ],
+        'the schema of a check' => [
+            'if check(a for ) they can view',
+            ['Expected a schema name.', ')'],
+            [new WarrantRuleNode(new CrossSchemaConditionNode(INode::MISSING_NAME, new ConditionNode('a')), $canView, [])],
+        ],
+        'the template of an include' => [
+            '@include for view',
+            ["Reserved word 'for' cannot be used as a name; expected a rule template name.", 'for'],
+            [new IncludeInvocationNode(INode::MISSING_NAME, [], ['view'])],
+        ],
+        'an ability after a comma' => [
+            'they can view,',
+            ['Expected an ability name.', ''],
+            [new WarrantRuleNode(null, $canView, [])],
+        ],
+    ];
+});
+
+it('reads an as with no name after it as no alias', function () {
+    $source = 'if can(view for docs as ) they can edit';
+
+    expect(analysisDiagnostics($source))->toBe([["Expected an alias name after 'as'.", ')']])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual(WarrantParser::parse('if can(view for docs) they can edit')->children);
+});
+
+it('puts a placeholder where an argument is missing, so the arguments keep their count', function (string $source, array $missing, array $arguments) {
+    expect(analysisDiagnostics($source))->toBe([$missing])
+        ->and(WarrantParser::analyze($source)->syntax->children)
+        ->toEqual([new WarrantRuleNode(new ConditionNode('a', $arguments), [new CanClauseNode(['view'])], [])]);
+})->with(function () {
+    $expectedArgument = 'Expected an argument: a literal, a binding (:name or ?), @context <key>, '
+        .'@column <column> or @column <name>.<column>, or @sql "<sql>".';
+
+    return [
+        'after a comma' => ['if a(1, ) they can view', [$expectedArgument, ')'], [1, new MissingArgumentNode]],
+        'in an unclosed list' => ['if a( they can view', [$expectedArgument, 'they'], [new MissingArgumentNode]],
+        'a context reference with no key' => ['if a(@context) they can view', ["Expected a context key after '@context'.", ')'], [new MissingArgumentNode]],
+        'a column reference with no column' => ['if a(@column x.) they can view', ["Expected a column name after '@column x.'.", ')'], [new MissingArgumentNode]],
+        'an sql reference with a number for a body' => ['if a(@sql 5) they can view', ["Expected a quoted SQL string or a binding (:name or ?) after '@sql'.", '5'], [new MissingArgumentNode]],
+    ];
+});
+
+it('reads a with map past a missing key or value, and keeps the first of a key written twice', function (string $source, array $missing, array $contextMap) {
+    expect(analysisDiagnostics($source))->toBe([$missing])
+        ->and(WarrantParser::analyze($source)->syntax->children)
+        ->toEqual([new WarrantRuleNode(new CrossSchemaCanNode('docs', 'view', contextMap: $contextMap), [new CanClauseNode(['edit'])], [])]);
+})->with([
+    'a missing value' => [
+        'if can(view for docs with org = ) they can edit',
+        ['Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <column> or @column <name>.<column>, or @sql "<sql>".', ')'],
+        ['org' => new MissingArgumentNode],
+    ],
+    'a missing key' => ['if can(view for docs with = 1, org = 2) they can edit', ['Expected a context key name.', '='], ['org' => 2]],
+    'a key written twice' => ['if can(view for docs with org = 1, org = 2) they can edit', ["Duplicate key 'org' in the 'with' map.", 'org'], ['org' => 1]],
+]);
+
+it('reads a because with no message as giving none', function () {
+    $source = 'if a they cannot view because';
+
+    expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string or a binding (:name or ?).", '']])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual(WarrantParser::parse('if a they cannot view')->children);
+});
+

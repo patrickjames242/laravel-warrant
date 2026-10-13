@@ -17,6 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
@@ -522,11 +523,16 @@ final class RuleSetValidator
             return;
         }
 
+        // A handle with no name was reported where it was read; there is no schema to look up.
+        if ($node->schemaKey === INode::MISSING_NAME) {
+            return;
+        }
+
         $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
             sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
         );
 
-        if ($target->getAbilityDefinition($node->ability) === null) {
+        if ($node->ability !== INode::MISSING_NAME && $target->getAbilityDefinition($node->ability) === null) {
             throw new InvalidArgumentException(sprintf(
                 'Ability [%s] is not declared by schema [%s].',
                 $node->ability,
@@ -582,6 +588,11 @@ final class RuleSetValidator
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, AliasScope $scope): void
     {
+        // A handle with no name was reported where it was read; there is no schema to check the predicate against.
+        if ($node->schemaKey === INode::MISSING_NAME) {
+            return;
+        }
+
         $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
             sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
         );
@@ -646,7 +657,8 @@ final class RuleSetValidator
      */
     private function assertOwnAbilityValid(CrossSchemaCanNode $node, SchemaVocabulary $vocabulary): void
     {
-        if ($vocabulary->getAbilityDefinition($node->ability) === null) {
+        // An ability with no name was reported where it was read.
+        if ($node->ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($node->ability) === null) {
             throw new InvalidArgumentException(sprintf(
                 'Ability [%s] is not declared by the schema.',
                 $node->ability,

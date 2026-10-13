@@ -6,6 +6,7 @@ use Closure;
 use InvalidArgumentException;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -180,6 +181,11 @@ final class WarrantSyntaxValidator
      */
     private function schemaOf(WarrantSyntax $syntax, ISchemaScopedNode $body): ?SchemaVocabulary
     {
+        // A header with no name was reported where it was read; there is no schema to look up.
+        if ($body->schemaKey() === INode::MISSING_NAME) {
+            return null;
+        }
+
         if ($this->headerlessSchema !== null && $body->schemaKey() === $this->headerlessSchemaKey) {
             return $this->headerlessSchema;
         }

@@ -3,6 +3,7 @@
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseNegation;
@@ -14,6 +15,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
 use Warrant\DSL\Parsing\Positions\SourceEntry;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * Parse $source with $root, and the map of where it was written.
@@ -104,13 +106,13 @@ it('reads separated items, and reports an item missing after a separator', funct
             return $this->parseSeparatedList(
                 ParseCondition::class,
                 TokenType::COMMA,
-                fn () => new RuntimeException('Missing after a comma.'),
+                fn () => WarrantSyntaxException::atOffset('Missing after a comma.', '', 0, 1, 1),
             );
         }
     };
 
     $throws
-        ? expect(fn () => runParser($root, $source))->toThrow(RuntimeException::class, 'Missing after a comma.')
+        ? expect(fn () => runParser($root, $source))->toThrow(WarrantSyntaxException::class, 'Missing after a comma.')
         : expect(runParser($root, $source)[0])->toEqual($expected);
 })->with([
     'several' => ['a, b(1), c', [new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')]],
@@ -220,4 +222,49 @@ it('does not read a parser at a token it cannot start at', function () {
 
     expect($parsed)->toBeNull()
         ->and($condition)->toEqual(new ConditionNode('a'));
+});
+
+it('reads past a mistake in a tolerant parse, forgetting what the broken read recorded', function () {
+    $root = new class extends Parser
+    {
+        protected function read(): mixed
+        {
+            $broken = $this->recovering(
+                function () {
+                    $this->parse(ParseCondition::class);
+
+                    throw $this->errorAtCurrent('Broken.');
+                },
+                static fn (TokensAhead $ahead): bool => $ahead->nextIs(TokenType::NOT),
+            );
+
+            return [$broken, $this->parse(ParseNegation::class)?->value];
+        }
+    };
+
+    $source = 'a b c not d';
+    $state = ParsingState::forAnalysis($source);
+    $read = Parser::run($root, $state);
+    $state->commitTo($map = new SourceMap);
+
+    expect($read)->toEqual([null, new NotNode(new ConditionNode('d'))])
+        ->and(array_map(static fn ($diagnostic) => [$diagnostic->message, $diagnostic->offset], $state->diagnostics))
+        ->toBe([['Broken.', 2]])
+        ->and($map->containing(0))->toBe([])
+        ->and($map->containing(10))->not->toBe([]);
+});
+
+it('throws a mistake in a strict parse, where reading past it is not wanted', function () {
+    $root = new class extends Parser
+    {
+        protected function read(): mixed
+        {
+            return $this->recovering(
+                fn () => throw $this->errorAtCurrent('Broken.'),
+                static fn (TokensAhead $ahead): bool => true,
+            );
+        }
+    };
+
+    expect(fn () => runParser($root, 'a'))->toThrow(WarrantSyntaxException::class, 'Broken.');
 });

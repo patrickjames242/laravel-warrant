@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -58,11 +59,15 @@ final class ParseArgument extends Parser
      * binding, so the binding rules do not apply to it; it is resolved at
      * compile time.
      */
-    private function contextRef(): ContextRef
+    private function contextRef(): ContextRef|MissingArgumentNode
     {
         $this->advance(); // consume '@context'
 
-        $key = $this->expect(TokenType::IDENTIFIER, "Expected a context key after '@context'.");
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            return $this->missingReference("Expected a context key after '@context'.");
+        }
+
+        $key = $this->advance();
         $this->part(ContextRef::PART_KEY, null, $key);
 
         return new ContextRef($key->lexeme);
@@ -73,11 +78,15 @@ final class ParseArgument extends Parser
      * the column, on the rows the rule is already about; two are a frame name
      * and then the column.
      */
-    private function columnRef(): ColumnRef
+    private function columnRef(): ColumnRef|MissingArgumentNode
     {
         $this->advance(); // consume '@column'
 
-        $first = $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column'.");
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            return $this->missingReference("Expected a column name after '@column'.");
+        }
+
+        $first = $this->advance();
 
         if (! $this->check(TokenType::DOT)) {
             $this->part(ColumnRef::PART_COLUMN, null, $first);
@@ -88,7 +97,11 @@ final class ParseArgument extends Parser
         $this->part(ColumnRef::PART_ALIAS, null, $first);
         $this->advance(); // consume '.'
 
-        $column = $this->expect(TokenType::IDENTIFIER, "Expected a column name after '@column {$first->lexeme}.'.");
+        if (! $this->check(TokenType::IDENTIFIER)) {
+            return $this->missingReference("Expected a column name after '@column {$first->lexeme}.'.");
+        }
+
+        $column = $this->advance();
         $this->part(ColumnRef::PART_COLUMN, null, $column);
 
         return new ColumnRef($first->lexeme, $column->lexeme);
@@ -98,7 +111,7 @@ final class ParseArgument extends Parser
      * A `@sql "<sql>"` reference, whose body is a string literal or a binding.
      * Binding resolution checks that a binding's value is a string.
      */
-    private function sqlRef(): SqlRef
+    private function sqlRef(): SqlRef|MissingArgumentNode
     {
         $this->advance(); // consume '@sql'
 
@@ -108,13 +121,36 @@ final class ParseArgument extends Parser
             TokenType::STRING => $this->advance()->value,
             TokenType::NAMED_BINDING,
             TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
-            default => throw $this->errorAtCurrent(
-                'Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.'
-            ),
+            default => null,
         };
+
+        if ($sql === null) {
+            $missing = $this->missingReference('Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.');
+
+            // A literal of another kind is the body written wrong, and is read past with the reference.
+            if (in_array($token->type, [TokenType::INT, TokenType::FLOAT, TokenType::BOOL, TokenType::NULL], true)) {
+                $this->advance();
+            }
+
+            return $missing;
+        }
 
         $this->part(SqlRef::PART_SQL, null, $token);
 
         return new SqlRef($sql);
+    }
+
+    /**
+     * Report a reference whose name or body is missing: a strict parse throws
+     * $message, and a tolerant one notes it and reads the reference as a
+     * {@see MissingArgumentNode}, so the arguments around it are kept.
+     *
+     * @param string $message The error naming what the reference is missing.
+     */
+    private function missingReference(string $message): MissingArgumentNode
+    {
+        $this->report($this->errorAtCurrent($message));
+
+        return new MissingArgumentNode;
     }
 }

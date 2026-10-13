@@ -33,6 +33,10 @@ final class ParseAbilityList extends Parser
 
         $abilities = $this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility, $this->part);
 
-        return $abilities !== [] ? $abilities : throw $missingAbility();
+        if ($abilities === []) {
+            $this->report($missingAbility());
+        }
+
+        return $abilities;
     }
 }

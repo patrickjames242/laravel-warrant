@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -41,21 +42,24 @@ final class ParseForSchemaBlock extends Parser
     {
         $this->advance(); // consume 'for'
 
-        if (! $this->check(TokenType::IDENTIFIER)) {
-            throw $this->nameError('a schema name after `for`');
+        $schemaKey = INode::MISSING_NAME;
+
+        if ($this->check(TokenType::IDENTIFIER)) {
+            $schema = $this->advance();
+            $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
+            $schemaKey = $schema->lexeme;
+        } else {
+            $this->report($this->nameError('a schema name after `for`'));
         }
 
-        $schema = $this->advance();
-        $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
-
         if (! $this->braced) {
-            return $this->body($schema->lexeme, self::UNEXPECTED_AFTER_END);
+            return $this->body($schemaKey, self::UNEXPECTED_AFTER_END);
         }
 
         $unclosed = "Expected '}' to close the rule set body.";
 
         $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the rule set body.");
-        $body = $this->body($schema->lexeme, $unclosed);
+        $body = $this->body($schemaKey, $unclosed);
         $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
         return $body;

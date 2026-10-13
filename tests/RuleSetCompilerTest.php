@@ -12,6 +12,8 @@ use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
@@ -576,3 +578,16 @@ it('refuses to compile the placeholder an analysis reads in place of a missing c
             ->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'A rule with a missing condition cannot be compiled');
 });
+
+it('refuses to compile the placeholder an analysis reads in place of a missing argument', function () {
+    $ruleSet = (new RuleSetExpander)->expand(
+        new RuleSetNode('docs', [new WarrantRuleNode(new ConditionNode('is_owner', [new MissingArgumentNode]), [new CanClauseNode(['view'])], [])]),
+        new FakeConditionResolver,
+    );
+
+    expect(fn () => (new RuleSetCompiler(new FakeConditionResolver))->compile(
+        CompilationContext::ability(QueryFactory::for(DB::table('docs')), new CompilerTestUser('role-1'), 'view', $ruleSet)
+            ->forTargetRow(),
+    ))->toThrow(InvalidArgumentException::class, 'A rule with a missing argument cannot be compiled');
+});
+

@@ -3,6 +3,7 @@
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\AnalysisResult;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
@@ -202,3 +203,31 @@ it('holds text to the rules that need no schema when analysed with no catalog', 
         "'because' may only follow a 'they cannot ...' clause, not 'they can ...'.",
     ]);
 });
+
+it('adds nothing of its own for a name an analysis reported missing', function (string $source, string $mistake) {
+    $diagnostics = WarrantParser::analyze($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections')->diagnostics;
+
+    expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([$mistake]);
+})->with([
+    'the schema of a for header' => ['for if is_teacher they can view', "Reserved word 'if' cannot be used as a name; expected a schema name after `for`."],
+    'the ability of a can on this schema' => ['if can( ) they can view', 'Expected an ability name.'],
+    'the ability of a can on another schema' => ['if can( for course_sections) they can view', "Reserved word 'for' cannot be used as a name; expected an ability name."],
+    'the schema of a can' => ['if can(view for ) they can view', 'Expected a schema name.'],
+    'the schema of a check' => ['if check(is_teacher for ) they can view', 'Expected a schema name.'],
+]);
+
+it('never throws while validating broken text against a schema', function () {
+    $words = ['if', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not', 'for', 'with', 'as',
+        '(', ')', '{', '}', ',', '*', '=', '.', ':name', '?', '@context', '@column', '@sql', '@include',
+        'is_teacher', 'is_advisor', 'via_join', 'view', 'edit', 'course_sections', 'nowhere', "'msg'", '1', 'org'];
+    $catalog = catalogOf(['course_sections' => new WarrantTestSchema]);
+
+    mt_srand(20261014);
+
+    for ($i = 0; $i < 1500; $i++) {
+        $source = implode(' ', array_map(static fn () => $words[mt_rand(0, count($words) - 1)], range(1, mt_rand(1, 16))));
+
+        expect(WarrantParser::analyze($source, $catalog, 'course_sections'))->toBeInstanceOf(AnalysisResult::class);
+    }
+});
+

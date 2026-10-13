@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -48,10 +49,17 @@ final class ParseArguments extends Parser
         $arguments = [];
 
         if (! $this->check(TokenType::RPAREN)) {
-            $arguments = $this->parseSeparatedList(ParseArgument::class, TokenType::COMMA, $missingArgument, $this->part);
+            $arguments = $this->parseSeparatedList(
+                ParseArgument::class,
+                TokenType::COMMA,
+                $missingArgument,
+                $this->part,
+                static fn () => new MissingArgumentNode,
+            );
 
             if ($arguments === []) {
-                throw $missingArgument();
+                $this->report($missingArgument());
+                $arguments = [new MissingArgumentNode];
             }
         }
 

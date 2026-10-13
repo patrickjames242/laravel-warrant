@@ -104,10 +104,13 @@ final class WarrantParser
      * past it. So does every grammar error between or inside rule entries and
      * `for` blocks. A missing bracket or keyword is read as though it were
      * there, a missing condition as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode},
-     * and missing clauses as none, so the entry around the mistake is kept. Any
-     * other mistake leaves out the entry or braced block it is in, and the read
-     * resumes where the next one can start. After a mistake, no other is reported
-     * until three tokens have been read, since the first often leads to more.
+     * a missing argument as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode},
+     * a missing name as {@see \Warrant\DSL\Parsing\ASTNodes\INode::MISSING_NAME},
+     * and missing clauses, abilities, an alias or a denial message as none, so
+     * the entry around the mistake is kept. Text between entries that starts
+     * none is skipped to where the next one can start. After a mistake, no other
+     * is reported until three tokens have been read, since the first often leads
+     * to more.
      * The first grammar error reported is the one parse() throws. An error
      * outside any entry or block that cannot be repaired ends the read, and the
      * tree is then empty.

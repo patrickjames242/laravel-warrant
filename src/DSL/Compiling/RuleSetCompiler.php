@@ -26,6 +26,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
@@ -1096,6 +1097,14 @@ final class RuleSetCompiler
      */
     private function resolveArgValue(mixed $argument, CompilationContext $ctx): mixed
     {
+        /* Only an analysis reads one, in place of an argument the text is missing,
+           and the text then has a syntax error that a parse to compile throws. */
+        if ($argument instanceof MissingArgumentNode) {
+            throw new InvalidArgumentException(
+                'A rule with a missing argument cannot be compiled; the text it was read from has a syntax error.'
+            );
+        }
+
         if ($argument instanceof ContextRef) {
             return $ctx->checkContext[$argument->key] ?? null;
         }

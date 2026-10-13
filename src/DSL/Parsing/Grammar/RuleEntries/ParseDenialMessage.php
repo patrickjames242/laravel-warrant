@@ -37,12 +37,19 @@ final class ParseDenialMessage extends Parser
         $this->advance(); // consume 'because'
         $first = $this->peek();
 
-        $message = ($this->parse(ParseArgument::class) ?? throw $this->errorAtCurrent(
-            "Expected a denial message after 'because': a quoted string or a binding (:name or ?)."
-        ))->value;
+        $message = $this->parse(ParseArgument::class);
+
+        // A `because` with no message after it is read as giving none.
+        if ($message === null) {
+            $this->report($this->errorAtCurrent(
+                "Expected a denial message after 'because': a quoted string or a binding (:name or ?)."
+            ));
+
+            return null;
+        }
 
         $this->part($this->part, null, $first);
 
-        return $message;
+        return $message->value;
     }
 }
