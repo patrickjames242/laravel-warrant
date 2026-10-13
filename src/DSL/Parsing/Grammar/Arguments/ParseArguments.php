@@ -4,15 +4,14 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
  * A parenthesized argument list, `(arg, ...)`, with each argument noted as a
  * part of the node around it, by its index. Arguments are always written in
- * parentheses, so with no `(` here there is no list: {@see COULD_NOT_PARSE},
- * which a handle reads as selecting no rows and a condition as taking no
- * arguments, where `()` is a list that is empty.
+ * parentheses, so with no `(` here there is no list: the list starts at `(`,
+ * and a parse finds it not here, which a handle reads as selecting no rows and
+ * a condition as taking no arguments, where `()` is a list that is empty.
  *
  * @extends Parser<list<mixed>>
  */
@@ -32,22 +31,28 @@ final class ParseArguments extends Parser
     ) {
     }
 
-    /**
-     * @return list<mixed>|CouldNotParse
-     */
-    protected function read(): array|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::LPAREN)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::LPAREN;
+    }
 
-        $this->advance();
+    /**
+     * @return list<mixed>
+     */
+    protected function read(): array
+    {
+        $this->advance(); // consume '('
         $missingArgument = fn () => $this->missingArgumentError();
 
-        $arguments = $this->check(TokenType::RPAREN)
-            ? []
-            : ($this->parseSeparatedList(ParseArgument::class, TokenType::COMMA, $missingArgument, $this->part)
-                ?? throw $missingArgument())->value;
+        $arguments = [];
+
+        if (! $this->check(TokenType::RPAREN)) {
+            $arguments = $this->parseSeparatedList(ParseArgument::class, TokenType::COMMA, $missingArgument, $this->part);
+
+            if ($arguments === []) {
+                throw $missingArgument();
+            }
+        }
 
         $this->expect(TokenType::RPAREN, "Expected ')' to close {$this->closes}.");
 

@@ -6,7 +6,6 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -19,13 +18,14 @@ final class ParseConditionalRule extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): WarrantRuleNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::IF)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::IF;
+    }
 
-        $this->advance();
+    protected function read(): WarrantRuleNode
+    {
+        $this->advance(); // consume 'if'
         $conditions = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 

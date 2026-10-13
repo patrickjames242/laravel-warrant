@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -21,15 +20,16 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseForSchemaBlocks extends Parser
 {
-    /**
-     * @return list<ISchemaScopedNode>|CouldNotParse
-     */
-    protected function read(): array|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::FOR)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::FOR;
+    }
 
+    /**
+     * @return list<ISchemaScopedNode>
+     */
+    protected function read(): array
+    {
         // `for <schema> {` opens a braced block; anything else after the header is an unbraced one.
         if ($this->peekAhead(2)->type !== TokenType::LBRACE) {
             $block = $this->parse(new ParseForSchemaBlock(braced: false))->value;
@@ -43,7 +43,7 @@ final class ParseForSchemaBlocks extends Parser
             return [$block];
         }
 
-        $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true))->value;
+        $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true));
 
         if (! $this->check(TokenType::EOF)) {
             throw $this->errorAtCurrent(

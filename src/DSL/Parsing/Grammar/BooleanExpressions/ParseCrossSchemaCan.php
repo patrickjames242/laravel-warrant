@@ -5,7 +5,6 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -21,13 +20,14 @@ final class ParseCrossSchemaCan extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): CrossSchemaCanNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::CAN)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::CAN;
+    }
 
-        $this->advance();
+    protected function read(): CrossSchemaCanNode
+    {
+        $this->advance(); // consume 'can'
         $this->expect(TokenType::LPAREN, "Expected '(' after 'can'.");
 
         if (! $this->check(TokenType::IDENTIFIER)) {

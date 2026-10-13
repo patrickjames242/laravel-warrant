@@ -20,6 +20,11 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseArgument extends Parser
 {
+    protected static function startsWith(): array
+    {
+        return [TokenType::STRING, TokenType::INT, TokenType::FLOAT, TokenType::BOOL, TokenType::NULL, TokenType::NAMED_BINDING, TokenType::POSITIONAL, TokenType::CONTEXT_REF, TokenType::COLUMN_REF, TokenType::SQL_REF];
+    }
+
     protected function read(): mixed
     {
         return match ($this->peek()->type) {
@@ -33,7 +38,6 @@ final class ParseArgument extends Parser
             TokenType::CONTEXT_REF => $this->contextRef(),
             TokenType::COLUMN_REF => $this->columnRef(),
             TokenType::SQL_REF => $this->sqlRef(),
-            default => self::COULD_NOT_PARSE,
         };
     }
 

@@ -31,7 +31,7 @@ final class ParseSyntax extends Parser
         }
 
         $children = $this->parse(ParseForSchemaBlocks::class)
-            ?? $this->parse(ParseRulesWithoutForHeader::class);
+            ?? ($this->ruleEntryAhead() ? $this->parse(ParseRulesWithoutForHeader::class) : null);
 
         if ($children !== null) {
             return new WarrantSyntax($children->value);

@@ -31,7 +31,8 @@ final class ParseAbilityList extends Parser
     {
         $missingAbility = fn () => $this->nameError('an ability name');
 
-        return ($this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility, $this->part)
-            ?? throw $missingAbility())->value;
+        $abilities = $this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility, $this->part);
+
+        return $abilities !== [] ? $abilities : throw $missingAbility();
     }
 }

@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -15,13 +14,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseCannotClause extends Parser
 {
-    protected function read(): CannotClauseNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::CANNOT)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::CANNOT;
+    }
 
-        $this->advance();
+    protected function read(): CannotClauseNode
+    {
+        $this->advance(); // consume 'cannot'
         $abilities = $this->parse(new ParseClauseAbilityList(CannotClauseNode::PART_ABILITIES))->value;
         $message = $this->parse(new ParseDenialMessage(CannotClauseNode::PART_MESSAGE), record: false)?->value;
 

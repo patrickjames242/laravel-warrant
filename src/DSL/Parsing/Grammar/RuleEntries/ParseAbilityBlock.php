@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -18,18 +17,21 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * The block is read as it is written: a header naming no ability, an entry
  * naming its own, or a block inside it are the validator's to report.
  *
+ * Read only where `they` follows `can`, as
+ * {@see LooksAheadAtRuleEntries::ruleEntryAhead()} tells before an entry is
+ * read: `can` alone starts a `can(...)` expression.
+ *
  * @extends Parser<AbilityBlockNode>
  */
 final class ParseAbilityBlock extends Parser
 {
-    use LooksAheadAtRuleEntries;
-
-    protected function read(): AbilityBlockNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->abilityBlockAhead()) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::CAN;
+    }
 
+    protected function read(): AbilityBlockNode
+    {
         $this->advance(); // consume 'can'
         $this->advance(); // consume 'they'
 

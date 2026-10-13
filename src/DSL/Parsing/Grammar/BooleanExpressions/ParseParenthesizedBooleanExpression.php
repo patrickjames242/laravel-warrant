@@ -5,7 +5,6 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -20,13 +19,14 @@ final class ParseParenthesizedBooleanExpression extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): IBooleanExpressionNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::LPAREN)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::LPAREN;
+    }
 
-        $this->advance();
+    protected function read(): IBooleanExpressionNode
+    {
+        $this->advance(); // consume '('
         $expression = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
         $this->expect(TokenType::RPAREN, "Expected ')' to close the group.");
 

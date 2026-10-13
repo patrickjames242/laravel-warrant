@@ -5,7 +5,6 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -18,13 +17,14 @@ final class ParseNegation extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): NotNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::NOT)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::NOT;
+    }
 
-        $this->advance();
+    protected function read(): NotNode
+    {
+        $this->advance(); // consume 'not' or '!'
 
         return new NotNode(
             ($this->parse(ParseBooleanOperand::class) ?? throw $this->missingBooleanExpressionError())->value,

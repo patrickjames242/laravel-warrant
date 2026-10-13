@@ -5,10 +5,9 @@ namespace Warrant\DSL\Parsing\Parsers;
 use LogicException;
 
 /**
- * An item read again and again, back to back, for as long as one is here;
- * {@see Parser::COULD_NOT_PARSE} when not even the first is. A caller that
- * takes none reads the COULD_NOT_PARSE as an empty list, and one that needs at
- * least one reports it.
+ * An item read again and again, back to back, for as long as one starts here;
+ * an empty list when none does. A caller that needs at least one reports the
+ * empty list.
  *
  * @template T
  * @extends Parser<list<T>>
@@ -23,9 +22,9 @@ final class ParseRepeated extends Parser
     }
 
     /**
-     * @return list<T>|CouldNotParse
+     * @return list<T>
      */
-    protected function read(): array|CouldNotParse
+    protected function read(): array
     {
         $items = [];
 
@@ -34,7 +33,7 @@ final class ParseRepeated extends Parser
             $item = $this->parse($this->item);
 
             if ($item === null) {
-                return $items === [] ? self::COULD_NOT_PARSE : $items;
+                return $items;
             }
 
             // An item that matches without reading would match here forever.

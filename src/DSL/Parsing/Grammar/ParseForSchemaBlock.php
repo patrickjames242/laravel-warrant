@@ -9,7 +9,6 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -32,13 +31,14 @@ final class ParseForSchemaBlock extends Parser
     {
     }
 
-    protected function read(): ISchemaScopedNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::FOR)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::FOR;
+    }
 
-        $this->advance();
+    protected function read(): ISchemaScopedNode
+    {
+        $this->advance(); // consume 'for'
 
         if (! $this->check(TokenType::IDENTIFIER)) {
             throw $this->nameError('a schema name after `for`');

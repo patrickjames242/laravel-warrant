@@ -5,7 +5,6 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -22,13 +21,14 @@ final class ParseCrossSchemaCondition extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): CrossSchemaConditionNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::CHECK)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::CHECK;
+    }
 
-        $this->advance();
+    protected function read(): CrossSchemaConditionNode
+    {
+        $this->advance(); // consume 'check'
         $this->expect(TokenType::LPAREN, "Expected '(' after 'check'.");
 
         $predicate = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;

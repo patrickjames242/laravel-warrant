@@ -5,6 +5,7 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
+use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseNegation;
 use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -27,42 +28,20 @@ function runParser(Parser $root, string $source): array
     return [$result, $map];
 }
 
-it('puts back the position and records of a parser that does not match', function () {
-    $readsThenGivesUp = new class extends Parser
+it('reads the first of several parsers that starts here', function () {
+    $negationOrCondition = new class extends ParseOneOf
     {
-        protected function read(): mixed
+        protected static function parsers(): array
         {
-            $this->parse(ParseCondition::class);
-
-            return self::COULD_NOT_PARSE;
+            return [ParseNegation::class, ParseCondition::class];
         }
     };
 
-    [$node, $map] = runParser(new ParseOneOf([$readsThenGivesUp, ParseCondition::class]), 'a(5)');
+    [$node, $map] = runParser($negationOrCondition, 'a(5)');
 
-    // Only the second reading's node and parts are in the map.
     expect($node)->toEqual(new ConditionNode('a', [5]))
         ->and(array_map(static fn (SourceEntry $entry) => $entry->node, $map->containing(2)))
         ->toBe([$node, $node]);
-});
-
-it('puts back everything read under lookahead, and answers with what was read', function () {
-    $root = new class extends Parser
-    {
-        protected function read(): mixed
-        {
-            $ahead = $this->lookahead(ParseCondition::class)->value;
-
-            return [$ahead, $this->parse(ParseCondition::class)->value];
-        }
-    };
-
-    [[$ahead, $node], $map] = runParser($root, 'a(5)');
-
-    expect($ahead)->toEqual($node)
-        ->and($ahead)->not->toBe($node)
-        ->and($map->spanOf($ahead))->toBeNull()
-        ->and($map->spanOf($node))->not->toBeNull();
 });
 
 it('reads a null argument as a value, not as nothing read', function () {
@@ -77,19 +56,19 @@ it('reads a null argument as a value, not as nothing read', function () {
         ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 2)?->offset)->toBe(11);
 });
 
-it('reads repeated items until one is not there, and nothing when none is', function () {
+it('reads repeated items until one does not start, and none when none does', function () {
     $root = new class extends Parser
     {
         protected function read(): mixed
         {
-            return [$this->parseRepeated(ParseCondition::class)?->value, $this->parseRepeated(ParseCondition::class)];
+            return [$this->parseRepeated(ParseCondition::class), $this->parseRepeated(ParseCondition::class)];
         }
     };
 
     [[$conditions, $none]] = runParser($root, 'a b(1) c');
 
     expect($conditions)->toEqual([new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')])
-        ->and($none)->toBeNull();
+        ->and($none)->toBe([]);
 });
 
 it('refuses a repeated item that matches without reading anything', function () {
@@ -125,7 +104,7 @@ it('reads separated items, and reports an item missing after a separator', funct
                 ParseCondition::class,
                 TokenType::COMMA,
                 fn () => new RuntimeException('Missing after a comma.'),
-            )?->value;
+            );
         }
     };
 
@@ -135,7 +114,7 @@ it('reads separated items, and reports an item missing after a separator', funct
 })->with([
     'several' => ['a, b(1), c', [new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')]],
     'one' => ['a', [new ConditionNode('a')]],
-    'none' => ['', null],
+    'none' => ['', []],
     'a trailing separator' => ['a, b,', null, true],
 ]);
 
@@ -151,4 +130,77 @@ it('refuses a part read outside any node', function () {
     };
 
     expect(fn () => runParser($root, 'a'))->toThrow(LogicException::class, 'Part [conditionKey] was read outside any node.');
+});
+
+it('starts one of several parsers at every token one of them starts at', function () {
+    $conditionOrNegation = new class extends ParseOneOf
+    {
+        protected static function parsers(): array
+        {
+            return [ParseCondition::class, ParseNegation::class];
+        }
+
+        /** @return list<TokenType>|null */
+        public static function startTokens(): ?array
+        {
+            return self::startsWith();
+        }
+    };
+
+    $conditionOrAnything = new class extends ParseOneOf
+    {
+        protected static function parsers(): array
+        {
+            $startsAnywhere = new class extends Parser
+            {
+                protected function read(): mixed
+                {
+                    return null;
+                }
+            };
+
+            return [ParseCondition::class, $startsAnywhere];
+        }
+
+        /** @return list<TokenType>|null */
+        public static function startTokens(): ?array
+        {
+            return self::startsWith();
+        }
+    };
+
+    expect($conditionOrNegation::startTokens())->toBe([TokenType::IDENTIFIER, TokenType::NOT])
+        ->and($conditionOrAnything::startTokens())->toBeNull();
+});
+
+it('does not read a parser at a token it cannot start at', function () {
+    $startsAtAParenthesis = new class extends Parser
+    {
+        protected static function startsWith(): TokenType
+        {
+            return TokenType::LPAREN;
+        }
+
+        protected function read(): mixed
+        {
+            throw new LogicException('Read at a token it cannot start at.');
+        }
+    };
+
+    $root = new class($startsAtAParenthesis) extends Parser
+    {
+        public function __construct(private readonly Parser $item)
+        {
+        }
+
+        protected function read(): mixed
+        {
+            return [$this->parse($this->item), $this->parse(ParseCondition::class)?->value];
+        }
+    };
+
+    [[$parsed, $condition]] = runParser($root, 'a');
+
+    expect($parsed)->toBeNull()
+        ->and($condition)->toEqual(new ConditionNode('a'));
 });

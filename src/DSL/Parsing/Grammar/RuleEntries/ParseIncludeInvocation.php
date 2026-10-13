@@ -6,7 +6,6 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -23,13 +22,14 @@ final class ParseIncludeInvocation extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): IncludeInvocationNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::INCLUDE_REF)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::INCLUDE_REF;
+    }
 
-        $this->advance();
+    protected function read(): IncludeInvocationNode
+    {
+        $this->advance(); // consume '@include'
 
         if (! $this->check(TokenType::IDENTIFIER)) {
             throw $this->nameError('a rule template name');

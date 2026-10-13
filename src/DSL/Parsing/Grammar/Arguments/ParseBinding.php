@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -15,18 +14,19 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseBinding extends Parser
 {
-    protected function read(): BindingNode|CouldNotParse
+    protected static function startsWith(): array
+    {
+        return [TokenType::NAMED_BINDING, TokenType::POSITIONAL];
+    }
+
+    protected function read(): BindingNode
     {
         if ($this->check(TokenType::NAMED_BINDING)) {
             return new BindingNode($this->advance()->value);
         }
 
-        if ($this->check(TokenType::POSITIONAL)) {
-            $this->advance();
+        $this->advance(); // consume '?'
 
-            return new BindingNode;
-        }
-
-        return self::COULD_NOT_PARSE;
+        return new BindingNode;
     }
 }

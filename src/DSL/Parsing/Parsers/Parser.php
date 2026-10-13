@@ -3,7 +3,6 @@
 namespace Warrant\DSL\Parsing\Parsers;
 
 use Closure;
-use LogicException;
 use Throwable;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
@@ -13,11 +12,10 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 /**
  * Reads one piece of the grammar from a {@see ParsingState}.
  *
- * A parser returns what it read, of any type, null included, or
- * {@see COULD_NOT_PARSE} when what it reads is not here. COULD_NOT_PARSE puts
- * back everything the parser read, so it can look as far as it needs before
- * deciding. Once it has decided the text is its own, a mistake is an exception: nothing else gets
- * to try, so the error is reported where the mistake is.
+ * A parser is read only at a token it starts at ({@see startsWith()}), and the
+ * text from there is its own: it returns what it read, of any type, null
+ * included, and a mistake is an exception. Nothing else gets to try, so the
+ * error is reported where the mistake is, and nothing read is ever put back.
  *
  * A node a parser returns is recorded as written over every token the parser
  * read, and every part read inside it, by this parser or by one it called that
@@ -30,22 +28,35 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  */
 abstract class Parser
 {
-    /**
-     * Returned by {@see read()} when what this parser reads is not here.
-     */
-    final public const COULD_NOT_PARSE = CouldNotParse::CouldNotParse;
-
     private ParsingState $state;
 
     /**
-     * @return T|CouldNotParse
+     * @return T
      */
     abstract protected function read(): mixed;
 
     /**
-     * Read $root as the whole text: nothing may follow what it reads. Its result stands for the whole text and is
-     * not recorded. A root reads something from any text, if only an error, so
-     * {@see COULD_NOT_PARSE} from it is a mistake in the parser.
+     * The token type every parser of this class starts at, or the list of them
+     * when it can start at several, or null when the class cannot say: it may
+     * start at any token, or where it starts depends on what an instance is
+     * constructed with.
+     *
+     * A parser is not read at a token it does not start at: {@see parse()}
+     * answers that it is not here without making it. So {@see read()} need not
+     * check the first token, and the answer holds
+     * every token read() can match at: one it leaves out turns text the parser
+     * reads into a parse error.
+     *
+     * @return TokenType|list<TokenType>|null
+     */
+    protected static function startsWith(): TokenType|array|null
+    {
+        return null;
+    }
+
+    /**
+     * Read $root as the whole text: nothing may follow what it reads. Its result
+     * stands for the whole text and is not recorded.
      *
      * @template R
      * @param Parser<R> $root
@@ -56,17 +67,14 @@ abstract class Parser
         $root->state = $state;
         $result = $root->read();
 
-        if ($result === self::COULD_NOT_PARSE) {
-            throw new LogicException(sprintf('%s read nothing as the whole parse.', $root::class));
-        }
-
         $root->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
 
         return $result;
     }
 
     /**
-     * Read $parser here: a class with no constructor arguments, or an instance.
+     * Read $parser here, if it starts at the current token: a class with no
+     * constructor arguments, or an instance.
      *
      * A node $parser returns is recorded as written over what it read, unless
      * $record is false: for a parser that reads a part of the node being built
@@ -75,73 +83,42 @@ abstract class Parser
      *
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $parser
-     * @return Parsed<R>|null Null when $parser did not match.
+     * @return Parsed<R>|null Null when $parser does not start here.
      */
     final protected function parse(string|Parser $parser, bool $record = true): ?Parsed
     {
-        $parser = $this->share($parser);
-        $start = $this->peek();
-        $checkpoint = $this->state->checkpoint();
+        $startsWith = $parser::startsWith();
+        $type = $this->peek()->type;
 
-        $result = $parser->read();
-
-        if ($result === self::COULD_NOT_PARSE) {
-            $this->state->restore($checkpoint);
-
+        if ($startsWith !== null && (is_array($startsWith) ? ! in_array($type, $startsWith, true) : $type !== $startsWith)) {
             return null;
         }
 
+        $parser = $this->share($parser);
+        $start = $this->peek();
+        $startIndex = $this->state->index;
+        $unclaimedBefore = $this->state->unclaimedCount();
+
+        $result = $parser->read();
+
         // A node read from no tokens has nowhere to be.
-        if ($record && $result instanceof INode && $this->state->index > $checkpoint->index) {
-            $this->state->recordResult($result, $start, $this->previous(), $checkpoint);
+        if ($record && $result instanceof INode && $this->state->index > $startIndex) {
+            $this->state->recordResult($result, $start, $this->previous(), $unclaimedBefore);
         }
 
         return new Parsed($result);
     }
 
     /**
-     * Read $parser and put back everything it read, whatever it returns: for a
-     * question about the text ahead that the parse goes on to read for real.
-     *
-     * @template R
-     * @param class-string<Parser<R>>|Parser<R> $parser
-     * @return Parsed<R>|null Null when $parser did not match.
-     */
-    final protected function lookahead(string|Parser $parser): ?Parsed
-    {
-        $parser = $this->share($parser);
-        $checkpoint = $this->state->checkpoint();
-
-        try {
-            $result = $parser->read();
-        } finally {
-            $this->state->restore($checkpoint);
-        }
-
-        return $result === self::COULD_NOT_PARSE ? null : new Parsed($result);
-    }
-
-    /**
-     * Read the first of $parsers that matches here. See {@see ParseOneOf}.
-     *
-     * @param list<class-string<Parser>|Parser> $parsers In the order to try them.
-     * @return Parsed<mixed>|null Null when none matched.
-     */
-    final protected function parseOneOf(array $parsers): ?Parsed
-    {
-        return $this->parse(new ParseOneOf($parsers));
-    }
-
-    /**
-     * Read $item back to back for as long as one is here. See {@see ParseRepeated}.
+     * Read $item back to back for as long as one starts here. See {@see ParseRepeated}.
      *
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $item
-     * @return Parsed<list<R>>|null Null when not even one item is here.
+     * @return list<R> Empty when no item starts here.
      */
-    final protected function parseRepeated(string|Parser $item): ?Parsed
+    final protected function parseRepeated(string|Parser $item): array
     {
-        return $this->parse(new ParseRepeated($item));
+        return $this->parse(new ParseRepeated($item))->value;
     }
 
     /**
@@ -150,15 +127,15 @@ abstract class Parser
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $item
      * @param Closure(): Throwable $missingAfterSeparator
-     * @return Parsed<list<R>>|null Null when not even one item is here.
+     * @return list<R> Empty when no item starts here.
      */
     final protected function parseSeparatedList(
         string|Parser $item,
         TokenType $separator,
         Closure $missingAfterSeparator,
         ?string $part = null,
-    ): ?Parsed {
-        return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part));
+    ): array {
+        return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part))->value;
     }
 
     // -- recording ------------------------------------------------------------

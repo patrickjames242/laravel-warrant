@@ -3,7 +3,6 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -31,12 +30,11 @@ final class ParseRuleEntries extends Parser
      */
     protected function read(): array
     {
-        $entries = $this->parseRepeated(new ParseOneOf([
-            ParseUnconditionalRule::class,
-            ParseIncludeInvocation::class,
-            ParseConditionalRule::class,
-            ParseAbilityBlock::class,
-        ]))?->value ?? [];
+        $entries = [];
+
+        while ($this->ruleEntryAhead()) {
+            $entries[] = $this->parse(ParseRuleEntry::class)->value;
+        }
 
         $this->assertNoAbilityListWithoutCanThey();
 

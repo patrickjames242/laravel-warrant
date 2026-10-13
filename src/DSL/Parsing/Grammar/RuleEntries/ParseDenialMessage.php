@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -27,13 +26,14 @@ final class ParseDenialMessage extends Parser
     {
     }
 
+    protected static function startsWith(): TokenType
+    {
+        return TokenType::BECAUSE;
+    }
+
     protected function read(): mixed
     {
-        if (! $this->check(TokenType::BECAUSE)) {
-            return self::COULD_NOT_PARSE;
-        }
-
-        $this->advance();
+        $this->advance(); // consume 'because'
         $first = $this->peek();
 
         $message = ($this->parse(ParseArgument::class) ?? throw $this->errorAtCurrent(

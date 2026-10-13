@@ -21,8 +21,11 @@ final class ParseTheyCanAndCannotClauses extends Parser
      */
     protected function read(): array
     {
-        $clauses = ($this->parseRepeated(new ParseTheyClause)
-            ?? throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause."))->value;
+        $clauses = $this->parseRepeated(new ParseTheyClause);
+
+        if ($clauses === []) {
+            throw $this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause.");
+        }
 
         return [
             array_values(array_filter($clauses, static fn ($clause) => $clause instanceof CanClauseNode)),

@@ -5,7 +5,6 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -16,13 +15,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseTheyClause extends Parser
 {
-    protected function read(): CanClauseNode|CannotClauseNode|CouldNotParse
+    protected static function startsWith(): TokenType
     {
-        if (! $this->check(TokenType::THEY)) {
-            return self::COULD_NOT_PARSE;
-        }
+        return TokenType::THEY;
+    }
 
-        $this->advance();
+    protected function read(): CanClauseNode|CannotClauseNode
+    {
+        $this->advance(); // consume 'they'
 
         return ($this->parse(new ParseCanClause)
             ?? $this->parse(new ParseCannotClause)

@@ -3,29 +3,26 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
-use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 
 /**
  * One operand of `and` / `or`: a negation, a parenthesized boolean expression,
  * a `can(...)`, a `check(...)` or a condition.
  *
- * @extends Parser<IBooleanExpressionNode>
+ * @extends ParseOneOf<IBooleanExpressionNode>
  */
-final class ParseBooleanOperand extends Parser
+final class ParseBooleanOperand extends ParseOneOf
 {
-    protected function read(): IBooleanExpressionNode|CouldNotParse
+    protected static function parsers(): array
     {
         // Each alternative starts with a different token, so the order decides
         // nothing but how many are tried; conditions are the most common, and go first.
-        $operand = $this->parseOneOf([
+        return [
             ParseCondition::class,
             ParseNegation::class,
             ParseParenthesizedBooleanExpression::class,
             ParseCrossSchemaCan::class,
             ParseCrossSchemaCondition::class,
-        ]);
-
-        return $operand === null ? self::COULD_NOT_PARSE : $operand->value;
+        ];
     }
 }

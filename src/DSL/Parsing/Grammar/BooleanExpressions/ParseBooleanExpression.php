@@ -8,7 +8,6 @@ use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
-use Warrant\DSL\Parsing\Parsers\CouldNotParse;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -25,16 +24,17 @@ final class ParseBooleanExpression extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected function read(): IBooleanExpressionNode|CouldNotParse
+    protected static function startsWith(): ?array
+    {
+        return ParseBooleanOperand::startsWith();
+    }
+
+    protected function read(): IBooleanExpressionNode
     {
         $start = $this->peek();
-        $operand = $this->parse(ParseBooleanOperand::class);
+        $operand = $this->parse(ParseBooleanOperand::class)->value;
 
-        if ($operand === null) {
-            return self::COULD_NOT_PARSE;
-        }
-
-        return $this->joinOperators($operand->value, $start, 0);
+        return $this->joinOperators($operand, $start, 0);
     }
 
     /**

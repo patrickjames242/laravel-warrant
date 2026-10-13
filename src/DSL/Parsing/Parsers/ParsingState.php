@@ -16,9 +16,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * parse is, and where each node and part it has read was written.
  *
  * Where things were written is kept as a log, and goes into a
- * {@see SourceMap} only once the parse is done. A parser that does not match
- * has its records cut off the end of the log, so nothing it read reaches the
- * map.
+ * {@see SourceMap} only once the parse is done.
  *
  * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
  * has it: the lexer reports its errors instead of throwing them.
@@ -41,9 +39,9 @@ final class ParsingState
     private array $unclaimed = [];
 
     /**
-     * Where in $records each node recorded whole is, by object id. An entry left
-     * behind by a rewind is told apart by the record at its position no longer
-     * being that node.
+     * Where in $records each node recorded whole is, by object id. A recorded
+     * node is held in $records until the parse is done, so its id names no other
+     * object until then.
      *
      * @var array<int, int>
      */
@@ -96,19 +94,13 @@ final class ParsingState
         $this->diagnostics[] = new Diagnostic($error->reason, $error->offset, $endOffset);
     }
 
-    public function checkpoint(): Checkpoint
-    {
-        return new Checkpoint($this->index, count($this->records), count($this->unclaimed));
-    }
-
     /**
-     * Put the state back as it was at $checkpoint.
+     * How many parts are waiting for a node: a parser starting now owns the
+     * parts read after these.
      */
-    public function restore(Checkpoint $checkpoint): void
+    public function unclaimedCount(): int
     {
-        $this->index = $checkpoint->index;
-        array_splice($this->records, $checkpoint->records);
-        array_splice($this->unclaimed, $checkpoint->unclaimed);
+        return count($this->unclaimed);
     }
 
     /**
@@ -130,18 +122,19 @@ final class ParsingState
     }
 
     /**
-     * Record $node, returned by a parser that started at $checkpoint, as written
-     * from $start to $end, and give it every part read since.
+     * Record $node, returned by a parser that started when $unclaimedBefore
+     * parts were waiting, as written from $start to $end, and give it every part
+     * read since.
      *
      * A node already recorded was read by a parser further in and is being
      * handed back out, as a group hands back what is inside its parentheses. It
      * keeps the span it was read with, and a part read around it has no node to
      * belong to.
      */
-    public function recordResult(INode $node, Token $start, Token $end, Checkpoint $checkpoint): void
+    public function recordResult(INode $node, Token $start, Token $end, int $unclaimedBefore): void
     {
         if ($this->isRecorded($node)) {
-            if (count($this->unclaimed) > $checkpoint->unclaimed) {
+            if (count($this->unclaimed) > $unclaimedBefore) {
                 throw new LogicException(sprintf(
                     'Parts were read around a %s that was already recorded, so they belong to no node.',
                     get_debug_type($node),
@@ -151,7 +144,7 @@ final class ParsingState
             return;
         }
 
-        foreach (array_splice($this->unclaimed, $checkpoint->unclaimed) as $position) {
+        foreach (array_splice($this->unclaimed, $unclaimedBefore) as $position) {
             $this->records[$position][0] = $node;
         }
 
@@ -193,10 +186,6 @@ final class ParsingState
 
     private function isRecorded(INode $node): bool
     {
-        $position = $this->recordedAt[spl_object_id($node)] ?? null;
-
-        return $position !== null
-            && ($this->records[$position][0] ?? null) === $node
-            && $this->records[$position][1] === null;
+        return isset($this->recordedAt[spl_object_id($node)]);
     }
 }
