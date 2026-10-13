@@ -3,12 +3,15 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * The errors for a spot where something must be written and is not: a name,
  * a boolean expression, an argument. Used by parsers of the grammar, which
- * supply the token helpers these read with.
+ * supply the token and reading helpers these use.
  */
 trait ReportsMissingSyntax
 {
@@ -52,6 +55,28 @@ trait ReportsMissingSyntax
     /**
      * Error for a spot where a boolean expression must start and none does.
      */
+    /**
+     * Read a boolean expression with $parser, or report one missing here: a
+     * strict parse throws, and a tolerant one notes it and puts a
+     * {@see MissingExpressionNode} in its place, so what is around it is kept.
+     *
+     * @param class-string<Parser<IBooleanExpressionNode>> $parser What reads the
+     *   expression here: a whole one, or the single operand that `not`, `and` and
+     *   `or` take.
+     */
+    private function expressionOrMissing(string $parser): IBooleanExpressionNode
+    {
+        $parsed = $this->parse($parser);
+
+        if ($parsed !== null) {
+            return $parsed->value;
+        }
+
+        $this->report($this->missingBooleanExpressionError());
+
+        return new MissingExpressionNode;
+    }
+
     private function missingBooleanExpressionError(): WarrantSyntaxException
     {
         return $this->nameError("a condition, 'can(', 'check(', or '('");

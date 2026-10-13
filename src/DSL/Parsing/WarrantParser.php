@@ -102,11 +102,15 @@ final class WarrantParser
      * The tree is the one {@see parse()} reads, its bindings left
      * as placeholders. Every lexical error is reported, and the read goes on
      * past it. So does every grammar error between or inside rule entries and
-     * `for` blocks: it is reported, the entry or braced block it is in is left
-     * out of the tree, and the read resumes where the next one can start. The
-     * first grammar error reported is the one parse() throws. An error outside
-     * any of them, as in a bare expression, ends the read, and the tree is then
-     * empty.
+     * `for` blocks. A missing bracket or keyword is read as though it were
+     * there, a missing condition as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode},
+     * and missing clauses as none, so the entry around the mistake is kept. Any
+     * other mistake leaves out the entry or braced block it is in, and the read
+     * resumes where the next one can start. After a mistake, no other is reported
+     * until three tokens have been read, since the first often leads to more.
+     * The first grammar error reported is the one parse() throws. An error
+     * outside any entry or block that cannot be repaired ends the read, and the
+     * tree is then empty.
      *
      * The text is validated too, and every rule of the language it breaks is
      * reported after the syntax errors. Given a $catalog, each `for` body is

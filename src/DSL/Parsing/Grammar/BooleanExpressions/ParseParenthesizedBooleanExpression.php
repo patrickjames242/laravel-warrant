@@ -28,8 +28,8 @@ final class ParseParenthesizedBooleanExpression extends Parser
     protected function read(): IBooleanExpressionNode
     {
         $this->advance(); // consume '('
-        $expression = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
-        $this->expect(TokenType::RPAREN, "Expected ')' to close the group.");
+        $expression = $this->expressionOrMissing(ParseBooleanExpression::class);
+        $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close the group.");
 
         return $expression;
     }

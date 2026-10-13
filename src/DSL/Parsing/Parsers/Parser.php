@@ -231,17 +231,18 @@ abstract class Parser
     }
 
     /**
-     * Read the $closer that ends what this parser reads. When it is not here, a
-     * strict parse throws $message, and a tolerant one notes it and goes on as
-     * though it were, so what was read before it is kept.
+     * Read a $type token, one the grammar needs here but whose text says nothing
+     * more, such as a bracket or a keyword. When it is not here, a strict parse
+     * throws $message, and a tolerant one notes it and goes on as though it were,
+     * so what was read around it is kept.
      *
-     * @param TokenType $closer The token that ends what this parser reads, such
-     *   as the `}` of a block.
-     * @param string $message The error for $closer not being here.
+     * @param TokenType $type The token the grammar needs here, such as the `)`
+     *   that closes an argument list.
+     * @param string $message The error for $type not being here.
      */
-    final protected function expectClosing(TokenType $closer, string $message): void
+    final protected function expectOrAssume(TokenType $type, string $message): void
     {
-        if ($this->check($closer)) {
+        if ($this->check($type)) {
             $this->advance();
 
             return;

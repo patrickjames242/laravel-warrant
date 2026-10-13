@@ -1,8 +1,16 @@
 <?php
 
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
+use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -129,22 +137,28 @@ it('gives the error a strict read throws as its first diagnostic', function (str
     'a block with no header' => '{ they can view }',
 ]);
 
-it('reports each mistake in a text, and keeps the rules around them', function () {
+it('reports each mistake in a text, and keeps every rule, repaired where it can be', function () {
     $source = "if a they view\nif b they can edit\nif ( they can x\nif d they can delete";
     $analysed = WarrantParser::analyze($source);
 
     expect(analysisDiagnostics($source))->toBe([
         ["Expected 'can' or 'cannot' after 'they'.", 'view'],
         ["Reserved word 'they' cannot be used as a name; expected a condition, 'can(', 'check(', or '('.", 'they'],
-    ])->and($analysed->syntax->children)->toEqual(WarrantParser::parse("if b they can edit\nif d they can delete")->children);
+    ])->and($analysed->syntax->children)->toEqual([
+        new WarrantRuleNode(new ConditionNode('a'), [], []),
+        ...WarrantParser::parse('if b they can edit')->children,
+        new WarrantRuleNode(new MissingExpressionNode, [new CanClauseNode(['x'])], []),
+        ...WarrantParser::parse('if d they can delete')->children,
+    ]);
 });
 
 it('records where the rules it keeps were written, and nothing of a rule it leaves out', function () {
-    $source = "if a they view\nif b they can edit";
-    $positions = WarrantParser::analyze($source)->syntax->positions;
+    $source = "if a they cannot view because\nif b they can edit";
+    $analysed = WarrantParser::analyze($source);
 
-    expect($positions->containing(strpos($source, 'a ')))->toBe([])
-        ->and($positions->containing(strpos($source, 'b ')))->not->toBe([]);
+    expect($analysed->syntax->children)->toEqual(WarrantParser::parse('if b they can edit')->children)
+        ->and($analysed->syntax->positions->containing(strpos($source, 'a ')))->toBe([])
+        ->and($analysed->syntax->positions->containing(strpos($source, 'b ')))->not->toBe([]);
 });
 
 it('reports a stray token in a block with the error a strict read throws there, and reads the entries after it', function () {
@@ -165,19 +179,82 @@ it('keeps a block whose closing brace is missing', function () {
 });
 
 it('leaves out a braced block with a mistake in it, and reads the blocks after it', function () {
-    $source = 'for docs { a and } for files { they can view }';
+    $source = 'for docs { a(@context) } for files { they can view }';
     $analysed = WarrantParser::analyze($source);
 
-    expect(analysisDiagnostics($source))->toBe([["Expected a condition, 'can(', 'check(', or '('.", '}']])
+    expect(analysisDiagnostics($source))->toBe([["Expected a context key after '@context'.", ')']])
         ->and($analysed->syntax->children)->toEqual(WarrantParser::parse('for files { they can view }')->children);
 });
 
-it('reads on past a mistake inside an ability block to the end of the block', function () {
+it('keeps a mistake inside an ability block within the block', function () {
     $source = 'can they view { if a they } if b they can edit';
     $analysed = WarrantParser::analyze($source);
 
     expect(analysisDiagnostics($source))->toBe([["Expected 'can' or 'cannot' after 'they'.", '}']])
-        ->and($analysed->syntax->children)->toEqual(WarrantParser::parse('can they view { } if b they can edit')->children);
+        ->and($analysed->syntax->children)->toEqual([
+            new AbilityBlockNode(['view'], [new WarrantRuleNode(new ConditionNode('a'), [], [])]),
+            ...WarrantParser::parse('if b they can edit')->children,
+        ]);
+});
+
+it('puts a placeholder where a condition is missing, and keeps what is around it', function (string $source, array $missing, IBooleanExpressionNode $conditions) {
+    $analysed = WarrantParser::analyze($source);
+
+    expect(analysisDiagnostics($source))->toBe([$missing])
+        ->and($analysed->syntax->children)->toEqual([new WarrantRuleNode($conditions, [new CanClauseNode(['view'])], [])]);
+})->with(function () {
+    $beforeThey = ["Reserved word 'they' cannot be used as a name; expected a condition, 'can(', 'check(', or '('.", 'they'];
+
+    return [
+        'after if' => ['if they can view', $beforeThey, new MissingExpressionNode],
+        'after and' => ['if a and they can view', $beforeThey, new AndNode(new ConditionNode('a'), new MissingExpressionNode)],
+        'after not' => ['if not they can view', $beforeThey, new NotNode(new MissingExpressionNode)],
+        'inside a group' => ['if () they can view', ["Expected a condition, 'can(', 'check(', or '('.", ')'], new MissingExpressionNode],
+    ];
+});
+
+it('keeps a body whose expression is missing an operand', function () {
+    $source = 'for docs { a and } for files { they can view }';
+    $analysed = WarrantParser::analyze($source);
+
+    expect(analysisDiagnostics($source))->toBe([["Expected a condition, 'can(', 'check(', or '('.", '}']])
+        ->and($analysed->syntax->children)->toEqual([
+            new SchemaConditionNode('docs', new AndNode(new ConditionNode('a'), new MissingExpressionNode)),
+            ...WarrantParser::parse('for files { they can view }')->children,
+        ]);
+});
+
+it('reads on as though a missing bracket or keyword were there', function (string $source, string $missing, string $at, string $repaired) {
+    expect(analysisDiagnostics($source))->toBe([[$missing, $at]])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual(WarrantParser::parse($repaired)->children);
+})->with([
+    'a closing parenthesis' => ['if (a or b they can view', "Expected ')' to close the group.", 'they', 'if (a or b) they can view'],
+    'the end of an argument list' => ['if a(1 they can view', "Expected ')' to close the condition arguments.", 'they', 'if a(1) they can view'],
+    'the parenthesis after can' => ['if can view they can edit', "Expected '(' after 'can'.", 'view', 'if can(view) they can edit'],
+    'the end of a check' => ['if check(a for docs they can view', "Expected ')' to close 'check(...)'.", 'they', 'if check(a for docs) they can view'],
+    'the brace after a block header' => ['can they view if a they can }', "Expected '{' to open the ability block body.", 'if', 'can they view { if a they can }'],
+]);
+
+it('keeps a rule whose clauses are missing', function (string $source, string $mistake) {
+    expect(array_column(analysisDiagnostics($source), 0))->toBe([$mistake])
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqual([new WarrantRuleNode(new ConditionNode('a'), [], [])]);
+})->with([
+    'no they' => ['if a', "Expected at least one 'they can ...' or 'they cannot ...' clause."],
+    'a they with no can' => ['if a they', "Expected 'can' or 'cannot' after 'they'."],
+]);
+
+it('keeps the clauses around a they that heads none', function () {
+    expect(WarrantParser::analyze('if a they can view they')->syntax->children)
+        ->toEqual(WarrantParser::parse('if a they can view')->children);
+});
+
+it('notes no other mistake until three tokens are read past the last one', function () {
+    // The missing `(` is repaired, which leaves `they` where `)` should be.
+    expect(analysisDiagnostics('if can view they can edit'))->toBe([["Expected '(' after 'can'.", 'view']])
+        ->and(analysisDiagnostics('if a they view if b they can edit if c they'))->toBe([
+            ["Expected 'can' or 'cannot' after 'they'.", 'view'],
+            ["Expected 'can' or 'cannot' after 'they'.", ''],
+        ]);
 });
 
 it('never throws, however the text is broken', function () {

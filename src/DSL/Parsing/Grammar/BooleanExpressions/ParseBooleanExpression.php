@@ -68,7 +68,7 @@ final class ParseBooleanExpression extends Parser
         while (($precedence = self::precedence($this->peek()->type)) !== null && $precedence >= $minimum) {
             $operator = $this->advance()->type;
             $rightStart = $this->peek();
-            $right = ($this->parse(ParseBooleanOperand::class) ?? throw $this->missingBooleanExpressionError())->value;
+            $right = $this->expressionOrMissing(ParseBooleanOperand::class);
 
             // An operator after the right operand that binds tighter takes it first.
             $right = $this->joinOperators($right, $rightStart, $precedence + 1);

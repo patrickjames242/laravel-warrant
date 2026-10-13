@@ -40,7 +40,7 @@ final class ParseSyntax extends Parser
         $this->assertNoAbilityListWithoutCanThey();
 
         return new WarrantSyntax([
-            ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value,
+            $this->expressionOrMissing(ParseBooleanExpression::class),
         ]);
     }
 }

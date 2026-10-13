@@ -56,7 +56,7 @@ final class ParseWithContextMap extends Parser
 
             $this->part($this->owner::PART_CONTEXT_MAP_KEY, $key, $keyToken);
 
-            $this->expect(TokenType::EQUALS, "Expected '=' after the 'with' key.");
+            $this->expectOrAssume(TokenType::EQUALS, "Expected '=' after the 'with' key.");
             $value = $this->peek();
             $map[$key] = ($this->parse(ParseArgument::class) ?? throw $this->missingArgumentError())->value;
             $this->part($this->owner::PART_CONTEXT_MAP, $key, $value);

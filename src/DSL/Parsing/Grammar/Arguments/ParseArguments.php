@@ -55,7 +55,7 @@ final class ParseArguments extends Parser
             }
         }
 
-        $this->expect(TokenType::RPAREN, "Expected ')' to close {$this->closes}.");
+        $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close {$this->closes}.");
 
         return $arguments;
     }

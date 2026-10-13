@@ -29,7 +29,7 @@ final class ParseCrossSchemaCan extends Parser
     protected function read(): CrossSchemaCanNode
     {
         $this->advance(); // consume 'can'
-        $this->expect(TokenType::LPAREN, "Expected '(' after 'can'.");
+        $this->expectOrAssume(TokenType::LPAREN, "Expected '(' after 'can'.");
 
         if (! $this->check(TokenType::IDENTIFIER)) {
             throw $this->nameError('an ability name');
@@ -45,7 +45,7 @@ final class ParseCrossSchemaCan extends Parser
            about a missing keyword. */
         if (! $this->check(TokenType::FOR)) {
             $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaCanNode::class))?->value ?? [];
-            $this->expect(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
+            $this->expectOrAssume(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
 
             return new CrossSchemaCanNode(null, $ability->lexeme, contextMap: $contextMap);
         }
@@ -55,7 +55,7 @@ final class ParseCrossSchemaCan extends Parser
         [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(new ParseSchemaHandle(CrossSchemaCanNode::class))->value;
         $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaCanNode::class))?->value ?? [];
 
-        $this->expect(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
+        $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
         return new CrossSchemaCanNode($schemaKey, $ability->lexeme, $isRowBound, $boundKey, $contextMap, $alias);
     }

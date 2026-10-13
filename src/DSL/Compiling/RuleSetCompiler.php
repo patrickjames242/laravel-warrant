@@ -26,6 +26,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
@@ -403,6 +404,14 @@ final class RuleSetCompiler
            negates to itself, so the negation flag is deliberately not passed on. */
         if ($node instanceof UnknownNode) {
             return (new CompiledWhereClauseNode)->addAnd(null);
+        }
+
+        /* Only an analysis reads one, in place of a condition the text is missing,
+           and the text then has a syntax error that a parse to compile throws. */
+        if ($node instanceof MissingExpressionNode) {
+            throw new InvalidArgumentException(
+                'A rule with a missing condition cannot be compiled; the text it was read from has a syntax error.'
+            );
         }
 
         throw new InvalidArgumentException(sprintf('Unsupported expression node [%s].', $node::class));

@@ -11,6 +11,10 @@ use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Schema\AbilityDefinition;
@@ -559,4 +563,16 @@ it('rejects an undeclared name even while compiling a different ability', functi
 
 it('passes over the wildcard, which names no ability in particular', function () {
     expect(fn () => compileDocIds('they can *', 'view'))->not->toThrow(InvalidArgumentException::class);
+});
+
+it('refuses to compile the placeholder an analysis reads in place of a missing condition', function () {
+    $ruleSet = (new RuleSetExpander)->expand(
+        new RuleSetNode('docs', [new WarrantRuleNode(new MissingExpressionNode, [new CanClauseNode(['view'])], [])]),
+        new FakeConditionResolver,
+    );
+
+    expect(fn () => (new RuleSetCompiler(new FakeConditionResolver))->compile(
+        CompilationContext::ability(QueryFactory::for(DB::table('docs')), new CompilerTestUser('role-1'), 'view', $ruleSet)
+            ->forTargetRow(),
+    ))->toThrow(InvalidArgumentException::class, 'A rule with a missing condition cannot be compiled');
 });

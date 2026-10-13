@@ -27,7 +27,7 @@ final class ParseConditionalRule extends Parser
     protected function read(): WarrantRuleNode
     {
         $this->advance(); // consume 'if'
-        $conditions = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
+        $conditions = $this->expressionOrMissing(ParseBooleanExpression::class);
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
         return new WarrantRuleNode($conditions, $canClauses, $cannotClauses);

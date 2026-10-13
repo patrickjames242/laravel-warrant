@@ -35,10 +35,10 @@ final class ParseAbilityBlock extends Parser
 
         $abilities = $this->parse(new ParseClauseAbilityList(AbilityBlockNode::PART_ABILITIES))->value;
 
-        $this->expect(TokenType::LBRACE, "Expected '{' to open the ability block body.");
+        $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         $unclosed = "Expected '}' to close the ability block body.";
         $entries = $this->parse(new ParseRuleEntries($unclosed))->value;
-        $this->expectClosing(TokenType::RBRACE, $unclosed);
+        $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
         return new AbilityBlockNode($abilities, $entries);
     }

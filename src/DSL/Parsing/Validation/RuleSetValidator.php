@@ -19,6 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -483,6 +484,8 @@ final class RuleSetValidator
                 $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf);
                 $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf);
             })(),
+            // The analysis that read it in place of a missing expression reported it.
+            $node instanceof MissingExpressionNode => null,
             /* A rule may be written around a constant; a predicate may not, because
                a `check(...)` that decides itself asks the target nothing. A derived
                condition answering with a constant or unknown is another matter: its

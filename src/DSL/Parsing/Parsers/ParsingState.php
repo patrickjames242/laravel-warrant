@@ -30,11 +30,18 @@ final class ParsingState
     public array $diagnostics = [];
 
     /**
-     * Where the last mistake the parser reported is. A parser further out that
-     * meets the same mistake at the same place reports it again, and it is
-     * noted once.
+     * The token the parse was at when it last noted a mistake. One mistake leads
+     * to others close after it: a parser further out meets it again at the same
+     * place, and reading on past a repair can trip over the text the repair
+     * guessed wrong about. So, as Bison does, no mistake is noted until
+     * {@see TOKENS_BETWEEN_MISTAKES} tokens have been read since the last.
      */
-    private ?int $lastReportedOffset = null;
+    private ?int $lastReportedAt = null;
+
+    /**
+     * How many tokens are read after a mistake is noted before another can be.
+     */
+    private const TOKENS_BETWEEN_MISTAKES = 3;
 
     /**
      * Where each token right after text the lexer could not read starts. The
@@ -118,11 +125,15 @@ final class ParsingState
      */
     public function diagnose(WarrantSyntaxException $error): void
     {
-        if ($error->offset === $this->lastReportedOffset || isset($this->afterUnreadableText[$error->offset])) {
+        if (isset($this->afterUnreadableText[$error->offset])) {
             return;
         }
 
-        $this->lastReportedOffset = $error->offset;
+        if ($this->lastReportedAt !== null && $this->index - $this->lastReportedAt < self::TOKENS_BETWEEN_MISTAKES) {
+            return;
+        }
+
+        $this->lastReportedAt = $this->index;
         $endOffset = $error->offset;
 
         foreach ($this->tokens as $token) {

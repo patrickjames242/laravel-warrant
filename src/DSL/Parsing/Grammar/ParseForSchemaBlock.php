@@ -54,9 +54,9 @@ final class ParseForSchemaBlock extends Parser
 
         $unclosed = "Expected '}' to close the rule set body.";
 
-        $this->expect(TokenType::LBRACE, "Expected '{' to open the rule set body.");
+        $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the rule set body.");
         $body = $this->body($schema->lexeme, $unclosed);
-        $this->expectClosing(TokenType::RBRACE, $unclosed);
+        $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
         return $body;
     }
@@ -77,7 +77,7 @@ final class ParseForSchemaBlock extends Parser
 
         return new SchemaConditionNode(
             $schemaKey,
-            ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value,
+            $this->expressionOrMissing(ParseBooleanExpression::class),
         );
     }
 }

@@ -28,7 +28,7 @@ final class ParseNegation extends Parser
         $this->advance(); // consume 'not' or '!'
 
         return new NotNode(
-            ($this->parse(ParseBooleanOperand::class) ?? throw $this->missingBooleanExpressionError())->value,
+            $this->expressionOrMissing(ParseBooleanOperand::class),
         );
     }
 }

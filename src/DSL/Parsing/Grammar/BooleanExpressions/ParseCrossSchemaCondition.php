@@ -30,16 +30,16 @@ final class ParseCrossSchemaCondition extends Parser
     protected function read(): CrossSchemaConditionNode
     {
         $this->advance(); // consume 'check'
-        $this->expect(TokenType::LPAREN, "Expected '(' after 'check'.");
+        $this->expectOrAssume(TokenType::LPAREN, "Expected '(' after 'check'.");
 
-        $predicate = ($this->parse(ParseBooleanExpression::class) ?? throw $this->missingBooleanExpressionError())->value;
+        $predicate = $this->expressionOrMissing(ParseBooleanExpression::class);
 
-        $this->expect(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
+        $this->expectOrAssume(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 
         [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(new ParseSchemaHandle(CrossSchemaConditionNode::class))->value;
         $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaConditionNode::class))?->value ?? [];
 
-        $this->expect(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
+        $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
 
         return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias);
     }

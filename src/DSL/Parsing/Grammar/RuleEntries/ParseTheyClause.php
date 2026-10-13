@@ -12,7 +12,10 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * One `they can ...` or `they cannot ...` clause. The clause node is recorded
  * from its `can` / `cannot`, without the `they`.
  *
- * @extends Parser<CanClauseNode|CannotClauseNode>
+ * A `they` with neither after it is a clause that says nothing: a tolerant parse
+ * reports it and reads no clause there, so the rule keeps its other clauses.
+ *
+ * @extends Parser<CanClauseNode|CannotClauseNode|null>
  */
 final class ParseTheyClause extends Parser
 {
@@ -21,12 +24,18 @@ final class ParseTheyClause extends Parser
         return $ahead->nextIs(TokenType::THEY);
     }
 
-    protected function read(): CanClauseNode|CannotClauseNode
+    protected function read(): CanClauseNode|CannotClauseNode|null
     {
         $this->advance(); // consume 'they'
 
-        return ($this->parse(new ParseCanClause)
-            ?? $this->parse(new ParseCannotClause)
-            ?? throw $this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'."))->value;
+        $clause = $this->parse(new ParseCanClause) ?? $this->parse(new ParseCannotClause);
+
+        if ($clause === null) {
+            $this->report($this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'."));
+
+            return null;
+        }
+
+        return $clause->value;
     }
 }
