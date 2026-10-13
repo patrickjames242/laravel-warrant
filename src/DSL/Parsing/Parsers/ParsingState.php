@@ -19,7 +19,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * {@see SourceMap} only once the parse is done.
  *
  * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
- * has it: the lexer reports its errors instead of throwing them.
+ * has it, tolerantly: the lexer reports its errors instead of throwing them, and
+ * so does the parser, which goes on past each mistake to read what follows.
  */
 final class ParsingState
 {
@@ -27,6 +28,13 @@ final class ParsingState
 
     /** @var list<Diagnostic> Every syntax error found so far, for analysis. */
     public array $diagnostics = [];
+
+    /**
+     * Where the last mistake the parser reported is. A parser further out that
+     * meets the same mistake at the same place reports it again, and it is
+     * noted once.
+     */
+    private ?int $lastReportedOffset = null;
 
     /**
      * The owner of a part is null until the node it belongs to is returned.
@@ -40,8 +48,9 @@ final class ParsingState
 
     /**
      * Where in $records each node recorded whole is, by object id. A recorded
-     * node is held in $records until the parse is done, so its id names no other
-     * object until then.
+     * node is held in $records until the parse is done or its record is
+     * forgotten, which takes its entry here with it, so its id names no other
+     * object while it is here.
      *
      * @var array<int, int>
      */
@@ -54,11 +63,17 @@ final class ParsingState
     public readonly TokensAhead $tokensAhead;
 
     /**
-     * @param list<Token> $tokens Ending in the EOF token.
+     * @param string $source The text being parsed, which errors quote and point
+     *   into.
+     * @param list<Token> $tokens The text's tokens, read in order by the parse,
+     *   ending in the EOF token.
+     * @param bool $tolerant Whether a syntax error is noted and read past, rather
+     *   than thrown.
      */
     public function __construct(
         public readonly string $source,
         public readonly array $tokens,
+        public readonly bool $tolerant = false,
     ) {
         $this->tokensAhead = new TokensAhead($this);
     }
@@ -78,7 +93,7 @@ final class ParsingState
     public static function forAnalysis(string $source): self
     {
         $scanned = (new Lexer($source))->scan();
-        $state = new self($source, self::withoutComments($scanned->tokens));
+        $state = new self($source, self::withoutComments($scanned->tokens), tolerant: true);
         $state->diagnostics = $scanned->diagnostics;
 
         return $state;
@@ -86,9 +101,17 @@ final class ParsingState
 
     /**
      * Note $error as a diagnostic, over the token it was raised at.
+     *
+     * @param WarrantSyntaxException $error The mistake to note: its message
+     *   becomes the diagnostic's, and its offset where the diagnostic starts.
      */
     public function diagnose(WarrantSyntaxException $error): void
     {
+        if ($error->offset === $this->lastReportedOffset) {
+            return;
+        }
+
+        $this->lastReportedOffset = $error->offset;
         $endOffset = $error->offset;
 
         foreach ($this->tokens as $token) {
@@ -116,6 +139,38 @@ final class ParsingState
     public function peekAhead(int $distance = 1): Token
     {
         return $this->tokens[min($this->index + $distance, count($this->tokens) - 1)];
+    }
+
+    /**
+     * How many records have been made: a mark that {@see forgetRecordsFrom()}
+     * can cut the log back to.
+     */
+    public function recordCount(): int
+    {
+        return count($this->records);
+    }
+
+    /**
+     * Forget every record made since there were $count, for nodes and parts read
+     * by a parser that met a mistake and was read past: none of them is in the
+     * tree, so none of them may reach the map.
+     *
+     * @param int $count How many records there were when the parser that met the
+     *   mistake started, from {@see recordCount()}: every record after that many
+     *   is forgotten, and every one before it kept.
+     */
+    public function forgetRecordsFrom(int $count): void
+    {
+        foreach (array_splice($this->records, $count) as [$node, $part]) {
+            if ($part === null) {
+                unset($this->recordedAt[spl_object_id($node)]);
+            }
+        }
+
+        $this->unclaimed = array_values(array_filter(
+            $this->unclaimed,
+            static fn (int $position): bool => $position < $count,
+        ));
     }
 
     /**

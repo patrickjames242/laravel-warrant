@@ -17,6 +17,10 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * included, and a mistake is an exception. Nothing else gets to try, so the
  * error is reported where the mistake is, and nothing read is ever put back.
  *
+ * A tolerant parse, for an editor, notes each mistake instead of throwing it.
+ * Where a parser reads with {@see recovering()}, the parse goes on past the
+ * mistake to read what follows, and what the mistake was in is left out.
+ *
  * A node a parser returns is recorded as written over every token the parser
  * read, and every part read inside it, by this parser or by one it called that
  * returned something other than a node, becomes a part of that node.
@@ -28,6 +32,11 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  */
 abstract class Parser
 {
+    /**
+     * The error for text after the end of what the whole parse reads.
+     */
+    final protected const UNEXPECTED_AFTER_END = 'Unexpected token; expected end of input.';
+
     private ParsingState $state;
 
     /**
@@ -63,7 +72,9 @@ abstract class Parser
         $root->state = $state;
         $result = $root->read();
 
-        $root->expect(TokenType::EOF, 'Unexpected token; expected end of input.');
+        if (! $root->check(TokenType::EOF)) {
+            $root->report($root->errorAtCurrent(self::UNEXPECTED_AFTER_END));
+        }
 
         return $result;
     }
@@ -129,6 +140,114 @@ abstract class Parser
         ?string $part = null,
     ): array {
         return $this->parse(new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part))->value;
+    }
+
+    // -- mistakes -------------------------------------------------------------
+
+    /**
+     * Report $error: thrown in a strict parse, which the first mistake ends, and
+     * noted as a diagnostic in a tolerant one, which goes on.
+     *
+     * @param WarrantSyntaxException $error The mistake, with the message and the
+     *   place in the text it is reported at.
+     */
+    final protected function report(WarrantSyntaxException $error): void
+    {
+        if (! $this->state->tolerant) {
+            throw $error;
+        }
+
+        $this->state->diagnose($error);
+    }
+
+    /**
+     * Read with $read, going on past a syntax error in it in a tolerant parse:
+     * the error is noted, what was recorded since $read started is forgotten, and
+     * the parse skips ahead to where $resumesHere says reading can go on, at
+     * least one token past where $read started. Null stands in for what $read
+     * would have returned, so $read never returns null itself. A strict parse
+     * throws the error.
+     *
+     * @template R
+     * @param Closure(): R $read Reads one whole piece of the text, such as a rule
+     *   entry or a `for` block, from where the parse is: the piece left out of
+     *   the tree when a mistake is met inside it.
+     * @param Closure(TokensAhead): bool $resumesHere Says whether reading can go on
+     *   at the tokens ahead after a mistake: where the next piece like the one
+     *   $read reads can start, or where the text around them ends.
+     * @return R|null
+     */
+    final protected function recovering(Closure $read, Closure $resumesHere): mixed
+    {
+        if (! $this->state->tolerant) {
+            return $read();
+        }
+
+        $startIndex = $this->state->index;
+        $recordCount = $this->state->recordCount();
+
+        try {
+            return $read();
+        } catch (WarrantSyntaxException $error) {
+            $this->state->diagnose($error);
+            $this->state->forgetRecordsFrom($recordCount);
+            $this->skipTo($resumesHere, atLeastOne: $this->state->index === $startIndex);
+
+            return null;
+        }
+    }
+
+    /**
+     * Skip tokens until $resumesHere says reading can go on, or the input ends,
+     * skipping at least one first when $atLeastOne. A `{` skipped opens a block
+     * that is skipped whole, to its `}`, so a token inside text being thrown
+     * away is not taken for one around it.
+     *
+     * @param Closure(TokensAhead): bool $resumesHere Says whether reading can go on
+     *   at the tokens ahead: skipping stops at the first place it does.
+     * @param bool $atLeastOne Whether to skip the current token whatever
+     *   $resumesHere says of it: for a skip from a token that is itself a place
+     *   reading can go on from, but that has already been read and failed, so
+     *   that the skip always moves the parse forward.
+     */
+    final protected function skipTo(Closure $resumesHere, bool $atLeastOne = false): void
+    {
+        $depth = 0;
+
+        while (! $this->check(TokenType::EOF)) {
+            if (! $atLeastOne && $depth === 0 && $resumesHere($this->state->tokensAhead)) {
+                return;
+            }
+
+            $atLeastOne = false;
+            $type = $this->advance()->type;
+
+            if ($type === TokenType::LBRACE) {
+                $depth++;
+            } elseif ($type === TokenType::RBRACE && $depth > 0) {
+                $depth--;
+            }
+        }
+    }
+
+    /**
+     * Read the $closer that ends what this parser reads. When it is not here, a
+     * strict parse throws $message, and a tolerant one notes it and goes on as
+     * though it were, so what was read before it is kept.
+     *
+     * @param TokenType $closer The token that ends what this parser reads, such
+     *   as the `}` of a block.
+     * @param string $message The error for $closer not being here.
+     */
+    final protected function expectClosing(TokenType $closer, string $message): void
+    {
+        if ($this->check($closer)) {
+            $this->advance();
+
+            return;
+        }
+
+        $this->report($this->errorAtCurrent($message));
     }
 
     // -- recording ------------------------------------------------------------

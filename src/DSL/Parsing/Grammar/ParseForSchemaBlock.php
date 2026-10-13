@@ -49,23 +49,28 @@ final class ParseForSchemaBlock extends Parser
         $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
 
         if (! $this->braced) {
-            return $this->body($schema->lexeme);
+            return $this->body($schema->lexeme, self::UNEXPECTED_AFTER_END);
         }
 
+        $unclosed = "Expected '}' to close the rule set body.";
+
         $this->expect(TokenType::LBRACE, "Expected '{' to open the rule set body.");
-        $body = $this->body($schema->lexeme);
-        $this->expect(TokenType::RBRACE, "Expected '}' to close the rule set body.");
+        $body = $this->body($schema->lexeme, $unclosed);
+        $this->expectClosing(TokenType::RBRACE, $unclosed);
 
         return $body;
     }
 
-    private function body(string $schemaKey): ISchemaScopedNode
+    /**
+     * @param string $schemaKey The schema the block's header names, which the
+     *   body's node is scoped to.
+     * @param string $unexpectedToken The error for a token after the body that
+     *   should not be there, as {@see ParseRuleEntries} takes it.
+     */
+    private function body(string $schemaKey, string $unexpectedToken): ISchemaScopedNode
     {
-        $atEnd = $this->check(TokenType::EOF) || $this->check(TokenType::RBRACE);
-        $entries = $this->parse(ParseRuleEntries::class)->value;
-
-        if ($atEnd || $entries !== []) {
-            return new RuleSetNode($schemaKey, $entries);
+        if ($this->check(TokenType::EOF) || $this->check(TokenType::RBRACE) || $this->ruleEntryAhead()) {
+            return new RuleSetNode($schemaKey, $this->parse(new ParseRuleEntries($unexpectedToken))->value);
         }
 
         $this->assertNoAbilityListWithoutCanThey();

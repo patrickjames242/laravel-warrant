@@ -30,12 +30,12 @@ final class ParseRulesWithoutForHeader extends Parser
      */
     protected function read(): array
     {
-        $entries = $this->parse(ParseRuleEntries::class)->value;
+        $entries = $this->parse(new ParseRuleEntries(self::UNEXPECTED_AFTER_END))->value;
 
         if ($this->check(TokenType::FOR)) {
-            throw $this->errorAtCurrent(
+            $this->report($this->errorAtCurrent(
                 'Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.'
-            );
+            ));
         }
 
         return $entries;

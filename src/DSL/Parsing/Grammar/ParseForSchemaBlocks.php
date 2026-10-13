@@ -17,6 +17,9 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * {@see \Warrant\DSL\Parsing\ASTNodes\WarrantSyntax::forSchema()} folds
  * same-schema rule sets together.
  *
+ * A tolerant parse reads on past a braced block with a mistake in it to the next
+ * `for <schema> {`, leaving the block out, so the blocks after it are still read.
+ *
  * @extends Parser<list<ISchemaScopedNode>>
  */
 final class ParseForSchemaBlocks extends Parser
@@ -36,20 +39,31 @@ final class ParseForSchemaBlocks extends Parser
             $block = $this->parse(new ParseForSchemaBlock(braced: false))->value;
 
             if ($this->check(TokenType::FOR) || $this->check(TokenType::LBRACE)) {
-                throw $this->errorAtCurrent(
+                $this->report($this->errorAtCurrent(
                     'Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.'
-                );
+                ));
             }
 
             return [$block];
         }
 
-        $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true));
+        $blocks = [];
+
+        while ($this->check(TokenType::FOR)) {
+            $block = $this->recovering(
+                fn () => $this->parse(new ParseForSchemaBlock(braced: true))->value,
+                static fn (TokensAhead $ahead): bool => $ahead->nextIs(TokenType::FOR, TokenType::IDENTIFIER, TokenType::LBRACE),
+            );
+
+            if ($block !== null) {
+                $blocks[] = $block;
+            }
+        }
 
         if (! $this->check(TokenType::EOF)) {
-            throw $this->errorAtCurrent(
+            $this->report($this->errorAtCurrent(
                 'Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.'
-            );
+            ));
         }
 
         return $blocks;
