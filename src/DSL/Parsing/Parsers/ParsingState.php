@@ -37,6 +37,16 @@ final class ParsingState
     private ?int $lastReportedOffset = null;
 
     /**
+     * Where each token right after text the lexer could not read starts. The
+     * grammar does not see that text, so a token it needed in its place is
+     * missed at the token after it; that mistake is the unreadable text's, which
+     * the lexer has reported, and is not noted again.
+     *
+     * @var array<int, true>
+     */
+    private array $afterUnreadableText = [];
+
+    /**
      * The owner of a part is null until the node it belongs to is returned.
      *
      * @var list<array{0: ?INode, 1: ?string, 2: int|string|null, 3: Token, 4: Token}>
@@ -83,18 +93,19 @@ final class ParsingState
      */
     public static function forSource(string $source): self
     {
-        return new self($source, self::withoutComments((new Lexer($source))->tokenize()));
+        return new self($source, self::grammarTokens((new Lexer($source))->tokenize()));
     }
 
     /**
-     * The state for analysing $source: every lexical error becomes a diagnostic
-     * and text the lexer could not read an ERROR token.
+     * The state for analysing $source: every lexical error becomes a diagnostic,
+     * and text the lexer could not read is left out of what the grammar reads.
      */
     public static function forAnalysis(string $source): self
     {
         $scanned = (new Lexer($source))->scan();
-        $state = new self($source, self::withoutComments($scanned->tokens), tolerant: true);
+        $state = new self($source, self::grammarTokens($scanned->tokens), tolerant: true);
         $state->diagnostics = $scanned->diagnostics;
+        $state->afterUnreadableText = self::offsetsAfterUnreadableText($scanned->tokens);
 
         return $state;
     }
@@ -107,7 +118,7 @@ final class ParsingState
      */
     public function diagnose(WarrantSyntaxException $error): void
     {
-        if ($error->offset === $this->lastReportedOffset) {
+        if ($error->offset === $this->lastReportedOffset || isset($this->afterUnreadableText[$error->offset])) {
             return;
         }
 
@@ -250,17 +261,49 @@ final class ParsingState
     }
 
     /**
-     * Comments say nothing about what a rule means, so the grammar never sees them.
+     * $tokens as the grammar reads them. Comments say nothing about what a rule
+     * means, and text the lexer could not read is reported by the lexer, so the
+     * grammar sees neither; read on, the text around unreadable text reads as
+     * though it were not there. A strict read has no ERROR tokens, since the lexer
+     * throws at the first such text.
      *
-     * @param list<Token> $tokens
+     * @param list<Token> $tokens Every token the lexer read, in order.
      * @return list<Token>
      */
-    private static function withoutComments(array $tokens): array
+    private static function grammarTokens(array $tokens): array
     {
         return array_values(array_filter(
             $tokens,
-            static fn (Token $token): bool => $token->type !== TokenType::COMMENT,
+            static fn (Token $token): bool => $token->type !== TokenType::COMMENT && $token->type !== TokenType::ERROR,
         ));
+    }
+
+    /**
+     * Where each token that follows text the lexer could not read starts, as
+     * {@see $afterUnreadableText} keeps them. A comment between the two is passed
+     * over, since the grammar does not see it either.
+     *
+     * @param list<Token> $tokens Every token the lexer read, in order.
+     * @return array<int, true>
+     */
+    private static function offsetsAfterUnreadableText(array $tokens): array
+    {
+        $offsets = [];
+        $afterUnreadable = false;
+
+        foreach ($tokens as $token) {
+            if ($token->type === TokenType::ERROR) {
+                $afterUnreadable = true;
+            } elseif ($token->type !== TokenType::COMMENT) {
+                if ($afterUnreadable) {
+                    $offsets[$token->offset] = true;
+                }
+
+                $afterUnreadable = false;
+            }
+        }
+
+        return $offsets;
     }
 
     private function isRecorded(INode $node): bool

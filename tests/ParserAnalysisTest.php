@@ -72,10 +72,33 @@ it('reports the error a strict read throws, over the token it is at, and keeps w
         ->and($analysed->syntax->positions->containing(0))->not->toBe([]);
 });
 
-it('reports a lexical error before the grammar error it leads to', function () {
-    expect(analysisDiagnostics('if a they can view ~'))->toBe([
+it('reports text the lexer could not read once, and reads the text around it as though it were not there', function (string $source, string $unreadable, string $without) {
+    $analysed = WarrantParser::analyze($source);
+
+    expect(array_map(static fn (array $diagnostic): string => $diagnostic[1], analysisDiagnostics($source)))->toBe([$unreadable])
+        ->and($analysed->syntax->children)->toEqual(WarrantParser::parse($without)->children);
+})->with([
+    'after a rule' => ['if a they can view ~', '~', 'if a they can view'],
+    'inside a condition' => ['if a ~ they can view', '~', 'if a they can view'],
+    'before an ability' => ['if a they can ~ view', '~', 'if a they can view'],
+    'between entries in a block' => ['for docs { if a they can view ~ if b they can edit }', '~', 'for docs { if a they can view if b they can edit }'],
+    'an unknown @ word as an argument' => ['if a(@) they can view', '@', 'if a() they can view'],
+]);
+
+it('does not report again a mistake met right after text the lexer could not read', function (string $source) {
+    expect(analysisDiagnostics($source))->toBe([["Unexpected character '~'.", '~']]);
+})->with([
+    'in place of a condition' => 'if ~ they can view',
+    'in place of an argument' => 'if a(1, ~) they can view',
+    'in place of a denial message' => 'if a they can view because ~',
+    'in place of an operator' => 'a ~ b',
+    'with a comment after it' => "if ~ # unreadable\nthey can view",
+]);
+
+it('still reports a mistake that is not right after text the lexer could not read', function () {
+    expect(analysisDiagnostics('if a ~ they view'))->toBe([
         ["Unexpected character '~'.", '~'],
-        ['Unexpected token; expected end of input.', '~'],
+        ["Expected 'can' or 'cannot' after 'they'.", 'view'],
     ]);
 });
 
