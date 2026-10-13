@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Laravel Warrant</name>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,9 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.6.1</b> &mdash; Underline a name in Warrant text on Cmd/Ctrl-hover
+                when the language server knows where it is declared, and go there on
+                click.</li>
             <li><b>0.6.0</b> &mdash; Start the Warrant language server for <code>.warrant</code>
                 and PHP files: diagnostics, hover, completion, go-to-definition and quick
                 fixes. Adds <b>Settings | Languages &amp; Frameworks | Warrant</b> (enable,

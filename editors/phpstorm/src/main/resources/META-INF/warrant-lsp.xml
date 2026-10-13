@@ -6,6 +6,11 @@
         <platform.lsp.serverSupportProvider
             implementation="com.warrant.phpstorm.lsp.WarrantLspServerSupportProvider"/>
 
+        <!-- Underlines names on Cmd/Ctrl-hover and navigates on click, by asking
+             the server for their definitions. -->
+        <psi.implicitReferenceProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantDefinitionReferenceProvider"/>
+
         <projectService
             serviceImplementation="com.warrant.phpstorm.lsp.WarrantSettings"/>
 

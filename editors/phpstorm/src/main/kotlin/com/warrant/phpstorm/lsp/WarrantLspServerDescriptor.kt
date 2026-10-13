@@ -21,7 +21,8 @@ import java.nio.charset.StandardCharsets
  * The server takes whole PHP files, finds the Warrant inside them itself and
  * answers in the PHP file's own coordinates, so PHP files are sent to it as
  * they are and no position is mapped on this side. Diagnostics, hover,
- * go-to-definition, completion and quick fixes use the platform's defaults;
+ * completion and quick fixes use the platform's defaults, and go-to-definition
+ * is answered by [WarrantDefinitionReferenceProvider];
  * the server answers nothing for a position outside Warrant text, which leaves
  * PhpStorm's own PHP features untouched.
  */
@@ -44,6 +45,14 @@ class WarrantLspServerDescriptor(project: Project) : ProjectWideLspServerDescrip
 
     override fun getLanguageId(file: VirtualFile): String =
         if (file.fileType == WarrantFileType.INSTANCE) "warrant" else "php"
+
+    /**
+     * Off, because [WarrantDefinitionReferenceProvider] answers go-to-definition
+     * itself: it asks the server on Cmd/Ctrl-hover as well as on click, so names
+     * are underlined, and a second answer from the platform would offer each
+     * target twice.
+     */
+    override val lspGoToDefinitionSupport: Boolean = false
 
     /**
      * Asks the server for completions only in a `.warrant` file, in injected
