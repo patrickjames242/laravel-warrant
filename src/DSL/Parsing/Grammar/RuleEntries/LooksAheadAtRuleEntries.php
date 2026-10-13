@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
@@ -81,6 +82,7 @@ trait LooksAheadAtRuleEntries
         if (($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR))
             && in_array($this->peekAhead()->type, [TokenType::LBRACE, TokenType::COMMA], true)) {
             $this->report($this->errorAtCurrent(
+                DiagnosticCode::AbilityListWithoutCanThey,
                 'An ability block header is written `can they <ability>, ... { ... }`.'
             ));
         }

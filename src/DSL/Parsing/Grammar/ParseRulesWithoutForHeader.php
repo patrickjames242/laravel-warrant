@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntry;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -34,6 +35,7 @@ final class ParseRulesWithoutForHeader extends Parser
 
         if ($this->check(TokenType::FOR)) {
             $this->report($this->errorAtCurrent(
+                DiagnosticCode::RulesBeforeBlock,
                 'Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own.'
             ));
         }

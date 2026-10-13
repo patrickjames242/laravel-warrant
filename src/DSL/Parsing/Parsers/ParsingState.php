@@ -30,6 +30,13 @@ final class ParsingState
     public array $diagnostics = [];
 
     /**
+     * @var list<Token> Every token the lexer read, in order, for analysis: the
+     *   ones the grammar reads, and the comments and unreadable text it does not.
+     *   Empty in a strict parse, which keeps only what the grammar reads.
+     */
+    public array $scannedTokens = [];
+
+    /**
      * The token the parse was at when it last noted a mistake. One mistake leads
      * to others close after it: a parser further out meets it again at the same
      * place, and reading on past a repair can trip over the text the repair
@@ -111,6 +118,7 @@ final class ParsingState
         $scanned = (new Lexer($source))->scan();
         $state = new self($source, self::grammarTokens($scanned->tokens), tolerant: true);
         $state->diagnostics = $scanned->diagnostics;
+        $state->scannedTokens = $scanned->tokens;
         $state->afterUnreadableText = self::offsetsAfterUnreadableText($scanned->tokens);
 
         return $state;
@@ -142,7 +150,7 @@ final class ParsingState
             }
         }
 
-        $this->diagnostics[] = new Diagnostic($error->reason, $error->offset, $endOffset);
+        $this->diagnostics[] = new Diagnostic($error->reason, $error->offset, $endOffset, $error->diagnosticCode);
     }
 
     /**

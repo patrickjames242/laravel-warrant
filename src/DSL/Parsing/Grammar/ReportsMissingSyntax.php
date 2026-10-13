@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
@@ -37,19 +38,25 @@ trait ReportsMissingSyntax
     /**
      * Error for a spot expecting a name, with a clearer hint when the offending
      * token is a reserved word (which cannot be used as a name).
+     *
+     * @param string $expected What the spot expects, as words for the author,
+     *   such as 'an ability name'.
+     * @param DiagnosticCode $code Which kind of mistake its absence is, when what
+     *   stands there is not a reserved word written as a name.
      */
-    private function nameError(string $expected): WarrantSyntaxException
+    private function nameError(string $expected, DiagnosticCode $code = DiagnosticCode::MissingName): WarrantSyntaxException
     {
         $token = $this->peek();
 
         // `!` is a NOT too; only a keyword spelled as a word looks like a name.
         if (in_array($token->type, self::RESERVED_WORDS, true) && ctype_alpha($token->lexeme)) {
             return $this->errorAtCurrent(
+                DiagnosticCode::ReservedWordAsName,
                 sprintf("Reserved word '%s' cannot be used as a name; expected %s.", $token->lexeme, $expected)
             );
         }
 
-        return $this->errorAtCurrent(sprintf('Expected %s.', $expected));
+        return $this->errorAtCurrent($code, sprintf('Expected %s.', $expected));
     }
 
     /**
@@ -79,7 +86,7 @@ trait ReportsMissingSyntax
 
     private function missingBooleanExpressionError(): WarrantSyntaxException
     {
-        return $this->nameError("a condition, 'can(', 'check(', or '('");
+        return $this->nameError("a condition, 'can(', 'check(', or '('", DiagnosticCode::MissingCondition);
     }
 
     /**
@@ -88,6 +95,7 @@ trait ReportsMissingSyntax
     private function missingArgumentError(): WarrantSyntaxException
     {
         return $this->errorAtCurrent(
+            DiagnosticCode::MissingArgument,
             'Expected an argument: a literal, a binding (:name or ?), @context <key>, '
                 .'@column <column> or @column <name>.<column>, or @sql "<sql>".'
         );

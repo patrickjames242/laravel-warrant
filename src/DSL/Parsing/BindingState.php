@@ -42,13 +42,13 @@ final class BindingState
     public function resolveNamed(string $name, int $offset): mixed
     {
         if ($this->mode === self::MODE_POSITIONAL) {
-            throw WarrantSyntaxException::atSourceOffset('Cannot mix named and positional bindings.', $this->source, $offset);
+            throw WarrantSyntaxException::atSourceOffset(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $this->source, $offset);
         }
 
         $this->mode = self::MODE_NAMED;
 
         if (! array_key_exists($name, $this->bindings)) {
-            throw WarrantSyntaxException::atSourceOffset(sprintf('No binding provided for ":%s".', $name), $this->source, $offset);
+            throw WarrantSyntaxException::atSourceOffset(DiagnosticCode::MissingBindingValue, sprintf('No binding provided for ":%s".', $name), $this->source, $offset);
         }
 
         $this->usedNamed[$name] = true;
@@ -59,13 +59,13 @@ final class BindingState
     public function resolvePositional(int $offset): mixed
     {
         if ($this->mode === self::MODE_NAMED) {
-            throw WarrantSyntaxException::atSourceOffset('Cannot mix named and positional bindings.', $this->source, $offset);
+            throw WarrantSyntaxException::atSourceOffset(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $this->source, $offset);
         }
 
         $this->mode = self::MODE_POSITIONAL;
 
         if ($this->positionalCursor >= count($this->positional)) {
-            throw WarrantSyntaxException::atSourceOffset('More positional placeholders (?) than bindings provided.', $this->source, $offset);
+            throw WarrantSyntaxException::atSourceOffset(DiagnosticCode::MissingBindingValue, 'More positional placeholders (?) than bindings provided.', $this->source, $offset);
         }
 
         return $this->positional[$this->positionalCursor++];
@@ -84,6 +84,7 @@ final class BindingState
 
             if ($remaining > 0) {
                 throw WarrantSyntaxException::atSourceOffset(
+                    DiagnosticCode::UnusedBinding,
                     sprintf('%d positional binding(s) were provided but never used.', $remaining),
                     $this->source,
                     $end,
@@ -99,6 +100,7 @@ final class BindingState
 
         if ($unused !== []) {
             throw WarrantSyntaxException::atSourceOffset(
+                DiagnosticCode::UnusedBinding,
                 sprintf('Binding(s) provided but never used: %s.', implode(', ', $unused)),
                 $this->source,
                 $end,

@@ -17,10 +17,18 @@ use Warrant\DSL\Parsing\Positions\SourcePosition;
 class WarrantSyntaxException extends RuntimeException
 {
     /**
+     * @param DiagnosticCode $diagnosticCode Which kind of mistake this is, as a
+     *   {@see Diagnostic} made from it carries it. Named so as not to be the base
+     *   Exception's own integer $code.
      * @param string $reason The error alone, without the position and the
      *   excerpt of the source that the exception's message adds to it.
+     * @param string $source The text the error is in.
+     * @param int $offset 0-based byte offset in $source the error is at.
+     * @param int $sourceLine 1-based line of $offset.
+     * @param int $sourceColumn 1-based column of $offset.
      */
     public function __construct(
+        public readonly DiagnosticCode $diagnosticCode,
         public readonly string $reason,
         public readonly string $source,
         public readonly int $offset,
@@ -33,27 +41,27 @@ class WarrantSyntaxException extends RuntimeException
     /**
      * Build an exception from a token, pointing at where it begins.
      */
-    public static function at(string $message, string $source, Token $token): self
+    public static function at(DiagnosticCode $code, string $message, string $source, Token $token): self
     {
-        return new self($message, $source, $token->offset, $token->line, $token->col);
+        return new self($code, $message, $source, $token->offset, $token->line, $token->col);
     }
 
     /**
      * Build an exception at an explicit source position.
      */
-    public static function atOffset(string $message, string $source, int $offset, int $line, int $col): self
+    public static function atOffset(DiagnosticCode $code, string $message, string $source, int $offset, int $line, int $col): self
     {
-        return new self($message, $source, $offset, $line, $col);
+        return new self($code, $message, $source, $offset, $line, $col);
     }
 
     /**
      * Build an exception at byte $offset of $source, counting its line and
      * column as the lexer does: a line ends at each "\n".
      */
-    public static function atSourceOffset(string $message, string $source, int $offset): self
+    public static function atSourceOffset(DiagnosticCode $code, string $message, string $source, int $offset): self
     {
         $position = SourcePosition::at($source, $offset);
 
-        return new self($message, $source, $offset, $position->line, $position->column);
+        return new self($code, $message, $source, $offset, $position->line, $position->column);
     }
 }

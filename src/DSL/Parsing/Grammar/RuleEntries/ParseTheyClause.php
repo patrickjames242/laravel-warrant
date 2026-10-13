@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
@@ -31,7 +32,7 @@ final class ParseTheyClause extends Parser
         $clause = $this->parse(new ParseCanClause) ?? $this->parse(new ParseCannotClause);
 
         if ($clause === null) {
-            $this->report($this->errorAtCurrent("Expected 'can' or 'cannot' after 'they'."));
+            $this->report($this->errorAtCurrent(DiagnosticCode::MissingClause, "Expected 'can' or 'cannot' after 'they'."));
 
             return null;
         }

@@ -27,6 +27,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
@@ -177,14 +178,14 @@ final class RuleSetValidator
                 $this->validateAbilityBlock($entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
                 if ($ruleSetKey !== null && $entry->isGeneric()) {
-                    $this->fail(new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
+                    $this->fail(new RuleValidationException(DiagnosticCode::AbilitiesUnnamedOutsideBlock, LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
                 }
 
                 $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ($ruleSetKey === null ? [] : [...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities === []) {
-                        $this->fail(new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
+                        $this->fail(new RuleValidationException(DiagnosticCode::AbilitiesUnnamedOutsideBlock, LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
                     }
                 }
 
@@ -202,18 +203,18 @@ final class RuleSetValidator
     private function validateAbilityBlock(AbilityBlockNode $block): void
     {
         if ($block->abilities === []) {
-            $this->fail(new InvalidArgumentException(LanguageRuleMessages::blockNamesNone()), $block);
+            $this->fail(new RuleValidationException(DiagnosticCode::AbilityBlockNamesNone, LanguageRuleMessages::blockNamesNone()), $block);
         }
 
         $this->assertAbilitiesDeclared($block->abilities, $block, AbilityBlockNode::PART_ABILITIES);
 
         foreach ($block->entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
-                $this->fail(new InvalidArgumentException(LanguageRuleMessages::blockInsideBlock()), $entry);
+                $this->fail(new RuleValidationException(DiagnosticCode::AbilityBlockInsideBlock, LanguageRuleMessages::blockInsideBlock()), $entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
                 if (! $entry->isGeneric()) {
                     $this->fail(
-                        new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('An @include')),
+                        new RuleValidationException(DiagnosticCode::AbilitiesNamedInsideBlock, LanguageRuleMessages::namedInsideBlock('An @include')),
                         $entry,
                         IncludeInvocationNode::PART_ABILITIES,
                         0,
@@ -223,7 +224,7 @@ final class RuleSetValidator
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities !== []) {
                         $this->fail(
-                            new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A clause')),
+                            new RuleValidationException(DiagnosticCode::AbilitiesNamedInsideBlock, LanguageRuleMessages::namedInsideBlock('A clause')),
                             $clause,
                             $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
                             0,
@@ -263,7 +264,7 @@ final class RuleSetValidator
                 $first ??= $names;
 
                 if ($names !== $first) {
-                    $this->fail(new InvalidArgumentException(LanguageRuleMessages::namingDisagrees($what, $names)), $node);
+                    $this->fail(new RuleValidationException(DiagnosticCode::AbilityNamingDisagrees, LanguageRuleMessages::namingDisagrees($what, $names)), $node);
                 }
             }
         }
@@ -317,7 +318,7 @@ final class RuleSetValidator
         foreach ($abilities as $index => $ability) {
             if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
                 $this->fail(
-                    new InvalidArgumentException(sprintf('Ability [%s] is not declared by the schema.', $ability)),
+                    new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability)),
                     $owner,
                     $part,
                     $index,
@@ -339,7 +340,7 @@ final class RuleSetValidator
         foreach ($rule->cannotClauses as $clause) {
             foreach ($clause->abilities as $index => $ability) {
                 if (isset($seen[$ability])) {
-                    $this->fail(new InvalidArgumentException(sprintf(
+                    $this->fail(new RuleValidationException(DiagnosticCode::DuplicateCannotAbility, sprintf(
                         'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
                         $ability,
                     )), $clause, CannotClauseNode::PART_ABILITIES, $index);
@@ -373,8 +374,9 @@ final class RuleSetValidator
         }
 
         $reason = $error instanceof RuleValidationException ? $error->reason : $error->getMessage();
+        $code = $error instanceof RuleValidationException ? $error->diagnosticCode : DiagnosticCode::InvalidRule;
 
-        return new RuleValidationException($reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error, $span);
+        return new RuleValidationException($code, $reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error, $span);
     }
 
     /**
@@ -407,7 +409,7 @@ final class RuleSetValidator
     {
         foreach ($rule->canClauses as $clause) {
             if ($clause->message !== null) {
-                $this->fail(new InvalidArgumentException(LanguageRuleMessages::messageOnCanClause()), $clause, CanClauseNode::PART_MESSAGE);
+                $this->fail(new RuleValidationException(DiagnosticCode::MessageOnCanClause, LanguageRuleMessages::messageOnCanClause()), $clause, CanClauseNode::PART_MESSAGE);
             }
         }
 
@@ -415,7 +417,7 @@ final class RuleSetValidator
             $message = $clause->message;
 
             if ($message !== null && ! is_string($message) && ! $message instanceof Closure && ! $message instanceof BindingNode) {
-                $this->fail(new InvalidArgumentException(LanguageRuleMessages::messageIsNotText()), $clause, CannotClauseNode::PART_MESSAGE);
+                $this->fail(new RuleValidationException(DiagnosticCode::MessageNotText, LanguageRuleMessages::messageIsNotText()), $clause, CannotClauseNode::PART_MESSAGE);
             }
         }
     }
@@ -491,7 +493,7 @@ final class RuleSetValidator
                a `check(...)` that decides itself asks the target nothing. A derived
                condition answering with a constant or unknown is another matter: its
                answer is validated on its own, where no predicate surrounds it. */
-            default => $predicateOf === null ? null : throw new InvalidArgumentException(sprintf(
+            default => $predicateOf === null ? null : throw new RuleValidationException(DiagnosticCode::ConstantInCheckPredicate, sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
                 $predicateOf->schemaKey,
@@ -528,12 +530,12 @@ final class RuleSetValidator
             return;
         }
 
-        $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
+        $target = $this->catalog->find($node->schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
             sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
         );
 
         if ($node->ability !== INode::MISSING_NAME && $target->getAbilityDefinition($node->ability) === null) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf(
                 'Ability [%s] is not declared by schema [%s].',
                 $node->ability,
                 $node->schemaKey,
@@ -541,7 +543,7 @@ final class RuleSetValidator
         }
 
         if ($node->isRowBound && ! $target->describesRows()) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::RowTargetOnRowlessSchema, sprintf(
                 'A can(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
                 $node->schemaKey,
@@ -558,7 +560,7 @@ final class RuleSetValidator
         // ContextRef, not null — its value is filled per check, so its
         // nullability stays a compile-time concern, not a static one.
         if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::NullRowTarget, sprintf(
                 'A can(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
                 $node->schemaKey,
             ));
@@ -593,12 +595,12 @@ final class RuleSetValidator
             return;
         }
 
-        $target = $this->catalog->find($node->schemaKey) ?? throw new InvalidArgumentException(
+        $target = $this->catalog->find($node->schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
             sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
         );
 
         if ($node->isRowBound && ! $target->describesRows()) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::RowTargetOnRowlessSchema, sprintf(
                 'A check(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
                 $node->schemaKey,
                 $node->schemaKey,
@@ -614,7 +616,7 @@ final class RuleSetValidator
         // not null — filled per check — so its nullability stays a compile-time
         // concern, not a static one. (Same as can.)
         if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::NullRowTarget, sprintf(
                 'A check(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
                 $node->schemaKey,
             ));
@@ -659,14 +661,14 @@ final class RuleSetValidator
     {
         // An ability with no name was reported where it was read.
         if ($node->ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($node->ability) === null) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf(
                 'Ability [%s] is not declared by the schema.',
                 $node->ability,
             ));
         }
 
         if ($node->contextMap !== []) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::ContextMapWithoutSchema, sprintf(
                 'A can(%s) reference carries the context it is already in, so it takes no `with` map; '
                     .'name a schema with `for` if you meant to cross to one.',
                 $node->ability,
@@ -674,7 +676,7 @@ final class RuleSetValidator
         }
 
         if ($node->alias !== null) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::AliasWithoutRow, sprintf(
                 'A can(%s) reference selects no rows of its own, so there is nothing for [as %s] to name; '
                     .'name a schema with `for` if you meant to cross to one.',
                 $node->ability,
@@ -698,7 +700,7 @@ final class RuleSetValidator
             return;
         }
 
-        throw new InvalidArgumentException(sprintf(
+        throw new RuleValidationException(DiagnosticCode::AliasWithoutRow, sprintf(
             'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias names '
                 .'nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
             $builtin,
@@ -729,7 +731,7 @@ final class RuleSetValidator
             return;
         }
 
-        throw new InvalidArgumentException(sprintf(
+        throw new RuleValidationException(DiagnosticCode::UnnameableRow, sprintf(
             'A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name one; '
                 .'declare `const key` for the column its rows are identified by, or a matchKey() of its '
                 .'own, or drop the row selector.',
@@ -770,7 +772,7 @@ final class RuleSetValidator
             return;
         }
 
-        throw new InvalidArgumentException(sprintf(
+        throw new RuleValidationException(DiagnosticCode::TooFewArguments, sprintf(
             'A %s(...) reference to schema [%s] supplies %d row-key argument(s), but that schema\'s row '
                 .'key requires at least %d.',
             $builtin,
@@ -805,7 +807,7 @@ final class RuleSetValidator
         $definition = $vocabulary->getConditionDefinition($node->conditionKey);
 
         if ($definition === null) {
-            throw new InvalidArgumentException($predicateOf === null
+            throw new RuleValidationException(DiagnosticCode::UnknownCondition, $predicateOf === null
                 ? sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey)
                 : sprintf(
                     'Condition [%s] is not declared by schema [%s].',
@@ -835,7 +837,7 @@ final class RuleSetValidator
         $supplied = count($node->parameters);
 
         if ($supplied < $required) {
-            throw new InvalidArgumentException(sprintf(
+            throw new RuleValidationException(DiagnosticCode::TooFewArguments, sprintf(
                 'Condition [%s] requires at least %d argument(s), but the rule supplied %d.',
                 $node->conditionKey,
                 $required,
@@ -878,7 +880,11 @@ final class RuleSetValidator
                    is the mistake, and a name bound to nothing is a frame no compile
                    selected here, which is not. A null alias asks about this frame's
                    own rows and is answered without a name at all. */
-                $scope->resolveColumn($argument);
+                try {
+                    $scope->resolveColumn($argument);
+                } catch (InvalidArgumentException $e) {
+                    throw new RuleValidationException(DiagnosticCode::ColumnNotInScope, $e->getMessage(), previous: $e);
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -28,7 +29,7 @@ final class ParseTheyCanAndCannotClauses extends Parser
         $clauses = $this->parseRepeated(new ParseTheyClause);
 
         if ($clauses === []) {
-            $this->report($this->errorAtCurrent("Expected at least one 'they can ...' or 'they cannot ...' clause."));
+            $this->report($this->errorAtCurrent(DiagnosticCode::MissingClause, "Expected at least one 'they can ...' or 'they cannot ...' clause."));
         }
 
         return [

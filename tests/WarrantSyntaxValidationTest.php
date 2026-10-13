@@ -5,6 +5,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\AnalysisResult;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -230,4 +231,15 @@ it('never throws while validating broken text against a schema', function () {
         expect(WarrantParser::analyze($source, $catalog, 'course_sections'))->toBeInstanceOf(AnalysisResult::class);
     }
 });
+
+it('says which kind of mistake each rule the schema cannot accept is', function (string $source, array $codes) {
+    $diagnostics = WarrantParser::analyze($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections')->diagnostics;
+
+    expect(array_map(static fn (Diagnostic $diagnostic): DiagnosticCode => $diagnostic->code, $diagnostics))->toBe($codes);
+})->with([
+    'an unknown condition and ability' => ['if is_teachr they can frobnicate', [DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition]],
+    'an unknown schema' => ['for nowhere { they can view }', [DiagnosticCode::UnknownSchema]],
+    'an unknown schema in a check' => ['if check(is_teacher for nowhere) they can view', [DiagnosticCode::UnknownSchema]],
+    'a column not in scope' => ['if is_teacher(@column nowhere.id) they can view', [DiagnosticCode::ColumnNotInScope]],
+]);
 

@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
@@ -42,6 +43,7 @@ final class ParseForSchemaBlocks extends Parser
 
             if ($this->check(TokenType::FOR) || $this->check(TokenType::LBRACE)) {
                 $this->report($this->errorAtCurrent(
+                    DiagnosticCode::UnbracedBlockBesideAnother,
                     'Multiple rule sets in one source must each be braced, as `for <schema> { ... }`.'
                 ));
 
@@ -59,6 +61,7 @@ final class ParseForSchemaBlocks extends Parser
 
         if (! $this->check(TokenType::EOF)) {
             $this->report($this->errorAtCurrent(
+                DiagnosticCode::BlockWithoutHeader,
                 'Expected `for <schema> { ... }`; every rule set beside a braced one needs a `for` header and braces.'
             ));
 

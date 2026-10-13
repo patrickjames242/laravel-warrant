@@ -21,6 +21,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
@@ -593,6 +594,7 @@ final class RuleSetExpander
             $reason = $e instanceof RuleValidationException ? $e->reason : $e->getMessage();
 
             throw new RuleValidationException(
+                $e instanceof RuleValidationException ? $e->diagnosticCode : DiagnosticCode::InvalidRule,
                 sprintf('%s answered with a mistake: %s', $answeredBy, $reason),
                 $e instanceof RuleValidationException ? $e->position : null,
                 $e,

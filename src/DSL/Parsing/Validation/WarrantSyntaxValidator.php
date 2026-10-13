@@ -14,6 +14,7 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
@@ -86,6 +87,7 @@ final class WarrantSyntaxValidator
             $error instanceof RuleValidationException ? $error->reason : $error->getMessage(),
             $error instanceof RuleValidationException ? ($error->span?->offset ?? 0) : 0,
             $error instanceof RuleValidationException ? ($error->span?->endOffset ?? 0) : 0,
+            $error instanceof RuleValidationException ? $error->diagnosticCode : DiagnosticCode::InvalidRule,
         ), $found);
     }
 
@@ -198,6 +200,7 @@ final class WarrantSyntaxValidator
 
         if ($schema === null) {
             $this->fail(
+                DiagnosticCode::UnknownSchema,
                 sprintf('The `for` header names unknown schema [%s].', $body->schemaKey()),
                 $syntax,
                 $body,
@@ -227,7 +230,7 @@ final class WarrantSyntaxValidator
             $first ??= $binding;
 
             if ($binding->isPositional() !== $first->isPositional()) {
-                $this->fail('Cannot mix named and positional bindings.', $syntax, $binding);
+                $this->fail(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $syntax, $binding);
             }
         }
     }
@@ -235,14 +238,20 @@ final class WarrantSyntaxValidator
     /**
      * Report $reason about $node, or its $part, where $syntax has it written:
      * thrown, or reported while diagnosing.
+     *
+     * @param DiagnosticCode $code Which kind of mistake it is.
+     * @param string $reason What is wrong, in words for the author.
+     * @param WarrantSyntax $syntax The text the mistake is in.
+     * @param object $node The node the mistake is about.
+     * @param string|null $part The part of $node it is about; null for all of it.
      */
-    private function fail(string $reason, WarrantSyntax $syntax, object $node, ?string $part = null): void
+    private function fail(DiagnosticCode $code, string $reason, WarrantSyntax $syntax, object $node, ?string $part = null): void
     {
         $span = $syntax->positions?->spanOf($node, $part);
 
         $error = $span === null || $syntax->source === null
-            ? new InvalidArgumentException($reason)
-            : new RuleValidationException($reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
+            ? new RuleValidationException($code, $reason)
+            : new RuleValidationException($code, $reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
 
         if ($this->report === null) {
             throw $error;

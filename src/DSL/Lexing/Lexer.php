@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Lexing;
 
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -179,6 +180,7 @@ final class Lexer
         $this->pos += strlen($char);
 
         return $this->errorToken(
+            DiagnosticCode::UnexpectedCharacter,
             $this->isValidUtf8($char)
                 ? sprintf('Unexpected character %s.', var_export($char, true))
                 : sprintf('Unexpected byte 0x%02X.', ord($char)),
@@ -197,7 +199,7 @@ final class Lexer
         $this->pos++; // consume ':'
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
-            return $this->errorToken("Expected a binding name after ':'.", $startOffset, $startLine, $startCol);
+            return $this->errorToken(DiagnosticCode::MissingBindingName, "Expected a binding name after ':'.", $startOffset, $startLine, $startCol);
         }
 
         $name = $this->consumeIdentifier();
@@ -231,6 +233,7 @@ final class Lexer
 
         if ($this->pos >= $this->length || ! $this->isIdentifierStart($this->source[$this->pos])) {
             return $this->errorToken(
+                DiagnosticCode::UnknownReference,
                 "Expected 'context', 'column', 'sql', or 'include' after '@'.",
                 $startOffset,
                 $startLine,
@@ -246,6 +249,7 @@ final class Lexer
             'sql' => new Token(TokenType::SQL_REF, '@sql', $startOffset, $startLine, $startCol),
             'include' => new Token(TokenType::INCLUDE_REF, '@include', $startOffset, $startLine, $startCol),
             default => $this->errorToken(
+                DiagnosticCode::UnknownReference,
                 sprintf("Expected 'context', 'column', 'sql', or 'include' after '@', got '%s'.", $word),
                 $startOffset,
                 $startLine,
@@ -334,6 +338,7 @@ final class Lexer
 
                 if ($resolved === null) {
                     $this->report(
+                        DiagnosticCode::InvalidEscape,
                         sprintf(
                             'Invalid escape sequence "\\%s"; only \\\', \\", and \\\\ are allowed.',
                             $this->isValidUtf8($escaped) ? $escaped : sprintf('\\x%02X', ord($escaped)),
@@ -381,7 +386,7 @@ final class Lexer
         $inString = array_slice($this->diagnostics, $diagnosticsBefore, $kept - $diagnosticsBefore);
         $this->diagnostics = array_slice($this->diagnostics, 0, $diagnosticsBefore);
 
-        $this->report('Unterminated string literal.', $startOffset, $startLine, $startCol, $startOffset + 1);
+        $this->report(DiagnosticCode::UnterminatedString, 'Unterminated string literal.', $startOffset, $startLine, $startCol, $startOffset + 1);
 
         array_push($this->diagnostics, ...$inString);
 
@@ -424,7 +429,7 @@ final class Lexer
             $this->pos++;
 
             if ($this->pos >= $this->length || ! $this->isDigit($this->source[$this->pos])) {
-                return $this->errorToken('Expected a digit after "-".', $startOffset, $startLine, $startCol);
+                return $this->errorToken(DiagnosticCode::MalformedNumber, 'Expected a digit after "-".', $startOffset, $startLine, $startCol);
             }
         }
 
@@ -439,6 +444,7 @@ final class Lexer
             // A tolerant scan reads `1.` as the number it plainly is.
             if ($this->pos >= $this->length || ! $this->isDigit($this->source[$this->pos])) {
                 $this->report(
+                    DiagnosticCode::MalformedNumber,
                     'Expected a digit after the decimal point.',
                     $startOffset,
                     $startLine,
@@ -594,27 +600,35 @@ final class Lexer
      * carry on when reading tolerantly. Every error the lexer finds comes through
      * here, so strict and tolerant reading agree on what one is.
      *
+     * @param DiagnosticCode $code Which kind of mistake the error is.
+     * @param string $message What is wrong, in words for the author.
      * @param int $offset 0-based byte offset of the first byte the error covers.
      * @param int $line 1-based line of that byte, for the exception's message.
      * @param int $col 1-based byte column of that byte, for the exception's message.
      * @param int $endOffset Just past the last byte the error covers.
      */
-    private function report(string $message, int $offset, int $line, int $col, int $endOffset): void
+    private function report(DiagnosticCode $code, string $message, int $offset, int $line, int $col, int $endOffset): void
     {
         if (! $this->tolerant) {
-            throw WarrantSyntaxException::atOffset($message, $this->source, $offset, $line, $col);
+            throw WarrantSyntaxException::atOffset($code, $message, $this->source, $offset, $line, $col);
         }
 
-        $this->diagnostics[] = new Diagnostic($message, $offset, $endOffset);
+        $this->diagnostics[] = new Diagnostic($message, $offset, $endOffset, $code);
     }
 
     /**
      * Report an error over the text from $offset to the current position, and
      * make that text an ERROR token.
+     *
+     * @param DiagnosticCode $code Which kind of mistake the error is.
+     * @param string $message What is wrong, in words for the author.
+     * @param int $offset 0-based byte offset where the unreadable text starts.
+     * @param int $line 1-based line of $offset.
+     * @param int $col 1-based byte column of $offset.
      */
-    private function errorToken(string $message, int $offset, int $line, int $col): Token
+    private function errorToken(DiagnosticCode $code, string $message, int $offset, int $line, int $col): Token
     {
-        $this->report($message, $offset, $line, $col, $this->pos);
+        $this->report($code, $message, $offset, $line, $col, $this->pos);
 
         return new Token(TokenType::ERROR, substr($this->source, $offset, $this->pos - $offset), $offset, $line, $col);
     }

@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
@@ -45,7 +46,7 @@ final class ParseRuleEntries extends Parser
         while (! self::ruleEntriesEndHere($this->tokensAhead())) {
             if (! $this->ruleEntryAhead()) {
                 $this->assertNoAbilityListWithoutCanThey();
-                $this->report($this->errorAtCurrent($this->unexpectedToken));
+                $this->report($this->errorAtCurrent(DiagnosticCode::UnexpectedToken, $this->unexpectedToken));
                 $this->skipTo(self::ruleEntriesResumeHere(...));
 
                 continue;

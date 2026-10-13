@@ -1,5 +1,7 @@
 <?php
 
+use Warrant\DSL\Lexing\Token;
+use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
@@ -18,6 +20,8 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\DiagnosticSeverity;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
@@ -409,4 +413,53 @@ it('reads on past a block written where it should not be, and every block after 
         'for docs { they can view } for missing { they can edit }',
     ],
 ]);
+
+it('keeps every token of the text, the comments and the unreadable text included', function () {
+    $tokens = WarrantParser::analyze("if a # mine\nthey can view ~")->tokens;
+
+    expect(array_map(static fn (Token $token): array => [$token->type, $token->lexeme], $tokens))->toBe([
+        [TokenType::IF, 'if'],
+        [TokenType::IDENTIFIER, 'a'],
+        [TokenType::COMMENT, '# mine'],
+        [TokenType::THEY, 'they'],
+        [TokenType::CAN, 'can'],
+        [TokenType::IDENTIFIER, 'view'],
+        [TokenType::ERROR, '~'],
+        [TokenType::EOF, ''],
+    ]);
+});
+
+it('says which kind of mistake each diagnostic is about, and that it is an error', function (string $source, DiagnosticCode $code) {
+    $diagnostics = WarrantParser::analyze($source)->diagnostics;
+
+    expect(array_map(static fn (Diagnostic $diagnostic): DiagnosticCode => $diagnostic->code, $diagnostics))->toBe([$code])
+        ->and($diagnostics[0]->severity)->toBe(DiagnosticSeverity::Error);
+})->with([
+    'a character no token starts with' => ['if a they can view ~', DiagnosticCode::UnexpectedCharacter],
+    'an escape a string does not allow' => ['if a("x\\q") they can view', DiagnosticCode::InvalidEscape],
+    'an unknown word after @' => ['if a(@nope) they can view', DiagnosticCode::UnknownReference],
+    'a token after the end' => ['if a they can view )', DiagnosticCode::UnexpectedToken],
+    'a missing bracket' => ['if can view they can edit', DiagnosticCode::MissingToken],
+    'a reserved word as a name' => ['if they can view', DiagnosticCode::ReservedWordAsName],
+    'a missing name' => ['if check(a for ) they can view', DiagnosticCode::MissingName],
+    'a missing condition' => ['if () they can view', DiagnosticCode::MissingCondition],
+    'a missing argument' => ['if a(1, ) they can view', DiagnosticCode::MissingArgument],
+    'a missing denial message' => ['if a they cannot view because', DiagnosticCode::MissingDenialMessage],
+    'a missing clause' => ['if a they view', DiagnosticCode::MissingClause],
+    'a key written twice' => ['if can(view for docs with org = 1, org = 2) they can edit', DiagnosticCode::DuplicateContextKey],
+    'an ability list with no can they' => ['for docs { view, edit { they can } }', DiagnosticCode::AbilityListWithoutCanThey],
+    'a block with no header' => ['{ they can view }', DiagnosticCode::BlockWithoutHeader],
+    'a block after an unbraced one' => ['for docs they can view for files { they can edit }', DiagnosticCode::UnbracedBlockBesideAnother],
+    'a block after rules with no header' => ['they can view for docs { }', DiagnosticCode::RulesBeforeBlock],
+    'named and positional placeholders' => ['if a(:x, ?) they can view', DiagnosticCode::MixedBindings],
+]);
+
+it('throws the kind of mistake with the error in a strict parse', function () {
+    try {
+        WarrantParser::parse('if a they view');
+    } catch (WarrantSyntaxException $error) {
+    }
+
+    expect($error->diagnosticCode ?? null)->toBe(DiagnosticCode::MissingClause);
+});
 

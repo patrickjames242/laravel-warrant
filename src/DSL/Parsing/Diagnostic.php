@@ -19,11 +19,16 @@ final readonly class Diagnostic
      *   for this error, without its position.
      * @param int $offset 0-based byte offset of the first byte the error covers.
      * @param int $endOffset 0-based byte offset just past the last byte it covers.
+     * @param DiagnosticCode $code Which kind of mistake this is, the same for
+     *   every mistake of the kind whatever the message says.
+     * @param DiagnosticSeverity $severity How serious it is.
      */
     public function __construct(
         public string $message,
         public int $offset,
         public int $endOffset,
+        public DiagnosticCode $code,
+        public DiagnosticSeverity $severity = DiagnosticSeverity::Error,
     ) {
     }
 }

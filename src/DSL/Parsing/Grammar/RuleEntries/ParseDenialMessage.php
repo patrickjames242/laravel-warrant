@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -42,6 +43,7 @@ final class ParseDenialMessage extends Parser
         // A `because` with no message after it is read as giving none.
         if ($message === null) {
             $this->report($this->errorAtCurrent(
+                DiagnosticCode::MissingDenialMessage,
                 "Expected a denial message after 'because': a quoted string or a binding (:name or ?)."
             ));
 

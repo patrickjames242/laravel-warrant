@@ -122,6 +122,7 @@ final class BindingResolver
     {
         if ($standsFor === self::AS_SQL && ! is_string($value)) {
             throw WarrantSyntaxException::atSourceOffset(
+                DiagnosticCode::InvalidBindingValue,
                 sprintf('An @sql binding must resolve to a string, got %s.', get_debug_type($value)),
                 $this->source,
                 $offset,
@@ -130,6 +131,7 @@ final class BindingResolver
 
         if ($standsFor === self::AS_MESSAGE && ! is_string($value) && ! $value instanceof Closure) {
             throw WarrantSyntaxException::atSourceOffset(
+                DiagnosticCode::InvalidBindingValue,
                 sprintf('A denial message must be a string or a closure, got %s.', get_debug_type($value)),
                 $this->source,
                 $offset,

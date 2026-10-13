@@ -6,6 +6,7 @@ use Closure;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -72,7 +73,7 @@ abstract class Parser
         $result = $root->read();
 
         if (! $root->check(TokenType::EOF)) {
-            $root->report($root->errorAtCurrent(self::UNEXPECTED_AFTER_END));
+            $root->report($root->errorAtCurrent(DiagnosticCode::UnexpectedToken, self::UNEXPECTED_AFTER_END));
         }
 
         return $result;
@@ -213,7 +214,7 @@ abstract class Parser
             return;
         }
 
-        $this->report($this->errorAtCurrent($message));
+        $this->report($this->errorAtCurrent(DiagnosticCode::MissingToken, $message));
     }
 
     // -- recording ------------------------------------------------------------
@@ -294,14 +295,27 @@ abstract class Parser
 
     // -- errors ---------------------------------------------------------------
 
-    final protected function errorAt(string $message, Token $token): WarrantSyntaxException
+    /**
+     * The error for a mistake at $token.
+     *
+     * @param DiagnosticCode $code Which kind of mistake it is.
+     * @param string $message What is wrong, in words for the author.
+     * @param Token $token The token the mistake is at.
+     */
+    final protected function errorAt(DiagnosticCode $code, string $message, Token $token): WarrantSyntaxException
     {
-        return WarrantSyntaxException::at($message, $this->state->source, $token);
+        return WarrantSyntaxException::at($code, $message, $this->state->source, $token);
     }
 
-    final protected function errorAtCurrent(string $message): WarrantSyntaxException
+    /**
+     * The error for a mistake at the current token.
+     *
+     * @param DiagnosticCode $code Which kind of mistake it is.
+     * @param string $message What is wrong, in words for the author.
+     */
+    final protected function errorAtCurrent(DiagnosticCode $code, string $message): WarrantSyntaxException
     {
-        return $this->errorAt($message, $this->peek());
+        return $this->errorAt($code, $message, $this->peek());
     }
 
     /**

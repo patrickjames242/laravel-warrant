@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
@@ -149,7 +150,7 @@ final class ParseArgument extends Parser
      */
     private function missingReference(string $message): MissingArgumentNode
     {
-        $this->report($this->errorAtCurrent($message));
+        $this->report($this->errorAtCurrent(DiagnosticCode::MissingArgument, $message));
 
         return new MissingArgumentNode;
     }

@@ -4,6 +4,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseNegation;
 use Warrant\DSL\Parsing\Grammar\ParseSyntax;
@@ -105,7 +106,7 @@ it('reads separated items, and reports an item missing after a separator', funct
             return $this->parseSeparatedList(
                 ParseCondition::class,
                 TokenType::COMMA,
-                fn () => WarrantSyntaxException::atOffset('Missing after a comma.', '', 0, 1, 1),
+                fn () => WarrantSyntaxException::atOffset(DiagnosticCode::MissingArgument, 'Missing after a comma.', '', 0, 1, 1),
             );
         }
     };

@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
@@ -46,7 +47,7 @@ final class ParseForSchemaBlock extends Parser
         $schemaKey = INode::MISSING_NAME;
 
         if ($this->check(TokenType::LBRACE)) {
-            $this->report($this->errorAtCurrent('A `{ ... }` block needs a `for <schema>` header before it.'));
+            $this->report($this->errorAtCurrent(DiagnosticCode::BlockWithoutHeader, 'A `{ ... }` block needs a `for <schema>` header before it.'));
         } else {
             $this->advance(); // consume 'for'
 

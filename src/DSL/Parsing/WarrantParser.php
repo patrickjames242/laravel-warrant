@@ -143,6 +143,6 @@ final class WarrantParser
         $headerlessSchema = $schemaKey === null ? null : $catalog?->find($schemaKey);
         $validator = new WarrantSyntaxValidator($headerlessSchema, $headerlessSchema === null ? null : $schemaKey, $catalog);
 
-        return new AnalysisResult($syntax, [...$state->diagnostics, ...$validator->diagnose($syntax)]);
+        return new AnalysisResult($syntax, [...$state->diagnostics, ...$validator->diagnose($syntax)], $state->scannedTokens);
     }
 }

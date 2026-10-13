@@ -6,6 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -65,7 +66,7 @@ final class ParseWithContextMap extends Parser
                 if ($keep) {
                     $this->part($this->owner::PART_CONTEXT_MAP_KEY, $key, $keyToken);
                 } else {
-                    $this->report($this->errorAt(sprintf("Duplicate key '%s' in the 'with' map.", $key), $keyToken));
+                    $this->report($this->errorAt(DiagnosticCode::DuplicateContextKey, sprintf("Duplicate key '%s' in the 'with' map.", $key), $keyToken));
                 }
             }
 
