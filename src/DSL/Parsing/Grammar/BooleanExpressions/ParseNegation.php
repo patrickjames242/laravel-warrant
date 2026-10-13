@@ -6,6 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * `not <operand>`, written `not` or `!`. It applies to the one operand after
@@ -17,9 +18,9 @@ final class ParseNegation extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::NOT;
+        return $state->nextIs(TokenType::NOT);
     }
 
     protected function read(): NotNode

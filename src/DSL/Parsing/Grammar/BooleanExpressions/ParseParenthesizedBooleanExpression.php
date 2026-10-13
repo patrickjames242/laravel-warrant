@@ -6,6 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A condition expression in parentheses.
@@ -19,9 +20,9 @@ final class ParseParenthesizedBooleanExpression extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::LPAREN;
+        return $state->nextIs(TokenType::LPAREN);
     }
 
     protected function read(): IBooleanExpressionNode

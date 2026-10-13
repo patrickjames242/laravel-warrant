@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * The `cannot <abilities> [because <message>]` of a `they cannot` clause, from
@@ -14,9 +15,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseCannotClause extends Parser
 {
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::CANNOT;
+        return $state->nextIs(TokenType::CANNOT);
     }
 
     protected function read(): CannotClauseNode

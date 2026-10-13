@@ -9,6 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A boolean expression: operands joined by `and` and `or`, where `and` binds
@@ -24,9 +25,9 @@ final class ParseBooleanExpression extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsWith(): ?array
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return ParseBooleanOperand::startsWith();
+        return ParseBooleanOperand::startsHere($state);
     }
 
     protected function read(): IBooleanExpressionNode

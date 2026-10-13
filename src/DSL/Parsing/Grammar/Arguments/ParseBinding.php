@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * One binding: `:name` or `?`. Its value is not read here; it is put in place
@@ -14,9 +15,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseBinding extends Parser
 {
-    protected static function startsWith(): array
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return [TokenType::NAMED_BINDING, TokenType::POSITIONAL];
+        return in_array($state->peek()->type, [TokenType::NAMED_BINDING, TokenType::POSITIONAL], true);
     }
 
     protected function read(): BindingNode

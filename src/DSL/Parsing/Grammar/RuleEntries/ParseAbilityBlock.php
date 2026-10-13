@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * An ability block: `can they <ability>, ... { <rules> }`, whose rules take the
@@ -17,17 +18,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * The block is read as it is written: a header naming no ability, an entry
  * naming its own, or a block inside it are the validator's to report.
  *
- * Read only where `they` follows `can`, as
- * {@see LooksAheadAtRuleEntries::ruleEntryAhead()} tells before an entry is
- * read: `can` alone starts a `can(...)` expression.
- *
  * @extends Parser<AbilityBlockNode>
  */
 final class ParseAbilityBlock extends Parser
 {
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::CAN;
+        // `can` alone starts a `can(...)` expression.
+        return $state->nextIs(TokenType::CAN, TokenType::THEY);
     }
 
     protected function read(): AbilityBlockNode

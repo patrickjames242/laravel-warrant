@@ -12,8 +12,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 /**
  * Reads one piece of the grammar from a {@see ParsingState}.
  *
- * A parser is read only at a token it starts at ({@see startsWith()}), and the
- * text from there is its own: it returns what it read, of any type, null
+ * A parser is read only where it starts ({@see startsHere()}), and the text
+ * from there is its own: it returns what it read, of any type, null
  * included, and a mistake is an exception. Nothing else gets to try, so the
  * error is reported where the mistake is, and nothing read is ever put back.
  *
@@ -36,22 +36,18 @@ abstract class Parser
     abstract protected function read(): mixed;
 
     /**
-     * The token type every parser of this class starts at, or the list of them
-     * when it can start at several, or null when the class cannot say: it may
-     * start at any token, or where it starts depends on what an instance is
-     * constructed with.
+     * Whether a parser of this class starts at the text ahead in $state. True
+     * unless a class says otherwise: one that cannot say may start anywhere, as
+     * may one whose start depends on what an instance is constructed with.
      *
-     * A parser is not read at a token it does not start at: {@see parse()}
-     * answers that it is not here without making it. So {@see read()} need not
-     * check the first token, and the answer holds
-     * every token read() can match at: one it leaves out turns text the parser
-     * reads into a parse error.
-     *
-     * @return TokenType|list<TokenType>|null
+     * A parser is not read where it does not start: {@see parse()} answers that
+     * it is not here without making it. So {@see read()} need not check what it
+     * starts with, and this holds wherever read() can match: a start it misses
+     * turns text the parser reads into a parse error.
      */
-    protected static function startsWith(): TokenType|array|null
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return null;
+        return true;
     }
 
     /**
@@ -73,7 +69,7 @@ abstract class Parser
     }
 
     /**
-     * Read $parser here, if it starts at the current token: a class with no
+     * Read $parser here, if it starts here: a class with no
      * constructor arguments, or an instance.
      *
      * A node $parser returns is recorded as written over what it read, unless
@@ -87,10 +83,7 @@ abstract class Parser
      */
     final protected function parse(string|Parser $parser, bool $record = true): ?Parsed
     {
-        $startsWith = $parser::startsWith();
-        $type = $this->peek()->type;
-
-        if ($startsWith !== null && (is_array($startsWith) ? ! in_array($type, $startsWith, true) : $type !== $startsWith)) {
+        if (! $parser::startsHere($this->state->readonlyState)) {
             return null;
         }
 
@@ -178,7 +171,7 @@ abstract class Parser
      */
     final protected function peekAhead(int $distance = 1): Token
     {
-        return $this->state->tokens[min($this->state->index + $distance, count($this->state->tokens) - 1)];
+        return $this->state->peekAhead($distance);
     }
 
     /**

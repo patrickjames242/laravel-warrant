@@ -48,12 +48,19 @@ final class ParsingState
     private array $recordedAt = [];
 
     /**
+     * This state as {@see Parser::startsHere()} sees it, made once for every
+     * parser that asks.
+     */
+    public readonly ReadonlyParsingState $readonlyState;
+
+    /**
      * @param list<Token> $tokens Ending in the EOF token.
      */
     public function __construct(
         public readonly string $source,
         public readonly array $tokens,
     ) {
+        $this->readonlyState = new ReadonlyParsingState($this);
     }
 
     /**
@@ -92,6 +99,23 @@ final class ParsingState
         }
 
         $this->diagnostics[] = new Diagnostic($error->reason, $error->offset, $endOffset);
+    }
+
+    /**
+     * The token the parse is at.
+     */
+    public function peek(): Token
+    {
+        return $this->tokens[$this->index];
+    }
+
+    /**
+     * The token $distance places past the current one, clamped to the EOF token
+     * that always terminates the stream.
+     */
+    public function peekAhead(int $distance = 1): Token
+    {
+        return $this->tokens[min($this->index + $distance, count($this->tokens) - 1)];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A parenthesized argument list, `(arg, ...)`, with each argument noted as a
@@ -31,9 +32,9 @@ final class ParseArguments extends Parser
     ) {
     }
 
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::LPAREN;
+        return $state->nextIs(TokenType::LPAREN);
     }
 
     /**

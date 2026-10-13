@@ -10,6 +10,7 @@ use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 use Warrant\DSL\Parsing\Positions\SourceEntry;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -132,22 +133,21 @@ it('refuses a part read outside any node', function () {
     expect(fn () => runParser($root, 'a'))->toThrow(LogicException::class, 'Part [conditionKey] was read outside any node.');
 });
 
-it('starts one of several parsers at every token one of them starts at', function () {
-    $conditionOrNegation = new class extends ParseOneOf
+it('starts one of several parsers wherever one of them starts', function (string $source, bool $conditionOrNegation, bool $conditionOrAnything) {
+    $conditionOrNegationParser = new class extends ParseOneOf
     {
         protected static function parsers(): array
         {
             return [ParseCondition::class, ParseNegation::class];
         }
 
-        /** @return list<TokenType>|null */
-        public static function startTokens(): ?array
+        public static function startsAt(ReadonlyParsingState $state): bool
         {
-            return self::startsWith();
+            return self::startsHere($state);
         }
     };
 
-    $conditionOrAnything = new class extends ParseOneOf
+    $conditionOrAnythingParser = new class extends ParseOneOf
     {
         protected static function parsers(): array
         {
@@ -162,23 +162,40 @@ it('starts one of several parsers at every token one of them starts at', functio
             return [ParseCondition::class, $startsAnywhere];
         }
 
-        /** @return list<TokenType>|null */
-        public static function startTokens(): ?array
+        public static function startsAt(ReadonlyParsingState $state): bool
         {
-            return self::startsWith();
+            return self::startsHere($state);
         }
     };
 
-    expect($conditionOrNegation::startTokens())->toBe([TokenType::IDENTIFIER, TokenType::NOT])
-        ->and($conditionOrAnything::startTokens())->toBeNull();
+    $state = ParsingState::forSource($source);
+
+    expect($conditionOrNegationParser::startsAt($state->readonlyState))->toBe($conditionOrNegation)
+        ->and($conditionOrAnythingParser::startsAt($state->readonlyState))->toBe($conditionOrAnything);
+})->with([
+    'a condition' => ['a', true, true],
+    'a negation' => ['not a', true, true],
+    'neither' => ['(a)', false, true],
+]);
+
+it('tells whether the tokens ahead are the ones given, in order', function () {
+    $parsingState = ParsingState::forSource('can they view');
+    $state = $parsingState->readonlyState;
+
+    expect($state->nextIs(TokenType::CAN))->toBeTrue()
+        ->and($state->nextIs(TokenType::THEY))->toBeFalse()
+        ->and($state->nextIs(TokenType::CAN, TokenType::THEY))->toBeTrue()
+        ->and($state->nextIs(TokenType::CAN, TokenType::LPAREN))->toBeFalse()
+        ->and($state->nextIs(TokenType::CAN, TokenType::THEY, TokenType::IDENTIFIER, TokenType::EOF))->toBeTrue()
+        ->and($state->nextIs(TokenType::CAN, TokenType::THEY, TokenType::IDENTIFIER, TokenType::EOF, TokenType::EOF))->toBeTrue();
 });
 
 it('does not read a parser at a token it cannot start at', function () {
     $startsAtAParenthesis = new class extends Parser
     {
-        protected static function startsWith(): TokenType
+        protected static function startsHere(ReadonlyParsingState $state): bool
         {
-            return TokenType::LPAREN;
+            return $state->nextIs(TokenType::LPAREN);
         }
 
         protected function read(): mixed

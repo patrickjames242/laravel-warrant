@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A `with` context map: `with key = arg (, key = arg)*`, which starts at `with`,
@@ -28,9 +29,9 @@ final class ParseWithContextMap extends Parser
     {
     }
 
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::WITH;
+        return $state->nextIs(TokenType::WITH);
     }
 
     /**

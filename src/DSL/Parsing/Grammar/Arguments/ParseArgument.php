@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * One argument: a literal, a binding, or an `@context`, `@column` or `@sql`
@@ -20,9 +21,20 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseArgument extends Parser
 {
-    protected static function startsWith(): array
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return [TokenType::STRING, TokenType::INT, TokenType::FLOAT, TokenType::BOOL, TokenType::NULL, TokenType::NAMED_BINDING, TokenType::POSITIONAL, TokenType::CONTEXT_REF, TokenType::COLUMN_REF, TokenType::SQL_REF];
+        return in_array($state->peek()->type, [
+            TokenType::STRING,
+            TokenType::INT,
+            TokenType::FLOAT,
+            TokenType::BOOL,
+            TokenType::NULL,
+            TokenType::NAMED_BINDING,
+            TokenType::POSITIONAL,
+            TokenType::CONTEXT_REF,
+            TokenType::COLUMN_REF,
+            TokenType::SQL_REF,
+        ], true);
     }
 
     protected function read(): mixed

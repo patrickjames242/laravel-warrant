@@ -6,6 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A cross-schema condition check:
@@ -21,9 +22,9 @@ final class ParseCrossSchemaCondition extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::CHECK;
+        return $state->nextIs(TokenType::CHECK);
     }
 
     protected function read(): CrossSchemaConditionNode

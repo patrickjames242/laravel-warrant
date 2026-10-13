@@ -6,6 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Parsers\Parser;
+use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
 
 /**
  * A condition: its name, and its arguments when it is written with
@@ -15,9 +16,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  */
 final class ParseCondition extends Parser
 {
-    protected static function startsWith(): TokenType
+    protected static function startsHere(ReadonlyParsingState $state): bool
     {
-        return TokenType::IDENTIFIER;
+        return $state->nextIs(TokenType::IDENTIFIER);
     }
 
     protected function read(): ConditionNode
