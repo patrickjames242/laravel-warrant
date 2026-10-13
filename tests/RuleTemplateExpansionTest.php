@@ -9,9 +9,13 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
@@ -629,6 +633,42 @@ it('rejects an unknown template from rule text, before anything is expanded', fu
 it('rejects too few include arguments from rule text', function () {
     expect(fn () => validateSyntax("@include needs_two('a') for view"))
         ->toThrow(InvalidArgumentException::class, 'requires 2 argument(s), but the @include supplies 1');
+});
+
+it('reports an unknown template over its name, and too few arguments over the include, in an analysis', function () {
+    $source = "for course_sections {\n  @include nope for view\n  can they view { @include needs_two('a') }\n}";
+    $catalog = new class implements SchemaCatalog
+    {
+        public function find(string $schemaKey): ?SchemaVocabulary
+        {
+            return $schemaKey === 'course_sections' ? new TemplateExpansionSchema : null;
+        }
+    };
+
+    $diagnostics = WarrantParser::analyze($source, $catalog)->diagnostics;
+
+    expect(array_map(
+        static fn ($diagnostic): array => [$diagnostic->code, substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset)],
+        $diagnostics,
+    ))->toBe([
+        [DiagnosticCode::UnknownTemplate, 'nope'],
+        [DiagnosticCode::TooFewArguments, "@include needs_two('a')"],
+    ]);
+});
+
+it('rejects an unknown template and too few arguments in the expansion with the same codes', function () {
+    $codeOf = static function (string $syntax): ?DiagnosticCode {
+        try {
+            expandSyntax($syntax);
+        } catch (RuleValidationException $error) {
+            return $error->diagnosticCode;
+        }
+
+        return null;
+    };
+
+    expect($codeOf('@include nope for view'))->toBe(DiagnosticCode::UnknownTemplate)
+        ->and($codeOf("@include needs_two('a') for view"))->toBe(DiagnosticCode::TooFewArguments);
 });
 
 it('rejects an undeclared ability in an include for list', function () {

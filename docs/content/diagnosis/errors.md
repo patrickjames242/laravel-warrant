@@ -82,6 +82,8 @@ The rule text targets schema [documents] in its `for` header but was scoped to [
 - `Ability [%s] is not declared by the schema.`
 - `Condition [%s] is not declared by the schema.`
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
+- `Schema [%s] declares no rule template [%s], named by an @include.`
+- `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
 
 Context keys need no declaration to be referenced, so there is no unknown-context-key
 error.
@@ -197,8 +199,8 @@ An *optional* key that is absent does not throw. It is passed to its condition a
 Thrown while a rule set is expanded, by the guard before its first check and by
 `validate()`:
 
-- `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.`
-- `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
+- `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.` Validation reports the same as written, before anything is expanded.
+- `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` Validation reports the same as written, too.
 - `RuntimeException`: `Rule template [%s::%s] must answer with rule text, a Warrant\DSL\Parsing\ASTNodes\WarrantSyntax, a rule or @include that names no abilities, or an iterable of them; got %s.`
 - `RuntimeException`: `Rule template [%s::%s] answered with a rule that names abilities; the @include that expands a template names the abilities its rules and includes take.` (or `an @include that names abilities`)
 - `RuntimeException`: `Rule template [%s::%s] answered with a rule set, which names abilities; ...` (or `an ability block`)

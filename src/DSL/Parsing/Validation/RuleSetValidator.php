@@ -147,9 +147,10 @@ final class RuleSetValidator
      *
      * Those abilities are checked here, where they are written, because the
      * expansion only carries them on the rules they end up on, and an empty block
-     * or a template with an empty body puts them on none. An include naming a
-     * template the schema does not declare, or giving it too few arguments, is the
-     * expansion's to reject.
+     * or a template with an empty body puts them on none. So is an include naming
+     * a template the schema does not declare, or giving it too few arguments,
+     * which the expansion rejects the same way before it asks the template for
+     * anything.
      */
     public function validateWritten(RuleSetNode $ruleSet): void
     {
@@ -182,6 +183,7 @@ final class RuleSetValidator
                 }
 
                 $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
+                $this->assertTemplateDeclared($entry);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ($ruleSetKey === null ? [] : [...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities === []) {
@@ -220,6 +222,8 @@ final class RuleSetValidator
                         0,
                     );
                 }
+
+                $this->assertTemplateDeclared($entry);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities !== []) {
@@ -267,6 +271,44 @@ final class RuleSetValidator
                     $this->fail(new RuleValidationException(DiagnosticCode::AbilityNamingDisagrees, LanguageRuleMessages::namingDisagrees($what, $names)), $node);
                 }
             }
+        }
+    }
+
+    /**
+     * An include names a template the schema declares, and gives it at least the
+     * arguments the template requires. With no schema there is nothing to look
+     * the template up in, and a name the text is missing was reported where it
+     * was read.
+     *
+     * @param IncludeInvocationNode $include The include.
+     */
+    private function assertTemplateDeclared(IncludeInvocationNode $include): void
+    {
+        if ($this->schema === null || $this->schemaKey === null || $include->templateKey === INode::MISSING_NAME) {
+            return;
+        }
+
+        $definition = $this->schema->getRuleTemplateDefinition($include->templateKey);
+
+        if ($definition === null) {
+            $this->fail(
+                new RuleValidationException(DiagnosticCode::UnknownTemplate, LanguageRuleMessages::unknownTemplate($this->schemaKey, $include->templateKey)),
+                $include,
+                IncludeInvocationNode::PART_TEMPLATE_KEY,
+            );
+
+            return;
+        }
+
+        if (count($include->arguments) < $definition->requiredArgumentCount) {
+            $this->fail(
+                new RuleValidationException(DiagnosticCode::TooFewArguments, LanguageRuleMessages::tooFewTemplateArguments(
+                    $include->templateKey,
+                    $definition->requiredArgumentCount,
+                    count($include->arguments),
+                )),
+                $include,
+            );
         }
     }
 

@@ -8,8 +8,9 @@ use Warrant\LanguageServer\Positions\SlotKind;
 use Warrant\LanguageServer\Workspace;
 
 /**
- * Quick fixes for the diagnostics the editor shows: for a schema, ability or
- * condition name that is not declared, the declared names closest to it.
+ * Quick fixes for the diagnostics the editor shows: for a schema, ability,
+ * condition or template name that is not declared, the declared names closest
+ * to it.
  */
 final class CodeActions
 {
@@ -32,7 +33,7 @@ final class CodeActions
         foreach ($context['diagnostics'] ?? [] as $diagnostic) {
             $code = DiagnosticCode::tryFrom((string) ($diagnostic['code'] ?? ''));
 
-            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition], true)) {
+            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition, DiagnosticCode::UnknownTemplate], true)) {
                 continue;
             }
 
@@ -86,6 +87,7 @@ final class CodeActions
             $schema === null => [],
             $context->slot === SlotKind::Ability => array_map('strval', array_keys($schema->abilities)),
             $context->slot === SlotKind::Condition => array_map('strval', array_keys($schema->conditions)),
+            $context->slot === SlotKind::Template => array_map('strval', array_keys($schema->templates)),
             default => [],
         };
     }

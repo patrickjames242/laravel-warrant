@@ -9,6 +9,8 @@ use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
+use Warrant\Facades\Warrant;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 /**
  * The documents users write and share.
@@ -44,9 +46,9 @@ class DocumentSchema extends BaseSchema
     }
 
     #[DerivedCondition]
-    public function ownerOrTeam(mixed $team): string
+    public function ownerOrTeam(mixed $team): WarrantSyntax
     {
-        return 'is_owner or in_team(:team)';
+        return Warrant::parse('is_owner or in_team(:team)', ['team' => $team]);
     }
 
     /**
@@ -56,7 +58,7 @@ class DocumentSchema extends BaseSchema
     public function ownerEdits(): string
     {
         return <<<'WARRANT'
-            if is_owner they can edit
+            if is_owner they can
             WARRANT;
     }
 
@@ -66,5 +68,11 @@ class DocumentSchema extends BaseSchema
             if is_owner they can view, edti
             if can(view for folders(@context folder)) they can view
             WARRANT;
+    }
+
+    #[RuleTemplate]
+    public function sharedWith(mixed $team): WarrantSyntax
+    {
+        return Warrant::parse('if in_team(:team) they can', ['team' => $team]);
     }
 }

@@ -615,20 +615,21 @@ final class RuleSetExpander
         $definition = $schema->getRuleTemplateDefinition($include->templateKey);
 
         if ($definition === null) {
-            throw new InvalidArgumentException(sprintf(
-                'Schema [%s] declares no rule template [%s], named by an @include.',
-                $schemaKey,
-                $include->templateKey,
-            ));
+            throw new RuleValidationException(
+                DiagnosticCode::UnknownTemplate,
+                LanguageRuleMessages::unknownTemplate($schemaKey, $include->templateKey),
+            );
         }
 
         if (count($include->arguments) < $definition->requiredArgumentCount) {
-            throw new InvalidArgumentException(sprintf(
-                'Rule template [%s] requires %d argument(s), but the @include supplies %d.',
-                $include->templateKey,
-                $definition->requiredArgumentCount,
-                count($include->arguments),
-            ));
+            throw new RuleValidationException(
+                DiagnosticCode::TooFewArguments,
+                LanguageRuleMessages::tooFewTemplateArguments(
+                    $include->templateKey,
+                    $definition->requiredArgumentCount,
+                    count($include->arguments),
+                ),
+            );
         }
 
         return $definition;

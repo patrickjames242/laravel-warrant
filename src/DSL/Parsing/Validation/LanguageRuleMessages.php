@@ -5,12 +5,38 @@ namespace Warrant\DSL\Parsing\Validation;
 /**
  * The words for a rule of the language broken by text the parser can read: an
  * entry naming its abilities where it may not, or naming none where it must; a
- * denial message where none belongs, or one that cannot be one. The validator
- * reports these against rule text, and the expander rejects the same in any
- * rule set that reaches it, so both say them here, in one way.
+ * denial message where none belongs, or one that cannot be one; an `@include`
+ * naming a template the schema does not declare, or giving it too few
+ * arguments. The validator reports these against rule text, and the expander
+ * rejects the same in any rule set that reaches it, so both say them here, in
+ * one way.
  */
 final class LanguageRuleMessages
 {
+    /**
+     * @param string $schemaKey The schema the `@include` is written for.
+     * @param string $templateKey The template it names.
+     */
+    public static function unknownTemplate(string $schemaKey, string $templateKey): string
+    {
+        return sprintf('Schema [%s] declares no rule template [%s], named by an @include.', $schemaKey, $templateKey);
+    }
+
+    /**
+     * @param string $templateKey The template the `@include` names.
+     * @param int $required How many arguments the template requires.
+     * @param int $supplied How many the `@include` gives it.
+     */
+    public static function tooFewTemplateArguments(string $templateKey, int $required, int $supplied): string
+    {
+        return sprintf(
+            'Rule template [%s] requires %d argument(s), but the @include supplies %d.',
+            $templateKey,
+            $required,
+            $supplied,
+        );
+    }
+
     public static function blockNamesNone(): string
     {
         return 'An ability block names at least one ability.';

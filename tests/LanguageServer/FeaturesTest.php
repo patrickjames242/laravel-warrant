@@ -87,7 +87,7 @@ it('offers what belongs at the cursor, from the schema in scope', function () {
     expect(completionLabels('for documents { they can | }'))->toBe(['view', 'edit', 'archive', '*'])
         ->and(completionLabels('for documents { if is_| }'))->toContain('is_owner', 'in_team', 'can(', 'check(')
         ->and(completionLabels('for documents { if can(view for | }'))->toBe(['documents', 'folders', 'billing'])
-        ->and(completionLabels('for documents { @include | }'))->toBe(['owner_edits'])
+        ->and(completionLabels('for documents { @include | }'))->toBe(['owner_edits', 'shared_with'])
         ->and(completionLabels('for documents { if a(@context |) they can view }'))->toBe(['org'])
         ->and(completionLabels('for documents { if check(| for folders(1, 2)) they can view }'))->toContain('is_shared')
         ->and(completionLabels('for documents { if a | }'))->toBe(['and', 'or', 'they'])
@@ -116,6 +116,19 @@ it('offers the closest declared names for one that is not declared', function ()
     $titles = array_column(CodeActions::for($workspace, $document, ['diagnostics' => $diagnostics]), 'title');
 
     expect($titles)->toBe(["Change to 'view'", "Change to 'is_owner'"]);
+});
+
+it('reports an include naming a template that is not declared, or giving it too few arguments', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n  can they edit { @include ownr_edits }\n  @include shared_with for view\n}");
+    $diagnostics = Diagnostics::of($workspace, $document);
+
+    expect(array_column($diagnostics, 'code'))->toBe(['unknown-template', 'too-few-arguments'])
+        ->and($diagnostics[0]['range'])->toBe([
+            'start' => ['line' => 1, 'character' => 27],
+            'end' => ['line' => 1, 'character' => 37],
+        ])
+        ->and(array_column(CodeActions::for($workspace, $document, ['diagnostics' => [$diagnostics[0]]]), 'title'))
+        ->toBe(["Change to 'owner_edits'"]);
 });
 
 it('outlines blocks, rules and includes as they nest', function () {

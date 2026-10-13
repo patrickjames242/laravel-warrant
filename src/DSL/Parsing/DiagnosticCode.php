@@ -122,7 +122,10 @@ enum DiagnosticCode: string
     /** A condition the schema does not declare. */
     case UnknownCondition = 'unknown-condition';
 
-    /** Fewer arguments than a condition, or a schema's row key, needs. */
+    /** A rule template the schema does not declare, named by an `@include`. */
+    case UnknownTemplate = 'unknown-template';
+
+    /** Fewer arguments than a condition, a rule template, or a schema's row key, needs. */
     case TooFewArguments = 'too-few-arguments';
 
     /** A `@column` reference naming a frame that is not in scope where it is written. */

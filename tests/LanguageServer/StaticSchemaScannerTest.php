@@ -45,13 +45,14 @@ it('reads conditions from methods, their own and their traits\', with their keys
         ->and($documents->conditions['in_team']->parameters)->toBe(['team', 'role'])
         ->and($documents->getConditionDefinition('owner_or_team')->requiredArgumentCount)->toBe(1)
         ->and($documents->conditions['is_owner']->description)->toBe('Whether the user wrote the document.')
-        ->and($documents->conditions['is_owner']->line)->toBe(35);
+        ->and($documents->conditions['is_owner']->line)->toBe(37);
 });
 
 it('reads templates, required context, and whether and how rows are named', function () {
     $vocabulary = fixtureVocabulary();
 
-    expect(array_keys($vocabulary->find('documents')->templates))->toBe(['owner_edits'])
+    expect(array_keys($vocabulary->find('documents')->templates))->toBe(['owner_edits', 'shared_with'])
+        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->requiredArgumentCount)->toBe(1)
         ->and($vocabulary->find('documents')->requiredContextKeys)->toBe(['org'])
         ->and($vocabulary->find('documents')->contextKeys())->toBe(['org'])
         ->and($vocabulary->find('folders')->keyArgumentCount)->toBe(2)
@@ -82,6 +83,6 @@ it('merges the application\'s reading over the reading from source, keeping loca
     $merged = VocabularyIndex::merge($fromApplication, $fromSource);
 
     expect(array_keys($merged->find('documents')->abilities))->toBe(['view', 'publish'])
-        ->and($merged->find('documents')->conditions['is_owner']->line)->toBe(35)
+        ->and($merged->find('documents')->conditions['is_owner']->line)->toBe(37)
         ->and($merged->find('folders'))->not->toBeNull();
 });
