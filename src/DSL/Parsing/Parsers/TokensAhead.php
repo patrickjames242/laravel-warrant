@@ -7,16 +7,16 @@ use Warrant\DSL\Lexing\TokenType;
 use WeakReference;
 
 /**
- * A {@see ParsingState} that can be looked at but not changed: the text ahead
- * can be read, but the parse cannot be moved through it and nothing can be
- * recorded. It is what {@see Parser::startsHere()} is given, so deciding whether
- * a parser starts here cannot read anything.
+ * The tokens ahead of where a {@see ParsingState} is: they can be looked at, but
+ * the parse cannot be moved through them and nothing can be recorded. They are
+ * what {@see Parser::startsHere()} is given, so deciding whether a parser starts
+ * here cannot read anything.
  *
- * The state is held weakly. The state holds this view, so a strong reference
- * back would make a cycle, and every parse's state, tokens and records would
- * then outlive it until the cycle collector ran.
+ * The state is held weakly. The state holds this, so a strong reference back
+ * would make a cycle, and every parse's state, tokens and records would then
+ * outlive it until the cycle collector ran.
  */
-final class ReadonlyParsingState
+final class TokensAhead
 {
     /** @var WeakReference<ParsingState> */
     private readonly WeakReference $state;

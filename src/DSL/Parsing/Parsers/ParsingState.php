@@ -48,10 +48,10 @@ final class ParsingState
     private array $recordedAt = [];
 
     /**
-     * This state as {@see Parser::startsHere()} sees it, made once for every
-     * parser that asks.
+     * The tokens ahead of this state, as {@see Parser::startsHere()} is given
+     * them, made once for every parser that asks.
      */
-    public readonly ReadonlyParsingState $readonlyState;
+    public readonly TokensAhead $tokensAhead;
 
     /**
      * @param list<Token> $tokens Ending in the EOF token.
@@ -60,7 +60,7 @@ final class ParsingState
         public readonly string $source,
         public readonly array $tokens,
     ) {
-        $this->readonlyState = new ReadonlyParsingState($this);
+        $this->tokensAhead = new TokensAhead($this);
     }
 
     /**

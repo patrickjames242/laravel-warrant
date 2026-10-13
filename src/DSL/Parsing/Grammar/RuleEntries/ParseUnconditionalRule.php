@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * A rule with no `if`: a run of `they can` / `they cannot` clauses, which form
@@ -15,9 +15,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseUnconditionalRule extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::THEY);
+        return $ahead->nextIs(TokenType::THEY);
     }
 
     protected function read(): WarrantRuleNode

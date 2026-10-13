@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * One argument: a literal, a binding, or an `@context`, `@column` or `@sql`
@@ -21,9 +21,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseArgument extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return in_array($state->peek()->type, [
+        return in_array($ahead->peek()->type, [
             TokenType::STRING,
             TokenType::INT,
             TokenType::FLOAT,

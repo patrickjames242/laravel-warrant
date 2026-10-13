@@ -6,7 +6,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * An ability check: `can(<ability>)`, or
@@ -21,9 +21,9 @@ final class ParseCrossSchemaCan extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::CAN);
+        return $ahead->nextIs(TokenType::CAN);
     }
 
     protected function read(): CrossSchemaCanNode

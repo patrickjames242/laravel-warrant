@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 use Warrant\DSL\Parsing\Positions\SourceEntry;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -141,9 +141,9 @@ it('starts one of several parsers wherever one of them starts', function (string
             return [ParseCondition::class, ParseNegation::class];
         }
 
-        public static function startsAt(ReadonlyParsingState $state): bool
+        public static function startsAt(TokensAhead $ahead): bool
         {
-            return self::startsHere($state);
+            return self::startsHere($ahead);
         }
     };
 
@@ -162,16 +162,16 @@ it('starts one of several parsers wherever one of them starts', function (string
             return [ParseCondition::class, $startsAnywhere];
         }
 
-        public static function startsAt(ReadonlyParsingState $state): bool
+        public static function startsAt(TokensAhead $ahead): bool
         {
-            return self::startsHere($state);
+            return self::startsHere($ahead);
         }
     };
 
     $state = ParsingState::forSource($source);
 
-    expect($conditionOrNegationParser::startsAt($state->readonlyState))->toBe($conditionOrNegation)
-        ->and($conditionOrAnythingParser::startsAt($state->readonlyState))->toBe($conditionOrAnything);
+    expect($conditionOrNegationParser::startsAt($state->tokensAhead))->toBe($conditionOrNegation)
+        ->and($conditionOrAnythingParser::startsAt($state->tokensAhead))->toBe($conditionOrAnything);
 })->with([
     'a condition' => ['a', true, true],
     'a negation' => ['not a', true, true],
@@ -180,7 +180,7 @@ it('starts one of several parsers wherever one of them starts', function (string
 
 it('tells whether the tokens ahead are the ones given, in order', function () {
     $parsingState = ParsingState::forSource('can they view');
-    $state = $parsingState->readonlyState;
+    $state = $parsingState->tokensAhead;
 
     expect($state->nextIs(TokenType::CAN))->toBeTrue()
         ->and($state->nextIs(TokenType::THEY))->toBeFalse()
@@ -193,7 +193,7 @@ it('tells whether the tokens ahead are the ones given, in order', function () {
 it('does not read a parser at a token it cannot start at', function () {
     $startsAtAParenthesis = new class extends Parser
     {
-        protected static function startsHere(ReadonlyParsingState $state): bool
+        protected static function startsHere(TokensAhead $state): bool
         {
             return $state->nextIs(TokenType::LPAREN);
         }

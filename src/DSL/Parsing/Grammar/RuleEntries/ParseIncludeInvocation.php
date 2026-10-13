@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * An `@include`: the template to expand, its arguments, and the abilities the
@@ -23,9 +23,9 @@ final class ParseIncludeInvocation extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::INCLUDE_REF);
+        return $ahead->nextIs(TokenType::INCLUDE_REF);
     }
 
     protected function read(): IncludeInvocationNode

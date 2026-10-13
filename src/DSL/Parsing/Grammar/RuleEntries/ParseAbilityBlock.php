@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * An ability block: `can they <ability>, ... { <rules> }`, whose rules take the
@@ -22,10 +22,10 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseAbilityBlock extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
         // `can` alone starts a `can(...)` expression.
-        return $state->nextIs(TokenType::CAN, TokenType::THEY);
+        return $ahead->nextIs(TokenType::CAN, TokenType::THEY);
     }
 
     protected function read(): AbilityBlockNode

@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * The `can <abilities>` of a `they can` clause, from the `can` on.
@@ -14,9 +14,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseCanClause extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::CAN);
+        return $ahead->nextIs(TokenType::CAN);
     }
 
     protected function read(): CanClauseNode

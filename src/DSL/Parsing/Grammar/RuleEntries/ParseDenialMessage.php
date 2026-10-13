@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArgument;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * The denial message after `because`, from the `because` on, noted as the
@@ -27,9 +27,9 @@ final class ParseDenialMessage extends Parser
     {
     }
 
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::BECAUSE);
+        return $ahead->nextIs(TokenType::BECAUSE);
     }
 
     protected function read(): mixed

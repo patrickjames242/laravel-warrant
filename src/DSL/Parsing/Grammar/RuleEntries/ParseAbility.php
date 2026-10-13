@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * One ability: a name, or `*` for every ability.
@@ -13,9 +13,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseAbility extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return in_array($state->peek()->type, [TokenType::STAR, TokenType::IDENTIFIER], true);
+        return in_array($ahead->peek()->type, [TokenType::STAR, TokenType::IDENTIFIER], true);
     }
 
     protected function read(): string

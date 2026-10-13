@@ -24,10 +24,10 @@ abstract class ParseOneOf extends Parser
     /**
      * Whether one of the parsers starts here.
      */
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
         foreach (static::parsers() as $parser) {
-            if ($parser::startsHere($state)) {
+            if ($parser::startsHere($ahead)) {
                 return true;
             }
         }

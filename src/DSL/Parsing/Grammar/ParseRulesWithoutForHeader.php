@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntry;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * Rule entries written with no `for` header, running to the end of the input.
@@ -20,9 +20,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseRulesWithoutForHeader extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return ParseRuleEntry::startsHere($state);
+        return ParseRuleEntry::startsHere($ahead);
     }
 
     /**

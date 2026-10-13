@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * A `for <schema>` header and the body it scopes, braced as
@@ -32,9 +32,9 @@ final class ParseForSchemaBlock extends Parser
     {
     }
 
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::FOR);
+        return $ahead->nextIs(TokenType::FOR);
     }
 
     protected function read(): ISchemaScopedNode

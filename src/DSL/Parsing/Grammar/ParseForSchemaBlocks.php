@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * The `for <schema>` blocks of a text: one unbraced block running to the end of
@@ -21,9 +21,9 @@ use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
  */
 final class ParseForSchemaBlocks extends Parser
 {
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::FOR);
+        return $ahead->nextIs(TokenType::FOR);
     }
 
     /**

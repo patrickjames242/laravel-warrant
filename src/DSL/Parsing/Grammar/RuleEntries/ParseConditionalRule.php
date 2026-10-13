@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
-use Warrant\DSL\Parsing\Parsers\ReadonlyParsingState;
+use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * A rule with a condition: `if <boolean expression>` and then the
@@ -19,9 +19,9 @@ final class ParseConditionalRule extends Parser
 {
     use ReportsMissingSyntax;
 
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
-        return $state->nextIs(TokenType::IF);
+        return $ahead->nextIs(TokenType::IF);
     }
 
     protected function read(): WarrantRuleNode

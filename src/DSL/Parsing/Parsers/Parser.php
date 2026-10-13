@@ -36,7 +36,7 @@ abstract class Parser
     abstract protected function read(): mixed;
 
     /**
-     * Whether a parser of this class starts at the text ahead in $state. True
+     * Whether a parser of this class starts at the tokens $ahead. True
      * unless a class says otherwise: one that cannot say may start anywhere, as
      * may one whose start depends on what an instance is constructed with.
      *
@@ -45,7 +45,7 @@ abstract class Parser
      * starts with, and this holds wherever read() can match: a start it misses
      * turns text the parser reads into a parse error.
      */
-    protected static function startsHere(ReadonlyParsingState $state): bool
+    protected static function startsHere(TokensAhead $ahead): bool
     {
         return true;
     }
@@ -83,7 +83,7 @@ abstract class Parser
      */
     final protected function parse(string|Parser $parser, bool $record = true): ?Parsed
     {
-        if (! $parser::startsHere($this->state->readonlyState)) {
+        if (! $parser::startsHere($this->state->tokensAhead)) {
             return null;
         }
 
