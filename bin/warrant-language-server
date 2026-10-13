@@ -1,0 +1,38 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * The Warrant language server. An editor runs this with no arguments and talks
+ * to it over standard input and output. It loads Composer's autoloader and
+ * nothing of the application.
+ *
+ * Given `--vocabulary <root>`, it instead boots the Laravel application at
+ * <root>, writes its schemas as JSON and exits: the server runs itself this way,
+ * in a child process, to read the schemas exactly.
+ */
+
+$autoload = $GLOBALS['_composer_autoload_path'] ?? null;
+
+foreach ([$autoload, __DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $candidate) {
+    if (is_string($candidate) && is_file($candidate)) {
+        require $candidate;
+        break;
+    }
+}
+
+if (! class_exists(Warrant\LanguageServer\Protocol\Server::class)) {
+    fwrite(STDERR, "The Warrant language server could not find Composer's autoloader.\n");
+    exit(1);
+}
+
+if (($argv[1] ?? null) === '--vocabulary') {
+    exit(Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader::dump((string) ($argv[2] ?? getcwd())));
+}
+
+ini_set('display_errors', 'stderr');
+error_reporting(E_ALL & ~E_DEPRECATED);
+
+exit((new Warrant\LanguageServer\Protocol\Server(
+    new Warrant\LanguageServer\Protocol\StdioTransport(STDIN, STDOUT),
+    __FILE__,
+))->run());

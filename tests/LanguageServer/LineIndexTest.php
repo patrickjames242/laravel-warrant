@@ -1,7 +1,7 @@
 <?php
 
-use Warrant\DSL\Parsing\Positions\LineIndex;
-use Warrant\DSL\Parsing\Positions\LinePosition;
+use Warrant\LanguageServer\Positions\LineIndex;
+use Warrant\LanguageServer\Positions\LinePosition;
 
 /**
  * The position of each offset in $offsets, as [line, character] pairs.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.0
+
+- Start the Warrant language server, which brings diagnostics, hover, completion,
+  go to definition, document symbols and quick fixes to `.warrant` files and to
+  the Warrant inside PHP files. The server script is found in
+  `vendor/bin/warrant-language-server` (or set with
+  `warrant.languageServer.path`) and run with PHP.
+- Add the settings `warrant.languageServer.enabled`,
+  `warrant.languageServer.path`, `warrant.languageServer.phpPath` and
+  `warrant.vocabulary`, the **Warrant: Restart Language Server** command, and the
+  **Warrant Language Server** output channel.
+- In an untrusted workspace, offer highlighting only and do not start the server.
+- Require VS Code 1.82 or later.
+
 ## 0.9.0
 
 - Highlight Warrant inside PHP wherever rule text is expected: the first argument

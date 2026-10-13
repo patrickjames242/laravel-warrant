@@ -13,15 +13,18 @@ in sync.
 
 ## What each editor has
 
-| Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | SQL inside `@sql` |
-|---|---|---|---|---|---|
-| [VS Code](/editors/vscode/) | yes | yes | yes | no | no |
-| [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | no |
-| [Zed](/editors/zed/) | yes | yes | no | no | yes, with a SQL extension |
-| Sublime Text | yes | no | no | no | no |
+| Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | SQL inside `@sql` | Language server |
+|---|---|---|---|---|---|---|
+| [VS Code](/editors/vscode/) | yes | yes | yes | no | no | yes |
+| [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | no | yes, 2024.2 or later |
+| [Zed](/editors/zed/) | yes | yes | no | no | yes, with a SQL extension | no |
+| Sublime Text | yes | no | no | no | no | through an LSP client |
 
-Highlighting is step one. Diagnostics, hover, and completion are
-[on the roadmap](/roadmap/planned/).
+The columns up to `@sql` are highlighting. The [language server](/editors/language-server/)
+adds diagnostics, hover, completion and go-to-definition, checked against your
+schemas, in `.warrant` files and in rule text inside PHP alike. With the language
+server, rule text returned from a method is checked in every editor, even where it
+is not highlighted.
 
 ## Two grammars
 

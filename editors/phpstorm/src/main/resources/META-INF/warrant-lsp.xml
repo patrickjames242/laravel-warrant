@@ -1,0 +1,33 @@
+<!-- The language-server client. Loaded only in IDEs that ship the IntelliJ
+     Platform LSP API, which PhpStorm 2024.2 and later provide as part of the
+     com.intellij.modules.ultimate module (see plugin.xml). -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <platform.lsp.serverSupportProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantLspServerSupportProvider"/>
+
+        <projectService
+            serviceImplementation="com.warrant.phpstorm.lsp.WarrantSettings"/>
+
+        <projectConfigurable
+            parentId="language"
+            id="com.warrant.phpstorm.settings"
+            displayName="Warrant"
+            nonDefaultProject="true"
+            instance="com.warrant.phpstorm.lsp.WarrantSettingsConfigurable"/>
+
+        <notificationGroup
+            id="Warrant"
+            displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action
+            id="Warrant.RestartLanguageServer"
+            class="com.warrant.phpstorm.lsp.RestartWarrantLanguageServerAction"
+            text="Restart Warrant Language Server"
+            description="Stop the Warrant language server and start it again">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

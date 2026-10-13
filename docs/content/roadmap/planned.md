@@ -46,23 +46,12 @@ its scope while clauses at an outer level can override it. The design lives in
 
 Status: **design**, not implemented.
 
-## A language server
+## The language server in Zed
 
-The [editor tooling](/editors/overview/) today is syntax highlighting. A TextMate
-grammar and a tree-sitter grammar are both lexers, so neither can know whether
-`is_mne` is a real condition on this schema.
+The [language server](/editors/language-server/) runs in VS Code and PhpStorm. Zed
+speaks LSP natively, but its extension does not start the server yet.
 
-The planned answer is a language server reusing this repository's own PHP parser,
-giving live syntax diagnostics, hover, and completion of condition and ability
-names, for `.warrant` files and `WARRANT` heredocs alike. One server, serving a VS
-Code extension, a native PhpStorm plugin, and Zed, which speaks LSP natively.
-
-It also stops the language being written down twice, which is the current cost of
-supporting both TextMate and tree-sitter.
-
-The design lives in `specs/language-server.md`.
-
-Status: **design**, with the highlighting step shipped.
+Status: **planned**.
 
 ## Until then
 
@@ -70,6 +59,5 @@ For the scopes gap, write exceptions into the denial with `and not`, and keep
 absolute denials in [`rules()`](/schemas/schema-policy/) where nothing can
 edit around them.
 
-For the language-server gap, run
-[`validate()`](/supplying-rules/validation/) in CI over every stored rule, which
-catches the same class of mistake a few seconds later.
+For rules the language server does not see, such as rows in a database, run
+[`validate()`](/supplying-rules/validation/) in CI over every stored rule.

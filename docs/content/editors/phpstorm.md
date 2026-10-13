@@ -4,7 +4,7 @@ banner:
 title: PhpStorm
 description: Installing the plugin, and where it highlights rule text.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 PhpStorm has a native plugin, in `editors/phpstorm/` in the repository. It
@@ -79,25 +79,24 @@ rule text, which the [VS Code](/editors/vscode/) grammar cannot.
 The same colouring as everywhere else: keywords, operators, symbolic references,
 placeholders, string literals, comments, and names.
 
-## What you do not
+## The language server
 
-No diagnostics, no completion, no go-to-definition on a condition name. The
-plugin's parser is deliberately flat: it exists to carry the highlighting and
-knows nothing about your schemas.
+The plugin starts the [language server](/editors/language-server/) when it finds one
+in the project: `vendor/bin/warrant-language-server` in a project with the package
+installed. That gives diagnostics, hover, completion, go-to-definition and quick
+fixes in `.warrant` files and in rule text inside PHP, checked against your
+schemas.
 
-A language server is [planned](/roadmap/planned/), and PhpStorm is one of the two
-editors it is designed for.
+It uses PhpStorm's own LSP support, which PhpStorm has from 2024.2. On an older
+version the plugin still highlights, and the language server does not start.
 
-## Until then
+The settings are under Settings, then Languages & Frameworks, then Warrant:
 
-Two habits close most of the gap.
+| Setting | Default | What it does |
+|---|---|---|
+| Enable language server | on | Whether to start the server. |
+| PHP executable | `php` | The PHP that runs it. Left as `php`, the project's local PHP interpreter is used when `php` is not on the `PATH`. |
+| Server path | empty | The server script, when it is not in one of the usual places. |
+| Vocabulary | `auto` | How the server learns your schemas: `auto`, `static` or `off`. See [how it learns your schemas](/editors/language-server/#how-it-learns-your-schemas). |
 
-Keep the schema in the string's own header, so anything reading your source knows
-which vocabulary applies:
-
-```php
-Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
-```
-
-And run [`Warrant::validate()`](/supplying-rules/validation/) in a test over stored rules, so
-a misspelled condition fails CI rather than a request.
+Tools, then Restart Warrant Language Server, restarts it.

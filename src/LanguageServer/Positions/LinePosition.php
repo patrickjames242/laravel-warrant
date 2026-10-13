@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Parsing\Positions;
+namespace Warrant\LanguageServer\Positions;
 
 /**
  * A place in a text as an editor names it over the Language Server Protocol: a

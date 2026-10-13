@@ -1,5 +1,11 @@
 .vscode/**
 .gitignore
 vsc-extension-quickstart.md
+src/**
+out/**/*.d.ts
 **/*.map
+**/*.tsbuildinfo
+tsconfig.json
+eslint.config.mjs
 **/.DS_Store
+*.vsix

@@ -55,8 +55,8 @@ Warrant::validate(WarrantSyntax::parse($storedRule)->scopedTo('documents'));
 ```
 
 **Tooling can read your rules.** A closed vocabulary is what makes completion and
-diagnostics possible for `.warrant` files and `WARRANT` heredocs. See
-[editor tooling](/editors/overview/).
+diagnostics possible for `.warrant` files and rule text in PHP. See
+[the language server](/editors/language-server/).
 
 ## What belongs in the vocabulary
 

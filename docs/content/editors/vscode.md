@@ -4,7 +4,7 @@ banner:
 title: VS Code
 description: Installing the extension, and what it gives you.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 The extension bundles the canonical TextMate grammar plus a PHP injection grammar,
@@ -80,14 +80,26 @@ The grammar distinguishes the categories the parser does:
 - `#` line comments
 - condition and ability names
 
-## What it does not do yet
+## The language server
 
-No diagnostics, no hover, no completion. The grammar is a lexer, so it cannot know
-whether `is_mne` is a real condition on this schema. That needs a language server
-with access to your schemas, which is [planned](/roadmap/planned/).
+The extension starts the [language server](/editors/language-server/) when it finds
+one in the workspace: `vendor/bin/warrant-language-server` in a project with the
+package installed. That gives diagnostics, hover, completion, go-to-definition and
+quick fixes in `.warrant` files and in rule text inside PHP, checked against your
+schemas. It needs PHP on your `PATH`.
 
-Until then, [`Warrant::validate()`](/supplying-rules/validation/) in a test is the check
-that catches a misspelled name.
+The server starts only in a trusted workspace, because it can boot your
+application to read your schemas. Its settings:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `warrant.languageServer.enabled` | `true` | Whether to start the server. |
+| `warrant.languageServer.phpPath` | `php` | The PHP executable that runs it. |
+| `warrant.languageServer.path` | empty | The server script, when it is not in one of the usual places. |
+| `warrant.vocabulary` | `auto` | How the server learns your schemas: `auto`, `static` or `off`. See [how it learns your schemas](/editors/language-server/#how-it-learns-your-schemas). |
+
+**Warrant: Restart Language Server**, in the command palette, restarts it. Its
+output is under **Warrant Language Server** in the Output panel.
 
 ## A snippet worth adding
 

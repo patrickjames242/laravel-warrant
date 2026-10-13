@@ -4,7 +4,7 @@ banner:
 title: .warrant files
 description: The standalone file format, what reads it, and how to use it at runtime.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 A `.warrant` file is a run of `for <schema> { ... }` blocks. With more than one

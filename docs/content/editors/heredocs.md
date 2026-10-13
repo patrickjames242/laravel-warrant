@@ -4,7 +4,7 @@ banner:
 title: Highlighting rules in PHP
 description: What makes rule text inside PHP highlight, and how to write it.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 Rule text inside PHP is highlighted in two places: a heredoc labelled `WARRANT`,
@@ -131,8 +131,10 @@ WARRANT)->ruleSet();
 Warrant::parse('if is_mine they can view')->scopedTo('documents');
 ```
 
-Anything reading your source, including a future language server, can check the
-first against a schema and cannot check the second. A header that disagrees with
+Anything reading your source can check the first against a schema and cannot
+check the second. The [language server](/editors/language-server/) can check the
+second only when the string is written in the schema's own class, or carries a
+`# warrant-schema: documents` comment. A header that disagrees with
 `scopedTo()` is an error, so there is no ambiguity in having both.
 
 ## Where rule text in PHP is the right home

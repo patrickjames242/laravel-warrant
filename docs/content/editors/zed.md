@@ -4,7 +4,7 @@ banner:
 title: Zed
 description: The tree-sitter extension, and the one thing it does that the others cannot.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Zed has no TextMate support. Every language it highlights is defined by a
@@ -59,10 +59,10 @@ in that string visible is worth having.
 ## Why there are two grammars
 
 The language is written down twice, and a change to it means updating both. That is
-a real cost, and `specs/language-server.md` in the repository is the plan for
-stopping the multiplication from growing further: one server, backed by this
-repository's own PHP parser, serving every editor that speaks LSP.
+a real cost, and the [language server](/editors/language-server/) is what keeps it
+from growing: one server, backed by this repository's own PHP parser, serving every
+editor that speaks LSP.
 
-Zed speaks LSP natively, so its extension would gain a Rust shim and a
-`[language_servers.warrant]` entry rather than a third grammar. See
-[the roadmap](/roadmap/planned/).
+Zed speaks LSP natively, but its extension does not start the server yet. That
+needs a Rust shim and a `[language_servers.warrant]` entry, rather than a third
+grammar.

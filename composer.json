@@ -23,6 +23,9 @@
         "orchestra/testbench": "^9.0|^10.0|^11.0",
         "pestphp/pest": "^3.0|^4.0"
     },
+    "bin": [
+        "bin/warrant-language-server"
+    ],
     "autoload": {
         "psr-4": {
             "Warrant\\": "src/"

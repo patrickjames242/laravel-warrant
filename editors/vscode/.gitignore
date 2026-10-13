@@ -1,2 +1,6 @@
 node_modules/
+out/
+*.tsbuildinfo
 *.vsix
+warrant.php-injection.json
+warrant.tmLanguage.json

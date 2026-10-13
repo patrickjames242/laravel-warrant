@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Parsing\Positions;
+namespace Warrant\LanguageServer\Positions;
 
 use Generator;
 

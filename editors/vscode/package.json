@@ -1,8 +1,8 @@
 {
   "name": "warrant-dsl",
   "displayName": "Laravel Warrant",
-  "description": "Syntax highlighting for the Warrant authorization rule language, including inside PHP wherever rule text is expected.",
-  "version": "0.9.0",
+  "description": "Language support for the Warrant authorization rule language: syntax highlighting, plus diagnostics, hover, completion, go to definition, outline and quick fixes from the Warrant language server, in .warrant files and inside PHP wherever rule text is expected.",
+  "version": "0.10.0",
   "publisher": "patrickhanna",
   "license": "MIT",
   "repository": {
@@ -11,10 +11,11 @@
     "directory": "editors/vscode"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.82.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Linters"
   ],
   "keywords": [
     "warrant",
@@ -23,6 +24,22 @@
     "permissions",
     "dsl"
   ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:warrant",
+    "onLanguage:php",
+    "workspaceContains:vendor/bin/warrant-language-server"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In an untrusted workspace only syntax highlighting is available. The Warrant language server runs PHP from the workspace, so it starts only once the workspace is trusted.",
+      "restrictedConfigurations": [
+        "warrant.languageServer.path",
+        "warrant.languageServer.phpPath"
+      ]
+    }
+  },
   "contributes": {
     "languages": [
       {
@@ -43,6 +60,64 @@
         "path": "./syntaxes/warrant.php-injection.json",
         "injectTo": ["text.html.php", "source.php"]
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "warrant.restartLanguageServer",
+        "title": "Restart Language Server",
+        "category": "Warrant"
+      }
+    ],
+    "configuration": {
+      "title": "Warrant",
+      "properties": {
+        "warrant.languageServer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the Warrant language server for .warrant files and the Warrant inside PHP files."
+        },
+        "warrant.languageServer.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to the `warrant-language-server` script, absolute or relative to the workspace root. When empty, the extension looks for `vendor/bin/warrant-language-server`, then `vendor/patrickhanna/laravel-warrant/bin/warrant-language-server`, then `bin/warrant-language-server`."
+        },
+        "warrant.languageServer.phpPath": {
+          "type": "string",
+          "default": "php",
+          "scope": "machine-overridable",
+          "description": "The PHP executable that runs the language server."
+        },
+        "warrant.vocabulary": {
+          "type": "string",
+          "enum": ["auto", "static", "off"],
+          "default": "auto",
+          "description": "How the language server learns your schemas.",
+          "enumDescriptions": [
+            "Reads your PHP files, and also boots the app in a short-lived child process for exact results.",
+            "Only reads your PHP files and never runs project code.",
+            "Checks syntax only."
+          ]
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "~1.82.0",
+    "@vscode/vsce": "^3.2.0",
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0"
   }
 }

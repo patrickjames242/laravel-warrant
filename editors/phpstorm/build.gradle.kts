@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.warrant"
-version = "0.5.0"
+version = "0.6.0"
 
 repositories {
     mavenCentral()
@@ -31,7 +31,9 @@ dependencies {
         // plugin API is available to compile the injector.
         phpstorm("2024.2.4")
 
-        // We reference PHP PSI (StringLiteralExpression) in the injector.
+        // We reference PHP PSI (StringLiteralExpression) in the injector, and
+        // the project's PHP interpreter when locating the language server's PHP.
+        // The LSP API comes with the PhpStorm distribution itself.
         bundledPlugin("com.jetbrains.php")
 
         pluginVerifier()
@@ -44,8 +46,19 @@ intellijPlatform {
     // instrumentation step needs an extra Java-compiler dependency — skip it.
     instrumentCode = false
 
-    // No custom settings pages, so skip the (slow) searchable-options indexing.
+    // The one settings page is small; skip the (slow) searchable-options
+    // indexing, which only makes its labels findable in Settings search.
     buildSearchableOptions = false
+
+    // `./gradlew verifyPlugin` checks the plugin against the baseline PhpStorm,
+    // and also against a locally installed IDE when one is named, e.g.
+    // `./gradlew verifyPlugin -PverifyLocalIde=/Applications/PhpStorm.app`.
+    pluginVerification {
+        ides {
+            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.PhpStorm, "2024.2.4")
+            providers.gradleProperty("verifyLocalIde").orNull?.let { local(it) }
+        }
+    }
 
     pluginConfiguration {
         ideaVersion {
