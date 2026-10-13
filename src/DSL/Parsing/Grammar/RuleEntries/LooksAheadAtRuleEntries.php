@@ -12,25 +12,12 @@ use Warrant\DSL\Lexing\TokenType;
 trait LooksAheadAtRuleEntries
 {
     /**
-     * Whether an ability block starts here: the `can they` that heads one. A
-     * `can(` is an expression, and the clause keyword is reached as `they can`,
-     * the other way round.
-     */
-    private function abilityBlockAhead(): bool
-    {
-        return $this->check(TokenType::CAN) && $this->peekAhead()->type === TokenType::THEY;
-    }
-
-    /**
-     * Whether a rule entry starts here. These four are the only tokens that can
-     * open one, and none of them can open an expression.
+     * Whether a rule entry starts here: the entries' own starts, so this agrees
+     * with what {@see ParseRuleEntry} reads.
      */
     private function ruleEntryAhead(): bool
     {
-        return $this->check(TokenType::THEY)
-            || $this->check(TokenType::IF)
-            || $this->check(TokenType::INCLUDE_REF)
-            || $this->abilityBlockAhead();
+        return ParseRuleEntry::startsHere($this->tokensAhead());
     }
 
     /**

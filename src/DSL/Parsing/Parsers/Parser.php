@@ -160,6 +160,15 @@ abstract class Parser
 
     // -- tokens ---------------------------------------------------------------
 
+    /**
+     * The tokens ahead, as {@see startsHere()} is given them, for a parser that
+     * asks whether another starts here without reading it.
+     */
+    final protected function tokensAhead(): TokensAhead
+    {
+        return $this->state->tokensAhead;
+    }
+
     final protected function peek(): Token
     {
         return $this->state->tokens[$this->state->index];
