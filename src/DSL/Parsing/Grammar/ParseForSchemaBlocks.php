@@ -17,9 +17,6 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * {@see \Warrant\DSL\Parsing\ASTNodes\WarrantSyntax::forSchema()} folds
  * same-schema rule sets together.
  *
- * A tolerant parse reads on past a braced block with a mistake in it to the next
- * `for <schema> {`, leaving the block out, so the blocks after it are still read.
- *
  * @extends Parser<list<ISchemaScopedNode>>
  */
 final class ParseForSchemaBlocks extends Parser
@@ -47,18 +44,7 @@ final class ParseForSchemaBlocks extends Parser
             return [$block];
         }
 
-        $blocks = [];
-
-        while ($this->check(TokenType::FOR)) {
-            $block = $this->recovering(
-                fn () => $this->parse(new ParseForSchemaBlock(braced: true))->value,
-                static fn (TokensAhead $ahead): bool => $ahead->nextIs(TokenType::FOR, TokenType::IDENTIFIER, TokenType::LBRACE),
-            );
-
-            if ($block !== null) {
-                $blocks[] = $block;
-            }
-        }
+        $blocks = $this->parseRepeated(new ParseForSchemaBlock(braced: true));
 
         if (! $this->check(TokenType::EOF)) {
             $this->report($this->errorAtCurrent(

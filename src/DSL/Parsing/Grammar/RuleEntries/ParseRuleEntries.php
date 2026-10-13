@@ -16,9 +16,9 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * holding its own entries.
  *
  * A token between entries that starts none is the mistake of whatever reads the
- * body, and is reported with that reader's error. A tolerant parse reads on past
- * it, and past a mistake inside an entry, to the next place an entry can start,
- * so the entries after a mistake are still read.
+ * body, and is reported with that reader's error. A tolerant parse skips it, and
+ * what follows it, to the next place an entry can start, so the entries after it
+ * are still read.
  *
  * @extends Parser<list<IRuleEntryNode>>
  */
@@ -46,19 +46,12 @@ final class ParseRuleEntries extends Parser
             if (! $this->ruleEntryAhead()) {
                 $this->assertNoAbilityListWithoutCanThey();
                 $this->report($this->errorAtCurrent($this->unexpectedToken));
-                $this->skipTo(self::ruleEntriesResumeHere(...), atLeastOne: true);
+                $this->skipTo(self::ruleEntriesResumeHere(...));
 
                 continue;
             }
 
-            $entry = $this->recovering(
-                fn () => $this->parse(ParseRuleEntry::class)->value,
-                self::ruleEntriesResumeHere(...),
-            );
-
-            if ($entry !== null) {
-                $entries[] = $entry;
-            }
+            $entries[] = $this->parse(ParseRuleEntry::class)->value;
         }
 
         return $entries;

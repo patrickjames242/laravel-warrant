@@ -38,11 +38,12 @@ trait LooksAheadAtRuleEntries
     }
 
     /**
-     * Whether reading can go on here after a mistake among rule entries: where
-     * the entries end, or where an `if` rule, an `@include` or an ability block
-     * starts. A rule of bare `they` clauses is not one, because a `they` after a
-     * mistake most often goes on with the rule the mistake is in, whose clauses
-     * are then skipped with it.
+     * Whether reading can go on here after a token between rule entries that
+     * starts none: where the entries end, or where an `if` rule, an `@include`
+     * or an ability block starts. A rule of bare `they` clauses is not one,
+     * because a `they` after such a token most often goes on with the rule
+     * before it, as in `if a(1)) they can view`, and is skipped with the token
+     * rather than read as a rule that grants to everyone.
      *
      * @param TokensAhead $ahead The tokens from where the parse has skipped to.
      */

@@ -16,9 +16,9 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * included, and a mistake is an exception. Nothing else gets to try, so the
  * error is reported where the mistake is, and nothing read is ever put back.
  *
- * A tolerant parse, for an editor, notes each mistake instead of throwing it.
- * Where a parser reads with {@see recovering()}, the parse goes on past the
- * mistake to read what follows, and what the mistake was in is left out.
+ * A tolerant parse, for an editor, notes each mistake instead of throwing it
+ * ({@see report()}), and the parser that met it reads on as though the text
+ * were what it should be, so what is around the mistake is kept.
  *
  * A node a parser returns is recorded as written over every token the parser
  * read, and every part read inside it, by this parser or by one it called that
@@ -169,65 +169,22 @@ abstract class Parser
     }
 
     /**
-     * Read with $read, going on past a syntax error in it in a tolerant parse:
-     * the error is noted, what was recorded since $read started is forgotten, and
-     * the parse skips ahead to where $resumesHere says reading can go on, at
-     * least one token past where $read started. Null stands in for what $read
-     * would have returned, so $read never returns null itself. A strict parse
-     * throws the error.
-     *
-     * @template R
-     * @param Closure(): R $read Reads one whole piece of the text, such as a rule
-     *   entry or a `for` block, from where the parse is: the piece left out of
-     *   the tree when a mistake is met inside it.
-     * @param Closure(TokensAhead): bool $resumesHere Says whether reading can go on
-     *   at the tokens ahead after a mistake: where the next piece like the one
-     *   $read reads can start, or where the text around them ends.
-     * @return R|null
-     */
-    final protected function recovering(Closure $read, Closure $resumesHere): mixed
-    {
-        if (! $this->state->tolerant) {
-            return $read();
-        }
-
-        $startIndex = $this->state->index;
-        $recordCount = $this->state->recordCount();
-
-        try {
-            return $read();
-        } catch (WarrantSyntaxException $error) {
-            $this->state->diagnose($error);
-            $this->state->forgetRecordsFrom($recordCount);
-            $this->skipTo($resumesHere, atLeastOne: $this->state->index === $startIndex);
-
-            return null;
-        }
-    }
-
-    /**
-     * Skip tokens until $resumesHere says reading can go on, or the input ends,
-     * skipping at least one first when $atLeastOne. A `{` skipped opens a block
-     * that is skipped whole, to its `}`, so a token inside text being thrown
-     * away is not taken for one around it.
+     * Skip tokens until $resumesHere says reading can go on, or the input ends.
+     * A `{` skipped opens a block that is skipped whole, to its `}`, so a token
+     * inside text being thrown away is not taken for one around it.
      *
      * @param Closure(TokensAhead): bool $resumesHere Says whether reading can go on
      *   at the tokens ahead: skipping stops at the first place it does.
-     * @param bool $atLeastOne Whether to skip the current token whatever
-     *   $resumesHere says of it: for a skip from a token that is itself a place
-     *   reading can go on from, but that has already been read and failed, so
-     *   that the skip always moves the parse forward.
      */
-    final protected function skipTo(Closure $resumesHere, bool $atLeastOne = false): void
+    final protected function skipTo(Closure $resumesHere): void
     {
         $depth = 0;
 
         while (! $this->check(TokenType::EOF)) {
-            if (! $atLeastOne && $depth === 0 && $resumesHere($this->state->tokensAhead)) {
+            if ($depth === 0 && $resumesHere($this->state->tokensAhead)) {
                 return;
             }
 
-            $atLeastOne = false;
             $type = $this->advance()->type;
 
             if ($type === TokenType::LBRACE) {

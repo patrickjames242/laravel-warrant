@@ -65,9 +65,8 @@ final class ParsingState
 
     /**
      * Where in $records each node recorded whole is, by object id. A recorded
-     * node is held in $records until the parse is done or its record is
-     * forgotten, which takes its entry here with it, so its id names no other
-     * object while it is here.
+     * node is held in $records until the parse is done, so its id names no other
+     * object until then.
      *
      * @var array<int, int>
      */
@@ -161,38 +160,6 @@ final class ParsingState
     public function peekAhead(int $distance = 1): Token
     {
         return $this->tokens[min($this->index + $distance, count($this->tokens) - 1)];
-    }
-
-    /**
-     * How many records have been made: a mark that {@see forgetRecordsFrom()}
-     * can cut the log back to.
-     */
-    public function recordCount(): int
-    {
-        return count($this->records);
-    }
-
-    /**
-     * Forget every record made since there were $count, for nodes and parts read
-     * by a parser that met a mistake and was read past: none of them is in the
-     * tree, so none of them may reach the map.
-     *
-     * @param int $count How many records there were when the parser that met the
-     *   mistake started, from {@see recordCount()}: every record after that many
-     *   is forgotten, and every one before it kept.
-     */
-    public function forgetRecordsFrom(int $count): void
-    {
-        foreach (array_splice($this->records, $count) as [$node, $part]) {
-            if ($part === null) {
-                unset($this->recordedAt[spl_object_id($node)]);
-            }
-        }
-
-        $this->unclaimed = array_values(array_filter(
-            $this->unclaimed,
-            static fn (int $position): bool => $position < $count,
-        ));
     }
 
     /**

@@ -3,7 +3,6 @@
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseNegation;
@@ -222,49 +221,4 @@ it('does not read a parser at a token it cannot start at', function () {
 
     expect($parsed)->toBeNull()
         ->and($condition)->toEqual(new ConditionNode('a'));
-});
-
-it('reads past a mistake in a tolerant parse, forgetting what the broken read recorded', function () {
-    $root = new class extends Parser
-    {
-        protected function read(): mixed
-        {
-            $broken = $this->recovering(
-                function () {
-                    $this->parse(ParseCondition::class);
-
-                    throw $this->errorAtCurrent('Broken.');
-                },
-                static fn (TokensAhead $ahead): bool => $ahead->nextIs(TokenType::NOT),
-            );
-
-            return [$broken, $this->parse(ParseNegation::class)?->value];
-        }
-    };
-
-    $source = 'a b c not d';
-    $state = ParsingState::forAnalysis($source);
-    $read = Parser::run($root, $state);
-    $state->commitTo($map = new SourceMap);
-
-    expect($read)->toEqual([null, new NotNode(new ConditionNode('d'))])
-        ->and(array_map(static fn ($diagnostic) => [$diagnostic->message, $diagnostic->offset], $state->diagnostics))
-        ->toBe([['Broken.', 2]])
-        ->and($map->containing(0))->toBe([])
-        ->and($map->containing(10))->not->toBe([]);
-});
-
-it('throws a mistake in a strict parse, where reading past it is not wanted', function () {
-    $root = new class extends Parser
-    {
-        protected function read(): mixed
-        {
-            return $this->recovering(
-                fn () => throw $this->errorAtCurrent('Broken.'),
-                static fn (TokensAhead $ahead): bool => true,
-            );
-        }
-    };
-
-    expect(fn () => runParser($root, 'a'))->toThrow(WarrantSyntaxException::class, 'Broken.');
 });
