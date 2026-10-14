@@ -109,6 +109,13 @@ literals with `\'` / `\"` / `\\` escapes, numbers, `true`/`false`/`null`,
 `@context`, `:named` bindings,
 positional `?`, the `*` wildcard, and `#` line comments.
 
+### Typing
+
+`(`, `{`, `'` and `"` close as you type them, in `.warrant` files and in the
+Warrant inside PHP, and Toggle Line Comment uses `#`. Inside PHP this comes from
+the injection grammars' `embeddedLanguages`, which tell VS Code the text there is
+Warrant, so `language-configuration.json` applies to it.
+
 ## Building
 
 ```bash

@@ -97,6 +97,13 @@ The grammar distinguishes the categories the parser does:
 - `#` line comments
 - condition and ability names
 
+## Typing
+
+`(`, `{`, `'` and `"` close as you type them, and typing the closing one steps
+over it. A quote typed inside a string or a comment is left as it is. Toggle
+Line Comment comments lines out with `#`. All of this applies in `.warrant`
+files and in the Warrant inside PHP.
+
 ## The language server
 
 The extension starts the [language server](/editors/language-server/) when it finds

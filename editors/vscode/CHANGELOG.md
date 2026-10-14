@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0
+
+- Treat the Warrant inside PHP as Warrant while editing it: `(`, `{`, `'` and `"`
+  close as they are typed, and Toggle Line Comment comments lines out with `#`.
+- Leave a quote typed in a `#` comment as it is.
+- Give the extension and `.warrant` files an icon: a rubber stamp's ring with a W.
+
 ## 0.11.0
 
 - Highlight Warrant inside PHP in a string returned from a `#[RuleTemplate]` or
