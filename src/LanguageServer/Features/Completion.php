@@ -131,7 +131,7 @@ final class Completion
             $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE => [],
             $p1 === TokenType::FOR => $this->afterFor(),
             $p1 === TokenType::WITH => $this->contextKeys($this->handleSchema()),
-            $p1 === TokenType::LPAREN && $p2 === TokenType::CAN => $this->abilities($this->scopeSchemaKey),
+            $p1 === TokenType::LPAREN && $p2 === TokenType::CAN => $this->abilities($this->namedSchema() ?? $this->scopeSchemaKey),
             $p1 === TokenType::LPAREN && $p2 === TokenType::CHECK => $this->expressionStart(),
             $p1 === TokenType::LPAREN && $p2 === TokenType::IDENTIFIER,
             $p1 === TokenType::EQUALS => $this->argumentStarts(),
@@ -336,7 +336,7 @@ final class Completion
     {
         $open = $this->openParenthesis();
         $schemaKey = $open !== null && ($this->before[$open - 1]->type ?? null) === TokenType::CHECK
-            ? $this->checkedSchema()
+            ? $this->namedSchema()
             : $this->scopeSchemaKey;
 
         return [
@@ -362,10 +362,10 @@ final class Completion
     }
 
     /**
-     * The schema the `check(...)` around the cursor names after its `for`,
-     * written after the cursor; null when it names none yet.
+     * The schema the `can(...)` or `check(...)` around the cursor names after its
+     * `for`, written after the cursor; null when it names none.
      */
-    private function checkedSchema(): ?string
+    private function namedSchema(): ?string
     {
         $depth = 0;
 
