@@ -117,7 +117,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             <DocLink
               slug={item.slug}
               onClick={onNavigate}
-              className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[15.5px] leading-[1.35] transition-colors duration-250 ease-glide hover:bg-cream/4 hover:text-cream focus-visible:outline-offset-[-2px] ${
+              className={`-ml-px block rounded-r-[5.5px] border-l px-3 py-[7.5px] text-[14.5px] leading-[1.35] transition-colors duration-250 ease-glide hover:bg-cream/4 hover:text-cream focus-visible:outline-offset-[-2px] ${
                 item.slug === slug
                   ? 'border-coral bg-coral/8 font-semibold text-cream'
                   : 'border-transparent text-fawn'
@@ -143,7 +143,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
             toggleGroup(key)
           }}
           aria-expanded={expanded}
-          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[15px] leading-[1.25] font-medium transition-colors duration-250 ease-glide hover:text-cream focus-visible:outline-offset-[-2px] ${
+          className={`flex w-full cursor-pointer items-center justify-between gap-2 py-1.5 text-left text-[14px] leading-[1.25] font-medium transition-colors duration-250 ease-glide hover:text-cream focus-visible:outline-offset-[-2px] ${
             nested ? 'pr-2 pl-3 text-fawn' : 'pr-2 pl-3 text-sand'
           }`}
         >
@@ -179,7 +179,7 @@ export function DocsSidebar({ slug, open, onNavigate }: DocsSidebarProps) {
                   toggleSection(key)
                 }}
                 aria-expanded={expanded}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono focus-visible:outline-offset-[-2px] text-[12px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
+                className="flex w-full cursor-pointer items-center justify-between gap-2 pr-2 pl-3 text-left font-mono focus-visible:outline-offset-[-2px] text-[11.5px] leading-none font-semibold tracking-[.12em] text-sand uppercase"
               >
                 <span className="flex items-center gap-2.5">
                   <span className="font-medium text-coral">{String(i + 1).padStart(2, '0')}</span>
@@ -224,7 +224,7 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`font-sans text-[16.5px] leading-none text-umber transition-transform duration-400 ease-glide ${open ? 'rotate-90' : ''}`}
+      className={`font-sans text-[15.5px] leading-none text-umber transition-transform duration-400 ease-glide ${open ? 'rotate-90' : ''}`}
     >
       ›
     </span>

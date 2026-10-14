@@ -302,12 +302,12 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
       <PaneDivider />
       <div className="flex flex-none items-center gap-3 border-b border-line-2 bg-surface px-4 py-2.5">
         <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-[13px] leading-[1.3] text-cream">
+          <div className="truncate font-mono text-[12px] leading-[1.3] text-cream">
             {load.status === 'ready' ? load.path : slug || 'index'}
           </div>
           <div
             aria-live="polite"
-            className={`mt-0.5 font-mono text-[11.5px] leading-[1.3] tracking-[.06em] ${
+            className={`mt-0.5 font-mono text-[11px] leading-[1.3] tracking-[.06em] ${
               notice ? 'text-change-added' : dirty ? 'text-coral' : 'text-umber'
             }`}
           >
@@ -334,7 +334,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
               ? 'This page has never been committed, so there is nothing to roll back to'
               : 'Discard every uncommitted change to this file and return it to the last commit'
           }
-          className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[14px] font-medium text-tan enabled:hover:border-coral enabled:hover:text-coral-soft disabled:cursor-default disabled:opacity-40"
+          className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[13px] font-medium text-tan enabled:hover:border-coral enabled:hover:text-coral-soft disabled:cursor-default disabled:opacity-40"
         >
           Rollback
         </button>
@@ -345,14 +345,14 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
           }}
           aria-label="Close the editor"
           title="Close (Esc)"
-          className="grid size-8 cursor-pointer place-items-center rounded-md border border-line-3 text-[17px] leading-none text-tan hover:border-taupe"
+          className="grid size-8 cursor-pointer place-items-center rounded-md border border-line-3 text-[16px] leading-none text-tan hover:border-taupe"
         >
           ×
         </button>
       </div>
 
       {divergence && (
-        <div role="alert" className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-coral-deep bg-coral/8 px-4 py-3 text-[14.5px] leading-normal">
+        <div role="alert" className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-coral-deep bg-coral/8 px-4 py-3 text-[13.5px] leading-normal">
           <span className="min-w-0 flex-[1_1_260px] text-cream">
             {divergence.reason === 'conflict'
               ? 'Not saved: the file changed on disk after you started editing.'
@@ -363,7 +363,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
             onClick={() => {
               adopt(divergence.theirs)
             }}
-            className="h-8 cursor-pointer rounded-md border border-line-5 px-3 text-[14px] font-medium text-cream hover:border-taupe"
+            className="h-8 cursor-pointer rounded-md border border-line-5 px-3 text-[13px] font-medium text-cream hover:border-taupe"
           >
             Use the file on disk
           </button>
@@ -373,7 +373,7 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
               setDivergence(undefined)
               void save(divergence.theirs.version)
             }}
-            className="h-8 cursor-pointer rounded-md border border-coral px-3 text-[14px] font-medium text-coral hover:bg-coral/10"
+            className="h-8 cursor-pointer rounded-md border border-coral px-3 text-[13px] font-medium text-coral hover:bg-coral/10"
           >
             Overwrite it with mine
           </button>
@@ -381,13 +381,13 @@ export default function PageEditor({ slug, onClose }: PageEditorProps) {
       )}
 
       {error && (
-        <div role="alert" className="flex-none border-b border-coral-deep bg-coral/8 px-4 py-3 text-[14.5px] leading-normal text-cream">
+        <div role="alert" className="flex-none border-b border-coral-deep bg-coral/8 px-4 py-3 text-[13.5px] leading-normal text-cream">
           {error}
         </div>
       )}
 
       {load.status === 'failed' && (
-        <div role="alert" className="p-5 text-[15px] leading-normal text-tan">
+        <div role="alert" className="p-5 text-[14px] leading-normal text-tan">
           Could not open this page: {load.message}
         </div>
       )}

@@ -61,12 +61,12 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
             setMenuOpen((open) => !open)
           }}
           aria-expanded={menuOpen}
-          className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-line-3 px-3 font-mono text-[14px] leading-none font-medium text-sand"
+          className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-line-3 px-3 font-mono text-[13px] leading-none font-medium text-sand"
         >
           <span className="text-coral">≡</span>
           Menu
         </button>
-        <div className="min-w-0 truncate text-[14.5px] leading-[1.2] font-medium text-taupe">
+        <div className="min-w-0 truncate text-[13.5px] leading-[1.2] font-medium text-taupe">
           {group?.label} <span className="text-gutter">/</span> <span className="text-cream">{page.title}</span>
         </div>
       </div>
@@ -132,16 +132,16 @@ export function DocsLayout({ entry, content }: DocsLayoutProps) {
           onClick={() => {
             setEditorOpen(true)
           }}
-          className="fixed right-5 bottom-5 z-[46] flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-5 bg-surface px-4 font-mono text-[13px] leading-none font-medium text-sand hover:border-coral light:border-line-3 light:hover:border-coral hover:text-cream"
+          className="fixed right-5 bottom-5 z-[46] flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-5 bg-surface px-4 font-mono text-[12px] leading-none font-medium text-sand hover:border-coral light:border-line-3 light:hover:border-coral hover:text-cream"
         >
           <span className="text-coral">✎</span>
           Edit page
-          <span className="rounded-[4.5px] border border-line-3 px-1.5 py-0.5 text-[10.5px] tracking-[.08em] text-umber">DEV</span>
+          <span className="rounded-[4.5px] border border-line-3 px-1.5 py-0.5 text-[10px] tracking-[.08em] text-umber">DEV</span>
         </button>
       )}
 
       <footer className="border-t border-line-1 bg-ink-deep">
-        <div className="mx-auto flex max-w-[1584px] flex-wrap justify-between gap-x-8 gap-y-3 px-[clamp(17.5px,3.5vw,35px)] py-7 text-[14.5px] leading-normal text-umber">
+        <div className="mx-auto flex max-w-[1584px] flex-wrap justify-between gap-x-8 gap-y-3 px-[clamp(17.5px,3.5vw,35px)] py-7 text-[13.5px] leading-normal text-umber">
           <span>Not an official Laravel package. MIT licensed.</span>
           <a href={links.github} className="text-taupe">
             GitHub
@@ -156,20 +156,20 @@ function PageHeader({ page, eyebrow }: { page: DocPage; eyebrow?: string }) {
   return (
     <header>
       {eyebrow && (
-        <div className="flex items-center gap-2.5 font-mono text-[13px] leading-none font-medium tracking-[.14em] text-coral uppercase">
+        <div className="flex items-center gap-2.5 font-mono text-[12px] leading-none font-medium tracking-[.14em] text-coral uppercase">
           <span className="size-2 bg-coral" />
           {eyebrow}
         </div>
       )}
       <h1
         id={PAGE_TOP}
-        className="mt-5 text-[clamp(44px,5.5vw,66px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title"
+        className="mt-5 text-[clamp(41.5px,5.5vw,62px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title"
       >
         {page.title}
       </h1>
-      <p className="mt-5 text-[21px] leading-[1.55] text-pretty text-tan">{page.description}</p>
-      <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[17px] border border-line-3 bg-surface px-3.5 py-3 light:border-pane-edge light:bg-pane text-[15.5px] leading-normal text-tan">
-        <span className="rounded-[4.5px] border border-coral px-[7.5px] py-1 font-mono text-[11.5px] leading-none font-semibold tracking-widest text-coral">
+      <p className="mt-5 text-[19.5px] leading-[1.55] text-pretty text-tan">{page.description}</p>
+      <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[17px] border border-line-3 bg-surface px-3.5 py-3 light:border-pane-edge light:bg-pane text-[14.5px] leading-normal text-tan">
+        <span className="rounded-[4.5px] border border-coral px-[7.5px] py-1 font-mono text-[11px] leading-none font-semibold tracking-widest text-coral">
           BETA
         </span>
         <span className="flex-[1_1_280px]">
@@ -195,14 +195,14 @@ function Pager({ previous, next }: { previous?: DocPage; next?: DocPage }) {
     >
       {previous && (
         <DocLink slug={previous.slug} className={card}>
-          <span className="font-mono text-[12px] leading-none font-semibold tracking-[.12em] text-umber">← PREVIOUS</span>
-          <span className="text-[20px] leading-[1.2] font-semibold tracking-[-0.01em]">{previous.title}</span>
+          <span className="font-mono text-[11.5px] leading-none font-semibold tracking-[.12em] text-umber">← PREVIOUS</span>
+          <span className="text-[19px] leading-[1.2] font-semibold tracking-[-0.01em]">{previous.title}</span>
         </DocLink>
       )}
       {next && (
         <DocLink slug={next.slug} className={`${card} text-right`}>
-          <span className="font-mono text-[12px] leading-none font-semibold tracking-[.12em] text-umber">NEXT →</span>
-          <span className="text-[20px] leading-[1.2] font-semibold tracking-[-0.01em]">{next.title}</span>
+          <span className="font-mono text-[11.5px] leading-none font-semibold tracking-[.12em] text-umber">NEXT →</span>
+          <span className="text-[19px] leading-[1.2] font-semibold tracking-[-0.01em]">{next.title}</span>
         </DocLink>
       )}
     </nav>

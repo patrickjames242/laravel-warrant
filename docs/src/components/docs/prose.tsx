@@ -19,7 +19,7 @@ interface SourceLine {
 }
 
 export function P({ children, 'data-source-line': line }: ComponentProps<'p'> & SourceLine) {
-  return <p data-source-line={line} className="text-[18px] leading-[1.7] text-pretty text-tan">{children}</p>
+  return <p data-source-line={line} className="text-[17px] leading-[1.7] text-pretty text-tan">{children}</p>
 }
 
 export function Strong({ children }: ComponentProps<'strong'>) {
@@ -54,7 +54,7 @@ export function H2({ id, children, 'data-source-line': line }: ComponentProps<'h
     <h2
       id={id}
       data-source-line={line}
-      className="border-t border-line-1 pt-7 text-[clamp(28.5px,3vw,35px)] leading-[1.1] font-bold tracking-[-0.03em] text-title"
+      className="border-t border-line-1 pt-7 text-[clamp(27px,3vw,33px)] leading-[1.1] font-bold tracking-[-0.03em] text-title"
     >
       {children}
     </h2>
@@ -63,7 +63,7 @@ export function H2({ id, children, 'data-source-line': line }: ComponentProps<'h
 
 export function H3({ id, children, 'data-source-line': line }: ComponentProps<'h3'> & SourceLine) {
   return (
-    <h3 id={id} data-source-line={line} className="text-[23px] leading-[1.25] font-semibold tracking-[-0.02em] text-cream">
+    <h3 id={id} data-source-line={line} className="text-[21.5px] leading-[1.25] font-semibold tracking-[-0.02em] text-cream">
       {children}
     </h3>
   )
@@ -71,7 +71,7 @@ export function H3({ id, children, 'data-source-line': line }: ComponentProps<'h
 
 export function H4({ id, children, 'data-source-line': line }: ComponentProps<'h4'> & SourceLine) {
   return (
-    <h4 id={id} data-source-line={line} className="text-[18.5px] leading-[1.3] font-semibold text-cream">
+    <h4 id={id} data-source-line={line} className="text-[17.5px] leading-[1.3] font-semibold text-cream">
       {children}
     </h4>
   )
@@ -85,7 +85,7 @@ export function Rule({ 'data-source-line': line }: SourceLine) {
   return <hr data-source-line={line} className="border-line-1" />
 }
 
-const LIST = 'grid gap-2 pl-6 text-[18px] leading-[1.7] text-tan marker:text-coral [&_ol]:mt-2 [&_ul]:mt-2'
+const LIST = 'grid gap-2 pl-6 text-[17px] leading-[1.7] text-tan marker:text-coral [&_ol]:mt-2 [&_ul]:mt-2'
 
 export function Ul({ children, 'data-source-line': line }: ComponentProps<'ul'> & SourceLine) {
   return <ul data-source-line={line} className={`list-disc ${LIST}`}>{children}</ul>
@@ -93,7 +93,7 @@ export function Ul({ children, 'data-source-line': line }: ComponentProps<'ul'> 
 
 export function Ol({ children, start, 'data-source-line': line }: ComponentProps<'ol'> & SourceLine) {
   return (
-    <ol start={start} data-source-line={line} className={`list-decimal ${LIST} marker:font-mono marker:text-[15.5px] marker:font-semibold`}>
+    <ol start={start} data-source-line={line} className={`list-decimal ${LIST} marker:font-mono marker:text-[14.5px] marker:font-semibold`}>
       {children}
     </ol>
   )
@@ -121,7 +121,7 @@ export function Th({ children, style }: ComponentProps<'th'>) {
   return (
     <th
       style={style}
-      className="border-b border-line-3 py-3 pr-4 align-bottom font-mono text-[12.5px] leading-[1.4] font-semibold tracking-widest whitespace-nowrap text-taupe uppercase"
+      className="border-b border-line-3 py-3 pr-4 align-bottom font-mono text-[12px] leading-[1.4] font-semibold tracking-widest whitespace-nowrap text-taupe uppercase"
     >
       {children}
     </th>
@@ -132,7 +132,7 @@ export function Td({ children, style }: ComponentProps<'td'>) {
   return (
     <td
       style={style}
-      className="border-b border-line-1 py-3 pr-4 align-top text-[17px] leading-[1.55] text-tan [&_strong]:font-mono [&_strong]:text-[13px] [&_strong]:tracking-widest [&_strong]:text-taupe [&_strong]:uppercase"
+      className="border-b border-line-1 py-3 pr-4 align-top text-[16px] leading-[1.55] text-tan [&_strong]:font-mono [&_strong]:text-[12px] [&_strong]:tracking-widest [&_strong]:text-taupe [&_strong]:uppercase"
     >
       {children}
     </td>
@@ -150,7 +150,7 @@ function CodeFrame({ label, aside, children, line }: CodeFrameProps) {
   return (
     <div data-source-line={line} className="overflow-hidden rounded-[17px] border border-line-3 bg-pane shadow-pane light:border-pane-edge">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-line-2 bg-pane-head light:border-pane-edge pr-[6.5px] pl-[15.5px]">
-        <span className="truncate font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand uppercase">
+        <span className="truncate font-mono text-[11.5px] leading-none font-bold tracking-[.12em] text-sand uppercase">
           {label}
         </span>
         {aside}
@@ -175,7 +175,7 @@ function Terminal({ source, line }: { source: string; line?: SourceLine['data-so
           type="button"
           onClick={copy}
           aria-label="Copy the commands"
-          className={`h-[28.5px] cursor-pointer rounded-[4.5px] px-2.5 font-mono text-[12.5px] leading-none font-medium hover:bg-surface-3 ${
+          className={`h-[28.5px] cursor-pointer rounded-[4.5px] px-2.5 font-mono text-[12px] leading-none font-medium hover:bg-surface-3 ${
             copied ? 'text-coral' : 'text-taupe'
           }`}
         >
@@ -183,7 +183,7 @@ function Terminal({ source, line }: { source: string; line?: SourceLine['data-so
         </button>
       }
     >
-      <div className="overflow-x-auto p-4 font-mono text-[15.5px] leading-[1.6] whitespace-pre text-sand">
+      <div className="overflow-x-auto p-4 font-mono text-[14.5px] leading-[1.6] whitespace-pre text-sand">
         {lines.map((line, i) =>
           line.startsWith('#') ? (
             <div key={i} className="text-code-comment">
@@ -229,9 +229,9 @@ export function CodeBlock({ language = '', meta = '', source = '', 'data-source-
     <CodeFrame
       label={file ?? fence.name}
       line={line}
-      aside={file && <span className="pr-2 font-mono text-[13px] leading-none text-umber">{fence.name.toLowerCase()}</span>}
+      aside={file && <span className="pr-2 font-mono text-[12px] leading-none text-umber">{fence.name.toLowerCase()}</span>}
     >
-      <CodeLines source={source} language={fence.language} gutter={48} className="py-3.5 text-[15px] leading-[1.7]" />
+      <CodeLines source={source} language={fence.language} gutter={48} className="py-3.5 text-[14px] leading-[1.7]" />
     </CodeFrame>
   )
 }
@@ -259,10 +259,10 @@ export function Callout({ kind = 'note', title, children, 'data-source-line': li
 
   return (
     <div role="note" data-source-line={line} className={`rounded-[9px] border px-5 py-[20px] ${style.frame}`}>
-      <div className={`font-mono text-[12px] leading-none font-semibold tracking-[.12em] uppercase ${style.title}`}>
+      <div className={`font-mono text-[11.5px] leading-none font-semibold tracking-[.12em] uppercase ${style.title}`}>
         {title ?? kind}
       </div>
-      <div className="mt-3 grid gap-3 [&_p]:text-[17px] [&_p]:leading-[1.65] [&_p]:text-sand">{children}</div>
+      <div className="mt-3 grid gap-3 [&_p]:text-[16px] [&_p]:leading-[1.65] [&_p]:text-sand">{children}</div>
     </div>
   )
 }

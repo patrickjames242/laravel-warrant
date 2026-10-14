@@ -228,7 +228,7 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
         ref={setReference}
         type="button"
         title="Commit changes to git"
-        className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-ink hover:bg-coral-hover ${
+        className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold text-ink hover:bg-coral-hover ${
           open ? 'bg-coral-hover' : 'bg-coral-strong'
         }`}
         {...getReferenceProps()}
@@ -265,8 +265,8 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                 className="flex max-h-[inherit] w-full flex-col overflow-hidden rounded-[17px] border border-line-3 bg-ink text-sand shadow-[0_10px_28px_-14px_color-mix(in_srgb,var(--color-shade)_55%,transparent)] light:border-pane-edge"
               >
                 <div className="flex flex-none items-center justify-between gap-3 border-b border-line-2 px-4 py-3 light:border-pane-edge">
-                  <span className="font-mono text-[12px] leading-none font-bold tracking-[.12em] text-sand">COMMIT</span>
-                  {changes && <span className="truncate font-mono text-[12.5px] leading-none text-umber">on {changes.branch}</span>}
+                  <span className="font-mono text-[11.5px] leading-none font-bold tracking-[.12em] text-sand">COMMIT</span>
+                  {changes && <span className="truncate font-mono text-[12px] leading-none text-umber">on {changes.branch}</span>}
                 </div>
 
                 <div className="flex flex-none gap-1 border-b border-line-2 p-2 light:border-pane-edge" role="radiogroup" aria-label="Which changes">
@@ -283,33 +283,33 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                           if (changes) choose(changes, entry.key)
                           else setScope(entry.key)
                         }}
-                        className={`flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border text-[13.5px] font-medium ${
+                        className={`flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border text-[12.5px] font-medium ${
                           on ? 'border-coral bg-coral/10 text-coral' : 'border-transparent text-tan hover:border-line-3'
                         }`}
                       >
                         {entry.label}
-                        {count !== undefined && <span className="font-mono text-[11.5px] opacity-70">{count}</span>}
+                        {count !== undefined && <span className="font-mono text-[11px] opacity-70">{count}</span>}
                       </button>
                     )
                   })}
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto">
-                  {list.status === 'loading' && <p className="px-4 py-5 text-[14px] text-taupe">Reading git status…</p>}
+                  {list.status === 'loading' && <p className="px-4 py-5 text-[13px] text-taupe">Reading git status…</p>}
                   {list.status === 'failed' && (
-                    <p role="alert" className="px-4 py-5 text-[14px] text-coral-soft">
+                    <p role="alert" className="px-4 py-5 text-[13px] text-coral-soft">
                       Could not read the changes: {list.message}
                     </p>
                   )}
                   {list.status === 'ready' && files.length === 0 && (
-                    <p className="px-4 py-5 text-[14px] text-taupe">
+                    <p className="px-4 py-5 text-[13px] text-taupe">
                       {scope === 'page' ? 'This page has no uncommitted changes.' : 'Nothing to commit here.'}
                     </p>
                   )}
                   {files.length > 0 && (
                     <ul className="py-1.5">
                       <li>
-                        <label className="flex cursor-pointer items-center gap-2.5 px-4 py-1.5 text-[13px] text-umber">
+                        <label className="flex cursor-pointer items-center gap-2.5 px-4 py-1.5 text-[12px] text-umber">
                           <input
                             type="checkbox"
                             checked={everyChosen}
@@ -342,11 +342,11 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                               />
                               <span
                                 title={kind.label}
-                                className={`w-3 flex-none text-center font-mono text-[12px] font-bold ${kind.className}`}
+                                className={`w-3 flex-none text-center font-mono text-[11.5px] font-bold ${kind.className}`}
                               >
                                 {kind.mark}
                               </span>
-                              <span className="min-w-0 truncate font-mono text-[12.5px] text-sand" dir="rtl">
+                              <span className="min-w-0 truncate font-mono text-[12px] text-sand" dir="rtl">
                                 {/* Right-to-left so a long path keeps its file name and loses its folders. */}
                                 <bdi>{change.path}</bdi>
                               </span>
@@ -376,10 +376,10 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                     }}
                     rows={2}
                     placeholder="Commit message"
-                    className="w-full resize-y rounded-md border border-line-3 bg-pane px-3 py-2 font-mono text-[13px] leading-[1.5] text-cream placeholder:text-umber focus:border-coral focus:outline-none light:border-pane-edge"
+                    className="w-full resize-y rounded-md border border-line-3 bg-pane px-3 py-2 font-mono text-[12px] leading-[1.5] text-cream placeholder:text-umber focus:border-coral focus:outline-none light:border-pane-edge"
                   />
                   {error && (
-                    <p role="alert" className="text-[13.5px] leading-normal text-coral-soft">
+                    <p role="alert" className="text-[12.5px] leading-normal text-coral-soft">
                       {error}
                     </p>
                   )}
@@ -390,7 +390,7 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                       onClick={() => {
                         void submit(true)
                       }}
-                      className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[14px] font-medium text-tan enabled:hover:border-taupe enabled:hover:text-sand disabled:cursor-default disabled:opacity-40"
+                      className="h-8 cursor-pointer rounded-md border border-line-3 px-3 text-[13px] font-medium text-tan enabled:hover:border-taupe enabled:hover:text-sand disabled:cursor-default disabled:opacity-40"
                     >
                       {working === 'push' ? 'Pushing…' : 'Commit & push'}
                     </button>
@@ -401,7 +401,7 @@ export function CommitMenu({ slug, prepare, onCommitted }: CommitMenuProps) {
                         void submit(false)
                       }}
                       title="Commit (⌘↩)"
-                      className="h-8 cursor-pointer rounded-md bg-coral-strong px-4 text-[14px] font-semibold text-ink enabled:hover:bg-coral-hover disabled:cursor-default disabled:opacity-40"
+                      className="h-8 cursor-pointer rounded-md bg-coral-strong px-4 text-[13px] font-semibold text-ink enabled:hover:bg-coral-hover disabled:cursor-default disabled:opacity-40"
                     >
                       {working === 'commit' ? 'Committing…' : 'Commit'}
                     </button>

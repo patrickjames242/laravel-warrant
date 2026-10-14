@@ -53,7 +53,7 @@ export function TableOfContents({ entries }: { entries: readonly TocEntry[] }) {
       aria-label="On this page"
       className="sticky top-18 hidden h-[calc(100vh-var(--spacing)*18)] overflow-y-auto pt-14 pr-[clamp(17.5px,3.5vw,35px)] pb-12 pl-2 min-[1320px]:block"
     >
-      <div className="font-mono text-[12px] leading-none font-semibold tracking-[.12em] text-sand">ON THIS PAGE</div>
+      <div className="font-mono text-[11.5px] leading-none font-semibold tracking-[.12em] text-sand">ON THIS PAGE</div>
       <ul className="mt-[20px] grid border-l border-line-2">
         {entries.map((entry) => {
           const on = entry.id === active
@@ -61,7 +61,7 @@ export function TableOfContents({ entries }: { entries: readonly TocEntry[] }) {
             <li key={entry.id}>
               <a
                 href={`#${entry.id}`}
-                className={`-ml-px block border-l py-1.5 pl-3.5 text-[15px] leading-[1.35] transition-colors duration-200 hover:text-cream ${
+                className={`-ml-px block border-l py-1.5 pl-3.5 text-[14px] leading-[1.35] transition-colors duration-200 hover:text-cream ${
                   on ? 'border-coral font-medium text-cream' : 'border-transparent text-taupe'
                 }`}
               >
@@ -71,7 +71,7 @@ export function TableOfContents({ entries }: { entries: readonly TocEntry[] }) {
           )
         })}
       </ul>
-      <a href={`#${PAGE_TOP}`} className="mt-6 inline-block font-mono text-[13px] leading-none font-medium text-umber">
+      <a href={`#${PAGE_TOP}`} className="mt-6 inline-block font-mono text-[12px] leading-none font-medium text-umber">
         ↑ Back to top
       </a>
     </aside>
