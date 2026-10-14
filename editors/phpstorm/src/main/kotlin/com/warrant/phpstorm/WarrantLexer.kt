@@ -95,8 +95,10 @@ class WarrantLexer : LexerBase() {
             isDigit(c) -> scanNumber(pos)
             c == '-' && pos + 1 < endOffset && isDigit(buffer[pos + 1]) -> scanNumber(pos)
             isIdentStart(c) -> scanWord(pos)
-            c == '(' || c == ')' -> single(pos, WarrantTokenTypes.PARENS)
-            c == '{' || c == '}' -> single(pos, WarrantTokenTypes.BRACES)
+            c == '(' -> single(pos, WarrantTokenTypes.LPAREN)
+            c == ')' -> single(pos, WarrantTokenTypes.RPAREN)
+            c == '{' -> single(pos, WarrantTokenTypes.LBRACE)
+            c == '}' -> single(pos, WarrantTokenTypes.RBRACE)
             c == ',' -> single(pos, WarrantTokenTypes.COMMA)
             c == '.' -> single(pos, WarrantTokenTypes.DOT)
             c == '!' || c == '*' || c == '?' || c == '=' -> single(pos, WarrantTokenTypes.OPERATOR)
@@ -132,22 +134,34 @@ class WarrantLexer : LexerBase() {
         tokenType = WarrantTokenTypes.NUMBER
     }
 
+    /**
+     * A string literal, as Lexer.php reads one: it may run across lines up to its
+     * closing quote, and one that is never closed ends at its first line break,
+     * so the text after that line break is read as rules again.
+     */
     private fun scanString(pos: Int) {
         val quote = buffer[pos]
+        var firstLineBreak = -1
         var i = pos + 1 // skip opening quote
+
         while (i < endOffset) {
             val c = buffer[i]
             if (c == '\\') {
-                i += 2 // skip escaped char (\' or \" or \\)
+                // An escaped character, \' or \" or \\, is part of the string.
+                if (i + 1 < endOffset && buffer[i + 1] == '\n' && firstLineBreak < 0) firstLineBreak = i + 1
+                i += 2
                 continue
             }
+            if (c == '\n' && firstLineBreak < 0) firstLineBreak = i
             if (c == quote) {
-                i++ // consume closing quote
-                break
+                tokenEnd = i + 1
+                tokenType = WarrantTokenTypes.STRING
+                return
             }
             i++
         }
-        tokenEnd = minOf(i, endOffset)
+
+        tokenEnd = if (firstLineBreak >= 0) firstLineBreak else endOffset
         tokenType = WarrantTokenTypes.STRING
     }
 

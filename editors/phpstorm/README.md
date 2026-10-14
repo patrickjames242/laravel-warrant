@@ -14,7 +14,7 @@ them in sync.
 
 | File | Role |
 |------|------|
-| `WarrantLanguage` / `WarrantFileType` | Registers Warrant as a language + the `.warrant` extension |
+| `WarrantLanguage` / `WarrantFileType` | Registers Warrant as a language + the `.warrant` extension, with the icon in `resources/icons/` (`warrant.svg`, and `warrant_dark.svg` for dark themes) |
 | `WarrantLexer` | Tokenizes Warrant source (mirror of `Lexer.php`, but tolerant) |
 | `WarrantSyntaxHighlighter(Factory)` | Maps tokens → theme colors (produces the highlighting) |
 | `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A deliberately flat parse tree — the minimum injection requires |
@@ -23,10 +23,15 @@ them in sync.
 | `lsp/WarrantServerLaunch` | Finds the server script and the PHP binary to run it with |
 | `lsp/WarrantSettings` / `lsp/WarrantSettingsConfigurable` | The project settings and their page |
 | `lsp/RestartWarrantLanguageServerAction` | **Tools → Restart Warrant Language Server** |
+| `WarrantBraceMatcher` / `WarrantQuoteHandler` / `WarrantCommenter` | Close brackets and quotes as they are typed, and comment lines out with `#`, in `.warrant` files and injected Warrant |
+| `WarrantFormattingModelBuilder` | Indents a `{ }` block's contents, which Enter follows in a `.warrant` file |
+| `WarrantEscapeAnnotator` | Colours the escapes in a string literal, valid and invalid, over the string's colour |
+| `WarrantEnterHandler` | Indents the line Enter opens in Warrant inside PHP, where the IDE asks PHP rather than the formatter |
 
-The parser is intentionally trivial. Error-checking and autocomplete come from
-the Warrant language server (which reuses the PHP parser/validator), not from a
-native IntelliJ grammar — so this file stays flat.
+The parser is intentionally trivial: the only structure it builds is a node for
+each `{ }` block, which the formatter needs. Error-checking and autocomplete come
+from the Warrant language server (which reuses the PHP parser/validator), not
+from a native IntelliJ grammar.
 
 ## Language server
 
@@ -115,6 +120,17 @@ version is the one set in `build.gradle.kts`. Then in PhpStorm:
 It then appears in the Plugins list like any installed plugin (disable/uninstall
 from there). To update, bump `version` in `build.gradle.kts`, rebuild, and
 install the new zip the same way.
+
+## Test
+
+```bash
+./gradlew test
+```
+
+Types into a headless PhpStorm editor, in a `.warrant` file and in Warrant inside
+PHP, and checks what bracket and quote closing, Enter and Comment Line do. It
+also checks that the plugin's lexer reads string literals as `Lexer.php` does,
+and which escapes in a string are coloured.
 
 ## Verify compatibility
 

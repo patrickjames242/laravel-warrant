@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Laravel Warrant</name>
-    <version>0.6.1</version>
+    <version>0.7.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,16 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.7.0</b> &mdash; Close <code>(</code>, <code>{</code>, <code>'</code> and
+                <code>"</code> as they are typed, highlight the matching bracket at the
+                caret, indent the line Enter opens inside a <code>{ }</code> block, and
+                comment lines out with <code>#</code>, in <code>.warrant</code> files and
+                in Warrant inside PHP. Colour the escapes in a string, <code>\'</code>,
+                <code>\"</code> and <code>\\</code>, and mark any other backslash pair as an
+                invalid escape. An unclosed string is coloured to the end of its line only,
+                as the language reads it, rather than to the end of the text. Give
+                <code>.warrant</code> files an icon, and the plugin a logo to match: a
+                rubber stamp's ring with a W.</li>
             <li><b>0.6.1</b> &mdash; Underline a name in Warrant text on Cmd/Ctrl-hover
                 when the language server knows where it is declared, and go there on
                 click.</li>
@@ -74,7 +84,31 @@
             language="Warrant"
             implementationClass="com.warrant.phpstorm.WarrantSyntaxHighlighterFactory"/>
 
-        <!-- 4. Inject Warrant into PHP strings that hold rule text. -->
+        <!-- 4. Bracket and quote pairs, closed as they are typed, # comments for
+                Comment Line, and the indentation of a block's contents, which
+                Enter follows. These apply inside PHP too, where Warrant is
+                injected. -->
+        <lang.braceMatcher
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantBraceMatcher"/>
+        <lang.quoteHandler
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantQuoteHandler"/>
+        <lang.commenter
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantCommenter"/>
+        <lang.formatter
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantFormattingModelBuilder"/>
+        <enterHandlerDelegate
+            implementation="com.warrant.phpstorm.WarrantEnterHandler"/>
+
+        <!-- 5. Colour the escapes in a string literal over the string's colour. -->
+        <annotator
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantEscapeAnnotator"/>
+
+        <!-- 6. Inject Warrant into PHP strings that hold rule text. -->
         <multiHostInjector
             implementationClass="com.warrant.phpstorm.WarrantInjector"/>
     </extensions>

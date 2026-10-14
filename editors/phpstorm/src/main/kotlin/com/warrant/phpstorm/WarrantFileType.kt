@@ -1,6 +1,7 @@
 package com.warrant.phpstorm
 
 import com.intellij.openapi.fileTypes.LanguageFileType
+import com.intellij.openapi.util.IconLoader
 import javax.swing.Icon
 
 /**
@@ -13,11 +14,16 @@ class WarrantFileType private constructor() : LanguageFileType(WarrantLanguage) 
     override fun getDescription(): String = "Warrant authorization rule language"
     override fun getDefaultExtension(): String = "warrant"
 
-    // No custom icon yet; drop an SVG in resources and load it here later.
-    override fun getIcon(): Icon? = null
+    override fun getIcon(): Icon = ICON
 
     companion object {
         @JvmField
         val INSTANCE = WarrantFileType()
+
+        /**
+         * A rubber stamp's ring with a W. The IDE picks `warrant_dark.svg`, a
+         * lighter red, on a dark theme.
+         */
+        private val ICON: Icon = IconLoader.getIcon("/icons/warrant.svg", WarrantFileType::class.java)
     }
 }

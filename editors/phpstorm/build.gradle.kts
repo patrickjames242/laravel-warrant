@@ -7,6 +7,7 @@
 // Common tasks:
 //   ./gradlew runIde        launch a sandbox PhpStorm with this plugin loaded
 //   ./gradlew buildPlugin   produce build/distributions/warrant-phpstorm-<ver>.zip
+//   ./gradlew test          run the editor tests in src/test
 
 plugins {
     id("java")
@@ -15,7 +16,7 @@ plugins {
 }
 
 group = "com.warrant"
-version = "0.6.1"
+version = "0.7.0"
 
 repositories {
     mavenCentral()
@@ -38,7 +39,13 @@ dependencies {
 
         pluginVerifier()
         zipSigner()
+
+        // `./gradlew test` types into a headless PhpStorm editor.
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
 
 intellijPlatform {

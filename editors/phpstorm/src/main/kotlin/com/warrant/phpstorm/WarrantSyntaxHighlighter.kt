@@ -35,8 +35,8 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
             WarrantTokenTypes.SQL_REF -> SQL_REF
             WarrantTokenTypes.NAMED_BINDING -> NAMED_BINDING
             WarrantTokenTypes.OPERATOR -> OPERATOR
-            WarrantTokenTypes.PARENS -> PARENS
-            WarrantTokenTypes.BRACES -> BRACES
+            WarrantTokenTypes.LPAREN, WarrantTokenTypes.RPAREN -> PARENS
+            WarrantTokenTypes.LBRACE, WarrantTokenTypes.RBRACE -> BRACES
             WarrantTokenTypes.COMMA -> COMMA
             WarrantTokenTypes.DOT -> DOT
             TokenType.BAD_CHARACTER -> BAD_CHARACTER
@@ -50,6 +50,9 @@ class WarrantSyntaxHighlighter : SyntaxHighlighterBase() {
         // Ability / condition / schema names read like calls in this DSL.
         val IDENTIFIER = createTextAttributesKey("WARRANT_IDENTIFIER", DefaultLanguageHighlighterColors.FUNCTION_CALL)
         val STRING = createTextAttributesKey("WARRANT_STRING", DefaultLanguageHighlighterColors.STRING)
+        // Coloured by WarrantEscapeAnnotator, over the string token.
+        val VALID_ESCAPE = createTextAttributesKey("WARRANT_VALID_STRING_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
+        val INVALID_ESCAPE = createTextAttributesKey("WARRANT_INVALID_STRING_ESCAPE", DefaultLanguageHighlighterColors.INVALID_STRING_ESCAPE)
         val NUMBER = createTextAttributesKey("WARRANT_NUMBER", DefaultLanguageHighlighterColors.NUMBER)
         val COMMENT = createTextAttributesKey("WARRANT_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
         val CONTEXT_REF = createTextAttributesKey("WARRANT_CONTEXT_REF", DefaultLanguageHighlighterColors.METADATA)

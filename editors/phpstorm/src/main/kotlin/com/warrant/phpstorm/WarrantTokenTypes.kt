@@ -7,7 +7,9 @@ class WarrantTokenType(debugName: String) : IElementType(debugName, WarrantLangu
 
 /**
  * The token vocabulary the lexer emits. Kept intentionally coarse — grouped by
- * *color*, not by grammar role — because highlighting is all this needs today.
+ * *color*, not by grammar role — because highlighting is all this needs, with
+ * one exception: each bracket has an opening and a closing type, since
+ * [WarrantBraceMatcher] pairs them.
  * Whitespace and invalid input use the platform's own token types
  * (`TokenType.WHITE_SPACE` / `TokenType.BAD_CHARACTER`).
  *
@@ -25,8 +27,10 @@ object WarrantTokenTypes {
     @JvmField val SQL_REF = WarrantTokenType("WARRANT_SQL_REF")          // @sql
     @JvmField val NAMED_BINDING = WarrantTokenType("WARRANT_NAMED_BINDING") // :name
     @JvmField val OPERATOR = WarrantTokenType("WARRANT_OPERATOR")        // ! * ? =
-    @JvmField val PARENS = WarrantTokenType("WARRANT_PARENS")            // ( )
-    @JvmField val BRACES = WarrantTokenType("WARRANT_BRACES")            // { }
+    @JvmField val LPAREN = WarrantTokenType("WARRANT_LPAREN")            // (
+    @JvmField val RPAREN = WarrantTokenType("WARRANT_RPAREN")            // )
+    @JvmField val LBRACE = WarrantTokenType("WARRANT_LBRACE")            // {
+    @JvmField val RBRACE = WarrantTokenType("WARRANT_RBRACE")            // }
     @JvmField val COMMA = WarrantTokenType("WARRANT_COMMA")              // ,
     @JvmField val DOT = WarrantTokenType("WARRANT_DOT")                  // . in @column <name>.<column>
 }

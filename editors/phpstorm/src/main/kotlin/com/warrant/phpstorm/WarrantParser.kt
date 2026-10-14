@@ -6,23 +6,39 @@ import com.intellij.lang.PsiParser
 import com.intellij.psi.tree.IElementType
 
 /**
- * Deliberately trivial parser: it consumes every token into one flat node under
- * the file root, producing no grammar structure.
+ * A nearly flat parser: every `{ ... }` becomes a [WarrantElementTypes.BLOCK]
+ * node, braces included, and every other token sits directly under it or under
+ * the file root.
  *
- * That is all injection needs — the platform only requires *some* ParserDefinition
- * to build a PSI file for the injected fragment. Highlighting comes entirely from
- * the lexer + [WarrantSyntaxHighlighter]; this parser adds nothing visible.
- *
- * When the language server lands, error-checking and completion come from it, so
- * this can stay flat indefinitely. Only replace it if you decide to build native
- * IntelliJ smart-features instead of using the server.
+ * Blocks are the one structure the IDE needs, because [WarrantFormattingModelBuilder]
+ * indents a block's contents, which is what makes Enter indent the line it
+ * opens. Error-checking and completion come from the language server, so the
+ * parser builds nothing else. An unmatched `}` is left as a token, and a block
+ * without its `}` runs to the end of the text.
  */
 class WarrantParser : PsiParser {
     override fun parse(root: IElementType, builder: PsiBuilder): ASTNode {
         val rootMarker = builder.mark()
+        val blocks = ArrayDeque<PsiBuilder.Marker>()
+
         while (!builder.eof()) {
-            builder.advanceLexer()
+            when (builder.tokenType) {
+                WarrantTokenTypes.LBRACE -> {
+                    blocks.addLast(builder.mark())
+                    builder.advanceLexer()
+                }
+                WarrantTokenTypes.RBRACE -> {
+                    builder.advanceLexer()
+                    blocks.removeLastOrNull()?.done(WarrantElementTypes.BLOCK)
+                }
+                else -> builder.advanceLexer()
+            }
         }
+
+        while (blocks.isNotEmpty()) {
+            blocks.removeLast().done(WarrantElementTypes.BLOCK)
+        }
+
         rootMarker.done(root)
         return builder.treeBuilt
     }

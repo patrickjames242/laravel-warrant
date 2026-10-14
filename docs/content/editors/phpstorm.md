@@ -80,6 +80,16 @@ That is why it highlights an array returned from `rules()` on a schema, which th
 The same colouring as everywhere else: keywords, operators, symbolic references,
 placeholders, string literals, comments, and names.
 
+## Typing
+
+`(`, `{`, `'` and `"` close as you type them, and typing the closing one steps
+over it. A quote typed inside a string or a comment is left as it is. Comment
+with Line Comment comments lines out with `#`, and the bracket matching the one
+at the caret is highlighted. Enter inside a `{ }` block indents the line it
+opens one level deeper than the block's braces, and Enter between `{` and `}`
+puts the `}` on the line below. All of this applies in `.warrant` files and in
+the Warrant inside PHP.
+
 ## The language server
 
 The plugin starts the [language server](/editors/language-server/) when it finds one
