@@ -208,7 +208,7 @@ final class ApplicationSchemaReader
     /**
      * Where the ability constant whose value is $ability is declared, and what
      * its docblock says. A constant has no line of its own in reflection, so the
-     * line is found in its declaring class's file.
+     * line is found in the file of the class that declares it.
      *
      * @param ReflectionClass<object> $class The schema class.
      * @param string $ability The ability's name.
@@ -221,15 +221,16 @@ final class ApplicationSchemaReader
                 continue;
             }
 
+            $pattern = '/\bconst\s+(?:[\w\\\\|?]+\s+)?'.preg_quote($constant->getName(), '/').'\b/';
             $file = $constant->getDeclaringClass()->getFileName() ?: null;
             $line = null;
 
-            if ($file !== null) {
-                foreach (file($file) ?: [] as $number => $text) {
-                    if (preg_match('/\bconst\s+(?:[\w\\\\|?]+\s+)?'.preg_quote($constant->getName(), '/').'\b/', $text) === 1) {
-                        $line = $number + 1;
-                        break;
-                    }
+            foreach (self::declaringCandidates($constant->getDeclaringClass()) as $candidate) {
+                $line = self::lineMatching($candidate->getFileName() ?: null, $pattern);
+
+                if ($line !== null) {
+                    $file = $candidate->getFileName() ?: null;
+                    break;
                 }
             }
 
@@ -241,5 +242,43 @@ final class ApplicationSchemaReader
         }
 
         return [];
+    }
+
+    /**
+     * $class and every trait it uses, its own traits' traits included, in the
+     * order a constant's declaration is looked for. Reflection names the class
+     * using a trait as the declaring class of the trait's constants, so the
+     * declaration itself may be in any of these files.
+     *
+     * @param ReflectionClass<object> $class The constant's declaring class.
+     * @return list<ReflectionClass<object>>
+     */
+    private static function declaringCandidates(ReflectionClass $class): array
+    {
+        $candidates = [$class];
+
+        foreach ($class->getTraits() as $trait) {
+            array_push($candidates, ...self::declaringCandidates($trait));
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * The 1-based number of the first line of $file that $pattern matches, or
+     * null when none does or there is no file.
+     *
+     * @param string|null $file Absolute path.
+     * @param string $pattern A regular expression.
+     */
+    private static function lineMatching(?string $file, string $pattern): ?int
+    {
+        foreach ($file === null ? [] : (file($file) ?: []) as $number => $text) {
+            if (preg_match($pattern, $text) === 1) {
+                return $number + 1;
+            }
+        }
+
+        return null;
     }
 }
