@@ -103,7 +103,8 @@ The extension starts the [language server](/editors/language-server/) when it fi
 one in the workspace: `vendor/bin/warrant-language-server` in a project with the
 package installed. That gives diagnostics, hover, completion, go-to-definition and
 quick fixes in `.warrant` files and in rule text inside PHP, checked against your
-schemas. It needs PHP on your `PATH`.
+schemas. It needs PHP 8.2 or later on your `PATH`, which need not be the PHP your
+project runs on.
 
 The server starts only in a trusted workspace, because it can boot your
 application to read your schemas. Its settings:

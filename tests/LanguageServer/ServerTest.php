@@ -140,3 +140,44 @@ it('exits with 0 after a shutdown and 1 without one', function () {
     expect($afterShutdown)->toBe(0)
         ->and($withoutShutdown)->toBe(1);
 });
+
+it('starts without loading the project\'s Composer autoloader, so the project\'s platform check never stops it', function () {
+    // The package laid out as Composer installs it, in a project whose autoloader
+    // throws as Composer's platform check does on a PHP the project does not accept.
+    $project = sys_get_temp_dir().'/warrant-server-'.bin2hex(random_bytes(4));
+    $package = $project.'/vendor/patrickhanna/laravel-warrant';
+    mkdir($package.'/bin', recursive: true);
+    copy(dirname(__DIR__, 2).'/bin/warrant-language-server', $package.'/bin/warrant-language-server');
+    symlink(dirname(__DIR__, 2).'/src', $package.'/src');
+    file_put_contents($project.'/vendor/autoload.php', "<?php\nthrow new RuntimeException('Composer detected issues in your platform.');\n");
+
+    $input = '';
+
+    foreach ([
+        ['id' => 1, 'method' => 'initialize', 'params' => ['rootUri' => Uri::fromPath($project), 'capabilities' => [], 'initializationOptions' => ['vocabulary' => 'static']]],
+        ['id' => 2, 'method' => 'shutdown'],
+        ['method' => 'exit'],
+    ] as $message) {
+        $body = json_encode(['jsonrpc' => '2.0', ...$message]);
+        $input .= 'Content-Length: '.strlen($body)."\r\n\r\n".$body;
+    }
+
+    $process = proc_open([PHP_BINARY, $package.'/bin/warrant-language-server'], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, $project);
+    fwrite($pipes[0], $input);
+    fclose($pipes[0]);
+    $output = stream_get_contents($pipes[1]);
+    $errors = stream_get_contents($pipes[2]);
+    $exitCode = proc_close($process);
+
+    unlink($package.'/src');
+    unlink($package.'/bin/warrant-language-server');
+    unlink($project.'/vendor/autoload.php');
+
+    foreach ([$package.'/bin', $package, $project.'/vendor/patrickhanna', $project.'/vendor', $project] as $directory) {
+        rmdir($directory);
+    }
+
+    expect($errors)->toBe('')
+        ->and($output)->toContain('"serverInfo":{"name":"warrant-language-server"}')
+        ->and($exitCode)->toBe(0);
+});

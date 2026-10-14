@@ -22,7 +22,8 @@ arguments that are highlighted — and offers:
 
 - laravel-warrant installed in the project with Composer, so that
   `vendor/bin/warrant-language-server` exists.
-- PHP on your `PATH`, or `warrant.languageServer.phpPath` pointing at it.
+- PHP 8.2 or later on your `PATH`, or `warrant.languageServer.phpPath` pointing at
+  it. It need not be the PHP your project runs on.
 
 The extension looks for the server script, relative to the first workspace
 folder, in this order and uses the first that exists:

@@ -12,6 +12,11 @@ your schemas as you type. It runs from your project's `vendor/bin`, and the
 [VS Code](/editors/vscode/) extension and [PhpStorm](/editors/phpstorm/) plugin
 start it for you.
 
+It runs on the machine your editor runs on, with PHP 8.2 or later. That PHP need
+not be the one your project requires, nor the one in your project's container: the
+server loads only this package's own classes, so your project's PHP requirement,
+its other packages and its extensions do not matter to it.
+
 ## What it does
 
 - **Diagnostics.** Every syntax error in rule text, and every rule of the language
@@ -86,6 +91,11 @@ reflection, exactly as Warrant does at run time. This covers what source cannot:
 an ability named by a computed constant, or the required context of an ability
 attribute of your own. Its answer replaces the reading from source when it
 arrives. If the application cannot boot, the reading from source stands.
+
+The child process runs under the same PHP as the server, on the same machine, so
+it boots your application only where that PHP can: a version your project accepts,
+with the extensions it needs. An application that runs in a container usually
+cannot boot this way, and is read from source.
 
 Both readings run again whenever a PHP file changes.
 

@@ -3,31 +3,49 @@
 
 /*
  * The Warrant language server. An editor runs this with no arguments and talks
- * to it over standard input and output. It loads Composer's autoloader and
- * nothing of the application.
+ * to it over standard input and output.
+ *
+ * The server loads this package's classes from its own `src/` directory and
+ * nothing of the project: not the project's code, not its other packages, and
+ * not Composer's autoloader. The autoloader begins with Composer's platform
+ * check, which stops any PHP older than the one the project requires, and the
+ * server runs none of the project's code, so it runs on whatever PHP the editor
+ * starts it with, as long as that meets this package's own requirement.
  *
  * Given `--vocabulary <root>`, it instead boots the Laravel application at
  * <root>, writes its schemas as JSON and exits: the server runs itself this way,
- * in a child process, to read the schemas exactly.
+ * in a child process, to read the schemas exactly. That needs the project, so
+ * this mode loads the Composer autoloader of the application at <root>.
  */
 
-$autoload = $GLOBALS['_composer_autoload_path'] ?? null;
-
-foreach ([$autoload, __DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $candidate) {
-    if (is_string($candidate) && is_file($candidate)) {
-        require $candidate;
-        break;
-    }
-}
-
-if (! class_exists(Warrant\LanguageServer\Protocol\Server::class)) {
-    fwrite(STDERR, "The Warrant language server could not find Composer's autoloader.\n");
-    exit(1);
-}
-
 if (($argv[1] ?? null) === '--vocabulary') {
-    exit(Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader::dump((string) ($argv[2] ?? getcwd())));
+    $root = (string) ($argv[2] ?? getcwd());
+    $autoload = $GLOBALS['_composer_autoload_path'] ?? null;
+
+    foreach ([$root.'/vendor/autoload.php', $autoload, __DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $candidate) {
+        if (is_string($candidate) && is_file($candidate)) {
+            require $candidate;
+            break;
+        }
+    }
+
+    if (! class_exists(Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader::class)) {
+        fwrite(STDERR, "The Warrant language server could not find Composer's autoloader.\n");
+        exit(1);
+    }
+
+    exit(Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader::dump($root));
 }
+
+spl_autoload_register(static function (string $class): void {
+    if (str_starts_with($class, 'Warrant\\')) {
+        $file = __DIR__.'/../src/'.str_replace('\\', '/', substr($class, strlen('Warrant\\'))).'.php';
+
+        if (is_file($file)) {
+            require $file;
+        }
+    }
+});
 
 ini_set('display_errors', 'stderr');
 error_reporting(E_ALL & ~E_DEPRECATED);
