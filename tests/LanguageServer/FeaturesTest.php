@@ -109,6 +109,20 @@ it('replaces the part of a name already typed', function () {
     ]);
 });
 
+it('replaces the @ of a reference already typed', function () {
+    foreach (['for documents { @inc| }' => 16, 'for documents { @| }' => 16, 'for documents { if a(@con|) they can view }' => 21] as $source => $start) {
+        [$text, $position] = positionOfBar($source);
+        [$workspace, $document] = openInFixture('rules.warrant', $text);
+        $items = Completion::at($workspace, $document, $position);
+        $edit = $items[array_search(true, array_map(static fn (array $item): bool => str_starts_with($item['label'], '@'), $items), true)]['textEdit'];
+
+        expect($edit['range'])->toBe([
+            'start' => ['line' => 0, 'character' => $start],
+            'end' => ['line' => 0, 'character' => $position['character']],
+        ]);
+    }
+});
+
 it('offers the closest declared names for one that is not declared', function () {
     [$workspace, $document] = openInFixture('rules.warrant', 'for documents { if is_ownr they can veiw }');
     $diagnostics = Diagnostics::of($workspace, $document);

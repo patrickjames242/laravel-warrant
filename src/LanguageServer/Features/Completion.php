@@ -80,8 +80,10 @@ final class Completion
 
         $prefixStart = $offset;
 
-        foreach ($significant as $token) {
-            if ($token->offset < $offset && $offset <= $token->endOffset() && preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/', $token->lexeme) === 1) {
+        // A partly typed `@include` lexes as an error token, so the name being
+        // typed is looked for among every token, and may start with its `@`.
+        foreach ($tokens as $token) {
+            if ($token->offset < $offset && $offset <= $token->endOffset() && preg_match('/^(@|@?[A-Za-z_][A-Za-z0-9_-]*)$/', $token->lexeme) === 1) {
                 $prefixStart = $token->offset;
             }
         }
