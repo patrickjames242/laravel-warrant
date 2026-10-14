@@ -1,12 +1,40 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "scopeName": "warrant.php.injection",
-  "injectionSelector": "L:source.php -comment -string -meta.embedded.block.warrant",
+  "injectionSelector": "L:source.php -comment -string -meta.embedded.block.warrant -meta.rule-text-method.warrant -meta.rules-method.warrant",
   "patterns": [
     { "include": "#warrant-call" },
-    { "include": "#warrant-heredoc" }
+    { "include": "#warrant-heredoc" },
+    { "include": "#rule-text-method" },
+    { "include": "#rules-method" }
   ],
   "repository": {
+    "rule-text-method": {
+      "comment": "A method marked #[RuleTemplate] or #[DerivedCondition], from its attribute to the brace that closes its body, or to the ; of a method without one. The method is left to the PHP grammar; warrant.php.returned-rule-text applies inside this scope and highlights what it returns. This grammar does not apply inside it, so that the scope is opened once.",
+      "name": "meta.rule-text-method.warrant",
+      "begin": "(?=#\\[\\s*\\\\?(?:[A-Za-z_][A-Za-z0-9_]*\\\\)*(?:RuleTemplate|DerivedCondition)\\b)",
+      "end": "(?<=\\})|(;)",
+      "endCaptures": {
+        "1": { "name": "punctuation.terminator.expression.php" }
+      },
+      "patterns": [
+        { "include": "source.php" }
+      ]
+    },
+
+    "rules-method": {
+      "comment": "A rules() method, from its declaration to the brace that closes its body, or to the ; of a method without one. The method is left to the PHP grammar; warrant.php.returned-rule-string applies inside this scope and highlights a string it returns.",
+      "name": "meta.rules-method.warrant",
+      "begin": "(?=(?:(?:public|protected|private|final|static|abstract)\\s+)*function\\s+rules\\s*\\()",
+      "end": "(?<=\\})|(;)",
+      "endCaptures": {
+        "1": { "name": "punctuation.terminator.expression.php" }
+      },
+      "patterns": [
+        { "include": "source.php" }
+      ]
+    },
+
     "warrant-heredoc": {
       "comment": "Injects the Warrant grammar into PHP heredocs/nowdocs whose label is WARRANT, e.g. <<<'WARRANT' ... WARRANT",
       "begin": "(<<<)\\s*([\"']?)(WARRANT)\\2\\s*$",

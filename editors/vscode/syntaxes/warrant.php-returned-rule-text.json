@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "warrant.php.returned-rule-text",
+  "comment": "Highlights Warrant inside a #[RuleTemplate] or #[DerivedCondition] method, the scope warrant.php.injection opens: a string the method returns, alone or inside a returned array, as well as the calls and WARRANT heredocs highlighted everywhere else. It applies at any depth in the method, so a return inside an if is reached, and so is one inside a closure written in the method.",
+  "injectionSelector": "L:meta.rule-text-method.warrant -comment -string -meta.embedded.block.warrant",
+  "patterns": [
+    { "include": "#returned-rule-text" },
+    { "include": "warrant.php.injection#warrant-call" },
+    { "include": "warrant.php.injection#warrant-heredoc" }
+  ],
+  "repository": {
+    "returned-rule-text": {
+      "begin": "\\b(return)\\b(?=\\s*(?:['\"\\[]|<<<))",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.return.php" }
+      },
+      "end": "(?=;)",
+      "patterns": [
+        { "include": "warrant.php.injection#php-single-quoted" },
+        { "include": "warrant.php.injection#php-double-quoted" },
+        { "include": "warrant.php.injection#php-heredoc" },
+        { "include": "#returned-array" },
+        { "include": "source.php" }
+      ]
+    },
+
+    "returned-array": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.array.begin.php" }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.array.end.php" }
+      },
+      "patterns": [
+        { "include": "warrant.php.injection#php-single-quoted" },
+        { "include": "warrant.php.injection#php-double-quoted" },
+        { "include": "warrant.php.injection#php-heredoc" },
+        { "include": "source.php" }
+      ]
+    }
+  }
+}

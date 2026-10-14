@@ -59,9 +59,26 @@ warrant('is_owner or in_team(:team)', ['team' => $team]);
 Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
 ```
 
-A string returned from `rules()` or a `#[DerivedCondition]` method is not
-highlighted unless it is a `WARRANT` heredoc: a TextMate grammar cannot tell which
-method a `return` belongs to. [PhpStorm](/editors/phpstorm/) can.
+**Returned rule text**: a string returned from a `#[DerivedCondition]` or
+`#[RuleTemplate]` method, alone or inside a returned array, and a string returned
+from `rules()`:
+
+```php
+#[RuleTemplate]
+public function lockedOnceApproved(): string
+{
+    return "
+        if is_approved
+        they cannot
+        because 'This pay run has been approved and can no longer be changed.'
+    ";
+}
+```
+
+A TextMate grammar reads the method's name and attributes but not the class it is
+in, so an array returned from `rules()` stays PHP: that is also where a Laravel form
+request returns its validation rules. [PhpStorm](/editors/phpstorm/) knows the
+class, and highlights both.
 
 The nowdoc form with quoted `'WARRANT'` is the one to prefer, since rule text
 should not be interpolating PHP variables. Values belong in

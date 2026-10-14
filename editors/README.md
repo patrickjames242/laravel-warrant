@@ -57,11 +57,13 @@ so no editor needs a third copy.
   ```php
   warrant('is_owner or in_team(:team)', ['team' => $team]);
   ```
-  PhpStorm also highlights a string returned from `rules()` on a schema or rule
-  provider, or from a `#[DerivedCondition]` or `#[RuleTemplate]` method. A
-  TextMate grammar cannot see which method a `return` belongs to, so VS Code
-  highlights those only when they are `WARRANT` heredocs. Zed's PHP extension
-  owns the injections into PHP, so Zed has neither.
+  Both also highlight a string returned from a `#[DerivedCondition]` or
+  `#[RuleTemplate]` method, alone or inside a returned array, and from `rules()`.
+  PhpStorm checks that `rules()` is on a schema or rule provider and highlights
+  an array it returns; a TextMate grammar cannot see the class, so VS Code
+  highlights only a string returned from `rules()`, leaving the arrays of a
+  Laravel form request as PHP. Zed's PHP extension owns the injections into PHP,
+  so Zed has neither.
 - **SQL inside `@sql "..."`** — Zed only, and only when a SQL extension is
   installed. The tree-sitter grammar can address a string's body as a node,
   which a TextMate grammar cannot, so the SQL is highlighted as SQL.

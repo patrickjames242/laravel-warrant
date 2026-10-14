@@ -82,6 +82,25 @@ starts it.
 
   A variable or a concatenation is left as PHP.
 
+- Highlighting **inside PHP** for a string returned from a method marked
+  `#[RuleTemplate]` or `#[DerivedCondition]`, alone or inside a returned array,
+  and for a string returned from `rules()`:
+
+  ```php
+  #[RuleTemplate]
+  public function lockedOnceApproved(): string
+  {
+      return "
+          if is_approved
+          they cannot
+          because 'This pay run has been approved and can no longer be changed.'
+      ";
+  }
+  ```
+
+  An array returned from `rules()` is left as PHP, since that is also where a
+  Laravel form request returns its validation rules.
+
 ### Highlighted tokens
 
 Keywords (`if they can cannot and or not`), single- and double-quoted string

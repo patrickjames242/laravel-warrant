@@ -15,7 +15,7 @@ in sync.
 
 | Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | SQL inside `@sql` | Language server |
 |---|---|---|---|---|---|---|
-| [VS Code](/editors/vscode/) | yes | yes | yes | no | no | yes |
+| [VS Code](/editors/vscode/) | yes | yes | yes | yes | no | yes |
 | [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | no | yes, 2024.2 or later |
 | [Zed](/editors/zed/) | yes | yes | no | no | yes, with a SQL extension | no |
 | Sublime Text | yes | no | no | no | no | through an LSP client |
@@ -74,7 +74,7 @@ label needed:
 warrant('is_owner or in_team(:team)', ['team' => $team]);
 ```
 
-PhpStorm also highlights rule text a schema method returns. See
+VS Code and PhpStorm also highlight rule text a schema method returns. See
 [highlighting rules in PHP](/editors/heredocs/) for exactly what counts.
 
 ## Not shipped with the package

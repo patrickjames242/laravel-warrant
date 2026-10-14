@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Highlight Warrant inside PHP in a string returned from a `#[RuleTemplate]` or
+  `#[DerivedCondition]` method, alone or inside a returned array, and in a string
+  returned from `rules()`.
+
 ## 0.10.0
 
 - Start the Warrant language server, which brings diagnostics, hover, completion,

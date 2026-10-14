@@ -71,8 +71,9 @@ public function isEditable(): string
 ```
 
 The plugin reads PHP's own syntax tree, so it knows which call an argument
-belongs to and which method a `return` is in. That is why it covers returned
-rule text, which the [VS Code](/editors/vscode/) grammar cannot.
+belongs to, which method a `return` is in, and which class that method is on.
+That is why it highlights an array returned from `rules()` on a schema, which the
+[VS Code](/editors/vscode/) grammar leaves as PHP.
 
 ## What you get
 

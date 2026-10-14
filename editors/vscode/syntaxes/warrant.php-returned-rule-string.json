@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "warrant.php.returned-rule-string",
+  "comment": "Highlights Warrant inside a rules() method, the scope warrant.php.injection opens: a string the method returns, as well as the calls and WARRANT heredocs highlighted everywhere else. A returned array is left to PHP, since rules() is also where a Laravel form request returns its validation rules.",
+  "injectionSelector": "L:meta.rules-method.warrant -comment -string -meta.embedded.block.warrant",
+  "patterns": [
+    { "include": "#returned-rule-string" },
+    { "include": "warrant.php.injection#warrant-call" },
+    { "include": "warrant.php.injection#warrant-heredoc" }
+  ],
+  "repository": {
+    "returned-rule-string": {
+      "begin": "\\b(return)\\b(?=\\s*(?:['\"]|<<<))",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.return.php" }
+      },
+      "end": "(?=;)",
+      "patterns": [
+        { "include": "warrant.php.injection#php-single-quoted" },
+        { "include": "warrant.php.injection#php-double-quoted" },
+        { "include": "warrant.php.injection#php-heredoc" },
+        { "include": "source.php" }
+      ]
+    }
+  }
+}

@@ -47,7 +47,7 @@ The calls that count are `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse(
 is recognised when it is passed first or by its parameter name. A variable or a
 concatenation is plain PHP, since there is no rule text to see until it runs.
 
-PhpStorm also highlights a string a schema method returns as rule text: from
+VS Code and PhpStorm also highlight a string a schema method returns as rule text: from
 `rules()` on a schema or a [rule provider](/supplying-rules/provider/), and from a
 `#[DerivedCondition]` or `#[RuleTemplate]` method, alone or inside a returned array:
 
@@ -59,8 +59,9 @@ public function isEditable(): string
 }
 ```
 
-VS Code cannot do that one. Its grammar reads text a line at a time and cannot
-tell which method a `return` belongs to, so there a returned string needs the
+VS Code highlights an array returned from `rules()` as PHP. Its grammar sees the
+method but not the class around it, and `rules()` is also where a Laravel form
+request returns its validation rules, so there a schema's array of rules needs the
 `WARRANT` label. Zed highlights `WARRANT` heredocs only, because the injections
 into PHP belong to Zed's PHP extension.
 
