@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+- Make the extension's icon an inked rubber stamp: WARRANT across a round
+  stamp, with "for Laravel" around its foot. The `.warrant` file icon stays as
+  it is.
+
 ## 0.12.0
 
 - Treat the Warrant inside PHP as Warrant while editing it: `(`, `{`, `'` and `"`

@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Laravel Warrant</name>
-    <version>0.7.0</version>
+    <version>0.7.1</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,9 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.7.1</b> &mdash; Make the plugin's icon an inked rubber stamp: WARRANT
+                across a round stamp, with &ldquo;for Laravel&rdquo; around its foot. The
+                <code>.warrant</code> file icon stays as it is.</li>
             <li><b>0.7.0</b> &mdash; Close <code>(</code>, <code>{</code>, <code>'</code> and
                 <code>"</code> as they are typed, highlight the matching bracket at the
                 caret, indent the line Enter opens inside a <code>{ }</code> block, and
