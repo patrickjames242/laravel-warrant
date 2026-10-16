@@ -271,7 +271,5 @@ actually took all the work: *"so what can they do to these rows?"*
 
 - [Quick start](/getting-started/quick-start/) — a schema, a rule, a provider, and
   the checks that use them, end to end.
-- [Core concepts](/getting-started/core-concepts/) — how schemas, rules, and the
-  provider divide the work.
 - [How it compiles to SQL](/sql/rule-to-query/) — why the single-record check,
   the list filter, and the per-row abilities can never disagree.

@@ -1,0 +1,284 @@
+---
+banner:
+  content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
+title: Schemas
+description: Examples of declaring abilities, conditions, context, templates, and schema rules.
+sidebar:
+  order: 1
+---
+
+A schema is the vocabulary for one resource: the abilities a rule may grant and
+the conditions a rule may test. These examples are the shapes you will write most.
+[Defining schemas](/schemas/anatomy/) covers each one in depth.
+
+## A minimal schema
+
+```php
+namespace App\Warrant;
+
+use App\Models\Document;
+use Illuminate\Contracts\Database\Query\Builder;
+use Warrant\Schema\Ability;
+use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\RowCondition;
+use Warrant\Schema\WarrantSchema;
+
+class DocumentSchema extends WarrantSchema
+{
+    public const model = Document::class;
+
+    #[Ability] public const VIEW   = 'view';
+    #[Ability] public const UPDATE = 'update';
+
+    #[RowCondition]
+    public function isMine(RowConditionContext $c): Builder
+    {
+        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    }
+}
+```
+
+The method `isMine` is the condition `is_mine` in a rule. Register the schema in
+`config/warrant.php` and point the model at it:
+
+```php
+// config/warrant.php
+'schemas' => [App\Warrant\DocumentSchema::class],
+```
+
+```php
+use Warrant\HasWarrantSchema;
+
+class Document extends Model
+{
+    use HasWarrantSchema;
+
+    public static function warrantSchema(): string
+    {
+        return \App\Warrant\DocumentSchema::class;
+    }
+}
+```
+
+## Abilities
+
+```php
+use Warrant\Schema\Ability;
+use Warrant\Schema\StandardAbilities;
+
+#[Ability] public const VIEW    = StandardAbilities::VIEW;   // 'view'
+#[Ability] public const APPROVE = 'approve';
+#[Ability] public const UNLOCK  = 'unlock';
+```
+
+Declaration order is the order `selectUserAbilities()` lists them in. See
+[Abilities](/schemas/abilities/).
+
+## Row conditions
+
+A row condition narrows which rows the user matches, by adding where clauses.
+
+```php
+#[RowCondition]
+public function inMyTeam(RowConditionContext $c): Builder
+{
+    return $c->query->whereExists(fn ($sub) => $sub
+        ->from('team_members')
+        ->whereColumn('team_members.team_id', $c->row('team_id'))
+        ->where('user_id', $c->user->getAuthIdentifier()));
+}
+
+#[RowCondition]
+public function isLocked(RowConditionContext $c): Builder
+{
+    return $c->query->where($c->row('locked'), true);
+}
+```
+
+## Conditions with arguments
+
+Extra parameters are the condition's arguments, so `in_team('sales')` passes
+`'sales'`:
+
+```php
+#[RowCondition]
+public function inTeam(RowConditionContext $c, string $team): Builder
+{
+    return $c->query->where($c->row('team_id'), $team);
+}
+
+#[RowCondition]
+public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
+{
+    return $c->query->whereIn($c->row('team_id'), $teams);
+}
+```
+
+## Global conditions
+
+A global condition asks about the user, not a row, and answers with a bool:
+
+```php
+use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\GlobalCondition;
+
+#[GlobalCondition]
+public function isAdmin(GlobalConditionContext $c): bool
+{
+    return $c->user->role === 'admin';
+}
+```
+
+## Answering unknown
+
+Return `null` when a condition cannot answer. Unknown grants nothing and lifts no
+denial:
+
+```php
+#[GlobalCondition]
+public function inBillingPeriod(GlobalConditionContext $c): ?bool
+{
+    $period = $c->context['period'] ?? null;
+
+    return $period === null ? null : $period === $c->user->billing_period;
+}
+```
+
+## Answering in PHP when you hold the row
+
+```php
+#[RowCondition]
+public function isMine(RowConditionContext $c): Builder|bool
+{
+    if ($c->model !== null) {
+        return $c->model->user_id === $c->user->getAuthIdentifier();
+    }
+
+    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+}
+```
+
+## Derived conditions
+
+A derived condition is built from other conditions, as rule text, a parsed
+`WarrantSyntax`, or a condition builder:
+
+```php
+use Warrant\Builders\Ref;
+use Warrant\Builders\WarrantConditionBuilder;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\Facades\Warrant;
+use Warrant\Schema\DerivedCondition;
+
+#[DerivedCondition]
+public function isEditable(): string
+{
+    return 'is_mine and not is_locked';
+}
+
+#[DerivedCondition]
+public function ownedOrInTeam(mixed $team): WarrantSyntax
+{
+    return Warrant::parse('is_mine or in_team(:team)', ['team' => $team]);
+}
+
+#[DerivedCondition]
+public function parentIsOwned(): WarrantConditionBuilder
+{
+    return WarrantConditionBuilder::build()->ifCheck(
+        'is_owner',
+        FolderSchema::class,
+        Ref::column('parent_id'),
+        as: 'parent',
+    );
+}
+```
+
+See [Conditions beyond SQL](/schemas/conditions-beyond-sql/).
+
+## Context
+
+Context is the values a check supplies alongside the user and the row. A schema can
+require keys, per schema or per ability, and supply defaults:
+
+```php
+use Warrant\Schema\RequiredContext;
+
+#[RequiredContext] public const TENANT = 'tenant_id';
+
+#[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
+
+#[RowCondition]
+public function inCurrentWorkspace(RowConditionContext $c): Builder
+{
+    return $c->query->where($c->row('workspace_id'), $c->context['workspace_id']);
+}
+
+protected function defaultContext(): array
+{
+    return ['tenant_id' => app(Tenancy::class)->currentId()];
+}
+```
+
+See [Context](/concepts/context/).
+
+## Rule templates
+
+A template is a reusable piece of policy, expanded with `@include`. Its clauses
+name no abilities, because the `@include` names them:
+
+```php
+use Warrant\Schema\RuleTemplate;
+
+#[RuleTemplate]
+public function requiresApproval(): string
+{
+    return "if not is_approved they cannot because 'This needs approval first.'";
+}
+```
+
+```warrant
+@include requires_approval for view, edit
+```
+
+See [Rule templates](/rules/templates/).
+
+## Rules the schema always contributes
+
+Rules a schema returns from `rules()` are merged into every resolved set,
+whatever the provider returned:
+
+```php
+use Warrant\Rules\RuleProviderContext;
+
+public function rules(RuleProviderContext $context): string
+{
+    return 'if is_suspended they cannot *';
+}
+```
+
+## A schema with no rows
+
+A schema whose `model` is empty has only no-target abilities, answered by global
+conditions:
+
+```php
+class SettingsSchema extends WarrantSchema
+{
+    public const model = '';
+
+    #[Ability] public const MANAGE = 'manage';
+
+    #[GlobalCondition]
+    public function isAdmin(GlobalConditionContext $c): bool
+    {
+        return (bool) $c->user->is_admin;
+    }
+}
+```
+
+```php
+Warrant::can('manage', 'settings');
+```
+
+See [Checking with no row](/checking/no-row/).

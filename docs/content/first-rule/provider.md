@@ -11,23 +11,32 @@ Warrant never invents a rule. It asks your rule provider for them, once per user
 and schema, at request time. A provider is optional — a schema can return its own
 rules — but it is the usual home for rules that live outside your code.
 
+This one reads the file from step two:
+
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
-class DatabaseRuleProvider implements RuleProvider
+class FileRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): string
+    public function rules(RuleProviderContext $context): RuleSetNode|iterable
     {
-        return 'if is_mine they can view, update';
+        $file = WarrantSyntax::parseFile(base_path('warrant/documents.warrant'));
+
+        return $file->forSchema($context->schemaKey) ?? [];
     }
 }
 ```
 
-The text names no schema of its own, so it applies to the one being asked about. Every user gets the same rule here, which is fine for a first pass. The context
-tells you who is asking and what about:
+The provider is asked once for each schema a check touches. `forSchema()` hands
+back the `for documents` block when the schema is `documents`, and `null` for any
+other, which the `?? []` turns into no rules. Every user gets the same rules here,
+which is fine for a first pass. The context tells you who is asking and what
+about:
 
 ```php
 $context->user;       // the Authenticatable being checked
@@ -36,7 +45,18 @@ $context->schema;     // App\Warrant\DocumentSchema
 $context->model;      // App\Models\Document, or null for a schema with no model
 ```
 
-A real provider usually reads from somewhere. Rules stored per role:
+A real provider usually picks rules per user. One file per role:
+
+```php
+public function rules(RuleProviderContext $context): RuleSetNode|iterable
+{
+    $file = WarrantSyntax::parseFile(base_path("warrant/{$context->user->role}.warrant"));
+
+    return $file->forSchema($context->schemaKey) ?? [];
+}
+```
+
+Or rules stored per role in the database:
 
 ```php
 public function rules(RuleProviderContext $context): iterable
@@ -56,7 +76,7 @@ schema you were asked about, and the rows merge into one set.
 ```php
 // config/warrant.php
 return [
-    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
+    'rule_provider' => App\Warrant\FileRuleProvider::class,
 
     'schemas' => [
         'documents' => App\Warrant\DocumentSchema::class,

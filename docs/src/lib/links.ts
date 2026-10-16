@@ -7,7 +7,6 @@ export const links = {
   whyWarrant: pagePath('getting-started/why-warrant'),
   installation: pagePath('getting-started/installation'),
   quickStart: pagePath('getting-started/quick-start'),
-  coreConcepts: pagePath('getting-started/core-concepts'),
   vsSpatie: pagePath('getting-started/vs-spatie-laravel-permission'),
   guides: pagePath('schemas/anatomy'),
   ruleLanguage: pagePath('rules/basics'),

@@ -49,12 +49,22 @@ class DocumentSchema extends WarrantSchema
 
 ## 2. Write a rule
 
-Rules are plain strings in Warrant's [rule language](/rules/basics/).
-This one grants view and update on the user's own rows:
+Rules are written in Warrant's [rule language](/rules/basics/). They can be
+embedded in PHP, built with the [PHP builder](/rules/builder/), stored in your
+database, or kept in files; here we'll use a file. Create
+`warrant/documents.warrant`:
 
 ```warrant
+# warrant/documents.warrant
+
+for documents
+
 if is_self they can view, update
 ```
+
+The `for documents` header names the schema the rules are about, which is what
+lets your [editor tooling](/editors/overview/) complete and check the names in it.
+This rule grants view and update on the user's own rows.
 
 ## 3. Write a provider
 
@@ -66,16 +76,20 @@ home for rules stored as data.)
 ```php
 namespace App\Warrant;
 
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\RuleProvider;
 
-class DatabaseRuleProvider implements RuleProvider
+class FileRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): string
+    public function rules(RuleProviderContext $context): RuleSetNode|iterable
     {
-        // In a real app you'd look these rules up per user/role/tenant.
-        // Here we return the same rule for everyone, for the documents schema.
-        return 'if is_self they can view, update';
+        // In a real app you'd pick rules per user/role/tenant.
+        // Here everyone gets the rules in the file, for the schema being asked about.
+        $file = WarrantSyntax::parseFile(base_path('warrant/documents.warrant'));
+
+        return $file->forSchema($context->schemaKey) ?? [];
     }
 }
 ```
@@ -86,7 +100,7 @@ Point Warrant at the provider and register the schema in `config/warrant.php`:
 
 ```php
 return [
-    'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
+    'rule_provider' => App\Warrant\FileRuleProvider::class,
     'schemas'       => [App\Warrant\DocumentSchema::class],
 ];
 ```
@@ -174,7 +188,6 @@ DocumentSchema::guard($user)->abilities($document); // ['view', 'update']
 
 That's the whole loop. From here:
 
-- [Core concepts](/getting-started/core-concepts/) — how the pieces fit together.
 - [Schemas](/schemas/anatomy/) — abilities, conditions, and context keys in depth.
 - [The rule language](/rules/basics/) — the full DSL.
 - [Checking access](/checking/ways-in/) — every way to ask about access.

@@ -96,15 +96,15 @@
   /*
    * Syntax highlighting, by token kind. Each kind takes its own earthy hue, so
    * a line reads at a glance and still sits in the site's warm palette: coral
-   * keywords, apricot variables and abilities, ochre class names, olive
-   * strings and gold numbers. Functions and rule conditions are a quiet warm
-   * neutral, sand on dark and the titles' brown on light, and comments and
-   * punctuation recede.
+   * keywords, apricot variables, a paler apricot for properties, ochre class
+   * and schema names, olive strings and gold numbers and constants. Functions,
+   * and the conditions and abilities of rule text, are a quiet warm neutral,
+   * sand on dark and the titles' brown on light, and comments and punctuation
+   * recede.
    */
   --color-code-keyword: var(--color-coral-hover);
-  --color-code-ability: var(--color-code-variable);
-  --color-code-condition: var(--color-code-function);
   --color-code-variable: #f2a467;
+  --color-code-property: #e3b994;
   --color-code-function: #dcc3a8;
   --color-code-class: #e3bd6c;
   --color-code-string: #c4c08a;
@@ -207,6 +207,7 @@
 
   --color-code-keyword: #bb3e2c;
   --color-code-variable: #a4581a;
+  --color-code-property: #8d5a36;
   --color-code-function: var(--color-title);
   --color-code-class: #8a6413;
   --color-code-string: #67702b;

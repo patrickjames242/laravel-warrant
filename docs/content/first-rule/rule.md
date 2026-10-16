@@ -7,11 +7,29 @@ sidebar:
   order: 2
 ---
 
-A rule is a string. Here is the whole policy for step two:
+Rules are written in Warrant's rule language, and they can live wherever suits
+your application: embedded in PHP as a string, built with the
+[PHP builder](/rules/builder/), stored in your database, or kept in `.warrant`
+files. See [where rules live](/supplying-rules/where-rules-live/) for each.
+
+For this tutorial we will keep them in a file. Create `warrant/documents.warrant`
+at the root of your project, and write the whole policy for step two in it:
 
 ```warrant
+# warrant/documents.warrant
+
+for documents
+
 if is_mine they can view, update
 ```
+
+The `for documents` header says which schema the rules are about: the
+`DocumentSchema` from step one, whose key is `documents`. Write it at the top of
+the file. It tells your [editor tooling](/editors/overview/) which schema's
+conditions and abilities to complete, check, and link to, so a misspelled
+`is_mien` is underlined as you type rather than found at request time. With one
+schema in the file, the header covers everything below it. A file with rules for
+several schemas braces each one, `for documents { … }`.
 
 Read it left to right. `is_mine` is the condition we declared on the schema.
 `they` is the user being asked about, the one your provider was handed. `can view,
@@ -22,6 +40,8 @@ Rules are order-independent and whitespace-insensitive, so you can lay one out
 however it reads best:
 
 ```warrant
+for documents
+
 if is_mine
 they can view, update
 ```
@@ -32,6 +52,8 @@ Suppose locked documents cannot be edited by anyone. That is a `cannot`, and it
 goes in its own rule:
 
 ```warrant
+for documents
+
 if is_mine they can view, update
 
 if is_locked they cannot update
@@ -57,6 +79,8 @@ ones. Nothing later can put it back, which is covered in
 When several rules are about one ability, say the ability once with a block:
 
 ```warrant
+for documents
+
 can they update {
     if is_mine they can
     if is_locked they cannot
@@ -64,7 +88,7 @@ can they update {
 ```
 
 That produces exactly the two rules above. Clauses inside a block name no
-abilities of their own, because the header already did.
+abilities of their own, because the block's `can they update` already did.
 
 ## What a rule is not
 

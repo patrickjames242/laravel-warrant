@@ -1,9 +1,8 @@
 import { useLayoutEffect, useRef } from 'react'
-import { links } from '../../lib/links'
 import { CodeLines } from '../CodeLines'
 import { layoutBox } from './flow'
 import { PanelHeading } from './PanelHeading'
-import { Eyebrow, SectionLink } from './SectionHeading'
+import { Eyebrow } from './SectionHeading'
 import { CORNER_GLOW, SECTION_INNER, themed, tint } from './sectionStyles'
 
 const PIECES = [
@@ -90,7 +89,6 @@ export function MentalModel() {
               Three pieces. Each does one job.
             </h2>
           </div>
-          <SectionLink href={links.coreConcepts}>Core concepts →</SectionLink>
         </div>
 
         <div ref={timeline} className="mt-16 grid grid-cols-1">

@@ -32,7 +32,8 @@ const SIDEBAR: { label: string; groups: GroupSpec[] }[] = [
     label: 'Start here',
     groups: [
       { label: 'Introduction', directory: 'getting-started' },
-      { label: 'Your first rule', directory: 'first-rule' },
+      { label: 'Usage Examples', directory: 'usage-examples' },
+      { label: 'Basic Tutorial', directory: 'first-rule' },
     ],
   },
   {

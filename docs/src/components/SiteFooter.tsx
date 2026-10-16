@@ -9,7 +9,6 @@ const COLUMNS = [
       { label: 'Why Warrant', href: links.whyWarrant },
       { label: 'Installation', href: links.installation },
       { label: 'Quick start', href: links.quickStart },
-      { label: 'Core concepts', href: links.coreConcepts },
     ],
   },
   {

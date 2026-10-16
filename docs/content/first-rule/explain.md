@@ -12,6 +12,10 @@ get worse. They do not have to. A `cannot` can carry its own reason, and the
 throwing check surfaces it.
 
 ```warrant
+# warrant/documents.warrant
+
+for documents
+
 if is_mine they can view, update
 
 if is_locked
@@ -39,6 +43,8 @@ Each `cannot` clause carries its own message, so one rule can deny two things fo
 two reasons:
 
 ```warrant
+for documents
+
 if is_locked
 they cannot update because 'This document is locked and can no longer be edited.'
 they cannot delete because 'Locked documents cannot be deleted.'
