@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2
+
+- Rename the extension to **Warrant for Laravel**.
+
 ## 0.12.1
 
 - Make the extension's icon an inked rubber stamp: WARRANT across a round

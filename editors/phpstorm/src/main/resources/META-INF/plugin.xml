@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
-    <name>Laravel Warrant</name>
-    <version>0.7.1</version>
+    <name>Warrant for Laravel</name>
+    <version>0.7.2</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,7 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.7.2</b> &mdash; Rename the plugin to <b>Warrant for Laravel</b>.</li>
             <li><b>0.7.1</b> &mdash; Make the plugin's icon an inked rubber stamp: WARRANT
                 across a round stamp, with &ldquo;for Laravel&rdquo; around its foot. The
                 <code>.warrant</code> file icon stays as it is.</li>
