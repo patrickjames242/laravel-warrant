@@ -5,9 +5,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use InvalidArgumentException;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\Parsing\Validation\RuleValidationException;
-use Warrant\DSL\Parsing\Validation\SyntaxValidator;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Validation\SyntaxValidator;
+use Warrant\DSL\Validation\ValidationInput;
 
 /**
  * A syntax that has passed validation as written, under the

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Parsing\Validation;
+namespace Warrant\DSL\Validation;
 
 /**
  * The words for a rule of the language broken by text the parser can read: an

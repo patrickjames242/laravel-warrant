@@ -33,7 +33,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * leaves inside {@see $predicate} are validated against — and compiled with — the
  * *target* schema's vocabulary, not the owning schema's.
  *
- * Validated by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator::assertCrossSchemaConditionValid()}
+ * Validated by {@see \Warrant\DSL\Validation\RuleSetValidator::assertCrossSchemaConditionValid()}
  * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCheckLeaf()}.
  */
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode

@@ -6,9 +6,9 @@ use Warrant\DSL\Parsing\ASTNodes\SyntaxBindingsResolved;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\DSL\Parsing\Validation\GenericMode;
-use Warrant\DSL\Parsing\Validation\RuleValidationException;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\DSL\Validation\GenericMode;
+use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Registry\RegisteredSchemas;
 

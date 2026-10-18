@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * key, as a condition's arguments are bound to its parameters, and are read
  * the same way, so `schema()` is an empty list rather than a syntax error. How
  * many the target's key requires is not knowable here, so arity is left to
- * {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator}, along with the rest
+ * {@see \Warrant\DSL\Validation\RuleSetValidator}, along with the rest
  * of the handle's coherence, including whether the alias is allowed, since an
  * unbound handle selects nothing to name.
  *

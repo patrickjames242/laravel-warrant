@@ -6,7 +6,7 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 

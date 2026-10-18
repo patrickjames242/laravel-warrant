@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Parsing\Validation;
+namespace Warrant\DSL\Validation;
 
 /**
  * Whether rules with no `for` header name the abilities their clauses and

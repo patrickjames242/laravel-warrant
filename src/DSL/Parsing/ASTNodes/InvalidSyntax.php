@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Warrant\DSL\Parsing\Diagnostic;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\DSL\Validation\ValidationInput;
 
 /**
  * A syntax that failed validation as written, under the {@see ValidationInput}

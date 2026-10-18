@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;

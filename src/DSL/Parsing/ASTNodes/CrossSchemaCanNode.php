@@ -29,7 +29,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * {@see ColumnRef} for a `@column [<name>.]<column>` reference (resolved to a
  * grammar-wrapped column Expression at compile time).
  *
- * Validated by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator::assertCrossSchemaCanValid()}
+ * Validated by {@see \Warrant\DSL\Validation\RuleSetValidator::assertCrossSchemaCanValid()}
  * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCanLeaf()}.
  */
 readonly class CrossSchemaCanNode implements IBooleanExpressionNode

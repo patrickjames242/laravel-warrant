@@ -10,7 +10,7 @@ namespace Warrant\Builders;
  * the first asks a schema-wide question, the second names a row and names it
  * nothing, which no query can answer and so is rejected — by
  * {@see \Warrant\DSL\Compiling\RuleSetCompiler} wherever the handle comes from,
- * and by {@see \Warrant\DSL\Parsing\Validation\RuleSetValidator} ahead of that
+ * and by {@see \Warrant\DSL\Validation\RuleSetValidator} ahead of that
  * for a handle written as rule text.
  *
  * A plain `null` default could not tell the two apart, so an accidental null id —

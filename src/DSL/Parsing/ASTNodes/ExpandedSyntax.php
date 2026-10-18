@@ -4,7 +4,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
 use Warrant\DSL\Expanding\RuleSetExpander;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\DSL\Validation\ValidationInput;
 
 /**
  * Rules after expansion: rules and nothing else, every one naming the abilities

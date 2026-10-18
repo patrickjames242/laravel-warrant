@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Parsing\Validation;
+namespace Warrant\DSL\Validation;
 
 use Closure;
 use InvalidArgumentException;
