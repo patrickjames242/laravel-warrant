@@ -5,6 +5,7 @@ namespace Warrant\DSL;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 
 /**
  * Living reference for Warrant rule syntax.
@@ -124,10 +125,10 @@ class RuleSyntaxExamples
         // A `?`/`:name` binding may resolve to a string, or to a closure of the
         // form fn (WarrantDenialContext $c) => string|Throwable — the same
         // dynamic message form theyCannotBecause() accepts on the builder:
-        WarrantSyntax::parse(
+        WarrantSyntax::parse(new BoundSyntax(
             "if is_locked they cannot edit because :msg",
             ['msg' => fn (\Warrant\Schema\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
-        )->rule();
+        ))->rule();
 
         // The same rule built fluently — theyCannotBecause() carries the message:
         WarrantRuleNode::build()
@@ -258,13 +259,13 @@ class RuleSyntaxExamples
      */
     public function namedBindings(): void
     {
-        $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
+        $ruleSet = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
             if not (is_self or (not is_manager and is_specific_user(:specific_user_id, :specific_user_id, :some_list)))
             they cannot edit
             WARRANT, [
             'specific_user_id' => 'some-user-id',
             'some_list' => [1, null, false, 'some-string'],
-        ])->scopedTo('timesheets');
+        ]))->scopedTo('timesheets');
     }
 
     /**
@@ -273,14 +274,14 @@ class RuleSyntaxExamples
      */
     public function positionalBindings(): void
     {
-        $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
+        $ruleSet = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
             if is_department(?, ?, ?)
             they can view
             WARRANT, [
             'department-id-1',
             'department-id-2',
             'department-id-3',
-        ])->scopedTo('timesheets');
+        ]))->scopedTo('timesheets');
     }
 
     // -------------------------------------------------------------------------
@@ -320,10 +321,10 @@ class RuleSyntaxExamples
     {
         $cannotPublish = WarrantSyntax::parse('they cannot publish')->rule();
         $cannotEdit    = WarrantSyntax::parse('they cannot edit')->rule();
-        $canEdit       = WarrantSyntax::parse(
+        $canEdit       = WarrantSyntax::parse(new BoundSyntax(
             'if some_condition(:some_param) they can edit',
             ['some_param' => 'some-value'],
-        )->rule();
+        ))->rule();
 
         // Variadic:
         $ruleSet = RuleSetNode::fromRules('timesheets', $cannotPublish, $cannotEdit, $canEdit);
@@ -346,13 +347,13 @@ class RuleSyntaxExamples
         //   if is_thing(:a, ?) they can view
 
         // A named placeholder with no matching binding:
-        //   WarrantSyntax::parse("if is_thing(:missing) they can view", [])
+        //   WarrantSyntax::parse(new BoundSyntax("if is_thing(:missing) they can view", []))
 
         // A binding that is never referenced by any placeholder:
-        //   WarrantSyntax::parse("if is_self they can view", ['unused' => 1])
+        //   WarrantSyntax::parse(new BoundSyntax("if is_self they can view", ['unused' => 1]))
 
         // Positional count mismatch (2 placeholders, 3 values — or vice versa):
-        //   WarrantSyntax::parse("if is_thing(?, ?) they can view", [1, 2, 3])
+        //   WarrantSyntax::parse(new BoundSyntax("if is_thing(?, ?) they can view", [1, 2, 3]))
 
         // A bare `if` with no `can` / `cannot` lines (grants/denies nothing):
         //   if is_self

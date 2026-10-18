@@ -3,6 +3,7 @@
 namespace App\Schemas;
 
 use App\Models\Document;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
@@ -48,7 +49,7 @@ class DocumentSchema extends BaseSchema
     #[DerivedCondition]
     public function ownerOrTeam(mixed $team): WarrantSyntax
     {
-        return Warrant::parse('is_owner or in_team(:team)', ['team' => $team]);
+        return Warrant::parse(new BoundSyntax('is_owner or in_team(:team)', ['team' => $team]));
     }
 
     /**
@@ -73,6 +74,6 @@ class DocumentSchema extends BaseSchema
     #[RuleTemplate]
     public function sharedWith(mixed $team): WarrantSyntax
     {
-        return Warrant::parse('if in_team(:team) they can', ['team' => $team]);
+        return Warrant::parse(new BoundSyntax('if in_team(:team) they can', ['team' => $team]));
     }
 }

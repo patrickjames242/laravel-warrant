@@ -8,6 +8,7 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
@@ -113,10 +114,10 @@ it('rejects a specified row target that is a null literal', function () {
 });
 
 it('rejects a specified row target from a binding that resolved to null', function () {
-    expect(fn () => validateRegistered(WarrantSyntax::parse(
+    expect(fn () => validateRegistered(WarrantSyntax::parse(new BoundSyntax(
         'if can(manage for xs_target(:folder)) they can edit',
         ['folder' => null],
-    )->scopedTo('xs_owner')))
+    ))->scopedTo('xs_owner')))
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
 });
 

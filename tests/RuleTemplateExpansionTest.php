@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
@@ -75,7 +76,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function withRelation(string $relation): WarrantSyntax
     {
-        return Warrant::parse('if is_teacher(:relation) they can', ['relation' => $relation]);
+        return Warrant::parse(new BoundSyntax('if is_teacher(:relation) they can', ['relation' => $relation]));
     }
 
     /** Terminates because the argument decreases at every level. */
@@ -84,7 +85,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     {
         return $n <= 0
             ? 'they can'
-            : Warrant::parse('@include counts_down(:n)', ['n' => $n - 1]);
+            : Warrant::parse(new BoundSyntax('@include counts_down(:n)', ['n' => $n - 1]));
     }
 
     /** Never terminates: the same arguments at every level. */
@@ -124,7 +125,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     {
         return [
             'if is_teacher they can',
-            Warrant::parse('if is_advisor they cannot because :why', ['why' => 'No.']),
+            Warrant::parse(new BoundSyntax('if is_advisor they cannot because :why', ['why' => 'No.'])),
             [new IncludeInvocationNode('grants_it')],
         ];
     }

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProvider;
@@ -177,7 +178,7 @@ function bindVtRules(array $syntaxByKey, array $bindings = []): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse($syntax, $bindings)->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider

@@ -24,6 +24,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\ConditionKind;
@@ -487,7 +488,7 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
     expect($bound->bindings)->toHaveCount(1);
 
     // The round-trip only closes if the binding refills the selector.
-    $reparsed = WarrantSyntax::parse($bound->syntax, $bound->bindings)->rule();
+    $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->rule();
 
     expect($reparsed->conditions->boundKey)->toBe([$bound->bindings[0]]);
     expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));

@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -148,10 +149,10 @@ it('rejects a specified row target that is a null literal', function () {
 });
 
 it('rejects a specified row target from a binding that resolved to null', function () {
-    expect(fn () => validateRegistered(WarrantSyntax::parse(
+    expect(fn () => validateRegistered(WarrantSyntax::parse(new BoundSyntax(
         'if check(is_published for xcv_target(:pp)) they can edit',
         ['pp' => null],
-    )->scopedTo('xcv_owner')))
+    ))->scopedTo('xcv_owner')))
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
 });
 

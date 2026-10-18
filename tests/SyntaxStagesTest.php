@@ -5,6 +5,7 @@ use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\SyntaxBindingsResolved;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Validation\GenericMode;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\Validation\ValidationInput;
@@ -45,20 +46,20 @@ it('makes each stage only from the stage before it', function (string $stage, st
 it('validates a syntax before it puts any value in place', function () {
     // Both a mistake in the text and a binding with no value: the mistake is
     // what is reported, since the text is validated first.
-    $syntax = WarrantSyntax::parse('if is_teacher(:missing) they can view if is_advisor they can', []);
+    $syntax = WarrantSyntax::parse(new BoundSyntax('if is_teacher(:missing) they can view if is_advisor they can', []));
 
     expect(fn () => $syntax->resolveBindings())
         ->toThrow(RuleValidationException::class, 'This clause names none, but the rules before it name theirs');
 });
 
 it('puts the values in place once the text is valid', function () {
-    expect(fn () => WarrantSyntax::parse('if is_teacher(:missing) they can view', [])->resolveBindings())
+    expect(fn () => WarrantSyntax::parse(new BoundSyntax('if is_teacher(:missing) they can view', []))->resolveBindings())
         ->toThrow(WarrantSyntaxException::class, 'No binding provided for ":missing"');
 });
 
 it('resolves a valid syntax under the input it was validated with', function () {
     $input = registeredInput();
-    $resolved = ValidSyntax::of(WarrantSyntax::parse('if is_teacher(:x) they can view', ['x' => 5]), $input)->resolveBindings();
+    $resolved = ValidSyntax::of(WarrantSyntax::parse(new BoundSyntax('if is_teacher(:x) they can view', ['x' => 5])), $input)->resolveBindings();
 
     expect($resolved)->toBeInstanceOf(SyntaxBindingsResolved::class)
         ->and($resolved->input)->toBe($input)

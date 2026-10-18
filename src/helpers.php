@@ -1,6 +1,7 @@
 <?php
 
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 
 if (! function_exists('warrant')) {
     /**
@@ -12,7 +13,7 @@ if (! function_exists('warrant')) {
      */
     function warrant(string $syntax, array $bindings = []): WarrantSyntax
     {
-        return WarrantSyntax::parse($syntax, $bindings);
+        return WarrantSyntax::parse(new BoundSyntax($syntax, $bindings));
     }
 }
 

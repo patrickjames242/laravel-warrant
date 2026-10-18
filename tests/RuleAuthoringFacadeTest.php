@@ -7,6 +7,7 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
 
 /*
@@ -50,7 +51,7 @@ it('parses every form exactly as WarrantSyntax::parse does', function (string $s
 ]);
 
 it('resolves bindings through parse', function () {
-    expect(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1'])->rule()
+    expect(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->rule()
         ->conditions->parameters)->toBe(['x-1']);
 });
 
@@ -65,11 +66,16 @@ it('parses a file through parseFile', function () {
     }
 });
 
+it('parses a BoundSyntax with the bindings it holds', function () {
+    expect(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->rule()->conditions->parameters)
+        ->toBe(['x-1']);
+});
+
 // -- the global helpers ---------------------------------------------------------
 
 it('parses through warrant() exactly as Warrant::parse does', function () {
     expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1'])->children)
-        ->toEqual(Warrant::parse('if is_owner(:id) they can view', ['id' => 'x-1'])->children);
+        ->toEqual(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->children);
 });
 
 it('parses a file through warrant_file(), with the extension left off', function () {

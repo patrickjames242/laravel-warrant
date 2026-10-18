@@ -21,10 +21,10 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Validation\GenericMode;
 use Warrant\DSL\Parsing\Validation\ValidationInput;
-use Warrant\DSL\Parsing\Writing\BoundSyntax;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
@@ -442,7 +442,7 @@ function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKe
 {
     app()->instance(
         RuleProvider::class,
-        new FakeWarrantRuleProvider(WarrantSyntax::parse($syntax, $bindings)->scopedTo($schemaKey))
+        new FakeWarrantRuleProvider(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo($schemaKey))
     );
 }
 

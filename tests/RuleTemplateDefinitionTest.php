@@ -1,6 +1,7 @@
 <?php
 
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Facades\Warrant;
@@ -23,10 +24,10 @@ class TemplatedSchema extends WarrantSchema
     #[RuleTemplate('inherited')]
     public function inheritedFrom(string $relation, int $depth = 1): WarrantSyntax
     {
-        return Warrant::parse(
+        return Warrant::parse(new BoundSyntax(
             'if is_child_of(:relation, :depth) they can',
             ['relation' => $relation, 'depth' => $depth],
-        );
+        ));
     }
 
     #[RowCondition]
@@ -146,7 +147,7 @@ it('takes a closure denial message through a binding', function () {
     // A closure has no inline form; a binding is the only way it reaches the DSL,
     // which is why a template body has to be able to carry one.
     $message = fn () => 'nope';
-    $rule = Warrant::parse('they cannot because :why', ['why' => $message])->rule();
+    $rule = Warrant::parse(new BoundSyntax('they cannot because :why', ['why' => $message]))->rule();
 
     expect($rule->cannotClauses[0]->message)->toBe($message);
 });

@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -283,10 +284,10 @@ it('folds every rule set for a schema into one, in source order', function () {
 });
 
 it('resolves bindings across every block', function () {
-    $syntax = WarrantSyntax::parse(<<<'WARRANT'
+    $syntax = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if owns(:id) they can edit }
-        WARRANT, ['id' => 'x-1']);
+        WARRANT, ['id' => 'x-1']));
 
     expect($syntax->forSchema('a')->entries[0]->conditions->parameters)->toBe(['x-1']);
     expect($syntax->forSchema('b')->entries[0]->conditions->parameters)->toBe(['x-1']);
@@ -338,9 +339,37 @@ it('throws when the file is missing', function () {
         ->toThrow(InvalidArgumentException::class, 'Unable to read Warrant rule file [/no/such/file.warrant].');
 });
 
+it('reads a file into a BoundSyntax holding its bindings and the path it read', function () {
+    $base = tempnam(sys_get_temp_dir(), 'warrant');
+    unlink($base);
+    file_put_contents($base . '.warrant', 'for timesheets { if is_self(:id) they can view }');
+
+    try {
+        $bound = BoundSyntax::fromFile($base, ['id' => 7]);
+
+        expect($bound->syntax)->toBe('for timesheets { if is_self(:id) they can view }')
+            ->and($bound->bindings)->toBe(['id' => 7])
+            ->and($bound->path)->toBe($base . '.warrant');
+    } finally {
+        @unlink($base . '.warrant');
+    }
+});
+
 it('names the extended path when a file named without its extension is missing', function () {
     expect(fn () => WarrantSyntax::parseFile('/no/such/file'))
         ->toThrow(InvalidArgumentException::class, 'Unable to read Warrant rule file [/no/such/file.warrant].');
+});
+
+// -- parsing a BoundSyntax ------------------------------------------------------
+
+it('parses a BoundSyntax with the named bindings it holds', function () {
+    expect(WarrantSyntax::parse(new BoundSyntax('if is_self(:id) they can view', ['id' => 7]))->rule()->conditions->parameters)
+        ->toBe([7]);
+});
+
+it('parses a BoundSyntax with the positional bindings it holds', function () {
+    expect(WarrantSyntax::parse(new BoundSyntax('if in_department(?, ?) they can view', ['sales', 'eng']))->rule()->conditions->parameters)
+        ->toBe(['sales', 'eng']);
 });
 
 // -- the tree keeps ability blocks and includes --------------------------------
@@ -456,15 +485,15 @@ it('round-trips every form through toSyntax', function (string $source) {
 ]);
 
 it('round-trips every block losslessly through bound syntax', function () {
-    $syntax = WarrantSyntax::parse(<<<'WARRANT'
+    $syntax = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if in(:list) they can edit }
-        WARRANT, ['id' => 'x-1', 'list' => [1, 2, 3]]);
+        WARRANT, ['id' => 'x-1', 'list' => [1, 2, 3]]));
 
     $bound = $syntax->toBoundSyntax();
 
     expect($bound->bindings)->toBe(['x-1', [1, 2, 3]]);
-    expect(WarrantSyntax::parse($bound->syntax, $bound->bindings)->resolveBindings()->children)->toEqual($syntax->resolveBindings()->children);
+    expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->resolveBindings()->children)->toEqual($syntax->resolveBindings()->children);
 });
 
 it('renders a lone rule set as one braced block', function () {
@@ -478,7 +507,7 @@ it('renders a lone rule set as one braced block', function () {
 
 it('keeps the text it was read from and where each node of it was written', function () {
     $source = 'if is_owner(:id) they can view';
-    $syntax = WarrantSyntax::parse($source, ['id' => 5]);
+    $syntax = WarrantSyntax::parse(new BoundSyntax($source, ['id' => 5]));
     $span = $syntax->positions->spanOf($syntax->written[0]->conditions);
 
     expect($syntax->source)->toBe($source)

@@ -8,6 +8,7 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\WarrantManager;
 
 /**
@@ -73,12 +74,11 @@ class Warrant extends Facade
      *     Warrant::parse('if is_self they can view')->rule()
      *     Warrant::parse('for documents { if is_self they can view }')->ruleSet()
      *     Warrant::parse('if is_self they can view')->scopedTo('documents')
-     *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     *     Warrant::parse(new BoundSyntax('if in_team(:team) they can view', ['team' => $team]))->rule()
      */
-    public static function parse(string $syntax, array $bindings = []): WarrantSyntax
+    public static function parse(string|BoundSyntax $syntax): WarrantSyntax
     {
-        return WarrantSyntax::parse($syntax, $bindings);
+        return WarrantSyntax::parse($syntax);
     }
 
     /**

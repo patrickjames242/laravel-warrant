@@ -5,6 +5,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BindingResolver;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -17,7 +18,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 function bindingError(string $source, array $bindings): WarrantSyntaxException
 {
     try {
-        WarrantSyntax::parse($source, $bindings)->resolveBindings();
+        WarrantSyntax::parse(new BoundSyntax($source, $bindings))->resolveBindings();
     } catch (WarrantSyntaxException $error) {
         return $error;
     }
@@ -26,7 +27,7 @@ function bindingError(string $source, array $bindings): WarrantSyntaxException
 }
 
 it('gives positional values in the order the placeholders were written', function () {
-    $check = WarrantSyntax::parse('check(a(?) for folders(?))', [1, 2])->conditionExpression();
+    $check = WarrantSyntax::parse(new BoundSyntax('check(a(?) for folders(?))', [1, 2]))->conditionExpression();
 
     expect($check->predicate)->toEqual(new ConditionNode('a', [1]))
         ->and($check->boundKey)->toBe([2]);
@@ -69,7 +70,7 @@ it('keeps the nodes of a tree with no bindings', function () {
 });
 
 it('puts no value in place until the syntax is resolved', function () {
-    $syntax = WarrantSyntax::parse('if a(:x) they can view', ['x' => 5]);
+    $syntax = WarrantSyntax::parse(new BoundSyntax('if a(:x) they can view', ['x' => 5]));
 
     expect($syntax->children[0]->conditions)->toEqual(new ConditionNode('a', [new BindingNode('x')]))
         ->and($syntax->rule()->conditions)->toEqual(new ConditionNode('a', [5]))
@@ -78,7 +79,7 @@ it('puts no value in place until the syntax is resolved', function () {
 
 it('keeps the tree as written beside the resolved one, with the positions describing it', function () {
     $source = 'if a(:x) and b they can view';
-    $syntax = WarrantSyntax::parse($source, ['x' => 5])->resolveBindings();
+    $syntax = WarrantSyntax::parse(new BoundSyntax($source, ['x' => 5]))->resolveBindings();
     $written = $syntax->written[0]->conditions;
     $span = $syntax->positions->spanOf($written->leftSide, ConditionNode::PART_PARAMETERS, 0);
 

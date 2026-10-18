@@ -17,6 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\ConditionKind;
@@ -184,7 +185,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse($syntax, $bindings)->scopedTo('docs'), new FakeConditionResolver);
+    $ruleSet = expandedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo('docs'), new FakeConditionResolver);
 
     $query = DB::table('docs');
 

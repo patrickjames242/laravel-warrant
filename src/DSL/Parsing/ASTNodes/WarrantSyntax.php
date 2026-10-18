@@ -4,11 +4,11 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
 use LogicException;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\Validation\GenericMode;
 use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\Parsing\Writing\BoundSyntax;
 use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
 use Warrant\Registry\RegisteredSchemas;
 
@@ -71,16 +71,16 @@ readonly class WarrantSyntax implements INode
     public array $written;
 
     /**
-     * Parse rule text of any form, keeping $bindings for its named (:name) or
-     * positional (?) placeholders until it is resolved.
-     *
-     * @param array<int|string, mixed> $bindings
+     * Parse rule text of any form, keeping the values a {@see BoundSyntax} holds
+     * for its named (:name) or positional (?) placeholders until it is resolved.
+     * A string is rule text with no bindings.
      */
-    public static function parse(string $source, array $bindings = []): self
+    public static function parse(string|BoundSyntax $syntax): self
     {
-        $read = WarrantParser::parse($source);
+        $bound = $syntax instanceof BoundSyntax ? $syntax : new BoundSyntax($syntax);
+        $read = WarrantParser::parse($bound->syntax);
 
-        return new self($read->children, $source, $read->positions, bindings: $bindings);
+        return new self($read->children, $bound->syntax, $read->positions, bindings: $bound->bindings);
     }
 
     /**
@@ -123,24 +123,14 @@ readonly class WarrantSyntax implements INode
     }
 
     /**
-     * Parse the rule text in the file at $path. The `.warrant` extension may be
-     * left off: a path naming no file is read with `.warrant` appended.
+     * Parse the rule text in the file at $path, read as
+     * {@see BoundSyntax::fromFile()} reads it.
      *
      * @param array<int|string, mixed> $bindings
      */
     public static function parseFile(string $path, array $bindings = []): self
     {
-        if (! is_file($path) && ! str_ends_with($path, '.warrant')) {
-            $path .= '.warrant';
-        }
-
-        $source = @file_get_contents($path);
-
-        if ($source === false) {
-            throw new InvalidArgumentException(sprintf('Unable to read Warrant rule file [%s].', $path));
-        }
-
-        return self::parse($source, $bindings);
+        return self::parse(BoundSyntax::fromFile($path, $bindings));
     }
 
     public function isEmpty(): bool

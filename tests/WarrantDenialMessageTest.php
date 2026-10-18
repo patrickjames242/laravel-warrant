@@ -10,6 +10,7 @@ use Warrant\AbilityMatchMode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProviderContext;
@@ -305,10 +306,10 @@ class DenialTemplateSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function archivedWithReason(string $reason): WarrantSyntax
     {
-        return Warrant::parse(
+        return Warrant::parse(new BoundSyntax(
             'if is_teacher they cannot because :why',
             ['why' => fn (WarrantDenialContext $c) => "You cannot {$c->deniedAbilities[0]} {$c->target->getKey()}: {$reason}."],
-        );
+        ));
     }
 
     /** Denies with no message of its own, leaving the schema's hook to answer. */
@@ -771,9 +772,9 @@ it('surfaces a because message supplied through a binding closure', function () 
     seedDenialSections();
     bindDenialRules([
         WarrantSyntax::parse('they can update')->rule(),
-        WarrantSyntax::parse('if is_teacher they cannot update because :msg', [
+        WarrantSyntax::parse(new BoundSyntax('if is_teacher they cannot update because :msg', [
             'msg' => fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}.",
-        ])->rule(),
+        ]))->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))

@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
@@ -372,28 +373,28 @@ class DkDocSchema extends WarrantSchema
     {
         self::$lastTenant = $tenant;
 
-        return WarrantSyntax::parse('is_owned or in_tenant(:tenant)', ['tenant' => $tenant])->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('is_owned or in_tenant(:tenant)', ['tenant' => $tenant]))->conditionExpression();
     }
 
     /** Compares a column with the owner, through a binding, without reading it. */
     #[DerivedCondition]
     public function ownerMatches(mixed $column): IBooleanExpressionNode
     {
-        return WarrantSyntax::parse('owner_is_column(:column)', ['column' => $column])->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('owner_is_column(:column)', ['column' => $column]))->conditionExpression();
     }
 
     /** Compares a column with the owner, answering with the text and its binding. */
     #[DerivedCondition]
     public function ownerMatchesText(mixed $column): WarrantSyntax
     {
-        return WarrantSyntax::parse('owner_is_column(:column)', ['column' => $column]);
+        return WarrantSyntax::parse(new BoundSyntax('owner_is_column(:column)', ['column' => $column]));
     }
 
     /** Passes its argument on to another derived condition. */
     #[DerivedCondition]
     public function ownerMatchesAgain(mixed $column): IBooleanExpressionNode
     {
-        return WarrantSyntax::parse('owner_matches(:column)', ['column' => $column])->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('owner_matches(:column)', ['column' => $column]))->conditionExpression();
     }
 
     #[RowCondition]
@@ -419,7 +420,7 @@ class DkDocSchema extends WarrantSchema
     #[DerivedCondition]
     public function asSyntax(): WarrantSyntax
     {
-        return Warrant::parse('is_owned or in_tenant(:tenant)', ['tenant' => 't-1']);
+        return Warrant::parse(new BoundSyntax('is_owned or in_tenant(:tenant)', ['tenant' => 't-1']));
     }
 
     /** A condition under a `for` header naming this schema. */

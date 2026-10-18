@@ -4,6 +4,7 @@ use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseCondition;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseNegation;
@@ -52,7 +53,7 @@ it('reads a null argument as a value, not as nothing read', function () {
     $node = $syntax->children[0];
 
     expect($node)->toEqual(new ConditionNode('a', [null, new BindingNode, 1]))
-        ->and(WarrantSyntax::parse('a(null, ?, 1)', [null])->conditionExpression())
+        ->and(WarrantSyntax::parse(new BoundSyntax('a(null, ?, 1)', [null]))->conditionExpression())
         ->toEqual(new ConditionNode('a', [null, null, 1]))
         ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 0)?->offset)->toBe(2)
         ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 1)?->offset)->toBe(8)

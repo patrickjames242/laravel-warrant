@@ -13,8 +13,9 @@ use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
  *
  *  - a heredoc or nowdoc labelled `WARRANT`, wherever it stands;
  *  - the first argument of `warrant()`, of `Warrant::parse()`,
- *    `WarrantSyntax::parse()` or `WarrantParser::parse()`, or of a builder's
- *    `->ifRaw()` or `->orIfRaw()`, passed by position or by its parameter name;
+ *    `WarrantSyntax::parse()` or `WarrantParser::parse()`, of
+ *    `new BoundSyntax()`, or of a builder's `->ifRaw()` or `->orIfRaw()`, passed
+ *    by position or by its parameter name;
  *  - returned, alone or inside a returned array, from a method marked
  *    `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a class
  *    that extends or implements another,
@@ -38,6 +39,9 @@ final class FragmentExtractor
 
     /** Classes, by short name, whose static `parse()` takes rule text first. */
     private const PARSE_CLASSES = ['warrant', 'warrantsyntax', 'warrantparser'];
+
+    /** Classes, by short name, whose constructor takes rule text first. */
+    private const RULE_TEXT_CLASSES = ['boundsyntax'];
 
     /** Builder methods whose first argument is a condition expression. */
     private const RAW_METHODS = ['ifraw', 'orifraw'];
@@ -287,6 +291,10 @@ final class FragmentExtractor
             $className = $class === null ? '' : strtolower((string) substr((string) strrchr('\\'.$this->tokens[$class]->text, '\\'), 1));
 
             return $name === 'parse' && in_array($className, self::PARSE_CLASSES, true);
+        }
+
+        if ($operatorToken !== null && $operatorToken->is(T_NEW)) {
+            return in_array($name, self::RULE_TEXT_CLASSES, true);
         }
 
         $isDeclaration = $operatorToken !== null && $operatorToken->is([T_FUNCTION, T_NEW]);
