@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A boolean expression the text should have here and does not, as in `if they
  * can view`: what an analysis puts in its place, having reported it, so the rule
@@ -13,4 +15,5 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 final readonly class MissingExpressionNode implements IBooleanExpressionNode
 {
+    public function __construct(public SyntaxLocation $location) {}
 }

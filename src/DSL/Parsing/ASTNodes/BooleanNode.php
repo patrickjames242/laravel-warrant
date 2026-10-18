@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A constant boolean leaf — `true` (always) or `false` (never).
  *
@@ -13,6 +15,7 @@ readonly class BooleanNode implements IBooleanExpressionNode
 {
     public function __construct(
         public bool $value,
+        public SyntaxLocation $location,
     ) {
     }
 }

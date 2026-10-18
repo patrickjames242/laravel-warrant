@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A cross-schema condition check:
  * `check(<predicate> for <handle> [as <alias>] [with <map>])`.
@@ -36,15 +38,15 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_SCHEMA_KEY = 'schemaKey';
     public const PART_BOUND_KEY = 'boundKey';
     public const PART_ALIAS = 'alias';
     public const PART_CONTEXT_MAP = 'contextMap';
 
     /**
-     * A `with` map's key names, recorded apart from their values, which are
+     * A `with` map's key names, placed apart from their values, which are
      * {@see PART_CONTEXT_MAP}; there is no property of this name.
      */
     public const PART_CONTEXT_MAP_KEY = 'contextMapKey';
@@ -69,10 +71,11 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
     public function __construct(
         public string $schemaKey,
         public IBooleanExpressionNode $predicate,
-        public bool $isRowBound = false,
-        public array $boundKey = [],
-        public array $contextMap = [],
-        public ?string $alias = null,
+        public bool $isRowBound,
+        public array $boundKey,
+        public array $contextMap,
+        public ?string $alias,
+        public SyntaxLocation $location,
     ) {
     }
 }

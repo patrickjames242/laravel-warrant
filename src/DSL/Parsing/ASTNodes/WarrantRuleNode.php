@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
@@ -32,6 +33,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
         public ?IBooleanExpressionNode $conditions,
         public array $canClauses,
         public array $cannotClauses,
+        public SyntaxLocation $location,
     ) {
         foreach ($canClauses as $clause) {
             if (! $clause instanceof CanClauseNode) {
@@ -125,11 +127,12 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         return new self(
             $this->conditions,
-            array_map(static fn (CanClauseNode $clause): CanClauseNode => new CanClauseNode($abilities, $clause->message), $this->canClauses),
+            array_map(static fn (CanClauseNode $clause): CanClauseNode => new CanClauseNode($abilities, $clause->message, $clause->location), $this->canClauses),
             array_map(
-                static fn (CannotClauseNode $clause): CannotClauseNode => new CannotClauseNode($abilities, $clause->message),
+                static fn (CannotClauseNode $clause): CannotClauseNode => new CannotClauseNode($abilities, $clause->message, $clause->location),
                 $this->cannotClauses,
             ),
+            $this->location,
         );
     }
 

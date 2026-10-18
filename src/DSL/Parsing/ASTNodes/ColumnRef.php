@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A symbolic reference to a database column, written `@column <column>` or
  * `@column <name>.<column>` in a rule (e.g. `@column pay_period_id`,
@@ -24,8 +26,8 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class ColumnRef implements INode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_ALIAS = 'alias';
     public const PART_COLUMN = 'column';
 
@@ -39,6 +41,7 @@ readonly class ColumnRef implements INode
     public function __construct(
         public ?string $alias,
         public string $column,
+        public SyntaxLocation $location,
     ) {
     }
 }

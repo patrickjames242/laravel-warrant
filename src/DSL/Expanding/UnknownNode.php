@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Expanding;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * The answer *unknown*, from a derived condition that returned null: the question
@@ -15,4 +16,5 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
  */
 final readonly class UnknownNode implements IBooleanExpressionNode
 {
+    public function __construct(public SyntaxLocation $location) {}
 }

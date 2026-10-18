@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A symbolic reference to a check-time context value, written `@context <key>`
  * in a rule. Unlike inline literals and `:name` / `?` bindings — which are
@@ -11,9 +13,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class ContextRef implements INode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_KEY = 'key';
 
-    public function __construct(public string $key) {}
+    public function __construct(public string $key, public SyntaxLocation $location) {}
 }

@@ -5,6 +5,8 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxProducer;
 
 /**
  * The rules for one schema: the body of a `for <schema>` header, or rules given
@@ -27,7 +29,8 @@ final readonly class RuleSetNode implements ISchemaScopedNode
      */
     public function __construct(
         public string $schemaKey,
-        public array $entries = [],
+        public array $entries,
+        public SyntaxLocation $location,
     ) {
         foreach ($entries as $entry) {
             if (! $entry instanceof IRuleEntryNode) {
@@ -47,7 +50,8 @@ final readonly class RuleSetNode implements ISchemaScopedNode
 
     /**
      * This rule set's entries followed by $other's, as one rule set. The schema
-     * keys must match.
+     * keys must match. The merged set was written nowhere, so it is built in
+     * code; its entries keep where each was written.
      */
     public function mergeWith(RuleSetNode $other): self
     {
@@ -59,7 +63,7 @@ final readonly class RuleSetNode implements ISchemaScopedNode
             ));
         }
 
-        return new self($this->schemaKey, [...$this->entries, ...$other->entries]);
+        return new self($this->schemaKey, [...$this->entries, ...$other->entries], SyntaxLocation::builtBy(SyntaxProducer::code()));
     }
 
     /**
@@ -77,7 +81,7 @@ final readonly class RuleSetNode implements ISchemaScopedNode
     /**
      * Build a rule set from already-resolved rules. Accepts a variadic list or a
      * single array, and each element may be a WarrantRuleNode or a WarrantRuleBuilder
-     * (which is finalized via toRule()).
+     * (which is finalized via toRule()). The set is built in code.
      *
      * @param WarrantRuleNode|WarrantRuleBuilder|array<int, WarrantRuleNode|WarrantRuleBuilder> ...$rules
      */
@@ -102,7 +106,7 @@ final readonly class RuleSetNode implements ISchemaScopedNode
             }
         }
 
-        return new self($schemaKey, $flattened);
+        return new self($schemaKey, $flattened, SyntaxLocation::builtBy(SyntaxProducer::code()));
     }
 
     /**

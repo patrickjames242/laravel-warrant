@@ -9,8 +9,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 interface ISchemaScopedNode extends INode
 {
-    /* The name a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records the
-       header's schema under: the property it is stored in. */
+    /* The name the header's schema is placed under in a node's
+       {@see \Warrant\DSL\Parsing\Positions\SyntaxLocation}: the property it is
+       stored in. */
     public const PART_SCHEMA_KEY = 'schemaKey';
 
     /**

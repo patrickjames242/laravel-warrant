@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * One `they can <abilities>` clause of a {@see WarrantRuleNode}.
  *
@@ -12,8 +14,8 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class CanClauseNode implements INode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_ABILITIES = 'abilities';
     public const PART_MESSAGE = 'message';
 
@@ -26,7 +28,8 @@ readonly class CanClauseNode implements INode
      */
     public function __construct(
         public array $abilities,
-        public mixed $message = null,
+        public mixed $message,
+        public SyntaxLocation $location,
     ) {}
 
     public function isGeneric(): bool

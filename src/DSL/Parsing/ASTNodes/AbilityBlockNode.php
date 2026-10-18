@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * A `can they <ability>, ... { ... }` block: abilities said once, over a body of
@@ -18,8 +19,8 @@ use InvalidArgumentException;
  */
 final readonly class AbilityBlockNode implements IRuleEntryNode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_ABILITIES = 'abilities';
 
     /**
@@ -28,7 +29,8 @@ final readonly class AbilityBlockNode implements IRuleEntryNode
      */
     public function __construct(
         public array $abilities,
-        public array $entries = [],
+        public array $entries,
+        public SyntaxLocation $location,
     ) {
         foreach ($entries as $entry) {
             if (! $entry instanceof IRuleEntryNode) {

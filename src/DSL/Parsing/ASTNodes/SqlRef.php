@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * A symbolic reference to an arbitrary SQL fragment, written `@sql "<sql>"` in a
  * rule (e.g. `@sql "select id from pay_periods where closed = 0"`). Like
@@ -19,14 +21,14 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 readonly class SqlRef implements INode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. The SQL is
-       recorded as the string literal or binding it was written as. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. The SQL is placed as the string
+       literal or binding it was written as. */
     public const PART_SQL = 'sql';
 
     /**
      * @param string|BindingNode $sql The SQL, or the binding that supplies it
-     *   until binding resolution puts the string in its place.
+     *   until expansion puts the string in its place.
      */
-    public function __construct(public string|BindingNode $sql) {}
+    public function __construct(public string|BindingNode $sql, public SyntaxLocation $location) {}
 }

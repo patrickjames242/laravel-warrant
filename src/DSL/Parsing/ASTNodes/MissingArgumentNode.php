@@ -2,6 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+
 /**
  * An argument the text should have here and does not, as in `a(1, )` or
  * `@context` with no key: what an analysis puts in its place, having reported it,
@@ -13,4 +15,5 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 final readonly class MissingArgumentNode implements INode
 {
+    public function __construct(public SyntaxLocation $location) {}
 }

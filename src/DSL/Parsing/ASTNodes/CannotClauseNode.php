@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Closure;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
@@ -19,8 +20,8 @@ use Warrant\Schema\WarrantDenialContext;
  */
 readonly class CannotClauseNode implements INode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_ABILITIES = 'abilities';
     public const PART_MESSAGE = 'message';
 
@@ -30,13 +31,14 @@ readonly class CannotClauseNode implements INode
      *   The denial message shared by every ability in this clause: a string is
      *   wrapped in a {@see \Warrant\WarrantAuthorizationException}; a closure
      *   receives the denial context and returns a string (wrapped) or a Throwable
-     *   (thrown as-is); a binding supplies one of those until binding resolution
-     *   puts it in its place; null means no message (a plain forbid). Anything
+     *   (thrown as-is); a binding supplies one of those until expansion puts it
+     *   in its place; null means no message (a plain forbid). Anything
      *   else written after `because`, such as `@context`, is held as written
      *   for the validator to report.
      */
     public function __construct(
         public array $abilities,
-        public mixed $message = null,
+        public mixed $message,
+        public SyntaxLocation $location,
     ) {}
 }

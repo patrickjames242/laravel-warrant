@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Expanding;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * A derived condition after expansion: the call as the rule wrote it, and the
@@ -29,6 +30,7 @@ final readonly class DerivedConditionNode implements IBooleanExpressionNode
         public string $conditionKey,
         public array $parameters,
         public IBooleanExpressionNode $body,
+        public SyntaxLocation $location,
     ) {
     }
 }
