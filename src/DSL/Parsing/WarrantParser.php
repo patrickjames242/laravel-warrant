@@ -2,21 +2,20 @@
 
 namespace Warrant\DSL\Parsing;
 
-use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
-use Warrant\DSL\Parsing\Positions\SourceMap;
-use Warrant\DSL\Parsing\Validation\ValidationInput;
-use Warrant\DSL\SchemaCatalog;
 
 /**
- * Parses Warrant rule syntax. The parse reads each `:name` and `?` as a
- * {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode} and puts no value in its
- * place: that is {@see WarrantSyntax::resolveBindings()}'s, once the text has
- * been validated as it was written.
+ * Parses Warrant rule syntax, and only parses it: what it reads is validated
+ * apart, by {@see \Warrant\DSL\Parsing\ASTNodes\ValidSyntax}. The parse reads
+ * each `:name` and `?` as a {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode},
+ * which finds its value in the source it was read from, and checks none of the
+ * values: whether each has one, and whether it fits, is the validator's.
+ *
+ * Every node read is placed in one {@see SyntaxSource}: the text as it was
+ * handed over, with what produced it.
  *
  * Every source parses through {@see parse()} to a {@see WarrantSyntax}, whose
  * children say which form the source took; nothing about the text needs to be
@@ -83,23 +82,20 @@ final class WarrantParser
 {
     /**
      * Parse Warrant syntax of any form as it was written, its bindings left as
-     * the placeholders they are, and record where every node of the tree was
-     * written. The root {@see WarrantSyntax} stands for the whole text and is
-     * not recorded.
+     * the placeholders they are, every node placed where it was written. A
+     * string is rule text with no bindings. $producer says what produced the
+     * syntax; with none, application code parsed it directly.
      */
-    public static function parse(string $source): WarrantSyntax
+    public static function parse(string|BoundSyntax $syntax, ?SyntaxProducer $producer = null): WarrantSyntax
     {
-        $state = ParsingState::forSource($source);
-        $syntax = Parser::run(new ParseSyntax, $state);
-        $state->commitTo($positions = new SourceMap);
+        $state = ParsingState::forSource(self::sourceOf($syntax, $producer));
 
-        return new WarrantSyntax($syntax->children, $source, $positions);
+        return new WarrantSyntax(Parser::run(new ParseSyntax, $state)->children, $state->source);
     }
 
     /**
-     * Read Warrant syntax of any form as an editor has it — mid-edit, and with
-     * no values for its placeholders — reporting syntax errors as diagnostics
-     * instead of throwing them.
+     * Read Warrant syntax of any form as an editor has it — mid-edit — reporting
+     * syntax errors as diagnostics instead of throwing them.
      *
      * The tree is the one {@see parse()} reads, its bindings left
      * as placeholders. Every lexical error is reported, and the read goes on
@@ -118,20 +114,15 @@ final class WarrantParser
      * same, so every grammar error is repaired and the read reaches the end of
      * the text. The first grammar error reported is the one parse() throws.
      *
-     * The text is validated too, and every rule of the language it breaks is
-     * reported after the syntax errors. Given a $catalog, each `for` body is
-     * checked against the schema its header names, and rules with no header
-     * against the schema $schemaKey names; without one, only the rules of the
-     * language that need no schema are checked.
+     * Only syntax errors are reported: the tree is validated apart, as any
+     * parsed tree is.
      */
-    public static function analyze(string $source, ?SchemaCatalog $catalog = null, ?string $schemaKey = null): AnalysisResult
+    public static function analyze(string|BoundSyntax $syntax, ?SyntaxProducer $producer = null): AnalysisResult
     {
-        $state = ParsingState::forAnalysis($source);
-        $positions = new SourceMap;
+        $state = ParsingState::forAnalysis(self::sourceOf($syntax, $producer));
 
         try {
             $children = Parser::run(new ParseSyntax, $state)->children;
-            $state->commitTo($positions);
         } catch (WarrantSyntaxException $error) {
             /* A tolerant read reports every grammar error rather than throwing it.
                One that were thrown would end the read here, with an empty tree,
@@ -140,11 +131,14 @@ final class WarrantParser
             $children = [];
         }
 
-        $syntax = new WarrantSyntax($children, $source, $positions);
+        return new AnalysisResult(new WarrantSyntax($children, $state->source), $state->diagnostics, $state->scannedTokens);
+    }
 
-        $checked = ValidSyntax::check($syntax, new ValidationInput($catalog, $schemaKey));
-        $mistakes = $checked instanceof InvalidSyntax ? $checked->diagnostics : [];
-
-        return new AnalysisResult($syntax, [...$state->diagnostics, ...$mistakes], $state->scannedTokens);
+    private static function sourceOf(string|BoundSyntax $syntax, ?SyntaxProducer $producer): SyntaxSource
+    {
+        return new SyntaxSource(
+            is_string($syntax) ? new BoundSyntax($syntax) : $syntax,
+            $producer ?? SyntaxProducer::code(),
+        );
     }
 }

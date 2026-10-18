@@ -5,8 +5,8 @@ namespace Warrant\DSL\Parsing\Parsers;
 use Closure;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
@@ -21,9 +21,11 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * ({@see report()}), and the parser that met it reads on as though the text
  * were what it should be, so what is around the mistake is kept.
  *
- * A node a parser returns is recorded as written over every token the parser
- * read, and every part read inside it, by this parser or by one it called that
- * returned something other than a node, becomes a part of that node.
+ * A parser builds each node with {@see located()} as its last argument, which
+ * places it over every token the parser has read, and gives it every part read
+ * inside it, by this parser or by one it called that returned something other
+ * than a node. As the last argument, it is made once every parser read for the
+ * node's other arguments has returned.
  *
  * A parser keeps nothing between reads but what it was constructed with, so
  * one instance can be read any number of times, and from inside itself.
@@ -61,7 +63,7 @@ abstract class Parser
 
     /**
      * Read $root as the whole text: nothing may follow what it reads. Its result
-     * stands for the whole text and is not recorded.
+     * stands for the whole text, and no part may be read outside a node.
      *
      * @template R
      * @param Parser<R> $root
@@ -70,45 +72,37 @@ abstract class Parser
     final public static function run(Parser $root, ParsingState $state): mixed
     {
         $root->state = $state;
+        $state->openFrame();
         $result = $root->read();
 
         if (! $root->check(TokenType::EOF)) {
             $root->report($root->errorAtCurrent(DiagnosticCode::UnexpectedToken, self::UNEXPECTED_AFTER_END));
         }
 
+        $state->closeFrame($result);
+
         return $result;
     }
 
     /**
      * Read $parser here, if it starts here: a class with no
-     * constructor arguments, or an instance.
-     *
-     * A node $parser returns is recorded as written over what it read, unless
-     * $record is false: for a parser that reads a part of the node being built
-     * rather than a node, and records that part itself, whose value may be a
-     * node already recorded where it was read — a binding as a denial message.
+     * constructor arguments, or an instance. It reads in a frame of its own, so
+     * the nodes it builds are placed over what it read.
      *
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $parser
      * @return Parsed<R>|null Null when $parser does not start here.
      */
-    final protected function parse(string|Parser $parser, bool $record = true): ?Parsed
+    final protected function parse(string|Parser $parser): ?Parsed
     {
         if (! $parser::startsHere($this->state->tokensAhead)) {
             return null;
         }
 
         $parser = $this->share($parser);
-        $start = $this->peek();
-        $startIndex = $this->state->index;
-        $unclaimedBefore = $this->state->unclaimedCount();
-
+        $this->state->openFrame();
         $result = $parser->read();
-
-        // A node read from no tokens has nowhere to be.
-        if ($record && $result instanceof INode && $this->state->index > $startIndex) {
-            $this->state->recordResult($result, $start, $this->previous(), $unclaimedBefore);
-        }
+        $this->state->closeFrame($result);
 
         return new Parsed($result);
     }
@@ -217,11 +211,11 @@ abstract class Parser
         $this->report($this->errorAtCurrent(DiagnosticCode::MissingToken, $message));
     }
 
-    // -- recording ------------------------------------------------------------
+    // -- placing --------------------------------------------------------------
 
     /**
-     * Note that the text from $first to the last token read is $part of the node
-     * this parser, or the nearest one around it, returns.
+     * Note that the text from $first to the last token read is $part of the next
+     * node this parser, or the nearest one around it, builds.
      */
     final protected function part(string $part, int|string|null $key, Token $first): void
     {
@@ -229,19 +223,32 @@ abstract class Parser
     }
 
     /**
-     * Record $node as written from $start to the last token read, for a node
-     * this parser builds but does not itself return: each `and` but the last of
-     * `a and b and c`, which the next one holds.
-     *
-     * @template N of INode
-     * @param N $node
-     * @return N
+     * Where the node this parser is building was written: from where the parser
+     * started, or from $start, to the last token read, with the parts read since
+     * it started. $start is for a node that starts after the parser did: each
+     * `and` but the first of `a and b and c` holds the one before it, and starts
+     * where that one does.
      */
-    final protected function node(INode $node, Token $start): INode
+    final protected function located(?Token $start = null): SyntaxLocation
     {
-        $this->state->recordNode($node, $start, $this->previous());
+        return $this->state->locate($start);
+    }
 
-        return $node;
+    /**
+     * Where a node that stands in for missing syntax is: where the parse is,
+     * taking up no text.
+     */
+    final protected function locatedMissing(): SyntaxLocation
+    {
+        return $this->state->locateMissing();
+    }
+
+    /**
+     * The index of the `?` placeholder being read, among the `?`s of the text.
+     */
+    final protected function nextPositionalIndex(): int
+    {
+        return $this->state->nextPositionalIndex();
     }
 
     // -- tokens ---------------------------------------------------------------
@@ -304,7 +311,7 @@ abstract class Parser
      */
     final protected function errorAt(DiagnosticCode $code, string $message, Token $token): WarrantSyntaxException
     {
-        return WarrantSyntaxException::at($code, $message, $this->state->source, $token);
+        return WarrantSyntaxException::at($code, $message, $this->state->text, $token);
     }
 
     /**

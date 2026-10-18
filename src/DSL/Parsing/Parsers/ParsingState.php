@@ -7,16 +7,19 @@ use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\Positions\Span;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
 /**
  * One parse of one text, shared by every {@see Parser} reading it: where the
- * parse is, and where each node and part it has read was written.
+ * parse is, and the source every node it reads is placed in.
  *
- * Where things were written is kept as a log, and goes into a
- * {@see SourceMap} only once the parse is done.
+ * Each parser reading opens a frame, which marks where it started. A node is
+ * placed when it is built, over the tokens its parser has read since its frame
+ * opened, and takes every part read since then that no node nearer in took.
  *
  * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
  * has it, tolerantly: the lexer reports its errors instead of throwing them, and
@@ -61,23 +64,26 @@ final class ParsingState
     private array $afterUnreadableText = [];
 
     /**
-     * The owner of a part is null until the node it belongs to is returned.
+     * Each part read that no node has taken yet, oldest first: its name, its
+     * index or key, and where it was written.
      *
-     * @var list<array{0: ?INode, 1: ?string, 2: int|string|null, 3: Token, 4: Token}>
+     * @var list<array{0: string, 1: int|string|null, 2: Span}>
      */
-    private array $records = [];
-
-    /** @var list<int> Where in $records each part waiting for a node is, oldest first. */
     private array $unclaimed = [];
 
     /**
-     * Where in $records each node recorded whole is, by object id. A recorded
-     * node is held in $records until the parse is done, so its id names no other
-     * object until then.
+     * The frame of each parser reading, outermost first: the index of the token
+     * it started at, and how many parts were waiting for a node then.
      *
-     * @var array<int, int>
+     * @var list<array{0: int, 1: int}>
      */
-    private array $recordedAt = [];
+    private array $frames = [];
+
+    /** How many `?` placeholders have been read, which is the index of the next. */
+    private int $positionalBindings = 0;
+
+    /** The text being parsed, which errors quote and point into. */
+    public readonly string $text;
 
     /**
      * The tokens ahead of this state, as {@see Parser::startsHere()} is given
@@ -86,36 +92,38 @@ final class ParsingState
     public readonly TokensAhead $tokensAhead;
 
     /**
-     * @param string $source The text being parsed, which errors quote and point
-     *   into.
+     * @param SyntaxSource $source Where the text came from, which every node
+     *   read from it is placed in.
      * @param list<Token> $tokens The text's tokens, read in order by the parse,
      *   ending in the EOF token.
      * @param bool $tolerant Whether a syntax error is noted and read past, rather
      *   than thrown.
      */
     public function __construct(
-        public readonly string $source,
+        public readonly SyntaxSource $source,
         public readonly array $tokens,
         public readonly bool $tolerant = false,
     ) {
+        $this->text = $source->bound->syntax ?? '';
         $this->tokensAhead = new TokensAhead($this);
     }
 
     /**
-     * The state for parsing $source.
+     * The state for parsing the text of $source.
      */
-    public static function forSource(string $source): self
+    public static function forSource(SyntaxSource $source): self
     {
-        return new self($source, self::grammarTokens((new Lexer($source))->tokenize()));
+        return new self($source, self::grammarTokens((new Lexer($source->bound->syntax ?? ''))->tokenize()));
     }
 
     /**
-     * The state for analysing $source: every lexical error becomes a diagnostic,
-     * and text the lexer could not read is left out of what the grammar reads.
+     * The state for analysing the text of $source: every lexical error becomes
+     * a diagnostic, and text the lexer could not read is left out of what the
+     * grammar reads.
      */
-    public static function forAnalysis(string $source): self
+    public static function forAnalysis(SyntaxSource $source): self
     {
-        $scanned = (new Lexer($source))->scan();
+        $scanned = (new Lexer($source->bound->syntax ?? ''))->scan();
         $state = new self($source, self::grammarTokens($scanned->tokens), tolerant: true);
         $state->diagnostics = $scanned->diagnostics;
         $state->scannedTokens = $scanned->tokens;
@@ -171,79 +179,85 @@ final class ParsingState
     }
 
     /**
-     * How many parts are waiting for a node: a parser starting now owns the
-     * parts read after these.
+     * Mark where the parser about to read starts.
      */
-    public function unclaimedCount(): int
+    public function openFrame(): void
     {
-        return count($this->unclaimed);
+        $this->frames[] = [$this->index, count($this->unclaimed)];
     }
 
     /**
-     * Record that $node was written from $start to $end.
+     * End the frame of the parser that has just read $result. A node it hands
+     * back that a parser further in built, as a group hands back what is inside
+     * its parentheses, is placed already, so a part read around it belongs to
+     * no node.
      */
-    public function recordNode(INode $node, Token $start, Token $end): void
+    public function closeFrame(mixed $result): void
     {
-        $this->recordedAt[spl_object_id($node)] = count($this->records);
-        $this->records[] = [$node, null, null, $start, $end];
+        [, $unclaimedBefore] = array_pop($this->frames);
+
+        if ($result instanceof INode && count($this->unclaimed) > $unclaimedBefore) {
+            throw new LogicException(sprintf(
+                'Part [%s] was read around a %s that was already placed, so it belongs to no node.',
+                $this->unclaimed[$unclaimedBefore][0],
+                get_debug_type($result),
+            ));
+        }
     }
 
     /**
-     * Record that $first to $last is $part of a node not yet returned.
+     * Note that $first to $last is $part of the next node built.
      */
     public function recordPart(string $part, int|string|null $key, Token $first, Token $last): void
     {
-        $this->unclaimed[] = count($this->records);
-        $this->records[] = [null, $part, $key, $first, $last];
+        $this->unclaimed[] = [$part, $key, Span::between($first, $last)];
     }
 
     /**
-     * Record $node, returned by a parser that started when $unclaimedBefore
-     * parts were waiting, as written from $start to $end, and give it every part
-     * read since.
-     *
-     * A node already recorded was read by a parser further in and is being
-     * handed back out, as a group hands back what is inside its parentheses. It
-     * keeps the span it was read with, and a part read around it has no node to
-     * belong to.
+     * Where the node the current parser is building was written: from $start,
+     * or where the parser started, to the last token read, with every part read
+     * since the parser started. A node read from no tokens is placed where the
+     * parse is, taking up no text.
      */
-    public function recordResult(INode $node, Token $start, Token $end, int $unclaimedBefore): void
+    public function locate(?Token $start = null): SyntaxLocation
     {
-        if ($this->isRecorded($node)) {
-            if (count($this->unclaimed) > $unclaimedBefore) {
-                throw new LogicException(sprintf(
-                    'Parts were read around a %s that was already recorded, so they belong to no node.',
-                    get_debug_type($node),
-                ));
-            }
+        [$startIndex, $unclaimedBefore] = $this->frames[array_key_last($this->frames)];
 
-            return;
+        if ($start === null && $this->index === $startIndex) {
+            return $this->locateMissing();
         }
 
-        foreach (array_splice($this->unclaimed, $unclaimedBefore) as $position) {
-            $this->records[$position][0] = $node;
+        $parts = [];
+
+        foreach (array_splice($this->unclaimed, $unclaimedBefore) as [$part, $key, $span]) {
+            $parts[$part][$key ?? ''] = $span;
         }
 
-        $this->recordNode($node, $start, $end);
+        return SyntaxLocation::in(
+            $this->source,
+            Span::between($start ?? $this->tokens[$startIndex], $this->tokens[$this->index - 1]),
+            $parts,
+        );
     }
 
     /**
-     * Write every record into $map. Called once, when the parse is done.
+     * Where a node stands in for syntax that is missing: where the parse is,
+     * taking up no text.
      */
-    public function commitTo(SourceMap $map): void
+    public function locateMissing(): SyntaxLocation
     {
-        if ($this->unclaimed !== []) {
-            throw new LogicException(sprintf(
-                'Part [%s] was read outside any node.',
-                $this->records[$this->unclaimed[0]][1],
-            ));
-        }
+        $offset = $this->peek()->offset;
 
-        foreach ($this->records as [$node, $part, $key, $first, $last]) {
-            $part === null
-                ? $map->record($node, $first, $last)
-                : $map->recordPart($node, $part, $key, $first, $last);
-        }
+        return SyntaxLocation::in($this->source, new Span($offset, $offset));
+    }
+
+    /**
+     * The index of the `?` placeholder being read: its place among the `?`s of
+     * the text, from 0.
+     */
+    public function nextPositionalIndex(): int
+    {
+        return $this->positionalBindings++;
     }
 
     /**
@@ -290,10 +304,5 @@ final class ParsingState
         }
 
         return $offsets;
-    }
-
-    private function isRecorded(INode $node): bool
-    {
-        return isset($this->recordedAt[spl_object_id($node)]);
     }
 }
