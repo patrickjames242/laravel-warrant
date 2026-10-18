@@ -90,7 +90,7 @@ final class WarrantParser
     {
         $state = ParsingState::forSource(self::sourceOf($syntax, $producer));
 
-        return new WarrantSyntax(Parser::run(new ParseSyntax, $state)->children, $state->source);
+        return new WarrantSyntax(Parser::run(new ParseSyntax, $state), $state->source);
     }
 
     /**
@@ -122,7 +122,7 @@ final class WarrantParser
         $state = ParsingState::forAnalysis(self::sourceOf($syntax, $producer));
 
         try {
-            $children = Parser::run(new ParseSyntax, $state)->children;
+            $children = Parser::run(new ParseSyntax, $state);
         } catch (WarrantSyntaxException $error) {
             /* A tolerant read reports every grammar error rather than throwing it.
                One that were thrown would end the read here, with an empty tree,
