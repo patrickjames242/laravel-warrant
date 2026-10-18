@@ -57,7 +57,7 @@ class RoleRuleController extends Controller
         $text = $request->string('rules');
 
         try {
-            Warrant::validate(WarrantSyntax::parse($text)->scopedTo($roleRule->schema_key));
+            WarrantSyntax::parse($text)->validate($roleRule->schema_key);
         } catch (WarrantSyntaxException $e) {
             return back()->withErrors(['rules' => $e->getMessage()])->withInput();
         } catch (InvalidArgumentException $e) {
@@ -125,8 +125,9 @@ able to do:
 ```php
 public function preview(Request $request, RoleRule $roleRule)
 {
-    $proposed = WarrantSyntax::parse($request->string('rules'))->scopedTo($roleRule->schema_key);
-    Warrant::validate($proposed);
+    $proposed = WarrantSyntax::parse($request->string('rules'))
+        ->validate($roleRule->schema_key)
+        ->scopedTo($roleRule->schema_key);
 
     $subject = User::findOrFail($request->integer('user_id'));
 

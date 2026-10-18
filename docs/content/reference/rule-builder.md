@@ -86,7 +86,7 @@ parameter, a row selector, or a `with` map value.
 - An empty group folds to `false`: nothing in an `or`, a veto in an `and`.
 - Condition parameters may be any PHP value. Nothing is stringified.
 - Omitting `$key` gives an unbound handle. An explicit `key: null` stays row-bound
-  and is rejected by `Warrant::validate()`, so a missing id fails loudly instead of widening
+  and is rejected by validation, so a missing id fails loudly instead of widening
   the question. For a dynamic fallback, write `key: $id ?? new NoRow`.
 - A multi-part key takes a list, bound positionally to
   [`matchKey()`](/reference/warrant-schema/#matchkey).
@@ -94,7 +94,7 @@ parameter, a row selector, or a `with` map value.
   may not contain a constant and so cannot fall back to `false`.
 - `$schema` is normalized through the registry, so a model or schema class-string
   resolving to nothing throws `OutOfBoundsException` at build time. A plain
-  unregistered *key* string passes through and is caught by `Warrant::validate()`.
+  unregistered *key* string passes through and is caught by validation.
 
 ## Examples
 

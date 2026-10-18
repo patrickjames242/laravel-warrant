@@ -1,6 +1,5 @@
 <?php
 
-use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -18,12 +17,15 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\AbilityDefinition;
+use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\ConditionKind;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -46,7 +48,7 @@ function languageRuleErrors(string $syntax): array
     return array_values(array_filter(
         array_map(
             static fn (Diagnostic $diagnostic): string => $diagnostic->message,
-            (new WarrantSyntaxValidator(catalog: $noSchemas))->diagnose(WarrantSyntax::parse($syntax)),
+            mistakesOf(WarrantSyntax::parse($syntax), new ValidationInput($noSchemas)),
         ),
         static fn (string $message): bool => ! str_contains($message, 'names unknown schema'),
     ));
@@ -741,7 +743,6 @@ it('throws on invalid syntax', function (string $syntax, array $bindings, string
     expect(fn () => WarrantSyntax::parse($syntax, $bindings)->scopedTo('timesheets'))
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
-    'mixed bindings' => ['if is_thing(:a, ?) they can view', ['a' => 1], 'mix named and positional'],
     'missing named binding' => ['if is_thing(:missing) they can view', [], 'No binding provided for ":missing"'],
     'unused binding' => ['if is_self they can view', ['unused' => 1], 'never used'],
     'too many positional placeholders' => ['if is_thing(?, ?) they can view', [1], 'More positional placeholders'],
@@ -1118,9 +1119,14 @@ it('rejects bindings the condition expression never used', function () {
         ->toThrow(WarrantSyntaxException::class, 'never used');
 });
 
-it('rejects a condition expression that mixes named and positional bindings', function () {
+it('rejects a condition expression that mixes named and positional bindings, validating it before resolving', function () {
     expect(fn () => WarrantSyntax::parse('is_owner(:a, ?)', ['a' => 1, 'p'])->conditionExpression())
-        ->toThrow(WarrantSyntaxException::class);
+        ->toThrow(RuleValidationException::class, 'Cannot mix named and positional bindings.');
+});
+
+it('rejects rules that mix named and positional bindings, validating them before resolving', function () {
+    expect(fn () => WarrantSyntax::parse('if is_thing(:a, ?) they can view', ['a' => 1])->scopedTo('timesheets'))
+        ->toThrow(RuleValidationException::class, 'Cannot mix named and positional bindings.');
 });
 
 // -- the optional `for` header ------------------------------------------------
@@ -1186,7 +1192,25 @@ it('reads a header with nothing after it as an empty rule set, not a condition',
  */
 function openBlocks(RuleSetNode $set): array
 {
-    return (new RuleSetExpander)->expand($set, new WarrantTestSchema)->rules;
+    return expandedFor($set, new EveryNameSchema)->rules;
+}
+
+/**
+ * The test schema, declaring every ability and condition a rule names besides
+ * its own, so the block tests can name whatever reads best.
+ */
+final class EveryNameSchema extends WarrantTestSchema
+{
+    public function getAbilityDefinition(string $abilityKey): ?AbilityDefinition
+    {
+        return parent::getAbilityDefinition($abilityKey) ?? new AbilityDefinition($abilityKey);
+    }
+
+    public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
+    {
+        return parent::getConditionDefinition($conditionKey)
+            ?? new ConditionDefinition($conditionKey, $conditionKey, ConditionKind::Global);
+    }
 }
 
 it('parses an ability block into the rules its longhand would produce', function () {
@@ -1407,7 +1431,7 @@ it('reads an ability block among rules that name their abilities', function () {
 });
 
 it('rejects a generic clause outside an ability block once it is placed in a rule set', function () {
-    expect(fn () => (new RuleSetValidator(null, null))->validateWritten(WarrantSyntax::parse('if is_public they can')->scopedTo('timesheets')))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_public they can')->scopedTo('timesheets')))
         ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
 });
 
@@ -1507,7 +1531,7 @@ it('rejects a generic include after rules that name their abilities', function (
 });
 
 it('rejects an include that names no abilities once it is placed in a rule set', function () {
-    expect(fn () => (new RuleSetValidator(null, null))->validateWritten(WarrantSyntax::parse('@include x')->scopedTo('timesheets')))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('@include x')->scopedTo('timesheets')))
         ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
 });
 

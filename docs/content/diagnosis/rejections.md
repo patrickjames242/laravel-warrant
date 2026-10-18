@@ -8,14 +8,21 @@ sidebar:
 ---
 
 Warrant fails loudly on a bad rule rather than granting or denying quietly. The
-errors arrive at three different moments, and knowing which moment tells you where
+errors arrive at four different moments, and knowing which moment tells you where
 to look.
 
 | Moment | What is checked | Exception |
 |---|---|---|
-| parse | syntax, binding consistency | `WarrantSyntaxException` |
+| parse | syntax | `WarrantSyntaxException` |
+| taking rules out of the text | the rules of the language, then whether the bindings fit | `RuleValidationException`, then `WarrantSyntaxException` |
 | validate or compile | ability and condition names, arity, handles | `InvalidArgumentException` |
 | check | the requested ability exists, required context present | `InvalidArgumentException` |
+
+Taking rules out of a parsed text, with `->rule()`, `->scopedTo()` and the like,
+first validates the text as written against no schema: how ability blocks and
+clauses name their abilities, denial messages, and whether bindings are all named
+or all positional. Only then are the binding values put in place, so a mistake in
+the text is reported before a binding that does not fit it.
 
 ## Syntax errors
 
@@ -64,7 +71,9 @@ nothing attached.
 
 ## Binding errors
 
-Also `WarrantSyntaxException`, and all five are about the same strictness:
+All five are about the same strictness. The first is a rule of the language, so it
+is a `RuleValidationException` reported before any value is put in place; the other
+four are `WarrantSyntaxException`, thrown as the values go in:
 
 ```text
 Cannot mix named and positional bindings.
@@ -136,7 +145,7 @@ Find it by validating each one:
 ```php
 foreach (RoleRule::all() as $row) {
     try {
-        Warrant::validate(WarrantSyntax::parse($row->rules)->scopedTo($row->schema_key));
+        WarrantSyntax::parse($row->rules)->validate($row->schema_key);
     } catch (Throwable $e) {
         $this->warn("{$row->id} ({$row->role}/{$row->schema_key}): {$e->getMessage()}");
     }

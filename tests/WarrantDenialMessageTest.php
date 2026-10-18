@@ -940,12 +940,12 @@ it('falls through from a declining forbidden hook to the ungranted hook', functi
 
 it('rejects an ability duplicated across a rule\'s cannot clauses', function () {
     seedDenialSections();
-    bindDenialRules([
-        WarrantSyntax::parse("if is_teacher they cannot update because 'a' they cannot update because 'b'")->rule(),
-    ]);
 
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
-        ->toThrow(InvalidArgumentException::class, 'appears in more than one');
+    expect(function () {
+        bindWarrantRules("if is_teacher they cannot update because 'a' they cannot update because 'b'");
+
+        Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role');
+    })->toThrow(InvalidArgumentException::class, 'appears in more than one');
 });
 
 // -- middleware integration ---------------------------------------------------

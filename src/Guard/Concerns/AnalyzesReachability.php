@@ -4,7 +4,7 @@ namespace Warrant\Guard\Concerns;
 
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\Reachability;
 
 /**
@@ -58,7 +58,7 @@ trait AnalyzesReachability
      * is where a `can(... for <schema>)` in the rules leads. Null for a schema
      * nobody registered, which validation reports.
      */
-    private function reachabilityRuleSetFor(string $schemaKey): ?ExpandedRuleSet
+    private function reachabilityRuleSetFor(string $schemaKey): ?ExpandedSyntax
     {
         if ($schemaKey === $this->schema::schemaKey()) {
             return $this->expandedRuleSet();

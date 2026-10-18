@@ -120,7 +120,7 @@ opened, includes replaced by their templates' rules, and derived conditions by
 their expressions. It is memoized beside the resolved set:
 
 ```php
-$expanded = $guard->expandedRuleSet();   // an ExpandedRuleSet
+$expanded = $guard->expandedRuleSet();   // an ExpandedSyntax
 
 foreach ($expanded->rules as $rule) {
     $rule->canAbilities();

@@ -72,7 +72,6 @@ Warrant::impossibleAbilities($schema, ?Authenticatable $user = null): array;
 ```php
 Warrant::parse(string $syntax, array $bindings = []): WarrantSyntax;
 Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
-Warrant::validate(RuleSetNode|array ...$ruleSets): void;
 Warrant::condition(): WarrantConditionBuilder;
 Warrant::rule(): WarrantRuleBuilder;
 ```
@@ -108,9 +107,6 @@ warrant_file(base_path('warrant/documents'))->ruleSet();          // reads docum
 well as a bare one. The header names the schema whose conditions the expression
 uses, so a condition written as a string is as checkable as every other
 construct, and it changes nothing about the tree.
-
-`validate()` checks each rule set against the schema registered for its own key,
-and throws on the first unknown name.
 
 ## Flushing
 

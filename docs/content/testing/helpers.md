@@ -117,7 +117,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            Warrant::validate(WarrantSyntax::parse($row->rules)->scopedTo($row->schema_key));
+            WarrantSyntax::parse($row->rules)->validate($row->schema_key);
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -132,21 +132,23 @@ For rules in `.warrant` files, walk the directory:
 ```php
 it('every warrant file parses and validates', function () {
     foreach (glob(base_path('warrant/*.warrant')) as $path) {
-        Warrant::validate(WarrantSyntax::parseFile($path)->ruleSets());
+        WarrantSyntax::parseFile($path)->validate();
     }
 })->throwsNoExceptions();
 ```
 
-`Warrant::validate()` takes one rule set, several, or arrays of them, and checks
-each against the schema its own key names:
+`validate()` checks a parsed text: every `for` body against the schema its header
+names, and rules with no header against the schema you pass:
 
 ```php
-Warrant::validate($setA, $setB, [$setC, $setD]);
+WarrantSyntax::parseFile($path)->validate();
+Warrant::parse($text)->validate('documents');
 ```
 
-Validation expands the rule set first, so it covers a rule template's body and a
-derived condition's expression too. What it does not cover is anything depending on
-a value, which the compiler checks when a check runs. See
+Validation checks the rule set as written. A rule template's body and a derived
+condition's expression are checked when a guard expands the rules, so a test that
+runs a check covers them too. What neither covers is anything depending on a value,
+which the compiler checks when a check runs. See
 [validation](/supplying-rules/validation/).
 
 ## A snapshot of the effective policy

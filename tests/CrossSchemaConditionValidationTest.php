@@ -12,7 +12,6 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -39,12 +38,12 @@ beforeEach(function () {
 
 function validateOwnerCheckSyntax(string $syntax): void
 {
-    Warrant::validate(WarrantSyntax::parse($syntax)->scopedTo('xcv_owner'));
+    validateRegistered(WarrantSyntax::parse($syntax)->scopedTo('xcv_owner'));
 }
 
 function validateOwnerCheckRule(WarrantRuleBuilder $rule): void
 {
-    Warrant::validate(RuleSetNode::fromRules('xcv_owner', $rule));
+    validateRegistered(RuleSetNode::fromRules('xcv_owner', $rule));
 }
 
 it('accepts an unbound reference with a global condition', function () {
@@ -119,7 +118,7 @@ it('rejects a constant inside a check(...) predicate', function () {
        to compose one, so this reaches the validator only as a hand-built node. */
     $node = new CrossSchemaConditionNode('xcv_target', new BooleanNode(true), true, [Ref::context('id')]);
 
-    expect(fn () => Warrant::validate(RuleSetNode::fromRules('xcv_owner', new WarrantRuleNode($node, [new CanClauseNode(['edit'])], []))))
+    expect(fn () => validateRegistered(RuleSetNode::fromRules('xcv_owner', new WarrantRuleNode($node, [new CanClauseNode(['edit'])], []))))
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');
 });
 
@@ -149,7 +148,7 @@ it('rejects a specified row target that is a null literal', function () {
 });
 
 it('rejects a specified row target from a binding that resolved to null', function () {
-    expect(fn () => Warrant::validate(WarrantSyntax::parse(
+    expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if check(is_published for xcv_target(:pp)) they can edit',
         ['pp' => null],
     )->scopedTo('xcv_owner')))

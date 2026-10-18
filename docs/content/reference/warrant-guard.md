@@ -48,7 +48,7 @@ public function schema(): WarrantSchema;
 public function user(): Authenticatable;
 public function query(): Builder;
 public function resolvedRuleSet(): RuleSetNode;
-public function expandedRuleSet(): ExpandedRuleSet;   // blocks, includes and derived conditions expanded
+public function expandedRuleSet(): ExpandedSyntax;   // blocks, includes and derived conditions expanded
 ```
 
 ```php

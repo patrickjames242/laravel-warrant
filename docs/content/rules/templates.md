@@ -201,13 +201,13 @@ mixing the two is reported as one.
 | Compiling a check or filtering a query | expands; a template's rules decide access like any other |
 | [Reachability](/concepts/reachability/) | expands; an ability granted only by a template is still reachable |
 | [Denial messages](/rules/denial-messages/) | expands; a template's `because` surfaces like any other |
-| `Warrant::validate()` | expands; a mistake inside a body is reported like one written in the rule |
+| `validate()` | does not expand; it checks the `@include` as written, and the body is checked when a guard expands it |
 | `WarrantSyntax::toSyntax()` | writes the `@include` back as written, not what it expands to |
 
 Expansion happens before anything compiles, once per rule set, and needs no user,
 row or check context: a `@context` or `@column` argument reaches the template
-method as the reference, to be passed on through a binding. That is what lets
-validation read a body at all.
+method as the reference, to be passed on through a binding. That is what lets a
+guard expand its rules once and use them for every check.
 
 ## Errors
 
@@ -224,5 +224,6 @@ validation read a body at all.
 | a body that never stops including | `Expansion exceeded the maximum nesting depth of 64`, followed by the chain |
 | a mistake inside a body | reported as it would be in the rule, e.g. `Condition [x] is not declared by the schema` |
 
-All of these come from `validate()`, so CI catches them with no user, no row, and
-no query.
+The ones about an `@include` as written come from `validate()`; the ones about
+what a template answers with come when a guard expands the rules. A test that runs
+a check catches both, with no row and no query.

@@ -2,8 +2,10 @@
 
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BindingResolver;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
@@ -15,7 +17,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 function bindingError(string $source, array $bindings): WarrantSyntaxException
 {
     try {
-        WarrantSyntax::parse($source, $bindings)->resolve();
+        WarrantSyntax::parse($source, $bindings)->resolveBindings();
     } catch (WarrantSyntaxException $error) {
         return $error;
     }
@@ -62,7 +64,7 @@ it('reports binding errors in the order the bindings were written', function () 
 it('keeps the nodes of a tree with no bindings', function () {
     $written = WarrantParser::parse('if a(1) they can view');
 
-    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve($written, [])->children)
+    expect((new BindingResolver('if a(1) they can view', $written->positions))->resolve(ValidSyntax::of($written, new ValidationInput(null))))
         ->toBe($written->children);
 });
 
@@ -71,12 +73,12 @@ it('puts no value in place until the syntax is resolved', function () {
 
     expect($syntax->children[0]->conditions)->toEqual(new ConditionNode('a', [new BindingNode('x')]))
         ->and($syntax->rule()->conditions)->toEqual(new ConditionNode('a', [5]))
-        ->and($syntax->resolve()->bindings)->toBeNull();
+        ->and($syntax->resolveBindings()->bindings)->toBeNull();
 });
 
 it('keeps the tree as written beside the resolved one, with the positions describing it', function () {
     $source = 'if a(:x) and b they can view';
-    $syntax = WarrantSyntax::parse($source, ['x' => 5])->resolve();
+    $syntax = WarrantSyntax::parse($source, ['x' => 5])->resolveBindings();
     $written = $syntax->written[0]->conditions;
     $span = $syntax->positions->spanOf($written->leftSide, ConditionNode::PART_PARAMETERS, 0);
 

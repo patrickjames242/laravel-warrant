@@ -147,7 +147,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 public function store(Request $request)
 {
     try {
-        Warrant::validate(Warrant::parse($request->string('rules'))->scopedTo($request->string('schema_key')));
+        Warrant::parse($request->string('rules'))->validate($request->string('schema_key'));
     } catch (WarrantSyntaxException | InvalidArgumentException $e) {
         return back()->withErrors(['rules' => $e->getMessage()]);
     }

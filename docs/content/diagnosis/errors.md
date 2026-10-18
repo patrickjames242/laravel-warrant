@@ -196,8 +196,7 @@ An *optional* key that is absent does not throw. It is passed to its condition a
 
 ## Expansion
 
-Thrown while a rule set is expanded, by the guard before its first check and by
-`validate()`:
+Thrown while a rule set is expanded, by the guard before its first check:
 
 - `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.` Validation reports the same as written, before anything is expanded.
 - `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` Validation reports the same as written, too.

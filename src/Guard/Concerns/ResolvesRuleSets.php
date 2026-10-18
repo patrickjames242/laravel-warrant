@@ -3,48 +3,49 @@
 namespace Warrant\Guard\Concerns;
 
 use InvalidArgumentException;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
-use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\SyntaxBindingsResolved;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\Parsing\Validation\GenericMode;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
+use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
 /**
- * Resolving the ordered {@see RuleSetNode} that governs this guard's user's
- * access to the managed entity: asking the bound {@see RuleProvider}, if any,
- * confirming its answer is about the schema it was asked about, prepending the
- * schema's own rules, and running them past the validator on the way to the
- * compiler: each answer as written, on its own, before it is combined with the
- * others. Expanding the set validates what its templates and derived conditions
- * answer with, each as its own text.
+ * Resolving the ordered rules that govern this guard's user's access to the
+ * managed entity: asking the bound {@see RuleProvider}, if any, confirming its
+ * answer is about the schema it was asked about, and prepending the schema's own
+ * rules.
  *
- * An answer given as rule text is validated as that text, so an error in it
- * points into the text that holds it, before its rules are taken out of it and
- * combined with the others. An answer built in code is validated as the nodes
- * it is.
+ * Each answer goes through the stages of a syntax on its own, before it is
+ * combined with the others: validated as written ({@see ValidSyntax}), its
+ * bindings' values put in place ({@see SyntaxBindingsResolved}), then expanded
+ * ({@see ExpandedSyntax}). An answer given as rule text is validated as that
+ * text, so an error in it points into the text that holds it. An answer built in
+ * code is validated as the nodes it is. Expanding an answer validates what its
+ * templates and derived conditions answer with, each as its own text.
  *
- * That validation pass reports a mistake earlier than the compiler would, and
- * against every rule in the set rather than the ones a given check reaches —
- * including the rules a template supplied and the expression a derived condition
- * answered with. It is not what makes the set safe to compile: the compiler
- * rejects a name that resolves to nothing at the lookup that needs it.
+ * That validation reports a mistake earlier than the compiler would, and against
+ * every rule in the set rather than the ones a given check reaches. It is not
+ * what makes the set safe to compile: the compiler rejects a name that resolves
+ * to nothing at the lookup that needs it.
  *
- * Either provider may answer in any form {@see providedRuleEntries()} reads, which
+ * Either provider may answer in any form {@see providedSyntaxes()} reads, which
  * also checks that every rule set among it targets this guard's schema.
  *
- * The guard is fixed to one (schema, user), so the rule set is resolved, expanded
- * and validated once: every check, filter, diagnosis, and reachability query on
- * this instance reads the same {@see ExpandedRuleSet}.
+ * The guard is fixed to one (schema, user), so the rules are resolved, validated
+ * and expanded once: every check, filter, diagnosis, and reachability query on
+ * this instance reads the same {@see ExpandedSyntax}.
  */
 trait ResolvesRuleSets
 {
     private ?RuleSetNode $resolvedRuleSet = null;
 
-    private ?ExpandedRuleSet $expandedRuleSet = null;
+    private ?ExpandedSyntax $expandedRuleSet = null;
 
     /**
      * This guard's resolved, validated rule set, memoized for the instance. It is
@@ -64,7 +65,7 @@ trait ResolvesRuleSets
      * rules and every derived condition by its expression — memoized for the
      * instance.
      */
-    public function expandedRuleSet(): ExpandedRuleSet
+    public function expandedRuleSet(): ExpandedSyntax
     {
         $this->resolveOnce();
 
@@ -72,11 +73,11 @@ trait ResolvesRuleSets
     }
 
     /**
-     * Resolve, expand and validate the rule set, the first time either form of it
+     * Resolve, validate and expand the rules, the first time either form of them
      * is asked for.
      *
-     * Both forms are kept only once the expansion has validated, so a rule set
-     * that fails is reported again by the next call rather than handed out.
+     * Both forms are kept only once every answer has expanded, so rules that
+     * fail are reported again by the next call rather than handed out.
      * Expansion reads no row and no check context, so one expansion serves every
      * check this guard answers.
      */
@@ -86,42 +87,58 @@ trait ResolvesRuleSets
             return;
         }
 
-        $ruleSet = $this->resolveRuleSet();
+        $schemaKey = $this->schema::schemaKey();
+        $answers = $this->answers();
 
-        $expanded = (new RuleSetExpander)->expand($ruleSet, $this->schema);
+        $entries = [];
 
-        $this->resolvedRuleSet = $ruleSet;
+        foreach ($answers as $answer) {
+            array_push($entries, ...$this->entriesOf($answer));
+        }
+
+        $expanded = ExpandedSyntax::combine($schemaKey, ...array_map(
+            static fn (SyntaxBindingsResolved $answer): ExpandedSyntax => ExpandedSyntax::of($answer),
+            $answers,
+        ));
+
+        $this->resolvedRuleSet = new RuleSetNode($schemaKey, $entries);
         $this->expandedRuleSet = $expanded;
     }
 
-    private function resolveRuleSet(): RuleSetNode
+    /**
+     * What the schema's rules() and the rule provider answered with, each
+     * validated and with its bindings' values in place, the schema's first.
+     *
+     * @return list<SyntaxBindingsResolved>
+     */
+    private function answers(): array
     {
-        $schemaKey = $this->schema::schemaKey();
-
         $context = new RuleProviderContext(
-            schemaKey: $schemaKey,
+            schemaKey: $this->schema::schemaKey(),
             schema: $this->schema::class,
             user: $this->user,
             model: $this->schema::model !== '' ? $this->schema::model : null,
         );
 
-        $providerRules = $this->providedRuleEntries(
+        $providerRules = $this->providedSyntaxes(
             app()->bound(RuleProvider::class) ? app(RuleProvider::class)->rules($context) : [],
             'The rule provider',
         );
 
-        $schemaRules = $this->providedRuleEntries(
+        $schemaRules = $this->providedSyntaxes(
             $this->schema->rules($context),
             sprintf('The rules() of schema [%s]', $this->schema::class),
         );
 
-        return new RuleSetNode($schemaKey, [...$schemaRules, ...$providerRules]);
+        return [...$schemaRules, ...$providerRules];
     }
 
     /**
-     * The rule entries in what a provider returned, in whichever form it built
-     * them: a {@see RuleSetNode}, a rule entry, rule text as a string or
-     * {@see WarrantSyntax}, or an iterable of any of these.
+     * The rules in what a provider returned, in whichever form it built them: a
+     * {@see RuleSetNode}, a rule entry, rule text as a string or
+     * {@see WarrantSyntax}, or an iterable of any of these. Each is validated
+     * against this guard's schema, as written, and then has its bindings' values
+     * put in place.
      *
      * Every rule set among them must target this guard's schema. A provider is an
      * application's own code, so that is checked rather than assumed: the names
@@ -129,19 +146,17 @@ trait ResolvesRuleSets
      * missing from this schema, and silently compiled when both schemas share the
      * vocabulary.
      *
-     * Every answer is validated as written, here, before its rules are combined
-     * with any other: rule text as the text it is, and nodes built in code as
-     * those nodes.
-     *
      * @param  string  $provider  who returned $rules, for the error message
-     * @param  bool  $validate  false for the nodes taken out of rule text that has
-     *   already been validated as a whole
-     * @return list<IRuleEntryNode>
+     * @return list<SyntaxBindingsResolved>
      */
-    private function providedRuleEntries(mixed $rules, string $provider, bool $validate = true): array
+    private function providedSyntaxes(mixed $rules, string $provider): array
     {
         if (is_string($rules)) {
             $rules = WarrantSyntax::parse($rules);
+        }
+
+        if ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
+            $rules = new WarrantSyntax([$rules]);
         }
 
         if ($rules instanceof WarrantSyntax) {
@@ -149,46 +164,21 @@ trait ResolvesRuleSets
                 $this->assertTargetsThisSchema($schemaKey, $provider);
             }
 
-            if ($validate) {
-                (new WarrantSyntaxValidator($this->schema, $this->schema::schemaKey(), headerlessRulesFormARuleSet: true))
-                    ->validateWritten($rules);
-            }
-
-            /* Taking the rules out puts the values of the text's bindings in
-               place, now that the text has been validated as written. */
-            return $this->providedRuleEntries(
-                $rules->isEmpty() || $rules->isRuleEntries() ? $rules->ruleEntries() : $rules->ruleSets(),
-                $provider,
-                validate: false,
-            );
-        }
-
-        if ($rules instanceof IRuleEntryNode) {
-            if ($validate) {
-                $this->writtenRulesValidator()->validateEntries([$rules], $this->schema::schemaKey());
-            }
-
-            return [$rules];
-        }
-
-        if ($rules instanceof RuleSetNode) {
-            $this->assertTargetsThisSchema($rules->schemaKey, $provider);
-
-            if ($validate) {
-                $this->writtenRulesValidator()->validateWritten($rules);
-            }
-
-            return $rules->entries;
+            return [ValidSyntax::of($rules, new ValidationInput(
+                new RegisteredSchemas,
+                $this->schema::schemaKey(),
+                GenericMode::RequireNotGeneric,
+            ))->resolveBindings()];
         }
 
         if (is_iterable($rules)) {
-            $entries = [];
+            $syntaxes = [];
 
             foreach ($rules as $rule) {
-                array_push($entries, ...$this->providedRuleEntries($rule, $provider, $validate));
+                array_push($syntaxes, ...$this->providedSyntaxes($rule, $provider));
             }
 
-            return $entries;
+            return $syntaxes;
         }
 
         throw new InvalidArgumentException(sprintf(
@@ -196,6 +186,27 @@ trait ResolvesRuleSets
             $provider,
             get_debug_type($rules),
         ));
+    }
+
+    /**
+     * The rule entries $answer holds, as written: its unscoped entries, or the
+     * entries of every rule set in it.
+     *
+     * @return list<IRuleEntryNode>
+     */
+    private function entriesOf(SyntaxBindingsResolved $answer): array
+    {
+        if ($answer->isEmpty() || $answer->isRuleEntries()) {
+            return $answer->ruleEntries();
+        }
+
+        $entries = [];
+
+        foreach ($answer->ruleSets() as $ruleSet) {
+            array_push($entries, ...$ruleSet->entries);
+        }
+
+        return $entries;
     }
 
     /**
@@ -211,13 +222,5 @@ trait ResolvesRuleSets
                 $schemaKey,
             ));
         }
-    }
-
-    /**
-     * The validator for rules built in code, which have no text to point into.
-     */
-    private function writtenRulesValidator(): RuleSetValidator
-    {
-        return new RuleSetValidator($this->schema, $this->schema::schemaKey());
     }
 }

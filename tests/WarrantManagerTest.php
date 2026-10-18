@@ -87,20 +87,3 @@ it('throws when a schema names a model that does not use the trait', function ()
     expect(fn () => $registry->resolveSchemaClassOrFail('traitless'))
         ->toThrow(LogicException::class, 'does not use the Warrant\\HasWarrantSchema trait');
 });
-
-it('validates a batch of rule sets, each against its own registered schema', function () {
-    // Passes silently: every name is declared by the course_sections schema.
-    Warrant::validate(
-        WarrantSyntax::parse('if is_teacher they can view, update')->scopedTo('course_sections'),
-        [WarrantSyntax::parse('if is_advisor they can publish')->scopedTo('course_sections')],
-    );
-
-    expect(true)->toBeTrue();
-});
-
-it('throws on the first unknown name across a validate batch', function () {
-    expect(fn () => Warrant::validate(
-        WarrantSyntax::parse('if is_teacher they can view')->scopedTo('course_sections'),
-        WarrantSyntax::parse('they can fly')->scopedTo('course_sections'),
-    ))->toThrow(InvalidArgumentException::class, 'Ability [fly]');
-});

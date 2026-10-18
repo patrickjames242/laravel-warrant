@@ -5,7 +5,6 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
-use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
@@ -38,7 +37,7 @@ function analyze(string $syntax, string $ability, ?WarrantSchema $schema = null)
     $schema ??= new WarrantScopedModelSchema;
 
     return (new ReachabilityAnalyzer)->analyze(
-        (new RuleSetExpander)->expand(
+        expandedFor(
             WarrantSyntax::parse($syntax)->scopedTo($schema::schemaKey()),
             $schema,
         ),

@@ -49,7 +49,7 @@ it('reads the first of several parsers that starts here', function () {
 
 it('reads a null argument as a value, not as nothing read', function () {
     [$syntax, $map] = runParser(new ParseSyntax, 'a(null, ?, 1)');
-    $node = $syntax->conditionExpression();
+    $node = $syntax->children[0];
 
     expect($node)->toEqual(new ConditionNode('a', [null, new BindingNode, 1]))
         ->and(WarrantSyntax::parse('a(null, ?, 1)', [null])->conditionExpression())

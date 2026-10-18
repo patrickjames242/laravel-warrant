@@ -378,7 +378,7 @@ it('rejects a vocabulary attribute on matchKey', function () {
 it('does not expose the key as a condition a rule can name', function () {
     expect(MkDaySchema::conditionKeys())->not->toContain('match_key');
 
-    expect(fn () => Warrant::validate(WarrantSyntax::parse('if match_key they can view')->scopedTo('mk_days')))
+    expect(fn () => validateRegistered(WarrantSyntax::parse('if match_key they can view')->scopedTo('mk_days')))
         ->toThrow(InvalidArgumentException::class);
 });
 

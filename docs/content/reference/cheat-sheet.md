@@ -145,7 +145,7 @@ RuleSetNode::fromRules('documents', $ruleA, $ruleB);
 RuleSetNode::build('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
 RuleSetNode::merge($a, $b, $c);
 $a->mergeWith($b);
-Warrant::validate($set);
+Warrant::parse($text)->validate('documents');
 (new WarrantSyntax([$set]))->toSyntax();
 (new WarrantSyntax([$set]))->toBoundSyntax();
 

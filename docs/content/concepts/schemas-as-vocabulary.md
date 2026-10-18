@@ -51,7 +51,7 @@ You can run that check in CI over every rule you have stored, with no user, no
 row, and no database:
 
 ```php
-Warrant::validate(WarrantSyntax::parse($storedRule)->scopedTo('documents'));
+WarrantSyntax::parse($storedRule)->validate('documents');
 ```
 
 **Tooling can read your rules.** A closed vocabulary is what makes completion and

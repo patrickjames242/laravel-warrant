@@ -60,7 +60,8 @@ WarrantSyntax::parse(
 
 ## The rules bindings obey
 
-Enforced at parse time, and all three catch real mistakes:
+Enforced when the rules are taken out of the text, and all three catch real
+mistakes:
 
 **A binding value may be any PHP value.** Strings, ints, arrays, objects,
 anything. Only inline literals are restricted to scalars. Your condition receives

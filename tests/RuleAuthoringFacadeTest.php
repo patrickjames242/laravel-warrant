@@ -96,21 +96,6 @@ it('rejects a header that disagrees with the schema it is scoped to', function (
         ->toThrow(InvalidArgumentException::class, 'targets schema [timesheets] in its `for` header but was scoped to [documents]');
 });
 
-// -- validate -------------------------------------------------------------------
-
-it('validates each rule set against the schema registered for its key', function () {
-    expect(fn () => Warrant::validate(Warrant::parse('if is_teacher they can view')->scopedTo('course_sections')))
-        ->not->toThrow(Exception::class);
-
-    expect(fn () => Warrant::validate(Warrant::parse('if no_such_condition they can view')->scopedTo('course_sections')))
-        ->toThrow(InvalidArgumentException::class);
-});
-
-it('rejects anything but a rule set', function () {
-    expect(fn () => Warrant::validate(['for course_sections { they can view }']))
-        ->toThrow(InvalidArgumentException::class, 'validate expects WarrantSyntax or RuleSetNode instances, got string.');
-});
-
 // -- a builder still needs no terminal where a value is expected ---------------
 
 it('feeds a facade-built rule straight into fromRules, unfinished', function () {

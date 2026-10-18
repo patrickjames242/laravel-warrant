@@ -31,8 +31,8 @@ WarrantRuleNode::build()
 ```
 
 A [derived condition](/schemas/conditions-beyond-sql/) may build its expression
-the same way. `validate()` expands it and reads the result, but only for a rule set
-someone validates:
+the same way. Its expression is validated when a guard expands the rules that name
+it, and not before:
 
 ```php
 #[DerivedCondition]

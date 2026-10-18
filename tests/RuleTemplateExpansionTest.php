@@ -3,17 +3,16 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
-use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
-use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
@@ -237,9 +236,9 @@ class TemplateHopSchema extends TemplateExpansionSchema
     public const model = TemplateHopModel::class;
 }
 
-function expandSyntax(string $syntax): ExpandedRuleSet
+function expandSyntax(string $syntax): ExpandedSyntax
 {
-    return (new RuleSetExpander)->expand(
+    return expandedFor(
         WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
         new TemplateExpansionSchema,
     );
@@ -325,23 +324,10 @@ it('terminates a recursion whose argument decreases per level', function () {
 it('leaves a set holding no includes exactly as it was', function () {
     $set = WarrantSyntax::parse("if is_teacher they can view\nthey cannot archive")->scopedTo('course_sections');
 
-    $expanded = (new RuleSetExpander)->expand($set, new TemplateExpansionSchema);
+    $expanded = expandedFor($set, new TemplateExpansionSchema);
 
     expect($expanded->schemaKey)->toBe($set->schemaKey);
     expect($expanded->rules)->toBe($set->entries);
-});
-
-it('refuses an expanded rule set holding anything but rules that name their abilities', function () {
-    // What the compiler, reachability and diagnosis read can never hold shorthand
-    // nobody expanded: an include, or a clause with no abilities to be about.
-    expect(fn () => new ExpandedRuleSet('course_sections', [new IncludeInvocationNode('grants_it', [], ['view'])]))
-        ->toThrow(InvalidArgumentException::class, 'holds rules alone');
-
-    $generic = WarrantSyntax::parse('can they view { if is_teacher they can }')->scopedTo('course_sections')
-        ->entries[0]->entries[0];
-
-    expect(fn () => new ExpandedRuleSet('course_sections', [$generic]))
-        ->toThrow(InvalidArgumentException::class, 'names the abilities it applies to');
 });
 
 // -- failures -----------------------------------------------------------------
@@ -418,12 +404,12 @@ it('rejects a template answering with a rule set', function () {
 
 it('rejects a template answering with parsed rules that name abilities', function () {
     expect(fn () => expandSyntax('@include answers_with_parsed_named_rules for view'))
-        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
 });
 
 it('rejects a template answering with a parsed ability block', function () {
     expect(fn () => expandSyntax('@include answers_with_parsed_block for view'))
-        ->toThrow(RuntimeException::class, 'answered with an ability block, which names abilities');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('An ability block'));
 });
 
 it('rejects a template answering with a for block', function () {
@@ -444,31 +430,31 @@ it('rejects an ability block in a template body', function () {
     // A body is generic for the same reason a block's clauses are: the abilities
     // are settled by the reference, so the body has nothing to open a block over.
     expect(fn () => expandSyntax('@include opens_a_block for view'))->toThrow(
-        RuntimeException::class,
-        'Rule template [TemplateExpansionSchema::opensABlock] answered with an ability block, which names abilities',
+        RuleValidationException::class,
+        'Rule template [TemplateExpansionSchema::opensABlock] answered with a mistake: '.LanguageRuleMessages::namedWhereGeneric('An ability block'),
     );
 });
 
 it('rejects a clause in a template body naming its own abilities', function () {
     expect(fn () => expandSyntax('@include names_an_ability for view'))->toThrow(
-        RuntimeException::class,
-        'Rule template [TemplateExpansionSchema::namesAnAbility] answered with a rule that names abilities',
+        RuleValidationException::class,
+        'Rule template [TemplateExpansionSchema::namesAnAbility] answered with a mistake: '.LanguageRuleMessages::namedWhereGeneric('This clause'),
     );
 });
 
 it('rejects abilities named on a cannot clause in a template body', function () {
     expect(fn () => expandSyntax('@include names_an_ability_in_a_cannot for view'))
-        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
 });
 
 it('rejects the wildcard named in a template body', function () {
     expect(fn () => expandSyntax('@include names_the_wildcard for view'))
-        ->toThrow(RuntimeException::class, 'answered with a rule that names abilities');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
 });
 
-it('rejects a template body mixing generic and named rules where the text mixes them', function () {
+it('rejects the named clause in a template body that mixes generic and named rules', function () {
     expect(fn () => expandSyntax('@include mixes_naming for view'))
-        ->toThrow(RuleValidationException::class, 'This clause names abilities, but the rules before it name none');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
 });
 
 // -- reachability -------------------------------------------------------------
@@ -519,7 +505,7 @@ it('derives a fresh trail per branch rather than sharing one', function () {
         @include counts_down(40) for publish
         WARRANT)->scopedTo('course_sections');
 
-    $expanded = (new RuleSetExpander)->expand($set, new TemplateExpansionSchema);
+    $expanded = expandedFor($set, new TemplateExpansionSchema);
 
     expect($expanded->rules)->toHaveCount(2);
     expect($expanded->rules[0]->canAbilities())->toBe(['view']);
@@ -615,8 +601,10 @@ it('expands a guard\'s rule set once, however many abilities are asked about', f
 
 function validateSyntax(string $syntax): void
 {
-    (new RuleSetValidator(new TemplateExpansionSchema, 'course_sections'))
-        ->validate(WarrantSyntax::parse($syntax)->scopedTo('course_sections'));
+    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('course_sections');
+
+    validateRuleSet($ruleSet, new TemplateExpansionSchema);
+    expandedFor($ruleSet, new TemplateExpansionSchema);
 }
 
 it('accepts an include naming a template the schema declares', function () {
@@ -711,7 +699,7 @@ it('still validates the rules around an include', function () {
 
 it('reports a mistake inside a template body, which it reads through the expansion', function () {
     expect(fn () => validateSyntax('@include opens_a_block for view'))
-        ->toThrow(RuntimeException::class, 'answered with an ability block, which names abilities');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('An ability block'));
 
     expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
         ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');

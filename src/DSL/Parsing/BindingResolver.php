@@ -13,11 +13,13 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SourceMap;
@@ -48,16 +50,20 @@ final class BindingResolver
     }
 
     /**
-     * $syntax with the value of every binding in its children. Nodes are
-     * immutable, so a tree with bindings is built anew; what was written stays
-     * as it was, in the syntax's {@see WarrantSyntax::$written}, which is the
-     * tree $positions describes. A tree with no bindings keeps its nodes.
+     * The children of $syntax with the value of every binding in its place,
+     * from the values the syntax holds. Nodes are immutable, so a tree with
+     * bindings is built anew; what was written stays as it was, in the
+     * syntax's {@see WarrantSyntax::$written}, which is the tree $positions
+     * describes. A tree with no bindings keeps its nodes.
      *
-     * @param array<int|string, mixed> $bindings
+     * Only a {@see ValidSyntax} is resolved, so no value is put in place before
+     * the text it goes into has been validated as written.
+     *
+     * @return list<INode>
      */
-    public function resolve(WarrantSyntax $syntax, array $bindings): WarrantSyntax
+    public function resolve(ValidSyntax $syntax): array
     {
-        $state = new BindingState($this->source, $bindings);
+        $state = new BindingState($this->source, $syntax->bindings ?? []);
         $values = [];
 
         foreach ($this->bindingsOf($syntax) as [$binding, $standsFor]) {
@@ -73,13 +79,13 @@ final class BindingResolver
         $state->finalize();
 
         if ($values === []) {
-            return new WarrantSyntax($syntax->children, $syntax->source, $syntax->positions, $syntax->written);
+            return $syntax->children;
         }
 
         return $this->withBindings(
             $syntax,
             static fn (BindingNode $binding): mixed => $values[spl_object_id($binding)],
-        );
+        )->children;
     }
 
     /**

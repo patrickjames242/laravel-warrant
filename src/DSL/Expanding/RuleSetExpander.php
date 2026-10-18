@@ -18,14 +18,15 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SyntaxBindingsResolved;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\Validation\GenericMode;
 use Warrant\DSL\Parsing\Validation\LanguageRuleMessages;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
-use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
@@ -34,8 +35,11 @@ use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\RuleTemplateDefinition;
 
 /**
- * The expansion phase, between parsing and compiling: turns the rule set an
- * author wrote into the {@see ExpandedRuleSet} everything downstream reads.
+ * The expansion phase, between parsing and compiling: turns the rules an author
+ * wrote into the rules alone that
+ * {@see \Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax} holds for everything
+ * downstream to read. It reads only a {@see SyntaxBindingsResolved}, so what it
+ * expands has been validated as written and has its bindings' values in place.
  *
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
@@ -65,19 +69,60 @@ use Warrant\Schema\RuleTemplateDefinition;
 final class RuleSetExpander
 {
     /**
-     * @param SchemaCatalog $catalog Where the schema a `check(... for <schema>)`
-     *   names is found, to expand its predicate against.
+     * @param SchemaCatalog $catalog Where the schema the rules are for is found,
+     *   whose templates and derived conditions are called, and the schema a
+     *   `check(... for <schema>)` names, to expand its predicate against.
      */
     public function __construct(private readonly SchemaCatalog $catalog = new RegisteredSchemas)
     {
     }
 
     /**
-     * Expand $set into rules alone: ability blocks opened up, every include
+     * Expand $syntax into rules alone: ability blocks opened up, every include
      * replaced by what its template expands to, and every derived condition by
-     * the expression it answers with.
+     * the expression it answers with. Answers a rule set of those rules, for the
+     * one schema the rules are for: the schema every `for` header in $syntax
+     * names, or for rules with no header, the schema it was validated in.
      */
-    public function expand(RuleSetNode $set, SchemaVocabulary $schema): ExpandedRuleSet
+    public function expand(SyntaxBindingsResolved $syntax): RuleSetNode
+    {
+        $schemaKey = $this->schemaKeyOf($syntax);
+        $schema = $this->catalog->find($schemaKey) ?? throw new InvalidArgumentException(sprintf(
+            'There is no schema [%s] to expand the rules against.',
+            $schemaKey,
+        ));
+
+        $set = $syntax->isSchemaScoped()
+            ? $syntax->forSchema($schemaKey)
+            : new RuleSetNode($schemaKey, $syntax->ruleEntries());
+
+        return new RuleSetNode($schemaKey, $this->expandRuleSet($set, $schema));
+    }
+
+    /**
+     * The one schema the rules in $syntax are for.
+     */
+    private function schemaKeyOf(SyntaxBindingsResolved $syntax): string
+    {
+        if ($syntax->isSchemaScoped()) {
+            $schemaKeys = $syntax->schemaKeys();
+
+            return count($schemaKeys) === 1 ? $schemaKeys[0] : throw new InvalidArgumentException(sprintf(
+                'Rules are expanded for one schema at a time; the text holds rules for [%s].',
+                implode('], [', $schemaKeys),
+            ));
+        }
+
+        return $syntax->input->schema ?? throw new InvalidArgumentException(
+            'Rules with no `for` header are expanded against the schema they were validated in, and these were '
+                .'validated in none.',
+        );
+    }
+
+    /**
+     * @return list<WarrantRuleNode>
+     */
+    private function expandRuleSet(RuleSetNode $set, SchemaVocabulary $schema): array
     {
         /* Outside an ability block nothing names abilities on an entry's behalf.
            The validator reports a generic one against the text; this rejects it
@@ -94,12 +139,7 @@ final class RuleSetExpander
             }
         }
 
-        return new ExpandedRuleSet($set->schemaKey, $this->expandEntries(
-            $set->entries,
-            $schema,
-            $set->schemaKey,
-            ExpansionTrail::root(),
-        ));
+        return $this->expandEntries($set->entries, $schema, $set->schemaKey, ExpansionTrail::root());
     }
 
     /**
@@ -250,14 +290,14 @@ final class RuleSetExpander
                 ));
             }
 
-            if ($validate) {
-                self::validateAnswer($answeredBy, fn () => (new WarrantSyntaxValidator($schema, $schemaKey, $this->catalog))
-                    ->validateWritten($body));
-            }
+            $valid = self::validateAnswer(
+                $answeredBy,
+                fn () => ValidSyntax::of($body, new ValidationInput($this->catalog, $schemaKey, GenericMode::RequireGeneric)),
+            );
 
             /* Taking the entries out puts the values of the text's bindings in
                place, now that the text has been validated as written. */
-            return $this->templateEntries($body->ruleEntries(), $schema, $schemaKey, $definition, false);
+            return $this->templateEntries($valid->ruleEntries(), $schema, $schemaKey, $definition, false);
         }
 
         if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
@@ -272,8 +312,10 @@ final class RuleSetExpander
             }
 
             if ($validate) {
-                self::validateAnswer($answeredBy, fn () => (new RuleSetValidator($schema, $schemaKey, catalog: $this->catalog))
-                    ->validateEntries([$body]));
+                self::validateAnswer($answeredBy, fn () => ValidSyntax::of(
+                    new WarrantSyntax([$body]),
+                    new ValidationInput($this->catalog, $schemaKey, GenericMode::RequireGeneric),
+                ));
             }
 
             return [$body];
@@ -483,8 +525,11 @@ final class RuleSetExpander
 
         self::validateAnswer(
             sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
-            fn () => (new RuleSetValidator($schema, $schemaKey, passedIn: $node->parameters, catalog: $this->catalog))
-                ->validateCondition(new SchemaConditionNode($schemaKey, $expression)),
+            fn () => ValidSyntax::of(
+                new WarrantSyntax([$expression]),
+                new ValidationInput($this->catalog, $schemaKey),
+                $node->parameters,
+            ),
         );
 
         return $expression;
@@ -549,9 +594,11 @@ final class RuleSetExpander
         try {
             $syntax = is_string($text) ? WarrantSyntax::parse($text) : $text;
 
-            /* Its shape alone, asked of the children as written: no value is put
-               in place until the text has been validated. */
-            (new WarrantSyntax($syntax->children))->conditionExpression();
+            /* Its shape alone, asked of the tree as written: no value is put in
+               place until the text has been validated. */
+            if (! $syntax->isExpression() && ! $syntax->isSchemaCondition()) {
+                throw new LogicException(sprintf('Expected a condition expression, but the source holds %s.', $syntax->describe()));
+            }
         } catch (WarrantSyntaxException|LogicException $e) {
             throw new RuntimeException(sprintf(
                 "Derived condition [%s::%s] answered with rule text that is not a condition expression:\n\n%s",
@@ -572,24 +619,26 @@ final class RuleSetExpander
             ));
         }
 
-        self::validateAnswer(
+        $valid = self::validateAnswer(
             sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
-            fn () => (new WarrantSyntaxValidator($schema, $schemaKey, $this->catalog))->validateWritten($syntax),
+            fn () => ValidSyntax::of($syntax, new ValidationInput($this->catalog, $schemaKey, GenericMode::Either)),
         );
 
-        return $syntax->conditionExpression();
+        return $valid->conditionExpression();
     }
 
     /**
      * Run $validate over what $answeredBy answered with, so a mistake in it is
      * reported as that method's, still pointing into the text it is in.
      *
-     * @param Closure(): void $validate
+     * @template T
+     * @param Closure(): T $validate
+     * @return T
      */
-    private static function validateAnswer(string $answeredBy, Closure $validate): void
+    private static function validateAnswer(string $answeredBy, Closure $validate): mixed
     {
         try {
-            $validate();
+            return $validate();
         } catch (InvalidArgumentException $e) {
             $reason = $e instanceof RuleValidationException ? $e->reason : $e->getMessage();
 

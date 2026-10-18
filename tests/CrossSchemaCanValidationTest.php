@@ -8,7 +8,6 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
@@ -30,12 +29,12 @@ beforeEach(function () {
 
 function validateOwnerSyntax(string $syntax): void
 {
-    Warrant::validate(WarrantSyntax::parse($syntax)->scopedTo('xs_owner'));
+    validateRegistered(WarrantSyntax::parse($syntax)->scopedTo('xs_owner'));
 }
 
 function validateOwnerRule(WarrantRuleBuilder $rule): void
 {
-    Warrant::validate(RuleSetNode::fromRules('xs_owner', $rule));
+    validateRegistered(RuleSetNode::fromRules('xs_owner', $rule));
 }
 
 it('accepts an unbound reference to a capability (no-model) schema', function () {
@@ -114,7 +113,7 @@ it('rejects a specified row target that is a null literal', function () {
 });
 
 it('rejects a specified row target from a binding that resolved to null', function () {
-    expect(fn () => Warrant::validate(WarrantSyntax::parse(
+    expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if can(manage for xs_target(:folder)) they can edit',
         ['folder' => null],
     )->scopedTo('xs_owner')))

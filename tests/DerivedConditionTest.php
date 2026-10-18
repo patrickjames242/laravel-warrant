@@ -9,12 +9,10 @@ use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Expanding\DerivedConditionNode;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
-use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\DSL\Parsing\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\Facades\Warrant;
@@ -203,7 +201,7 @@ it('is expanded once per guard, however many checks read it', function () {
 });
 
 it('leaves the call in the expanded tree, around the expression it answered with', function () {
-    $expanded = (new RuleSetExpander)->expand(
+    $expanded = expandedFor(
         WarrantSyntax::parse('if owned_or_tenant(@context tenant) they can view')->scopedTo('dk_docs'),
         new DkDocSchema,
     );
@@ -227,7 +225,9 @@ it('refuses to compile a derived condition nobody expanded', function () {
             QueryFactory::for(DB::table('dk_docs')),
             makeWarrantTestUser('role-1'),
             'view',
-            new ExpandedRuleSet('dk_docs', [$rule]),
+            // Made in the class's own scope, as nothing outside it may: the compiler's
+            // own check is what is under test, for rules that skipped the expansion.
+            Closure::bind(static fn () => new ExpandedSyntax('dk_docs', [$rule]), null, ExpandedSyntax::class)(),
         )->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'reached the compiler unexpanded');
 });
@@ -236,7 +236,10 @@ it('refuses to compile a derived condition nobody expanded', function () {
 
 function validateDkExpanded(string $syntax): void
 {
-    (new RuleSetValidator(new DkDocSchema, 'dk_docs'))->validate(WarrantSyntax::parse($syntax)->scopedTo('dk_docs'));
+    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('dk_docs');
+
+    validateRuleSet($ruleSet, new DkDocSchema);
+    expandedFor($ruleSet, new DkDocSchema);
 }
 
 it('validates the expression a derived condition answered with', function () {

@@ -102,6 +102,9 @@ enum DiagnosticCode: string
     /** Rules with no `for` header of which some name their abilities and some do not. */
     case AbilityNamingDisagrees = 'ability-naming-disagrees';
 
+    /** A clause, @include or ability block naming abilities in rules that must leave them to the @include placing them. */
+    case AbilitiesNamedWhereGeneric = 'abilities-named-where-generic';
+
     /** A denial message after `they can`, where it could never be shown. */
     case MessageOnCanClause = 'message-on-can-clause';
 

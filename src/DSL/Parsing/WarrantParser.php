@@ -2,19 +2,21 @@
 
 namespace Warrant\DSL\Parsing;
 
+use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Grammar\ParseSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\Positions\SourceMap;
-use Warrant\DSL\Parsing\Validation\WarrantSyntaxValidator;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\SchemaCatalog;
 
 /**
  * Parses Warrant rule syntax. The parse reads each `:name` and `?` as a
  * {@see \Warrant\DSL\Parsing\ASTNodes\BindingNode} and puts no value in its
- * place: that is {@see WarrantSyntax::resolve()}'s, once the text has been
- * validated as it was written.
+ * place: that is {@see WarrantSyntax::resolveBindings()}'s, once the text has
+ * been validated as it was written.
  *
  * Every source parses through {@see parse()} to a {@see WarrantSyntax}, whose
  * children say which form the source took; nothing about the text needs to be
@@ -140,9 +142,9 @@ final class WarrantParser
 
         $syntax = new WarrantSyntax($children, $source, $positions);
 
-        $headerlessSchema = $schemaKey === null ? null : $catalog?->find($schemaKey);
-        $validator = new WarrantSyntaxValidator($headerlessSchema, $headerlessSchema === null ? null : $schemaKey, $catalog);
+        $checked = ValidSyntax::check($syntax, new ValidationInput($catalog, $schemaKey));
+        $mistakes = $checked instanceof InvalidSyntax ? $checked->diagnostics : [];
 
-        return new AnalysisResult($syntax, [...$state->diagnostics, ...$validator->diagnose($syntax)], $state->scannedTokens);
+        return new AnalysisResult($syntax, [...$state->diagnostics, ...$mistakes], $state->scannedTokens);
     }
 }

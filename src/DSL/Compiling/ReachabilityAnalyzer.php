@@ -4,12 +4,12 @@ namespace Warrant\DSL\Compiling;
 
 use Closure;
 use Warrant\DSL\Expanding\DerivedConditionNode;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
@@ -17,7 +17,7 @@ use Warrant\Reachability;
 use Warrant\Support\Set;
 
 /**
- * Answers "could a user ever hold ability X?" from an {@see ExpandedRuleSet},
+ * Answers "could a user ever hold ability X?" from an {@see ExpandedSyntax},
  * without a row, a context or a query.
  *
  * It folds an ability exactly as {@see RuleSetCompiler::abilityNode()} does —
@@ -51,7 +51,7 @@ use Warrant\Support\Set;
  */
 final class ReachabilityAnalyzer
 {
-    /** @var array<string, ?ExpandedRuleSet> */
+    /** @var array<string, ?ExpandedSyntax> */
     private array $ruleSets = [];
 
     /** @var array<string, TruthSet> */
@@ -66,7 +66,7 @@ final class ReachabilityAnalyzer
     private Set $inProgress;
 
     /**
-     * @param (Closure(string): ?ExpandedRuleSet)|null $resolveRuleSet The rule set
+     * @param (Closure(string): ?ExpandedSyntax)|null $resolveRuleSet The rule set
      *   the same user is given for another schema, by key, or null when there is
      *   none to be had. Without one, every reference to another schema answers
      *   anything.
@@ -76,14 +76,14 @@ final class ReachabilityAnalyzer
         $this->inProgress = new Set;
     }
 
-    public function analyze(ExpandedRuleSet $ruleSet, string $ability): Reachability
+    public function analyze(ExpandedSyntax $ruleSet, string $ability): Reachability
     {
         $this->ruleSets[$ruleSet->schemaKey] = $ruleSet;
 
         return $this->abilityOutcome($ruleSet, $ability)->toReachability();
     }
 
-    private function abilityOutcome(ExpandedRuleSet $ruleSet, string $ability): TruthSet
+    private function abilityOutcome(ExpandedSyntax $ruleSet, string $ability): TruthSet
     {
         $call = self::callKey($ruleSet->schemaKey, $ability);
 
@@ -110,7 +110,7 @@ final class ReachabilityAnalyzer
      * The grants ORed together, then ANDed with the negation of every deny — the
      * compiler's own fold, over the values each condition could take.
      */
-    private function fold(ExpandedRuleSet $ruleSet, string $ability): TruthSet
+    private function fold(ExpandedSyntax $ruleSet, string $ability): TruthSet
     {
         $grant = TruthSet::of(false);
         $denies = [];
@@ -209,7 +209,7 @@ final class ReachabilityAnalyzer
         return $outcome->canBeTrue() ? TruthSet::any() : TruthSet::of(false)->union(TruthSet::of(null));
     }
 
-    private function ruleSetFor(string $schemaKey): ?ExpandedRuleSet
+    private function ruleSetFor(string $schemaKey): ?ExpandedSyntax
     {
         if (! array_key_exists($schemaKey, $this->ruleSets)) {
             $this->ruleSets[$schemaKey] = $this->resolveRuleSet === null

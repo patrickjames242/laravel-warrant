@@ -78,10 +78,17 @@ use Warrant\Registry\RegisteredSchemas;
  * was found in that the text holds. A rule the text does not hold — one built in
  * code, or put in place by expansion — has nowhere to point, and its error is
  * placed at the nearest node around it that the text does hold, if any.
+ *
+ * Every mistake is reported, none thrown: {@see SyntaxValidator} gathers them
+ * for {@see \Warrant\DSL\Parsing\ASTNodes\ValidSyntax} to throw or keep.
+ *
+ * @internal
  */
 final class RuleSetValidator
 {
     /**
+     * @param Closure(InvalidArgumentException): void $report Called with each
+     *   mistake found, after which the walk goes on to the next thing to check.
      * @param SchemaVocabulary|null $schema The schema the rules belong to; null
      *   when that is not known, as for rules with no `for` header read with no
      *   schema given. The rules are then held to the rules of the language that
@@ -101,6 +108,7 @@ final class RuleSetValidator
      *   or `check(... for <schema>)` names are found.
      */
     public function __construct(
+        private readonly Closure $report,
         private readonly ?SchemaVocabulary $schema,
         private readonly ?string $schemaKey,
         private readonly ?WarrantSyntax $writtenIn = null,
@@ -109,41 +117,10 @@ final class RuleSetValidator
     ) {
     }
 
-    /** Called with each error instead of throwing it, while reporting. */
-    private ?Closure $report = null;
-
     /**
-     * This validator, reporting each error to $report and going on to the next
-     * thing to check, instead of throwing the first.
-     *
-     * @param Closure(InvalidArgumentException): void $report
-     */
-    public function reportingTo(Closure $report): self
-    {
-        $reporting = clone $this;
-        $reporting->report = $report;
-
-        return $reporting;
-    }
-
-    /**
-     * Validate every condition and ability name in the rule set against the
-     * schema, as written, and then expand it, which validates every template's
-     * and derived condition's answer before splicing it in. Throws
-     * {@see InvalidArgumentException} on the first mistake.
-     */
-    public function validate(RuleSetNode $ruleSet): void
-    {
-        $this->validateWritten($ruleSet);
-
-        if ($this->schema !== null) {
-            (new RuleSetExpander($this->catalog))->expand($ruleSet, $this->schema);
-        }
-    }
-
-    /**
-     * Validate a rule set as written, before expansion: every rule, and the
-     * abilities every block header and include names.
+     * Validate a rule set as written: every rule, and the abilities every block
+     * header and include names. Entries in a rule set name their abilities,
+     * every one outside an ability block, since nothing else names them.
      *
      * Those abilities are checked here, where they are written, because the
      * expansion only carries them on the rules they end up on, and an empty block
@@ -154,40 +131,68 @@ final class RuleSetValidator
      */
     public function validateWritten(RuleSetNode $ruleSet): void
     {
-        $this->validateEntries($ruleSet->entries, $ruleSet->schemaKey);
+        $this->validateEntriesFor($ruleSet->entries, GenericMode::RequireNotGeneric, $ruleSet->schemaKey);
     }
 
     /**
-     * Validate rule entries as written, as {@see validateWritten()} does.
-     *
-     * Entries in a rule set name their abilities, every one outside an ability
-     * block, since nothing else names them; pass the rule set's $ruleSetKey to
-     * hold them to it. Rule text with no `for` header may instead leave every
-     * one to the `@include` that places it, as a template's body does; with no
-     * $ruleSetKey the entries are only held to agreeing with one another.
+     * Validate rule entries with no `for` header as written, as
+     * {@see validateWritten()} does, with $mode saying whether they name their
+     * abilities.
      *
      * @param list<IRuleEntryNode> $entries
      */
-    public function validateEntries(array $entries, ?string $ruleSetKey = null): void
+    public function validateEntries(array $entries, GenericMode $mode): void
     {
-        if ($ruleSetKey === null) {
+        $this->validateEntriesFor($entries, $mode, $this->schemaKey);
+    }
+
+    /**
+     * @param list<IRuleEntryNode> $entries
+     * @param string|null $ruleSetKey The schema the entries are for, for an error
+     *   about an entry that names no abilities.
+     */
+    private function validateEntriesFor(array $entries, GenericMode $mode, ?string $ruleSetKey): void
+    {
+        if ($mode === GenericMode::Either) {
             $this->assertNamingAgrees($entries);
         }
 
         foreach ($entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
+                if ($mode === GenericMode::RequireGeneric) {
+                    $this->fail(new RuleValidationException(DiagnosticCode::AbilitiesNamedWhereGeneric, LanguageRuleMessages::namedWhereGeneric('An ability block')), $entry);
+                }
+
                 $this->validateAbilityBlock($entry);
             } elseif ($entry instanceof IncludeInvocationNode) {
-                if ($ruleSetKey !== null && $entry->isGeneric()) {
+                if ($mode === GenericMode::RequireNotGeneric && $entry->isGeneric()) {
                     $this->fail(new RuleValidationException(DiagnosticCode::AbilitiesUnnamedOutsideBlock, LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $entry);
+                }
+
+                if ($mode === GenericMode::RequireGeneric && ! $entry->isGeneric()) {
+                    $this->fail(
+                        new RuleValidationException(DiagnosticCode::AbilitiesNamedWhereGeneric, LanguageRuleMessages::namedWhereGeneric('This @include')),
+                        $entry,
+                        IncludeInvocationNode::PART_ABILITIES,
+                        0,
+                    );
                 }
 
                 $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
                 $this->assertTemplateDeclared($entry);
             } elseif ($entry instanceof WarrantRuleNode) {
-                foreach ($ruleSetKey === null ? [] : [...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
-                    if ($clause->abilities === []) {
+                foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
+                    if ($mode === GenericMode::RequireNotGeneric && $clause->abilities === []) {
                         $this->fail(new RuleValidationException(DiagnosticCode::AbilitiesUnnamedOutsideBlock, LanguageRuleMessages::unnamedOutsideBlock($ruleSetKey)), $clause);
+                    }
+
+                    if ($mode === GenericMode::RequireGeneric && $clause->abilities !== []) {
+                        $this->fail(
+                            new RuleValidationException(DiagnosticCode::AbilitiesNamedWhereGeneric, LanguageRuleMessages::namedWhereGeneric('This clause')),
+                            $clause,
+                            $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
+                            0,
+                        );
                     }
                 }
 
@@ -422,9 +427,8 @@ final class RuleSetValidator
     }
 
     /**
-     * $error, placed as {@see placed()} places it, thrown, or reported and left
-     * behind when this validator is reporting, so the walk goes on to the next
-     * thing to check.
+     * Report $error, placed as {@see placed()} places it, so the walk goes on to
+     * the next thing to check.
      */
     private function fail(
         InvalidArgumentException $error,
@@ -432,13 +436,7 @@ final class RuleSetValidator
         ?string $part = null,
         int|string|null $key = null,
     ): void {
-        $error = $this->placed($error, $node, $part, $key);
-
-        if ($this->report === null) {
-            throw $error;
-        }
-
-        ($this->report)($error);
+        ($this->report)($this->placed($error, $node, $part, $key));
     }
 
     /**

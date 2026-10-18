@@ -11,16 +11,25 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
+use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\Validation\GenericMode;
+use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\Writing\BoundSyntax;
+use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
+use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
@@ -732,3 +741,71 @@ function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): stri
 }
 
 // -- structur
+
+/**
+ * A catalog holding $schemas, by key, and finding any other in $behind; with
+ * nothing behind, only $schemas.
+ *
+ * @param array<string, SchemaVocabulary> $schemas
+ */
+function catalogOf(array $schemas, ?SchemaCatalog $behind = null): SchemaCatalog
+{
+    return new class($schemas, $behind) implements SchemaCatalog
+    {
+        /** @param array<string, SchemaVocabulary> $schemas */
+        public function __construct(private array $schemas, private ?SchemaCatalog $behind) {}
+
+        public function find(string $schemaKey): ?SchemaVocabulary
+        {
+            return $this->schemas[$schemaKey] ?? $this->behind?->find($schemaKey);
+        }
+    };
+}
+
+/**
+ * $set taken through every stage of a syntax: validated as written against
+ * $schema, its bindings' values put in place, and expanded. Any other schema the
+ * rules name is found as the application registers it.
+ */
+function expandedFor(RuleSetNode $set, SchemaVocabulary $schema): ExpandedSyntax
+{
+    $input = new ValidationInput(
+        catalogOf([$set->schemaKey => $schema], new RegisteredSchemas),
+        $set->schemaKey,
+        GenericMode::RequireNotGeneric,
+    );
+
+    return ExpandedSyntax::of(ValidSyntax::of(new WarrantSyntax([$set]), $input)->resolveBindings());
+}
+
+/**
+ * $set validated as written against $schema, or with no schema against the
+ * rules of the language alone. Throws the first mistake.
+ */
+function validateRuleSet(RuleSetNode $set, ?SchemaVocabulary $schema = null): ValidSyntax
+{
+    return ValidSyntax::of(new WarrantSyntax([$set]), new ValidationInput(
+        $schema === null ? null : catalogOf([$set->schemaKey => $schema], new RegisteredSchemas),
+    ));
+}
+
+/**
+ * Every mistake $syntax makes under $input.
+ *
+ * @return list<Diagnostic>
+ */
+function mistakesOf(WarrantSyntax $syntax, ValidationInput $input): array
+{
+    $checked = ValidSyntax::check($syntax, $input);
+
+    return $checked instanceof InvalidSyntax ? $checked->diagnostics : [];
+}
+
+/**
+ * $syntax validated as written, every `for` body against the schema the
+ * application registers under its key. Throws the first mistake.
+ */
+function validateRegistered(WarrantSyntax|RuleSetNode $syntax): ValidSyntax
+{
+    return ($syntax instanceof RuleSetNode ? new WarrantSyntax([$syntax]) : $syntax)->validate();
+}

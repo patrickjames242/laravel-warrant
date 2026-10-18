@@ -136,5 +136,5 @@ itself.
 - It does not format rule text.
 - It does not expand templates or derived conditions, so a mistake inside the rule
   text a template answers with is reported where the template is written, not
-  where it is included. [`Warrant::validate()`](/supplying-rules/validation/) in a
-  test catches those.
+  where it is included. A test that runs a check, which expands the rules, catches
+  those.

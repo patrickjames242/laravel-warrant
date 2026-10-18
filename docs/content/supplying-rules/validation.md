@@ -12,8 +12,8 @@ that never existed, a typo in a stored string. Validation catches those without 
 user, a row, or a query.
 
 ```php
-Warrant::validate(Warrant::parse($storedRule)->scopedTo('documents'));
-Warrant::validate($setA, $setB, [$setC, $setD]);
+Warrant::parse($storedRule)->validate('documents');
+WarrantSyntax::parseFile(base_path('warrant/documents'))->validate();
 ```
 
 It throws on the first unknown ability or condition:
@@ -24,7 +24,10 @@ Condition [is_mne] is not declared by the schema.
 Condition [in_team] requires at least 1 argument(s), but the rule supplied 0.
 ```
 
-Each set is checked against the schema registered for its own key. A denial
+A `for` body is checked against the schema registered for the key its header
+names. Rules with no header are checked as rules for the schema you pass, each
+naming the abilities it applies to; pass none and they belong to no schema yet, so
+only the rules of the language that need no schema apply. A denial
 message after `they can` never gets this far: `because` may only follow
 `they cannot`, so the parser rejects it.
 
@@ -39,7 +42,7 @@ public function store(Request $request)
     $ruleText = $request->string('rules');
 
     try {
-        Warrant::validate(Warrant::parse($ruleText)->scopedTo($request->string('schema_key')));
+        Warrant::parse($ruleText)->validate($request->string('schema_key'));
     } catch (WarrantSyntaxException | InvalidArgumentException $e) {
         return back()->withErrors(['rules' => $e->getMessage()]);
     }
@@ -57,7 +60,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            Warrant::validate(Warrant::parse($row->rules)->scopedTo($row->schema_key));
+            Warrant::parse($row->rules)->validate($row->schema_key);
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -72,7 +75,7 @@ That turns "a typo in a stored rule silently grants or denies" into a failing te
 ## What validation checks
 
 Syntax is checked earlier, at parse time, and throws eagerly with a caret. What
-`Warrant::validate()` adds is names, against the registered schema:
+`validate()` adds is names, against the registered schema:
 
 - every ability named by a `can` or `cannot` is declared;
 - every condition named is declared, with enough arguments;
@@ -83,12 +86,12 @@ Syntax is checked earlier, at parse time, and throws eagerly with a caret. What
 - an `@include` names a declared template with the right arity, and its abilities
   exist.
 
-It checks the rule set twice: as written, and again once
-[expanded](/sql/rule-to-query/#before-compiling-expansion), with every template's body and every
-[derived condition](/schemas/conditions-beyond-sql/)'s expression in place. So a
-mistake inside a template body or a derived condition is reported like one written
-in the rule. Expansion needs no user, row or check context, which is what lets
-validation read them at all.
+It checks the rule set as written. The rules a template answers with and the
+expression a [derived condition](/schemas/conditions-beyond-sql/) answers with are
+texts of their own, checked when a guard
+[expands](/sql/rule-to-query/#before-compiling-expansion) the rules that name them,
+before the first check runs. A mistake in one is reported as that method's,
+pointing into the text it answered with.
 
 Context keys need no declaration to be referenced, so there is no unknown-context-key
 error.
@@ -127,5 +130,5 @@ compiler](/sql/validator-compiler-invariant/).
 
 A resolved rule set is validated once per request when the guard resolves it, not
 once per check. So a stored typo does surface on the first check that touches that
-schema, with the same message. Running `Warrant::validate()` yourself is about hearing it
+schema, with the same message. Running `validate()` yourself is about hearing it
 somewhere better than a production request.

@@ -147,7 +147,7 @@ block does, and writing the tree back renders the block as a block. Every rule
 and include held directly in `$entries` must name its own abilities; a generic
 one there throws `InvalidArgumentException`.
 
-The expanded rules are on the guard, as an `ExpandedRuleSet` whose `$rules` is a
+The expanded rules are on the guard, as an `ExpandedSyntax` whose `$rules` is a
 `list<WarrantRuleNode>`:
 
 ```php
@@ -171,11 +171,14 @@ Cannot merge rule sets for different schemas: [documents] and [folders].
 ### Validating
 
 ```php
-Warrant::validate(RuleSetNode|array ...$ruleSets): void;
+$syntax->validate(?string $schemaKey = null);   // the same syntax, validated
 ```
 
-`Warrant::validate()` checks each set against the schema registered for its own
-key and throws on the first unknown ability or condition.
+`validate()` checks a parsed text as written: each `for` body against the schema
+registered for the key its header names, and rules with no header as rules for
+`$schemaKey`, each naming the abilities it applies to. With no `$schemaKey`, rules
+with no header are held only to the rules of the language. It throws the first
+mistake, saying where in the text it is.
 
 ## `WarrantRuleNode` (readonly)
 

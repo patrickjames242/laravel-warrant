@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Validation\RuleSetValidator;
 use Warrant\Facades\Warrant;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
@@ -307,7 +306,7 @@ it('rejects a rule that supplies fewer condition arguments than required, during
     $schema = new ParameterizedConditionSchema;
     $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->scopedTo($schema::schemaKey());
 
-    expect(fn () => (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet))
+    expect(fn () => validateRuleSet($ruleSet, $schema))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_specific_user] requires at least 1 argument');
 });
 
@@ -316,7 +315,7 @@ it('accepts a rule that supplies the required condition arguments, during valida
     $schema = new ParameterizedConditionSchema;
     $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->scopedTo($schema::schemaKey());
 
-    (new RuleSetValidator($schema, $ruleSet->schemaKey))->validate($ruleSet);
+    validateRuleSet($ruleSet, $schema);
 
     expect(true)->toBeTrue();
 });

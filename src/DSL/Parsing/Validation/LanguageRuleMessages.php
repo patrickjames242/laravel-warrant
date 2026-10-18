@@ -55,12 +55,31 @@ final class LanguageRuleMessages
         return sprintf('%s inside an ability block may not name abilities; the block header already names them.', $entry);
     }
 
-    public static function unnamedOutsideBlock(string $schemaKey): string
+    /**
+     * @param string|null $schemaKey The schema the rules are for; null when no
+     *   schema is known.
+     */
+    public static function unnamedOutsideBlock(?string $schemaKey): string
+    {
+        return $schemaKey === null
+            ? 'Every clause and @include outside an ability block names the abilities it applies to; these rules '
+                .'hold one that names none.'
+            : sprintf(
+                'Every clause and @include outside an ability block names the abilities it applies to; the rule set '
+                    .'for [%s] holds one that names none.',
+                $schemaKey,
+            );
+    }
+
+    /**
+     * @param string $entry 'This clause', 'This @include' or 'An ability block'.
+     */
+    public static function namedWhereGeneric(string $entry): string
     {
         return sprintf(
-            'Every clause and @include outside an ability block names the abilities it applies to; the rule set '
-                .'for [%s] holds one that names none.',
-            $schemaKey,
+            '%s names abilities, but these rules leave every one to be named where they are placed, by the '
+                .'@include that places them.',
+            $entry,
         );
     }
 

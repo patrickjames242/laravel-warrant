@@ -366,7 +366,7 @@ it('refuses a targeted check against rows it cannot name', function () {
 });
 
 it('refuses a row-bound reference to rows it cannot name', function () {
-    expect(fn () => Warrant::validate(WarrantSyntax::parse(
+    expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if can(view for vt_keyless(@column id)) they can plan',
     )->scopedTo('vt_teams')))->toThrow(InvalidArgumentException::class, 'has no way to name one');
 });

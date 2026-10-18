@@ -50,7 +50,7 @@ $file->forSchema('documents');   // the RuleSetNode, or null
 $file->schemaKeys();             // ['documents', 'folders', 'comments']
 $file->ruleSets();               // every block, in source order
 
-Warrant::validate($file->ruleSets());
+$file->validate();
 ```
 
 The `.warrant` extension is optional. A path that names an existing file is read
@@ -140,7 +140,7 @@ mistake fails the build.
 ```php
 it('every warrant file parses and validates', function () {
     foreach (glob(base_path('warrant/**/*.warrant')) as $path) {
-        Warrant::validate(WarrantSyntax::parseFile($path)->ruleSets());
+        WarrantSyntax::parseFile($path)->validate();
     }
 })->throwsNoExceptions();
 ```

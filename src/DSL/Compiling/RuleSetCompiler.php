@@ -15,7 +15,6 @@ use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\DerivedConditionNode;
-use Warrant\DSL\Expanding\ExpandedRuleSet;
 use Warrant\DSL\Expanding\RuleSetExpander;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
@@ -25,6 +24,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
@@ -35,7 +35,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\WarrantManager;
 
 /**
- * Compiles an {@see ExpandedRuleSet} into SQL predicates.
+ * Compiles an {@see ExpandedSyntax} into SQL predicates.
  *
  * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
  * a {@see CompilationResult}. The context names what to compile (a
@@ -993,8 +993,8 @@ final class RuleSetCompiler
      *  - an alias on a handle that selects no rows, leaving the name standing for
      *    nothing.
      *
-     * Validation makes the same three checks over the expanded rule set. They are
-     * made again here for a rule set that reached the compile without it.
+     * Validation makes the same three checks over each text as written. They are
+     * made again here for rules that reached the compile without it.
      */
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,

@@ -177,7 +177,7 @@ it('leaves a comment after a node out of its range', function () {
 });
 
 it('reads the same tree through WarrantSyntax::parse() as through the parser', function (string $source) {
-    expect(WarrantSyntax::parse($source)->resolve()->children)->toEqual(WarrantParser::parse($source)->children);
+    expect(WarrantSyntax::parse($source)->resolveBindings()->children)->toEqual(WarrantParser::parse($source)->children);
 })->with(POSITIONS_CORPUS);
 
 it('records every node, and never two over the same text', function (string $source) {
