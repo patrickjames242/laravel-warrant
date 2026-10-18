@@ -4,7 +4,9 @@ namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -34,6 +36,27 @@ trait ReportsMissingSyntax
         TokenType::WITH,
         TokenType::AS,
     ];
+
+    /**
+     * Read a name here, or report one missing: a strict parse throws, and a
+     * tolerant one notes it and puts {@see INode::MISSING_NAME} in its place,
+     * placed where the name should be.
+     *
+     * @param string $expected What the spot expects, as words for the author,
+     *   such as 'an ability name'.
+     */
+    private function nameOrMissing(string $expected): NameNode
+    {
+        $name = $this->parse(ParseName::class)?->value;
+
+        if ($name !== null) {
+            return $name;
+        }
+
+        $this->report($this->nameError($expected));
+
+        return new NameNode(INode::MISSING_NAME, $this->emptyLocationHere());
+    }
 
     /**
      * Error for a spot expecting a name, with a clearer hint when the offending
@@ -81,7 +104,7 @@ trait ReportsMissingSyntax
 
         $this->report($this->missingBooleanExpressionError());
 
-        return new MissingExpressionNode($this->locatedMissing());
+        return new MissingExpressionNode($this->emptyLocationHere());
     }
 
     private function missingBooleanExpressionError(): WarrantSyntaxException

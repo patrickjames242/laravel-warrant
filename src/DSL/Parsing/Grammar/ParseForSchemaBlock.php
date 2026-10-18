@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -46,20 +47,12 @@ final class ParseForSchemaBlock extends Parser
 
     protected function read(): ISchemaScopedNode
     {
-        $schemaKey = INode::MISSING_NAME;
-
         if ($this->check(TokenType::LBRACE)) {
             $this->report($this->errorAtCurrent(DiagnosticCode::BlockWithoutHeader, 'A `{ ... }` block needs a `for <schema>` header before it.'));
+            $schemaKey = new NameNode(INode::MISSING_NAME, $this->emptyLocationHere());
         } else {
             $this->advance(); // consume 'for'
-
-            if ($this->check(TokenType::IDENTIFIER)) {
-                $schema = $this->advance();
-                $this->part(ISchemaScopedNode::PART_SCHEMA_KEY, null, $schema);
-                $schemaKey = $schema->lexeme;
-            } else {
-                $this->report($this->nameError('a schema name after `for`'));
-            }
+            $schemaKey = $this->nameOrMissing('a schema name after `for`');
         }
 
         if (! $this->braced) {
@@ -98,16 +91,16 @@ final class ParseForSchemaBlock extends Parser
     /**
      * The block's node: a rule set for rule entries, or a condition.
      *
-     * @param string $schemaKey The schema the block's header names, which the
+     * @param NameNode $schemaKey The schema the block's header names, which the
      *   node is scoped to.
      * @param list<IRuleEntryNode>|IBooleanExpressionNode $body
      */
-    private function scoped(string $schemaKey, array|IBooleanExpressionNode $body): ISchemaScopedNode
+    private function scoped(NameNode $schemaKey, array|IBooleanExpressionNode $body): ISchemaScopedNode
     {
         if (is_array($body)) {
-            return new RuleSetNode($schemaKey, $body, $this->located());
+            return new RuleSetNode($schemaKey, $body, $this->locationEndingHere());
         }
 
-        return new SchemaConditionNode($schemaKey, $body, $this->located());
+        return new SchemaConditionNode($schemaKey, $body, $this->locationEndingHere());
     }
 }

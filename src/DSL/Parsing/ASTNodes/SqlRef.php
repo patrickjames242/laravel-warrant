@@ -21,14 +21,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 readonly class SqlRef implements INode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. The SQL is placed as the string
-       literal or binding it was written as. */
-    public const PART_SQL = 'sql';
-
     /**
-     * @param string|BindingNode $sql The SQL, or the binding that supplies it
-     *   until expansion puts the string in its place.
+     * @param LiteralNode|BindingNode $sql The SQL as a string literal, or the
+     *   binding that supplies it until expansion puts the string in its place.
      */
-    public function __construct(public string|BindingNode $sql, public SyntaxLocation $location) {}
+    public function __construct(public LiteralNode|BindingNode $sql, public SyntaxLocation $location) {}
 }

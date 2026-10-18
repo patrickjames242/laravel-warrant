@@ -9,26 +9,22 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
- * A parenthesized argument list, `(arg, ...)`, with each argument noted as a
- * part of the node around it, by its index. Arguments are always written in
+ * A parenthesized argument list, `(arg, ...)`. Arguments are always written in
  * parentheses, so with no `(` here there is no list: the list starts at `(`,
  * and a parse finds it not here, which a handle reads as selecting no rows and
  * a condition as taking no arguments, where `()` is a list that is empty.
  *
- * @extends Parser<list<mixed>>
+ * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\INode>>
  */
 final class ParseArguments extends Parser
 {
     use ReportsMissingSyntax;
 
     /**
-     * @param string $part The part of the node around them the arguments are,
-     *   as that node names it.
      * @param string $closes What the closing `)` closes, for the error when it
      *   is missing: "the condition arguments".
      */
     public function __construct(
-        private readonly string $part,
         private readonly string $closes,
     ) {
     }
@@ -39,7 +35,7 @@ final class ParseArguments extends Parser
     }
 
     /**
-     * @return list<mixed>
+     * @return list<\Warrant\DSL\Parsing\ASTNodes\INode>
      */
     protected function read(): array
     {
@@ -53,13 +49,12 @@ final class ParseArguments extends Parser
                 ParseArgument::class,
                 TokenType::COMMA,
                 $missingArgument,
-                $this->part,
-                fn () => new MissingArgumentNode($this->locatedMissing()),
+                fn () => new MissingArgumentNode($this->emptyLocationHere()),
             );
 
             if ($arguments === []) {
                 $this->report($missingArgument());
-                $arguments = [new MissingArgumentNode($this->locatedMissing())];
+                $arguments = [new MissingArgumentNode($this->emptyLocationHere())];
             }
         }
 

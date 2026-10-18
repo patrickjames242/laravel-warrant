@@ -13,9 +13,5 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 readonly class ContextRef implements INode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_KEY = 'key';
-
-    public function __construct(public string $key, public SyntaxLocation $location) {}
+    public function __construct(public NameNode $key, public SyntaxLocation $location) {}
 }

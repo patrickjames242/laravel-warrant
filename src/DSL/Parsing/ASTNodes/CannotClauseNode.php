@@ -2,9 +2,7 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
-use Closure;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\Schema\WarrantDenialContext;
 
 /**
  * One `they cannot <abilities> [because <message>]` clause of a {@see WarrantRuleNode}.
@@ -20,25 +18,20 @@ use Warrant\Schema\WarrantDenialContext;
  */
 readonly class CannotClauseNode implements INode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_ABILITIES = 'abilities';
-    public const PART_MESSAGE = 'message';
-
     /**
-     * @param list<string> $abilities Denied ability names (or `*`).
-     * @param string|Closure(WarrantDenialContext):(string|\Throwable)|BindingNode|mixed|null $message
-     *   The denial message shared by every ability in this clause: a string is
-     *   wrapped in a {@see \Warrant\WarrantAuthorizationException}; a closure
-     *   receives the denial context and returns a string (wrapped) or a Throwable
-     *   (thrown as-is); a binding supplies one of those until expansion puts it
-     *   in its place; null means no message (a plain forbid). Anything
-     *   else written after `because`, such as `@context`, is held as written
-     *   for the validator to report.
+     * @param list<NameNode> $abilities Denied ability names (or `*`).
+     * @param INode|null $message The denial message shared by every ability in
+     *   this clause, as a {@see LiteralNode} or a {@see BindingNode} that
+     *   supplies one until expansion puts it in its place. Its value is a string,
+     *   wrapped in a {@see \Warrant\WarrantAuthorizationException}, or a
+     *   closure, which receives the denial context and returns a string
+     *   (wrapped) or a Throwable (thrown as-is). Null means no message (a plain
+     *   forbid). Anything else written after `because`, such as `@context`, is
+     *   held as written for the validator to report.
      */
     public function __construct(
         public array $abilities,
-        public mixed $message,
+        public ?INode $message,
         public SyntaxLocation $location,
     ) {}
 }

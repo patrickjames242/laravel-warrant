@@ -78,7 +78,7 @@ final class ParseBooleanExpression extends Parser
             // An operator after the right operand that binds tighter takes it first.
             $right = $this->joinOperators($right, $rightStart, $precedence + 1);
 
-            $left = self::join($operator, $left, $right, $this->located($start));
+            $left = self::join($operator, $left, $right, $this->locationEndingHere($start));
         }
 
         return $left;

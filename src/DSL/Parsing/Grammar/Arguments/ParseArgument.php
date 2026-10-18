@@ -5,21 +5,21 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\Grammar\ParseName;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * One argument: a literal, a binding, or an `@context`, `@column` or `@sql`
- * reference. Its value can be null, as the literal `null` is.
- *
- * A reference is a node, and each name or string inside it is one of its parts,
+ * reference. Each is a node, and so is each name or string inside a reference,
  * so the key of `@context org` and the frame and column of `@column docs.org_id`
  * each have a place in the text of their own.
  *
- * @extends Parser<mixed>
+ * @extends Parser<INode>
  */
 final class ParseArgument extends Parser
 {
@@ -39,14 +39,14 @@ final class ParseArgument extends Parser
         ], true);
     }
 
-    protected function read(): mixed
+    protected function read(): INode
     {
         return match ($this->peek()->type) {
             TokenType::STRING,
             TokenType::INT,
             TokenType::FLOAT,
             TokenType::BOOL,
-            TokenType::NULL => $this->advance()->value,
+            TokenType::NULL => $this->parse(ParseLiteral::class)->value,
             TokenType::NAMED_BINDING,
             TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
             TokenType::CONTEXT_REF => $this->contextRef(),
@@ -68,10 +68,7 @@ final class ParseArgument extends Parser
             return $this->missingReference("Expected a context key after '@context'.");
         }
 
-        $key = $this->advance();
-        $this->part(ContextRef::PART_KEY, null, $key);
-
-        return new ContextRef($key->lexeme, $this->located());
+        return new ContextRef($this->parse(ParseName::class)->value, $this->locationEndingHere());
     }
 
     /**
@@ -87,25 +84,19 @@ final class ParseArgument extends Parser
             return $this->missingReference("Expected a column name after '@column'.");
         }
 
-        $first = $this->advance();
+        $first = $this->parse(ParseName::class)->value;
 
         if (! $this->check(TokenType::DOT)) {
-            $this->part(ColumnRef::PART_COLUMN, null, $first);
-
-            return new ColumnRef(null, $first->lexeme, $this->located());
+            return new ColumnRef(null, $first, $this->locationEndingHere());
         }
 
-        $this->part(ColumnRef::PART_ALIAS, null, $first);
         $this->advance(); // consume '.'
 
         if (! $this->check(TokenType::IDENTIFIER)) {
-            return $this->missingReference("Expected a column name after '@column {$first->lexeme}.'.");
+            return $this->missingReference("Expected a column name after '@column {$first->name}.'.");
         }
 
-        $column = $this->advance();
-        $this->part(ColumnRef::PART_COLUMN, null, $column);
-
-        return new ColumnRef($first->lexeme, $column->lexeme, $this->located());
+        return new ColumnRef($first, $this->parse(ParseName::class)->value, $this->locationEndingHere());
     }
 
     /**
@@ -119,7 +110,7 @@ final class ParseArgument extends Parser
         $token = $this->peek();
 
         $sql = match ($token->type) {
-            TokenType::STRING => $this->advance()->value,
+            TokenType::STRING => $this->parse(ParseLiteral::class)->value,
             TokenType::NAMED_BINDING,
             TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
             default => null,
@@ -136,12 +127,10 @@ final class ParseArgument extends Parser
                 $this->advance();
             }
 
-            return new MissingArgumentNode($this->located());
+            return new MissingArgumentNode($this->locationEndingHere());
         }
 
-        $this->part(SqlRef::PART_SQL, null, $token);
-
-        return new SqlRef($sql, $this->located());
+        return new SqlRef($sql, $this->locationEndingHere());
     }
 
     /**
@@ -156,6 +145,6 @@ final class ParseArgument extends Parser
     {
         $this->report($this->errorAtCurrent(DiagnosticCode::MissingArgument, $message));
 
-        return new MissingArgumentNode($this->located());
+        return new MissingArgumentNode($this->locationEndingHere());
     }
 }

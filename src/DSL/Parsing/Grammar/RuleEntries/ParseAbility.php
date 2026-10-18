@@ -3,13 +3,14 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * One ability: a name, or `*` for every ability.
  *
- * @extends Parser<string>
+ * @extends Parser<NameNode>
  */
 final class ParseAbility extends Parser
 {
@@ -18,8 +19,8 @@ final class ParseAbility extends Parser
         return in_array($ahead->peek()->type, [TokenType::STAR, TokenType::IDENTIFIER], true);
     }
 
-    protected function read(): string
+    protected function read(): NameNode
     {
-        return $this->advance()->lexeme;
+        return new NameNode($this->advance()->lexeme, $this->locationEndingHere());
     }
 }

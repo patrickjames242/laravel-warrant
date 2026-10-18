@@ -29,7 +29,7 @@ final class ParseNegation extends Parser
 
         return new NotNode(
             $this->expressionOrMissing(ParseBooleanOperand::class),
-            $this->located(),
+            $this->locationEndingHere(),
         );
     }
 }

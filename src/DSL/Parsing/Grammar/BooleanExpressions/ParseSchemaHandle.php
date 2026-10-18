@@ -3,10 +3,10 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
-use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
+use Warrant\DSL\Parsing\Grammar\ParseName;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -23,47 +23,27 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * of the handle's coherence, including whether the alias is allowed, since an
  * unbound handle selects nothing to name.
  *
- * @extends Parser<array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string}>
+ * @extends Parser<array{0: NameNode, 1: bool, 2: list<INode>, 3: ?NameNode}>
  */
 final class ParseSchemaHandle extends Parser
 {
     use ReportsMissingSyntax;
 
     /**
-     * @param class-string<CrossSchemaCanNode|CrossSchemaConditionNode> $owner The
-     *   node the handle belongs to, whose constants name the parts read here.
-     */
-    public function __construct(private readonly string $owner)
-    {
-    }
-
-    /**
-     * @return array{0: string, 1: bool, 2: array<int, mixed>, 3: ?string} [schemaKey, isRowBound, boundKey, alias]
+     * @return array{0: NameNode, 1: bool, 2: list<INode>, 3: ?NameNode} [schemaKey, isRowBound, boundKey, alias]
      */
     protected function read(): array
     {
-        $schemaKey = INode::MISSING_NAME;
-
-        if ($this->check(TokenType::IDENTIFIER)) {
-            $schema = $this->advance();
-            $this->part($this->owner::PART_SCHEMA_KEY, null, $schema);
-            $schemaKey = $schema->lexeme;
-        } else {
-            $this->report($this->nameError('a schema name'));
-        }
-
-        $boundKey = $this->parse(new ParseArguments($this->owner::PART_BOUND_KEY, 'the row selector'));
+        $schemaKey = $this->nameOrMissing('a schema name');
+        $boundKey = $this->parse(new ParseArguments('the row selector'));
         $alias = null;
 
         if ($this->check(TokenType::AS)) {
             $this->advance();
+            $alias = $this->parse(ParseName::class)?->value;
 
             // An `as` with no name after it is read as no alias.
-            if ($this->check(TokenType::IDENTIFIER)) {
-                $aliasToken = $this->advance();
-                $this->part($this->owner::PART_ALIAS, null, $aliasToken);
-                $alias = $aliasToken->lexeme;
-            } else {
+            if ($alias === null) {
                 $this->report($this->nameError("an alias name after 'as'"));
             }
         }

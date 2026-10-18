@@ -30,6 +30,6 @@ final class ParseConditionalRule extends Parser
         $conditions = $this->expressionOrMissing(ParseBooleanExpression::class);
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
-        return new WarrantRuleNode($conditions, $canClauses, $cannotClauses, $this->located());
+        return new WarrantRuleNode($conditions, $canClauses, $cannotClauses, $this->locationEndingHere());
     }
 }

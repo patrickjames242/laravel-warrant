@@ -19,12 +19,8 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 final readonly class AbilityBlockNode implements IRuleEntryNode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_ABILITIES = 'abilities';
-
     /**
-     * @param list<string> $abilities The abilities every clause in the body takes.
+     * @param list<NameNode> $abilities The abilities every clause in the body takes.
      * @param list<IRuleEntryNode> $entries The body, in source order.
      */
     public function __construct(

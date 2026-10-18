@@ -25,8 +25,6 @@ final class ParseSeparatedList extends Parser
      * @param TokenType $separator The token between one item and the next.
      * @param Closure(): WarrantSyntaxException $missingAfterSeparator The error
      *   for an item missing after a separator, built only when one is.
-     * @param string|null $part The part of the node around them each item is,
-     *   as that node names it, noted by the item's index; null to note none.
      * @param (Closure(): T)|null $inPlaceOfMissingItem Makes what a tolerant parse
      *   puts at the end of the list in place of an item missing after a
      *   separator, so the items keep their count; null to put nothing there.
@@ -35,7 +33,6 @@ final class ParseSeparatedList extends Parser
         private readonly string|Parser $item,
         private readonly TokenType $separator,
         private readonly Closure $missingAfterSeparator,
-        private readonly ?string $part = null,
         private readonly ?Closure $inPlaceOfMissingItem = null,
     ) {
     }
@@ -45,7 +42,6 @@ final class ParseSeparatedList extends Parser
      */
     protected function read(): array
     {
-        $first = $this->peek();
         $item = $this->parse($this->item);
 
         if ($item === null) {
@@ -57,16 +53,11 @@ final class ParseSeparatedList extends Parser
         while (true) {
             $items[] = $item->value;
 
-            if ($this->part !== null) {
-                $this->part($this->part, count($items) - 1, $first);
-            }
-
             if (! $this->check($this->separator)) {
                 return $items;
             }
 
             $this->advance();
-            $first = $this->peek();
             $item = $this->parse($this->item);
 
             // The list ends at the item that is missing, with what stands in for it.

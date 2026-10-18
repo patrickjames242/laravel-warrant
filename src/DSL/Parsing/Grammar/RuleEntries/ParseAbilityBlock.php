@@ -33,13 +33,13 @@ final class ParseAbilityBlock extends Parser
         $this->advance(); // consume 'can'
         $this->advance(); // consume 'they'
 
-        $abilities = $this->parse(new ParseClauseAbilityList(AbilityBlockNode::PART_ABILITIES))->value;
+        $abilities = $this->parse(ParseClauseAbilityList::class)->value;
 
         $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         $unclosed = "Expected '}' to close the ability block body.";
         $entries = $this->parse(new ParseRuleEntries($unclosed))->value;
         $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
-        return new AbilityBlockNode($abilities, $entries, $this->located());
+        return new AbilityBlockNode($abilities, $entries, $this->locationEndingHere());
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Warrant\DSL\Parsing\Parsers;
 
-use LogicException;
 use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
@@ -16,9 +15,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * One parse of one text, shared by every {@see Parser} reading it: where the
  * parse is, and the source every node it reads is placed in.
  *
- * Each parser reading opens a frame, which marks where it started. A node is
- * placed when it is built, over the tokens its parser has read since its frame
- * opened, and takes every part read since then that no node nearer in took.
+ * Where each parser reading started is marked, so a node can be placed when it
+ * is built: over the tokens its parser has read from there up to that moment.
  *
  * A state for analysis, made by {@see forAnalysis()}, reads text as an editor
  * has it, tolerantly: the lexer reports its errors instead of throwing them, and
@@ -63,20 +61,11 @@ final class ParsingState
     private array $afterUnreadableText = [];
 
     /**
-     * Each part read that no node has taken yet, oldest first: its name, its
-     * index or key, and where it was written.
+     * The index of the token each parser reading started at, outermost first.
      *
-     * @var list<array{0: string, 1: int|string|null, 2: Span}>
+     * @var list<int>
      */
-    private array $unclaimed = [];
-
-    /**
-     * The frame of each parser reading, outermost first: the index of the token
-     * it started at, and how many parts were waiting for a node then.
-     *
-     * @var list<array{0: int, 1: int}>
-     */
-    private array $frames = [];
+    private array $starts = [];
 
     /** How many `?` placeholders have been read, which is the index of the next. */
     private int $positionalBindings = 0;
@@ -180,73 +169,43 @@ final class ParsingState
     /**
      * Mark where the parser about to read starts.
      */
-    public function openFrame(): void
+    public function markStart(): void
     {
-        $this->frames[] = [$this->index, count($this->unclaimed)];
+        $this->starts[] = $this->index;
     }
 
     /**
-     * End the frame of the parser that has just read. The parts it read that no
-     * node took are left for the next node built further out, as the denial
-     * message a clause reads is the clause's part even when the message is a
-     * binding.
+     * Forget where the parser that has just read started.
      */
-    public function closeFrame(): void
+    public function dropStart(): void
     {
-        array_pop($this->frames);
-    }
-
-    /**
-     * Assert every part read was taken by a node. Called once, when the parse
-     * is done.
-     */
-    public function assertEveryPartPlaced(): void
-    {
-        if ($this->unclaimed !== []) {
-            throw new LogicException(sprintf('Part [%s] was read outside any node.', $this->unclaimed[0][0]));
-        }
-    }
-
-    /**
-     * Note that $first to $last is $part of the next node built.
-     */
-    public function recordPart(string $part, int|string|null $key, Token $first, Token $last): void
-    {
-        $this->unclaimed[] = [$part, $key, Span::between($first, $last)];
+        array_pop($this->starts);
     }
 
     /**
      * Where the node the current parser is building was written: from $start,
-     * or where the parser started, to the last token read, with every part read
-     * since the parser started. A node read from no tokens is placed where the
-     * parse is, taking up no text.
+     * or where the parser started, to the last token read so far. A node read
+     * from no tokens is placed where the parse is, taking up no text.
      */
-    public function locate(?Token $start = null): SyntaxLocation
+    public function locationEndingHere(?Token $start = null): SyntaxLocation
     {
-        [$startIndex, $unclaimedBefore] = $this->frames[array_key_last($this->frames)];
+        $startIndex = $this->starts[array_key_last($this->starts)];
 
         if ($start === null && $this->index === $startIndex) {
-            return $this->locateMissing();
-        }
-
-        $parts = [];
-
-        foreach (array_splice($this->unclaimed, $unclaimedBefore) as [$part, $key, $span]) {
-            $parts[$part][$key ?? ''] = $span;
+            return $this->emptyLocationHere();
         }
 
         return SyntaxLocation::in(
             $this->source,
             Span::between($start ?? $this->tokens[$startIndex], $this->tokens[$this->index - 1]),
-            $parts,
         );
     }
 
     /**
-     * Where a node stands in for syntax that is missing: where the parse is,
-     * taking up no text.
+     * Where the parse is, taking up no text: the place of a node that stands in
+     * for missing syntax.
      */
-    public function locateMissing(): SyntaxLocation
+    public function emptyLocationHere(): SyntaxLocation
     {
         $offset = $this->peek()->offset;
 

@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -32,15 +31,7 @@ final class ParseCrossSchemaCan extends Parser
         $this->advance(); // consume 'can'
         $this->expectOrAssume(TokenType::LPAREN, "Expected '(' after 'can'.");
 
-        $ability = INode::MISSING_NAME;
-
-        if ($this->check(TokenType::IDENTIFIER)) {
-            $abilityToken = $this->advance();
-            $this->part(CrossSchemaCanNode::PART_ABILITY, null, $abilityToken);
-            $ability = $abilityToken->lexeme;
-        } else {
-            $this->report($this->nameError('an ability name'));
-        }
+        $ability = $this->nameOrMissing('an ability name');
 
         /* No `for`, no boundary: the reference stays on this schema and this row,
            so there is no handle to read. A `with` map is still read, so that
@@ -48,19 +39,19 @@ final class ParseCrossSchemaCan extends Parser
            validation, where the reason can be given, rather than by a parse error
            about a missing keyword. */
         if (! $this->check(TokenType::FOR)) {
-            $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaCanNode::class))?->value ?? [];
+            $contextMap = $this->parse(ParseWithContextMap::class)?->value ?? [];
             $this->expectOrAssume(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
 
-            return new CrossSchemaCanNode(null, $ability, false, [], $contextMap, null, $this->located());
+            return new CrossSchemaCanNode(null, $ability, false, [], $contextMap, null, $this->locationEndingHere());
         }
 
         $this->advance(); // consume 'for'
 
-        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(new ParseSchemaHandle(CrossSchemaCanNode::class))->value;
-        $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaCanNode::class))?->value ?? [];
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(ParseSchemaHandle::class)->value;
+        $contextMap = $this->parse(ParseWithContextMap::class)?->value ?? [];
 
         $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
-        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundKey, $contextMap, $alias, $this->located());
+        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundKey, $contextMap, $alias, $this->locationEndingHere());
     }
 }

@@ -24,11 +24,11 @@ final class ParseBinding extends Parser
     protected function read(): BindingNode
     {
         if ($this->check(TokenType::NAMED_BINDING)) {
-            return new BindingNode($this->advance()->value, null, $this->located());
+            return new BindingNode($this->advance()->value, null, $this->locationEndingHere());
         }
 
         $this->advance(); // consume '?'
 
-        return new BindingNode(null, $this->nextPositionalIndex(), $this->located());
+        return new BindingNode(null, $this->nextPositionalIndex(), $this->locationEndingHere());
     }
 }

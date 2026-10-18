@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
+use Warrant\DSL\Parsing\Grammar\ParseName;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
@@ -23,13 +24,10 @@ final class ParseCondition extends Parser
 
     protected function read(): ConditionNode
     {
-        $name = $this->advance();
-        $this->part(ConditionNode::PART_CONDITION_KEY, null, $name);
-
         return new ConditionNode(
-            $name->lexeme,
-            $this->parse(new ParseArguments(ConditionNode::PART_PARAMETERS, 'the condition arguments'))?->value ?? [],
-            $this->located(),
+            $this->parse(ParseName::class)->value,
+            $this->parse(new ParseArguments('the condition arguments'))?->value ?? [],
+            $this->locationEndingHere(),
         );
     }
 }

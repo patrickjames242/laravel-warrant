@@ -9,10 +9,8 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
- * The denial message after `because`, from the `because` on, noted as the
- * $part of the clause it follows. The message is a part of that clause, so the
- * part goes to the clause even when the message is a node of its own, such as
- * a binding.
+ * The denial message after `because`: the argument written after it, as the
+ * node it reads as.
  *
  * A message is a quoted string or a `:name` / `?` binding, whose value the
  * validator checks is a string or a closure (the
@@ -21,14 +19,10 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * as `@context` — a message is fixed before any check, not resolved per check —
  * is the validator's to report, as is a message after `they can`.
  *
- * @extends Parser<mixed>
+ * @extends Parser<\Warrant\DSL\Parsing\ASTNodes\INode|null>
  */
 final class ParseDenialMessage extends Parser
 {
-    public function __construct(private readonly string $part)
-    {
-    }
-
     protected static function startsHere(TokensAhead $ahead): bool
     {
         return $ahead->nextIs(TokenType::BECAUSE);
@@ -37,7 +31,6 @@ final class ParseDenialMessage extends Parser
     protected function read(): mixed
     {
         $this->advance(); // consume 'because'
-        $first = $this->peek();
 
         $message = $this->parse(ParseArgument::class);
 
@@ -50,8 +43,6 @@ final class ParseDenialMessage extends Parser
 
             return null;
         }
-
-        $this->part($this->part, null, $first);
 
         return $message->value;
     }

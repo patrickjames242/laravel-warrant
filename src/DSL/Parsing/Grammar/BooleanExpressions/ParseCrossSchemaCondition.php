@@ -36,11 +36,11 @@ final class ParseCrossSchemaCondition extends Parser
 
         $this->expectOrAssume(TokenType::FOR, "Expected 'for' after the condition predicate in 'check(...)'.");
 
-        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(new ParseSchemaHandle(CrossSchemaConditionNode::class))->value;
-        $contextMap = $this->parse(new ParseWithContextMap(CrossSchemaConditionNode::class))?->value ?? [];
+        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(ParseSchemaHandle::class)->value;
+        $contextMap = $this->parse(ParseWithContextMap::class)?->value ?? [];
 
         $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
 
-        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias, $this->located());
+        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias, $this->locationEndingHere());
     }
 }

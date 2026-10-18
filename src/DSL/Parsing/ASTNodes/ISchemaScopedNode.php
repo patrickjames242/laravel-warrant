@@ -9,11 +9,6 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  */
 interface ISchemaScopedNode extends INode
 {
-    /* The name the header's schema is placed under in a node's
-       {@see \Warrant\DSL\Parsing\Positions\SyntaxLocation}: the property it is
-       stored in. */
-    public const PART_SCHEMA_KEY = 'schemaKey';
-
     /**
      * The key of the schema the `for` header names.
      */

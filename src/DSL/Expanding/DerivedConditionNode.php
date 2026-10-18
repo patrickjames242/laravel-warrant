@@ -3,6 +3,8 @@
 namespace Warrant\DSL\Expanding;
 
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
@@ -23,11 +25,11 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class DerivedConditionNode implements IBooleanExpressionNode
 {
     /**
-     * @param array<int, mixed> $parameters The arguments as the rule wrote them,
+     * @param list<INode> $parameters The arguments as the rule wrote them,
      *   `@context` / `@column` references unresolved.
      */
     public function __construct(
-        public string $conditionKey,
+        public NameNode $conditionKey,
         public array $parameters,
         public IBooleanExpressionNode $body,
         public SyntaxLocation $location,

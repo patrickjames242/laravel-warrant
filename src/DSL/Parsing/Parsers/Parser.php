@@ -21,11 +21,12 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * ({@see report()}), and the parser that met it reads on as though the text
  * were what it should be, so what is around the mistake is kept.
  *
- * A parser builds each node with {@see located()} as its last argument, which
- * places it over every token the parser has read, and gives it every part read
- * inside it, by this parser or by one it called that returned something other
- * than a node. As the last argument, it is made once every parser read for the
- * node's other arguments has returned.
+ * A parser builds each node with {@see locationEndingHere()} as its last
+ * argument, which places it over every token the parser has read up to then.
+ * As the last argument, it is made once every parser read for the node's other
+ * arguments has returned.
+ * Everything the text writes is a node, down to each name and literal, so
+ * every piece of it is placed by the parser that read it.
  *
  * A parser keeps nothing between reads but what it was constructed with, so
  * one instance can be read any number of times, and from inside itself.
@@ -63,7 +64,7 @@ abstract class Parser
 
     /**
      * Read $root as the whole text: nothing may follow what it reads. Its result
-     * stands for the whole text, and no part may be read outside a node.
+     * stands for the whole text.
      *
      * @template R
      * @param Parser<R> $root
@@ -72,23 +73,22 @@ abstract class Parser
     final public static function run(Parser $root, ParsingState $state): mixed
     {
         $root->state = $state;
-        $state->openFrame();
+        $state->markStart();
         $result = $root->read();
 
         if (! $root->check(TokenType::EOF)) {
             $root->report($root->errorAtCurrent(DiagnosticCode::UnexpectedToken, self::UNEXPECTED_AFTER_END));
         }
 
-        $state->closeFrame();
-        $state->assertEveryPartPlaced();
+        $state->dropStart();
 
         return $result;
     }
 
     /**
      * Read $parser here, if it starts here: a class with no
-     * constructor arguments, or an instance. It reads in a frame of its own, so
-     * the nodes it builds are placed over what it read.
+     * constructor arguments, or an instance. Where it starts is marked while it
+     * reads, so the nodes it builds are placed from there.
      *
      * @template R
      * @param class-string<Parser<R>>|Parser<R> $parser
@@ -101,9 +101,9 @@ abstract class Parser
         }
 
         $parser = $this->share($parser);
-        $this->state->openFrame();
+        $this->state->markStart();
         $result = $parser->read();
-        $this->state->closeFrame();
+        $this->state->dropStart();
 
         return new Parsed($result);
     }
@@ -128,8 +128,6 @@ abstract class Parser
      * @param TokenType $separator The token between one item and the next.
      * @param Closure(): WarrantSyntaxException $missingAfterSeparator The error
      *   for an item missing after a separator, built only when one is.
-     * @param string|null $part The part of the node around them each item is,
-     *   noted by the item's index; null to note none.
      * @param (Closure(): R)|null $inPlaceOfMissingItem Makes what a tolerant parse
      *   puts in place of an item missing after a separator; null to put nothing.
      * @return list<R> Empty when no item starts here.
@@ -138,11 +136,10 @@ abstract class Parser
         string|Parser $item,
         TokenType $separator,
         Closure $missingAfterSeparator,
-        ?string $part = null,
         ?Closure $inPlaceOfMissingItem = null,
     ): array {
         return $this->parse(
-            new ParseSeparatedList($item, $separator, $missingAfterSeparator, $part, $inPlaceOfMissingItem),
+            new ParseSeparatedList($item, $separator, $missingAfterSeparator, $inPlaceOfMissingItem),
         )->value;
     }
 
@@ -215,33 +212,28 @@ abstract class Parser
     // -- placing --------------------------------------------------------------
 
     /**
-     * Note that the text from $first to the last token read is $part of the next
-     * node this parser, or the nearest one around it, builds.
-     */
-    final protected function part(string $part, int|string|null $key, Token $first): void
-    {
-        $this->state->recordPart($part, $key, $first, $this->previous());
-    }
-
-    /**
      * Where the node this parser is building was written: from where the parser
-     * started, or from $start, to the last token read, with the parts read since
-     * it started. $start is for a node that starts after the parser did: each
-     * `and` but the first of `a and b and c` holds the one before it, and starts
-     * where that one does.
+     * started, or from $start, to the last token read so far. Called before the
+     * node's last token is read, it places the node short of its end, so it is
+     * the node's last constructor argument, made once everything the node
+     * covers has been read.
+     *
+     * $start is for a node that starts after the parser did: each `and` but the
+     * first of `a and b and c` holds the one before it, and starts where that
+     * one does.
      */
-    final protected function located(?Token $start = null): SyntaxLocation
+    final protected function locationEndingHere(?Token $start = null): SyntaxLocation
     {
-        return $this->state->locate($start);
+        return $this->state->locationEndingHere($start);
     }
 
     /**
-     * Where a node that stands in for missing syntax is: where the parse is,
-     * taking up no text.
+     * Where the parse is, taking up no text: the place of a node that stands in
+     * for missing syntax.
      */
-    final protected function locatedMissing(): SyntaxLocation
+    final protected function emptyLocationHere(): SyntaxLocation
     {
-        return $this->state->locateMissing();
+        return $this->state->emptyLocationHere();
     }
 
     /**

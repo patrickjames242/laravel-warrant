@@ -25,10 +25,11 @@ final readonly class RuleSetNode implements ISchemaScopedNode
      * one would grant or deny nothing. The node holds the entries as they were
      * written, and the validator and the expander hold them to that.
      *
+     * @param NameNode $schemaKey The schema the `for` header names.
      * @param list<IRuleEntryNode> $entries
      */
     public function __construct(
-        public string $schemaKey,
+        public NameNode $schemaKey,
         public array $entries,
         public SyntaxLocation $location,
     ) {
@@ -45,7 +46,7 @@ final readonly class RuleSetNode implements ISchemaScopedNode
 
     public function schemaKey(): string
     {
-        return $this->schemaKey;
+        return $this->schemaKey->name;
     }
 
     /**
@@ -55,11 +56,11 @@ final readonly class RuleSetNode implements ISchemaScopedNode
      */
     public function mergeWith(RuleSetNode $other): self
     {
-        if ($this->schemaKey !== $other->schemaKey) {
+        if ($this->schemaKey() !== $other->schemaKey()) {
             throw new InvalidArgumentException(sprintf(
                 'Cannot merge rule sets for different schemas: [%s] and [%s].',
-                $this->schemaKey,
-                $other->schemaKey,
+                $this->schemaKey(),
+                $other->schemaKey(),
             ));
         }
 
@@ -106,7 +107,11 @@ final readonly class RuleSetNode implements ISchemaScopedNode
             }
         }
 
-        return new self($schemaKey, $flattened, SyntaxLocation::builtBy(SyntaxProducer::code()));
+        return new self(
+            new NameNode($schemaKey, SyntaxLocation::builtBy(SyntaxProducer::code())),
+            $flattened,
+            SyntaxLocation::builtBy(SyntaxProducer::code()),
+        );
     }
 
     /**

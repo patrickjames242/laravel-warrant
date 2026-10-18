@@ -34,28 +34,13 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 readonly class CrossSchemaCanNode implements IBooleanExpressionNode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_ABILITY = 'ability';
-    public const PART_SCHEMA_KEY = 'schemaKey';
-    public const PART_BOUND_KEY = 'boundKey';
-    public const PART_ALIAS = 'alias';
-    public const PART_CONTEXT_MAP = 'contextMap';
-
     /**
-     * A `with` map's key names, placed apart from their values, which are
-     * {@see PART_CONTEXT_MAP}; there is no property of this name.
-     */
-    public const PART_CONTEXT_MAP_KEY = 'contextMapKey';
-
-    /**
-     * @param array<int, mixed> $boundKey The handle's row-selector arguments, bound
+     * @param list<INode> $boundKey The handle's row-selector arguments, bound
      *   positionally to the target schema's row key. Empty on an unbound handle,
      *   and also on `schema()`, whose key requires no arguments.
-     * @param array<string, mixed> $contextMap Explicit boundary context, keyed by
-     *   the target schema's key name; values are scalars, {@see ContextRef}s, or
-     *   {@see ColumnRef}s.
-     * @param string|null $alias The SQL name this reference's own subquery gives
+     * @param list<WithEntryNode> $contextMap Explicit boundary context, each
+     *   entry under one of the target schema's key names, in the order written.
+     * @param NameNode|null $alias The SQL name this reference's own subquery gives
      *   the target's rows — the `as <alias>` tail. Null leaves the subquery's
      *   `from` unaliased, which is the ordinary case; naming it matters when the
      *   same table is already in scope further out (see
@@ -63,16 +48,16 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
      *   row-bound handle: an unbound one selects nothing to name.
      */
     /**
-     * @param string|null $schemaKey The schema this reference crosses to, or null
+     * @param NameNode|null $schemaKey The schema this reference crosses to, or null
      *   for the boundary-free form, which stays on the schema being compiled.
      */
     public function __construct(
-        public ?string $schemaKey,
-        public string $ability,
+        public ?NameNode $schemaKey,
+        public NameNode $ability,
         public bool $isRowBound,
         public array $boundKey,
         public array $contextMap,
-        public ?string $alias,
+        public ?NameNode $alias,
         public SyntaxLocation $location,
     ) {
     }

@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class SchemaConditionNode implements ISchemaScopedNode
 {
     public function __construct(
-        public string $schemaKey,
+        public NameNode $schemaKey,
         public IBooleanExpressionNode $expression,
         public SyntaxLocation $location,
     ) {
@@ -20,6 +20,6 @@ final readonly class SchemaConditionNode implements ISchemaScopedNode
 
     public function schemaKey(): string
     {
-        return $this->schemaKey;
+        return $this->schemaKey->name;
     }
 }

@@ -24,6 +24,6 @@ final class ParseUnconditionalRule extends Parser
     {
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
-        return new WarrantRuleNode(null, $canClauses, $cannotClauses, $this->located());
+        return new WarrantRuleNode(null, $canClauses, $cannotClauses, $this->locationEndingHere());
     }
 }

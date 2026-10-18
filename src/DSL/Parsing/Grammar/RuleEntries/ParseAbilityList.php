@@ -3,35 +3,27 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
- * A comma-separated list of at least one ability, each a name or `*`, with
- * each noted as a part of the node around it, by its index.
+ * A comma-separated list of at least one ability, each a name or `*`.
  *
- * @extends Parser<list<string>>
+ * @extends Parser<list<NameNode>>
  */
 final class ParseAbilityList extends Parser
 {
     use ReportsMissingSyntax;
 
     /**
-     * @param string $part The part of the node around them the abilities are,
-     *   as that node names it.
-     */
-    public function __construct(private readonly string $part)
-    {
-    }
-
-    /**
-     * @return list<string>
+     * @return list<NameNode>
      */
     protected function read(): array
     {
         $missingAbility = fn () => $this->nameError('an ability name');
 
-        $abilities = $this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility, $this->part);
+        $abilities = $this->parseSeparatedList(ParseAbility::class, TokenType::COMMA, $missingAbility);
 
         if ($abilities === []) {
             $this->report($missingAbility());

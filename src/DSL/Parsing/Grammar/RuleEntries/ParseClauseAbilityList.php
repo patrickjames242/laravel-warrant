@@ -15,15 +15,11 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * and that is the validator's to report. A name after `can` / `cannot` begins
  * nothing else, so the list reads the same wherever it is.
  *
- * @extends Parser<list<string>>
+ * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\NameNode>>
  */
 final class ParseClauseAbilityList extends Parser
 {
     use LooksAheadAtRuleEntries;
-
-    public function __construct(private readonly string $part)
-    {
-    }
 
     protected function read(): array
     {
@@ -31,6 +27,6 @@ final class ParseClauseAbilityList extends Parser
             return [];
         }
 
-        return $this->parse(new ParseAbilityList($this->part))->value;
+        return $this->parse(ParseAbilityList::class)->value;
     }
 }

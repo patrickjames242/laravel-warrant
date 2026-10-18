@@ -26,21 +26,16 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 readonly class ColumnRef implements INode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_ALIAS = 'alias';
-    public const PART_COLUMN = 'column';
-
     /**
-     * @param string|null $alias The name of the frame whose rows this column
+     * @param NameNode|null $alias The name of the frame whose rows this column
      *   belongs to: a schema key, or an alias a surrounding `check(...)` handle
      *   introduced. Null is the unqualified `@column <column>` form, meaning the
      *   rows the enclosing rule is already about — the common case, and the one
      *   that stays correct wherever the rule is reached from.
      */
     public function __construct(
-        public ?string $alias,
-        public string $column,
+        public ?NameNode $alias,
+        public NameNode $column,
         public SyntaxLocation $location,
     ) {
     }

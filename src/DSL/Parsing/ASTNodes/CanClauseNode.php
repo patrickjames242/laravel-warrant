@@ -14,21 +14,16 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  */
 readonly class CanClauseNode implements INode
 {
-    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
-       each is the property the part is stored in. */
-    public const PART_ABILITIES = 'abilities';
-    public const PART_MESSAGE = 'message';
-
     /**
-     * @param list<string> $abilities Granted ability names (or `*`); empty on a
+     * @param list<NameNode> $abilities Granted ability names (or `*`); empty on a
      *   generic clause.
-     * @param mixed $message A denial message written after `because`, which a
+     * @param INode|null $message A denial message written after `because`, which a
      *   `can` clause cannot have: one only ever surfaces for a matching
      *   `cannot`. Held as written for the validator to report; null otherwise.
      */
     public function __construct(
         public array $abilities,
-        public mixed $message,
+        public ?INode $message,
         public SyntaxLocation $location,
     ) {}
 

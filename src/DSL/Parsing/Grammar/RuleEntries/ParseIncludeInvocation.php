@@ -3,7 +3,6 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
@@ -33,22 +32,11 @@ final class ParseIncludeInvocation extends Parser
     {
         $this->advance(); // consume '@include'
 
-        $template = INode::MISSING_NAME;
-
-        if ($this->check(TokenType::IDENTIFIER)) {
-            $templateToken = $this->advance();
-            $this->part(IncludeInvocationNode::PART_TEMPLATE_KEY, null, $templateToken);
-            $template = $templateToken->lexeme;
-        } else {
-            $this->report($this->nameError('a rule template name'));
-        }
-
-        $arguments = $this->parse(
-            new ParseArguments(IncludeInvocationNode::PART_ARGUMENTS, 'the @include arguments')
-        )?->value ?? [];
+        $template = $this->nameOrMissing('a rule template name');
+        $arguments = $this->parse(new ParseArguments('the @include arguments'))?->value ?? [];
 
         if (! $this->check(TokenType::FOR)) {
-            return new IncludeInvocationNode($template, $arguments, [], $this->located());
+            return new IncludeInvocationNode($template, $arguments, [], $this->locationEndingHere());
         }
 
         $this->advance(); // consume 'for'
@@ -56,8 +44,8 @@ final class ParseIncludeInvocation extends Parser
         return new IncludeInvocationNode(
             $template,
             $arguments,
-            $this->parse(new ParseAbilityList(IncludeInvocationNode::PART_ABILITIES))->value,
-            $this->located(),
+            $this->parse(ParseAbilityList::class)->value,
+            $this->locationEndingHere(),
         );
     }
 }
