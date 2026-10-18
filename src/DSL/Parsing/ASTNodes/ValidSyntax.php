@@ -24,7 +24,7 @@ final readonly class ValidSyntax extends WarrantSyntax
 {
     private function __construct(WarrantSyntax $syntax, public ValidationInput $input)
     {
-        parent::__construct($syntax->children, $syntax->source, $syntax->positions, $syntax->written, $syntax->bindings);
+        parent::__construct($syntax->children, $syntax->source);
     }
 
     /**
@@ -61,8 +61,8 @@ final readonly class ValidSyntax extends WarrantSyntax
             return new self($syntax, $input);
         }
 
-        /* Every node of a parsed text was recorded, so every mistake has a span;
-           the start of the text stands in should one ever not. */
+        /* Every node of a parsed text is placed where it was written, so every
+           mistake has a span; the start of the text stands in should one ever not. */
         return new InvalidSyntax($syntax, $input, array_map(static fn (InvalidArgumentException $error): Diagnostic => new Diagnostic(
             $error instanceof RuleValidationException ? $error->reason : $error->getMessage(),
             $error instanceof RuleValidationException ? ($error->span?->offset ?? 0) : 0,
@@ -71,8 +71,8 @@ final readonly class ValidSyntax extends WarrantSyntax
         ), $mistakes));
     }
 
-    public function resolveBindings(): SyntaxBindingsResolved
+    protected function asValid(): self
     {
-        return SyntaxBindingsResolved::of($this);
+        return $this;
     }
 }

@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * One `@include` in a rule set: the rule template to expand, the arguments to
@@ -21,8 +22,8 @@ use InvalidArgumentException;
  */
 final readonly class IncludeInvocationNode implements IRuleEntryNode
 {
-    /* The names a {@see \Warrant\DSL\Parsing\Positions\SourceMap} records this
-       node's parts under: each is the property the part is stored in. */
+    /* The names this node's parts are placed under in its {@see SyntaxLocation}:
+       each is the property the part is stored in. */
     public const PART_TEMPLATE_KEY = 'templateKey';
     public const PART_ARGUMENTS = 'arguments';
     public const PART_ABILITIES = 'abilities';
@@ -37,8 +38,9 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
      */
     public function __construct(
         public string $templateKey,
-        public array $arguments = [],
-        public array $abilities = [],
+        public array $arguments,
+        public array $abilities,
+        public SyntaxLocation $location,
     ) {
     }
 
@@ -62,6 +64,6 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
             ));
         }
 
-        return new self($this->templateKey, $this->arguments, $abilities);
+        return new self($this->templateKey, $this->arguments, $abilities, $this->location);
     }
 }

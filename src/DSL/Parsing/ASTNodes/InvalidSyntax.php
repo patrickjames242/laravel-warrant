@@ -21,15 +21,15 @@ final readonly class InvalidSyntax extends WarrantSyntax
      */
     public function __construct(WarrantSyntax $syntax, public ValidationInput $input, public array $diagnostics)
     {
-        parent::__construct($syntax->children, $syntax->source, $syntax->positions, $syntax->written, $syntax->bindings);
+        parent::__construct($syntax->children, $syntax->source);
     }
 
     /**
      * Throws the first mistake this syntax makes under its input: an invalid
-     * syntax has no values to put in place.
+     * syntax has no nodes to hand out.
      */
-    public function resolveBindings(): SyntaxBindingsResolved
+    protected function asValid(): ValidSyntax
     {
-        return ValidSyntax::of($this, $this->input)->resolveBindings();
+        return ValidSyntax::of($this, $this->input);
     }
 }

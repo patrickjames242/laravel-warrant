@@ -5,7 +5,9 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use InvalidArgumentException;
 use LogicException;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\DSL\Parsing\Positions\SourceMap;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\Validation\GenericMode;
 use Warrant\DSL\Parsing\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -25,62 +27,54 @@ use Warrant\Registry\RegisteredSchemas;
  * reads every form of rule text and nothing about the text is known before it
  * is read.
  *
- * A parsed syntax keeps the text it was read from, where each node of it was
- * written, and the values given for its bindings. Parsing puts no value in
- * place: every `:name` and `?` is a {@see BindingNode} in the children, so the
- * text can be validated as it was written.
+ * A parsed syntax is one block of rule syntax someone wrote: its
+ * {@see SyntaxSource} holds the text, the values given for its bindings, and
+ * what produced it, and every node of it carries the {@see SyntaxLocation} it
+ * was written at. Every `:name` and `?` stays a {@see BindingNode} in the
+ * children, which finds its value in the source, so the tree is always the text
+ * as it was written.
  *
- * A syntax goes through three stages, each a type of its own that only the
- * stage before it can make, so none can be skipped: {@see ValidSyntax}, the text
- * validated as written; {@see SyntaxBindingsResolved}, the values of its bindings
- * put in place; and {@see ExpandedSyntax}, its templates and derived conditions
- * spelled out. The accessors that hand nodes out — {@see rule()},
- * {@see scopedTo()} and the rest — take them from {@see resolveBindings()}, so a
- * node never leaves a syntax unvalidated or with a binding still a placeholder.
+ * A syntax is validated into a {@see ValidSyntax}, a type that only validation
+ * makes, and only a valid syntax can be expanded into an {@see ExpandedSyntax},
+ * which is no block of text but the rules of many. The accessors that hand
+ * nodes out — {@see rule()}, {@see scopedTo()} and the rest — take them from
+ * {@see asValid()}, so a node never leaves a syntax unvalidated.
  *
- * Two parses of the same rules written differently hold equal children, but
- * are not equal as a whole.
+ * Two parses of the same rules written differently hold children that say the
+ * same, each placed where it was written.
  */
 readonly class WarrantSyntax implements INode
 {
     /**
+     * Where the children came from: the text they were read from with the values
+     * for their bindings, or for a syntax built in code only what produced it.
+     */
+    public SyntaxSource $source;
+
+    /**
      * @param list<INode> $children
-     * @param string|null $source The text the children were read from; null
-     *   for a syntax built by hand.
-     * @param SourceMap|null $positions Where each node of $written was written
-     *   in $source; null for a syntax built by hand.
-     * @param list<INode>|null $written The children as written, bindings and
-     *   all; the children themselves when they hold no binding values.
-     * @param array<int|string, mixed>|null $bindings The values for the
-     *   bindings in the children, not yet put in place; null once they are, or
-     *   when there is nothing to put in place.
+     * @param SyntaxSource|null $source Where the children came from; with none,
+     *   application code built them.
      */
     public function __construct(
         public array $children = [],
-        public ?string $source = null,
-        public ?SourceMap $positions = null,
-        ?array $written = null,
-        public ?array $bindings = null,
+        ?SyntaxSource $source = null,
     ) {
         self::assertOneShape($children);
 
-        $this->written = $written ?? $children;
+        $this->source = $source ?? new SyntaxSource(null, SyntaxProducer::code());
     }
-
-    /** @var list<INode> The children as written, every binding still a {@see BindingNode}. */
-    public array $written;
 
     /**
      * Parse rule text of any form, keeping the values a {@see BoundSyntax} holds
-     * for its named (:name) or positional (?) placeholders until it is resolved.
-     * A string is rule text with no bindings.
+     * for its named (:name) or positional (?) placeholders in the source each
+     * {@see BindingNode} finds its value in.
+     * A string is rule text with no bindings. $producer says what produced the
+     * syntax; with none, application code parsed it directly.
      */
-    public static function parse(string|BoundSyntax $syntax): self
+    public static function parse(string|BoundSyntax $syntax, ?SyntaxProducer $producer = null): self
     {
-        $bound = $syntax instanceof BoundSyntax ? $syntax : new BoundSyntax($syntax);
-        $read = WarrantParser::parse($bound->syntax);
-
-        return new self($read->children, $bound->syntax, $read->positions, bindings: $bound->bindings);
+        return WarrantParser::parse($syntax, $producer);
     }
 
     /**
@@ -108,18 +102,13 @@ readonly class WarrantSyntax implements INode
     }
 
     /**
-     * This syntax with the value of every binding in its place, the tree as
-     * written kept in {@see $written}.
-     *
-     * A syntax not yet validated is validated first, as written and against no
-     * schema, so it is held to the rules of the language that need none. Throws
-     * the first mistake, or when the bindings do not fit the placeholders: one
-     * missing, one never used, or a value that cannot stand where its
-     * placeholder was written.
+     * This syntax, valid. A syntax not yet validated is validated as written
+     * and against no schema, so it is held to the rules of the language that
+     * need none, its bindings' values among them. Throws the first mistake.
      */
-    public function resolveBindings(): SyntaxBindingsResolved
+    protected function asValid(): ValidSyntax
     {
-        return ValidSyntax::of($this, new ValidationInput(null))->resolveBindings();
+        return ValidSyntax::of($this, new ValidationInput(null));
     }
 
     /**
@@ -217,7 +206,7 @@ readonly class WarrantSyntax implements INode
             throw $this->shapeError('a condition expression');
         }
 
-        $child = $this->resolveBindings()->children[0];
+        $child = $this->asValid()->children[0];
 
         return $child instanceof SchemaConditionNode ? $child->expression : $child;
     }
@@ -231,7 +220,7 @@ readonly class WarrantSyntax implements INode
             throw $this->shapeError('a single rule');
         }
 
-        return $this->resolveBindings()->children[0];
+        return $this->asValid()->children[0];
     }
 
     /**
@@ -247,7 +236,7 @@ readonly class WarrantSyntax implements INode
         }
 
         /** @var list<IRuleEntryNode> */
-        return $this->resolveBindings()->children;
+        return $this->asValid()->children;
     }
 
     /**
@@ -259,7 +248,7 @@ readonly class WarrantSyntax implements INode
             throw $this->shapeError('a single `for <schema>` rule set');
         }
 
-        return $this->resolveBindings()->children[0];
+        return $this->asValid()->children[0];
     }
 
     /**
@@ -275,7 +264,7 @@ readonly class WarrantSyntax implements INode
         }
 
         /** @var list<RuleSetNode> */
-        return $this->resolveBindings()->children;
+        return $this->asValid()->children;
     }
 
     /**
@@ -291,7 +280,7 @@ readonly class WarrantSyntax implements INode
         }
 
         /** @var list<ISchemaScopedNode> */
-        return $this->resolveBindings()->children;
+        return $this->asValid()->children;
     }
 
     /**
@@ -327,14 +316,19 @@ readonly class WarrantSyntax implements INode
 
     /**
      * This source as one rule set for $schemaKey. Unscoped entries, or no
-     * entries at all, are placed in a rule set for that schema; a single
+     * entries at all, are placed in a rule set for that schema, which was
+     * written nowhere but comes from where this syntax did; a single
      * `for <schema>` rule set must already name it. A header and a schema that
      * disagree is an error, never a silent choice.
      */
     public function scopedTo(string $schemaKey): RuleSetNode
     {
         if ($this->isEmpty() || $this->isRuleEntries()) {
-            return new RuleSetNode($schemaKey, $this->ruleEntries());
+            return new RuleSetNode(
+                $schemaKey,
+                $this->ruleEntries(),
+                SyntaxLocation::builtBy($this->source->producer),
+            );
         }
 
         $ruleSet = $this->ruleSet();
@@ -357,7 +351,7 @@ readonly class WarrantSyntax implements INode
      */
     public function toSyntax(): string
     {
-        return RuleSyntaxWriter::toSyntax($this->resolveBindings());
+        return RuleSyntaxWriter::toSyntax($this->asValid());
     }
 
     /**
@@ -366,7 +360,7 @@ readonly class WarrantSyntax implements INode
      */
     public function toBoundSyntax(): BoundSyntax
     {
-        return RuleSyntaxWriter::toBoundSyntax($this->resolveBindings());
+        return RuleSyntaxWriter::toBoundSyntax($this->asValid());
     }
 
     /**
