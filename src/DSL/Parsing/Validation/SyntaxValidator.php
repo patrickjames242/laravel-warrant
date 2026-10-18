@@ -46,17 +46,9 @@ final class SyntaxValidator
 
     /**
      * @param ValidationInput $input What the text is validated against.
-     * @param list<mixed> $passedIn The arguments a rule passed to the derived
-     *   condition whose answer, built in code, this is: its values were put in
-     *   place in PHP before it reached the validator, so a `@column` the rule
-     *   passed in sits in it as the reference itself. That is the rule's,
-     *   checked in the rule's scope where the rule wrote it, so it is not checked
-     *   again in the scope it is passed into. Text is validated as written, its
-     *   bindings still placeholders, and needs none of this.
      */
     public function __construct(
         private readonly ValidationInput $input,
-        private readonly array $passedIn = [],
     ) {
     }
 
@@ -126,7 +118,7 @@ final class SyntaxValidator
             $schema,
             $schemaKey,
             $syntax,
-            $this->passedIn,
+            $this->input->callerColumnRefs,
             $this->input->catalog ?? new RegisteredSchemas,
         );
     }

@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Parsing\Validation;
 
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\SchemaCatalog;
 
 /**
@@ -24,11 +25,19 @@ final readonly class ValidationInput
      *   does not hold is no schema at all.
      * @param GenericMode $genericMode Whether rules with no `for` header name
      *   their abilities.
+     * @param list<ColumnRef> $callerColumnRefs The `@column` references a rule
+     *   passed to the derived condition whose answer, built in code, this is: its
+     *   values were put in place in PHP before it reached the validator, so each
+     *   sits in it as the reference itself. They are the calling rule's, checked
+     *   in the rule's scope where the rule wrote them, so they are not checked
+     *   again in the scope they are passed into. Text is validated as written,
+     *   its bindings still placeholders, and needs none of these.
      */
     public function __construct(
         public ?SchemaCatalog $catalog,
         public ?string $schema = null,
         public GenericMode $genericMode = GenericMode::Either,
+        public array $callerColumnRefs = [],
     ) {
     }
 }

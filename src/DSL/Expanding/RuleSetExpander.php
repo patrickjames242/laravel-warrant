@@ -10,6 +10,7 @@ use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
@@ -527,8 +528,10 @@ final class RuleSetExpander
             sprintf('Derived condition [%s::%s]', $schema::class, $definition->methodName),
             fn () => ValidSyntax::of(
                 new WarrantSyntax([$expression]),
-                new ValidationInput($this->catalog, $schemaKey),
-                $node->parameters,
+                new ValidationInput($this->catalog, $schemaKey, callerColumnRefs: array_values(array_filter(
+                    $node->parameters,
+                    static fn (mixed $parameter): bool => $parameter instanceof ColumnRef,
+                ))),
             ),
         );
 

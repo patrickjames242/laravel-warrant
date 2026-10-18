@@ -97,13 +97,8 @@ final class RuleSetValidator
      *   rows go by in a `@column` reference; null with no schema.
      * @param WarrantSyntax|null $writtenIn The text the rules were parsed from,
      *   for errors to point into; null for rules built in code.
-     * @param list<mixed> $passedIn The arguments a rule passed to the derived
-     *   condition that answered with this expression, for an answer built in
-     *   code: its bindings were resolved before it reached the validator, so a
-     *   `@column` the rule passed in sits in it as the reference itself. That is
-     *   the rule's, checked in the rule's scope where the rule wrote it, so it is
-     *   not checked again in the scope it is passed into. Text is validated as
-     *   written, its bindings still placeholders, and needs none of this.
+     * @param list<ColumnRef> $callerColumnRefs The `@column` references the
+     *   calling rule passed in; see {@see ValidationInput::$callerColumnRefs}.
      * @param SchemaCatalog $catalog Where the schemas a `can(... for <schema>)`
      *   or `check(... for <schema>)` names are found.
      */
@@ -112,7 +107,7 @@ final class RuleSetValidator
         private readonly ?SchemaVocabulary $schema,
         private readonly ?string $schemaKey,
         private readonly ?WarrantSyntax $writtenIn = null,
-        private readonly array $passedIn = [],
+        private readonly array $callerColumnRefs = [],
         private readonly SchemaCatalog $catalog = new RegisteredSchemas,
     ) {
     }
@@ -915,7 +910,7 @@ final class RuleSetValidator
     private function assertColumnRefsInScope(array $arguments, AliasScope $scope): void
     {
         foreach ($arguments as $argument) {
-            if ($argument instanceof ColumnRef && ! in_array($argument, $this->passedIn, true)) {
+            if ($argument instanceof ColumnRef && ! in_array($argument, $this->callerColumnRefs, true)) {
                 /* The scope itself decides, and throws the message: an unbound name
                    is the mistake, and a name bound to nothing is a frame no compile
                    selected here, which is not. A null alias asks about this frame's

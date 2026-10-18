@@ -1,5 +1,7 @@
 <?php
 
+use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -257,6 +259,27 @@ it('hands back a syntax already valid under an equal input as it is', function (
 
     expect(ValidSyntax::of($valid, courseSectionsInput()))->toBe($valid)
         ->and(ValidSyntax::of($valid, courseSectionsInput(GenericMode::RequireNotGeneric)))->not->toBe($valid);
+});
+
+it('leaves a @column the calling rule passed in unchecked in the scope it is passed into', function () {
+    $callerColumnRef = new ColumnRef('elsewhere', 'id');
+    $answer = new WarrantSyntax([new ConditionNode('is_teacher', [$callerColumnRef])]);
+
+    expect(fn () => ValidSyntax::of($answer, courseSectionsInput()))
+        ->toThrow(RuleValidationException::class, 'A @column reference names [elsewhere], which is not in scope here')
+        ->and(fn () => ValidSyntax::of($answer, new ValidationInput(
+            catalogOf(['course_sections' => new WarrantTestSchema]),
+            'course_sections',
+            callerColumnRefs: [$callerColumnRef],
+        )))->not->toThrow(RuleValidationException::class);
+});
+
+it('hands back a syntax already valid under an equal input holding caller column refs as it is', function () {
+    $callerColumnRef = new ColumnRef('elsewhere', 'id');
+    $input = new ValidationInput(catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections', callerColumnRefs: [$callerColumnRef]);
+    $valid = ValidSyntax::of(new WarrantSyntax([new ConditionNode('is_teacher', [$callerColumnRef])]), $input);
+
+    expect(ValidSyntax::of($valid, $input))->toBe($valid);
 });
 
 it('validates again under a different input, which may find the text invalid', function () {

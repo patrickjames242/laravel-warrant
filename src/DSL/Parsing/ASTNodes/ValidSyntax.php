@@ -29,18 +29,14 @@ final readonly class ValidSyntax extends WarrantSyntax
 
     /**
      * $syntax, validated as written under $input. Throws the first mistake.
-     *
-     * @param list<mixed> $passedIn For a derived condition's answer built in
-     *   code, the arguments the rule passed it, which sit in it as values and
-     *   were checked where the rule wrote them; see {@see SyntaxValidator}.
      */
-    public static function of(WarrantSyntax $syntax, ValidationInput $input, array $passedIn = []): self
+    public static function of(WarrantSyntax $syntax, ValidationInput $input): self
     {
-        if ($syntax instanceof self && $syntax->input == $input && $passedIn === []) {
+        if ($syntax instanceof self && $syntax->input == $input) {
             return $syntax;
         }
 
-        $mistakes = (new SyntaxValidator($input, $passedIn))->mistakes($syntax);
+        $mistakes = (new SyntaxValidator($input))->mistakes($syntax);
 
         if ($mistakes !== []) {
             throw $mistakes[0];
