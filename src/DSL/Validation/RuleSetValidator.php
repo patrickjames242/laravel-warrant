@@ -20,13 +20,15 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\SchemaCatalog;
@@ -73,11 +75,10 @@ use Warrant\Registry\RegisteredSchemas;
  *
  * ## Where an error points
  *
- * Given the {@see WarrantSyntax} the rules were parsed from, an error says where
- * in that text it is: at the ability it is about, or else the innermost node it
- * was found in that the text holds. A rule the text does not hold — one built in
- * code, or put in place by expansion — has nowhere to point, and its error is
- * placed at the nearest node around it that the text does hold, if any.
+ * An error says where it is in the text the node it is about was read from: at
+ * the ability it is about, or else the innermost node it was found in that was
+ * read from text. A node built in code was written nowhere, and its error is
+ * placed at the nearest node around it that was, if any.
  *
  * Every mistake is reported, none thrown: {@see SyntaxValidator} gathers them
  * for {@see \Warrant\DSL\Parsing\ASTNodes\ValidSyntax} to throw or keep.
@@ -95,10 +96,9 @@ final class RuleSetValidator
      *   need no vocabulary, and their names are not looked up.
      * @param string|null $schemaKey The owning schema's key — the name its own
      *   rows go by in a `@column` reference; null with no schema.
-     * @param WarrantSyntax|null $writtenIn The text the rules were parsed from,
-     *   for errors to point into; null for rules built in code.
-     * @param list<ColumnRef> $callerColumnRefs The `@column` references the
-     *   calling rule passed in; see {@see ValidationInput::$callerColumnRefs}.
+     * @param ConditionNode|IncludeInvocationNode|null $invokedBy The condition or
+     *   `@include` whose answer these rules are, as their producer says; null
+     *   for rules nothing invoked.
      * @param SchemaCatalog $catalog Where the schemas a `can(... for <schema>)`
      *   or `check(... for <schema>)` names are found.
      */
@@ -106,8 +106,7 @@ final class RuleSetValidator
         private readonly Closure $report,
         private readonly ?SchemaVocabulary $schema,
         private readonly ?string $schemaKey,
-        private readonly ?WarrantSyntax $writtenIn = null,
-        private readonly array $callerColumnRefs = [],
+        private readonly ConditionNode|IncludeInvocationNode|null $invokedBy = null,
         private readonly SchemaCatalog $catalog = new RegisteredSchemas,
     ) {
     }
@@ -126,7 +125,7 @@ final class RuleSetValidator
      */
     public function validateWritten(RuleSetNode $ruleSet): void
     {
-        $this->validateEntriesFor($ruleSet->entries, GenericMode::RequireNotGeneric, $ruleSet->schemaKey);
+        $this->validateEntriesFor($ruleSet->entries, GenericMode::RequireNotGeneric, $ruleSet->schemaKey());
     }
 
     /**
@@ -167,13 +166,11 @@ final class RuleSetValidator
                 if ($mode === GenericMode::RequireGeneric && ! $entry->isGeneric()) {
                     $this->fail(
                         new RuleValidationException(DiagnosticCode::AbilitiesNamedWhereGeneric, LanguageRuleMessages::namedWhereGeneric('This @include')),
-                        $entry,
-                        IncludeInvocationNode::PART_ABILITIES,
-                        0,
+                        $entry->abilities[0],
                     );
                 }
 
-                $this->assertAbilitiesDeclared($entry->abilities, $entry, IncludeInvocationNode::PART_ABILITIES);
+                $this->assertAbilitiesDeclared($entry->abilities);
                 $this->assertTemplateDeclared($entry);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
@@ -184,9 +181,7 @@ final class RuleSetValidator
                     if ($mode === GenericMode::RequireGeneric && $clause->abilities !== []) {
                         $this->fail(
                             new RuleValidationException(DiagnosticCode::AbilitiesNamedWhereGeneric, LanguageRuleMessages::namedWhereGeneric('This clause')),
-                            $clause,
-                            $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
-                            0,
+                            $clause->abilities[0],
                         );
                     }
                 }
@@ -208,7 +203,7 @@ final class RuleSetValidator
             $this->fail(new RuleValidationException(DiagnosticCode::AbilityBlockNamesNone, LanguageRuleMessages::blockNamesNone()), $block);
         }
 
-        $this->assertAbilitiesDeclared($block->abilities, $block, AbilityBlockNode::PART_ABILITIES);
+        $this->assertAbilitiesDeclared($block->abilities);
 
         foreach ($block->entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
@@ -217,9 +212,7 @@ final class RuleSetValidator
                 if (! $entry->isGeneric()) {
                     $this->fail(
                         new RuleValidationException(DiagnosticCode::AbilitiesNamedInsideBlock, LanguageRuleMessages::namedInsideBlock('An @include')),
-                        $entry,
-                        IncludeInvocationNode::PART_ABILITIES,
-                        0,
+                        $entry->abilities[0],
                     );
                 }
 
@@ -229,9 +222,7 @@ final class RuleSetValidator
                     if ($clause->abilities !== []) {
                         $this->fail(
                             new RuleValidationException(DiagnosticCode::AbilitiesNamedInsideBlock, LanguageRuleMessages::namedInsideBlock('A clause')),
-                            $clause,
-                            $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
-                            0,
+                            $clause->abilities[0],
                         );
                     }
                 }
@@ -284,17 +275,18 @@ final class RuleSetValidator
      */
     private function assertTemplateDeclared(IncludeInvocationNode $include): void
     {
-        if ($this->schema === null || $this->schemaKey === null || $include->templateKey === INode::MISSING_NAME) {
+        $templateKey = $include->templateKey->name;
+
+        if ($this->schema === null || $this->schemaKey === null || $templateKey === INode::MISSING_NAME) {
             return;
         }
 
-        $definition = $this->schema->getRuleTemplateDefinition($include->templateKey);
+        $definition = $this->schema->getRuleTemplateDefinition($templateKey);
 
         if ($definition === null) {
             $this->fail(
-                new RuleValidationException(DiagnosticCode::UnknownTemplate, LanguageRuleMessages::unknownTemplate($this->schemaKey, $include->templateKey)),
-                $include,
-                IncludeInvocationNode::PART_TEMPLATE_KEY,
+                new RuleValidationException(DiagnosticCode::UnknownTemplate, LanguageRuleMessages::unknownTemplate($this->schemaKey, $templateKey)),
+                $include->templateKey,
             );
 
             return;
@@ -303,7 +295,7 @@ final class RuleSetValidator
         if (count($include->arguments) < $definition->requiredArgumentCount) {
             $this->fail(
                 new RuleValidationException(DiagnosticCode::TooFewArguments, LanguageRuleMessages::tooFewTemplateArguments(
-                    $include->templateKey,
+                    $templateKey,
                     $definition->requiredArgumentCount,
                     count($include->arguments),
                 )),
@@ -316,11 +308,7 @@ final class RuleSetValidator
     {
         try {
             foreach ([...$rule->canClauses, ...$rule->cannotClauses] as $clause) {
-                $this->assertAbilitiesDeclared(
-                    $clause->abilities,
-                    $clause,
-                    $clause instanceof CanClauseNode ? CanClauseNode::PART_ABILITIES : CannotClauseNode::PART_ABILITIES,
-                );
+                $this->assertAbilitiesDeclared($clause->abilities);
             }
 
             $this->assertNoDuplicateCannotAbility($rule);
@@ -349,21 +337,19 @@ final class RuleSetValidator
      * Every name in an ability list must be one the schema declares. `*` is not a
      * name but a stand-in for all of them, so it is passed over.
      *
-     * @param list<string> $abilities The ability list $part of $owner.
+     * @param list<NameNode> $abilities
      */
-    private function assertAbilitiesDeclared(array $abilities, object $owner, string $part): void
+    private function assertAbilitiesDeclared(array $abilities): void
     {
         if ($this->schema === null) {
             return;
         }
 
-        foreach ($abilities as $index => $ability) {
-            if ($ability !== '*' && $this->schema->getAbilityDefinition($ability) === null) {
+        foreach ($abilities as $ability) {
+            if ($ability->name !== '*' && $this->schema->getAbilityDefinition($ability->name) === null) {
                 $this->fail(
-                    new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability)),
-                    $owner,
-                    $part,
-                    $index,
+                    new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability->name)),
+                    $ability,
                 );
             }
         }
@@ -380,58 +366,50 @@ final class RuleSetValidator
         $seen = [];
 
         foreach ($rule->cannotClauses as $clause) {
-            foreach ($clause->abilities as $index => $ability) {
-                if (isset($seen[$ability])) {
+            foreach ($clause->abilities as $ability) {
+                if (isset($seen[$ability->name])) {
                     $this->fail(new RuleValidationException(DiagnosticCode::DuplicateCannotAbility, sprintf(
                         'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
-                        $ability,
-                    )), $clause, CannotClauseNode::PART_ABILITIES, $index);
+                        $ability->name,
+                    )), $ability);
                 }
 
-                $seen[$ability] = true;
+                $seen[$ability->name] = true;
             }
         }
     }
 
     /**
-     * $error, placed where $node (or its $part, at $key) was written in the text
-     * these rules were parsed from. An error already placed, further in, keeps
-     * its place; one about a node the text does not hold is left for a node
-     * further out to place.
+     * $error, placed where $node was written, in the text it was read from. An
+     * error already placed, further in, keeps its place; one about a node
+     * built in code is left for a node further out to place.
      */
-    private function placed(
-        InvalidArgumentException $error,
-        object $node,
-        ?string $part = null,
-        int|string|null $key = null,
-    ): InvalidArgumentException {
+    private function placed(InvalidArgumentException $error, INode $node): InvalidArgumentException
+    {
         if ($error instanceof RuleValidationException && $error->position !== null) {
             return $error;
         }
 
-        $span = $this->writtenIn?->positions?->spanOf($node, $part, $key);
+        $span = $node->location->span;
 
-        if ($span === null || $this->writtenIn->source === null) {
+        if ($span === null) {
             return $error;
         }
 
         $reason = $error instanceof RuleValidationException ? $error->reason : $error->getMessage();
         $code = $error instanceof RuleValidationException ? $error->diagnosticCode : DiagnosticCode::InvalidRule;
+        $text = $node->location->source->bound->syntax ?? '';
 
-        return new RuleValidationException($code, $reason, SourcePosition::at($this->writtenIn->source, $span->offset), $error, $span);
+        return new RuleValidationException($code, $reason, SourcePosition::at($text, $span->offset), $error, $span);
     }
 
     /**
      * Report $error, placed as {@see placed()} places it, so the walk goes on to
      * the next thing to check.
      */
-    private function fail(
-        InvalidArgumentException $error,
-        object $node,
-        ?string $part = null,
-        int|string|null $key = null,
-    ): void {
-        ($this->report)($this->placed($error, $node, $part, $key));
+    private function fail(InvalidArgumentException $error, INode $node): void
+    {
+        ($this->report)($this->placed($error, $node));
     }
 
     /**
@@ -439,20 +417,23 @@ final class RuleSetValidator
      * `they can` could never surface, and it is text: a quoted string or a
      * binding, or a closure in a rule built in code. A `@context` is not one,
      * because a message is fixed before any check rather than read from it.
+     * Whether a binding's value is a message is the binding checks' to say.
      */
     private function assertMessagesAreMessages(WarrantRuleNode $rule): void
     {
         foreach ($rule->canClauses as $clause) {
             if ($clause->message !== null) {
-                $this->fail(new RuleValidationException(DiagnosticCode::MessageOnCanClause, LanguageRuleMessages::messageOnCanClause()), $clause, CanClauseNode::PART_MESSAGE);
+                $this->fail(new RuleValidationException(DiagnosticCode::MessageOnCanClause, LanguageRuleMessages::messageOnCanClause()), $clause->message);
             }
         }
 
         foreach ($rule->cannotClauses as $clause) {
             $message = $clause->message;
+            $isText = $message instanceof BindingNode
+                || ($message instanceof LiteralNode && (is_string($message->value) || $message->value instanceof Closure));
 
-            if ($message !== null && ! is_string($message) && ! $message instanceof Closure && ! $message instanceof BindingNode) {
-                $this->fail(new RuleValidationException(DiagnosticCode::MessageNotText, LanguageRuleMessages::messageIsNotText()), $clause, CannotClauseNode::PART_MESSAGE);
+            if ($message !== null && ! $isText) {
+                $this->fail(new RuleValidationException(DiagnosticCode::MessageNotText, LanguageRuleMessages::messageIsNotText()), $message);
             }
         }
     }
@@ -531,7 +512,7 @@ final class RuleSetValidator
             default => $predicateOf === null ? null : throw new RuleValidationException(DiagnosticCode::ConstantInCheckPredicate, sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
-                $predicateOf->schemaKey,
+                $predicateOf->schemaKey->name,
             )),
         };
     }
@@ -560,53 +541,56 @@ final class RuleSetValidator
             return;
         }
 
+        $schemaKey = $node->schemaKey->name;
+        $ability = $node->ability->name;
+
         // A handle with no name was reported where it was read; there is no schema to look up.
-        if ($node->schemaKey === INode::MISSING_NAME) {
+        if ($schemaKey === INode::MISSING_NAME) {
             return;
         }
 
-        $target = $this->catalog->find($node->schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
-            sprintf('A can(...) reference targets unknown schema [%s].', $node->schemaKey),
+        $target = $this->catalog->find($schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
+            sprintf('A can(...) reference targets unknown schema [%s].', $schemaKey),
         );
 
-        if ($node->ability !== INode::MISSING_NAME && $target->getAbilityDefinition($node->ability) === null) {
+        if ($ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
             throw new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf(
                 'Ability [%s] is not declared by schema [%s].',
-                $node->ability,
-                $node->schemaKey,
+                $ability,
+                $schemaKey,
             ));
         }
 
         if ($node->isRowBound && ! $target->describesRows()) {
             throw new RuleValidationException(DiagnosticCode::RowTargetOnRowlessSchema, sprintf(
                 'A can(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
-                $node->schemaKey,
-                $node->schemaKey,
+                $schemaKey,
+                $schemaKey,
             ));
         }
 
-        $this->assertTargetCanNameARow('can', $node->schemaKey, $target, $node->isRowBound);
-        $this->assertKeyArityIsSatisfied('can', $node->schemaKey, $target, $node->isRowBound, $node->boundKey);
+        $this->assertTargetCanNameARow('can', $schemaKey, $target, $node->isRowBound);
+        $this->assertKeyArityIsSatisfied('can', $schemaKey, $target, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value. A
-        // literal `null` (or a `:name`/`?` binding that resolved to null) can
-        // never match a row, so it is a mistake rather than a valid selector;
-        // reject it here, in any position. A `@context` reference is a symbolic
-        // ContextRef, not null — its value is filled per check, so its
-        // nullability stays a compile-time concern, not a static one.
-        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
+        // literal `null` can never match a row, so it is a mistake rather than a
+        // valid selector; reject it here, in any position. A `@context` reference
+        // is a symbolic ContextRef, not null — its value is filled per check, so
+        // its nullability stays a compile-time concern, not a static one.
+        if ($node->isRowBound && self::holdsNullLiteral($node->boundKey)) {
             throw new RuleValidationException(DiagnosticCode::NullRowTarget, sprintf(
                 'A can(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
-                $node->schemaKey,
+                $schemaKey,
             ));
         }
 
-        $this->assertAliasHasARow('can', $node->schemaKey, $node->isRowBound, $node->alias);
+        $this->assertAliasHasARow('can', $schemaKey, $node->isRowBound, $node->alias?->name);
+        $this->assertWithKeysDistinct($node->contextMap);
 
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([...$node->boundKey, ...array_values($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->boundKey, ...self::withValues($node->contextMap)], $scope);
     }
 
     /**
@@ -625,41 +609,43 @@ final class RuleSetValidator
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, AliasScope $scope): void
     {
+        $schemaKey = $node->schemaKey->name;
+
         // A handle with no name was reported where it was read; there is no schema to check the predicate against.
-        if ($node->schemaKey === INode::MISSING_NAME) {
+        if ($schemaKey === INode::MISSING_NAME) {
             return;
         }
 
-        $target = $this->catalog->find($node->schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
-            sprintf('A check(...) reference targets unknown schema [%s].', $node->schemaKey),
+        $target = $this->catalog->find($schemaKey) ?? throw new RuleValidationException(DiagnosticCode::UnknownSchema, 
+            sprintf('A check(...) reference targets unknown schema [%s].', $schemaKey),
         );
 
         if ($node->isRowBound && ! $target->describesRows()) {
             throw new RuleValidationException(DiagnosticCode::RowTargetOnRowlessSchema, sprintf(
                 'A check(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.',
-                $node->schemaKey,
-                $node->schemaKey,
+                $schemaKey,
+                $schemaKey,
             ));
         }
 
-        $this->assertTargetCanNameARow('check', $node->schemaKey, $target, $node->isRowBound);
-        $this->assertKeyArityIsSatisfied('check', $node->schemaKey, $target, $node->isRowBound, $node->boundKey);
+        $this->assertTargetCanNameARow('check', $schemaKey, $target, $node->isRowBound);
+        $this->assertKeyArityIsSatisfied('check', $schemaKey, $target, $node->isRowBound, $node->boundKey);
 
         // Every argument of a specified row target must resolve to a value; a
-        // literal `null` (or a binding that resolved to null) can never match a
-        // row, in any position. A `@context` reference is a symbolic ContextRef,
-        // not null — filled per check — so its nullability stays a compile-time
-        // concern, not a static one. (Same as can.)
-        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
+        // literal `null` can never match a row, in any position. A `@context`
+        // reference is a symbolic ContextRef, not null — filled per check — so its
+        // nullability stays a compile-time concern, not a static one. (Same as can.)
+        if ($node->isRowBound && self::holdsNullLiteral($node->boundKey)) {
             throw new RuleValidationException(DiagnosticCode::NullRowTarget, sprintf(
                 'A check(...) reference to schema [%s] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
-                $node->schemaKey,
+                $schemaKey,
             ));
         }
 
-        $this->assertAliasHasARow('check', $node->schemaKey, $node->isRowBound, $node->alias);
+        $this->assertAliasHasARow('check', $schemaKey, $node->isRowBound, $node->alias?->name);
+        $this->assertWithKeysDistinct($node->contextMap);
 
-        $this->assertColumnRefsInScope([...$node->boundKey, ...array_values($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->boundKey, ...self::withValues($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
@@ -677,7 +663,7 @@ final class RuleSetValidator
             $target,
             ! $target->describesRows()
                 ? $scope->enteringRowlessPredicate()
-                : $scope->enteringPredicate($node->schemaKey, $node->alias, null),
+                : $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
             $node,
         );
     }
@@ -694,11 +680,13 @@ final class RuleSetValidator
      */
     private function assertOwnAbilityValid(CrossSchemaCanNode $node, SchemaVocabulary $vocabulary): void
     {
+        $ability = $node->ability->name;
+
         // An ability with no name was reported where it was read.
-        if ($node->ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($node->ability) === null) {
+        if ($ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
             throw new RuleValidationException(DiagnosticCode::UnknownAbility, sprintf(
                 'Ability [%s] is not declared by the schema.',
-                $node->ability,
+                $ability,
             ));
         }
 
@@ -706,7 +694,7 @@ final class RuleSetValidator
             throw new RuleValidationException(DiagnosticCode::ContextMapWithoutSchema, sprintf(
                 'A can(%s) reference carries the context it is already in, so it takes no `with` map; '
                     .'name a schema with `for` if you meant to cross to one.',
-                $node->ability,
+                $ability,
             ));
         }
 
@@ -714,8 +702,8 @@ final class RuleSetValidator
             throw new RuleValidationException(DiagnosticCode::AliasWithoutRow, sprintf(
                 'A can(%s) reference selects no rows of its own, so there is nothing for [as %s] to name; '
                     .'name a schema with `for` if you meant to cross to one.',
-                $node->ability,
-                $node->alias,
+                $ability,
+                $node->alias->name,
             ));
         }
     }
@@ -788,7 +776,7 @@ final class RuleSetValidator
      * Extra arguments are allowed, exactly as they are for a condition: they are
      * ignored by the call and stay reachable on `$c->arguments`.
      *
-     * @param array<int, mixed> $boundKey
+     * @param list<INode> $boundKey
      */
     private function assertKeyArityIsSatisfied(
         string $builtin,
@@ -839,15 +827,15 @@ final class RuleSetValidator
         AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
-        $definition = $vocabulary->getConditionDefinition($node->conditionKey);
+        $definition = $vocabulary->getConditionDefinition($node->conditionKey->name);
 
         if ($definition === null) {
             throw new RuleValidationException(DiagnosticCode::UnknownCondition, $predicateOf === null
-                ? sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey)
+                ? sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey->name)
                 : sprintf(
                     'Condition [%s] is not declared by schema [%s].',
-                    $node->conditionKey,
-                    $predicateOf->schemaKey,
+                    $node->conditionKey->name,
+                    $predicateOf->schemaKey->name,
                 ));
         }
 
@@ -874,7 +862,7 @@ final class RuleSetValidator
         if ($supplied < $required) {
             throw new RuleValidationException(DiagnosticCode::TooFewArguments, sprintf(
                 'Condition [%s] requires at least %d argument(s), but the rule supplied %d.',
-                $node->conditionKey,
+                $node->conditionKey->name,
                 $required,
                 $supplied,
             ));
@@ -903,14 +891,14 @@ final class RuleSetValidator
      * name itself is not checked — there is no column introspection.
      * Non-{@see ColumnRef} values are ignored.
      *
-     * @param array<int, mixed> $arguments
+     * @param list<INode> $arguments
      * @param AliasScope $scope The frames in scope where these arguments are
      *   written.
      */
     private function assertColumnRefsInScope(array $arguments, AliasScope $scope): void
     {
         foreach ($arguments as $argument) {
-            if ($argument instanceof ColumnRef && ! in_array($argument, $this->callerColumnRefs, true)) {
+            if ($argument instanceof ColumnRef && ! $this->passedIn($argument)) {
                 /* The scope itself decides, and throws the message: an unbound name
                    is the mistake, and a name bound to nothing is a frame no compile
                    selected here, which is not. A null alias asks about this frame's
@@ -922,5 +910,78 @@ final class RuleSetValidator
                 }
             }
         }
+    }
+
+    /**
+     * Whether $columnRef is one the condition or `@include` these rules answer
+     * passed in. Its value was put in place in PHP before it reached here, so it
+     * sits in these rules as the reference itself. It is the calling rule's,
+     * checked in that rule's scope where the rule wrote it, so it is not checked
+     * again in the scope it was passed into.
+     */
+    private function passedIn(ColumnRef $columnRef): bool
+    {
+        $passed = match (true) {
+            $this->invokedBy instanceof ConditionNode => $this->invokedBy->parameters,
+            $this->invokedBy instanceof IncludeInvocationNode => $this->invokedBy->arguments,
+            default => [],
+        };
+
+        return in_array($columnRef, $passed, true);
+    }
+
+    /**
+     * A `with` map gives each context key once. A key given again is reported
+     * where it is written again, and the first value is the one that counts.
+     *
+     * @param list<WithEntryNode> $entries
+     */
+    private function assertWithKeysDistinct(array $entries): void
+    {
+        $seen = [];
+
+        foreach ($entries as $entry) {
+            $key = $entry->key->name;
+
+            if ($key === INode::MISSING_NAME) {
+                continue;
+            }
+
+            if (isset($seen[$key])) {
+                $this->fail(
+                    new RuleValidationException(DiagnosticCode::DuplicateContextKey, sprintf("Duplicate key '%s' in the 'with' map.", $key)),
+                    $entry->key,
+                );
+            }
+
+            $seen[$key] = true;
+        }
+    }
+
+    /**
+     * Whether $arguments holds the literal `null`.
+     *
+     * @param list<INode> $arguments
+     */
+    private static function holdsNullLiteral(array $arguments): bool
+    {
+        foreach ($arguments as $argument) {
+            if ($argument instanceof LiteralNode && $argument->value === null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The values of a `with` map's entries, in the order written.
+     *
+     * @param list<WithEntryNode> $entries
+     * @return list<INode>
+     */
+    private static function withValues(array $entries): array
+    {
+        return array_map(static fn (WithEntryNode $entry): INode => $entry->value, $entries);
     }
 }

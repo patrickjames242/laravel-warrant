@@ -10,9 +10,10 @@ use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\BindingResolver;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
+use Warrant\DSL\Parsing\Positions\Span;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\Registry\RegisteredSchemas;
 
@@ -31,7 +32,10 @@ use Warrant\Registry\RegisteredSchemas;
  * A text is validated on its own, before anything splits it up or combines it
  * with other rules, so every mistake is about the text it points into. It is
  * read as written, every binding still a placeholder: a value passed in for one
- * is not part of the text, and is not validated as if it were. Whether the text
+ * is not part of the text, and is not validated as if it were. What is checked
+ * of the values is only that they fit the placeholders, when the
+ * {@see ValidationInput} says to: every placeholder has one, every one given is
+ * used, and each can stand where its placeholder was written. Whether the text
  * is the kind of answer its user asked for is the user's question, not this one.
  *
  * It throws nothing: what to do with the mistakes is
@@ -41,6 +45,8 @@ use Warrant\Registry\RegisteredSchemas;
  */
 final class SyntaxValidator
 {
+    use ValidatesBindings;
+
     /** @var list<InvalidArgumentException> The mistakes found so far, in the order found. */
     private array $found = [];
 
@@ -64,17 +70,17 @@ final class SyntaxValidator
     {
         $this->found = [];
 
-        $this->assertBindingsDoNotMix($syntax);
+        $this->assertBindingsFit($syntax);
 
         $headerless = [];
 
-        foreach ($syntax->written as $child) {
+        foreach ($syntax->children as $child) {
             match (true) {
                 $child instanceof RuleSetNode => $this->validatorFor($syntax, $child)->validateWritten($child),
                 $child instanceof SchemaConditionNode => $this->validatorFor($syntax, $child)->validateCondition($child),
                 $child instanceof IRuleEntryNode => $headerless[] = $child,
                 $child instanceof IBooleanExpressionNode => $this->headerlessValidator($syntax)->validateCondition(
-                    new SchemaConditionNode((string) $this->input->schema, $child),
+                    new SchemaConditionNode((string) $this->input->schema, $child, $child->location),
                 ),
                 default => null,
             };
@@ -106,7 +112,7 @@ final class SyntaxValidator
      */
     private function validatorFor(WarrantSyntax $syntax, ISchemaScopedNode $body): RuleSetValidator
     {
-        $schema = $this->schemaOf($syntax, $body);
+        $schema = $this->schemaOf($body);
 
         return $this->ruleSetValidator($syntax, $schema, $schema === null ? null : $body->schemaKey());
     }
@@ -117,8 +123,7 @@ final class SyntaxValidator
             fn (InvalidArgumentException $error) => $this->found[] = $error,
             $schema,
             $schemaKey,
-            $syntax,
-            $this->input->callerColumnRefs,
+            $syntax->source->producer->invokedBy,
             $this->input->catalog ?? new RegisteredSchemas,
         );
     }
@@ -127,7 +132,7 @@ final class SyntaxValidator
      * The schema $body's `for` header names, as the catalog has it. A header
      * naming no schema the catalog holds is a mistake.
      */
-    private function schemaOf(WarrantSyntax $syntax, ISchemaScopedNode $body): ?SchemaVocabulary
+    private function schemaOf(ISchemaScopedNode $body): ?SchemaVocabulary
     {
         // A header with no name was reported where it was read; there is no schema to look up.
         if ($body->schemaKey() === INode::MISSING_NAME || $this->input->catalog === null) {
@@ -140,9 +145,7 @@ final class SyntaxValidator
             $this->fail(
                 DiagnosticCode::UnknownSchema,
                 sprintf('The `for` header names unknown schema [%s].', $body->schemaKey()),
-                $syntax,
-                $body,
-                ISchemaScopedNode::PART_SCHEMA_KEY,
+                $body->schemaKey,
             );
         }
 
@@ -150,44 +153,28 @@ final class SyntaxValidator
     }
 
     /**
-     * A text's bindings are either all named or all positional, since its
-     * values are given one way or the other: the first binding written decides,
-     * and each of the other kind is a mistake. Binding resolution makes the same
-     * check, for a syntax that never passed through here.
-     */
-    private function assertBindingsDoNotMix(WarrantSyntax $syntax): void
-    {
-        if ($syntax->source === null || $syntax->positions === null) {
-            return;
-        }
-
-        $written = new WarrantSyntax($syntax->written, $syntax->source, $syntax->positions);
-        $first = null;
-
-        foreach ((new BindingResolver($syntax->source, $syntax->positions))->bindingsInOrder($written) as $binding) {
-            $first ??= $binding;
-
-            if ($binding->isPositional() !== $first->isPositional()) {
-                $this->fail(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $syntax, $binding);
-            }
-        }
-    }
-
-    /**
-     * Record $reason about $node, or its $part, where $syntax has it written.
+     * Record $reason about $node, where it was written.
      *
      * @param DiagnosticCode $code Which kind of mistake it is.
      * @param string $reason What is wrong, in words for the author.
-     * @param WarrantSyntax $syntax The text the mistake is in.
-     * @param object $node The node the mistake is about.
-     * @param string|null $part The part of $node it is about; null for all of it.
+     * @param INode $node The node the mistake is about.
      */
-    private function fail(DiagnosticCode $code, string $reason, WarrantSyntax $syntax, object $node, ?string $part = null): void
+    private function fail(DiagnosticCode $code, string $reason, INode $node): void
     {
-        $span = $syntax->positions?->spanOf($node, $part);
+        $span = $node->location->span;
 
-        $this->found[] = $span === null || $syntax->source === null
+        $this->found[] = $span === null
             ? new RuleValidationException($code, $reason)
-            : new RuleValidationException($code, $reason, SourcePosition::at($syntax->source, $span->offset), span: $span);
+            : $this->placedAt($code, $reason, $node->location->source, $span);
+    }
+
+    private function placedAt(DiagnosticCode $code, string $reason, SyntaxSource $source, Span $span): RuleValidationException
+    {
+        return new RuleValidationException(
+            $code,
+            $reason,
+            SourcePosition::at($source->bound->syntax ?? '', $span->offset),
+            span: $span,
+        );
     }
 }

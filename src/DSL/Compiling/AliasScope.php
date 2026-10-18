@@ -197,7 +197,7 @@ final readonly class AliasScope
 
         foreach ($arguments as $argument) {
             if ($argument instanceof ColumnRef && ! array_key_exists(spl_object_id($argument), $forwardedColumns)) {
-                $forwardedColumns[spl_object_id($argument)] = $this->resolve($argument->alias);
+                $forwardedColumns[spl_object_id($argument)] = $this->resolve($argument->alias?->name);
             }
         }
 
@@ -215,7 +215,7 @@ final readonly class AliasScope
     {
         return array_key_exists(spl_object_id($ref), $this->forwardedColumns)
             ? $this->forwardedColumns[spl_object_id($ref)]
-            : $this->resolve($ref->alias);
+            : $this->resolve($ref->alias?->name);
     }
 
     /**
