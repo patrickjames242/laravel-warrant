@@ -41,6 +41,6 @@ final class ParseCrossSchemaCondition extends Parser
 
         $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'check(...)'.");
 
-        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias);
+        return new CrossSchemaConditionNode($schemaKey, $predicate, $isRowBound, $boundKey, $contextMap, $alias, $this->located());
     }
 }

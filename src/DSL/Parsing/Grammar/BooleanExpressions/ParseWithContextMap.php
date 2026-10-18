@@ -79,7 +79,7 @@ final class ParseWithContextMap extends Parser
             }
 
             if ($keep) {
-                $map[$key] = $value?->value ?? new MissingArgumentNode;
+                $map[$key] = $value?->value ?? new MissingArgumentNode($this->locatedMissing());
 
                 if ($value !== null) {
                     $this->part($this->owner::PART_CONTEXT_MAP, $key, $valueToken);

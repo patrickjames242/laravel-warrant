@@ -29,6 +29,7 @@ final class ParseCondition extends Parser
         return new ConditionNode(
             $name->lexeme,
             $this->parse(new ParseArguments(ConditionNode::PART_PARAMETERS, 'the condition arguments'))?->value ?? [],
+            $this->located(),
         );
     }
 }

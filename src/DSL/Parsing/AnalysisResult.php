@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 /**
  * What {@see WarrantParser::analyze()} found in a text: the tree it could read,
- * everything wrong with the text, and every token of it. The tree carries the
+ * every syntax error in the text, and every token of it. The tree carries the
  * text and where each of its nodes was written; the diagnostics are about the
  * reading of it, and the tokens are the text as the lexer read it, so both are
  * kept beside the tree rather than on it.

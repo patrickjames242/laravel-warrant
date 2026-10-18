@@ -81,7 +81,7 @@ trait ReportsMissingSyntax
 
         $this->report($this->missingBooleanExpressionError());
 
-        return new MissingExpressionNode;
+        return new MissingExpressionNode($this->locatedMissing());
     }
 
     private function missingBooleanExpressionError(): WarrantSyntaxException

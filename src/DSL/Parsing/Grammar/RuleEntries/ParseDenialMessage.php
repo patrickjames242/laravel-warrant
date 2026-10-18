@@ -10,11 +10,12 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * The denial message after `because`, from the `because` on, noted as the
- * $part of the clause it follows. The message is a part of that clause, not a
- * node of its own, so the clause reads this without recording what it returns.
+ * $part of the clause it follows. The message is a part of that clause, so the
+ * part goes to the clause even when the message is a node of its own, such as
+ * a binding.
  *
- * A message is a quoted string or a `:name` / `?` binding, whose value binding
- * resolution checks is a string or a closure (the
+ * A message is a quoted string or a `:name` / `?` binding, whose value the
+ * validator checks is a string or a closure (the
  * `Closure(WarrantDenialContext): string|Throwable` message form). Whatever
  * argument is written here is read, though: one that cannot be a message, such
  * as `@context` — a message is fixed before any check, not resolved per check —

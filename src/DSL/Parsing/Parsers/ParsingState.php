@@ -6,7 +6,6 @@ use LogicException;
 use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\Span;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -187,21 +186,24 @@ final class ParsingState
     }
 
     /**
-     * End the frame of the parser that has just read $result. A node it hands
-     * back that a parser further in built, as a group hands back what is inside
-     * its parentheses, is placed already, so a part read around it belongs to
-     * no node.
+     * End the frame of the parser that has just read. The parts it read that no
+     * node took are left for the next node built further out, as the denial
+     * message a clause reads is the clause's part even when the message is a
+     * binding.
      */
-    public function closeFrame(mixed $result): void
+    public function closeFrame(): void
     {
-        [, $unclaimedBefore] = array_pop($this->frames);
+        array_pop($this->frames);
+    }
 
-        if ($result instanceof INode && count($this->unclaimed) > $unclaimedBefore) {
-            throw new LogicException(sprintf(
-                'Part [%s] was read around a %s that was already placed, so it belongs to no node.',
-                $this->unclaimed[$unclaimedBefore][0],
-                get_debug_type($result),
-            ));
+    /**
+     * Assert every part read was taken by a node. Called once, when the parse
+     * is done.
+     */
+    public function assertEveryPartPlaced(): void
+    {
+        if ($this->unclaimed !== []) {
+            throw new LogicException(sprintf('Part [%s] was read outside any node.', $this->unclaimed[0][0]));
         }
     }
 

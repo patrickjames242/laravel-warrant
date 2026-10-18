@@ -3,7 +3,9 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -24,7 +26,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * The body is a rule set when a rule starts it or it is empty, and otherwise
  * one boolean expression scoped to the header's schema. The header is part of
  * the node, so the body is read here rather than by a parser of its own, which
- * would record the node from where the body starts.
+ * would place the node from where the body starts.
  *
  * @extends Parser<ISchemaScopedNode>
  */
@@ -61,35 +63,51 @@ final class ParseForSchemaBlock extends Parser
         }
 
         if (! $this->braced) {
-            return $this->body($schemaKey, self::UNEXPECTED_AFTER_END);
+            return $this->scoped($schemaKey, $this->body(self::UNEXPECTED_AFTER_END));
         }
 
         $unclosed = "Expected '}' to close the rule set body.";
 
         $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the rule set body.");
-        $body = $this->body($schemaKey, $unclosed);
+        $body = $this->body($unclosed);
         $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
-        return $body;
+        return $this->scoped($schemaKey, $body);
     }
 
     /**
-     * @param string $schemaKey The schema the block's header names, which the
-     *   body's node is scoped to.
+     * What the body holds: its rule entries, or its condition. It is read
+     * before a braced block's `}`, and its node built after, so the node is
+     * placed over the whole block.
+     *
      * @param string $unexpectedToken The error for a token after the body that
      *   should not be there, as {@see ParseRuleEntries} takes it.
+     * @return list<IRuleEntryNode>|IBooleanExpressionNode
      */
-    private function body(string $schemaKey, string $unexpectedToken): ISchemaScopedNode
+    private function body(string $unexpectedToken): array|IBooleanExpressionNode
     {
         if ($this->check(TokenType::EOF) || $this->check(TokenType::RBRACE) || $this->ruleEntryAhead()) {
-            return new RuleSetNode($schemaKey, $this->parse(new ParseRuleEntries($unexpectedToken))->value);
+            return $this->parse(new ParseRuleEntries($unexpectedToken))->value;
         }
 
         $this->assertNoAbilityListWithoutCanThey();
 
-        return new SchemaConditionNode(
-            $schemaKey,
-            $this->expressionOrMissing(ParseBooleanExpression::class),
-        );
+        return $this->expressionOrMissing(ParseBooleanExpression::class);
+    }
+
+    /**
+     * The block's node: a rule set for rule entries, or a condition.
+     *
+     * @param string $schemaKey The schema the block's header names, which the
+     *   node is scoped to.
+     * @param list<IRuleEntryNode>|IBooleanExpressionNode $body
+     */
+    private function scoped(string $schemaKey, array|IBooleanExpressionNode $body): ISchemaScopedNode
+    {
+        if (is_array($body)) {
+            return new RuleSetNode($schemaKey, $body, $this->located());
+        }
+
+        return new SchemaConditionNode($schemaKey, $body, $this->located());
     }
 }

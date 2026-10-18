@@ -79,7 +79,8 @@ abstract class Parser
             $root->report($root->errorAtCurrent(DiagnosticCode::UnexpectedToken, self::UNEXPECTED_AFTER_END));
         }
 
-        $state->closeFrame($result);
+        $state->closeFrame();
+        $state->assertEveryPartPlaced();
 
         return $result;
     }
@@ -102,7 +103,7 @@ abstract class Parser
         $parser = $this->share($parser);
         $this->state->openFrame();
         $result = $parser->read();
-        $this->state->closeFrame($result);
+        $this->state->closeFrame();
 
         return new Parsed($result);
     }

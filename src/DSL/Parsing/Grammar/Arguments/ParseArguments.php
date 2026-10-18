@@ -54,12 +54,12 @@ final class ParseArguments extends Parser
                 TokenType::COMMA,
                 $missingArgument,
                 $this->part,
-                static fn () => new MissingArgumentNode,
+                fn () => new MissingArgumentNode($this->locatedMissing()),
             );
 
             if ($arguments === []) {
                 $this->report($missingArgument());
-                $arguments = [new MissingArgumentNode];
+                $arguments = [new MissingArgumentNode($this->locatedMissing())];
             }
         }
 

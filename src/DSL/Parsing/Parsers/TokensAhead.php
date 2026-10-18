@@ -8,12 +8,12 @@ use WeakReference;
 
 /**
  * The tokens ahead of where a {@see ParsingState} is: they can be looked at, but
- * the parse cannot be moved through them and nothing can be recorded. They are
+ * the parse cannot be moved through them and no part can be noted. They are
  * what {@see Parser::startsHere()} is given, so deciding whether a parser starts
  * here cannot read anything.
  *
  * The state is held weakly. The state holds this, so a strong reference back
- * would make a cycle, and every parse's state, tokens and records would then
+ * would make a cycle, and every parse's state, tokens and parts would then
  * outlive it until the cycle collector ran.
  */
 final class TokensAhead

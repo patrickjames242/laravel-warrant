@@ -40,6 +40,6 @@ final class ParseAbilityBlock extends Parser
         $entries = $this->parse(new ParseRuleEntries($unclosed))->value;
         $this->expectOrAssume(TokenType::RBRACE, $unclosed);
 
-        return new AbilityBlockNode($abilities, $entries);
+        return new AbilityBlockNode($abilities, $entries, $this->located());
     }
 }

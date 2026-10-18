@@ -10,6 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * A boolean expression: operands joined by `and` and `or`, where `and` binds
@@ -17,7 +18,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * `a or ((b and c) and d)`. What an operand can be is
  * {@see ParseBooleanOperand}'s to say.
  *
- * Each `and` / `or` node is recorded from its first operand to its last.
+ * Each `and` / `or` node is placed from its first operand to its last.
  *
  * @extends Parser<IBooleanExpressionNode>
  */
@@ -51,11 +52,15 @@ final class ParseBooleanExpression extends Parser
         };
     }
 
-    private static function join(TokenType $operator, IBooleanExpressionNode $left, IBooleanExpressionNode $right): IBooleanExpressionNode
-    {
+    private static function join(
+        TokenType $operator,
+        IBooleanExpressionNode $left,
+        IBooleanExpressionNode $right,
+        SyntaxLocation $location,
+    ): IBooleanExpressionNode {
         return match ($operator) {
-            TokenType::OR => new OrNode($left, $right),
-            TokenType::AND => new AndNode($left, $right),
+            TokenType::OR => new OrNode($left, $right, $location),
+            TokenType::AND => new AndNode($left, $right, $location),
         };
     }
 
@@ -73,7 +78,7 @@ final class ParseBooleanExpression extends Parser
             // An operator after the right operand that binds tighter takes it first.
             $right = $this->joinOperators($right, $rightStart, $precedence + 1);
 
-            $left = $this->node(self::join($operator, $left, $right), $start);
+            $left = self::join($operator, $left, $right, $this->located($start));
         }
 
         return $left;

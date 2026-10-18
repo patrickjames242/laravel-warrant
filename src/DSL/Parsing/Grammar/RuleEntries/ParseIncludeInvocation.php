@@ -48,7 +48,7 @@ final class ParseIncludeInvocation extends Parser
         )?->value ?? [];
 
         if (! $this->check(TokenType::FOR)) {
-            return new IncludeInvocationNode($template, $arguments);
+            return new IncludeInvocationNode($template, $arguments, [], $this->located());
         }
 
         $this->advance(); // consume 'for'
@@ -57,6 +57,7 @@ final class ParseIncludeInvocation extends Parser
             $template,
             $arguments,
             $this->parse(new ParseAbilityList(IncludeInvocationNode::PART_ABILITIES))->value,
+            $this->located(),
         );
     }
 }

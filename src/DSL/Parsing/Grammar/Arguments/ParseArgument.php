@@ -71,7 +71,7 @@ final class ParseArgument extends Parser
         $key = $this->advance();
         $this->part(ContextRef::PART_KEY, null, $key);
 
-        return new ContextRef($key->lexeme);
+        return new ContextRef($key->lexeme, $this->located());
     }
 
     /**
@@ -92,7 +92,7 @@ final class ParseArgument extends Parser
         if (! $this->check(TokenType::DOT)) {
             $this->part(ColumnRef::PART_COLUMN, null, $first);
 
-            return new ColumnRef(null, $first->lexeme);
+            return new ColumnRef(null, $first->lexeme, $this->located());
         }
 
         $this->part(ColumnRef::PART_ALIAS, null, $first);
@@ -105,12 +105,12 @@ final class ParseArgument extends Parser
         $column = $this->advance();
         $this->part(ColumnRef::PART_COLUMN, null, $column);
 
-        return new ColumnRef($first->lexeme, $column->lexeme);
+        return new ColumnRef($first->lexeme, $column->lexeme, $this->located());
     }
 
     /**
      * A `@sql "<sql>"` reference, whose body is a string literal or a binding.
-     * Binding resolution checks that a binding's value is a string.
+     * The validator checks that a binding's value is a string.
      */
     private function sqlRef(): SqlRef|MissingArgumentNode
     {
@@ -126,25 +126,29 @@ final class ParseArgument extends Parser
         };
 
         if ($sql === null) {
-            $missing = $this->missingReference('Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.');
+            $this->report($this->errorAtCurrent(
+                DiagnosticCode::MissingArgument,
+                'Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.',
+            ));
 
             // A literal of another kind is the body written wrong, and is read past with the reference.
             if (in_array($token->type, [TokenType::INT, TokenType::FLOAT, TokenType::BOOL, TokenType::NULL], true)) {
                 $this->advance();
             }
 
-            return $missing;
+            return new MissingArgumentNode($this->located());
         }
 
         $this->part(SqlRef::PART_SQL, null, $token);
 
-        return new SqlRef($sql);
+        return new SqlRef($sql, $this->located());
     }
 
     /**
      * Report a reference whose name or body is missing: a strict parse throws
      * $message, and a tolerant one notes it and reads the reference as a
-     * {@see MissingArgumentNode}, so the arguments around it are kept.
+     * {@see MissingArgumentNode}, so the arguments around it are kept. It is
+     * placed over the reference as far as it was written.
      *
      * @param string $message The error naming what the reference is missing.
      */
@@ -152,6 +156,6 @@ final class ParseArgument extends Parser
     {
         $this->report($this->errorAtCurrent(DiagnosticCode::MissingArgument, $message));
 
-        return new MissingArgumentNode;
+        return new MissingArgumentNode($this->located());
     }
 }
