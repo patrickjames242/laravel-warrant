@@ -316,7 +316,7 @@ final class RuleSetCompiler
     /**
      * Every ability a rule lists must be one the schema declares.
      *
-     * The mirror of {@see \Warrant\DSL\Validation\RuleSetValidator}'s
+     * The mirror of {@see \Warrant\DSL\Validation\ValidatesRuleEntries}'s
      * check over rule text, made here because a rule reaches a compile by paths no
      * validation ever ran over: one built with the fluent builder, one a template
      * expanded into rules, a set assembled programmatically.

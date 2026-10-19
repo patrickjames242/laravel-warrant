@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\Span;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
@@ -63,7 +64,7 @@ trait ValidatesBindings
 
         foreach ($bindings as [$binding, $slot]) {
             if ($binding->isPositional() !== $first->isPositional()) {
-                $this->fail(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $binding);
+                $this->fail(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $binding->location);
 
                 continue;
             }
@@ -78,7 +79,7 @@ trait ValidatesBindings
                     $binding->isPositional()
                         ? 'More positional placeholders (?) than bindings provided.'
                         : sprintf('No binding provided for ":%s".', $binding->name),
-                    $binding,
+                    $binding->location,
                 );
 
                 continue;
@@ -100,7 +101,7 @@ trait ValidatesBindings
             $this->fail(
                 DiagnosticCode::InvalidBindingValue,
                 sprintf('An @sql binding must resolve to a string, got %s.', get_debug_type($value)),
-                $binding,
+                $binding->location,
             );
         }
 
@@ -108,7 +109,7 @@ trait ValidatesBindings
             $this->fail(
                 DiagnosticCode::InvalidBindingValue,
                 sprintf('A denial message must be a string or a closure, got %s.', get_debug_type($value)),
-                $binding,
+                $binding->location,
             );
         }
     }
@@ -130,10 +131,10 @@ trait ValidatesBindings
             $unused = count($values) - count($used);
 
             if ($unused > 0) {
-                $this->failAtEnd(
+                $this->fail(
                     DiagnosticCode::UnusedBinding,
                     sprintf('%d positional binding(s) were provided but never used.', $unused),
-                    $source,
+                    self::endOf($source),
                 );
             }
 
@@ -146,10 +147,10 @@ trait ValidatesBindings
         );
 
         if ($unused !== []) {
-            $this->failAtEnd(
+            $this->fail(
                 DiagnosticCode::UnusedBinding,
                 sprintf('Binding(s) provided but never used: %s.', implode(', ', $unused)),
-                $source,
+                self::endOf($source),
             );
         }
     }
@@ -192,12 +193,13 @@ trait ValidatesBindings
     }
 
     /**
-     * Record $reason about the text of $source as a whole, at its end.
+     * The end of the text of $source, where a mistake about the text as a whole
+     * is placed.
      */
-    private function failAtEnd(DiagnosticCode $code, string $reason, SyntaxSource $source): void
+    private static function endOf(SyntaxSource $source): SyntaxLocation
     {
         $end = strlen($source->bound->syntax ?? '');
 
-        $this->found[] = $this->placedAt($code, $reason, $source, new Span($end, $end));
+        return SyntaxLocation::in($source, new Span($end, $end));
     }
 }

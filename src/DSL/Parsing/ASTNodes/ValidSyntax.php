@@ -36,11 +36,7 @@ final readonly class ValidSyntax extends WarrantSyntax
             return $syntax;
         }
 
-        $mistakes = (new SyntaxValidator($input))->mistakes($syntax);
-
-        if ($mistakes !== []) {
-            throw $mistakes[0];
-        }
+        SyntaxValidator::assertValid($syntax, $input);
 
         return new self($syntax, $input);
     }
@@ -55,7 +51,7 @@ final readonly class ValidSyntax extends WarrantSyntax
             return $syntax;
         }
 
-        $mistakes = (new SyntaxValidator($input))->mistakes($syntax);
+        $mistakes = SyntaxValidator::mistakes($syntax, $input);
 
         if ($mistakes === []) {
             return new self($syntax, $input);

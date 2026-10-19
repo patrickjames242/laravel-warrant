@@ -8,7 +8,6 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
-use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
@@ -84,21 +83,18 @@ readonly class WarrantSyntax implements INode
      * where in the text it is.
      *
      * Each `for <schema>` body is checked against the schema its header names.
-     * Rules with no header are checked as rules for $schemaKey, each naming the
-     * abilities it applies to; with no $schemaKey they belong to no schema yet,
-     * and are held only to the rules of the language that need none.
+     * Rules with no header are checked against the schema the syntax is for,
+     * as what produced it says ({@see SyntaxProducer::code()} takes one); with
+     * none they belong to no schema yet, and are held only to the rules of the
+     * language that need none.
      *
      * What is checked is the text as written. The rules a template answers with
      * and the expression a derived condition answers with are texts of their
      * own, checked when a guard expands the rules that name them.
      */
-    public function validate(?string $schemaKey = null): ValidSyntax
+    public function validate(): ValidSyntax
     {
-        return ValidSyntax::of($this, new ValidationInput(
-            new RegisteredSchemas,
-            $schemaKey,
-            $schemaKey === null ? GenericMode::Either : GenericMode::RequireNotGeneric,
-        ));
+        return ValidSyntax::of($this, new ValidationInput(new RegisteredSchemas));
     }
 
     /**

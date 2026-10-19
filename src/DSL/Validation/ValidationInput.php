@@ -5,7 +5,10 @@ namespace Warrant\DSL\Validation;
 use Warrant\DSL\SchemaCatalog;
 
 /**
- * What rule text is validated against, beyond the text itself.
+ * What rule text is validated against, beyond the text itself. The schema the
+ * text is for, and whether its rules with no `for` header name their
+ * abilities, are what produced the text: they come from its
+ * {@see \Warrant\DSL\Parsing\SyntaxProducer}, not from here.
  *
  * Two inputs that are equal (`==`) validate any text alike.
  *
@@ -18,12 +21,6 @@ final readonly class ValidationInput
      *   names is found, and the schemas cross-schema references name; null when
      *   no schema can be known, so the text is held only to the rules of the
      *   language that need none, and no header is reported as unknown.
-     * @param string|null $schema The key of the schema rules or a condition with
-     *   no `for` header are in, when the caller knows it. A `for` header names
-     *   the schema of the body under it, whatever this says. A key the catalog
-     *   does not hold is no schema at all.
-     * @param GenericMode $genericMode Whether rules with no `for` header name
-     *   their abilities.
      * @param bool $checkBindingValues Whether each binding is checked against
      *   the value its source gives it: that it has one, that every value given
      *   is used, and that it can stand where it was written. Off where the text
@@ -32,8 +29,6 @@ final readonly class ValidationInput
      */
     public function __construct(
         public ?SchemaCatalog $catalog,
-        public ?string $schema = null,
-        public GenericMode $genericMode = GenericMode::Either,
         public bool $checkBindingValues = true,
     ) {
     }
