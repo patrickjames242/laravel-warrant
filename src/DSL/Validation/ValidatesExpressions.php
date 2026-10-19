@@ -21,7 +21,6 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\SchemaVocabulary;
-use Warrant\Registry\RegisteredSchemas;
 
 /**
  * The checks a {@see SyntaxValidator} makes of a boolean expression: every
@@ -48,15 +47,14 @@ use Warrant\Registry\RegisteredSchemas;
 trait ValidatesExpressions
 {
     /**
-     * Validate every name in a condition against the schema it belongs to, as
-     * a rule's own `if` expression would be. With no schema known there is
-     * nothing to look its names up in.
+     * Validate a condition against the schema it belongs to, as a rule's own `if`
+     * expression would be. With no schema known there is nothing to look its
+     * names up in and no scope to place its `@column` references in, and it is
+     * held to every other rule of the language.
      */
     private function validateCondition(IBooleanExpressionNode $expression, ?SchemaVocabulary $schema, ?string $schemaKey): void
     {
-        if ($schema !== null) {
-            $this->validateExpression($expression, $schema, $this->rootScope($schema, $schemaKey));
-        }
+        $this->validateExpression($expression, $schema, $schema === null ? null : $this->rootScope($schema, $schemaKey));
     }
 
     /**
@@ -85,18 +83,23 @@ trait ValidatesExpressions
      * parameters, so descending into a predicate is the walk calling itself with a
      * different vocabulary rather than a second walk with its own rules.
      *
-     * @param SchemaVocabulary $vocabulary Whose conditions and abilities the leaves
-     *   of $node name.
-     * @param AliasScope $scope The frames in scope where $node is written; see
+     * A leaf whose schema is not known has nothing to look its names up in, and
+     * a reference written where the scope is not known has nothing to be checked
+     * against. Everything else about it is checked all the same.
+     *
+     * @param SchemaVocabulary|null $vocabulary Whose conditions and abilities the
+     *   leaves of $node name; null when that schema is not known.
+     * @param AliasScope|null $scope The frames in scope where $node is written; see
      *   {@see assertColumnRefsInScope}. Every qualifier in it is null — nothing is
-     *   selected until a compile, and only the names matter here.
+     *   selected until a compile, and only the names matter here. Null when the
+     *   frames are not known.
      * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
      *   predicate this is, or null for a rule's own expression.
      */
     private function validateExpression(
         IBooleanExpressionNode $node,
-        SchemaVocabulary $vocabulary,
-        AliasScope $scope,
+        ?SchemaVocabulary $vocabulary,
+        ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
     ): void {
         match (true) {
@@ -141,8 +144,8 @@ trait ValidatesExpressions
      */
     private function assertCrossSchemaCanValid(
         CrossSchemaCanNode $node,
-        SchemaVocabulary $vocabulary,
-        AliasScope $scope,
+        ?SchemaVocabulary $vocabulary,
+        ?AliasScope $scope,
     ): void {
         if ($node->schemaKey === null) {
             $this->assertOwnAbilityValid($node, $vocabulary);
@@ -158,15 +161,15 @@ trait ValidatesExpressions
             return;
         }
 
-        $target = ($this->input->catalog ?? new RegisteredSchemas)->find($schemaKey);
+        $target = $this->input->catalog?->find($schemaKey);
 
-        if ($target === null) {
+        if ($this->input->catalog !== null && $target === null) {
             $this->fail(DiagnosticCode::UnknownSchema, sprintf('A can(...) reference targets unknown schema [%s].', $schemaKey), $node->schemaKey->location);
 
             return;
         }
 
-        if ($ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
+        if ($target !== null && $ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
             $this->fail(
                 DiagnosticCode::UnknownAbility,
                 sprintf('Ability [%s] is not declared by schema [%s].', $ability, $schemaKey),
@@ -199,7 +202,7 @@ trait ValidatesExpressions
      *
      * As with `can(...)` the target may be this schema itself.
      */
-    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, AliasScope $scope): void
+    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, ?AliasScope $scope): void
     {
         $schemaKey = $node->schemaKey->name;
 
@@ -208,9 +211,9 @@ trait ValidatesExpressions
             return;
         }
 
-        $target = ($this->input->catalog ?? new RegisteredSchemas)->find($schemaKey);
+        $target = $this->input->catalog?->find($schemaKey);
 
-        if ($target === null) {
+        if ($this->input->catalog !== null && $target === null) {
             $this->fail(DiagnosticCode::UnknownSchema, sprintf('A check(...) reference targets unknown schema [%s].', $schemaKey), $node->schemaKey->location);
 
             return;
@@ -236,9 +239,11 @@ trait ValidatesExpressions
         $this->validateExpression(
             $node->predicate,
             $target,
-            ! $target->describesRows()
-                ? $scope->enteringRowlessPredicate()
-                : $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
+            match (true) {
+                $scope === null || $target === null => null,
+                ! $target->describesRows() => $scope->enteringRowlessPredicate(),
+                default => $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
+            },
             $node,
         );
     }
@@ -253,12 +258,12 @@ trait ValidatesExpressions
      * vocabulary arrives as $vocabulary. Inside a `check(...)` predicate that is
      * the schema the handle named, not the one the rule is written on.
      */
-    private function assertOwnAbilityValid(CrossSchemaCanNode $node, SchemaVocabulary $vocabulary): void
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?SchemaVocabulary $vocabulary): void
     {
         $ability = $node->ability->name;
 
         // An ability with no name was reported where it was read.
-        if ($ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
+        if ($vocabulary !== null && $ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
             $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability), $node->ability->location);
         }
 
@@ -319,8 +324,8 @@ trait ValidatesExpressions
     }
 
     /**
-     * A row-bound handle's row target can work: the target has rows and its
-     * rows can be named, and if so, the handle supplies every argument the target's row key
+     * A row-bound handle's row target can work: when the target is known, it
+     * has rows and its rows can be named, and if so, the handle supplies every argument the target's row key
      * requires, and none of them is the literal `null`. An unbound handle has
      * no row target, so nothing here applies to it.
      *
@@ -342,12 +347,42 @@ trait ValidatesExpressions
         string $builtin,
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         string $schemaKey,
-        SchemaVocabulary $target,
+        ?SchemaVocabulary $target,
     ): void {
         if (! $node->isRowBound) {
             return;
         }
 
+        if ($target !== null) {
+            $this->assertTargetRowsCanBeNamed($builtin, $node, $schemaKey, $target);
+        }
+
+        foreach ($node->boundKey as $argument) {
+            if ($argument instanceof LiteralNode && $argument->value === null) {
+                $this->fail(
+                    DiagnosticCode::NullRowTarget,
+                    sprintf(
+                        'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id or a '
+                            .'@context reference, or drop the row selector.',
+                        $builtin,
+                        $schemaKey,
+                    ),
+                    $argument->location,
+                );
+            }
+        }
+    }
+
+    /**
+     * $target has rows, they can be named, and $node supplies every argument
+     * its row key requires.
+     */
+    private function assertTargetRowsCanBeNamed(
+        string $builtin,
+        CrossSchemaCanNode|CrossSchemaConditionNode $node,
+        string $schemaKey,
+        SchemaVocabulary $target,
+    ): void {
         if (! $target->describesRows()) {
             $this->fail(
                 DiagnosticCode::RowTargetOnRowlessSchema,
@@ -397,21 +432,6 @@ trait ValidatesExpressions
                 $node->location,
             );
         }
-
-        foreach ($node->boundKey as $argument) {
-            if ($argument instanceof LiteralNode && $argument->value === null) {
-                $this->fail(
-                    DiagnosticCode::NullRowTarget,
-                    sprintf(
-                        'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id or a '
-                            .'@context reference, or drop the row selector.',
-                        $builtin,
-                        $schemaKey,
-                    ),
-                    $argument->location,
-                );
-            }
-        }
     }
 
     /**
@@ -428,14 +448,33 @@ trait ValidatesExpressions
      * leaf alone. Row-ness is a schema's own implementation detail, invisible in
      * the rule text and free to change, so no rule is written against it.
      *
-     * @param AliasScope $scope The frames in scope where $node is written.
+     * @param AliasScope|null $scope The frames in scope where $node is written;
+     *   null when they are not known.
      */
     private function assertConditionValid(
         ConditionNode $node,
-        SchemaVocabulary $vocabulary,
-        AliasScope $scope,
+        ?SchemaVocabulary $vocabulary,
+        ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
+        if ($vocabulary !== null) {
+            $this->assertConditionDeclared($node, $vocabulary, $predicateOf);
+        }
+
+        $this->assertColumnRefsInScope($node->parameters, $scope);
+
+        /* Context keys need no declaration: a rule may reference any `@context`
+           key. An absent key simply makes its condition false at compile time
+           (see RuleSetCompiler); required keys are enforced separately, at check
+           time, via #[RequiredContext] and per-ability requires. */
+    }
+
+    /**
+     * $vocabulary declares the condition $node names, and $node gives it at least
+     * the arguments it requires.
+     */
+    private function assertConditionDeclared(ConditionNode $node, SchemaVocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
+    {
         $definition = $vocabulary->getConditionDefinition($node->conditionKey->name);
 
         if ($definition === null) {
@@ -446,16 +485,11 @@ trait ValidatesExpressions
                     : sprintf('Condition [%s] is not declared by schema [%s].', $node->conditionKey->name, $predicateOf->schemaKey->name),
                 $node->conditionKey->location,
             );
-        } else {
-            $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
+
+            return;
         }
 
-        $this->assertColumnRefsInScope($node->parameters, $scope);
-
-        /* Context keys need no declaration: a rule may reference any `@context`
-           key. An absent key simply makes its condition false at compile time
-           (see RuleSetCompiler); required keys are enforced separately, at check
-           time, via #[RequiredContext] and per-ability requires. */
+        $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
     }
 
     /**
@@ -501,11 +535,15 @@ trait ValidatesExpressions
      * Non-{@see ColumnRef} values are ignored.
      *
      * @param list<INode> $arguments
-     * @param AliasScope $scope The frames in scope where these arguments are
-     *   written.
+     * @param AliasScope|null $scope The frames in scope where these arguments are
+     *   written; null when they are not known, and nothing is checked.
      */
-    private function assertColumnRefsInScope(array $arguments, AliasScope $scope): void
+    private function assertColumnRefsInScope(array $arguments, ?AliasScope $scope): void
     {
+        if ($scope === null) {
+            return;
+        }
+
         foreach ($arguments as $argument) {
             if ($argument instanceof ColumnRef && ! $this->passedIn($argument)) {
                 /* The compiler's own scope decides, and throws the message: an

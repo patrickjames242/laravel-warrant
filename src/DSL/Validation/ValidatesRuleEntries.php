@@ -232,8 +232,8 @@ trait ValidatesRuleEntries
         $this->assertNoDuplicateCannotAbility($rule);
         $this->assertMessagesAreMessages($rule);
 
-        if ($rule->conditions !== null && $schema !== null) {
-            $this->validateExpression($rule->conditions, $schema, $this->rootScope($schema, $schemaKey));
+        if ($rule->conditions !== null) {
+            $this->validateCondition($rule->conditions, $schema, $schemaKey);
         }
     }
 
