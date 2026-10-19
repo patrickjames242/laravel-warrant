@@ -296,7 +296,7 @@ class WarrantConditionBuilder
      */
     private function addRaw(string $boolean, string $expression, array $bindings): static
     {
-        return $this->pushTerm($boolean, WarrantSyntax::parse(new BoundSyntax($expression, $bindings))->conditionExpression());
+        return $this->pushTerm($boolean, WarrantSyntax::parse(new BoundSyntax($expression, $bindings))->validateWithoutSchemas()->conditionExpression());
     }
 
     /**

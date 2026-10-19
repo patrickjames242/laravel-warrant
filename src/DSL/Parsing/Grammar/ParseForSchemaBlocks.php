@@ -15,7 +15,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * first.
  *
  * Blocks are returned in source order and are not merged;
- * {@see \Warrant\DSL\Parsing\ASTNodes\WarrantSyntax::forSchema()} folds
+ * {@see \Warrant\DSL\Parsing\ASTNodes\ValidSyntax::forSchema()} folds
  * same-schema rule sets together.
  *
  * The first block may be a `{` with no `for <schema>` before it: a mistake,

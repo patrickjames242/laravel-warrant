@@ -55,7 +55,7 @@ class Warrant extends Facade
     | A schema named in the text's own `for` header travels with the text, and
     | tooling reading the source — the language server, an editor extension — can
     | see it. Text with no header is given its schema by the caller, with
-    | WarrantSyntax::scopedTo().
+    | ValidSyntax::scopedTo().
     |
     | A condition and a rule also have a fluent builder, reached by condition() and
     | rule(). Building a rule set from rules already in hand is

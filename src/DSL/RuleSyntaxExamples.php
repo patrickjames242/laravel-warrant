@@ -16,8 +16,9 @@ use Warrant\DSL\Parsing\BoundSyntax;
  *
  * One parse reads every form of rule text, and the tree it answers with says
  * which form the text took: a condition, a rule, unscoped rules, or one or more
- * `for <schema>` rule sets. Unscoped rules take their schema from the caller,
- * through WarrantSyntax::scopedTo().
+ * `for <schema>` rule sets. Its nodes come out of the validated syntax, so the
+ * text is validated first. Unscoped rules take their schema from the caller,
+ * through ValidSyntax::scopedTo().
  *
  * Core model:
  *  - A rule set compiles DIRECTLY to SQL. There is no in-memory evaluator; even a
@@ -32,9 +33,9 @@ use Warrant\DSL\Parsing\BoundSyntax;
  *  - Whitespace and newlines are INSIGNIFICANT; a whole rule set may sit on one
  *    line. `if` (as a standalone keyword) is the sole rule delimiter.
  *  - The parser reads each binding as a placeholder node and puts no value in
- *    its place, so the text can be validated as it was written. The values
- *    go in when the syntax is resolved, which every accessor that hands
- *    nodes out (rule(), scopedTo(), ...) does first.
+ *    its place, so the text is validated as it was written. Each placeholder
+ *    finds its value in the text's source, and the values go in when the rules
+ *    are expanded.
  *  - Malformed syntax throws WarrantSyntaxException eagerly at build time, with
  *    position information (line:col / offset) and a snippet.
  *
@@ -63,7 +64,7 @@ class RuleSyntaxExamples
             if is_self
             they can edit, view, delete
             they cannot approve, deny
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // Compiles per ability, for this rule:
         //   edit / view / delete  ->  is_self
@@ -81,7 +82,7 @@ class RuleSyntaxExamples
             if has_access_control_level
             they can edit, view, update
             they cannot publish, deny
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // The same ability may appear in multiple rules; the per-ability formula
         // ORs the `can` expressions and ANDs the negated `cannot` expressions.
@@ -93,7 +94,7 @@ class RuleSyntaxExamples
         $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
             they can view
             they cannot delete
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // view   -> true            (always granted)
         // delete -> NOT (true)      (never granted, by anyone)
@@ -116,7 +117,7 @@ class RuleSyntaxExamples
             if is_locked
             they cannot edit because 'This timesheet is locked and can no longer be edited.'
             they cannot delete because 'Locked timesheets cannot be deleted.'
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // edit/delete are granted unless is_locked; when a locked row denies one,
         // the denial surfaces that clause's own message instead of the generic 403.
@@ -128,7 +129,7 @@ class RuleSyntaxExamples
         WarrantSyntax::parse(new BoundSyntax(
             "if is_locked they cannot edit because :msg",
             ['msg' => fn (\Warrant\Schema\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
-        ))->rule();
+        ))->validate()->rule();
 
         // The same rule built fluently — theyCannotBecause() carries the message:
         WarrantRuleNode::build()
@@ -150,7 +151,7 @@ class RuleSyntaxExamples
     {
         $ruleSet = WarrantSyntax::parse(
             'if is_self they can edit if is_manager they can approve they cannot delete',
-        )->scopedTo('timesheets');
+        )->validate()->scopedTo('timesheets');
 
         // Two rules:
         //   is_self    -> can edit
@@ -169,7 +170,7 @@ class RuleSyntaxExamples
         $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
             if is_self or not is_manager and is_owner
             they can view
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
     }
 
     /** `!` is an accepted synonym for `not`; parentheses group freely. */
@@ -178,7 +179,7 @@ class RuleSyntaxExamples
         $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
             if !(is_self or (!is_manager and is_specific_user('some-user-id')))
             they cannot edit
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // Equivalent, using canonical `not`:
         //   if not (is_self or (not is_manager and is_specific_user('some-user-id')))
@@ -197,7 +198,7 @@ class RuleSyntaxExamples
         $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
             if is_thing('a-string', 42, 3.14, true, null)
             they can view
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
     }
 
     /**
@@ -265,7 +266,7 @@ class RuleSyntaxExamples
             WARRANT, [
             'specific_user_id' => 'some-user-id',
             'some_list' => [1, null, false, 'some-string'],
-        ]))->scopedTo('timesheets');
+        ]))->validate()->scopedTo('timesheets');
     }
 
     /**
@@ -281,7 +282,7 @@ class RuleSyntaxExamples
             'department-id-1',
             'department-id-2',
             'department-id-3',
-        ]))->scopedTo('timesheets');
+        ]))->validate()->scopedTo('timesheets');
     }
 
     // -------------------------------------------------------------------------
@@ -300,7 +301,7 @@ class RuleSyntaxExamples
 
             if is_suspended
             they cannot *
-            WARRANT)->scopedTo('timesheets');
+            WARRANT)->validate()->scopedTo('timesheets');
 
         // is_admin     -> grants every ability
         // is_suspended -> AND NOT (is_suspended) applied to every ability
@@ -319,12 +320,12 @@ class RuleSyntaxExamples
      */
     public function composeResolvedRules(): void
     {
-        $cannotPublish = WarrantSyntax::parse('they cannot publish')->rule();
-        $cannotEdit    = WarrantSyntax::parse('they cannot edit')->rule();
+        $cannotPublish = WarrantSyntax::parse('they cannot publish')->validate()->rule();
+        $cannotEdit    = WarrantSyntax::parse('they cannot edit')->validate()->rule();
         $canEdit       = WarrantSyntax::parse(new BoundSyntax(
             'if some_condition(:some_param) they can edit',
             ['some_param' => 'some-value'],
-        ))->rule();
+        ))->validate()->rule();
 
         // Variadic:
         $ruleSet = RuleSetNode::fromRules('timesheets', $cannotPublish, $cannotEdit, $canEdit);

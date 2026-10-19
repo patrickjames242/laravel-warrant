@@ -3,6 +3,9 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Validation\RuleValidationException;
@@ -16,7 +19,8 @@ use Warrant\DSL\Validation\ValidationInput;
  * only for the input it was validated under.
  *
  * Only {@see of()} and {@see check()} make one, so holding a ValidSyntax is
- * proof that its text was validated.
+ * proof that its text was validated. Its accessors hand out its nodes, each
+ * holding the syntax to the shape it asks for.
  *
  * @internal
  */
@@ -67,8 +71,154 @@ final readonly class ValidSyntax extends WarrantSyntax
         ), $mistakes));
     }
 
-    protected function asValid(): self
+    /**
+     * The condition this source holds: a bare expression, or the one expression
+     * under a single `for <schema>` header, which scopes the names without
+     * changing the tree.
+     */
+    public function conditionExpression(): IBooleanExpressionNode
     {
-        return $this;
+        if (! $this->isExpression() && ! $this->isSchemaCondition()) {
+            throw $this->shapeError('a condition expression');
+        }
+
+        $child = $this->children[0];
+
+        return $child instanceof SchemaConditionNode ? $child->expression : $child;
+    }
+
+    /**
+     * The one unscoped rule this source holds.
+     */
+    public function rule(): WarrantRuleNode
+    {
+        if (! $this->isSingleRule()) {
+            throw $this->shapeError('a single rule');
+        }
+
+        return $this->children[0];
+    }
+
+    /**
+     * The unscoped entries. An empty source answers an empty list, since no rules
+     * is a valid rule body.
+     *
+     * @return list<IRuleEntryNode>
+     */
+    public function ruleEntries(): array
+    {
+        if (! $this->isEmpty() && ! $this->isRuleEntries()) {
+            throw $this->shapeError('unscoped rules');
+        }
+
+        /** @var list<IRuleEntryNode> */
+        return $this->children;
+    }
+
+    /**
+     * The one `for <schema>` rule set this source holds.
+     */
+    public function ruleSet(): RuleSetNode
+    {
+        if (! $this->isSingleRuleSet()) {
+            throw $this->shapeError('a single `for <schema>` rule set');
+        }
+
+        return $this->children[0];
+    }
+
+    /**
+     * Every `for <schema>` rule set, in source order and unmerged. An empty
+     * source answers an empty list.
+     *
+     * @return list<RuleSetNode>
+     */
+    public function ruleSets(): array
+    {
+        if (! $this->isEmpty() && ! $this->isRuleSets()) {
+            throw $this->shapeError('`for <schema>` rule sets');
+        }
+
+        /** @var list<RuleSetNode> */
+        return $this->children;
+    }
+
+    /**
+     * Every `for <schema>` body, rule sets and conditions alike, in source
+     * order. An empty source answers an empty list.
+     *
+     * @return list<ISchemaScopedNode>
+     */
+    public function scoped(): array
+    {
+        if (! $this->isEmpty() && ! $this->isSchemaScoped()) {
+            throw $this->shapeError('`for <schema>` bodies');
+        }
+
+        /** @var list<ISchemaScopedNode> */
+        return $this->children;
+    }
+
+    /**
+     * Every rule set for $schemaKey folded into one, in source order, or null
+     * when the source never names that schema.
+     */
+    public function forSchema(string $schemaKey): ?RuleSetNode
+    {
+        $matching = array_values(array_filter(
+            $this->ruleSets(),
+            static fn (RuleSetNode $ruleSet): bool => $ruleSet->schemaKey() === $schemaKey,
+        ));
+
+        return $matching === [] ? null : RuleSetNode::merge(...$matching);
+    }
+
+    /**
+     * This source as one rule set for $schemaKey. Unscoped entries, or no
+     * entries at all, are placed in a rule set for that schema, which was
+     * written nowhere but comes from where this syntax did; a single
+     * `for <schema>` rule set must already name it. A header and a schema that
+     * disagree is an error, never a silent choice.
+     */
+    public function scopedTo(string $schemaKey): RuleSetNode
+    {
+        if ($this->isEmpty() || $this->isRuleEntries()) {
+            return new RuleSetNode(
+                new NameNode($schemaKey, SyntaxLocation::builtBy($this->source->producer)),
+                $this->ruleEntries(),
+                SyntaxLocation::builtBy($this->source->producer),
+            );
+        }
+
+        $ruleSet = $this->ruleSet();
+
+        if ($ruleSet->schemaKey() !== $schemaKey) {
+            throw new InvalidArgumentException(sprintf(
+                'The rule text targets schema [%s] in its `for` header but was scoped to [%s].',
+                $ruleSet->schemaKey(),
+                $schemaKey,
+            ));
+        }
+
+        return $ruleSet;
+    }
+
+    /**
+     * Render the tree back to rule text with scalar values inlined as literals.
+     * Throws if a value has no inline representation — use
+     * {@see toBoundSyntax()} for those.
+     */
+    public function toSyntax(): string
+    {
+        return RuleSyntaxWriter::toSyntax($this);
+    }
+
+    /**
+     * Render the tree to `?`-parameterized rule text plus one flat, left-to-right
+     * positional bindings list. Lossless for any value.
+     */
+    public function toBoundSyntax(): BoundSyntax
+    {
+        return RuleSyntaxWriter::toBoundSyntax($this);
     }
 }

@@ -10,7 +10,6 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\Parsing\Writing\RuleSyntaxWriter;
 use Warrant\Registry\RegisteredSchemas;
 
 /**
@@ -36,8 +35,9 @@ use Warrant\Registry\RegisteredSchemas;
  * A syntax is validated into a {@see ValidSyntax}, a type that only validation
  * makes, and only a valid syntax can be expanded into an {@see ExpandedSyntax},
  * which is no block of text but the rules of many. The accessors that hand
- * nodes out — {@see rule()}, {@see scopedTo()} and the rest — take them from
- * {@see asValid()}, so a node never leaves a syntax unvalidated.
+ * nodes out — {@see ValidSyntax::rule()}, {@see ValidSyntax::scopedTo()} and
+ * the rest — are a valid syntax's, so a node never leaves a syntax
+ * unvalidated. This class answers only which shape its children are.
  *
  * Two parses of the same rules written differently hold children that say the
  * same, each placed where it was written.
@@ -98,11 +98,12 @@ readonly class WarrantSyntax implements INode
     }
 
     /**
-     * This syntax, valid. A syntax not yet validated is validated as written
-     * and against no schema, so it is held to the rules of the language that
-     * need none, its bindings' values among them. Throws the first mistake.
+     * This syntax, validated as written against no schema, where none can be
+     * looked up, as outside a running application. Names are not checked
+     * against any vocabulary; every rule of the language that needs none is,
+     * its bindings' values among them. Throws the first mistake.
      */
-    protected function asValid(): ValidSyntax
+    public function validateWithoutSchemas(): ValidSyntax
     {
         return ValidSyntax::of($this, new ValidationInput(null));
     }
@@ -192,94 +193,6 @@ readonly class WarrantSyntax implements INode
     }
 
     /**
-     * The condition this source holds: a bare expression, or the one expression
-     * under a single `for <schema>` header, which scopes the names without
-     * changing the tree.
-     */
-    public function conditionExpression(): IBooleanExpressionNode
-    {
-        if (! $this->isExpression() && ! $this->isSchemaCondition()) {
-            throw $this->shapeError('a condition expression');
-        }
-
-        $child = $this->asValid()->children[0];
-
-        return $child instanceof SchemaConditionNode ? $child->expression : $child;
-    }
-
-    /**
-     * The one unscoped rule this source holds.
-     */
-    public function rule(): WarrantRuleNode
-    {
-        if (! $this->isSingleRule()) {
-            throw $this->shapeError('a single rule');
-        }
-
-        return $this->asValid()->children[0];
-    }
-
-    /**
-     * The unscoped entries. An empty source answers an empty list, since no rules
-     * is a valid rule body.
-     *
-     * @return list<IRuleEntryNode>
-     */
-    public function ruleEntries(): array
-    {
-        if (! $this->isEmpty() && ! $this->isRuleEntries()) {
-            throw $this->shapeError('unscoped rules');
-        }
-
-        /** @var list<IRuleEntryNode> */
-        return $this->asValid()->children;
-    }
-
-    /**
-     * The one `for <schema>` rule set this source holds.
-     */
-    public function ruleSet(): RuleSetNode
-    {
-        if (! $this->isSingleRuleSet()) {
-            throw $this->shapeError('a single `for <schema>` rule set');
-        }
-
-        return $this->asValid()->children[0];
-    }
-
-    /**
-     * Every `for <schema>` rule set, in source order and unmerged. An empty
-     * source answers an empty list.
-     *
-     * @return list<RuleSetNode>
-     */
-    public function ruleSets(): array
-    {
-        if (! $this->isEmpty() && ! $this->isRuleSets()) {
-            throw $this->shapeError('`for <schema>` rule sets');
-        }
-
-        /** @var list<RuleSetNode> */
-        return $this->asValid()->children;
-    }
-
-    /**
-     * Every `for <schema>` body, rule sets and conditions alike, in source
-     * order. An empty source answers an empty list.
-     *
-     * @return list<ISchemaScopedNode>
-     */
-    public function scoped(): array
-    {
-        if (! $this->isEmpty() && ! $this->isSchemaScoped()) {
-            throw $this->shapeError('`for <schema>` bodies');
-        }
-
-        /** @var list<ISchemaScopedNode> */
-        return $this->asValid()->children;
-    }
-
-    /**
      * The distinct schema keys the `for` headers name, in source order.
      *
      * @return list<string>
@@ -294,69 +207,6 @@ readonly class WarrantSyntax implements INode
             static fn (ISchemaScopedNode $node): string => $node->schemaKey(),
             $this->children,
         )));
-    }
-
-    /**
-     * Every rule set for $schemaKey folded into one, in source order, or null
-     * when the source never names that schema.
-     */
-    public function forSchema(string $schemaKey): ?RuleSetNode
-    {
-        $matching = array_values(array_filter(
-            $this->ruleSets(),
-            static fn (RuleSetNode $ruleSet): bool => $ruleSet->schemaKey === $schemaKey,
-        ));
-
-        return $matching === [] ? null : RuleSetNode::merge(...$matching);
-    }
-
-    /**
-     * This source as one rule set for $schemaKey. Unscoped entries, or no
-     * entries at all, are placed in a rule set for that schema, which was
-     * written nowhere but comes from where this syntax did; a single
-     * `for <schema>` rule set must already name it. A header and a schema that
-     * disagree is an error, never a silent choice.
-     */
-    public function scopedTo(string $schemaKey): RuleSetNode
-    {
-        if ($this->isEmpty() || $this->isRuleEntries()) {
-            return new RuleSetNode(
-                $schemaKey,
-                $this->ruleEntries(),
-                SyntaxLocation::builtBy($this->source->producer),
-            );
-        }
-
-        $ruleSet = $this->ruleSet();
-
-        if ($ruleSet->schemaKey !== $schemaKey) {
-            throw new InvalidArgumentException(sprintf(
-                'The rule text targets schema [%s] in its `for` header but was scoped to [%s].',
-                $ruleSet->schemaKey,
-                $schemaKey,
-            ));
-        }
-
-        return $ruleSet;
-    }
-
-    /**
-     * Render the tree back to rule text with scalar values inlined as literals.
-     * Throws if a value has no inline representation — use
-     * {@see toBoundSyntax()} for those.
-     */
-    public function toSyntax(): string
-    {
-        return RuleSyntaxWriter::toSyntax($this->asValid());
-    }
-
-    /**
-     * Render the tree to `?`-parameterized rule text plus one flat, left-to-right
-     * positional bindings list. Lossless for any value.
-     */
-    public function toBoundSyntax(): BoundSyntax
-    {
-        return RuleSyntaxWriter::toBoundSyntax($this->asValid());
     }
 
     /**
@@ -414,7 +264,7 @@ readonly class WarrantSyntax implements INode
         };
     }
 
-    private function shapeError(string $expected): LogicException
+    protected function shapeError(string $expected): LogicException
     {
         return new LogicException(sprintf('Expected %s, but the source holds %s.', $expected, $this->describe()));
     }
@@ -433,8 +283,8 @@ readonly class WarrantSyntax implements INode
             $first instanceof AbilityBlockNode && count($this->children) === 1 => 'an ability block',
             $first instanceof IncludeInvocationNode && count($this->children) === 1 => 'an @include',
             $this->isRuleEntries() => sprintf('%d unscoped rule entries', count($this->children)),
-            $first instanceof RuleSetNode && count($this->children) === 1 => sprintf('a rule set for [%s]', $first->schemaKey),
-            $first instanceof SchemaConditionNode && count($this->children) === 1 => sprintf('a condition for [%s]', $first->schemaKey),
+            $first instanceof RuleSetNode && count($this->children) === 1 => sprintf('a rule set for [%s]', $first->schemaKey()),
+            $first instanceof SchemaConditionNode && count($this->children) === 1 => sprintf('a condition for [%s]', $first->schemaKey()),
             default => sprintf('%d `for <schema>` bodies', count($this->children)),
         };
     }

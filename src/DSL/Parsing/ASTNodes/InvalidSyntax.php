@@ -23,13 +23,4 @@ final readonly class InvalidSyntax extends WarrantSyntax
     {
         parent::__construct($syntax->children, $syntax->source);
     }
-
-    /**
-     * Throws the first mistake this syntax makes under its input: an invalid
-     * syntax has no nodes to hand out.
-     */
-    protected function asValid(): ValidSyntax
-    {
-        return ValidSyntax::of($this, $this->input);
-    }
 }
