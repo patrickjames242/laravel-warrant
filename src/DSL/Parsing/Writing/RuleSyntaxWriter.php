@@ -8,6 +8,7 @@ use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -19,13 +20,16 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 
 /**
@@ -40,6 +44,9 @@ use Warrant\DSL\Parsing\BoundSyntax;
  * - **Bound** ({@see toBoundSyntax}) — every condition parameter becomes a
  *   positional `?`, and the raw values are collected into a flat, left-to-right
  *   {@see BoundSyntax}. Lossless for any PHP value.
+ *
+ * A binding is written as the value its own source gives it, so a placeholder
+ * reads back the same in either form.
  *
  * The `if` expression is printed with minimal parentheses honouring the DSL's
  * `not` > `and` > `or` precedence, so `(a and b) or c` renders as `a and b or c`
@@ -67,7 +74,7 @@ final class RuleSyntaxWriter
      * line apart, which reads back the same whether there is one or several;
      * unscoped entries and a bare expression are written as they are.
      */
-    public static function toSyntax(WarrantSyntax $syntax): string
+    public static function toSyntax(ValidSyntax $syntax): string
     {
         return (new self(bound: false))->writeSyntax($syntax);
     }
@@ -75,14 +82,14 @@ final class RuleSyntaxWriter
     /**
      * Render a whole tree to `?`-parameterized syntax plus the matching bindings.
      */
-    public static function toBoundSyntax(WarrantSyntax $syntax): BoundSyntax
+    public static function toBoundSyntax(ValidSyntax $syntax): BoundSyntax
     {
         $writer = new self(bound: true);
 
         return new BoundSyntax($writer->writeSyntax($syntax), $writer->bindings);
     }
 
-    private function writeSyntax(WarrantSyntax $syntax): string
+    private function writeSyntax(ValidSyntax $syntax): string
     {
         return implode("\n\n", array_map(
             fn (INode $child): string => match (true) {
@@ -124,9 +131,9 @@ final class RuleSyntaxWriter
             ? ''
             : '(' . implode(', ', array_map($this->arg(...), $include->arguments)) . ')';
 
-        $written = "@include {$include->templateKey}{$arguments}";
+        $written = "@include {$include->templateKey->name}{$arguments}";
 
-        return $include->isGeneric() ? $written : $written . ' for ' . implode(', ', $include->abilities);
+        return $include->isGeneric() ? $written : $written . ' for ' . $this->names($include->abilities);
     }
 
     /**
@@ -136,7 +143,7 @@ final class RuleSyntaxWriter
     {
         $body = $this->writeEntries($block->entries);
 
-        $header = 'can they ' . implode(', ', $block->abilities);
+        $header = 'can they ' . $this->names($block->abilities);
 
         return $body === '' ? "{$header} {\n}" : "{$header} {\n" . $this->indent($body) . "\n}";
     }
@@ -198,11 +205,19 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<string> $abilities
+     * @param list<NameNode> $abilities
      */
     private function clauseLine(string $keyword, array $abilities): string
     {
-        return $abilities === [] ? $keyword : $keyword . ' ' . implode(', ', $abilities);
+        return $abilities === [] ? $keyword : $keyword . ' ' . $this->names($abilities);
+    }
+
+    /**
+     * @param list<NameNode> $names
+     */
+    private function names(array $names): string
+    {
+        return implode(', ', array_map(static fn (NameNode $name): string => $name->name, $names));
     }
 
     private function writeExpression(IBooleanExpressionNode $node): string
@@ -219,7 +234,7 @@ final class RuleSyntaxWriter
             /* An expanded derived condition reads as the call the rule wrote, not
                as what it expanded to. */
             $node instanceof DerivedConditionNode => $this->writeCondition(
-                new ConditionNode($node->conditionKey, $node->parameters),
+                new ConditionNode($node->conditionKey, $node->parameters, $node->location),
             ),
             $node instanceof BooleanNode => throw new LogicException(
                 'A constant boolean expression has no rule-language representation.'
@@ -255,10 +270,10 @@ final class RuleSyntaxWriter
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
         if ($node->schemaKey === null) {
-            return 'can(' . $node->ability . ')';
+            return 'can(' . $node->ability->name . ')';
         }
 
-        return 'can(' . $node->ability . ' for '
+        return 'can(' . $node->ability->name . ' for '
             . $this->writeHandleAndWith(
                 $node->schemaKey,
                 $node->isRowBound,
@@ -289,31 +304,31 @@ final class RuleSyntaxWriter
      * `schema()` addresses a row with a key that takes no arguments, and bare
      * `schema` addresses none, so the parentheses are what tell them apart.
      *
-     * @param array<int, mixed> $boundKey
-     * @param array<string, mixed> $contextMap
+     * @param list<INode> $boundKey
+     * @param list<WithEntryNode> $contextMap
      */
     private function writeHandleAndWith(
-        string $schemaKey,
+        NameNode $schemaKey,
         bool $isRowBound,
         array $boundKey,
         array $contextMap,
-        ?string $alias = null,
+        ?NameNode $alias = null,
     ): string {
-        $out = $schemaKey;
+        $out = $schemaKey->name;
 
         if ($isRowBound) {
-            $out .= '(' . implode(', ', array_map(fn (mixed $argument): string => $this->arg($argument), $boundKey)) . ')';
+            $out .= '(' . implode(', ', array_map($this->arg(...), $boundKey)) . ')';
         }
 
         if ($alias !== null) {
-            $out .= ' as ' . $alias;
+            $out .= ' as ' . $alias->name;
         }
 
         if ($contextMap !== []) {
             $entries = [];
 
-            foreach ($contextMap as $key => $value) {
-                $entries[] = $key . ' = ' . $this->arg($value);
+            foreach ($contextMap as $entry) {
+                $entries[] = $entry->key->name . ' = ' . $this->arg($entry->value);
             }
 
             $out .= ' with ' . implode(', ', $entries);
@@ -325,10 +340,10 @@ final class RuleSyntaxWriter
     private function writeCondition(ConditionNode $node): string
     {
         if ($node->parameters === []) {
-            return $node->conditionKey;
+            return $node->conditionKey->name;
         }
 
-        return $node->conditionKey . '(' . implode(', ', array_map($this->arg(...), $node->parameters)) . ')';
+        return $node->conditionKey->name . '(' . implode(', ', array_map($this->arg(...), $node->parameters)) . ')';
     }
 
     /**
@@ -338,8 +353,10 @@ final class RuleSyntaxWriter
      * inline mode a string is written as a literal; a closure has no textual
      * form, so it throws, directing the caller to toBoundSyntax().
      */
-    private function messageArg(string|Closure $message): string
+    private function messageArg(INode $node): string
     {
+        $message = $this->value($node);
+
         if ($this->bound) {
             $this->bindings[] = $message;
 
@@ -355,26 +372,28 @@ final class RuleSyntaxWriter
         return $this->literal($message);
     }
 
-    private function arg(mixed $value): string
+    private function arg(INode $node): string
     {
+        $value = $this->value($node);
+
         // A context ref is a compile-time reference, not a runtime value: it must
         // render identically in inline and bound modes, and must NOT consume a
         // positional binding (else the `?` count desyncs on re-parse).
         if ($value instanceof ContextRef) {
-            return '@context ' . $value->key;
+            return '@context ' . $value->key->name;
         }
 
         // A column ref is likewise a compile-time reference, not a runtime value —
         // same rule: render identically in both modes and consume no `?` binding.
         if ($value instanceof ColumnRef) {
-            return '@column ' . ($value->alias === null ? '' : $value->alias . '.') . $value->column;
+            return '@column ' . ($value->alias === null ? '' : $value->alias->name . '.') . $value->column->name;
         }
 
         // An @sql ref is likewise a compile-time reference, not a runtime value —
         // same rule: render identically in both modes and consume no `?` binding.
         // The body is quoted/escaped so it round-trips back through the lexer.
         if ($value instanceof SqlRef) {
-            return '@sql ' . $this->literal($value->sql);
+            return '@sql ' . $this->literal($this->value($value->sql));
         }
 
         if ($this->bound) {
@@ -384,6 +403,19 @@ final class RuleSyntaxWriter
         }
 
         return $this->literal($value);
+    }
+
+    /**
+     * What $node stands for: a literal's value, a binding's value, or the node
+     * itself for a reference. A binding's value may itself be a reference.
+     */
+    private function value(INode $node): mixed
+    {
+        return match (true) {
+            $node instanceof LiteralNode => $node->value,
+            $node instanceof BindingNode => $node->value(),
+            default => $node,
+        };
     }
 
     private function literal(mixed $value): string

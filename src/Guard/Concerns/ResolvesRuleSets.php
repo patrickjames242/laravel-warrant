@@ -11,7 +11,6 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
-use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Registry\RegisteredSchemas;
@@ -69,10 +68,11 @@ trait ResolvesRuleSets
      * The rules $producer answered with, each validated as written. They may
      * come in any form: a {@see RuleSetNode}, a rule entry, a
      * {@see WarrantRuleBuilder}, rule text as a string or {@see WarrantSyntax},
-     * or an iterable of any of these. Text is parsed, and rules built in code
-     * are placed, in a source whose producer is $producer; a syntax the
-     * application made itself has $producer set on its source. A schema's own
-     * rules must all be for that schema.
+     * or an iterable of any of these. Text is parsed with $producer. Anything
+     * else is a syntax rooted at the source it was made in, a builder's or a
+     * node's own, and $producer is set on that source, so every node made in it
+     * says what handed it over. A schema's own rules must all be for that
+     * schema.
      *
      * @return list<ValidSyntax>
      */
@@ -89,7 +89,9 @@ trait ResolvesRuleSets
         }
 
         if ($rules instanceof WarrantRuleBuilder) {
-            $rules = $rules->toRule();
+            $rules = new WarrantSyntax([$rules->toRule()], $rules->source);
+        } elseif ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
+            $rules = new WarrantSyntax([$rules], $rules->location->source);
         }
 
         if ($rules instanceof WarrantSyntax) {
@@ -99,7 +101,6 @@ trait ResolvesRuleSets
         $syntax = match (true) {
             $rules instanceof WarrantSyntax => $rules,
             is_string($rules) => WarrantParser::parse($rules, $producer),
-            $rules instanceof IRuleEntryNode, $rules instanceof RuleSetNode => new WarrantSyntax([$rules], new SyntaxSource(null, $producer)),
             default => throw new InvalidArgumentException(sprintf(
                 '%s returned %s; expected a rule set, a rule entry, a rule builder, rule text, or an iterable of them.',
                 $producer->describe(),

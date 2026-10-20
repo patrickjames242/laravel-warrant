@@ -13,7 +13,6 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
@@ -75,8 +74,9 @@ trait ExpandsRuleTemplates
      * one question, and a rule set or ability block, which always name theirs, has
      * no place in a template at all.
      *
-     * Every answer is placed in a source whose producer is $producer, the
-     * template answering the `@include`, and validated before it is spliced in:
+     * $producer, the template answering the `@include`, is set on the source
+     * every answer was made in: its text's, or a built node's own, which every
+     * node a builder made with it shares. Each answer is validated before it is spliced in:
      * rule text as the text it is, so an error points into it, and a rule or
      * include built in code as the node it is.
      *
@@ -115,7 +115,7 @@ trait ExpandsRuleTemplates
                 ));
             }
 
-            return $this->templateEntries(new WarrantSyntax([$body], new SyntaxSource(null, $producer)), $producer);
+            return $this->templateEntries(new WarrantSyntax([$body], $body->location->source), $producer);
         }
 
         if ($body instanceof AbilityBlockNode || $body instanceof RuleSetNode) {

@@ -6,6 +6,7 @@ use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
  * The rules for one schema: the body of a `for <schema>` header, or rules given
@@ -53,7 +54,8 @@ final readonly class RuleSetNode implements ISchemaScopedNode
      *
      * The callback receives a factory; each invocation of it appends a fresh
      * {@see WarrantRuleBuilder} to the set and returns it for chaining. Rules are
-     * finalized automatically — there is no need to call toRule().
+     * finalized automatically — there is no need to call toRule(). Every node of
+     * the set, its rules' included, is placed in one source.
      *
      * ```php
      * RuleSetNode::build('timesheets', function ($rule) {
@@ -66,18 +68,19 @@ final readonly class RuleSetNode implements ISchemaScopedNode
      */
     public static function build(string $schemaKey, Closure $callback): self
     {
+        $source = new SyntaxSource(null);
         $builders = [];
 
-        $make = function () use (&$builders): WarrantRuleBuilder {
-            return $builders[] = new WarrantRuleBuilder;
+        $make = function () use (&$builders, $source): WarrantRuleBuilder {
+            return $builders[] = new WarrantRuleBuilder($source);
         };
 
         $callback($make);
 
         return new self(
-            new NameNode($schemaKey, SyntaxLocation::noProducer()),
+            new NameNode($schemaKey, SyntaxLocation::builtIn($source)),
             array_map(static fn (WarrantRuleBuilder $builder): WarrantRuleNode => $builder->toRule(), $builders),
-            SyntaxLocation::noProducer(),
+            SyntaxLocation::builtIn($source),
         );
     }
 

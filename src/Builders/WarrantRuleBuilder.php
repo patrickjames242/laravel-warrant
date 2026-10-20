@@ -40,14 +40,14 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
 
     public function theyCan(string ...$abilities): static
     {
-        $this->canClauses[] = new CanClauseNode(array_values($abilities));
+        $this->canClauses[] = new CanClauseNode(array_map($this->nameNode(...), array_values($abilities)), null, $this->location());
 
         return $this;
     }
 
     public function theyCannot(string ...$abilities): static
     {
-        $this->cannotClauses[] = new CannotClauseNode($abilities);
+        $this->cannotClauses[] = new CannotClauseNode(array_map($this->nameNode(...), array_values($abilities)), null, $this->location());
 
         return $this;
     }
@@ -64,7 +64,11 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      */
     public function theyCannotBecause(string|array $abilities, string|Closure $message): static
     {
-        $this->cannotClauses[] = new CannotClauseNode(is_array($abilities) ? array_values($abilities) : [$abilities], $message);
+        $this->cannotClauses[] = new CannotClauseNode(
+            array_map($this->nameNode(...), is_array($abilities) ? array_values($abilities) : [$abilities]),
+            $this->argumentNode($message),
+            $this->location(),
+        );
 
         return $this;
     }
@@ -79,6 +83,6 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
             );
         }
 
-        return new WarrantRuleNode($this->buildConditions(), $this->canClauses, $this->cannotClauses);
+        return new WarrantRuleNode($this->buildConditions(), $this->canClauses, $this->cannotClauses, $this->location());
     }
 }

@@ -4,14 +4,18 @@ namespace Warrant\Builders;
 
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * Factories for the DSL's three symbolic references — `@context`, `@column` and
  * `@sql` — for use anywhere the builder takes an argument value: a condition
  * parameter, a cross-schema row selector, or a `with` map value.
  *
- * They return the same objects the parser produces, and like the parser they stay
+ * They return the same objects the parser produces, at
+ * {@see SyntaxLocation::noProducer()}, and like the parser they stay
  * symbolic in the AST: their values are filled late, by
  * {@see \Warrant\DSL\Compiling\RuleSetCompiler} — a context ref per check, a column
  * ref against the registry and the query's grammar, a SQL ref verbatim.
@@ -27,7 +31,7 @@ final class Ref
     /** A check-time context value — `@context <key>` in the DSL. */
     public static function context(string $key): ContextRef
     {
-        return new ContextRef($key);
+        return new ContextRef(new NameNode($key, SyntaxLocation::noProducer()), SyntaxLocation::noProducer());
     }
 
     /**
@@ -57,8 +61,8 @@ final class Ref
     public static function column(string $columnOrFrame, ?string $column = null): ColumnRef
     {
         return $column === null
-            ? new ColumnRef(null, $columnOrFrame)
-            : new ColumnRef($columnOrFrame, $column);
+            ? new ColumnRef(null, new NameNode($columnOrFrame, SyntaxLocation::noProducer()), SyntaxLocation::noProducer())
+            : new ColumnRef(new NameNode($columnOrFrame, SyntaxLocation::noProducer()), new NameNode($column, SyntaxLocation::noProducer()), SyntaxLocation::noProducer());
     }
 
     /**
@@ -67,7 +71,7 @@ final class Ref
      */
     public static function sql(string $sql): SqlRef
     {
-        return new SqlRef($sql);
+        return new SqlRef(new LiteralNode($sql, SyntaxLocation::noProducer()), SyntaxLocation::noProducer());
     }
 
     private function __construct()

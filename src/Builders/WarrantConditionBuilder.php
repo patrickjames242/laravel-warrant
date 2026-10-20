@@ -11,10 +11,17 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxSource;
+use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\WarrantSchema;
 
@@ -24,7 +31,12 @@ use Warrant\Schema\WarrantSchema;
  *
  * It produces AST nodes directly — the same tree the parser builds — so a built
  * condition flows through the identical validation and compilation. Nothing is
- * ever serialized to a string.
+ * ever serialized to a string. Every node it makes, through nested groups and
+ * predicates too, is placed in its one {@see $source}, which has no text. The
+ * backend sets the producer on that source when it is handed what was built, so
+ * every node says what handed it over. A name is a {@see NameNode}, and a PHP
+ * value is a {@see LiteralNode} unless it is already a node, such as a
+ * {@see Ref}, which keeps its own source.
  *
  * Terms accumulate as a flat sequence joined by `and`/`or`; the tree is
  * materialized with the DSL's precedence (`not` > `and` > `or`), so the builder
@@ -43,6 +55,17 @@ class WarrantConditionBuilder
 {
     /** @var list<array{boolean: string, node: IBooleanExpressionNode}> */
     private array $terms = [];
+
+    public readonly SyntaxSource $source;
+
+    /**
+     * @param SyntaxSource|null $source The source to place every node in; a new
+     *   one when null. A group or predicate is built in its parent's.
+     */
+    public function __construct(?SyntaxSource $source = null)
+    {
+        $this->source = $source ?? new SyntaxSource(null);
+    }
 
     /**
      * Start a fluent, query-builder-style condition, the way
@@ -282,21 +305,24 @@ class WarrantConditionBuilder
     {
         $node = $condition instanceof Closure
             ? $this->group($condition)
-            : new ConditionNode($condition, $parameters);
+            : new ConditionNode($this->nameNode($condition), array_map($this->argumentNode(...), array_values($parameters)), $this->location());
 
         if ($negate) {
-            $node = new NotNode($node);
+            $node = new NotNode($node, $this->location());
         }
 
         return $this->pushTerm($boolean, $node);
     }
 
     /**
+     * The expression is parsed as a raw condition, so its nodes keep that
+     * producer wherever the built rule is handed over.
+     *
      * @param array<int|string, mixed> $bindings
      */
     private function addRaw(string $boolean, string $expression, array $bindings): static
     {
-        return $this->pushTerm($boolean, WarrantSyntax::parse(new BoundSyntax($expression, $bindings))->validateWithoutSchemas()->conditionExpression());
+        return $this->pushTerm($boolean, WarrantParser::parse(new BoundSyntax($expression, $bindings), SyntaxProducer::rawCondition())->validateWithoutSchemas()->conditionExpression());
     }
 
     /**
@@ -310,15 +336,51 @@ class WarrantConditionBuilder
      * Keys are dropped from an associative array: arguments bind positionally to
      * the key's parameters, exactly as a condition's do.
      *
-     * @return array<int, mixed>
+     * @return list<INode>
      */
-    private static function keyArguments(mixed $key): array
+    private function keyArguments(mixed $key): array
     {
-        return match (true) {
+        return array_map($this->argumentNode(...), match (true) {
             $key instanceof NoRow => [],
             is_array($key) => array_values($key),
             default => [$key],
-        };
+        });
+    }
+
+    /**
+     * The `with` map's entries, in the order given.
+     *
+     * @param array<string, mixed> $with
+     * @return list<WithEntryNode>
+     */
+    private function withEntries(array $with): array
+    {
+        $entries = [];
+
+        foreach ($with as $key => $value) {
+            $entries[] = new WithEntryNode($this->nameNode($key), $this->argumentNode($value), $this->location());
+        }
+
+        return $entries;
+    }
+
+    protected function location(): SyntaxLocation
+    {
+        return SyntaxLocation::builtIn($this->source);
+    }
+
+    protected function nameNode(string $name): NameNode
+    {
+        return new NameNode($name, $this->location());
+    }
+
+    /**
+     * $value as an argument: itself when it is already a node, such as a
+     * {@see Ref}, else a {@see LiteralNode} of it.
+     */
+    protected function argumentNode(mixed $value): INode
+    {
+        return $value instanceof INode ? $value : new LiteralNode($value, $this->location());
     }
 
     /**
@@ -333,16 +395,25 @@ class WarrantConditionBuilder
         /* $with and $as travel even though a schema-less reference has no use for
            them, so supplying one is answered by validation rather than dropped. */
         if ($schema === null) {
-            return $this->pushTerm($boolean, new CrossSchemaCanNode(null, $ability, contextMap: $with, alias: $as));
+            return $this->pushTerm($boolean, new CrossSchemaCanNode(
+                null,
+                $this->nameNode($ability),
+                false,
+                [],
+                $this->withEntries($with),
+                $as === null ? null : $this->nameNode($as),
+                $this->location(),
+            ));
         }
 
         return $this->pushTerm($boolean, new CrossSchemaCanNode(
-            Warrant::registry()->resolveSchemaKeyOrFail($schema),
-            $ability,
+            $this->nameNode(Warrant::registry()->resolveSchemaKeyOrFail($schema)),
+            $this->nameNode($ability),
             ! $key instanceof NoRow,
-            self::keyArguments($key),
-            $with,
-            $as,
+            $this->keyArguments($key),
+            $this->withEntries($with),
+            $as === null ? null : $this->nameNode($as),
+            $this->location(),
         ));
     }
 
@@ -356,12 +427,13 @@ class WarrantConditionBuilder
     private function addCheck(string $boolean, string|Closure $predicate, Model|WarrantSchema|string $schema, mixed $key, array $with, ?string $as): static
     {
         return $this->pushTerm($boolean, new CrossSchemaConditionNode(
-            Warrant::registry()->resolveSchemaKeyOrFail($schema),
+            $this->nameNode(Warrant::registry()->resolveSchemaKeyOrFail($schema)),
             $this->predicate($predicate),
             ! $key instanceof NoRow,
-            self::keyArguments($key),
-            $with,
-            $as,
+            $this->keyArguments($key),
+            $this->withEntries($with),
+            $as === null ? null : $this->nameNode($as),
+            $this->location(),
         ));
     }
 
@@ -380,10 +452,10 @@ class WarrantConditionBuilder
     private function predicate(string|Closure $predicate): IBooleanExpressionNode
     {
         if (! $predicate instanceof Closure) {
-            return new ConditionNode($predicate);
+            return new ConditionNode($this->nameNode($predicate), [], $this->location());
         }
 
-        $sub = new self;
+        $sub = new self($this->source);
         $predicate($sub);
 
         return $sub->buildConditions() ?? throw new LogicException(
@@ -408,10 +480,10 @@ class WarrantConditionBuilder
      */
     private function group(Closure $callback): IBooleanExpressionNode
     {
-        $sub = new self;
+        $sub = new self($this->source);
         $callback($sub);
 
-        return $sub->buildConditions() ?? new BooleanNode(false);
+        return $sub->buildConditions() ?? new BooleanNode(false, $this->location());
     }
 
     /**
@@ -422,7 +494,7 @@ class WarrantConditionBuilder
         $accumulator = array_shift($nodes);
 
         foreach ($nodes as $node) {
-            $accumulator = new AndNode($accumulator, $node);
+            $accumulator = new AndNode($accumulator, $node, $this->location());
         }
 
         return $accumulator;
@@ -436,7 +508,7 @@ class WarrantConditionBuilder
         $accumulator = array_shift($nodes);
 
         foreach ($nodes as $node) {
-            $accumulator = new OrNode($accumulator, $node);
+            $accumulator = new OrNode($accumulator, $node, $this->location());
         }
 
         return $accumulator;

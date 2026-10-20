@@ -69,9 +69,10 @@ trait ExpandsDerivedConditions
     }
 
     /**
-     * What a derived condition answered with, as an expression node placed in
-     * a source whose producer is $producer, the condition answering the rule
-     * that named it.
+     * What a derived condition answered with, as an expression node in the
+     * source it was made in, with $producer, the condition answering the rule
+     * that named it, set on that source: its text's, the builder's, or a built
+     * node's own.
      *
      * Rule text, as a string or a {@see WarrantSyntax}, must hold a condition
      * expression, bare or under a `for` header naming this schema. A
@@ -90,10 +91,19 @@ trait ExpandsDerivedConditions
 
         $expression = $this->derivedNodeExpression($answer, $producer);
 
+        /* A constant built here is held in a source of its own, so it keeps
+           no producer. */
+        $source = match (true) {
+            $answer instanceof WarrantConditionBuilder => $answer->source,
+            $answer instanceof IBooleanExpressionNode => $answer->location->source,
+            default => new SyntaxSource(null),
+        };
+        $source->setProducer($producer);
+
         $valid = self::validateAnswer(
             $producer,
             fn () => ValidSyntax::of(
-                new WarrantSyntax([$expression], new SyntaxSource(null, $producer)),
+                new WarrantSyntax([$expression], $source),
                 new ValidationInput($this->catalog),
             ),
         );
