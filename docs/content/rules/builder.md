@@ -284,9 +284,13 @@ A rule with neither `theyCan` nor `theyCannot` throws a `LogicException` when it
 finished, exactly as the language rejects a bare `if` with no clause.
 
 With no abilities, a clause is generic: `->theyCan()`, `->theyCannot()` or
-`->theyCannotBecause([], 'message')`. That is how a
+`->theyCannotBecause(message: '...')`. That is how a
 [rule template's](/rules/templates/) body writes them, since the `@include`
 expanding the template names the abilities.
+
+`theyCannotBecause()` always needs its message. Called with abilities and no
+message, as in `->theyCannotBecause('delete')`, it throws a `LogicException`
+rather than reading `delete` as the message.
 
 ## A whole rule set
 

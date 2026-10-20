@@ -72,11 +72,22 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      * messages. Pass a single ability as a string or several as an array; the
      * abilities in one call share the message.
      *
+     * With no abilities the clause is generic, as {@see theyCan()}'s is, and the
+     * message is passed by name: `theyCannotBecause(message: '...')`. The message
+     * is required all the same, so a lone ability passed by position, its message
+     * forgotten, is reported rather than read as a message.
+     *
      * @param string|list<string> $abilities
-     * @param string|Closure(WarrantDenialContext):(string|\Throwable) $message
+     * @param string|Closure(WarrantDenialContext):(string|\Throwable)|null $message
      */
-    public function theyCannotBecause(string|array $abilities, string|Closure $message): static
+    public function theyCannotBecause(string|array $abilities = [], string|Closure|null $message = null): static
     {
+        if ($message === null) {
+            throw new LogicException(
+                "theyCannotBecause() needs a message; pass it after the abilities, or by name for a clause with no abilities: theyCannotBecause(message: '...')."
+            );
+        }
+
         $this->cannotClauses[] = [
             'abilities' => is_array($abilities) ? array_values($abilities) : [$abilities],
             'message' => $message,

@@ -24,6 +24,7 @@ use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
+use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -109,7 +110,7 @@ class BuildDocSchema extends WarrantSchema
         return Build::rule()->if('owner_is', ['t1'])->theyCan();
     }
 
-    public function rules(RuleProviderContext $context): WarrantRuleBuilder|RuleSetNode|array
+    public function rules(RuleProviderContext $context): mixed
     {
         return (self::$answer)();
     }
@@ -173,7 +174,7 @@ it('builds a rule set with a schema key, includes in the order written', functio
 it('builds headless entries with generic clauses and includes when given only a callback', function () {
     $entries = Build::ruleSet(function ($rule) {
         $rule()->if('is_approved')->theyCan();
-        $rule()->if('is_draft')->theyCannotBecause([], 'Not approved yet.');
+        $rule()->if('is_draft')->theyCannotBecause(message: 'Not approved yet.');
         $rule->include('audit_trail');
     });
 
@@ -279,6 +280,22 @@ it('takes no string in ifCheck', function () {
     Build::rule()->ifCheck('is_open');
 })->throws(TypeError::class);
 
+it('makes a generic denial with a message passed by name, or after an empty list', function () {
+    $parsed = WarrantSyntax::parse("if is_draft they cannot because 'Not approved yet.'")->children[0];
+
+    expect(Build::rule()->if('is_draft')->theyCannotBecause(message: 'Not approved yet.')->toRule())->toEqualSyntax($parsed)
+        ->and(Build::rule()->if('is_draft')->theyCannotBecause([], 'Not approved yet.')->toRule())->toEqualSyntax($parsed);
+});
+
+it('rejects a denial with no message, rather than reading a lone ability as one', function (Closure $deny) {
+    expect(fn () => $deny(Build::rule()->if('is_locked')))
+        ->toThrow(LogicException::class, "theyCannotBecause() needs a message; pass it after the abilities, or by name for a clause with no abilities: theyCannotBecause(message: '...').");
+})->with([
+    'a lone ability' => [fn (WarrantRuleBuilder $rule) => $rule->theyCannotBecause('delete')],
+    'abilities only' => [fn (WarrantRuleBuilder $rule) => $rule->theyCannotBecause(['delete', 'edit'])],
+    'nothing' => [fn (WarrantRuleBuilder $rule) => $rule->theyCannotBecause()],
+]);
+
 // -- if() -------------------------------------------------------------------------
 
 it('folds a bool into the tree as a constant', function (bool $value) {
@@ -364,6 +381,20 @@ it('takes a bare rule builder from rules()', function () {
 
     expect($rules)->toHaveCount(1)
         ->and($rules[0]->location->source->producer()->kind)->toBe(SyntaxProducerKind::SchemaRules);
+});
+
+it('takes rules from a provider whose rules() is declared mixed', function () {
+    app()->instance(RuleProvider::class, new class implements RuleProvider {
+        public function rules(RuleProviderContext $context): mixed
+        {
+            return $context->schemaKey === 'build_docs' ? Build::rule()->if('owner_is', ['p1'])->theyCan('edit') : [];
+        }
+    });
+
+    $rules = buildDocRules(fn () => Build::rule()->if('is_owner')->theyCan('view'));
+
+    expect(array_map(static fn (WarrantRuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
+        ->toBe([SyntaxProducerKind::SchemaRules, SyntaxProducerKind::RuleProvider]);
 });
 
 it('expands a template answering with headless entries and a bare rule builder', function () {

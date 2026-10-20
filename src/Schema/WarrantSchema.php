@@ -248,7 +248,7 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable
+    public function rules(RuleProviderContext $context): mixed
     {
         return [];
     }

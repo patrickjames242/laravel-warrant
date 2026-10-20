@@ -99,13 +99,16 @@ are the predicate. It adds:
 ```php
 ->theyCan(string ...$abilities): static
 ->theyCannot(string ...$abilities): static
-->theyCannotBecause(string|list<string> $abilities, string|Closure $message): static
+->theyCannotBecause(string|list<string> $abilities = [], string|Closure|null $message = null): static
 ->toRule(SyntaxSource $source = new SyntaxSource(null)): WarrantRuleNode
 ```
 
 `theyCannotBecause()` adds one clause per call, so separate calls give separate
 abilities separate messages while abilities passed together share one. With no
-abilities, a clause is generic, as a rule template's body writes it.
+abilities, a clause is generic, as a rule template's body writes it; pass the
+message by name, `theyCannotBecause(message: '...')`. The message is required: a
+call without one throws a `LogicException`, so a lone ability is never read as a
+message.
 
 `toRule()` throws a `LogicException` if neither clause method was called.
 

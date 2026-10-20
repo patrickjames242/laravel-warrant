@@ -251,7 +251,7 @@ public function requiresApproval(string $level): array
 {
     return Build::ruleSet(function ($rule) use ($level) {
         $rule()->if('is_approved_by', [$level])->theyCan();
-        $rule()->if('is_draft')->theyCannotBecause([], 'This document has not been approved yet.');
+        $rule()->if('is_draft')->theyCannotBecause(message: 'This document has not been approved yet.');
         $rule->include('audit_trail');
     });
 }
