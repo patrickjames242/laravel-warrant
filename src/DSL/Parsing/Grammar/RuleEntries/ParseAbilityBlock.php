@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  *
  * The block is grouping and nothing more. Its entries are generic, as the
  * source writes them, and the header alone says which abilities they take;
- * expansion applies it ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
+ * expansion applies it ({@see \Warrant\DSL\Expanding\Expander}).
  *
  * The block is read as it is written: a header naming no ability, an entry
  * naming its own, or a block inside it are the validator's to report.

@@ -230,7 +230,8 @@ abstract class WarrantSchema implements ConditionResolver
      * depend on the user — a super-admin escape hatch, a universal deny, or rules
      * looked up for this user alone. Return them in any form the global
      * provider may — a rule set, a rule entry, a rule builder, rule text, or an
-     * iterable of those:
+     * iterable of those. Unlike the global provider's, every rule set among
+     * them must be for this schema:
      *
      * ```php
      * public function rules(RuleProviderContext $context): string

@@ -1,0 +1,180 @@
+<?php
+
+namespace Warrant\DSL\Expanding\Concerns;
+
+use RuntimeException;
+use Warrant\DSL\Expanding\ExpansionTrail;
+use Warrant\DSL\Expanding\Expander;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\SyntaxSource;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Validation\ValidationInput;
+use Warrant\Schema\RuleTemplateDefinition;
+
+/**
+ * How {@see Expander} expands an `@include`: it calls the template the
+ * include names with the include's arguments, hands over what the template
+ * answers with as the template's own syntax, validates it, and splices in its
+ * generic rules and includes with the abilities the include names.
+ *
+ * @internal
+ */
+trait ExpandsRuleTemplates
+{
+    /**
+     * @return list<WarrantRuleNode>
+     */
+    private function expandInclude(
+        IncludeInvocationNode $include,
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        ExpansionTrail $trail,
+    ): array {
+        $deeper = $trail->enteringInclude($include);
+
+        $definition = self::resolveTemplate($schema, $schemaKey, $include);
+        $producer = SyntaxProducer::ruleTemplate($schemaKey, $schema::class, $definition->key, $definition->methodName, $include);
+
+        $generic = $this->templateEntries(
+            $schema->{$definition->methodName}(...self::argumentValues($include->arguments)),
+            $producer,
+        );
+
+        /* The body is generic, as an ability block's is: the include names the
+           abilities its clauses take, so they are applied here. */
+        $entries = array_map(
+            static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
+                => $entry->withAbilities($include->abilities),
+            $generic,
+        );
+
+        /* The body may hold includes of its own, taking the same abilities. They
+           are expanded here rather than left for the caller so that what comes
+           back is rules and only rules, however deep the templates went. */
+        return $this->expandEntries($entries, $schema, $schemaKey, $deeper);
+    }
+
+    /**
+     * The generic rules and includes in what a rule template answered with, in
+     * whichever form it built them: rule text as a string or {@see WarrantSyntax},
+     * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, or an
+     * iterable of any of these.
+     *
+     * Every entry must be generic. The `@include` expanding the template names the
+     * abilities its clauses take, so an entry naming its own has two answers to the
+     * one question, and a rule set or ability block, which always name theirs, has
+     * no place in a template at all.
+     *
+     * Every answer is placed in a source whose producer is $producer, the
+     * template answering the `@include`, and validated before it is spliced in:
+     * rule text as the text it is, so an error points into it, and a rule or
+     * include built in code as the node it is.
+     *
+     * @return list<WarrantRuleNode|IncludeInvocationNode>
+     */
+    private function templateEntries(mixed $body, SyntaxProducer $producer): array
+    {
+        if (is_string($body)) {
+            $body = WarrantParser::parse($body, $producer);
+        } elseif ($body instanceof WarrantSyntax) {
+            $body->source->setProducer($producer);
+        }
+
+        if ($body instanceof WarrantSyntax) {
+            if (! $body->isEmpty() && ! $body->isRuleEntries()) {
+                throw new RuntimeException(sprintf(
+                    '%s answered with rule text that is not unscoped rules and includes; a template answers '
+                        .'with rules and includes that name no abilities.',
+                    $producer->describe(),
+                ));
+            }
+
+            $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($body, new ValidationInput($this->catalog)));
+
+            /** @var list<WarrantRuleNode|IncludeInvocationNode> */
+            return self::eachWithBindingsReplaced($valid->ruleEntries());
+        }
+
+        if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
+            if (! $body->isGeneric()) {
+                throw new RuntimeException(sprintf(
+                    '%s answered with %s that names abilities; the @include that expands a template names the '
+                        .'abilities its rules and includes take.',
+                    $producer->describe(),
+                    $body instanceof WarrantRuleNode ? 'a rule' : 'an @include',
+                ));
+            }
+
+            return $this->templateEntries(new WarrantSyntax([$body], new SyntaxSource(null, $producer)), $producer);
+        }
+
+        if ($body instanceof AbilityBlockNode || $body instanceof RuleSetNode) {
+            throw new RuntimeException(sprintf(
+                '%s answered with %s, which names abilities; the @include that expands a template names the '
+                    .'abilities its rules and includes take.',
+                $producer->describe(),
+                $body instanceof AbilityBlockNode ? 'an ability block' : 'a rule set',
+            ));
+        }
+
+        if (is_iterable($body)) {
+            $entries = [];
+
+            foreach ($body as $item) {
+                array_push($entries, ...$this->templateEntries($item, $producer));
+            }
+
+            return $entries;
+        }
+
+        throw new RuntimeException(sprintf(
+            '%s must answer with rule text, a %s, a rule or @include that names no abilities, or an iterable of '
+                .'them; got %s.',
+            $producer->describe(),
+            WarrantSyntax::class,
+            get_debug_type($body),
+        ));
+    }
+
+    /**
+     * The template an include names, rejecting one the schema does not declare and
+     * one the include gives too few arguments.
+     */
+    private static function resolveTemplate(
+        SchemaVocabulary $schema,
+        string $schemaKey,
+        IncludeInvocationNode $include,
+    ): RuleTemplateDefinition {
+        $definition = $schema->getRuleTemplateDefinition($include->templateKey->name);
+
+        if ($definition === null) {
+            throw new RuleValidationException(
+                DiagnosticCode::UnknownTemplate,
+                LanguageRuleMessages::unknownTemplate($schemaKey, $include->templateKey->name),
+            );
+        }
+
+        if (count($include->arguments) < $definition->requiredArgumentCount) {
+            throw new RuleValidationException(
+                DiagnosticCode::TooFewArguments,
+                LanguageRuleMessages::tooFewTemplateArguments(
+                    $include->templateKey->name,
+                    $definition->requiredArgumentCount,
+                    count($include->arguments),
+                ),
+            );
+        }
+
+        return $definition;
+    }
+}

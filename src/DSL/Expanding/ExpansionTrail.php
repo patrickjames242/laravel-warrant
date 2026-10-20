@@ -50,7 +50,7 @@ final readonly class ExpansionTrail
      */
     public function enteringInclude(IncludeInvocationNode $include): self
     {
-        return $this->entering("@include {$include->templateKey}");
+        return $this->entering("@include {$include->templateKey->name}");
     }
 
     /**

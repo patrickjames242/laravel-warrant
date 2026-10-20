@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Validation;
 
-use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
@@ -47,7 +47,7 @@ use Warrant\DSL\SchemaVocabulary;
  * A text is validated on its own, before anything splits it up or combines it
  * with other rules, so every mistake is about the text it points into. The rules
  * a template answers with and the expression a derived condition answers with
- * are texts of their own, validated by {@see RuleSetExpander} before it splices
+ * are texts of their own, validated by {@see Expander} before it splices
  * them in, so nothing a compile could reach is out of sight. Expansion reads no
  * user, row or check context, so neither does this.
  *

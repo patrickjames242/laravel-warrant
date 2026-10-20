@@ -15,7 +15,7 @@ use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Expanding\DerivedConditionNode;
-use Warrant\DSL\Expanding\RuleSetExpander;
+use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
@@ -1183,7 +1183,7 @@ final class RuleSetCompiler
                     .'compile a rule set expanded by %s.',
                 $node->conditionKey,
                 $this->conditions::class,
-                RuleSetExpander::class,
+                Expander::class,
             ));
         }
 

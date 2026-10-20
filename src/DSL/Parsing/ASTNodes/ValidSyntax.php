@@ -176,6 +176,31 @@ final readonly class ValidSyntax extends WarrantSyntax
     }
 
     /**
+     * The rule entries this syntax holds about $schemaKey, as written: the
+     * entries of every `for <schemaKey>` rule set in it, or, for rules with no
+     * header, all of them when what produced them is for that schema. Rules
+     * about any other schema are left out, and a condition holds none.
+     *
+     * @return list<IRuleEntryNode>
+     */
+    public function entriesFor(string $schemaKey): array
+    {
+        if ($this->isEmpty() || $this->isRuleEntries()) {
+            return $this->input->producer?->schemaKey === $schemaKey ? $this->ruleEntries() : [];
+        }
+
+        $entries = [];
+
+        foreach ($this->children as $child) {
+            if ($child instanceof RuleSetNode && $child->schemaKey() === $schemaKey) {
+                array_push($entries, ...$child->entries);
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
      * Every rule set for $schemaKey folded into one, in source order, or null
      * when the source never names that schema. The folded set was written
      * nowhere, and comes from where this syntax did; its entries keep where each

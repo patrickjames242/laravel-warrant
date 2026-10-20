@@ -61,7 +61,7 @@ interface ConditionResolver extends SchemaVocabulary
      *    doing both is rejected.
      *
      * A derived condition is never dispatched: it is expanded into its expression
-     * by {@see \Warrant\DSL\Expanding\RuleSetExpander} before anything compiles.
+     * by {@see \Warrant\DSL\Expanding\Expander} before anything compiles.
      *
      * @param bool $targeted Whether a target row is in scope. A row condition
      *   needs one and is rejected without it.

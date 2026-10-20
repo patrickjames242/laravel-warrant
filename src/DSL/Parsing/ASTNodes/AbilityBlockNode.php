@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  *
  * The header is the only place the abilities live. Every entry in the body is
  * generic — its clauses and includes name no abilities — and expansion applies
- * the header to each one ({@see \Warrant\DSL\Expanding\RuleSetExpander}).
+ * the header to each one ({@see \Warrant\DSL\Expanding\Expander}).
  *
  * The node holds a block as it was written, even one that breaks that: a header
  * naming nothing, an entry naming its own abilities, or a block inside it. The

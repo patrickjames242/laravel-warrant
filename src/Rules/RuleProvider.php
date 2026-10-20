@@ -18,8 +18,9 @@ interface RuleProvider
      * database lookup, hardcoded rules, ... — and to return them in whichever
      * form it has them: a rule set, a rule entry (a rule, ability block or
      * include), a rule builder, rule text as a string or {@see WarrantSyntax},
-     * or an iterable (array, Collection) of those. Every rule set among them
-     * must target `$context->schemaKey`.
+     * or an iterable (array, Collection) of those. They may hold rules for any
+     * schema: only the rule sets for `$context->schemaKey`, and the rules with
+     * no `for` header, apply to it.
      *
      * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string>
      */
