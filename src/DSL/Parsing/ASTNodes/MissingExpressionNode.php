@@ -16,4 +16,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class MissingExpressionNode implements IBooleanExpressionNode
 {
     public function __construct(public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [];
+    }
 }

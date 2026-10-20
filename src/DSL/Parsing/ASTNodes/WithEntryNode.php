@@ -16,4 +16,12 @@ final readonly class WithEntryNode implements INode
      *   `@column` or `@sql` reference.
      */
     public function __construct(public NameNode $key, public INode $value, public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [
+            $this->key,
+            $this->value,
+        ];
+    }
 }

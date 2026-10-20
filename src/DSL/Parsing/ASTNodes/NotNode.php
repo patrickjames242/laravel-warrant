@@ -12,4 +12,9 @@ readonly class NotNode implements IBooleanExpressionNode
     ){
 
     }
+
+    public function children(): array
+    {
+        return [$this->operand];
+    }
 }

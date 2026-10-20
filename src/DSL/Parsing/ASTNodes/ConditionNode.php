@@ -18,4 +18,11 @@ readonly class ConditionNode implements IBooleanExpressionNode
 
     }
 
+    public function children(): array
+    {
+        return [
+            $this->conditionKey,
+            ...$this->parameters,
+        ];
+    }
 }

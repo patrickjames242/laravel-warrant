@@ -60,4 +60,13 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
 
         return new self($this->templateKey, $this->arguments, $abilities, $this->location);
     }
+
+    public function children(): array
+    {
+        return [
+            $this->templateKey,
+            ...$this->arguments,
+            ...$this->abilities,
+        ];
+    }
 }

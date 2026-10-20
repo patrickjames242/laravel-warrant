@@ -201,4 +201,13 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     {
         return $this->cannotClauses !== [];
     }
+
+    public function children(): array
+    {
+        return [
+            ...($this->conditions === null ? [] : [$this->conditions]),
+            ...$this->canClauses,
+            ...$this->cannotClauses,
+        ];
+    }
 }

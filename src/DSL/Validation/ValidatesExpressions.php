@@ -11,7 +11,6 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
@@ -545,7 +544,7 @@ trait ValidatesExpressions
         }
 
         foreach ($arguments as $argument) {
-            if ($argument instanceof ColumnRef && ! $this->passedIn($argument)) {
+            if ($argument instanceof ColumnRef && ! $this->isCallerArgument($argument)) {
                 /* The compiler's own scope decides, and throws the message: an
                    unbound name is the mistake, and a name bound to nothing is a
                    frame no compile selected here, which is not. A null alias asks
@@ -561,22 +560,14 @@ trait ValidatesExpressions
 
     /**
      * Whether $columnRef is one the condition or `@include` the syntax answers
-     * passed in, as the syntax's producer says. Its value was put in place in PHP before it reached here, so it
-     * sits in these rules as the reference itself. It is the calling rule's,
-     * checked in that rule's scope where the rule wrote it, so it is not checked
-     * again in the scope it was passed into.
+     * passed in, as the syntax's producer says. Its value was put in place in
+     * PHP before it reached here, so it sits in these rules as the reference
+     * itself. It is the calling rule's, checked in that rule's scope where the
+     * rule wrote it, so it is not checked again in the scope it was passed into.
      */
-    private function passedIn(ColumnRef $columnRef): bool
+    private function isCallerArgument(ColumnRef $columnRef): bool
     {
-        $invokedBy = $this->syntax->source->producer->invokedBy;
-
-        $passed = match (true) {
-            $invokedBy instanceof ConditionNode => $invokedBy->parameters,
-            $invokedBy instanceof IncludeInvocationNode => $invokedBy->arguments,
-            default => [],
-        };
-
-        return in_array($columnRef, $passed, true);
+        return in_array($columnRef, $this->syntax->source->producer()?->callerArguments() ?? [], true);
     }
 
     /**

@@ -6,7 +6,6 @@ use InvalidArgumentException;
 use LogicException;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -42,7 +41,7 @@ use Warrant\Registry\RegisteredSchemas;
  * Two parses of the same rules written differently hold children that say the
  * same, each placed where it was written.
  */
-readonly class WarrantSyntax implements INode
+readonly class WarrantSyntax
 {
     /**
      * Where the children came from: the text they were read from with the values
@@ -61,19 +60,19 @@ readonly class WarrantSyntax implements INode
     ) {
         self::assertOneShape($children);
 
-        $this->source = $source ?? new SyntaxSource(null, SyntaxProducer::code());
+        $this->source = $source ?? new SyntaxSource(null);
     }
 
     /**
      * Parse rule text of any form, keeping the values a {@see BoundSyntax} holds
      * for its named (:name) or positional (?) placeholders in the source each
      * {@see BindingNode} finds its value in.
-     * A string is rule text with no bindings. $producer says what produced the
-     * syntax; with none, application code parsed it directly.
+     * A string is rule text with no bindings. Nothing has handed the syntax over
+     * yet, so it has no producer: the backend sets one when it receives it.
      */
-    public static function parse(string|BoundSyntax $syntax, ?SyntaxProducer $producer = null): self
+    public static function parse(string|BoundSyntax $syntax): self
     {
-        return WarrantParser::parse($syntax, $producer);
+        return WarrantParser::parse($syntax);
     }
 
     /**
@@ -84,9 +83,8 @@ readonly class WarrantSyntax implements INode
      *
      * Each `for <schema>` body is checked against the schema its header names.
      * Rules with no header are checked against the schema the syntax is for,
-     * as what produced it says ({@see SyntaxProducer::code()} takes one); with
-     * none they belong to no schema yet, and are held only to the rules of the
-     * language that need none.
+     * as what handed it over says; before anything has, they belong to no
+     * schema, and are held to every rule of the language that needs none.
      *
      * What is checked is the text as written. The rules a template answers with
      * and the expression a derived condition answers with are texts of their

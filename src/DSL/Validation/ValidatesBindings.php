@@ -41,7 +41,9 @@ trait ValidatesBindings
         $sources = [spl_object_id($syntax->source) => $syntax->source];
         $bindingsBySource = [spl_object_id($syntax->source) => []];
 
-        foreach (self::bindingsIn($syntax->children) as [$binding, $slot]) {
+        $bindings = array_merge([], ...array_map(static fn (INode $child): array => self::bindingsIn($child), $syntax->children));
+
+        foreach ($bindings as [$binding, $slot]) {
             $source = $binding->location->source;
             $sources[spl_object_id($source)] = $source;
             $bindingsBySource[spl_object_id($source)][] = [$binding, $slot];
@@ -161,30 +163,18 @@ trait ValidatesBindings
      *
      * @return list<array{0: BindingNode, 1: string}>
      */
-    private static function bindingsIn(mixed $node, string $slot = self::BINDING_IN_ARGUMENT_SLOT): array
+    private static function bindingsIn(INode $node, string $slot = self::BINDING_IN_ARGUMENT_SLOT): array
     {
         if ($node instanceof BindingNode) {
             return [[$node, $slot]];
         }
 
-        if (is_array($node)) {
-            return array_merge([], ...array_map(static fn (mixed $one): array => self::bindingsIn($one), array_values($node)));
-        }
-
-        if (! $node instanceof INode) {
-            return [];
-        }
-
         $found = [];
 
-        foreach (get_object_vars($node) as $property => $value) {
-            if ($property === 'location') {
-                continue;
-            }
-
-            $found = [...$found, ...self::bindingsIn($value, match (true) {
-                $node instanceof SqlRef && $property === 'sql' => self::BINDING_IN_SQL_BODY_SLOT,
-                ($node instanceof CanClauseNode || $node instanceof CannotClauseNode) && $property === 'message' => self::BINDING_IN_DENIAL_MESSAGE_SLOT,
+        foreach ($node->children() as $child) {
+            $found = [...$found, ...self::bindingsIn($child, match (true) {
+                $node instanceof SqlRef && $child === $node->sql => self::BINDING_IN_SQL_BODY_SLOT,
+                ($node instanceof CanClauseNode || $node instanceof CannotClauseNode) && $child === $node->message => self::BINDING_IN_DENIAL_MESSAGE_SLOT,
                 default => self::BINDING_IN_ARGUMENT_SLOT,
             })];
         }

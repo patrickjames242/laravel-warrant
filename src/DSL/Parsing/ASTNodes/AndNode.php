@@ -14,4 +14,11 @@ readonly class AndNode implements IBooleanExpressionNode
 
     }
 
+    public function children(): array
+    {
+        return [
+            $this->leftSide,
+            $this->rightSide,
+        ];
+    }
 }

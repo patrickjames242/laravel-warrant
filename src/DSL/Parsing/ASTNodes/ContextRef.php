@@ -14,4 +14,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 readonly class ContextRef implements INode
 {
     public function __construct(public NameNode $key, public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [$this->key];
+    }
 }

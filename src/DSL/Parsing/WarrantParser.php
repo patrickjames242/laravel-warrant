@@ -77,14 +77,16 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *              -- one name is the column, on the rows the rule is already about;
  *                 two are a frame name (a schema key, or a handle alias) and then
  *                 the column
+ *
+ * @internal
  */
 final class WarrantParser
 {
     /**
      * Parse Warrant syntax of any form as it was written, its bindings left as
      * the placeholders they are, every node placed where it was written. A
-     * string is rule text with no bindings. $producer says what produced the
-     * syntax; with none, application code parsed it directly.
+     * string is rule text with no bindings. $producer says what handed the
+     * syntax over; with none, nothing has yet.
      */
     public static function parse(string|BoundSyntax $syntax, ?SyntaxProducer $producer = null): WarrantSyntax
     {
@@ -138,7 +140,7 @@ final class WarrantParser
     {
         return new SyntaxSource(
             is_string($syntax) ? new BoundSyntax($syntax) : $syntax,
-            $producer ?? SyntaxProducer::code(),
+            $producer,
         );
     }
 }

@@ -161,7 +161,9 @@ final readonly class ValidSyntax extends WarrantSyntax
 
     /**
      * Every rule set for $schemaKey folded into one, in source order, or null
-     * when the source never names that schema.
+     * when the source never names that schema. The folded set was written
+     * nowhere, and comes from where this syntax did; its entries keep where each
+     * was written.
      */
     public function forSchema(string $schemaKey): ?RuleSetNode
     {
@@ -170,7 +172,17 @@ final readonly class ValidSyntax extends WarrantSyntax
             static fn (RuleSetNode $ruleSet): bool => $ruleSet->schemaKey() === $schemaKey,
         ));
 
-        return $matching === [] ? null : RuleSetNode::merge(...$matching);
+        if ($matching === []) {
+            return null;
+        }
+
+        $entries = [];
+
+        foreach ($matching as $ruleSet) {
+            array_push($entries, ...$ruleSet->entries);
+        }
+
+        return new RuleSetNode($matching[0]->schemaKey, $entries, SyntaxLocation::builtIn($this->source));
     }
 
     /**
@@ -184,9 +196,9 @@ final readonly class ValidSyntax extends WarrantSyntax
     {
         if ($this->isEmpty() || $this->isRuleEntries()) {
             return new RuleSetNode(
-                new NameNode($schemaKey, SyntaxLocation::builtBy($this->source->producer)),
+                new NameNode($schemaKey, SyntaxLocation::builtIn($this->source)),
                 $this->ruleEntries(),
-                SyntaxLocation::builtBy($this->source->producer),
+                SyntaxLocation::builtIn($this->source),
             );
         }
 

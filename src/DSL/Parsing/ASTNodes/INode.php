@@ -2,6 +2,11 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
+/**
+ * A piece of rule syntax, placed where it came from: every node holds the
+ * {@see \Warrant\DSL\Parsing\Positions\SyntaxLocation} it came from as a
+ * public `$location`, and lists the nodes it holds through {@see children()}.
+ */
 interface INode
 {
     /**
@@ -11,4 +16,11 @@ interface INode
      * stands for none.
      */
     public const MISSING_NAME = '';
+
+    /**
+     * Every node directly inside this one, in the order it holds them.
+     *
+     * @return list<INode>
+     */
+    public function children(): array;
 }

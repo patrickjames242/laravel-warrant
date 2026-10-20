@@ -13,4 +13,12 @@ readonly class OrNode implements IBooleanExpressionNode
     ){
 
     }
+
+    public function children(): array
+    {
+        return [
+            $this->leftSide,
+            $this->rightSide,
+        ];
+    }
 }

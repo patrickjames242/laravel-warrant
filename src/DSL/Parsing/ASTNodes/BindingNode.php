@@ -70,4 +70,9 @@ final readonly class BindingNode implements INode
 
         return $this->isPositional() ? array_values($bindings) : $bindings;
     }
+
+    public function children(): array
+    {
+        return [];
+    }
 }

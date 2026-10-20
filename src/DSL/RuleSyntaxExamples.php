@@ -2,7 +2,6 @@
 
 namespace Warrant\DSL;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -11,8 +10,7 @@ use Warrant\DSL\Parsing\BoundSyntax;
  * Living reference for Warrant rule syntax.
  *
  * Every method below is illustrative and never executed — each demonstrates one
- * facet of the language accepted by WarrantSyntax::parse(), or the
- * resolved-rule composition accepted by RuleSetNode::fromRules().
+ * facet of the language accepted by WarrantSyntax::parse().
  *
  * One parse reads every form of rule text, and the tree it answers with says
  * which form the text took: a condition, a rule, unscoped rules, or one or more
@@ -309,16 +307,15 @@ class RuleSyntaxExamples
     }
 
     // -------------------------------------------------------------------------
-    // 7. Composing already-resolved rules (fromRules)
+    // 7. Composing rules built one at a time
     // -------------------------------------------------------------------------
 
     /**
-     * A single WarrantRuleNode can be built on its own (with its own bindings) and later
-     * composed into a set. `fromRules` accepts either a variadic list or a single
-     * array. It takes NO bindings, and does NOT allow mixing raw syntax with
-     * already-resolved rules.
+     * A rule can be built on its own (with its own bindings) and handed over
+     * alongside others: rules() answers with a list of them as readily as with a
+     * rule set.
      */
-    public function composeResolvedRules(): void
+    public function composeRules(): array
     {
         $cannotPublish = WarrantSyntax::parse('they cannot publish')->validate()->rule();
         $cannotEdit    = WarrantSyntax::parse('they cannot edit')->validate()->rule();
@@ -327,11 +324,7 @@ class RuleSyntaxExamples
             ['some_param' => 'some-value'],
         ))->validate()->rule();
 
-        // Variadic:
-        $ruleSet = RuleSetNode::fromRules('timesheets', $cannotPublish, $cannotEdit, $canEdit);
-
-        // Or a single array:
-        $ruleSet = RuleSetNode::fromRules('timesheets', [$cannotPublish, $cannotEdit, $canEdit]);
+        return [$cannotPublish, $cannotEdit, $canEdit];
     }
 
     // -------------------------------------------------------------------------
@@ -364,8 +357,5 @@ class RuleSyntaxExamples
         //   if if they can view     // condition named exactly `if`
         //   (Allowed — they merely contain/start with a reserved word:
         //    `canonical`, `cannot_publish`, `ifield`.)
-
-        // fromRules mixing resolved rules with raw syntax, or being handed bindings:
-        //   RuleSetNode::fromRules('timesheets', $resolvedRule, 'they can view');
     }
 }

@@ -16,4 +16,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class MissingArgumentNode implements INode
 {
     public function __construct(public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [];
+    }
 }

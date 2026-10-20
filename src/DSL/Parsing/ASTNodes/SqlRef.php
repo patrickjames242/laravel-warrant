@@ -26,4 +26,9 @@ readonly class SqlRef implements INode
      *   binding that supplies it until expansion puts the string in its place.
      */
     public function __construct(public LiteralNode|BindingNode $sql, public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [$this->sql];
+    }
 }

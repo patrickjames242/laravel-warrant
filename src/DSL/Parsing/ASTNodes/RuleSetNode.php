@@ -6,7 +6,6 @@ use Closure;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\DSL\Parsing\SyntaxProducer;
 
 /**
  * The rules for one schema: the body of a `for <schema>` header, or rules given
@@ -50,71 +49,6 @@ final readonly class RuleSetNode implements ISchemaScopedNode
     }
 
     /**
-     * This rule set's entries followed by $other's, as one rule set. The schema
-     * keys must match. The merged set was written nowhere, so it is built in
-     * code; its entries keep where each was written.
-     */
-    public function mergeWith(RuleSetNode $other): self
-    {
-        if ($this->schemaKey() !== $other->schemaKey()) {
-            throw new InvalidArgumentException(sprintf(
-                'Cannot merge rule sets for different schemas: [%s] and [%s].',
-                $this->schemaKey(),
-                $other->schemaKey(),
-            ));
-        }
-
-        return new self($this->schemaKey, [...$this->entries, ...$other->entries], SyntaxLocation::builtBy(SyntaxProducer::code()));
-    }
-
-    /**
-     * Merge two or more rule sets for the same schema into one, in argument order.
-     */
-    public static function merge(RuleSetNode $first, RuleSetNode ...$rest): self
-    {
-        return array_reduce(
-            $rest,
-            static fn (self $carry, self $next): self => $carry->mergeWith($next),
-            $first,
-        );
-    }
-
-    /**
-     * Build a rule set from already-resolved rules. Accepts a variadic list or a
-     * single array, and each element may be a WarrantRuleNode or a WarrantRuleBuilder
-     * (which is finalized via toRule()). The set is built in code.
-     *
-     * @param WarrantRuleNode|WarrantRuleBuilder|array<int, WarrantRuleNode|WarrantRuleBuilder> ...$rules
-     */
-    public static function fromRules(string $schemaKey, WarrantRuleNode|WarrantRuleBuilder|array ...$rules): self
-    {
-        $flattened = [];
-
-        foreach ($rules as $rule) {
-            foreach (is_array($rule) ? $rule : [$rule] as $one) {
-                if ($one instanceof WarrantRuleBuilder) {
-                    $one = $one->toRule();
-                }
-
-                if (! $one instanceof WarrantRuleNode) {
-                    throw new InvalidArgumentException(sprintf(
-                        'fromRules expects WarrantRuleNode or WarrantRuleBuilder instances, got %s.',
-                        get_debug_type($one),
-                    ));
-                }
-
-                $flattened[] = $one;
-            }
-        }
-
-        return new self(
-            new NameNode($schemaKey, SyntaxLocation::builtBy(SyntaxProducer::code())),
-            $flattened,
-            SyntaxLocation::builtBy(SyntaxProducer::code()),
-        );
-    }
-
-    /**
      * Build a rule set with a callback, one rule per `$rule()` call.
      *
      * The callback receives a factory; each invocation of it appends a fresh
@@ -140,6 +74,18 @@ final readonly class RuleSetNode implements ISchemaScopedNode
 
         $callback($make);
 
-        return self::fromRules($schemaKey, $builders);
+        return new self(
+            new NameNode($schemaKey, SyntaxLocation::noProducer()),
+            array_map(static fn (WarrantRuleBuilder $builder): WarrantRuleNode => $builder->toRule(), $builders),
+            SyntaxLocation::noProducer(),
+        );
+    }
+
+    public function children(): array
+    {
+        return [
+            $this->schemaKey,
+            ...$this->entries,
+        ];
     }
 }

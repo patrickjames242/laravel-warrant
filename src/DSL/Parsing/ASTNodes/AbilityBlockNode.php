@@ -37,4 +37,12 @@ final readonly class AbilityBlockNode implements IRuleEntryNode
             }
         }
     }
+
+    public function children(): array
+    {
+        return [
+            ...$this->abilities,
+            ...$this->entries,
+        ];
+    }
 }

@@ -31,9 +31,22 @@ final readonly class SyntaxLocation
         return new self($source, $span);
     }
 
-    public static function builtBy(SyntaxProducer $producer): self
+    /**
+     * A place in a source of its own, with no text and no producer: where a
+     * node built in code is, until it is handed over.
+     */
+    public static function noProducer(): self
     {
-        return new self(new SyntaxSource(null, $producer), null);
+        return self::builtIn(new SyntaxSource(null));
+    }
+
+    /**
+     * A place in $source for a node written nowhere in its text, as one built
+     * around what the text holds.
+     */
+    public static function builtIn(SyntaxSource $source): self
+    {
+        return new self($source, null);
     }
 
     /**

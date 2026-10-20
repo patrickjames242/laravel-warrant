@@ -96,21 +96,28 @@ final readonly class SyntaxProducer
     }
 
     /**
-     * @param string|null $schemaKey The schema the code says the syntax is for;
-     *   null for none.
-     */
-    public static function code(?string $schemaKey = null): self
-    {
-        return new self(SyntaxProducerKind::Code, $schemaKey);
-    }
-
-    /**
      * @param string|null $schemaKey The schema the document places the syntax
      *   in, when it says; null for none.
      */
     public static function editor(string $path, ?string $schemaKey = null): self
     {
         return new self(SyntaxProducerKind::Editor, $schemaKey, path: $path);
+    }
+
+    /**
+     * The nodes the `@include` or condition that invoked this passed in: its
+     * arguments, as the caller wrote them. They are the caller's, placed where
+     * the caller produced them.
+     *
+     * @return list<\Warrant\DSL\Parsing\ASTNodes\INode>
+     */
+    public function callerArguments(): array
+    {
+        return match (true) {
+            $this->invokedBy instanceof ConditionNode => $this->invokedBy->parameters,
+            $this->invokedBy instanceof IncludeInvocationNode => $this->invokedBy->arguments,
+            default => [],
+        };
     }
 
     /**
@@ -124,7 +131,6 @@ final readonly class SyntaxProducer
             SyntaxProducerKind::RuleTemplate => sprintf('Rule template [%s::%s]', $this->schemaClass, $this->methodName),
             SyntaxProducerKind::DerivedCondition => sprintf('Derived condition [%s::%s]', $this->schemaClass, $this->methodName),
             SyntaxProducerKind::RawCondition => 'A raw condition',
-            SyntaxProducerKind::Code => 'Rule text',
             SyntaxProducerKind::Editor => sprintf('The rule text in [%s]', $this->path),
         };
     }

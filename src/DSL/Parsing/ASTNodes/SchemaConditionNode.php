@@ -22,4 +22,12 @@ final readonly class SchemaConditionNode implements ISchemaScopedNode
     {
         return $this->schemaKey->name;
     }
+
+    public function children(): array
+    {
+        return [
+            $this->schemaKey,
+            $this->expression,
+        ];
+    }
 }

@@ -58,8 +58,7 @@ class Warrant extends Facade
     | ValidSyntax::scopedTo().
     |
     | A condition and a rule also have a fluent builder, reached by condition() and
-    | rule(). Building a rule set from rules already in hand is
-    | RuleSetNode::fromRules() and RuleSetNode::build().
+    | rule(). Building a rule set from rule builders is RuleSetNode::build().
     |
     | These are real statics rather than proxied @method entries: they need no user,
     | no state and nothing from the container, and WarrantManager is otherwise
@@ -111,8 +110,8 @@ class Warrant extends Facade
      *
      *     Warrant::rule()->if('is_self')->theyCan('view', 'update')
      *
-     * The builder needs no `toRule()` when it is handed to
-     * {@see RuleSetNode::fromRules()}, which finishes builders itself.
+     * The builder needs no `toRule()` when {@see RuleSetNode::build()} hands it
+     * out, since that finishes the builders it hands out itself.
      */
     public static function rule(): WarrantRuleBuilder
     {

@@ -35,4 +35,13 @@ final readonly class DerivedConditionNode implements IBooleanExpressionNode
         public SyntaxLocation $location,
     ) {
     }
+
+    public function children(): array
+    {
+        return [
+            $this->conditionKey,
+            ...$this->parameters,
+            $this->body,
+        ];
+    }
 }

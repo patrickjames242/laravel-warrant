@@ -23,9 +23,6 @@ enum SyntaxProducerKind
     /** A condition builder's `ifRaw()` or `orIfRaw()`. */
     case RawCondition;
 
-    /** Application code parsing the syntax directly, with nothing known of where it is used. */
-    case Code;
-
     /** The language server, reading a document open in an editor. */
     case Editor;
 }

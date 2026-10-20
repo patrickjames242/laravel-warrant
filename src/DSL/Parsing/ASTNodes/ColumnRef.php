@@ -39,4 +39,12 @@ readonly class ColumnRef implements INode
         public SyntaxLocation $location,
     ) {
     }
+
+    public function children(): array
+    {
+        return [
+            ...($this->alias === null ? [] : [$this->alias]),
+            $this->column,
+        ];
+    }
 }

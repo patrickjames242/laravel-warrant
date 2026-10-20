@@ -127,8 +127,8 @@ final class SyntaxValidator
     {
         $this->assertBindingsFit($this->syntax);
 
-        $producer = $this->syntax->source->producer;
-        $producerSchema = $producer->schemaKey === null ? null : $this->input->catalog?->find($producer->schemaKey);
+        $producer = $this->syntax->source->producer();
+        $producerSchema = $producer?->schemaKey === null ? null : $this->input->catalog?->find($producer->schemaKey);
         $producerSchemaKey = $producerSchema === null ? null : $producer->schemaKey;
 
         $headerless = [];
@@ -149,7 +149,7 @@ final class SyntaxValidator
         }
 
         if ($headerless !== []) {
-            $this->validateEntries($headerless, $producer->genericMode(), $producerSchema, $producerSchemaKey);
+            $this->validateEntries($headerless, $producer?->genericMode() ?? GenericMode::Either, $producerSchema, $producerSchemaKey);
         }
     }
 

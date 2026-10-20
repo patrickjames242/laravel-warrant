@@ -61,4 +61,15 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
         public SyntaxLocation $location,
     ) {
     }
+
+    public function children(): array
+    {
+        return [
+            ...($this->schemaKey === null ? [] : [$this->schemaKey]),
+            $this->ability,
+            ...$this->boundKey,
+            ...$this->contextMap,
+            ...($this->alias === null ? [] : [$this->alias]),
+        ];
+    }
 }

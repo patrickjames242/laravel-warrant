@@ -31,4 +31,12 @@ readonly class CanClauseNode implements INode
     {
         return $this->abilities === [];
     }
+
+    public function children(): array
+    {
+        return [
+            ...$this->abilities,
+            ...($this->message === null ? [] : [$this->message]),
+        ];
+    }
 }

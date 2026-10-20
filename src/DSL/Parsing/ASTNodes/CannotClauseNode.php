@@ -34,4 +34,12 @@ readonly class CannotClauseNode implements INode
         public ?INode $message,
         public SyntaxLocation $location,
     ) {}
+
+    public function children(): array
+    {
+        return [
+            ...$this->abilities,
+            ...($this->message === null ? [] : [$this->message]),
+        ];
+    }
 }

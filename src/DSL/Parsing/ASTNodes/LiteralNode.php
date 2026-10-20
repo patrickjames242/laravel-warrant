@@ -12,4 +12,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class LiteralNode implements INode
 {
     public function __construct(public mixed $value, public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [];
+    }
 }

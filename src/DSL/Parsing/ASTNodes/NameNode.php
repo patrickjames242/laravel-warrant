@@ -13,4 +13,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class NameNode implements INode
 {
     public function __construct(public string $name, public SyntaxLocation $location) {}
+
+    public function children(): array
+    {
+        return [];
+    }
 }

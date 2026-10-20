@@ -18,4 +18,9 @@ readonly class BooleanNode implements IBooleanExpressionNode
         public SyntaxLocation $location,
     ) {
     }
+
+    public function children(): array
+    {
+        return [];
+    }
 }
