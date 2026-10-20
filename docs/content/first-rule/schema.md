@@ -35,7 +35,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 }
 ```
@@ -52,7 +52,7 @@ Warrant ships no fixed list, so if your domain says `approve`, `submit`, and
 
 `#[RowCondition]` declares a test a rule may put after `if`. The method name
 snake-cases into the rule name, so `isMine` is written `is_mine`. The body adds a
-`where` to the query it was handed and returns it. `$c->row('user_id')` gives back
+`where` to the query it was handed and returns it. `$c->column('user_id')` gives back
 the qualified column, `documents.user_id`, which matters later when the same
 condition runs under an alias.
 

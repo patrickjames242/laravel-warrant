@@ -53,7 +53,7 @@ public function inAncestorOfMine(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('folder_paths')
-        ->whereColumn('folder_paths.descendant_id', $c->row('id'))
+        ->whereColumn('folder_paths.descendant_id', $c->column('id'))
         ->join('folder_owners', 'folder_owners.folder_id', '=', 'folder_paths.ancestor_id')
         ->where('folder_owners.user_id', $c->user->getKey()));
 }
@@ -79,7 +79,7 @@ filtered. A subquery cannot reach across connections.
 Every frame in a chain gets its own identifier, and this is where
 [`warrantQualifyColumn()`](/concepts/frames/) stops being academic. A condition on
 `folders` that wrote `folders.owner_id` produces SQL naming `folders` inside a
-subquery where the rows are called `parent`. Use `$c->row()` in conditions and
+subquery where the rows are called `parent`. Use `$c->column()` in conditions and
 `warrantQualifyColumn()` in scopes and the chain works at any depth.
 
 ## What it compiles to

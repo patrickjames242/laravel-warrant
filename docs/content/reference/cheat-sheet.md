@@ -21,7 +21,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 
     #[GlobalCondition]

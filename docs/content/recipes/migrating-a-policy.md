@@ -104,7 +104,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 
     #[RowCondition]
@@ -112,7 +112,7 @@ class DocumentSchema extends WarrantSchema
     {
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
-            ->whereColumn('team_members.team_id', $c->row('team_id'))
+            ->whereColumn('team_members.team_id', $c->column('team_id'))
             ->where('team_members.user_id', $c->user->getAuthIdentifier()));
     }
 
@@ -121,7 +121,7 @@ class DocumentSchema extends WarrantSchema
     {
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
-            ->whereColumn('team_members.team_id', $c->row('team_id'))
+            ->whereColumn('team_members.team_id', $c->column('team_id'))
             ->where('team_members.user_id', $c->user->getAuthIdentifier())
             ->where('team_members.role', 'manager'));
     }
@@ -129,7 +129,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isLocked(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('locked'), true);
+        return $c->query->where($c->column('locked'), true);
     }
 }
 ```

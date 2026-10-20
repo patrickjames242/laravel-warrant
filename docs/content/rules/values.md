@@ -77,7 +77,7 @@ WarrantSyntax::parse(warrant('if in_teams(:teams) they can view', [
 #[RowCondition]
 public function inTeams(RowConditionContext $c, array $teams): Builder
 {
-    return $c->query->whereIn($c->row('team_id'), $teams);
+    return $c->query->whereIn($c->column('team_id'), $teams);
 }
 ```
 
@@ -102,7 +102,7 @@ The context object is always the first parameter. Then parameter 2 takes argumen
 public function inTeam(RowConditionContext $c, string $team): Builder
 {
     // in_team('sales')  ->  $team === 'sales'
-    return $c->query->where($c->row('team_id'), $team);
+    return $c->query->where($c->column('team_id'), $team);
 }
 ```
 
@@ -113,7 +113,7 @@ A variadic tail collects a list argument:
 public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
 {
     // in_any_team('sales', 'eng')  ->  $teams === ['sales', 'eng']
-    return $c->query->whereIn($c->row('team_id'), $teams);
+    return $c->query->whereIn($c->column('team_id'), $teams);
 }
 ```
 

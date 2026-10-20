@@ -27,14 +27,14 @@ That matters if a condition does real work in PHP:
 public function inMyTeam(RowConditionContext $c): Builder
 {
     // Runs on every compile. A query each time.
-    return $c->query->whereIn($c->row('team_id'), $c->user->teams()->pluck('id'));
+    return $c->query->whereIn($c->column('team_id'), $c->user->teams()->pluck('id'));
 }
 ```
 
 Memoize it yourself, on the user or in a request-scoped service:
 
 ```php
-return $c->query->whereIn($c->row('team_id'), $c->user->teamIds());
+return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
 ```
 
 ```php

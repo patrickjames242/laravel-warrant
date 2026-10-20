@@ -335,13 +335,13 @@ class DcFolderSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$c->user->role_id]);
     }
 
     #[RowCondition]
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$owner]);
     }
 
     /** Derived: answers with the expression rather than SQL of its own. */

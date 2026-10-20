@@ -118,7 +118,7 @@ stays in the predicate:
 #[RowCondition]
 public function inMyAdministeredTenant(RowConditionContext $c): Builder
 {
-    return $c->query->whereIn($c->row('tenant_id'), $c->user->administeredTenantIds());
+    return $c->query->whereIn($c->column('tenant_id'), $c->user->administeredTenantIds());
 }
 ```
 

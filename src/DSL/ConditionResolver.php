@@ -73,7 +73,7 @@ interface ConditionResolver extends SchemaVocabulary
      *   answer without SQL; null whenever more than one row is in play.
      * @param string|null $rowQualifier The SQL name the target row answers to where
      *   this predicate will be spliced, which a row condition qualifies its columns
-     *   with (`$c->row('owner_id')`). It is *not* always the model's table: the same
+     *   with (`$c->column('owner_id')`). It is *not* always the model's table: the same
      *   rule compiles against `d` for a query the caller wrote as
      *   `from('docs as d')`, and against a hop's alias when reached through
      *   `can(… for docs(…) as d2)`. Null means the compiler had nothing closer to

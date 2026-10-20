@@ -66,7 +66,7 @@ class IntKeyedSectionSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row()} = ?", [1]);
+        return $c->query->whereRaw("{$c->column()} = ?", [1]);
     }
 }
 

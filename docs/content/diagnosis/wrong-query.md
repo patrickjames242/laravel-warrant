@@ -52,7 +52,7 @@ condition hard-coding its table:
 return $c->query->where('documents.user_id', $c->user->getAuthIdentifier());
 
 // The fix.
-return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 ```
 
 The same bug appears inside a subquery, where the rows have a hop's alias:
@@ -140,7 +140,7 @@ query's shape, so a subquery may join however it likes:
 return $c->query->whereExists(fn ($sub) => $sub
     ->from('team_managers')
     ->join('teams', 'teams.id', '=', 'team_managers.team_id')
-    ->whereColumn('team_managers.team_id', $c->row('team_id'))
+    ->whereColumn('team_managers.team_id', $c->column('team_id'))
     ->where('team_managers.user_id', $c->user->getKey()));
 ```
 

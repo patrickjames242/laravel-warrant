@@ -84,7 +84,7 @@ it('gives each frame of a self-referencing chain its own alias', function () {
     /* Three abilities over one table, each defined in terms of the one below it
        on the same row. Every hop selects the table again under its own name, and
        everything about that frame follows the name: its correlated key, and the
-       row condition at the bottom, which says `$c->row('owner')` without knowing
+       row condition at the bottom, which says `$c->column('owner')` without knowing
        how deep it has been reached. */
     assertSelfRefSql(
         <<<'WARRANT'
@@ -473,14 +473,14 @@ class SrDocSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$c->user->role_id]);
     }
 
     // Owner check driven by an argument, so a @context value can reach it.
     #[RowCondition]
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$owner]);
     }
 
     /* Compares this frame's owner to a column of another frame — both operands
@@ -488,6 +488,6 @@ class SrDocSchema extends WarrantSchema
     #[RowCondition]
     public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($column, '=', DB::raw($c->row('owner')));
+        return $c->query->where($column, '=', DB::raw($c->column('owner')));
     }
 }

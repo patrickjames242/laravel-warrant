@@ -44,19 +44,19 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->whereRaw("{$c->row('user_id')} = ?", [$c->user->getAuthIdentifier()]);
+        return $c->query->whereRaw("{$c->column('user_id')} = ?", [$c->user->getAuthIdentifier()]);
     }
 
     #[RowCondition]
     public function managesTeam(RowConditionContext $c): Builder
     {
-        return $c->query->whereIn($c->row('team_id'), $c->user->managedTeamIds());
+        return $c->query->whereIn($c->column('team_id'), $c->user->managedTeamIds());
     }
 
     #[RowCondition]
     public function isLocked(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('locked'), true);
+        return $c->query->where($c->column('locked'), true);
     }
 
     #[GlobalCondition]

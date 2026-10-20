@@ -53,15 +53,15 @@ class ShiftDaySchema extends WarrantSchema
     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
     {
         return $c->query
-            ->where($c->row('team_id'), '=', $teamId)
-            ->where($c->row('day'), '=', $day);
+            ->where($c->column('team_id'), '=', $teamId)
+            ->where($c->column('day'), '=', $day);
     }
 
     // A column the query computes, read as if it were stored.
     #[RowCondition]
     public function isUnderstaffed(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('shift_count'), '<', 2);
+        return $c->query->where($c->column('shift_count'), '<', 2);
     }
 }
 ```

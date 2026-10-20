@@ -51,7 +51,7 @@ public function grantedAtOrAbove(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('folder_paths')
         ->join('folder_grants', 'folder_grants.folder_id', '=', 'folder_paths.ancestor_id')
-        ->whereColumn('folder_paths.descendant_id', $c->row('id'))
+        ->whereColumn('folder_paths.descendant_id', $c->column('id'))
         ->where('folder_grants.user_id', $c->user->getAuthIdentifier()));
 }
 ```

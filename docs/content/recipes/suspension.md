@@ -106,7 +106,7 @@ public function accessRevoked(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('access_revocations')
-        ->whereColumn('access_revocations.document_id', $c->row('id'))
+        ->whereColumn('access_revocations.document_id', $c->column('id'))
         ->where('access_revocations.user_id', $c->user->getAuthIdentifier()));
 }
 ```

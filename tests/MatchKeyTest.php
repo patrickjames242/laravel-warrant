@@ -30,7 +30,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 | columns where no single one is unique.
 |
 | The key is dispatched exactly as a row condition is, so it may follow an alias
-| through $c->row() and may answer unknown by returning null. Its parameters
+| through $c->column() and may answer unknown by returning null. Its parameters
 | decide how many arguments a handle must supply, and both the validator and the
 | key's own dispatch enforce that.
 |
@@ -100,17 +100,17 @@ class MkDaySchema extends WarrantSchema
 
     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day = 'today'): ?BuilderContract
     {
-        static::$seenRow = $c->row('team_id');
+        static::$seenRow = $c->column('team_id');
 
         return $c->query
-            ->where($c->row('team_id'), '=', $teamId)
-            ->where($c->row('day'), '=', $day);
+            ->where($c->column('team_id'), '=', $teamId)
+            ->where($c->column('day'), '=', $day);
     }
 
     #[RowCondition]
     public function isOpen(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('is_open'), '=', 1);
+        return $c->query->where($c->column('is_open'), '=', 1);
     }
 }
 
@@ -129,8 +129,8 @@ class MkStrictSchema extends WarrantSchema
     public function matchKey(RowConditionContext $c, mixed $left, mixed $right): ?BuilderContract
     {
         return $c->query
-            ->where($c->row('left_id'), '=', $left)
-            ->where($c->row('right_id'), '=', $right);
+            ->where($c->column('left_id'), '=', $left)
+            ->where($c->column('right_id'), '=', $right);
     }
 }
 
@@ -157,7 +157,7 @@ class MkPathSchema extends WarrantSchema
     /** @param mixed ...$segments */
     public function matchKey(RowConditionContext $c, mixed ...$segments): ?BuilderContract
     {
-        return $c->query->where($c->row('path'), '=', implode('/', $segments));
+        return $c->query->where($c->column('path'), '=', implode('/', $segments));
     }
 }
 
@@ -441,6 +441,6 @@ class MkAttributedKeySchema extends WarrantSchema
     #[RowCondition]
     public function matchKey(RowConditionContext $c, mixed $key): ?BuilderContract
     {
-        return $c->query->where($c->row(), '=', $key);
+        return $c->query->where($c->column(), '=', $key);
     }
 }

@@ -77,7 +77,7 @@ class UnknownAnswerSchema extends WarrantSchema
     #[RowCondition]
     public function isOwned(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('owner_id'), '=', $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('owner_id'), '=', $c->user->getAuthIdentifier());
     }
 
     #[GlobalCondition]
@@ -103,7 +103,7 @@ class UnknownAnswerSchema extends WarrantSchema
     #[RowCondition]
     public function forgotItsReturn(RowConditionContext $c)
     {
-        $c->query->where($c->row('owner_id'), '=', 'someone');
+        $c->query->where($c->column('owner_id'), '=', 'someone');
     }
 
     /** Adds nothing and returns its builder, which is the older mistake. */

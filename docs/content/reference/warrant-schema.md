@@ -72,8 +72,8 @@ Declare it only when rows are addressed by something other than their key.
 public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
 {
     return $c->query
-        ->where($c->row('tenant_slug'), '=', $tenant)
-        ->where($c->row('slug'), '=', $slug);
+        ->where($c->column('tenant_slug'), '=', $tenant)
+        ->where($c->column('slug'), '=', $slug);
 }
 ```
 
@@ -149,8 +149,8 @@ public function __construct(
     public ?Model $model = null,
 );
 
-public function row(?string $column = null): string;
-// row() => "documents.id"; row('user_id') => "documents.user_id"
+public function column(?string $column = null): string;
+// column() => "documents.id"; column('user_id') => "documents.user_id"
 ```
 
 `model` is set only when the check named one specific hydrated row. It is `null`

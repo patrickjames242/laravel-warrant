@@ -15,7 +15,7 @@ and let the rule stay quiet about it:
 #[RowCondition]
 public function inCurrentWorkspace(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('workspace_id'), $c->context['workspace_id']);
+    return $c->query->where($c->column('workspace_id'), $c->context['workspace_id']);
 }
 ```
 
@@ -59,7 +59,7 @@ public function inCurrentWorkspace(RowConditionContext $c): ?Builder
         return null;   // answer unknown, which grants nothing
     }
 
-    return $c->query->where($c->row('workspace_id'), $workspace);
+    return $c->query->where($c->column('workspace_id'), $workspace);
 }
 ```
 

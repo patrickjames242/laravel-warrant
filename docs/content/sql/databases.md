@@ -31,7 +31,7 @@ if pay_period_matches(@column pay_period_id) they can view
 "timesheets"."pay_period_id"     -- PostgreSQL and SQLite
 ```
 
-You never write the quoting. A `@column` reference and `$c->row()` both hand your
+You never write the quoting. A `@column` reference and `$c->column()` both hand your
 condition an `Illuminate\Database\Query\Expression`, already quoted, which is
 emitted verbatim rather than re-quoted or bound.
 
@@ -72,10 +72,10 @@ Comparing through the query builder handles it:
 
 ```php
 // Portable.
-return $c->query->where($c->row('locked'), true);
+return $c->query->where($c->column('locked'), true);
 
 // Not portable.
-return $c->query->whereRaw("{$c->row('locked')} = 1");
+return $c->query->whereRaw("{$c->column('locked')} = 1");
 ```
 
 ## Null handling
@@ -93,7 +93,7 @@ comparing a role name or a slug can behave differently between environments:
 
 ```php
 // Explicit, and portable.
-return $c->query->whereRaw("lower({$c->row('slug')}) = ?", [strtolower($slug)]);
+return $c->query->whereRaw("lower({$c->column('slug')}) = ?", [strtolower($slug)]);
 ```
 
 Note the cost: a function on the column usually defeats an index. Prefer

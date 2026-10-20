@@ -33,7 +33,7 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 }
 ```
@@ -84,14 +84,14 @@ public function inMyTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
-        ->whereColumn('team_members.team_id', $c->row('team_id'))
+        ->whereColumn('team_members.team_id', $c->column('team_id'))
         ->where('user_id', $c->user->getAuthIdentifier()));
 }
 
 #[RowCondition]
 public function isLocked(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('locked'), true);
+    return $c->query->where($c->column('locked'), true);
 }
 ```
 
@@ -104,13 +104,13 @@ Extra parameters are the condition's arguments, so `in_team('sales')` passes
 #[RowCondition]
 public function inTeam(RowConditionContext $c, string $team): Builder
 {
-    return $c->query->where($c->row('team_id'), $team);
+    return $c->query->where($c->column('team_id'), $team);
 }
 
 #[RowCondition]
 public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
 {
-    return $c->query->whereIn($c->row('team_id'), $teams);
+    return $c->query->whereIn($c->column('team_id'), $teams);
 }
 ```
 
@@ -154,7 +154,7 @@ public function isMine(RowConditionContext $c): Builder|bool
         return $c->model->user_id === $c->user->getAuthIdentifier();
     }
 
-    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 }
 ```
 
@@ -207,7 +207,7 @@ use Warrant\Schema\RequiredContext;
 #[RowCondition]
 public function inCurrentWorkspace(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('workspace_id'), $c->context['workspace_id']);
+    return $c->query->where($c->column('workspace_id'), $c->context['workspace_id']);
 }
 
 protected function defaultContext(): array

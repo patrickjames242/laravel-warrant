@@ -218,7 +218,7 @@ it('speaks the model\'s table in a scope, even where the row is named otherwise'
        getTable() has to stay true for a scope that reads it to build a subquery.
        So a scope reached through an alias names a table the query does not have
        — a scope meeting an alias, failing as it would anywhere else. A condition
-       that must follow the row's name uses row() instead. */
+       that must follow the row's name uses column() instead. */
     $sql = Warrant::guard(makeWarrantTestUser('user-7'))->forSchema((new ConditionScopeSchema))->filterQuery(
         warrantTestQuery('course_sections as cs'),
         'view',

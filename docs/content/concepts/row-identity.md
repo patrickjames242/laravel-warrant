@@ -47,8 +47,8 @@ use Warrant\Schema\Conditions\RowConditionContext;
 public function matchKey(RowConditionContext $c, mixed $team, mixed $day): ?Builder
 {
     return $c->query
-        ->where($c->row('team_id'), '=', $team)
-        ->where($c->row('day'), '=', $day);
+        ->where($c->column('team_id'), '=', $team)
+        ->where($c->column('day'), '=', $day);
 }
 ```
 

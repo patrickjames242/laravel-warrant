@@ -230,7 +230,7 @@ class DvDocSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$c->user->role_id]);
     }
 
     /** Hops to an ability no schema declares. */

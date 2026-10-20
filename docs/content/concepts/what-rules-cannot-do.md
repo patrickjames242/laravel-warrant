@@ -49,7 +49,7 @@ public function managesTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_managers')
-        ->whereColumn('team_managers.team_id', $c->row('team_id'))
+        ->whereColumn('team_managers.team_id', $c->column('team_id'))
         ->where('user_id', $c->user->getKey()));
 }
 ```

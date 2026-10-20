@@ -44,7 +44,7 @@ beforeEach(function () {
 |
 | Fixture conditions (tests/Support/TestSupport.php, WarrantTestSchema), shown
 | here with the fixture user's role ("teacher-role") already substituted:
-|   isTeacher (targeted): whereRaw("{$c->row()} = ?", ["teacher:teacher-role"])
+|   isTeacher (targeted): whereRaw("{$c->column()} = ?", ["teacher:teacher-role"])
 |   isAdvisor (global):   whereRaw('? = ?', ['advisor', 'teacher-role'])
 |
 */
@@ -356,7 +356,7 @@ it('ORs every ability predicate under ANY match mode', function () {
 it('qualifies a row condition with the host query alias rather than the table', function () {
     bindWarrantRules('if is_teacher they can view');
 
-    /* isTeacher builds its predicate from $c->row(), which is the row's SQL name
+    /* isTeacher builds its predicate from $c->column(), which is the row's SQL name
        and not necessarily the model's table: this query calls those rows `cs`. */
     $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(
         warrantTestQuery('course_sections as cs'),

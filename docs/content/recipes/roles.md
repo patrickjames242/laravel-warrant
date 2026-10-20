@@ -47,13 +47,13 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 
     #[RowCondition]
     public function inMyTeam(RowConditionContext $c): Builder
     {
-        return $c->query->whereIn($c->row('team_id'), $c->user->teamIds());
+        return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
     }
 }
 ```

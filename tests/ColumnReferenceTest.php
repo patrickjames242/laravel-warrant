@@ -445,7 +445,7 @@ class ColTargetSchema extends WarrantSchema
     #[RowCondition]
     public function isOpen(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('state'), '=', 'open');
+        return $c->query->where($c->column('state'), '=', 'open');
     }
 
     /* Takes one operand, so a check(...) predicate can correlate this frame to
@@ -453,7 +453,7 @@ class ColTargetSchema extends WarrantSchema
     #[RowCondition]
     public function idMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($c->row(), '=', $column);
+        return $c->query->where($c->column(), '=', $column);
     }
 }
 

@@ -20,7 +20,7 @@ The value is passed to the condition positionally, like any other argument:
 #[RowCondition]
 public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
 {
-    return $c->query->where($c->row('workspace_id'), $workspace);
+    return $c->query->where($c->column('workspace_id'), $workspace);
 }
 ```
 

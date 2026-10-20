@@ -161,7 +161,7 @@ From the schema's declaration:
 
 From a condition over rows with no key column:
 
-- `BadMethodCallException`: `These rows have no key column of their own, so row() must be given a column name; …`
+- `BadMethodCallException`: `These rows have no key column of their own, so column() must be given a column name; …`
 
 An empty argument list is not an error in itself: it addresses a row by a key
 requiring no arguments. Only `null` means a no-row check.

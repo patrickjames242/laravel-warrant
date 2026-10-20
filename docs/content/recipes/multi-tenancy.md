@@ -30,13 +30,13 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function inCurrentTenant(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('tenant_id'), $c->context['tenant_id']);
+        return $c->query->where($c->column('tenant_id'), $c->context['tenant_id']);
     }
 
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 
     protected function defaultContext(): array

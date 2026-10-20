@@ -65,7 +65,7 @@ You will need the matching condition on the schema:
 #[RowCondition]
 public function isLocked(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('locked'), true);
+    return $c->query->where($c->column('locked'), true);
 }
 ```
 

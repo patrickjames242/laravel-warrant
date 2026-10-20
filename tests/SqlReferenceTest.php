@@ -150,6 +150,6 @@ class SqlItemSchema extends WarrantSchema
     #[RowCondition]
     public function valueMatches(RowConditionContext $c, mixed $expr): BuilderContract
     {
-        return $c->query->where($c->row('value'), '=', $expr);
+        return $c->query->where($c->column('value'), '=', $expr);
     }
 }

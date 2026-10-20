@@ -21,7 +21,7 @@ like in the emitted query.
 #[RowCondition]
 public function isLocked(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('locked'), true);
+    return $c->query->where($c->column('locked'), true);
 }
 ```
 
@@ -45,8 +45,8 @@ something by it:
 
 ```php
 return $c->query->where(fn ($q) => $q
-    ->whereNull($c->row('locked'))
-    ->orWhere($c->row('locked'), false));
+    ->whereNull($c->column('locked'))
+    ->orWhere($c->column('locked'), false));
 ```
 
 ## Tracing it both ways

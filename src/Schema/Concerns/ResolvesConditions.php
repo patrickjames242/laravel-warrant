@@ -132,7 +132,7 @@ trait ResolvesConditions
      * carries no condition attribute — but it is dispatched exactly as a row
      * condition is: the same context object, the same Eloquent wrapper over the
      * same where clause, the same positional argument binding. So a key may spend
-     * a model scope, follow an alias through {@see RowConditionContext::row()}, and
+     * a model scope, follow an alias through {@see RowConditionContext::column()}, and
      * answer unknown by returning null.
      *
      * Always targeted, because a key names a row.
@@ -193,7 +193,7 @@ trait ResolvesConditions
      */
     protected function defaultMatchKey(RowConditionContext $c, mixed $key): ?Builder
     {
-        return $key === null ? null : $c->query->where($c->row(), '=', $key);
+        return $key === null ? null : $c->query->where($c->column(), '=', $key);
     }
 
     /**
@@ -240,7 +240,7 @@ trait ResolvesConditions
                rows answer to the schema's key unless the compiler named them
                something closer, and their identifying column is whatever the
                schema declared as its `key` — null when it declared none, which
-               leaves row() needing a column name and the schema needing a
+               leaves column() needing a column name and the schema needing a
                matchKey() of its own. */
             if ($modelClass === '') {
                 $result = $this->{$methodName}(new RowConditionContext(
@@ -275,7 +275,7 @@ trait ResolvesConditions
                alias fails against a name the query does not have — the same
                way it would anywhere else a scope meets an alias. Conditions
                that must follow the row's name build their own predicate from
-               {@see RowConditionContext::row()}. */
+               {@see RowConditionContext::column()}. */
             /* Tell the model what its rows are called here, so a scope built on
                warrantQualifyColumn() follows the row rather than naming the
                table. The instance is this call's own, so nothing outlives it. */

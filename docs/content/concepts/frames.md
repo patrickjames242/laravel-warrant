@@ -8,7 +8,7 @@ sidebar:
 ---
 
 A rule writes `@column pay_period_id` and names no table. A condition writes
-`$c->row('user_id')` and names no table. Both are deliberate, and the reason is
+`$c->column('user_id')` and names no table. Both are deliberate, and the reason is
 that the table is not knowable when the rule is written.
 
 A **frame** is the name the rows under discussion answer to at the point a
@@ -76,16 +76,16 @@ Because it is an `Expression`, a condition can drop it straight into
 `->where(...)` or `->whereColumn(...)` and it is emitted verbatim, never re-quoted
 and never bound as a value.
 
-## Conditions: use `$c->row()`
+## Conditions: use `$c->column()`
 
-Inside a condition, `$c->row()` is the frame-aware way to name a column. With no
+Inside a condition, `$c->column()` is the frame-aware way to name a column. With no
 argument it gives the key column; with one it gives that column:
 
 ```php
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 }
 ```
 

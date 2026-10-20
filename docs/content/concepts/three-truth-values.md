@@ -125,8 +125,8 @@ something:
 public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
 {
     return $workspace === null
-        ? $c->query->whereNull($c->row('workspace_id'))
-        : $c->query->where($c->row('workspace_id'), $workspace);
+        ? $c->query->whereNull($c->column('workspace_id'))
+        : $c->query->where($c->column('workspace_id'), $workspace);
 }
 ```
 

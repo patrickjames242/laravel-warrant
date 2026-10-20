@@ -106,8 +106,8 @@ condition:
 
 ```php
 return $c->query->where(fn ($q) => $q
-    ->whereNull($c->row('locked'))
-    ->orWhere($c->row('locked'), false));
+    ->whereNull($c->column('locked'))
+    ->orWhere($c->column('locked'), false));
 ```
 
 See [true, false, and unknown](/concepts/three-truth-values/).

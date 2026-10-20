@@ -78,14 +78,14 @@ class RowModelSectionSchema extends WarrantSchema
 
         self::$lastOwnerBranch = 'sql';
 
-        return $c->query->whereRaw("{$c->row('owner_id')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner_id')} = ?", [$c->user->role_id]);
     }
 
     /** A plain row condition that ignores the model — always SQL. */
     #[RowCondition]
     public function isPublished(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('published')} = 1");
+        return $c->query->whereRaw("{$c->column('published')} = 1");
     }
 }
 

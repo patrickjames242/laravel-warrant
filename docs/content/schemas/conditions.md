@@ -24,7 +24,7 @@ public function isMine(RowConditionContext $c): Builder { /* ... */ }
 
 ## Row conditions
 
-A row condition narrows which rows match. Build column references with `$c->row()`
+A row condition narrows which rows match. Build column references with `$c->column()`
 rather than writing the table yourself, because the name the rows answer to is not
 always the model's table:
 
@@ -36,11 +36,11 @@ use Warrant\Schema\RowCondition;
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 }
 ```
 
-`$c->row()` with no argument gives the key column, `documents.id`. With one it
+`$c->column()` with no argument gives the key column, `documents.id`. With one it
 gives that column. See [frames](/concepts/frames/) for why that matters.
 
 To reach another table, use a correlated `whereExists` rather than a join:
@@ -51,14 +51,14 @@ public function inMyTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
-        ->whereColumn('team_members.team_id', $c->row('team_id'))
+        ->whereColumn('team_members.team_id', $c->column('team_id'))
         ->where('user_id', $c->user->getAuthIdentifier()));
 }
 ```
 
 ## Global conditions
 
-A global condition is about the user or the world. Its context has no `row()`, and
+A global condition is about the user or the world. Its context has no `column()`, and
 it may simply return a `bool`:
 
 ```php
@@ -115,7 +115,7 @@ details are in [passing values to conditions](/rules/values/):
 #[RowCondition]
 public function inTeam(RowConditionContext $c, string $team): Builder
 {
-    return $c->query->where($c->row('team_id'), $team);
+    return $c->query->where($c->column('team_id'), $team);
 }
 ```
 
@@ -133,7 +133,7 @@ public function isMine(RowConditionContext $c): Builder|bool
         return $c->model->user_id === $c->user->getAuthIdentifier();
     }
 
-    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 }
 ```
 
@@ -192,7 +192,7 @@ parameter.`
 | `$c->query` | `Builder` | both |
 | `$c->arguments` | `array` | both |
 | `$c->context` | `array` | both |
-| `$c->row()` | `string` method | row only |
+| `$c->column()` | `string` method | row only |
 | `$c->model` | `?Model` | row only |
 | `$c->table` | `string` | row only |
 | `$c->keyColumn` | `string` | row only |
@@ -205,12 +205,12 @@ into a SQL string is an injection vector.
 
 ```php
 // Good
-$c->query->whereRaw("{$c->row('user_id')} = ?", [$c->user->getAuthIdentifier()]);
+$c->query->whereRaw("{$c->column('user_id')} = ?", [$c->user->getAuthIdentifier()]);
 
 // Bad
-$c->query->whereRaw("{$c->row('user_id')} = {$c->user->getAuthIdentifier()}");
+$c->query->whereRaw("{$c->column('user_id')} = {$c->user->getAuthIdentifier()}");
 ```
 
 Note that the column reference is interpolated and the *value* is bound. That is
-the right split: `$c->row()` returns an identifier Warrant quoted itself.
+the right split: `$c->column()` returns an identifier Warrant quoted itself.
 :::

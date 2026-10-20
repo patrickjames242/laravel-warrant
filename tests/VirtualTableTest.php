@@ -33,7 +33,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 | What such a schema gives up is everything a model was buying beyond the rows
 | themselves: there are no Eloquent scopes to spend, no hydrated $c->model, and
 | no primary key — so it must address its rows with a matchKey() of its own, and
-| a condition names its columns through row('<column>').
+| a condition names its columns through column('<column>').
 |
 */
 
@@ -92,28 +92,28 @@ class VtDaySchema extends WarrantSchema
     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?BuilderContract
     {
         return $c->query
-            ->where($c->row('team_id'), '=', $teamId)
-            ->where($c->row('day'), '=', $day);
+            ->where($c->column('team_id'), '=', $teamId)
+            ->where($c->column('day'), '=', $day);
     }
 
     /** Reads a column the virtual table computes, as if it were stored. */
     #[RowCondition]
     public function isUnderstaffed(RowConditionContext $c, int $below = 2): BuilderContract
     {
-        return $c->query->where($c->row('shift_count'), '<', $below);
+        return $c->query->where($c->column('shift_count'), '<', $below);
     }
 
     #[RowCondition]
     public function inMyRegion(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('region'), '=', 'north');
+        return $c->query->where($c->column('region'), '=', 'north');
     }
 }
 
 /**
  * A virtual table over a spine table, declaring the column its rows are
  * identified by. That is all the built-in key needs, so it declares no
- * matchKey() of its own — and its conditions may write row() bare.
+ * matchKey() of its own — and its conditions may write column() bare.
  */
 class VtSpineSchema extends WarrantSchema
 {
@@ -131,18 +131,18 @@ class VtSpineSchema extends WarrantSchema
     #[RowCondition]
     public function inMyRegion(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('region'), '=', 'north');
+        return $c->query->where($c->column('region'), '=', 'north');
     }
 
     /** Names no column, so it leans on the declared key. */
     #[RowCondition]
     public function isNamedTeam(RowConditionContext $c, string $id): BuilderContract
     {
-        return $c->query->where($c->row(), '=', $id);
+        return $c->query->where($c->column(), '=', $id);
     }
 }
 
-/** A virtual table declaring no key, so row() has no column to use. */
+/** A virtual table declaring no key, so column() has no column to use. */
 class VtKeylessSchema extends WarrantSchema
 {
     #[Ability]
@@ -337,7 +337,7 @@ it('compares the declared key column in the emitted SQL', function () {
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema);
     $sql = normalizeWarrantSql($guard->filterQuery($guard->query(), 'view')->toRawSql());
 
-    // row() with no argument resolved to the declared key, under the schema key.
+    // column() with no argument resolved to the declared key, under the schema key.
     expect($sql)->toContain('"vt_spine"."team_id" = \'north-1\'');
 });
 

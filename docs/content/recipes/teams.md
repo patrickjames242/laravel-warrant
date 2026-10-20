@@ -48,7 +48,7 @@ public function inMyTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
-        ->whereColumn('team_members.team_id', $c->row('team_id'))
+        ->whereColumn('team_members.team_id', $c->column('team_id'))
         ->where('team_members.user_id', $c->user->getAuthIdentifier()));
 }
 
@@ -57,7 +57,7 @@ public function managesMyTeam(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
-        ->whereColumn('team_members.team_id', $c->row('team_id'))
+        ->whereColumn('team_members.team_id', $c->column('team_id'))
         ->where('team_members.user_id', $c->user->getAuthIdentifier())
         ->where('team_members.role', 'manager'));
 }
@@ -105,7 +105,7 @@ Sometimes you already have the ids and would rather not re-query:
 #[RowCondition]
 public function inMyTeam(RowConditionContext $c): Builder
 {
-    return $c->query->whereIn($c->row('team_id'), $c->user->teamIds());
+    return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
 }
 ```
 
@@ -131,7 +131,7 @@ abstract class TeamOwnedSchema extends WarrantSchema
     {
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
-            ->whereColumn('team_members.team_id', $c->row('team_id'))
+            ->whereColumn('team_members.team_id', $c->column('team_id'))
             ->where('team_members.user_id', $c->user->getAuthIdentifier()));
     }
 }

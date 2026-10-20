@@ -27,19 +27,19 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isDraft(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('state'), 'draft');
+        return $c->query->where($c->column('state'), 'draft');
     }
 
     #[RowCondition]
     public function isSubmitted(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('state'), 'submitted');
+        return $c->query->where($c->column('state'), 'submitted');
     }
 
     #[RowCondition]
     public function isPublished(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('state'), 'published');
+        return $c->query->where($c->column('state'), 'published');
     }
 }
 ```
@@ -50,7 +50,7 @@ A parameterized one reads better when you have many:
 #[RowCondition]
 public function inState(RowConditionContext $c, string ...$states): Builder
 {
-    return $c->query->whereIn($c->row('state'), $states);
+    return $c->query->whereIn($c->column('state'), $states);
 }
 ```
 
@@ -93,7 +93,7 @@ enum DocumentState: string
 #[RowCondition]
 public function isDraft(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('state'), DocumentState::Draft);
+    return $c->query->where($c->column('state'), DocumentState::Draft);
 }
 ```
 
@@ -118,8 +118,8 @@ Either make the column non-null with a default, or handle it:
 public function isDraft(RowConditionContext $c): Builder
 {
     return $c->query->where(fn ($q) => $q
-        ->where($c->row('state'), 'draft')
-        ->orWhereNull($c->row('state')));
+        ->where($c->column('state'), 'draft')
+        ->orWhereNull($c->column('state')));
 }
 ```
 
@@ -135,7 +135,7 @@ around it:
 #[RowCondition]
 public function isTrashed(RowConditionContext $c): Builder
 {
-    return $c->query->whereNotNull($c->row('deleted_at'));
+    return $c->query->whereNotNull($c->column('deleted_at'));
 }
 
 public function rules(RuleProviderContext $context): array|RuleSetNode
@@ -161,7 +161,7 @@ even on a model that soft-deletes.
 #[RowCondition]
 public function isEmbargoed(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('publish_at'), '>', $c->context['now'] ?? now());
+    return $c->query->where($c->column('publish_at'), '>', $c->context['now'] ?? now());
 }
 ```
 

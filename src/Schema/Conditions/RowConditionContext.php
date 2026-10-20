@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * The evaluation context passed to a `#[RowCondition]` method: the current user,
  * the where-clause builder the condition constrains, the resolved DSL arguments,
- * the check-time context bag, and {@see row()} — the qualified SQL identity of
- * the target row being evaluated.
+ * the check-time context bag, and {@see column()} — a column of the target row
+ * being evaluated, qualified with the name the row goes by in the query.
  *
  * `query` is an Eloquent builder over the schema's model, so a condition can
  * spend a scope the model already defines rather than restating its SQL:
@@ -25,14 +25,14 @@ use Illuminate\Database\Eloquent\Model;
  * joins or groups is rejected, and wants a correlated `whereExists` instead.
  *
  * A scope speaks the model's own table, which is not always what the row is
- * called here — see {@see row()}. Retargeting the model at the alias is not the
+ * called here — see {@see column()}. Retargeting the model at the alias is not the
  * fix: `getTable()` would then lie to any scope reading it to build a subquery.
  * So a scope reached through an alias names a table the query does not have,
  * failing as it would anywhere else a scope meets an alias, and a condition that
- * must follow the row's name builds its predicate from `row()` instead.
+ * must follow the row's name builds its predicate from `column()` instead.
  *
  * A row is always present — a row condition is never dispatched without a row to
- * evaluate against, so `row()` is guaranteed to resolve.
+ * evaluate against, so `column()` is guaranteed to resolve.
  *
  * The row's *instance* is a different question, and that is `model`. It holds the
  * loaded target when the check named one (`can('update', $document)`), and null
@@ -47,7 +47,7 @@ use Illuminate\Database\Eloquent\Model;
  *         return $c->model->owner_id === $c->user->getAuthIdentifier();
  *     }
  *
- *     return $c->query->whereRaw("{$c->row('owner_id')} = ?", [$c->user->getAuthIdentifier()]);
+ *     return $c->query->whereRaw("{$c->column('owner_id')} = ?", [$c->user->getAuthIdentifier()]);
  *
  * A condition that cannot settle its question either way returns null instead,
  * answering unknown: it neither grants nor lifts a deny. One that does must leave
@@ -69,7 +69,7 @@ final readonly class RowConditionContext
      * @param string $table The name the target row answers to in SQL: the schema
      *   model's table, or the alias standing in for it — the host query's own
      *   (`from('docs as d')`), or a cross-schema hop's (`can(… for docs(…) as d2)`).
-     *   Always the right thing to qualify a column with, which is why {@see row()}
+     *   Always the right thing to qualify a column with, which is why {@see column()}
      *   is the only supported way to build one.
      * @param string|null $keyColumn The target row's primary key column, or null
      *   for rows that have none of their own — a virtual table's, which are a
@@ -91,25 +91,24 @@ final readonly class RowConditionContext
     }
 
     /**
-     * The qualified SQL identity of the target row.
+     * A column of the target row, qualified with the name the row goes by in
+     * the query, so a condition never has to hand-concatenate the table prefix:
+     * `column('owner_id')` → `timesheets.owner_id`.
      *
-     * With no argument, returns the row's qualified key (e.g. `timesheets.id`).
-     * Pass a column name to qualify a different column of the target table
-     * (e.g. `row('owner_id')` → `timesheets.owner_id`), so a condition never has
-     * to hand-concatenate the table prefix.
+     * With no argument, the row's key column (e.g. `timesheets.id`).
      *
      * The no-argument form needs a key column, which rows drawn from a virtual
      * table do not have. Name a column there — and address such rows with a
      * {@see \Warrant\Schema\WarrantSchema::matchKey()} of the schema's own,
      * since the default one asks for exactly this key.
      */
-    public function row(?string $column = null): string
+    public function column(?string $column = null): string
     {
         $column ??= $this->keyColumn;
 
         if ($column === null) {
             throw new BadMethodCallException(
-                'These rows have no key column of their own, so row() must be given a column name; '
+                'These rows have no key column of their own, so column() must be given a column name; '
                     .'rows drawn from a virtualTable() need a matchKey() that names its own columns.'
             );
         }

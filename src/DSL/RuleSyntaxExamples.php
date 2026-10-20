@@ -217,14 +217,14 @@ class RuleSyntaxExamples
      *   #[RowCondition]
      *   public function isSpecificUser(RowConditionContext $c, string $userId): Builder {
      *       // is_specific_user('some-user-id') -> $userId === 'some-user-id'
-     *       return $c->query->whereRaw("{$c->row()} = ?", [$userId]);
+     *       return $c->query->whereRaw("{$c->column()} = ?", [$userId]);
      *   }
      *
      *   // Variadic parameter -> a list argument -> a whereIn:
      *   #[RowCondition]
      *   public function isDepartment(RowConditionContext $c, string ...$departmentIds): Builder {
      *       // is_department(?, ?, ?) with positional bindings ['a', 'b', 'c']
-     *       return $c->query->whereIn($c->row(), $departmentIds);
+     *       return $c->query->whereIn($c->column(), $departmentIds);
      *   }
      *
      *   // No-target boolean condition: returns true/false, ignoring the query.

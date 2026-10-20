@@ -282,7 +282,7 @@ it('splices an @sql row selector as a parenthesized scalar subquery', function (
 it('aliases the subquery from, and qualifies every B predicate with that alias', function () {
     /* `as f2` renames the rows the subquery selects, so everything about B has to
        follow: its correlated key, and its own row conditions — which is the whole
-       point, since B's `is_owner` writes `$c->row('owner')` without knowing what
+       point, since B's `is_owner` writes `$c->column('owner')` without knowing what
        this caller called it. */
     assertXcFilterSql(
         'if can(view for xc_folders(@column xc_docs.id) as f2) they can view',
@@ -720,14 +720,14 @@ class XcFolderSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$c->user->role_id]);
     }
 
     // Owner check driven by a context argument (used to prove with-map plumbing).
     #[RowCondition]
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$owner]);
     }
 
     /* Takes a column operand and compares this frame's owner to it. Both operands
@@ -735,7 +735,7 @@ class XcFolderSchema extends WarrantSchema
     #[RowCondition]
     public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($column, '=', DB::raw($c->row('owner')));
+        return $c->query->where($column, '=', DB::raw($c->column('owner')));
     }
 }
 

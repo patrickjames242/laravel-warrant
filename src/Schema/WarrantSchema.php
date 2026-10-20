@@ -62,7 +62,7 @@ abstract class WarrantSchema implements ConditionResolver
      * virtual table — whose rows are a query's output and have no key of their
      * own. Declaring it is what lets such a schema be addressed without a
      * `matchKey()`: the built-in key compares against this column, and a
-     * condition may write `$c->row()` with no argument.
+     * condition may write `$c->column()` with no argument.
      *
      * ```php
      * public const key = 'team_id';
@@ -209,8 +209,8 @@ abstract class WarrantSchema implements ConditionResolver
      *     public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
      *     {
      *         return $c->query
-     *             ->where($c->row('team_id'), '=', $teamId)
-     *             ->where($c->row('day'), '=', $day);
+     *             ->where($c->column('team_id'), '=', $teamId)
+     *             ->where($c->column('day'), '=', $day);
      *     }
      *
      * Declare it on the schema when its rows are addressed by something other than

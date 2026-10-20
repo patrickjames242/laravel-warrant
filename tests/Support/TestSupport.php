@@ -124,7 +124,7 @@ class WarrantTestSchema extends WarrantSchema
     #[RowCondition]
     public function isTeacher(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row()} = ?", ["teacher:{$c->user->role_id}"]);
+        return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
     #[GlobalCondition]
@@ -143,7 +143,7 @@ class WarrantTestSchema extends WarrantSchema
     {
         return $c->query->whereExists(fn (BuilderContract $sub) => $sub
             ->from('enrollments')
-            ->whereColumn('enrollments.section_id', $c->row())
+            ->whereColumn('enrollments.section_id', $c->column())
             ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]));
     }
 }
@@ -177,7 +177,7 @@ class WarrantJoinConditionSchema extends WarrantSchema
     public function viaBadJoin(RowConditionContext $c): BuilderContract
     {
         return $c->query
-            ->join('enrollments', 'enrollments.section_id', '=', $c->row())
+            ->join('enrollments', 'enrollments.section_id', '=', $c->column())
             ->whereRaw('enrollments.user_id = ?', [$c->user->role_id]);
     }
 }
@@ -270,7 +270,7 @@ class ParameterizedConditionSchema extends WarrantSchema
     #[RowCondition]
     public function isSpecificUser(RowConditionContext $c, string $userId): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row()} = ?", [$userId]);
+        return $c->query->whereRaw("{$c->column()} = ?", [$userId]);
     }
 
     // An optional parameter falls back to its default when no argument is supplied.

@@ -359,13 +359,13 @@ class DkDocSchema extends WarrantSchema
     #[RowCondition]
     public function isOwned(RowConditionContext $c): BuilderContract
     {
-        return $c->query->where($c->row('owner_id'), '=', $c->user->role_id);
+        return $c->query->where($c->column('owner_id'), '=', $c->user->role_id);
     }
 
     #[RowCondition]
     public function inTenant(RowConditionContext $c, mixed $tenant): BuilderContract
     {
-        return $c->query->where($c->row('tenant_id'), '=', $tenant);
+        return $c->query->where($c->column('tenant_id'), '=', $tenant);
     }
 
     /** Hands its argument back through a binding without reading it. */
@@ -401,7 +401,7 @@ class DkDocSchema extends WarrantSchema
     #[RowCondition]
     public function ownerIsColumn(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($c->row('owner_id'), '=', $column);
+        return $c->query->where($c->column('owner_id'), '=', $column);
     }
 
     #[DerivedCondition]

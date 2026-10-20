@@ -94,7 +94,7 @@ select * from "documents" where (
 )
 ```
 
-This is where [`$c->row()` and
+This is where [`$c->column()` and
 `warrantQualifyColumn()`](/concepts/frames/) stop being stylistic. A condition on
 the folder schema that wrote `folders.owner_id` produces SQL naming `folders`
 inside a subquery where the rows are called `parent`.

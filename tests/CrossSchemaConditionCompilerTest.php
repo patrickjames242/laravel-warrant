@@ -510,14 +510,14 @@ class ChkTargetSchema extends WarrantSchema
     #[RowCondition]
     public function isOwner(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$c->user->role_id]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$c->user->role_id]);
     }
 
     // Owner check driven by a condition argument (used to prove with-map plumbing).
     #[RowCondition]
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('owner')} = ?", [$owner]);
+        return $c->query->whereRaw("{$c->column('owner')} = ?", [$owner]);
     }
 
     // A global condition on a row-backed schema, so a predicate can mix the two.
@@ -533,7 +533,7 @@ class ChkTargetSchema extends WarrantSchema
     #[RowCondition]
     public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($column, '=', DB::raw($c->row('owner')));
+        return $c->query->where($column, '=', DB::raw($c->column('owner')));
     }
 }
 

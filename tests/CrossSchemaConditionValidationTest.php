@@ -263,13 +263,13 @@ class XcvTargetSchema extends WarrantSchema
     #[RowCondition]
     public function isPublished(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('published')} = ?", [true]);
+        return $c->query->whereRaw("{$c->column('published')} = ?", [true]);
     }
 
     #[RowCondition]
     public function isFrozen(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row('frozen')} = ?", [true]);
+        return $c->query->whereRaw("{$c->column('frozen')} = ?", [true]);
     }
 }
 

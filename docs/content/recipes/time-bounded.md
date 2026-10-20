@@ -26,13 +26,13 @@ class DocumentSchema extends WarrantSchema
     #[RowCondition]
     public function isPublished(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('published_at'), '<=', $c->context['now']);
+        return $c->query->where($c->column('published_at'), '<=', $c->context['now']);
     }
 
     #[RowCondition]
     public function isExpired(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->row('expires_at'), '<=', $c->context['now']);
+        return $c->query->where($c->column('expires_at'), '<=', $c->context['now']);
     }
 }
 ```
@@ -83,7 +83,7 @@ public function grantedAndCurrent(RowConditionContext $c): Builder
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_grants')
-        ->whereColumn('document_grants.document_id', $c->row('id'))
+        ->whereColumn('document_grants.document_id', $c->column('id'))
         ->where('document_grants.user_id', $c->user->getAuthIdentifier())
         ->where('document_grants.starts_at', '<=', $c->context['now'])
         ->where(fn ($q) => $q
@@ -146,8 +146,8 @@ class PayPeriodSchema extends WarrantSchema
     public function isOpen(RowConditionContext $c): Builder
     {
         return $c->query
-            ->where($c->row('opens_at'), '<=', $c->context['now'] ?? now())
-            ->where($c->row('closes_at'), '>', $c->context['now'] ?? now());
+            ->where($c->column('opens_at'), '<=', $c->context['now'] ?? now())
+            ->where($c->column('closes_at'), '>', $c->context['now'] ?? now());
     }
 }
 ```

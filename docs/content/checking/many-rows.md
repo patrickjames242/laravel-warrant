@@ -111,7 +111,7 @@ $guard->filterQuery($guard->query(), 'view')->get();
 ## Aliased queries
 
 Alias the query and the conditions follow, provided they build column references
-through `$c->row()` or `warrantQualifyColumn()`:
+through `$c->column()` or `warrantQualifyColumn()`:
 
 ```php
 $guard->filterQuery(DB::table('documents as d'), 'view');

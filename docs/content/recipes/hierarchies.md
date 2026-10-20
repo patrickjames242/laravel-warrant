@@ -71,7 +71,7 @@ public function grantedAtOrAbove(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('folder_paths')
         ->join('folder_grants', 'folder_grants.folder_id', '=', 'folder_paths.ancestor_id')
-        ->whereColumn('folder_paths.descendant_id', $c->row('id'))
+        ->whereColumn('folder_paths.descendant_id', $c->column('id'))
         ->where('folder_grants.user_id', $c->user->getAuthIdentifier()));
 }
 ```
@@ -101,7 +101,7 @@ public function underMyGrantedFolder(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('folder_grants')
         ->join('folders as g', 'g.id', '=', 'folder_grants.folder_id')
-        ->whereColumn('g.path', '<=', $c->row('path'))
+        ->whereColumn('g.path', '<=', $c->column('path'))
         ->whereRaw("? like g.path || '%'", [/* … */])
         ->where('folder_grants.user_id', $c->user->getAuthIdentifier()));
 }
@@ -152,7 +152,7 @@ public function archivedAtOrAbove(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('folder_paths')
         ->join('folders as a', 'a.id', '=', 'folder_paths.ancestor_id')
-        ->whereColumn('folder_paths.descendant_id', $c->row('id'))
+        ->whereColumn('folder_paths.descendant_id', $c->column('id'))
         ->whereNotNull('a.archived_at'));
 }
 ```

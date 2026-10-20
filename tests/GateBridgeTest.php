@@ -54,7 +54,7 @@ class GateTestSchema extends WarrantSchema
     #[RowCondition]
     public function isTeacher(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->row()} = ?", ["teacher:{$c->user->role_id}"]);
+        return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
     #[GlobalCondition]

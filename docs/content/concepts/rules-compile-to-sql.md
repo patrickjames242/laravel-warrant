@@ -60,7 +60,7 @@ thousand rows and a query that has not run yet. So a condition describes rows:
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->row('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
 }
 ```
 

@@ -39,7 +39,7 @@ public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Build
 {
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_shares')
-        ->whereColumn('document_shares.document_id', $c->row('id'))
+        ->whereColumn('document_shares.document_id', $c->column('id'))
         ->where('document_shares.user_id', $c->user->getAuthIdentifier())
         ->whereIn('document_shares.level', $levels)
         ->where(fn ($q) => $q
@@ -119,7 +119,7 @@ public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Build
 
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_shares')
-        ->whereColumn('document_shares.document_id', $c->row('id'))
+        ->whereColumn('document_shares.document_id', $c->column('id'))
         ->whereIn('document_shares.level', $levels)
         ->where(fn ($q) => $q
             ->where('document_shares.user_id', $userId)
@@ -143,7 +143,7 @@ public function sharedByLink(RowConditionContext $c): Builder
 
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('share_links')
-        ->whereColumn('share_links.document_id', $c->row('id'))
+        ->whereColumn('share_links.document_id', $c->column('id'))
         ->where('share_links.token', $token)
         ->whereNull('share_links.revoked_at'));
 }
