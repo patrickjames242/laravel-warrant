@@ -560,14 +560,14 @@ trait ValidatesExpressions
 
     /**
      * Whether $columnRef is one the condition or `@include` the syntax answers
-     * passed in, as the syntax's producer says. Its value was put in place in
+     * passed in, as the producer it is validated under says. Its value was put in place in
      * PHP before it reached here, so it sits in these rules as the reference
      * itself. It is the calling rule's, checked in that rule's scope where the
      * rule wrote it, so it is not checked again in the scope it was passed into.
      */
     private function isCallerArgument(ColumnRef $columnRef): bool
     {
-        return in_array($columnRef, $this->syntax->source->producer()?->callerArguments() ?? [], true);
+        return in_array($columnRef, $this->input->producer?->callerArguments() ?? [], true);
     }
 
     /**

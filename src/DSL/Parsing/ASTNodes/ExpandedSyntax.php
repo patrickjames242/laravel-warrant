@@ -36,7 +36,8 @@ final readonly class ExpandedSyntax
      * @param list<WarrantRuleNode> $rules In source order, each include's rules
      *   where the include stood.
      * @param ValidationInput $input What the rules were validated under, and
-     *   expanded against.
+     *   expanded against, with no producer: an expanded syntax holds rules of
+     *   many producers, and each rule's source says its own.
      */
     private function __construct(
         public string $schemaKey,
@@ -60,13 +61,16 @@ final readonly class ExpandedSyntax
         /** @var list<WarrantRuleNode> $rules */
         $rules = $expanded->entries;
 
-        return new self($expanded->schemaKey, $rules, $syntax->input);
+        return new self($expanded->schemaKey, $rules, $syntax->input->withProducer(null));
     }
 
     /**
      * The rules of $parts, in order, as one expanded syntax for $schemaKey,
-     * validated under $input. Every part must be for that schema and validated
-     * under that input; with no parts, there are no rules.
+     * validated under $input. Every part is an expanded syntax, which only
+     * {@see expand()} makes from a valid syntax, so each is valid and expanded
+     * already; what is checked here is that they belong together: every part is
+     * for that schema and was validated under that input.
+     * With no parts, there are no rules.
      */
     public static function combine(string $schemaKey, ValidationInput $input, self ...$parts): self
     {
@@ -81,7 +85,7 @@ final readonly class ExpandedSyntax
                 ));
             }
 
-            if ($part->input != $input) {
+            if (! $part->input->isSameAs($input)) {
                 throw new InvalidArgumentException(sprintf(
                     'Expanded rules for [%s] validated under another input cannot be combined with these.',
                     $schemaKey,

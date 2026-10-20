@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Warrant\Rules;
 
+use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -16,11 +17,11 @@ interface RuleProvider
      * SQL, so the implementation is free to build them however it likes — a
      * database lookup, hardcoded rules, ... — and to return them in whichever
      * form it has them: a rule set, a rule entry (a rule, ability block or
-     * include), rule text as a string or {@see WarrantSyntax}, or an iterable
-     * (array, Collection) of those. Every rule set among them must target
-     * `$context->schemaKey`.
+     * include), a rule builder, rule text as a string or {@see WarrantSyntax},
+     * or an iterable (array, Collection) of those. Every rule set among them
+     * must target `$context->schemaKey`.
      *
-     * @return RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantSyntax|string>
+     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string>
      */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable;
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable;
 }

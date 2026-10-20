@@ -14,9 +14,12 @@ use Warrant\DSL\Validation\ValidationInput;
 
 /**
  * A syntax that has passed validation as written, under the
- * {@see ValidationInput} it holds. Validity is relative to that input: the same
- * text can be valid with no schema and invalid against one, so a syntax is valid
- * only for the input it was validated under.
+ * {@see ValidationInput} it holds, whose producer is the one its source had
+ * then. Validity is relative to that input: the same text can be valid with no
+ * schema and invalid against one, and what produced it says which schema its
+ * rules with no header belong to and whether they name their abilities. So a
+ * syntax is valid only for the input it was validated under, and is validated
+ * again under any other, as it is once its source's producer is set anew.
  *
  * Only {@see of()} and {@see check()} make one, so holding a ValidSyntax is
  * proof that its text was validated. Its accessors hand out its nodes, each
@@ -32,11 +35,22 @@ final readonly class ValidSyntax extends WarrantSyntax
     }
 
     /**
+     * $input, with the producer $syntax's source has now: what $syntax is
+     * validated under.
+     */
+    private static function inputFor(WarrantSyntax $syntax, ValidationInput $input): ValidationInput
+    {
+        return $input->withProducer($syntax->source->producer());
+    }
+
+    /**
      * $syntax, validated as written under $input. Throws the first mistake.
      */
     public static function of(WarrantSyntax $syntax, ValidationInput $input): self
     {
-        if ($syntax instanceof self && $syntax->input == $input) {
+        $input = self::inputFor($syntax, $input);
+
+        if ($syntax instanceof self && $syntax->input->isSameAs($input)) {
             return $syntax;
         }
 
@@ -51,7 +65,9 @@ final readonly class ValidSyntax extends WarrantSyntax
      */
     public static function check(WarrantSyntax $syntax, ValidationInput $input): self|InvalidSyntax
     {
-        if ($syntax instanceof self && $syntax->input == $input) {
+        $input = self::inputFor($syntax, $input);
+
+        if ($syntax instanceof self && $syntax->input->isSameAs($input)) {
             return $syntax;
         }
 

@@ -36,8 +36,9 @@ use Warrant\DSL\SchemaVocabulary;
  *
  * A `for <schema>` body belongs to the schema its header names. Rules or a
  * condition with no header belong to the schema the text is for, which is what
- * produced it says: the {@see SyntaxProducer} of its source, such as a schema's
- * rules() or one of its templates. Given that schema, they are checked against
+ * produced it says: the {@see SyntaxProducer} of the {@see ValidationInput},
+ * the one its source had when it was handed over, such as a schema's rules() or
+ * one of its templates. Given that schema, they are checked against
  * it; without one, there is nothing to look their names up in, and they are
  * held only to the rules of the language that need no vocabulary. Whether they
  * name their abilities is what produced them says too: a template's leave them
@@ -127,7 +128,7 @@ final class SyntaxValidator
     {
         $this->assertBindingsFit($this->syntax);
 
-        $producer = $this->syntax->source->producer();
+        $producer = $this->input->producer;
         $producerSchema = $producer?->schemaKey === null ? null : $this->input->catalog?->find($producer->schemaKey);
         $producerSchemaKey = $producerSchema === null ? null : $producer->schemaKey;
 
