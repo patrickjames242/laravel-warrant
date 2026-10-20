@@ -826,6 +826,7 @@ final class RuleSetCompiler
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
         $this->assertHandleIsWellFormed($node, $bClass);
+        $this->assertPredicateAsksTarget($node->predicate, $node);
         $bKeys = $this->contextMapKeys($node->contextMap);
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
@@ -1057,6 +1058,28 @@ final class RuleSetCompiler
                 $node->alias->name,
                 $node->schemaKey->name,
                 $node->alias->name,
+            ));
+        }
+    }
+
+    /**
+     * A `check(...)` predicate that decides itself asks the target nothing, so a
+     * constant in it is rejected, with the message validation gives the same
+     * mistake in rule text. A derived condition in it may still answer with a
+     * constant: that answer is the condition's, not the predicate's.
+     */
+    private function assertPredicateAsksTarget(IBooleanExpressionNode $predicate, CrossSchemaConditionNode $check): void
+    {
+        if ($predicate instanceof NotNode) {
+            $this->assertPredicateAsksTarget($predicate->operand, $check);
+        } elseif ($predicate instanceof AndNode || $predicate instanceof OrNode) {
+            $this->assertPredicateAsksTarget($predicate->leftSide, $check);
+            $this->assertPredicateAsksTarget($predicate->rightSide, $check);
+        } elseif ($predicate instanceof BooleanNode) {
+            throw new InvalidArgumentException(sprintf(
+                'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
+                    .'schema something.',
+                $check->schemaKey->name,
             ));
         }
     }

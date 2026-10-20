@@ -2,11 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
-use Closure;
 use InvalidArgumentException;
-use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
  * The rules for one schema: the body of a `for <schema>` header, or rules given
@@ -47,41 +44,6 @@ final readonly class RuleSetNode implements ISchemaScopedNode
     public function schemaKey(): string
     {
         return $this->schemaKey->name;
-    }
-
-    /**
-     * Build a rule set with a callback, one rule per `$rule()` call.
-     *
-     * The callback receives a factory; each invocation of it appends a fresh
-     * {@see WarrantRuleBuilder} to the set and returns it for chaining. Rules are
-     * finalized automatically — there is no need to call toRule(). Every node of
-     * the set, its rules' included, is placed in one source.
-     *
-     * ```php
-     * RuleSetNode::build('timesheets', function ($rule) {
-     *     $rule()->if('is_self')->theyCan('edit', 'view');
-     *     $rule()->theyCan('list');
-     * });
-     * ```
-     *
-     * @param Closure(callable():WarrantRuleBuilder):void $callback
-     */
-    public static function build(string $schemaKey, Closure $callback): self
-    {
-        $source = new SyntaxSource(null);
-        $builders = [];
-
-        $make = function () use (&$builders, $source): WarrantRuleBuilder {
-            return $builders[] = new WarrantRuleBuilder($source);
-        };
-
-        $callback($make);
-
-        return new self(
-            new NameNode($schemaKey, SyntaxLocation::builtIn($source)),
-            array_map(static fn (WarrantRuleBuilder $builder): WarrantRuleNode => $builder->toRule(), $builders),
-            SyntaxLocation::builtIn($source),
-        );
     }
 
     public function children(): array

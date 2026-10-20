@@ -2,12 +2,12 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\WarrantAuthorizationException;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__ . "/Support/TestSupport.php";
 
 beforeEach(function () {
@@ -284,7 +284,7 @@ it("authorize() still diagnoses a folded denial", function () {
 	seedShortCircuitSections();
 	bindWarrantRuleSet(
 		new RuleSetNode(nameNode(WarrantTestSchema::schemaKey()), [
-			WarrantRuleNode::build()->theyCannotBecause("view", "not yours")->toRule(),
+			Build::rule()->theyCannotBecause("view", "not yours")->toRule(),
 		], SyntaxLocation::noProducer()),
 	);
 	$section = loadedSection();

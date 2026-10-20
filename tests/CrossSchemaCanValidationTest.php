@@ -3,16 +3,16 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * Validation for the cross-schema `can(<ability> for <schema>[(<row>)])` builtin.
@@ -87,7 +87,7 @@ it('rejects a with map on a can that crosses no boundary', function () {
 });
 
 it('rejects an alias on a can that selects no rows of its own', function () {
-    expect(fn () => validateOwnerRule(WarrantRuleNode::build()->ifCan('edit', as: 'e2')->theyCan('view')))
+    expect(fn () => validateOwnerRule(Build::rule()->ifCan(Build::can('edit')->as('e2'))->theyCan('view')))
         ->toThrow(
             InvalidArgumentException::class,
             'A can(edit) reference selects no rows of its own, so there is nothing for [as e2] to name',
@@ -125,34 +125,34 @@ it('rejects a specified row target from a binding that resolved to null', functi
 // -- built references validate identically ------------------------------------
 
 it('accepts a builder-built unbound reference to a capability schema', function () {
-    validateOwnerRule(WarrantRuleNode::build()->ifCan('access', 'xs_capability')->theyCan('edit'));
+    validateOwnerRule(Build::rule()->ifCan(Build::can('access')->for('xs_capability'))->theyCan('edit'));
     expect(true)->toBeTrue();
 });
 
 it('accepts a builder-built row-bound reference', function () {
-    validateOwnerRule(WarrantRuleNode::build()->ifCan('manage', 'xs_target', Ref::context('id'))->theyCan('edit'));
+    validateOwnerRule(Build::rule()->ifCan(Build::can('manage')->for('xs_target', Ref::context('id')))->theyCan('edit'));
     expect(true)->toBeTrue();
 });
 
 it('accepts a builder-built reference to its own schema', function () {
-    validateOwnerRule(WarrantRuleNode::build()->ifCan('view', 'xs_owner')->theyCan('edit'));
+    validateOwnerRule(Build::rule()->ifCan(Build::can('view')->for('xs_owner'))->theyCan('edit'));
     expect(true)->toBeTrue();
 });
 
 it('rejects a builder-built row-bound reference with an explicit null row', function () {
     // What NoRow buys: omitting the selector asks a schema-wide question, while a
     // null id stays row-bound and fails here instead of silently widening.
-    expect(fn () => validateOwnerRule(WarrantRuleNode::build()->ifCan('manage', 'xs_target', null)->theyCan('edit')))
+    expect(fn () => validateOwnerRule(Build::rule()->ifCan(Build::can('manage')->for('xs_target', null))->theyCan('edit')))
         ->toThrow(InvalidArgumentException::class, 'row target that is null');
 });
 
 it('rejects a builder-built row-bound reference to a capability schema', function () {
-    expect(fn () => validateOwnerRule(WarrantRuleNode::build()->ifCan('access', 'xs_capability', Ref::context('id'))->theyCan('edit')))
+    expect(fn () => validateOwnerRule(Build::rule()->ifCan(Build::can('access')->for('xs_capability', Ref::context('id')))->theyCan('edit')))
         ->toThrow(InvalidArgumentException::class, 'has no rows and cannot be row-targeted');
 });
 
 it('rejects a builder-built ability the target schema does not declare', function () {
-    expect(fn () => validateOwnerRule(WarrantRuleNode::build()->ifCan('nope', 'xs_target')->theyCan('edit')))
+    expect(fn () => validateOwnerRule(Build::rule()->ifCan(Build::can('nope')->for('xs_target'))->theyCan('edit')))
         ->toThrow(InvalidArgumentException::class, 'is not declared by schema [xs_target]');
 });
 

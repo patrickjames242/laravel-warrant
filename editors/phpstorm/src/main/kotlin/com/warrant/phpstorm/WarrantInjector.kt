@@ -29,7 +29,7 @@ import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
  *   - a heredoc/nowdoc labelled WARRANT, wherever it stands;
  *   - the first argument of `warrant()`, of `Warrant::parse()`,
  *     `WarrantSyntax::parse()` or `WarrantParser::parse()`, or of a builder's
- *     `->ifRaw()` / `->orIfRaw()`, passed by position or by its parameter name;
+ *     raw methods, `->ifRaw()` to `->orIfNotRaw()`, passed by position or by its parameter name;
  *   - returned, alone or inside a returned array, from a method marked
  *     `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a
  *     `WarrantSchema` or a `RuleProvider`.
@@ -70,7 +70,7 @@ class WarrantInjector : MultiHostInjector {
         )
 
         /** Builder methods whose first argument is a condition expression. */
-        private val RAW_METHODS = setOf("ifRaw", "orIfRaw")
+        private val RAW_METHODS = setOf("ifRaw", "andIfRaw", "orIfRaw", "ifNotRaw", "andIfNotRaw", "orIfNotRaw")
 
         /** The rule-text parameter's name, for a call that passes it by name. */
         private val RULE_TEXT_PARAMETERS = setOf("syntax", "source", "expression")

@@ -1,5 +1,6 @@
 <?php
 
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -17,17 +18,17 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
-use Warrant\DSL\Validation\LanguageRuleMessages;
-use Warrant\DSL\Validation\RuleValidationException;
-use Warrant\DSL\Validation\ValidationInput;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\ConditionKind;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -995,7 +996,7 @@ it('rejects a duplicate key in a check(...) with-map', function () {
 
 // -- condition expressions ----------------------------------------------------
 //
-// The entry point behind the builder's ifRaw() bridge and Warrant::condition().
+// The entry point behind the builder's ifRaw() bridge and Build::condition().
 // It parses the `if` half of a rule and nothing else, which gives it four rules
 // of its own on top of the shared expression grammar: no clauses may follow, the
 // source must be consumed to the end, every binding must be used, and an optional

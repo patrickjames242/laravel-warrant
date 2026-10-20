@@ -2,10 +2,6 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
-use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
@@ -16,25 +12,12 @@ use Warrant\Facades\Warrant;
 |------------------------------------------------------------------------------
 |
 | One parse for rule text of every form, answering with the WarrantSyntax tree
-| the parser builds, and a fluent builder each for a condition and a rule.
+| the parser builds.
 |
 */
 
 beforeEach(function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
-});
-
-// -- the builders -------------------------------------------------------------
-
-it('returns a condition builder from condition() and a rule builder from rule()', function () {
-    expect(Warrant::condition())->toBeInstanceOf(WarrantConditionBuilder::class);
-
-    $rule = Warrant::rule();
-
-    // A rule builder specifically: it carries the `they can` half a bare
-    // condition builder has no place for.
-    expect($rule)->toBeInstanceOf(WarrantRuleBuilder::class);
-    expect($rule->if('is_self')->theyCan('view')->toRule())->toBeInstanceOf(WarrantRuleNode::class);
 });
 
 // -- parse ---------------------------------------------------------------------

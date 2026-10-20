@@ -3,10 +3,6 @@
 namespace Warrant\Facades;
 
 use Illuminate\Support\Facades\Facade;
-use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\WarrantManager;
@@ -57,8 +53,8 @@ class Warrant extends Facade
     | see it. Text with no header is given its schema by the caller, with
     | ValidSyntax::scopedTo().
     |
-    | A condition and a rule also have a fluent builder, reached by condition() and
-    | rule(). Building a rule set from rule builders is RuleSetNode::build().
+    | Rules, conditions and rule sets are built in PHP through
+    | \Warrant\Builders\Build.
     |
     | These are real statics rather than proxied @method entries: they need no user,
     | no state and nothing from the container, and WarrantManager is otherwise
@@ -90,31 +86,5 @@ class Warrant extends Facade
     public static function parseFile(string $path, array $bindings = []): WarrantSyntax
     {
         return WarrantSyntax::parseFile($path, $bindings);
-    }
-
-    /**
-     * A fluent builder for a condition expression: the `if` half of a rule, with
-     * no clauses attached. It is what a schema's `#[DerivedCondition]` returns to
-     * build itself from other conditions rather than emitting SQL.
-     *
-     *     Warrant::condition()->if('is_owner')->orIf('is_admin')
-     */
-    public static function condition(): WarrantConditionBuilder
-    {
-        return WarrantConditionBuilder::build();
-    }
-
-    /**
-     * A fluent builder for one rule: conditions plus the abilities they grant or
-     * deny.
-     *
-     *     Warrant::rule()->if('is_self')->theyCan('view', 'update')
-     *
-     * The builder needs no `toRule()` when {@see RuleSetNode::build()} hands it
-     * out, since that finishes the builders it hands out itself.
-     */
-    public static function rule(): WarrantRuleBuilder
-    {
-        return WarrantRuleNode::build();
     }
 }

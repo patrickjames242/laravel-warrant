@@ -20,7 +20,7 @@ enum SyntaxProducerKind
     /** A schema's `#[DerivedCondition]` method, answering for a rule naming it. */
     case DerivedCondition;
 
-    /** A condition builder's `ifRaw()` or `orIfRaw()`. */
+    /** A condition builder's raw methods, `ifRaw()` to `orIfNotRaw()`. */
     case RawCondition;
 
     /** The language server, reading a document open in an editor. */

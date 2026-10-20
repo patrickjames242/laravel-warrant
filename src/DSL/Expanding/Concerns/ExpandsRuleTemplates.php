@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Expanding\Concerns;
 
 use RuntimeException;
+use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
@@ -68,8 +69,9 @@ trait ExpandsRuleTemplates
      * The generic rules and includes in what a rule template answered with, in
      * whichever form it built them: rule text as a string, {@see BoundSyntax} or
      * {@see WarrantSyntax},
-     * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, or an
-     * iterable of any of these.
+     * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, a
+     * {@see WarrantRuleBuilder} making a generic rule, or an iterable of any of
+     * these.
      *
      * Every entry must be generic. The `@include` expanding the template names the
      * abilities its clauses take, so an entry naming its own has two answers to the
@@ -78,7 +80,8 @@ trait ExpandsRuleTemplates
      *
      * $producer, the template answering the `@include`, is set on the source
      * every answer was made in: its text's, or a built node's own, which every
-     * node a builder made with it shares. Each answer is validated before it is spliced in:
+     * node a builder made with it shares. A rule builder is resolved in a source
+     * of its own. Each answer is validated before it is spliced in:
      * rule text as the text it is, so an error points into it, and a rule or
      * include built in code as the node it is.
      *
@@ -86,6 +89,10 @@ trait ExpandsRuleTemplates
      */
     private function templateEntries(mixed $body, SyntaxProducer $producer): array
     {
+        if ($body instanceof WarrantRuleBuilder) {
+            $body = $body->toRule();
+        }
+
         if (is_string($body) || $body instanceof BoundSyntax) {
             $body = WarrantParser::parse($body, $producer);
         } elseif ($body instanceof WarrantSyntax) {
@@ -140,8 +147,8 @@ trait ExpandsRuleTemplates
         }
 
         throw new RuntimeException(sprintf(
-            '%s must answer with rule text, a %s, a rule or @include that names no abilities, or an iterable of '
-                .'them; got %s.',
+            '%s must answer with rule text, a %s, a rule, rule builder or @include that names no abilities, or an '
+                .'iterable of them; got %s.',
             $producer->describe(),
             WarrantSyntax::class,
             get_debug_type($body),

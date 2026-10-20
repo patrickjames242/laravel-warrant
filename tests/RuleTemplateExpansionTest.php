@@ -3,6 +3,7 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -10,19 +11,19 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\Validation\LanguageRuleMessages;
-use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
 use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\RuleTemplate;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 class TemplateExpansionModel extends Model
 {
@@ -111,7 +112,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function answersWithARule(): WarrantRuleNode
     {
-        return Warrant::rule()->if('is_teacher')->theyCan()->toRule();
+        return Build::rule()->if('is_teacher')->theyCan()->toRule();
     }
 
     #[RuleTemplate]
@@ -140,7 +141,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function answersWithANamedRule(): WarrantRuleNode
     {
-        return Warrant::rule()->theyCan('view')->toRule();
+        return Build::rule()->theyCan('view')->toRule();
     }
 
     #[RuleTemplate]
@@ -424,7 +425,8 @@ it('rejects a template answering with something that is not rules', function () 
         ->toThrow(
             RuntimeException::class,
             'Rule template [TemplateExpansionSchema::wrongReturn] must answer with rule text, a '
-                .WarrantSyntax::class.', a rule or @include that names no abilities, or an iterable of them; got int.',
+                .WarrantSyntax::class.', a rule, rule builder or @include that names no abilities, or an '
+                .'iterable of them; got int.',
         );
 });
 

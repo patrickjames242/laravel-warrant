@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\CompilationContext;
@@ -77,7 +78,7 @@ class OriginDocSchema extends WarrantSchema
     #[DerivedCondition]
     public function ownedOrNamed(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['u9'])->andIfNot('is_owner'));
+        return Build::condition()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['u9'])->andIfNot('is_owner'));
     }
 
     #[DerivedCondition]
@@ -101,7 +102,7 @@ class OriginDocSchema extends WarrantSchema
     #[RuleTemplate]
     public function ownedRules(): WarrantRuleNode
     {
-        return WarrantRuleNode::build()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['t1']))->theyCan()->toRule();
+        return Build::rule()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['t1']))->theyCan()->toRule();
     }
 
     public function rules(RuleProviderContext $context): \Warrant\Builders\WarrantRuleBuilder|BoundSyntax|string
@@ -190,11 +191,11 @@ it('gives every node of a schema\'s rule text the schema\'s producer', function 
     expect(producersOf(originRules(fn () => 'if owner_is(\'u1\') they can view')[0]))->each->toEndWith('SchemaRules');
 });
 
-it('gives every node a builder made the producer of the answer it is in, through its one source', function () {
-    $rule = originRules(fn () => WarrantRuleNode::build()
+it('gives every node a builder made the producer of the answer it is in, through the source it is resolved in', function () {
+    $rule = originRules(fn () => Build::rule()
         ->if('is_owner')
         ->orIf(fn ($c) => $c->if('owner_is', ['u1'])->andIfNot('is_owner'))
-        ->orIfCan('view', OriginDocSchema::class, Ref::column('id'))
+        ->orIfCan(Build::can('view')->for(OriginDocSchema::class, Ref::column('id')))
         ->ifRaw('owner_is(?)', ['u2'])
         ->theyCan('view')
         ->theyCannotBecause('edit', 'Locked.'))[0];
@@ -208,11 +209,11 @@ it('gives every node a builder made the producer of the answer it is in, through
     ]);
 });
 
-it('places every node of a builder, its groups and predicates included, in one source', function () {
-    $builder = WarrantRuleNode::build()
+it('places every node of a builder, its groups and predicates included, in the one source it is resolved in', function () {
+    $builder = Build::rule()
         ->if('is_owner')
         ->orIf(fn ($c) => $c->if('owner_is', ['u1']))
-        ->ifCheck(fn ($p) => $p->if('is_owner'), OriginDocSchema::class)
+        ->ifCheck(fn ($p) => $p->if('is_owner')->for(OriginDocSchema::class))
         ->theyCan('view');
     $rule = $builder->toRule();
     $nodes = [$rule];
@@ -222,7 +223,7 @@ it('places every node of a builder, its groups and predicates included, in one s
     }
 
     expect(array_unique(array_map(static fn (INode $node): int => spl_object_id($node->location->source), $nodes)))
-        ->toBe([spl_object_id($builder->source)]);
+        ->toBe([spl_object_id($rule->location->source)]);
 });
 
 it('gives a derived condition\'s builder answer its producer, and a constant it answers with none', function () {

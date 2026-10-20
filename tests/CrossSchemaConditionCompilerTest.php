@@ -5,10 +5,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProvider;
@@ -19,7 +20,6 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -176,8 +176,8 @@ it('compiles a builder-built row-bound predicate to the same SQL as the DSL', fu
     assertChkFilterSql(
         new RuleSetNode(
             nameNode('chk_docs'),
-            [WarrantRuleNode::build()
-                ->ifCheck(fn ($p) => $p->if('is_owner'), 'chk_targets', Ref::context('tid'))
+            [Build::rule()
+                ->ifCheck(fn ($p) => $p->if('is_owner')->for('chk_targets', Ref::context('tid')))
                 ->theyCan('view')
                 ->toRule()],
             SyntaxLocation::noProducer(),

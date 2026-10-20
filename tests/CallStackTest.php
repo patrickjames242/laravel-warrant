@@ -4,6 +4,7 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\Call;
 use Warrant\DSL\Compiling\CallStack;
@@ -13,6 +14,7 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProvider;
@@ -22,7 +24,6 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -283,7 +284,7 @@ class CstDocSchema extends WarrantSchema
     #[DerivedCondition]
     public function hopsToFolder(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck('back_to_doc', CstFolderSchema::class);
+        return Build::condition()->ifCheck(Build::check('back_to_doc')->for(CstFolderSchema::class));
     }
 }
 
@@ -320,14 +321,14 @@ class CstFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function isEditable(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->if('is_owner');
+        return Build::condition()->if('is_owner');
     }
 
     /** Closes the loop back to A's ability, from inside B's predicate. */
     #[DerivedCondition]
     public function backToDoc(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCan('view', CstDocSchema::class);
+        return Build::condition()->ifCan(Build::can('view')->for(CstDocSchema::class));
     }
 
     /** Recurs with a literal that decreases, so it reaches a base case. */
@@ -335,8 +336,8 @@ class CstFolderSchema extends WarrantSchema
     public function within(int $levels): WarrantConditionBuilder
     {
         return $levels <= 0
-            ? WarrantConditionBuilder::build()->if('is_owner')
-            : WarrantConditionBuilder::build()->if('is_owner')->orIf('within', [$levels - 1]);
+            ? Build::condition()->if('is_owner')
+            : Build::condition()->if('is_owner')->orIf('within', [$levels - 1]);
     }
 }
 
@@ -365,6 +366,6 @@ class CstPingSchema extends WarrantSchema
     #[DerivedCondition]
     public function pong(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck('pong', CstPingSchema::class);
+        return Build::condition()->ifCheck(Build::check('pong')->for(CstPingSchema::class));
     }
 }

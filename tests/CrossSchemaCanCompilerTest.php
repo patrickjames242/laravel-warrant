@@ -5,11 +5,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProvider;
@@ -20,7 +21,6 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -152,7 +152,7 @@ it('compiles a builder-built row-bound reference to the same SQL as the DSL', fu
     assertXcFilterSql(
         new RuleSetNode(
             nameNode('xc_docs'),
-            [WarrantRuleNode::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view')->toRule()],
+            [Build::rule()->ifCan(Build::can('view')->for('xc_folders', Ref::context('folder_id')))->theyCan('view')->toRule()],
             SyntaxLocation::noProducer(),
         ),
         ['xc_folders' => 'if is_owner they can view'],

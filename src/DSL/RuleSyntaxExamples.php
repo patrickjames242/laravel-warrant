@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL;
 
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 
@@ -130,7 +130,7 @@ class RuleSyntaxExamples
         ))->validate()->rule();
 
         // The same rule built fluently — theyCannotBecause() carries the message:
-        WarrantRuleNode::build()
+        Build::rule()
             ->if('is_locked')
             ->theyCannotBecause('edit', 'This timesheet is locked and can no longer be edited.')
             ->theyCannotBecause('delete', 'Locked timesheets cannot be deleted.')

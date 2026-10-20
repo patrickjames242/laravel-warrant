@@ -4,7 +4,6 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Closure;
 use InvalidArgumentException;
-use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Schema\WarrantDenialContext;
 
@@ -52,14 +51,6 @@ readonly class WarrantRuleNode implements IRuleEntryNode
                 ));
             }
         }
-    }
-
-    /**
-     * Start a fluent, query-builder-style rule construction.
-     */
-    public static function build(): WarrantRuleBuilder
-    {
-        return new WarrantRuleBuilder;
     }
 
     /**

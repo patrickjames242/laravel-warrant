@@ -53,7 +53,7 @@
     },
 
     "warrant-call": {
-      "comment": "A call whose first argument is Warrant rule text: warrant(...), Warrant::parse(...), WarrantSyntax::parse(...), WarrantParser::parse(...), and the builders' ->ifRaw(...) / ->orIfRaw(...). The first argument is highlighted as Warrant when it is a string literal or a heredoc/nowdoc of any label.",
+      "comment": "A call whose first argument is Warrant rule text: warrant(...), Warrant::parse(...), WarrantSyntax::parse(...), WarrantParser::parse(...), and the builders' raw methods, ->ifRaw(...) to ->orIfNotRaw(...). The first argument is highlighted as Warrant when it is a string literal or a heredoc/nowdoc of any label.",
       "patterns": [
         { "include": "#warrant-function-call" },
         { "include": "#warrant-static-call" },
@@ -94,7 +94,7 @@
     },
 
     "warrant-method-call": {
-      "begin": "(\\??->)\\s*(ifRaw|orIfRaw)\\s*(\\()",
+      "begin": "(\\??->)\\s*(ifRaw|andIfRaw|orIfRaw|ifNotRaw|andIfNotRaw|orIfNotRaw)\\s*(\\()",
       "beginCaptures": {
         "1": { "name": "keyword.operator.class.php" },
         "2": { "name": "entity.name.function.php" },

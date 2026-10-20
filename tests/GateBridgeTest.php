@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -16,7 +17,6 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -234,8 +234,8 @@ it('carries the Warrant denial message through inspect/authorize', function () {
     seedGateSections();
     useWarrantSchemas(['course_sections' => GateTestSchema::class]);
     bindWarrantRuleSet(new RuleSetNode(nameNode(GateTestSchema::schemaKey()), [
-        WarrantRuleNode::build()->theyCan('view')->toRule(),
-        WarrantRuleNode::build()->if('is_teacher')
+        Build::rule()->theyCan('view')->toRule(),
+        Build::rule()->if('is_teacher')
             ->theyCannotBecause('view', 'teacher blocked')->toRule(),
     ], SyntaxLocation::noProducer()));
     $user = makeWarrantTestUser('teacher-role');

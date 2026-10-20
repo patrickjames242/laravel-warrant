@@ -70,10 +70,10 @@ trait ResolvesRuleSets
      * come in any form: a {@see RuleSetNode}, a rule entry, a
      * {@see WarrantRuleBuilder}, rule text as a string, {@see BoundSyntax} or
      * {@see WarrantSyntax}, or an iterable of any of these. Text is parsed with
-     * $producer. Anything
-     * else is a syntax rooted at the source it was made in, a builder's or a
-     * node's own, and $producer is set on that source, so every node made in it
-     * says what handed it over. A schema's own rules must all be for that
+     * $producer. A builder is resolved in a source of its own. Anything
+     * else is a syntax rooted at the source it was made in, the node's own, and
+     * $producer is set on that source, so every node made in it says what
+     * handed it over. A schema's own rules must all be for that
      * schema.
      *
      * @return list<ValidSyntax>
@@ -91,8 +91,10 @@ trait ResolvesRuleSets
         }
 
         if ($rules instanceof WarrantRuleBuilder) {
-            $rules = new WarrantSyntax([$rules->toRule()], $rules->source);
-        } elseif ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
+            $rules = $rules->toRule();
+        }
+
+        if ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
             $rules = new WarrantSyntax([$rules], $rules->location->source);
         }
 

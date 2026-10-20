@@ -4,12 +4,14 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
@@ -17,7 +19,6 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -361,11 +362,10 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function parentIsOwned(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck(
-            'is_owner',
-            DcFolderSchema::class,
-            Ref::column('parent_id'),
-            as: 'parent',
+        return Build::condition()->ifCheck(
+            Build::check('is_owner')
+                ->for(DcFolderSchema::class, Ref::column('parent_id'))
+                ->as('parent'),
         );
     }
 
@@ -376,11 +376,10 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function qualifiedParentOwned(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck(
-            'is_owner',
-            DcFolderSchema::class,
-            Ref::column('dc_folders', 'parent_id'),
-            as: 'parent',
+        return Build::condition()->ifCheck(
+            Build::check('is_owner')
+                ->for(DcFolderSchema::class, Ref::column('dc_folders', 'parent_id'))
+                ->as('parent'),
         );
     }
 
@@ -388,11 +387,10 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function namesCallersAlias(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck(
-            'is_owner',
-            DcFolderSchema::class,
-            Ref::column('p', 'parent_id'),
-            as: 'gp',
+        return Build::condition()->ifCheck(
+            Build::check('is_owner')
+                ->for(DcFolderSchema::class, Ref::column('p', 'parent_id'))
+                ->as('gp'),
         );
     }
 
@@ -403,11 +401,10 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function qualifiedGlobal(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCheck(
-            'is_owner',
-            DcFolderSchema::class,
-            Ref::column('dc_folders', 'parent_id'),
-            as: 'gp',
+        return Build::condition()->ifCheck(
+            Build::check('is_owner')
+                ->for(DcFolderSchema::class, Ref::column('dc_folders', 'parent_id'))
+                ->as('gp'),
         );
     }
 
@@ -420,21 +417,21 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function emptyExpansion(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build();
+        return Build::condition();
     }
 
     /** Expands into itself with the same arguments: no base case, ever. */
     #[DerivedCondition]
     public function runaway(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->if('runaway');
+        return Build::condition()->if('runaway');
     }
 
     /** Closes a can(...) loop from inside a condition. */
     #[DerivedCondition]
     public function derivedCan(): WarrantConditionBuilder
     {
-        return WarrantConditionBuilder::build()->ifCan('view', DcFolderSchema::class);
+        return Build::condition()->ifCan(Build::can('view')->for(DcFolderSchema::class));
     }
 }
 

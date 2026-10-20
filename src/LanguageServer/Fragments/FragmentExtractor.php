@@ -14,8 +14,8 @@ use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
  *  - a heredoc or nowdoc labelled `WARRANT`, wherever it stands;
  *  - the first argument of `warrant()`, of `Warrant::parse()`,
  *    `WarrantSyntax::parse()` or `WarrantParser::parse()`, of
- *    `new BoundSyntax()`, or of a builder's `->ifRaw()` or `->orIfRaw()`, passed
- *    by position or by its parameter name;
+ *    `new BoundSyntax()`, or of a builder's raw methods, `->ifRaw()` to
+ *    `->orIfNotRaw()`, passed by position or by its parameter name;
  *  - returned, alone or inside a returned array, from a method marked
  *    `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a class
  *    that extends or implements another,
@@ -44,7 +44,7 @@ final class FragmentExtractor
     private const RULE_TEXT_CLASSES = ['boundsyntax'];
 
     /** Builder methods whose first argument is a condition expression. */
-    private const RAW_METHODS = ['ifraw', 'orifraw'];
+    private const RAW_METHODS = ['ifraw', 'andifraw', 'orifraw', 'ifnotraw', 'andifnotraw', 'orifnotraw'];
 
     /** The names the rule-text parameter is passed by. */
     private const RULE_TEXT_PARAMETERS = ['syntax', 'source', 'expression'];

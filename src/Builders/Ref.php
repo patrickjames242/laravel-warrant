@@ -22,8 +22,8 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  *
  * ```php
  * ->if('in_period', [Ref::context('year')])
- * ->andIfCan('manage', 'departments', Ref::context('department_id'))
- * ->orIfCheck('is_open', 'pay_periods', Ref::column('pay_period_id'))
+ * ->andIfCan(Build::can('manage')->for('departments', Ref::context('department_id')))
+ * ->orIfCheck(Build::check('is_open')->for('pay_periods', Ref::column('pay_period_id')))
  * ```
  */
 final class Ref

@@ -5,6 +5,8 @@ namespace Warrant\DSL\Expanding\Concerns;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
+use Warrant\Builders\CrossSchemaCanBuilder;
+use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\ExpansionTrail;
@@ -72,12 +74,14 @@ trait ExpandsDerivedConditions
     /**
      * What a derived condition answered with, as an expression node in the
      * source it was made in, with $producer, the condition answering the rule
-     * that named it, set on that source: its text's, the builder's, or a built
-     * node's own.
+     * that named it, set on that source: its text's, a built node's own, or a
+     * new one that a builder is resolved in.
      *
      * Rule text, as a string, a {@see BoundSyntax} or a {@see WarrantSyntax}, must hold a condition
      * expression, bare or under a `for` header naming this schema. A
-     * {@see WarrantConditionBuilder} is unwrapped to the tree it composed. A bool
+     * {@see WarrantConditionBuilder} is resolved to the tree it composed, and a
+     * {@see CrossSchemaCanBuilder} or {@see CrossSchemaCheckBuilder} to its
+     * `can(...)` or `check(...)`. A bool
      * decides the outcome outright, and null answers unknown.
      *
      * An expression is validated before it is spliced in: rule text as the text
@@ -90,15 +94,10 @@ trait ExpandsDerivedConditions
             return $this->derivedSyntaxExpression($answer, $producer, $schemaKey);
         }
 
-        $expression = $this->derivedNodeExpression($answer, $producer);
-
         /* A constant built here is held in a source of its own, so it keeps
            no producer. */
-        $source = match (true) {
-            $answer instanceof WarrantConditionBuilder => $answer->source,
-            $answer instanceof IBooleanExpressionNode => $answer->location->source,
-            default => new SyntaxSource(null),
-        };
+        $source = $answer instanceof IBooleanExpressionNode ? $answer->location->source : new SyntaxSource(null);
+        $expression = $this->derivedNodeExpression($answer, $producer, $source);
         $source->setProducer($producer);
 
         $valid = self::validateAnswer(
@@ -114,16 +113,20 @@ trait ExpandsDerivedConditions
 
     /**
      * What a derived condition answered with, when it answered with anything but
-     * rule text. A constant it answered with is a node built here, with no
-     * text and no producer.
+     * rule text. A builder is resolved in $source. A constant it answered with
+     * is a node built here, with no text and no producer.
      */
-    private function derivedNodeExpression(mixed $answer, SyntaxProducer $producer): IBooleanExpressionNode
+    private function derivedNodeExpression(mixed $answer, SyntaxProducer $producer, SyntaxSource $source): IBooleanExpressionNode
     {
+        if ($answer instanceof CrossSchemaCanBuilder || $answer instanceof CrossSchemaCheckBuilder) {
+            return $answer->toNode($source);
+        }
+
         if ($answer instanceof WarrantConditionBuilder) {
             /* A builder with no terms is the structural twin of a condition that
                added no where clause: it would mean "match everything", which is
                almost always a forgotten branch rather than an intent. */
-            return $answer->buildConditions() ?? throw new InvalidArgumentException(sprintf(
+            return $answer->buildConditions($source) ?? throw new InvalidArgumentException(sprintf(
                 '%s returned a condition builder with no terms, which would silently match every row; add at '
                     .'least one term, return true/false to decide the outcome outright, or return null to '
                     .'answer unknown.',
@@ -136,9 +139,11 @@ trait ExpandsDerivedConditions
             is_bool($answer) => new BooleanNode($answer, SyntaxLocation::noProducer()),
             $answer === null => new UnknownNode(SyntaxLocation::noProducer()),
             default => throw new RuntimeException(sprintf(
-                '%s must answer with an expression, a %s, rule text, a %s, a bool or null; got %s.',
+                '%s must answer with an expression, a %s, a %s, a %s, rule text, a %s, a bool or null; got %s.',
                 $producer->describe(),
                 WarrantConditionBuilder::class,
+                CrossSchemaCanBuilder::class,
+                CrossSchemaCheckBuilder::class,
                 WarrantSyntax::class,
                 get_debug_type($answer),
             )),

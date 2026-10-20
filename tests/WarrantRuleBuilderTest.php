@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Warrant\Builders\Build;
 use Warrant\Builders\NoRow;
 use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CompilationContext;
@@ -22,9 +23,9 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\Schema\AbilityDefinition;
 use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\ConditionKind;
@@ -86,7 +87,7 @@ final class BuilderFakeResolver implements ConditionResolver
 // -- structure ----------------------------------------------------------------
 
 it('builds an unconditional rule (no if) with null conditions', function () {
-    $rule = WarrantRuleNode::build()->theyCan('view', 'update')->theyCannot('delete')->toRule();
+    $rule = Build::rule()->theyCan('view', 'update')->theyCannot('delete')->toRule();
 
     expect($rule->conditions)->toBeNull();
     expect($rule->canAbilities())->toBe(['view', 'update']);
@@ -94,14 +95,14 @@ it('builds an unconditional rule (no if) with null conditions', function () {
 });
 
 it('attaches a denial message to a single ability via theyCannotBecause', function () {
-    $rule = WarrantRuleNode::build()->theyCannotBecause('delete', 'This record is locked.')->toRule();
+    $rule = Build::rule()->theyCannotBecause('delete', 'This record is locked.')->toRule();
 
     expect($rule->cannotAbilities())->toBe(['delete']);
     expect($rule->messageFor('delete'))->toBe('This record is locked.');
 });
 
 it('shares one message across several abilities in a theyCannotBecause array', function () {
-    $rule = WarrantRuleNode::build()->theyCannotBecause(['update', 'delete'], 'locked')->toRule();
+    $rule = Build::rule()->theyCannotBecause(['update', 'delete'], 'locked')->toRule();
 
     expect($rule->cannotClauses)->toHaveCount(1);
     expect($rule->cannotAbilities())->toBe(['update', 'delete']);
@@ -110,7 +111,7 @@ it('shares one message across several abilities in a theyCannotBecause array', f
 });
 
 it('gives each theyCannotBecause clause its own message', function () {
-    $rule = WarrantRuleNode::build()
+    $rule = Build::rule()
         ->theyCannotBecause('update', 'no update')
         ->theyCannotBecause('delete', 'no delete')
         ->toRule();
@@ -122,13 +123,13 @@ it('gives each theyCannotBecause clause its own message', function () {
 
 it('accepts a closure denial message via theyCannotBecause', function () {
     $closure = fn () => 'dynamic';
-    $rule = WarrantRuleNode::build()->theyCannotBecause('delete', $closure)->toRule();
+    $rule = Build::rule()->theyCannotBecause('delete', $closure)->toRule();
 
     expect($rule->messageFor('delete'))->toBe($closure);
 });
 
 it('mixes message-less theyCannot and message-bearing theyCannotBecause', function () {
-    $rule = WarrantRuleNode::build()
+    $rule = Build::rule()
         ->theyCannot('archive')
         ->theyCannotBecause('delete', 'locked')
         ->toRule();
@@ -139,7 +140,7 @@ it('mixes message-less theyCannot and message-bearing theyCannotBecause', functi
 });
 
 it('carries condition parameters onto the node', function () {
-    $rule = WarrantRuleNode::build()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
     expect($rule->conditions->conditionKey?->name)->toBe('in_department');
@@ -147,21 +148,21 @@ it('carries condition parameters onto the node', function () {
 });
 
 it('wraps negated terms in a NotNode', function () {
-    $rule = WarrantRuleNode::build()->ifNot('is_locked')->theyCan('view')->toRule();
+    $rule = Build::rule()->ifNot('is_locked')->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(NotNode::class);
     expect($rule->conditions->operand->conditionKey?->name)->toBe('is_locked');
 });
 
 it('rejects a rule with no they-can/they-cannot clause, matching the DSL', function () {
-    expect(fn () => WarrantRuleNode::build()->if('is_self')->toRule())
+    expect(fn () => Build::rule()->if('is_self')->toRule())
         ->toThrow(LogicException::class);
 });
 
 it('hands a group closure a bare condition builder with no clause methods', function () {
     $received = null;
 
-    WarrantRuleNode::build()
+    Build::rule()
         ->if(function ($c) use (&$received) {
             $received = $c;
             $c->if('a');
@@ -178,29 +179,29 @@ it('hands a group closure a bare condition builder with no clause methods', func
 
 it('applies and > or precedence when materializing the chain', function () {
     // a and b or c  ->  (a and b) or c
-    $tree = WarrantRuleNode::build()->if('a')->andIf('b')->orIf('c')->buildConditions();
+    $tree = Build::rule()->if('a')->andIf('b')->orIf('c')->buildConditions(new SyntaxSource(null));
     expect(treeToString($tree))->toBe('((a and b) or c)');
 
     // a or b and c  ->  a or (b and c)
-    $tree = WarrantRuleNode::build()->if('a')->orIf('b')->andIf('c')->buildConditions();
+    $tree = Build::rule()->if('a')->orIf('b')->andIf('c')->buildConditions(new SyntaxSource(null));
     expect(treeToString($tree))->toBe('(a or (b and c))');
 });
 
 it('treats a closure as a parenthesized group', function () {
     // (a or b) and c
-    $tree = WarrantRuleNode::build()
+    $tree = Build::rule()
         ->if(fn ($c) => $c->if('a')->orIf('b'))
         ->andIf('c')
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     expect(treeToString($tree))->toBe('((a or b) and c)');
 });
 
 it('negates a whole group', function () {
     // not (a and b)
-    $tree = WarrantRuleNode::build()
+    $tree = Build::rule()
         ->ifNot(fn ($c) => $c->if('a')->andIf('b'))
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     expect(treeToString($tree))->toBe('!(a and b)');
 });
@@ -213,96 +214,96 @@ it('produces the identical tree to the equivalent DSL expression', function (str
 
     expect(treeToString($fromBuilder))->toBe(treeToString($fromDsl));
 })->with([
-    'and/or precedence' => ['a and b or c', fn () => WarrantRuleNode::build()->if('a')->andIf('b')->orIf('c')->theyCan('x')],
-    'or/and precedence' => ['a or b and c', fn () => WarrantRuleNode::build()->if('a')->orIf('b')->andIf('c')->theyCan('x')],
-    'explicit grouping'  => ['(a or b) and c', fn () => WarrantRuleNode::build()->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->theyCan('x')],
-    'leading not'        => ['not a and b', fn () => WarrantRuleNode::build()->ifNot('a')->andIf('b')->theyCan('x')],
-    'or not group'       => ['a or not (b and c)', fn () => WarrantRuleNode::build()->if('a')->orIfNot(fn ($g) => $g->if('b')->andIf('c'))->theyCan('x')],
+    'and/or precedence' => ['a and b or c', fn () => Build::rule()->if('a')->andIf('b')->orIf('c')->theyCan('x')],
+    'or/and precedence' => ['a or b and c', fn () => Build::rule()->if('a')->orIf('b')->andIf('c')->theyCan('x')],
+    'explicit grouping'  => ['(a or b) and c', fn () => Build::rule()->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->theyCan('x')],
+    'leading not'        => ['not a and b', fn () => Build::rule()->ifNot('a')->andIf('b')->theyCan('x')],
+    'or not group'       => ['a or not (b and c)', fn () => Build::rule()->if('a')->orIfNot(fn ($g) => $g->if('b')->andIf('c'))->theyCan('x')],
 
     // Cross-schema leaves. A plain schema key needs no registration — the registry
     // returns an unrecognized key unchanged, so these stay parser-only comparisons.
     'can unbound' => [
         'can(access for xs_capability)',
-        fn () => WarrantRuleNode::build()->ifCan('access', 'xs_capability')->theyCan('x'),
+        fn () => Build::rule()->ifCan(Build::can('access')->for('xs_capability'))->theyCan('x'),
     ],
     'can row-bound by @context' => [
         'can(manage for xs_target(@context id))',
-        fn () => WarrantRuleNode::build()->ifCan('manage', 'xs_target', Ref::context('id'))->theyCan('x'),
+        fn () => Build::rule()->ifCan(Build::can('manage')->for('xs_target', Ref::context('id')))->theyCan('x'),
     ],
     'can row-bound by literal' => [
         "can(manage for xs_target('t-1'))",
-        fn () => WarrantRuleNode::build()->ifCan('manage', 'xs_target', 't-1')->theyCan('x'),
+        fn () => Build::rule()->ifCan(Build::can('manage')->for('xs_target', 't-1'))->theyCan('x'),
     ],
     'can with map' => [
         'can(create for xs_target(@context id) with tenant = @context t, plan = 3)',
-        fn () => WarrantRuleNode::build()
-            ->ifCan('create', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t'), 'plan' => 3])
+        fn () => Build::rule()
+            ->ifCan(Build::can('create')->for('xs_target', Ref::context('id'))->with(['tenant' => Ref::context('t'), 'plan' => 3]))
             ->theyCan('x'),
     ],
     'can with a @column selector' => [
         'is_self and can(manage for xs_target(@column docs.target_id))',
-        fn () => WarrantRuleNode::build()
+        fn () => Build::rule()
             ->if('is_self')
-            ->andIfCan('manage', 'xs_target', Ref::column('docs', 'target_id'))
+            ->andIfCan(Build::can('manage')->for('xs_target', Ref::column('docs', 'target_id')))
             ->theyCan('x'),
     ],
     'can with no schema at all' => [
         'can(view)',
-        fn () => WarrantRuleNode::build()->ifCan('view')->theyCan('x'),
+        fn () => Build::rule()->ifCan('view')->theyCan('x'),
     ],
     'can with an alias' => [
         'can(view for xs_target(@context id) as t2)',
-        fn () => WarrantRuleNode::build()
-            ->ifCan('view', 'xs_target', Ref::context('id'), as: 't2')
+        fn () => Build::rule()
+            ->ifCan(Build::can('view')->for('xs_target', Ref::context('id'))->as('t2'))
             ->theyCan('x'),
     ],
     'check with an alias' => [
         'check(is_published for xs_target(@context id) as t2)',
-        fn () => WarrantRuleNode::build()
-            ->ifCheck('is_published', 'xs_target', Ref::context('id'), as: 't2')
+        fn () => Build::rule()
+            ->ifCheck(Build::check('is_published')->for('xs_target', Ref::context('id'))->as('t2'))
             ->theyCan('x'),
     ],
     'condition with a bare @column' => [
         'is_owner(@column owner_id)',
-        fn () => WarrantRuleNode::build()->if('is_owner', [Ref::column('owner_id')])->theyCan('x'),
+        fn () => Build::rule()->if('is_owner', [Ref::column('owner_id')])->theyCan('x'),
     ],
     'condition with a qualified @column' => [
         'is_owner(@column docs.owner_id)',
-        fn () => WarrantRuleNode::build()->if('is_owner', [Ref::column('docs', 'owner_id')])->theyCan('x'),
+        fn () => Build::rule()->if('is_owner', [Ref::column('docs', 'owner_id')])->theyCan('x'),
     ],
     'can with a @sql selector' => [
         'can(manage for xs_target(@sql "select 1"))',
-        fn () => WarrantRuleNode::build()->ifCan('manage', 'xs_target', Ref::sql('select 1'))->theyCan('x'),
+        fn () => Build::rule()->ifCan(Build::can('manage')->for('xs_target', Ref::sql('select 1')))->theyCan('x'),
     ],
     'can negated through a group' => [
         'a or not can(view for xs_target)',
-        fn () => WarrantRuleNode::build()->if('a')->orIfNot(fn ($g) => $g->ifCan('view', 'xs_target'))->theyCan('x'),
+        fn () => Build::rule()->if('a')->orIfNot(fn ($g) => $g->ifCan(Build::can('view')->for('xs_target')))->theyCan('x'),
     ],
     'check with a string predicate' => [
         'check(is_open for xs_target)',
-        fn () => WarrantRuleNode::build()->ifCheck('is_open', 'xs_target')->theyCan('x'),
+        fn () => Build::rule()->ifCheck(Build::check('is_open')->for('xs_target'))->theyCan('x'),
     ],
     'check predicate precedence' => [
         'check(a or b and not c for xs_target(@context id))',
-        fn () => WarrantRuleNode::build()
-            ->ifCheck(fn ($p) => $p->if('a')->orIf('b')->andIfNot('c'), 'xs_target', Ref::context('id'))
+        fn () => Build::rule()
+            ->ifCheck(fn ($p) => $p->if('a')->orIf('b')->andIfNot('c')->for('xs_target', Ref::context('id')))
             ->theyCan('x'),
     ],
     'check or-joined with a with map' => [
         'is_self or check(is_published for xs_target(@context id) with tenant = @context t)',
-        fn () => WarrantRuleNode::build()
+        fn () => Build::rule()
             ->if('is_self')
-            ->orIfCheck('is_published', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t')])
+            ->orIfCheck(Build::check('is_published')->for('xs_target', Ref::context('id'))->with(['tenant' => Ref::context('t')]))
             ->theyCan('x'),
     ],
     'check predicate leaf with parameters' => [
         "check(is_open('maintenance') for xs_target)",
-        fn () => WarrantRuleNode::build()->ifCheck(fn ($p) => $p->if('is_open', ['maintenance']), 'xs_target')->theyCan('x'),
+        fn () => Build::rule()->ifCheck(fn ($p) => $p->if('is_open', ['maintenance'])->for('xs_target'))->theyCan('x'),
     ],
     'check predicate with a nested group' => [
         'check((a or b) and c for xs_target)',
-        fn () => WarrantRuleNode::build()
-            ->ifCheck(fn ($p) => $p->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c'), 'xs_target')
+        fn () => Build::rule()
+            ->ifCheck(fn ($p) => $p->if(fn ($g) => $g->if('a')->orIf('b'))->andIf('c')->for('xs_target'))
             ->theyCan('x'),
     ],
 ]);
@@ -310,10 +311,10 @@ it('produces the identical tree to the equivalent DSL expression', function (str
 // -- when() -------------------------------------------------------------------
 
 it('applies when() branches only when the condition is truthy', function () {
-    $make = fn (bool $flag) => WarrantRuleNode::build()
+    $make = fn (bool $flag) => Build::rule()
         ->if('a')
         ->when($flag, fn ($c) => $c->orIf('b'))
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     expect(treeToString($make(true)))->toBe('(a or b)');
     expect(treeToString($make(false)))->toBe('a');
@@ -324,28 +325,28 @@ it('applies when() branches only when the condition is truthy', function () {
 it('folds a list of conditions inside a group', function () {
     $ids = ['d1', 'd2', 'd3'];
 
-    $tree = WarrantRuleNode::build()
+    $tree = Build::rule()
         ->if('is_self')
         ->orIf(function ($c) use ($ids) {
             foreach ($ids as $id) {
                 $c->orIf('in_department', [$id]);
             }
         })
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     expect(treeToString($tree))
         ->toBe("(is_self or ((in_department('d1') or in_department('d2')) or in_department('d3')))");
 });
 
 it('treats an empty group as false', function () {
-    $tree = WarrantRuleNode::build()
+    $tree = Build::rule()
         ->if('is_self')
         ->orIf(function ($c) {
             foreach ([] as $id) {
                 $c->orIf('in_department', [$id]);
             }
         })
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     // false contributes nothing to the OR.
     expect(treeToString($tree))->toBe('(is_self or false)');
@@ -354,8 +355,8 @@ it('treats an empty group as false', function () {
 // -- cross-schema handles -----------------------------------------------------
 
 it('leaves a cross-schema reference unbound when no row selector is given', function () {
-    $can = WarrantRuleNode::build()->ifCan('access', 'xs_capability')->buildConditions();
-    $check = WarrantRuleNode::build()->ifCheck('is_open', 'xs_capability')->buildConditions();
+    $can = Build::rule()->ifCan(Build::can('access')->for('xs_capability'))->buildConditions(new SyntaxSource(null));
+    $check = Build::rule()->ifCheck(Build::check('is_open')->for('xs_capability'))->buildConditions(new SyntaxSource(null));
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeFalse();
@@ -366,8 +367,8 @@ it('leaves a cross-schema reference unbound when no row selector is given', func
 it('keeps an explicit null row selector row-bound so validation can reject it', function () {
     // The whole point of NoRow: a missing id must fail loudly, not quietly widen
     // a row question into a schema-wide one.
-    $can = WarrantRuleNode::build()->ifCan('manage', 'xs_target', null)->buildConditions();
-    $check = WarrantRuleNode::build()->ifCheck('is_open', 'xs_target', null)->buildConditions();
+    $can = Build::rule()->ifCan(Build::can('manage')->for('xs_target', null))->buildConditions(new SyntaxSource(null));
+    $check = Build::rule()->ifCheck(Build::check('is_open')->for('xs_target', null))->buildConditions(new SyntaxSource(null));
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeTrue();
@@ -377,29 +378,29 @@ it('keeps an explicit null row selector row-bound so validation can reject it', 
 
 it('treats an explicitly passed NoRow as an unbound handle', function () {
     $id = null;
-    $node = WarrantRuleNode::build()->ifCan('manage', 'xs_target', $id ?? new NoRow)->buildConditions();
+    $node = Build::rule()->ifCan(Build::can('manage')->for('xs_target', $id ?? new NoRow))->buildConditions(new SyntaxSource(null));
 
     expect($node->isRowBound)->toBeFalse();
 });
 
 it('passes a model row selector through untouched', function () {
     $model = (new WarrantTestModel)->forceFill(['id' => 't-1']);
-    $node = WarrantRuleNode::build()->ifCan('manage', 'xs_target', $model)->buildConditions();
+    $node = Build::rule()->ifCan(Build::can('manage')->for('xs_target', $model))->buildConditions(new SyntaxSource(null));
 
     expect($node->isRowBound)->toBeTrue();
     expect(argumentValues($node->boundKey))->toEqualSyntax(([$model]));
 });
 
 it('preserves the with map insertion order', function () {
-    $node = WarrantRuleNode::build()
-        ->ifCan('manage', 'xs_target', 't-1', ['zebra' => 1, 'apple' => 2, 'mango' => 3])
-        ->buildConditions();
+    $node = Build::rule()
+        ->ifCan(Build::can('manage')->for('xs_target', 't-1')->with(['zebra' => 1, 'apple' => 2, 'mango' => 3]))
+        ->buildConditions(new SyntaxSource(null));
 
     expect(array_keys(withEntryValues($node->contextMap)))->toBe(['zebra', 'apple', 'mango']);
 });
 
 it('rejects an empty check(...) predicate closure', function (string $method) {
-    expect(fn () => WarrantRuleNode::build()->{$method}(function ($p) {}, 'xs_target'))
+    expect(fn () => Build::rule()->{$method}(fn ($check) => $check->for('xs_target')))
         ->toThrow(LogicException::class, 'predicate cannot be empty');
 })->with(['ifCheck', 'andIfCheck', 'orIfCheck']);
 
@@ -407,7 +408,7 @@ it('normalizes a model or schema reference to its schema key', function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 
     $keys = array_map(
-        fn ($schema) => WarrantRuleNode::build()->ifCan('view', $schema)->buildConditions()->schemaKey->name,
+        fn ($schema) => Build::rule()->ifCan(Build::can('view')->for($schema))->buildConditions(new SyntaxSource(null))->schemaKey->name,
         [WarrantTestModel::class, new WarrantTestModel, WarrantTestSchema::class, new WarrantTestSchema, 'course_sections'],
     );
 
@@ -419,20 +420,20 @@ it('throws when a class-string reference resolves to no registered schema', func
 
     // A plain *key* string passes through unresolved by design — the builder stays
     // usable without a warm registry, and a typo'd key is caught by validate().
-    expect(WarrantRuleNode::build()->ifCan('view', 'never_registered')->buildConditions()->schemaKey?->name)
+    expect(Build::rule()->ifCan(Build::can('view')->for('never_registered'))->buildConditions(new SyntaxSource(null))->schemaKey?->name)
         ->toBe('never_registered');
 
-    expect(fn () => WarrantRuleNode::build()->ifCan('view', WarrantTestModel::class))
+    expect(fn () => Build::rule()->ifCan(Build::can('view')->for(WarrantTestModel::class)))
         ->toThrow(OutOfBoundsException::class);
 });
 
 // -- round-tripping cross-schema terms back to DSL text -----------------------
 
 it('renders a built can/check back to DSL text that re-parses identically', function () {
-    $rule = WarrantRuleNode::build()
+    $rule = Build::rule()
         ->if('is_self')
-        ->andIfCan('manage', 'xs_target', Ref::context('id'), ['tenant' => Ref::context('t')])
-        ->orIfCheck(fn ($p) => $p->if('is_published')->andIfNot('is_locked'), 'xs_other', Ref::column('xs_owner', 'other_id'))
+        ->andIfCan(Build::can('manage')->for('xs_target', Ref::context('id'))->with(['tenant' => Ref::context('t')]))
+        ->orIfCheck(fn ($p) => $p->if('is_published')->andIfNot('is_locked')->for('xs_other', Ref::column('xs_owner', 'other_id')))
         ->theyCan('update')
         ->toRule();
 
@@ -446,9 +447,9 @@ it('renders a built can/check back to DSL text that re-parses identically', func
 it('renders a built unbound handle without a row selector', function () {
     // The NoRow distinction has to survive the writer too: an unbound handle has
     // no parens at all, where a row-bound one always does.
-    $rule = WarrantRuleNode::build()
-        ->ifCan('access', 'xs_capability')
-        ->orIfCheck('is_open', 'xs_capability')
+    $rule = Build::rule()
+        ->ifCan(Build::can('access')->for('xs_capability'))
+        ->orIfCheck(Build::check('is_open')->for('xs_capability'))
         ->theyCan('view')
         ->toRule();
 
@@ -456,10 +457,10 @@ it('renders a built unbound handle without a row selector', function () {
 });
 
 it('renders built literal and @sql row selectors', function () {
-    $rule = WarrantRuleNode::build()
-        ->ifCan('manage', 'xs_target', 't-1')
-        ->orIfCan('manage', 'xs_target', 42)
-        ->orIfCheck('is_open', 'xs_target', Ref::sql('select id from xs_targets limit 1'))
+    $rule = Build::rule()
+        ->ifCan(Build::can('manage')->for('xs_target', 't-1'))
+        ->orIfCan(Build::can('manage')->for('xs_target', 42))
+        ->orIfCheck(Build::check('is_open')->for('xs_target', Ref::sql('select id from xs_targets limit 1')))
         ->theyCan('update')
         ->toRule();
 
@@ -474,8 +475,8 @@ it('renders built literal and @sql row selectors', function () {
 });
 
 it('carries a non-inlinable row selector as a binding in bound syntax', function () {
-    $rule = WarrantRuleNode::build()
-        ->ifCan('manage', 'xs_target', (new WarrantTestModel)->forceFill(['id' => 't-1']))
+    $rule = Build::rule()
+        ->ifCan(Build::can('manage')->for('xs_target', (new WarrantTestModel)->forceFill(['id' => 't-1'])))
         ->theyCan('update')
         ->toRule();
 
@@ -497,18 +498,18 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
 // -- ifRaw bridge -------------------------------------------------------------
 
 it('splices a parsed DSL fragment in as one group', function () {
-    $tree = WarrantRuleNode::build()
+    $tree = Build::rule()
         ->ifRaw('a or b')
         ->andIf('c')
-        ->buildConditions();
+        ->buildConditions(new SyntaxSource(null));
 
     expect(treeToString($tree))->toBe('((a or b) and c)');
 });
 
-// -- RuleSetNode::build (callback, one rule per $rule() call) ----------------
+// -- Build::ruleSet (callback, one rule per $rule() call) -------------------
 
 it('builds a rule set with one rule per $rule() call, no toRule() needed', function () {
-    $set = RuleSetNode::build('timesheets', function ($rule) {
+    $set = Build::ruleSet('timesheets', function ($rule) {
         $rule()->if('is_self')->theyCan('edit', 'view');
         $rule()->theyCan('list');
     });
@@ -522,13 +523,13 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
 });
 
 it('produces an empty rule set when the callback adds nothing', function () {
-    $set = RuleSetNode::build('timesheets', function ($rule) {});
+    $set = Build::ruleSet('timesheets', function ($rule) {});
 
     expect($set->entries)->toBe([]);
 });
 
 it('rejects a $rule() with no they-can/they-cannot clause', function () {
-    expect(fn () => RuleSetNode::build('timesheets', function ($rule) {
+    expect(fn () => Build::ruleSet('timesheets', function ($rule) {
         $rule()->if('is_self');
     }))->toThrow(LogicException::class);
 });
@@ -540,7 +541,7 @@ it('compiles a built rule to SQL that filters rows', function () {
     DB::table('docs')->insert([['id' => 'teacher:role-1'], ['id' => 'other']]);
 
     $ruleSet = expandedFor(
-        RuleSetNode::build('docs', fn ($rule) => $rule()->if('is_teacher')->theyCan('view')),
+        Build::ruleSet('docs', fn ($rule) => $rule()->if('is_teacher')->theyCan('view')),
         new FakeConditionResolver,
     );
 

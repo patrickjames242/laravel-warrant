@@ -1,29 +1,29 @@
 <?php
 
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -82,7 +82,7 @@ it('points into the text an error is in, when a provider answers with several', 
 });
 
 it('says only what is wrong with rules built in code, which have no text', function () {
-    $error = providedRulesError(WarrantRuleNode::build()->theyCannot('frobnicate'));
+    $error = providedRulesError(Build::rule()->theyCannot('frobnicate'));
 
     expect($error->getMessage())->toBe('Ability [frobnicate] is not declared by the schema.');
 });

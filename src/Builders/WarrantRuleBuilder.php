@@ -6,12 +6,15 @@ use Closure;
 use LogicException;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\Schema\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole
- * {@see WarrantRuleNode} in PHP instead of the string DSL.
+ * {@see WarrantRuleNode} in PHP instead of the string DSL. {@see Build::rule()}
+ * makes one, and so does `$rule()` inside {@see Build::ruleSet()}.
  *
  * It extends {@see WarrantConditionBuilder} with the clause half of a rule
  * (`theyCan` / `theyCannot` / `theyCannotBecause`) and finalization via
@@ -20,34 +23,44 @@ use Warrant\Schema\WarrantDenialContext;
  * closure only ever receives a bare condition builder.
  *
  * ```php
- * WarrantRuleNode::build()
+ * Build::rule()
  *     ->if('is_self')
  *     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
  *     ->theyCan('view', 'update')
- *     ->theyCannotBecause('delete', 'This record is locked.')
- *     ->toRule();
+ *     ->theyCannotBecause('delete', 'This record is locked.');
  * ```
+ *
+ * Everything that accepts rule text accepts the builder too, and resolves it
+ * with `toRule()` itself.
  */
 final class WarrantRuleBuilder extends WarrantConditionBuilder
 {
-    /** @var list<CanClauseNode> */
+    /** @var list<list<string>> */
     private array $canClauses = [];
 
-    /** @var list<CannotClauseNode> */
+    /** @var list<array{abilities: list<string>, message: string|Closure|null}> */
     private array $cannotClauses = [];
 
     // -- clauses --------------------------------------------------------------
 
+    /**
+     * Grant $abilities. With none the clause is generic, as a rule template's
+     * body writes it: the `@include` that expands the template names the
+     * abilities.
+     */
     public function theyCan(string ...$abilities): static
     {
-        $this->canClauses[] = new CanClauseNode(array_map($this->nameNode(...), array_values($abilities)), null, $this->location());
+        $this->canClauses[] = array_values($abilities);
 
         return $this;
     }
 
+    /**
+     * Deny $abilities. With none the clause is generic, as {@see theyCan()}'s is.
+     */
     public function theyCannot(string ...$abilities): static
     {
-        $this->cannotClauses[] = new CannotClauseNode(array_map($this->nameNode(...), array_values($abilities)), null, $this->location());
+        $this->cannotClauses[] = ['abilities' => array_values($abilities), 'message' => null];
 
         return $this;
     }
@@ -64,18 +77,21 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      */
     public function theyCannotBecause(string|array $abilities, string|Closure $message): static
     {
-        $this->cannotClauses[] = new CannotClauseNode(
-            array_map($this->nameNode(...), is_array($abilities) ? array_values($abilities) : [$abilities]),
-            $this->argumentNode($message),
-            $this->location(),
-        );
+        $this->cannotClauses[] = [
+            'abilities' => is_array($abilities) ? array_values($abilities) : [$abilities],
+            'message' => $message,
+        ];
 
         return $this;
     }
 
     // -- materialization ------------------------------------------------------
 
-    public function toRule(): WarrantRuleNode
+    /**
+     * The rule, every node placed in $source: the source of the syntax that
+     * holds it, or a new one when the rule is the root of what is handed over.
+     */
+    public function toRule(SyntaxSource $source = new SyntaxSource(null)): WarrantRuleNode
     {
         if ($this->canClauses === [] && $this->cannotClauses === []) {
             throw new LogicException(
@@ -83,6 +99,28 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
             );
         }
 
-        return new WarrantRuleNode($this->buildConditions(), $this->canClauses, $this->cannotClauses, $this->location());
+        return new WarrantRuleNode(
+            $this->buildConditions($source),
+            array_map(fn (array $abilities): CanClauseNode => new CanClauseNode(
+                $this->abilityNodes($abilities, $source),
+                null,
+                self::location($source),
+            ), $this->canClauses),
+            array_map(fn (array $clause): CannotClauseNode => new CannotClauseNode(
+                $this->abilityNodes($clause['abilities'], $source),
+                $clause['message'] === null ? null : self::argumentNode($clause['message'], $source),
+                self::location($source),
+            ), $this->cannotClauses),
+            self::location($source),
+        );
+    }
+
+    /**
+     * @param list<string> $abilities
+     * @return list<NameNode>
+     */
+    private function abilityNodes(array $abilities, SyntaxSource $source): array
+    {
+        return array_map(fn (string $ability) => self::nameNode($ability, $source), $abilities);
     }
 }

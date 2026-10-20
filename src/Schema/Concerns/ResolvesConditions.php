@@ -8,6 +8,7 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\Builders\CrossSchemaCanBuilder;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\Schema\ConditionDefinition;
@@ -110,7 +111,7 @@ trait ResolvesConditions
            with SQL, a constant or unknown. An expression is a different kind of
            answer — one built from other conditions — and belongs to a condition
            whose expansion can happen before any of that is known. */
-        if ($result instanceof IBooleanExpressionNode || $result instanceof WarrantConditionBuilder) {
+        if ($result instanceof IBooleanExpressionNode || $result instanceof WarrantConditionBuilder || $result instanceof CrossSchemaCanBuilder) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] returned an expression; a row or global condition answers with '
                     .'the query it constrained, a bool or null. Declare a condition built from other conditions '

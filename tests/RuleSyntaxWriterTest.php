@@ -2,10 +2,10 @@
 
 require_once __DIR__.'/Support/TestSupport.php';
 
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -70,7 +70,7 @@ it('writes scalar condition parameters as inline literals', function () {
 });
 
 it('escapes quotes and backslashes in string literals', function () {
-    $rule = WarrantRuleNode::build()->if('eq', ["a'b\\c"])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('eq', ["a'b\\c"])->theyCan('view')->toRule();
 
     expect(writeSyntax($rule))->toBe("if eq('a\\'b\\\\c')\nthey can view");
     // and it re-parses back to the same value
@@ -78,13 +78,13 @@ it('escapes quotes and backslashes in string literals', function () {
 });
 
 it('preserves the int/float distinction and renders bool/null', function () {
-    $rule = WarrantRuleNode::build()->if('c', [1, 1.0, 2.5, true, false, null])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('c', [1, 1.0, 2.5, true, false, null])->theyCan('view')->toRule();
 
     expect(writeSyntax($rule))->toBe("if c(1, 1.0, 2.5, true, false, null)\nthey can view");
 });
 
 it('throws when a parameter cannot be written inline', function () {
-    $rule = WarrantRuleNode::build()->if('c', [['a', 'b']])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('c', [['a', 'b']])->theyCan('view')->toRule();
 
     expect(fn () => writeSyntax($rule))->toThrow(LogicException::class);
 });
@@ -92,7 +92,7 @@ it('throws when a parameter cannot be written inline', function () {
 // -- bound form ---------------------------------------------------------------
 
 it('extracts every parameter as a positional placeholder', function () {
-    $rule = WarrantRuleNode::build()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 
     $bound = writeBoundSyntax($rule);
 
@@ -103,7 +103,7 @@ it('extracts every parameter as a positional placeholder', function () {
 
 it('binds any value losslessly, including non-inlinable ones', function () {
     $ids = [1, 2, 3];
-    $rule = WarrantRuleNode::build()->if('in', [$ids])->theyCan('view')->toRule();
+    $rule = Build::rule()->if('in', [$ids])->theyCan('view')->toRule();
 
     $bound = writeBoundSyntax($rule);
 
