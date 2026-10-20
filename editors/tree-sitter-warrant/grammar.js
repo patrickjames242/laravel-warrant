@@ -171,17 +171,25 @@ module.exports = grammar({
     // can(<ability> for <handle> [with <map>]).
     //
     // Without the `for` clause nothing is crossed: another ability of the schema
-    // the rule is written on, over the row and context it already has.
-    can_expression: $ => seq(
-      'can',
-      '(',
-      field('ability', $.identifier),
-      optional(seq(
-        'for',
-        field('target', $.handle),
-      )),
-      optional(field('context', $.with_clause)),
-      ')',
+    // the rule is written on, over the row and context it already has. Only then
+    // may the parentheses be left off, as `can <ability>`, so a `for` after a
+    // bare `can` belongs to whatever `check(...)` holds it.
+    can_expression: $ => choice(
+      seq(
+        'can',
+        '(',
+        field('ability', $.identifier),
+        optional(seq(
+          'for',
+          field('target', $.handle),
+        )),
+        optional(field('context', $.with_clause)),
+        ')',
+      ),
+      seq(
+        'can',
+        field('ability', $.identifier),
+      ),
     ),
 
     // A cross-schema condition check: check(<predicate> for <handle> [with <map>]).

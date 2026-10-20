@@ -380,6 +380,31 @@ it('parses a can with no for clause, naming no schema', function () {
     expect(treeToString($node))->toBe('can(do_thing_1)');
 });
 
+it('reads a can with no parentheses as the same reference written with them', function (string $bare, string $parenthesized) {
+    expect(WarrantSyntax::parse($bare)->validateWithoutSchemas()->ruleEntries())
+        ->toEqualSyntax(WarrantSyntax::parse($parenthesized)->validateWithoutSchemas()->ruleEntries());
+})->with([
+    'alone' => ['if can do_thing_1 they can do_thing_2', 'if can(do_thing_1) they can do_thing_2'],
+    'negated' => ['if not can delete they can view', 'if not can(delete) they can view'],
+    'beside other operands' => ['if can view and !can delete or is_owner they can edit', 'if can(view) and !can(delete) or is_owner they can edit'],
+    'in a check predicate, whose for is the check\'s' => ['if check(can view for folders) they can edit', 'if check(can(view) for folders) they can edit'],
+]);
+
+it('reads a bare condition expression that is a can with no parentheses', function () {
+    expect(WarrantSyntax::parse('can view or is_admin')->validateWithoutSchemas()->conditionExpression())
+        ->toEqualSyntax(WarrantSyntax::parse('can(view) or is_admin')->validateWithoutSchemas()->conditionExpression());
+});
+
+it('errors on a can with neither an ability nor a parenthesis after it', function () {
+    expect(fn () => WarrantSyntax::parse('if can they can edit')->validateWithoutSchemas()->ruleEntries())
+        ->toThrow(WarrantSyntaxException::class, "expected an ability name or '(' after 'can'.");
+});
+
+it('reads no for after a can with no parentheses, which must be written with them to cross a schema', function () {
+    expect(fn () => WarrantSyntax::parse('if can view for docs they can edit')->validateWithoutSchemas()->ruleEntries())
+        ->toThrow(WarrantSyntaxException::class);
+});
+
 it('errors on anything but for or a closing paren after the ability', function () {
     expect(fn () => WarrantSyntax::parse('if can(do_thing_1 as d2) they can update')->validateWithoutSchemas()->ruleEntries())
         ->toThrow(WarrantSyntaxException::class, "Expected 'for' or ')' after the ability name");

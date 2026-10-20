@@ -166,7 +166,7 @@ it('gives the error a strict read throws as its first diagnostic', function (str
     'a stray token after rules' => 'if a they can view ) if b they can edit',
     'a clause with no can' => "if a they view\nif b they can edit",
     'a reserved word as a condition' => 'if ( they can view',
-    'a can with no parenthesis' => 'if can view they can edit',
+    'a check with no parenthesis' => 'if check a for docs) they can edit',
     'a stray token in a block' => 'for docs { if a they can view ) if b they can edit }',
     'an unclosed block' => 'for docs { if a they can view',
     'a broken block before a sound one' => 'for docs { a and } for files { they can view }',
@@ -185,7 +185,7 @@ it('reports each mistake in a text, and keeps every rule, repaired where it can 
 
     expect(analysisDiagnostics($source))->toBe([
         ["Expected 'can' or 'cannot' after 'they'.", 'view'],
-        ["Reserved word 'they' cannot be used as a name; expected a condition, 'can(', 'check(', or '('.", 'they'],
+        ["Reserved word 'they' cannot be used as a name; expected a condition, 'can', 'check(', or '('.", 'they'],
     ])->and($analysed->syntax->children)->toEqualSyntax([
         new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer()),
         ...WarrantParser::parse('if b they can edit')->children,
@@ -238,13 +238,13 @@ it('puts a placeholder where a condition is missing, and keeps what is around it
     expect(analysisDiagnostics($source))->toBe([$missing])
         ->and($analysed->syntax->children)->toEqualSyntax([new WarrantRuleNode($conditions, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with(function () {
-    $beforeThey = ["Reserved word 'they' cannot be used as a name; expected a condition, 'can(', 'check(', or '('.", 'they'];
+    $beforeThey = ["Reserved word 'they' cannot be used as a name; expected a condition, 'can', 'check(', or '('.", 'they'];
 
     return [
         'after if' => ['if they can view', $beforeThey, new MissingExpressionNode(SyntaxLocation::noProducer())],
         'after and' => ['if a and they can view', $beforeThey, new AndNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), new MissingExpressionNode(SyntaxLocation::noProducer()), SyntaxLocation::noProducer())],
         'after not' => ['if not they can view', $beforeThey, new NotNode(new MissingExpressionNode(SyntaxLocation::noProducer()), SyntaxLocation::noProducer())],
-        'inside a group' => ['if () they can view', ["Expected a condition, 'can(', 'check(', or '('.", ')'], new MissingExpressionNode(SyntaxLocation::noProducer())],
+        'inside a group' => ['if () they can view', ["Expected a condition, 'can', 'check(', or '('.", ')'], new MissingExpressionNode(SyntaxLocation::noProducer())],
     ];
 });
 
@@ -252,7 +252,7 @@ it('keeps a body whose expression is missing an operand', function () {
     $source = 'for docs { a and } for files { they can view }';
     $analysed = WarrantParser::analyze($source);
 
-    expect(analysisDiagnostics($source))->toBe([["Expected a condition, 'can(', 'check(', or '('.", '}']])
+    expect(analysisDiagnostics($source))->toBe([["Expected a condition, 'can', 'check(', or '('.", '}']])
         ->and($analysed->syntax->children)->toEqualSyntax([
             new SchemaConditionNode(nameNode('docs'), new AndNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), new MissingExpressionNode(SyntaxLocation::noProducer()), SyntaxLocation::noProducer()), SyntaxLocation::noProducer()),
             ...WarrantParser::parse('for files { they can view }')->children,
@@ -265,7 +265,7 @@ it('reads on as though a missing bracket or keyword were there', function (strin
 })->with([
     'a closing parenthesis' => ['if (a or b they can view', "Expected ')' to close the group.", 'they', 'if (a or b) they can view'],
     'the end of an argument list' => ['if a(1 they can view', "Expected ')' to close the condition arguments.", 'they', 'if a(1) they can view'],
-    'the parenthesis after can' => ['if can view they can edit', "Expected '(' after 'can'.", 'view', 'if can(view) they can edit'],
+    'the parenthesis after check' => ['if check a for docs) they can view', "Expected '(' after 'check'.", 'a', 'if check(a for docs) they can view'],
     'the end of a check' => ['if check(a for docs they can view', "Expected ')' to close 'check(...)'.", 'they', 'if check(a for docs) they can view'],
     'the brace after a block header' => ['can they view if a they can }', "Expected '{' to open the ability block body.", 'if', 'can they view { if a they can }'],
 ]);
@@ -284,8 +284,8 @@ it('keeps the clauses around a they that heads none', function () {
 });
 
 it('notes no other mistake until three tokens are read past the last one', function () {
-    // The missing `(` is repaired, which leaves `they` where `)` should be.
-    expect(analysisDiagnostics('if can view they can edit'))->toBe([["Expected '(' after 'can'.", 'view']])
+    // The missing `)` is repaired, which leaves `can` where `they` should be.
+    expect(analysisDiagnostics('if (a can edit'))->toBe([["Expected ')' to close the group.", 'can']])
         ->and(analysisDiagnostics('if a they view if b they can edit if c they'))->toBe([
             ["Expected 'can' or 'cannot' after 'they'.", 'view'],
             ["Expected 'can' or 'cannot' after 'they'.", ''],
@@ -473,7 +473,7 @@ it('says which kind of mistake each diagnostic is about, and that it is an error
     'an escape a string does not allow' => ['if a("x\\q") they can view', DiagnosticCode::InvalidEscape],
     'an unknown word after @' => ['if a(@nope) they can view', DiagnosticCode::UnknownReference],
     'a token after the end' => ['if a they can view )', DiagnosticCode::UnexpectedToken],
-    'a missing bracket' => ['if can view they can edit', DiagnosticCode::MissingToken],
+    'a missing bracket' => ['if check a for docs) they can edit', DiagnosticCode::MissingToken],
     'a reserved word as a name' => ['if they can view', DiagnosticCode::ReservedWordAsName],
     'a missing name' => ['if check(a for ) they can view', DiagnosticCode::MissingName],
     'a missing condition' => ['if () they can view', DiagnosticCode::MissingCondition],

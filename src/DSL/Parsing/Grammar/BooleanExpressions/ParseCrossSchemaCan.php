@@ -10,7 +10,10 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * An ability check: `can(<ability>)`, or
- * `can(<ability> for <handle> [with <map>])`.
+ * `can(<ability> for <handle> [with <map>])`. A reference that is only an
+ * ability may leave its parentheses off, as `can <ability>`; one with a `for`
+ * or a `with` keeps them, so that in `check(can view for folders)` the `for`
+ * belongs to the `check`.
  *
  * In expression position `can` is always this builtin: the clause keyword in
  * `they can ...` is read by {@see \Warrant\DSL\Parsing\Grammar\RuleEntries\ParseCanClause} and never reaches here.
@@ -29,7 +32,14 @@ final class ParseCrossSchemaCan extends Parser
     protected function read(): CrossSchemaCanNode
     {
         $this->advance(); // consume 'can'
-        $this->expectOrAssume(TokenType::LPAREN, "Expected '(' after 'can'.");
+
+        if (! $this->check(TokenType::LPAREN)) {
+            $ability = $this->nameOrMissing('an ability name or \'(\' after \'can\'');
+
+            return new CrossSchemaCanNode(null, $ability, false, [], [], null, $this->locationEndingHere());
+        }
+
+        $this->advance(); // consume '('
 
         $ability = $this->nameOrMissing('an ability name');
 

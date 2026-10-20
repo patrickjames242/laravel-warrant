@@ -102,3 +102,32 @@ they can view
       abilities: (ability_list
         (ability
           (identifier))))))
+
+==============================================================
+can with no parentheses, whose for inside a check is the check's
+==============================================================
+
+if can edit and not can(delete) or check(can view for folders)
+they can comment
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (or_expression
+        left: (and_expression
+          left: (can_expression
+            ability: (identifier))
+          right: (not_expression
+            operand: (can_expression
+              ability: (identifier))))
+        right: (check_expression
+          predicate: (can_expression
+            ability: (identifier))
+          target: (handle
+            schema: (identifier)))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))

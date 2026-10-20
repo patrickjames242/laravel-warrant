@@ -109,7 +109,7 @@ trait ReportsMissingSyntax
 
     private function missingBooleanExpressionError(): WarrantSyntaxException
     {
-        return $this->nameError("a condition, 'can(', 'check(', or '('", DiagnosticCode::MissingCondition);
+        return $this->nameError("a condition, 'can', 'check(', or '('", DiagnosticCode::MissingCondition);
     }
 
     /**

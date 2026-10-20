@@ -227,6 +227,65 @@ it('collapses a whole chain of abilities into one predicate', function () {
     );
 });
 
+it('compiles a can written with no parentheses as the same inline predicate', function () {
+    assertSelfRefSql(
+        <<<'WARRANT'
+            if is_owner they can do_thing_1
+            if can do_thing_1 they can do_thing_2
+        WARRANT,
+        'do_thing_2',
+        <<<SQL
+            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+        SQL,
+    );
+});
+
+it('compiles cans with no parentheses joined by or, and and not', function (string $condition, string $expectedSql) {
+    assertSelfRefSql(
+        "if is_owner they can do_thing_1\nif owner_is('role-2') they can do_thing_2\nif {$condition} they can do_thing_3",
+        'do_thing_3',
+        $expectedSql,
+    );
+})->with([
+    'or' => ['can do_thing_1 or can do_thing_2', <<<SQL
+        select * from "sr_docs" where (sr_docs.owner = 'role-1' or sr_docs.owner = 'role-2')
+        SQL],
+    'and' => ['can do_thing_1 and can do_thing_2', <<<SQL
+        select * from "sr_docs" where (sr_docs.owner = 'role-1' and sr_docs.owner = 'role-2')
+        SQL],
+    'not' => ['can do_thing_1 and not can do_thing_2', <<<SQL
+        select * from "sr_docs" where (sr_docs.owner = 'role-1' and not (sr_docs.owner = 'role-2'))
+        SQL],
+]);
+
+it('lets through exactly the rows either ability allows when cans with no parentheses are joined by or', function () {
+    DB::table('sr_docs')->insert([
+        ['id' => 'a', 'owner' => 'role-1'],
+        ['id' => 'b', 'owner' => 'role-2'],
+        ['id' => 'c', 'owner' => 'role-3'],
+    ]);
+
+    $set = WarrantSyntax::parse(<<<'WARRANT'
+        if is_owner they can do_thing_1
+        if owner_is('role-2') they can do_thing_2
+        if can do_thing_1 or can do_thing_2 they can do_thing_3
+        WARRANT)->validateWithoutSchemas()->scopedTo('sr_docs');
+
+    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
+        public function __construct(private RuleSetNode $set) {}
+
+        public function rules(RuleProviderContext $context): RuleSetNode
+        {
+            return $this->set;
+        }
+    });
+
+    $guard = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema(new SrDocSchema);
+
+    expect($guard->filterQuery(warrantTestQuery('sr_docs'), 'do_thing_3', AbilityMatchMode::ALL)->orderBy('id')->pluck('id')->all())
+        ->toBe(['a', 'b']);
+});
+
 it('carries the check-time context through a can with no for clause', function () {
     // No boundary is crossed, so nothing has to be declared to cross it.
     assertSelfRefSql(

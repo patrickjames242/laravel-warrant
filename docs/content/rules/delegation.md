@@ -22,11 +22,15 @@ over the row this rule is already about:
 for documents {
     if is_owner or is_editor they can edit
     if can(edit) they can comment
-    if can(comment) they can share
+    if can comment they can share
 }
 ```
 
 Change who may edit and the other two follow.
+
+The parentheses are optional here: `can comment` and `can(comment)` are the same
+reference. A `can` with a `for` keeps them, so that inside a `check(...)`, as in
+`check(can view for folders)`, the `for` is the `check`'s.
 
 Nothing is crossed, so there is no boundary to declare: the check-time context
 comes along unchanged, and the form takes no `with` map and no `as`. If that

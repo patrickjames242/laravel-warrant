@@ -60,8 +60,11 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   not      := ('not'|'!') not | primary
  *   primary  := '(' expr ')' | can_expr | check_expr | condition
  *   can_expr := 'can' '(' IDENTIFIER ( 'for' handle ( 'with' with_map )? )? ')'
+ *             | 'can' IDENTIFIER
  *              -- without `for` nothing is crossed: another ability of this
- *                 schema, over the row and context the rule already has
+ *                 schema, over the row and context the rule already has. Only
+ *                 then may the parentheses be left off, so a `for` after a bare
+ *                 `can <ability>` is never its own
  *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
  *   handle   := IDENTIFIER ( '(' arg ')' )? ( 'as' IDENTIFIER )?

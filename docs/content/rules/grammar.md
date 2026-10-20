@@ -47,7 +47,8 @@ not           = ( "not" | "!" ) not | primary ;
 primary       = "(" expr ")" | can_ref | check_ref | condition ;
 
 condition     = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
-can_ref       = "can" "(" IDENTIFIER ( "for" handle ( "with" with_map )? )? ")" ;
+can_ref       = "can" "(" IDENTIFIER ( "for" handle ( "with" with_map )? )? ")"
+              | "can" IDENTIFIER ;
 check_ref     = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
 handle        = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
 with_map      = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
