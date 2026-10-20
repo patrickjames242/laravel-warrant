@@ -73,7 +73,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         foreach ($this->canClauses as $clause) {
             foreach ($clause->abilities as $ability) {
-                $abilities[] = $ability;
+                $abilities[] = $ability->name;
             }
         }
 
@@ -115,7 +115,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
      * clauses mean once the enclosing block header or `@include` has named what
      * they are about. Denial messages stay on the clauses that carried them.
      *
-     * @param list<string> $abilities
+     * @param list<NameNode> $abilities
      */
     public function withAbilities(array $abilities): self
     {
@@ -149,7 +149,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         foreach ($this->cannotClauses as $clause) {
             foreach ($clause->abilities as $ability) {
-                $abilities[] = $ability;
+                $abilities[] = $ability->name;
             }
         }
 
@@ -163,7 +163,9 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     public function deniesAbility(string $ability): bool
     {
         foreach ($this->cannotClauses as $clause) {
-            if (in_array($ability, $clause->abilities, true) || in_array('*', $clause->abilities, true)) {
+            $names = self::abilityNames($clause);
+
+            if (in_array($ability, $names, true) || in_array('*', $names, true)) {
                 return true;
             }
         }
@@ -174,7 +176,8 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     /**
      * The denial message for $ability: the first clause that lists it wins; else
      * the first clause that denies `*`; else null (no message). An exact listing
-     * always beats a `*` clause.
+     * always beats a `*` clause. The message is its value, as a literal holds it
+     * or a binding's source gives it.
      *
      * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null
      */
@@ -184,17 +187,43 @@ readonly class WarrantRuleNode implements IRuleEntryNode
         $wildcardFound = false;
 
         foreach ($this->cannotClauses as $clause) {
-            if (in_array($ability, $clause->abilities, true)) {
-                return $clause->message;
+            $names = self::abilityNames($clause);
+
+            if (in_array($ability, $names, true)) {
+                return self::messageValue($clause->message);
             }
 
-            if (! $wildcardFound && in_array('*', $clause->abilities, true)) {
-                $wildcard = $clause->message;
+            if (! $wildcardFound && in_array('*', $names, true)) {
+                $wildcard = self::messageValue($clause->message);
                 $wildcardFound = true;
             }
         }
 
         return $wildcard;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function abilityNames(CannotClauseNode $clause): array
+    {
+        return array_map(static fn (NameNode $ability): string => $ability->name, $clause->abilities);
+    }
+
+    /**
+     * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null
+     */
+    private static function messageValue(?INode $message): string|Closure|null
+    {
+        return match (true) {
+            $message === null => null,
+            $message instanceof BindingNode => $message->value(),
+            $message instanceof LiteralNode => $message->value,
+            default => throw new InvalidArgumentException(sprintf(
+                'A denial message is a literal or a binding, got %s.',
+                get_debug_type($message),
+            )),
+        };
     }
 
     public function hasCannot(): bool

@@ -5,6 +5,8 @@ namespace Warrant\DSL\Compiling;
 use Throwable;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Facades\Warrant;
 
@@ -59,7 +61,7 @@ final readonly class Call
 
     /**
      * @param class-string $schemaClass
-     * @param array<int, mixed> $arguments The condition's *unresolved* DSL arguments.
+     * @param array<int, INode> $arguments The condition's *unresolved* DSL arguments.
      */
     public static function condition(string $schemaClass, string $condition, array $arguments = []): self
     {
@@ -127,19 +129,21 @@ final readonly class Call
      * Render one DSL argument for display: a reference as the reference an author
      * wrote, anything else as its literal value, truncated.
      */
-    private static function describeArgument(mixed $value): string
+    private static function describeArgument(INode $argument): string
     {
-        if ($value instanceof ContextRef) {
-            return '@context '.$value->key;
+        if ($argument instanceof ContextRef) {
+            return '@context '.$argument->key->name;
         }
 
-        if ($value instanceof ColumnRef) {
-            return '@column '.($value->alias === null ? '' : $value->alias.'.').$value->column;
+        if ($argument instanceof ColumnRef) {
+            return '@column '.($argument->alias === null ? '' : $argument->alias->name.'.').$argument->column->name;
         }
 
-        if ($value instanceof SqlRef) {
+        if ($argument instanceof SqlRef) {
             return '@sql';
         }
+
+        $value = $argument instanceof LiteralNode ? $argument->value : $argument;
 
         return match (true) {
             $value === null => 'null',

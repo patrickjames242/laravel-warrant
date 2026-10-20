@@ -26,12 +26,15 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\WarrantManager;
 
 /**
@@ -611,13 +614,13 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'Compiling a can(%s) reference requires this schema\'s rule set, which is resolved through '
                     .'the manager; construct RuleSetCompiler with a WarrantManager.',
-                $node->ability,
+                $node->ability->name,
             ));
         }
 
         /* A check naming this ability directly would throw for a key it requires;
            a reference is not a check entry point, so it answers unknown instead. */
-        if ($this->conditions->contextForReference($ctx->checkContext, $node->ability) === null) {
+        if ($this->conditions->contextForReference($ctx->checkContext, $node->ability->name) === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
@@ -629,7 +632,7 @@ final class RuleSetCompiler
         $unnegated = $ctx->negate ? $ctx->negated() : $ctx;
 
         return (new CompiledWhereClauseNode)->addAnd(
-            $this->abilityNode($unnegated, new AbilityUnit($node->ability, $ruleSet)),
+            $this->abilityNode($unnegated, new AbilityUnit($node->ability->name, $ruleSet)),
             negated: $ctx->negate,
         );
     }
@@ -649,33 +652,37 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'Compiling a can(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->schemaKey,
+                $node->schemaKey->name,
             ));
         }
 
         /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
+        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey->name);
         $bSchema = new $bClass;
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
         $this->assertHandleIsWellFormed($node, $bClass);
+        $bKeys = $this->contextMapKeys($node->contextMap);
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
            resolved against A's context and A's frame. A's bag is never inherited.
            A value A cannot resolve here settles the whole reference. A bag
            missing a key B requires is a mistake in the rule text, and throws. */
-        $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
+        $bValues = $this->resolveArgValues(
+            array_map(static fn (WithEntryNode $entry): INode => $entry->value, $node->contextMap),
+            $ctx,
+        );
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $bContext = $bSchema->resolveBoundaryContext(
-            array_combine(array_keys($node->contextMap), $bValues),
-            $node->schemaKey,
-            $node->ability,
+            array_combine($bKeys, $bValues),
+            $node->schemaKey->name,
+            $node->ability->name,
         );
 
         $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
@@ -695,7 +702,7 @@ final class RuleSetCompiler
            knows it — and it is a *fresh* scope: B's rules were written without
            knowing who reached them, so A's names are deliberately not in it. */
         $bCtx = new CompilationContext(
-            unit: new AbilityUnit($node->ability, $bRuleSet),
+            unit: new AbilityUnit($node->ability->name, $bRuleSet),
             queries: $ctx->queries,
             user: $ctx->user,
             checkContext: $bContext,
@@ -705,11 +712,11 @@ final class RuleSetCompiler
                to call it. A B with no table has no frame for its key to name. */
             aliases: ! $bClass::hasRows()
                 ? $this->aliases($ctx)->enteringRowlessRuleSet()
-                : $this->aliases($ctx)->enteringRuleSet($node->schemaKey, $bQualifier),
+                : $this->aliases($ctx)->enteringRuleSet($node->schemaKey->name, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey->name);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -721,7 +728,7 @@ final class RuleSetCompiler
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->schemaKey,
+                $node->schemaKey->name,
                 $bClass::model,
             );
 
@@ -807,32 +814,36 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'Compiling a check(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->schemaKey,
+                $node->schemaKey->name,
             ));
         }
 
         /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey);
+        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey->name);
         $bSchema = new $bClass;
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
         $this->assertHandleIsWellFormed($node, $bClass);
+        $bKeys = $this->contextMapKeys($node->contextMap);
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
            resolved against A's context and A's frame. A's bag is never inherited.
            A value A cannot resolve here settles the whole reference. A bag
            missing a key B requires is a mistake in the rule text, and throws. */
-        $bValues = $this->resolveArgValues(array_values($node->contextMap), $ctx);
+        $bValues = $this->resolveArgValues(
+            array_map(static fn (WithEntryNode $entry): INode => $entry->value, $node->contextMap),
+            $ctx,
+        );
 
         if ($bValues === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
         $bContext = $bSchema->resolveBoundaryContext(
-            array_combine(array_keys($node->contextMap), $bValues),
-            $node->schemaKey,
+            array_combine($bKeys, $bValues),
+            $node->schemaKey->name,
         );
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
@@ -854,11 +865,11 @@ final class RuleSetCompiler
             callStack: $ctx->callStack->enter(Call::check($bClass)),
             aliases: ! $bClass::hasRows()
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
-                : $this->aliases($ctx)->enteringPredicate($node->schemaKey, $node->alias, $bQualifier),
+                : $this->aliases($ctx)->enteringPredicate($node->schemaKey->name, $node->alias?->name, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey);
+            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey->name);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -870,7 +881,7 @@ final class RuleSetCompiler
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->schemaKey,
+                $node->schemaKey->name,
                 $bClass::model,
             );
 
@@ -972,7 +983,7 @@ final class RuleSetCompiler
             return null;
         }
 
-        return $scope->freeQualifier($node->alias ?? $table);
+        return $scope->freeQualifier($node->alias?->name ?? $table);
     }
 
     /**
@@ -1007,8 +1018,8 @@ final class RuleSetCompiler
                 'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
                 $builtin,
-                $node->schemaKey,
-                $node->schemaKey,
+                $node->schemaKey->name,
+                $node->schemaKey->name,
             ));
         }
 
@@ -1018,17 +1029,22 @@ final class RuleSetCompiler
                     .'one; declare `const key` for the column its rows are identified by, or a matchKey() '
                     .'of its own, or drop the row selector.',
                 $builtin,
-                $node->schemaKey,
-                $node->schemaKey,
+                $node->schemaKey->name,
+                $node->schemaKey->name,
             ));
         }
 
-        if ($node->isRowBound && in_array(null, $node->boundKey, true)) {
+        $literalNulls = array_filter(
+            $node->boundKey,
+            static fn (INode $argument): bool => $argument instanceof LiteralNode && $argument->value === null,
+        );
+
+        if ($node->isRowBound && $literalNulls !== []) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id '
                     .'or a @context reference, or drop the row selector.',
                 $builtin,
-                $node->schemaKey,
+                $node->schemaKey->name,
             ));
         }
 
@@ -1037,12 +1053,35 @@ final class RuleSetCompiler
                 'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias '
                     .'names nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
                 $builtin,
-                $node->schemaKey,
-                $node->alias,
-                $node->schemaKey,
-                $node->alias,
+                $node->schemaKey->name,
+                $node->alias->name,
+                $node->schemaKey->name,
+                $node->alias->name,
             ));
         }
+    }
+
+    /**
+     * The `with` map's keys, in the order written. A key written twice would give
+     * the target two values for one name, so it is rejected, with the message
+     * validation gives the same mistake in rule text.
+     *
+     * @param list<WithEntryNode> $contextMap
+     * @return list<string>
+     */
+    private function contextMapKeys(array $contextMap): array
+    {
+        $keys = [];
+
+        foreach ($contextMap as $entry) {
+            if (in_array($entry->key->name, $keys, true)) {
+                throw new InvalidArgumentException(sprintf("Duplicate key '%s' in the 'with' map.", $entry->key->name));
+            }
+
+            $keys[] = $entry->key->name;
+        }
+
+        return $keys;
     }
 
     /**
@@ -1089,13 +1128,14 @@ final class RuleSetCompiler
      * Resolve one symbolic DSL argument to its concrete value for compilation.
      * A {@see ContextRef} is filled from the check-time context (absent → null); a
      * {@see ColumnRef} becomes a grammar-wrapped {@see Expression} qualified by the
-     * frame it was written in. Any already-concrete value (literals, resolved
-     * bindings) passes straight through. Shared by condition parameters and the
+     * frame it was written in; a {@see SqlRef} an {@see Expression} of its body; a
+     * {@see LiteralNode} its value. An expanded rule set holds no binding, so any
+     * other node is rejected. Shared by condition parameters and the
      * cross-schema handle row selector / `with` map so all three resolve
      * identically — and all three against the *enclosing* frame, which is where
      * their text was written.
      */
-    private function resolveArgValue(mixed $argument, CompilationContext $ctx): mixed
+    private function resolveArgValue(INode $argument, CompilationContext $ctx): mixed
     {
         /* Only an analysis reads one, in place of an argument the text is missing,
            and the text then has a syntax error that a parse to compile throws. */
@@ -1106,7 +1146,7 @@ final class RuleSetCompiler
         }
 
         if ($argument instanceof ContextRef) {
-            return $ctx->checkContext[$argument->key] ?? null;
+            return $ctx->checkContext[$argument->key->name] ?? null;
         }
 
         if ($argument instanceof ColumnRef) {
@@ -1116,10 +1156,18 @@ final class RuleSetCompiler
         if ($argument instanceof SqlRef) {
             // Always parenthesize (even if the author already did): a bare
             // `select ...` is then valid as a scalar subquery in a comparison.
-            return new Expression('(' . $argument->sql . ')');
+            return new Expression('(' . $this->resolveArgValue($argument->sql, $ctx) . ')');
         }
 
-        return $argument;
+        if ($argument instanceof LiteralNode) {
+            return $argument->value;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Unsupported argument node [%s]; compile a rule set expanded by %s.',
+            $argument::class,
+            Expander::class,
+        ));
     }
 
     /**
@@ -1140,7 +1188,7 @@ final class RuleSetCompiler
     {
         $qualifier = $this->aliases($ctx)->resolveColumn($ref);
 
-        return $ctx->queries->wrap($qualifier . '.' . $ref->column);
+        return $ctx->queries->wrap($qualifier . '.' . $ref->column->name);
     }
 
     /**
@@ -1152,7 +1200,7 @@ final class RuleSetCompiler
      * to `false`. (A name the frame does not bind at all *is* a mistake, and
      * {@see AliasScope::resolve()} still throws for it.)
      *
-     * @param array<int, mixed> $arguments
+     * @param list<INode> $arguments
      * @return array<int, mixed>|null
      */
     private function resolveArgValues(array $arguments, CompilationContext $ctx): ?array
@@ -1172,7 +1220,7 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        $definition = $this->conditions->getConditionDefinition($node->conditionKey);
+        $definition = $this->conditions->getConditionDefinition($node->conditionKey->name);
 
         /* A derived condition has no SQL of its own; the expansion phase replaces
            it with the expression it answers with. Meeting one here means the tree
@@ -1181,7 +1229,7 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; '
                     .'compile a rule set expanded by %s.',
-                $node->conditionKey,
+                $node->conditionKey->name,
                 $this->conditions::class,
                 Expander::class,
             ));
@@ -1215,7 +1263,7 @@ final class RuleSetCompiler
         $conditionQuery = $ctx->queries->newQuery();
 
         $result = $this->conditions->applyCondition(
-            $node->conditionKey,
+            $node->conditionKey->name,
             $ctx->user,
             $conditionQuery,
             $ctx->targeted,
@@ -1232,7 +1280,7 @@ final class RuleSetCompiler
            nor lifts a deny. The negation flag is deliberately not passed on — it
            would mean nothing to an unknown. */
         if ($result === null) {
-            $this->assertUnknownAddedNoWhereClause($conditionQuery, $node->conditionKey);
+            $this->assertUnknownAddedNoWhereClause($conditionQuery, $node->conditionKey->name);
 
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
@@ -1248,8 +1296,8 @@ final class RuleSetCompiler
         // clauses. Anything that changes the query's row shape — a join, group,
         // having, aggregate, or union — cannot be inlined, ANDed/ORed, or negated
         // in place; reject it with a clear message pointing at whereExists().
-        $this->assertOnlyWhereClauses($conditionQuery, $node->conditionKey);
-        $this->assertAddedAWhereClause($conditionQuery, $node->conditionKey);
+        $this->assertOnlyWhereClauses($conditionQuery, $node->conditionKey->name);
+        $this->assertAddedAWhereClause($conditionQuery, $node->conditionKey->name);
 
         // The condition's where-group becomes a leaf, applied inline. Negation
         // rides along on the operand and lands as a `not (…)` nested group — the
@@ -1281,7 +1329,7 @@ final class RuleSetCompiler
 
         return $this->expression(
             $node->body,
-            $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey, $node->parameters))
+            $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey->name, $node->parameters))
                 ->withAliases($this->expansionAliases($ctx)),
         );
     }

@@ -174,19 +174,19 @@ final class ReachabilityAnalyzer
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            $ruleSet = $this->ruleSetFor($node->schemaKey ?? $schemaKey);
+            $ruleSet = $this->ruleSetFor($node->schemaKey?->name ?? $schemaKey);
 
             if ($ruleSet === null) {
                 return TruthSet::any();
             }
 
-            $outcome = $this->abilityOutcome($ruleSet, $node->ability);
+            $outcome = $this->abilityOutcome($ruleSet, $node->ability->name);
 
             return $node->schemaKey !== null && $node->isRowBound ? self::overARow($outcome) : $outcome;
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
-            $outcome = $this->expression($node->predicate, $node->schemaKey);
+            $outcome = $this->expression($node->predicate, $node->schemaKey->name);
 
             return $node->isRowBound ? self::overARow($outcome) : $outcome;
         }
