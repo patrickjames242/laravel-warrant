@@ -239,9 +239,10 @@ trait ValidatesRuleEntries
 
     /**
      * Every name in an ability list must be one the schema declares. `*` is not a
-     * name but a stand-in for all of them, so it is passed over.
+     * name but a stand-in for all of them, so it is passed over, and so is a
+     * binding, whose value is not written in the text.
      *
-     * @param list<NameNode> $abilities
+     * @param list<NameNode|BindingNode> $abilities
      */
     private function assertAbilitiesDeclared(array $abilities, ?SchemaVocabulary $schema): void
     {
@@ -250,7 +251,7 @@ trait ValidatesRuleEntries
         }
 
         foreach ($abilities as $ability) {
-            if ($ability->name !== '*' && $schema->getAbilityDefinition($ability->name) === null) {
+            if ($ability instanceof NameNode && $ability->name !== '*' && $schema->getAbilityDefinition($ability->name) === null) {
                 $this->fail(
                     DiagnosticCode::UnknownAbility,
                     sprintf('Ability [%s] is not declared by the schema.', $ability->name),
@@ -272,6 +273,10 @@ trait ValidatesRuleEntries
 
         foreach ($rule->cannotClauses as $clause) {
             foreach ($clause->abilities as $ability) {
+                if ($ability instanceof BindingNode) {
+                    continue;
+                }
+
                 if (isset($seen[$ability->name])) {
                     $this->fail(
                         DiagnosticCode::DuplicateCannotAbility,

@@ -79,7 +79,7 @@ trait LooksAheadAtRuleEntries
      */
     private function assertNoAbilityListWithoutCanThey(): void
     {
-        if (($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR))
+        if (($this->check(TokenType::IDENTIFIER) || $this->check(TokenType::STAR) || $this->check(TokenType::NAMED_BINDING))
             && in_array($this->peekAhead()->type, [TokenType::LBRACE, TokenType::COMMA], true)) {
             $this->report($this->errorAtCurrent(
                 DiagnosticCode::AbilityListWithoutCanThey,

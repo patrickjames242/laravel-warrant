@@ -169,7 +169,7 @@ trait ValidatesExpressions
             return;
         }
 
-        if ($target !== null && $ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
+        if ($target !== null && $node->ability instanceof NameNode && $ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
             $this->fail(
                 DiagnosticCode::UnknownAbility,
                 sprintf('Ability [%s] is not declared by schema [%s].', $ability, $schemaKey),
@@ -260,10 +260,10 @@ trait ValidatesExpressions
      */
     private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?SchemaVocabulary $vocabulary): void
     {
-        $ability = $node->ability->name;
+        $ability = $node->ability instanceof BindingNode ? ':'.$node->ability->name : $node->ability->name;
 
-        // An ability with no name was reported where it was read.
-        if ($vocabulary !== null && $ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
+        // An ability with no name was reported where it was read, and a binding's value is not written in the text.
+        if ($vocabulary !== null && $node->ability instanceof NameNode && $ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
             $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability), $node->ability->location);
         }
 

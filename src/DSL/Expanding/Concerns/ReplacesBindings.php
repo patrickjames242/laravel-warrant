@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Expanding\Concerns;
 
+use InvalidArgumentException;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
@@ -14,11 +15,13 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
+use Warrant\DSL\Validation\LanguageRuleMessages;
 
 /**
  * How {@see Expander} replaces every binding with its value, so an
@@ -31,7 +34,9 @@ trait ReplacesBindings
     /**
      * $node with every binding in it replaced by its value: a value that is
      * itself a node by that node, and any other by a literal at the binding's
-     * location. A node with no binding in it comes back as the
+     * location. A binding standing for abilities is replaced by a name for
+     * each ability its value names, at the binding's location. A node with no
+     * binding in it comes back as the
      * same instance, so a reference keeps its identity.
      *
      * @template T of INode
@@ -56,7 +61,7 @@ trait ReplacesBindings
             $node instanceof ConditionNode => new ConditionNode($node->conditionKey, self::eachWithBindingsReplaced($node->parameters), $node->location),
             $node instanceof CrossSchemaCanNode => new CrossSchemaCanNode(
                 $node->schemaKey,
-                $node->ability,
+                self::abilityWithBindingReplaced($node->ability),
                 $node->isRowBound,
                 self::eachWithBindingsReplaced($node->boundKey),
                 self::eachWithBindingsReplaced($node->contextMap),
@@ -75,12 +80,12 @@ trait ReplacesBindings
             $node instanceof WithEntryNode => new WithEntryNode($node->key, self::withBindingsReplaced($node->value), $node->location),
             $node instanceof SqlRef => new SqlRef(self::withBindingsReplaced($node->sql), $node->location),
             $node instanceof CanClauseNode => new CanClauseNode(
-                $node->abilities,
+                self::abilitiesWithBindingsReplaced($node->abilities),
                 $node->message === null ? null : self::withBindingsReplaced($node->message),
                 $node->location,
             ),
             $node instanceof CannotClauseNode => new CannotClauseNode(
-                $node->abilities,
+                self::abilitiesWithBindingsReplaced($node->abilities),
                 $node->message === null ? null : self::withBindingsReplaced($node->message),
                 $node->location,
             ),
@@ -93,10 +98,10 @@ trait ReplacesBindings
             $node instanceof IncludeInvocationNode => new IncludeInvocationNode(
                 $node->templateKey,
                 self::eachWithBindingsReplaced($node->arguments),
-                $node->abilities,
+                self::abilitiesWithBindingsReplaced($node->abilities),
                 $node->location,
             ),
-            $node instanceof AbilityBlockNode => new AbilityBlockNode($node->abilities, self::eachWithBindingsReplaced($node->entries), $node->location),
+            $node instanceof AbilityBlockNode => new AbilityBlockNode(self::abilitiesWithBindingsReplaced($node->abilities), self::eachWithBindingsReplaced($node->entries), $node->location),
             default => $node,
         };
 
@@ -113,5 +118,66 @@ trait ReplacesBindings
     private static function eachWithBindingsReplaced(array $nodes): array
     {
         return array_map(self::withBindingsReplaced(...), $nodes);
+    }
+
+    /**
+     * $abilities with each binding among them replaced by a name for every
+     * ability its value names, in order, where the binding is written: one for
+     * an ability name, and one for each name in a list.
+     *
+     * @param list<NameNode|BindingNode> $abilities
+     * @return list<NameNode>
+     */
+    private static function abilitiesWithBindingsReplaced(array $abilities): array
+    {
+        $replaced = [];
+
+        foreach ($abilities as $ability) {
+            if (! $ability instanceof BindingNode) {
+                $replaced[] = $ability;
+
+                continue;
+            }
+
+            $value = $ability->value();
+            $names = is_array($value) ? $value : [$value];
+            $notNames = array_filter($names, static fn (mixed $name): bool => ! is_string($name));
+            $mistake = match (true) {
+                $names === [] => 'an empty list',
+                ! array_is_list($names) => 'an array with keys',
+                $notNames === [] => null,
+                is_array($value) => 'a list holding '.get_debug_type(reset($notNames)),
+                default => get_debug_type($value),
+            };
+
+            if ($mistake !== null) {
+                throw new InvalidArgumentException(LanguageRuleMessages::abilityListBindingValue($ability->name, $mistake));
+            }
+
+            foreach ($names as $name) {
+                $replaced[] = new NameNode($name, $ability->location);
+            }
+        }
+
+        return $replaced;
+    }
+
+    /**
+     * $ability, or the name a binding's value gives it, where the binding is
+     * written.
+     */
+    private static function abilityWithBindingReplaced(NameNode|BindingNode $ability): NameNode
+    {
+        if (! $ability instanceof BindingNode) {
+            return $ability;
+        }
+
+        $value = $ability->value();
+
+        if (! is_string($value)) {
+            throw new InvalidArgumentException(LanguageRuleMessages::oneAbilityBindingValue($ability->name, get_debug_type($value)));
+        }
+
+        return new NameNode($value, $ability->location);
     }
 }

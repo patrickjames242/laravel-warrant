@@ -3,7 +3,10 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
+use Warrant\DSL\Parsing\Grammar\Arguments\ParseBinding;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -13,7 +16,8 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * `can(<ability> for <handle> [with <map>])`. A reference that is only an
  * ability may leave its parentheses off, as `can <ability>`; one with a `for`
  * or a `with` keeps them, so that in `check(can view for folders)` the `for`
- * belongs to the `check`.
+ * belongs to the `check`. The ability is a name, or a binding whose value
+ * names it.
  *
  * In expression position `can` is always this builtin: the clause keyword in
  * `they can ...` is read by {@see \Warrant\DSL\Parsing\Grammar\RuleEntries\ParseCanClause} and never reaches here.
@@ -34,14 +38,14 @@ final class ParseCrossSchemaCan extends Parser
         $this->advance(); // consume 'can'
 
         if (! $this->check(TokenType::LPAREN)) {
-            $ability = $this->nameOrMissing('an ability name or \'(\' after \'can\'');
+            $ability = $this->abilityOrMissing('an ability name or \'(\' after \'can\'');
 
             return new CrossSchemaCanNode(null, $ability, false, [], [], null, $this->locationEndingHere());
         }
 
         $this->advance(); // consume '('
 
-        $ability = $this->nameOrMissing('an ability name');
+        $ability = $this->abilityOrMissing('an ability name');
 
         /* No `for`, no boundary: the reference stays on this schema and this row,
            so there is no handle to read. A `with` map is still read, so that
@@ -63,5 +67,18 @@ final class ParseCrossSchemaCan extends Parser
         $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
         return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundKey, $contextMap, $alias, $this->locationEndingHere());
+    }
+
+    /**
+     * The ability the reference asks about: a binding, or else a name, reported
+     * as missing when none is written.
+     */
+    private function abilityOrMissing(string $expected): NameNode|BindingNode
+    {
+        if ($this->check(TokenType::NAMED_BINDING)) {
+            return $this->parse(ParseBinding::class)->value;
+        }
+
+        return $this->nameOrMissing($expected);
     }
 }

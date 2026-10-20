@@ -3,6 +3,9 @@
 namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -68,7 +71,7 @@ final class DocumentSymbols
             $node instanceof RuleSetNode => ['for '.self::orMissing($node->schemaKey()), self::KIND_NAMESPACE, $node->entries],
             $node instanceof SchemaConditionNode => ['for '.self::orMissing($node->schemaKey()), self::KIND_NAMESPACE, []],
             $node instanceof AbilityBlockNode => [
-                'can they '.implode(', ', array_map(static fn (NameNode $ability): string => $ability->name, $node->abilities)),
+                'can they '.self::abilities($node->abilities),
                 self::KIND_STRUCT,
                 $node->entries,
             ],
@@ -116,15 +119,33 @@ final class DocumentSymbols
     {
         $parts = [];
 
+        $abilities = static fn (array $clauses): string => self::abilities(array_merge(
+            [],
+            ...array_map(static fn (CanClauseNode|CannotClauseNode $clause): array => $clause->abilities, $clauses),
+        )) ?: '…';
+
         if ($rule->canClauses !== []) {
-            $parts[] = 'can '.(implode(', ', $rule->canAbilities()) ?: '…');
+            $parts[] = 'can '.$abilities($rule->canClauses);
         }
 
         if ($rule->cannotClauses !== []) {
-            $parts[] = 'cannot '.(implode(', ', $rule->cannotAbilities()) ?: '…');
+            $parts[] = 'cannot '.$abilities($rule->cannotClauses);
         }
 
         return $parts === [] ? 'rule' : implode(' · ', $parts);
+    }
+
+    /**
+     * Abilities as the text writes them: each a name, `*`, or a binding.
+     *
+     * @param list<NameNode|BindingNode> $abilities
+     */
+    private static function abilities(array $abilities): string
+    {
+        return implode(', ', array_map(
+            static fn (NameNode|BindingNode $ability): string => $ability instanceof BindingNode ? ':'.$ability->name : $ability->name,
+            $abilities,
+        ));
     }
 
     /**

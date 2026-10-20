@@ -15,7 +15,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * and that is the validator's to report. A name after `can` / `cannot` begins
  * nothing else, so the list reads the same wherever it is.
  *
- * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\NameNode>>
+ * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\NameNode|\Warrant\DSL\Parsing\ASTNodes\BindingNode>>
  */
 final class ParseClauseAbilityList extends Parser
 {

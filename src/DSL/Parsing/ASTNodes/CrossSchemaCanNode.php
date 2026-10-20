@@ -50,10 +50,12 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
     /**
      * @param NameNode|null $schemaKey The schema this reference crosses to, or null
      *   for the boundary-free form, which stays on the schema being compiled.
+     * @param NameNode|BindingNode $ability The ability asked about, or a binding
+     *   whose value names it until expansion puts that name in its place.
      */
     public function __construct(
         public ?NameNode $schemaKey,
-        public NameNode $ability,
+        public NameNode|BindingNode $ability,
         public bool $isRowBound,
         public array $boundKey,
         public array $contextMap,

@@ -53,18 +53,22 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *                 body does; the first one decides
  *   message  := STRING | NAMED_BINDING
  *              -- a string literal, or a binding resolving to a string or closure
- *   ability  := IDENTIFIER | '*'
+ *   ability  := IDENTIFIER | '*' | NAMED_BINDING
+ *              -- a binding's value is an ability name, `*`, or a list of them,
+ *                 spliced into the list where the binding is written
  *   expr     := or
  *   or       := and ('or' and)*
  *   and      := not ('and' not)*
  *   not      := ('not'|'!') not | primary
  *   primary  := '(' expr ')' | can_expr | check_expr | condition
- *   can_expr := 'can' '(' IDENTIFIER ( 'for' handle ( 'with' with_map )? )? ')'
- *             | 'can' IDENTIFIER
+ *   can_expr := 'can' '(' can_ability ( 'for' handle ( 'with' with_map )? )? ')'
+ *             | 'can' can_ability
  *              -- without `for` nothing is crossed: another ability of this
  *                 schema, over the row and context the rule already has. Only
  *                 then may the parentheses be left off, so a `for` after a bare
  *                 `can <ability>` is never its own
+ *   can_ability := IDENTIFIER | NAMED_BINDING
+ *              -- one ability: a binding's value is a single ability name
  *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
  *   handle   := IDENTIFIER ( '(' arg ')' )? ( 'as' IDENTIFIER )?

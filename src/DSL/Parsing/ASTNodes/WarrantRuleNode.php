@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Closure;
 use InvalidArgumentException;
+use LogicException;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Schema\WarrantDenialContext;
 
@@ -64,7 +65,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         foreach ($this->canClauses as $clause) {
             foreach ($clause->abilities as $ability) {
-                $abilities[] = $ability->name;
+                $abilities[] = self::nameOf($ability);
             }
         }
 
@@ -140,7 +141,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
 
         foreach ($this->cannotClauses as $clause) {
             foreach ($clause->abilities as $ability) {
-                $abilities[] = $ability->name;
+                $abilities[] = self::nameOf($ability);
             }
         }
 
@@ -198,7 +199,23 @@ readonly class WarrantRuleNode implements IRuleEntryNode
      */
     private static function abilityNames(CannotClauseNode $clause): array
     {
-        return array_map(static fn (NameNode $ability): string => $ability->name, $clause->abilities);
+        return array_map(self::nameOf(...), $clause->abilities);
+    }
+
+    /**
+     * The ability $ability names. A binding names none until expansion puts its
+     * value in its place, so only an expanded rule's abilities can be read.
+     */
+    private static function nameOf(NameNode|BindingNode $ability): string
+    {
+        if ($ability instanceof BindingNode) {
+            throw new LogicException(sprintf(
+                'The ability binding [:%s] names no ability until the rule is expanded.',
+                $ability->name,
+            ));
+        }
+
+        return $ability->name;
     }
 
     /**

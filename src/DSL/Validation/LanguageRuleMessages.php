@@ -5,7 +5,8 @@ namespace Warrant\DSL\Validation;
 /**
  * The words for a rule of the language broken by text the parser can read: an
  * entry naming its abilities where it may not, or naming none where it must; a
- * denial message where none belongs, or one that cannot be one; an `@include`
+ * denial message where none belongs, or one that cannot be one; a binding
+ * standing for abilities whose value names none; an `@include`
  * naming a template the schema does not declare, or giving it too few
  * arguments. The validator reports these against rule text, and the expander
  * rejects the same in any rule set that reaches it, so both say them here, in
@@ -106,6 +107,34 @@ final class LanguageRuleMessages
             $entry,
             $names ? 'names abilities' : 'names none',
             $names ? 'name none' : 'name theirs',
+        );
+    }
+
+    /**
+     * @param string $binding The binding's name, without its colon.
+     * @param string $got What its value is instead, as words for the author.
+     */
+    public static function abilityListBindingValue(string $binding, string $got): string
+    {
+        return sprintf(
+            'The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list '
+                .'of them; got %s.',
+            $binding,
+            $got,
+        );
+    }
+
+    /**
+     * @param string $binding The binding's name, without its colon.
+     * @param string $got What its value is instead, as words for the author.
+     */
+    public static function oneAbilityBindingValue(string $binding, string $got): string
+    {
+        return sprintf(
+            'The binding [:%s] stands for the one ability a can(...) reference asks about, so its value is an '
+                .'ability name; got %s.',
+            $binding,
+            $got,
         );
     }
 }

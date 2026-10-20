@@ -215,11 +215,20 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<NameNode> $names
+     * @param list<NameNode|BindingNode> $names
      */
     private function names(array $names): string
     {
-        return implode(', ', array_map(static fn (NameNode $name): string => $name->name, $names));
+        return implode(', ', array_map($this->ability(...), $names));
+    }
+
+    /**
+     * An ability as it is written: a name, or a binding as the abilities its
+     * value names.
+     */
+    private function ability(NameNode|BindingNode $ability): string
+    {
+        return $ability instanceof BindingNode ? implode(', ', (array) $ability->value()) : $ability->name;
     }
 
     private function writeExpression(IBooleanExpressionNode $node): string
@@ -272,10 +281,10 @@ final class RuleSyntaxWriter
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
         if ($node->schemaKey === null) {
-            return 'can(' . $node->ability->name . ')';
+            return 'can(' . $this->ability($node->ability) . ')';
         }
 
-        return 'can(' . $node->ability->name . ' for '
+        return 'can(' . $this->ability($node->ability) . ' for '
             . $this->writeHandleAndWith(
                 $node->schemaKey,
                 $node->isRowBound,
