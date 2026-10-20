@@ -57,7 +57,7 @@ beforeEach(function () {
  */
 function assertSelfRefSql(string $syntax, string $ability, string $expectedSql, array $context = []): void
 {
-    $set = WarrantSyntax::parse($syntax)->scopedTo('sr_docs');
+    $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('sr_docs');
 
     app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}
@@ -305,7 +305,7 @@ it('leaves an inlined can unanswerable when the frame it inlines into has no row
        the inlined rules are as unanswerable as they would be written inline. */
     $set = WarrantSyntax::parse(
         "if is_owner they can do_thing_1\nif can(do_thing_1) they can do_thing_2",
-    )->scopedTo('sr_docs');
+    )->validateWithoutSchemas()->scopedTo('sr_docs');
 
     app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}

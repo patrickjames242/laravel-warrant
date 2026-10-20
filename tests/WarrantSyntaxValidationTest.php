@@ -6,10 +6,11 @@ use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\AnalysisResult;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
@@ -22,6 +23,7 @@ use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -36,9 +38,9 @@ function providedRulesError(mixed $rules): InvalidArgumentException
 {
     app()->instance(RuleProvider::class, new class($rules) implements RuleProvider
     {
-        public function __construct(private RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable $rules) {}
+        public function __construct(private mixed $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable
+        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|\Warrant\Builders\WarrantRuleBuilder|WarrantSyntax|string|iterable
         {
             return $this->rules;
         }
@@ -47,7 +49,7 @@ function providedRulesError(mixed $rules): InvalidArgumentException
     app(WarrantManager::class)->flush();
 
     try {
-        Warrant::guard(makeWarrantTestUser())->forSchema(WarrantTestSchema::class)->resolvedRuleSet();
+        Warrant::guard(makeWarrantTestUser())->forSchema(WarrantTestSchema::class)->expandedRuleSet();
     } catch (InvalidArgumentException $error) {
         return $error;
     }
@@ -80,7 +82,7 @@ it('points into the text an error is in, when a provider answers with several', 
 });
 
 it('says only what is wrong with rules built in code, which have no text', function () {
-    $error = providedRulesError(WarrantSyntax::parse('they cannot frobnicate')->rule());
+    $error = providedRulesError(WarrantRuleNode::build()->theyCannot('frobnicate'));
 
     expect($error->getMessage())->toBe('Ability [frobnicate] is not declared by the schema.');
 });
@@ -101,7 +103,7 @@ it('checks rules with no header only against a schema it is given', function () 
     $syntax = WarrantSyntax::parse('if no_such_condition they can view');
 
     expect(fn () => ValidSyntax::of($syntax, new ValidationInput(new RegisteredSchemas)))->not->toThrow(InvalidArgumentException::class)
-        ->and(fn () => ValidSyntax::of($syntax, new ValidationInput(new RegisteredSchemas, 'course_sections')))
+        ->and(fn () => ValidSyntax::of(producedFor($syntax, 'course_sections'), new ValidationInput(new RegisteredSchemas)))
         ->toThrow(RuleValidationException::class, 'no_such_condition');
 });
 
@@ -118,7 +120,7 @@ function validationDiagnostics(string $source): array
             $diagnostic->message,
             substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset),
         ],
-        mistakesOf(WarrantParser::analyze($source)->syntax, new ValidationInput(new RegisteredSchemas, 'course_sections')),
+        mistakesOf(producedFor(WarrantParser::analyze($source)->syntax, 'course_sections'), new ValidationInput(new RegisteredSchemas)),
     );
 }
 
@@ -145,29 +147,29 @@ it('reports nothing for a text with no mistakes', function () {
 it('throws the first of the mistakes it would report', function () {
     $source = "if is_teachr they can view, frobnicate\nif nope they can view";
 
-    expect(fn () => ValidSyntax::of(WarrantSyntax::parse($source), new ValidationInput(new RegisteredSchemas, 'course_sections')))
+    expect(fn () => ValidSyntax::of(producedFor(WarrantSyntax::parse($source), 'course_sections'), new ValidationInput(new RegisteredSchemas)))
         ->toThrow(RuleValidationException::class, validationDiagnostics($source)[0][0]);
 });
 
 it('looks every schema up in the catalog it is given, and nowhere else', function () {
     $catalog = catalogOf(['lessons' => new WarrantTestSchema]);
 
-    expect(WarrantParser::analyze('for lessons { if can(view for lessons) they can view }', $catalog)->diagnostics)->toBe([])
+    expect(analyzedDiagnostics('for lessons { if can(view for lessons) they can view }', $catalog))->toBe([])
         ->and(array_map(
             static fn (Diagnostic $diagnostic): string => $diagnostic->message,
-            WarrantParser::analyze('for course_sections { they can view }', $catalog)->diagnostics,
+            analyzedDiagnostics('for course_sections { they can view }', $catalog),
         ))->toBe(['The `for` header names unknown schema [course_sections].']);
 });
 
 it('reports syntax errors and then the rules a text breaks, when analysed against a catalog', function () {
     $source = 'if is_teachr they can frobnicate ~';
-    $diagnostics = WarrantParser::analyze("if is_teachr they can frobnicate\nthey can fly", catalogOf(['lessons' => new WarrantTestSchema]), 'lessons')->diagnostics;
+    $diagnostics = analyzedDiagnostics("if is_teachr they can frobnicate\nthey can fly", catalogOf(['lessons' => new WarrantTestSchema]), 'lessons');
 
     expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([
         'Ability [frobnicate] is not declared by the schema.',
         'Ability [fly] is not declared by the schema.',
         'Condition [is_teachr] is not declared by the schema.',
-    ])->and(WarrantParser::analyze($source, catalogOf([]))->diagnostics[0]->message)->toBe("Unexpected character '~'.");
+    ])->and(analyzedDiagnostics($source, catalogOf([]))[0]->message)->toBe("Unexpected character '~'.");
 });
 
 it('reports bindings of both kinds at each one of the kind the first did not use', function () {
@@ -175,7 +177,7 @@ it('reports bindings of both kinds at each one of the kind the first did not use
 
     expect(array_map(
         static fn (Diagnostic $diagnostic): array => [$diagnostic->message, substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset)],
-        WarrantParser::analyze($source)->diagnostics,
+        analyzedDiagnostics($source, null),
     ))->toBe([
         ['Cannot mix named and positional bindings.', '?'],
         ['Cannot mix named and positional bindings.', '?'],
@@ -185,7 +187,7 @@ it('reports bindings of both kinds at each one of the kind the first did not use
 it('holds text to the rules that need no schema when analysed with no catalog', function () {
     expect(array_map(
         static fn (Diagnostic $diagnostic): string => $diagnostic->message,
-        WarrantParser::analyze("for nowhere { can they view { they can edit } they can because 'no' }")->diagnostics,
+        analyzedDiagnostics("for nowhere { can they view { they can edit } they can because 'no' }", null),
     ))->toBe([
         'A clause inside an ability block may not name abilities; the block header already names them.',
         'Every clause and @include outside an ability block names the abilities it applies to; the rule set for [nowhere] holds one that names none.',
@@ -194,7 +196,7 @@ it('holds text to the rules that need no schema when analysed with no catalog', 
 });
 
 it('adds nothing of its own for a name an analysis reported missing', function (string $source, string $mistake) {
-    $diagnostics = WarrantParser::analyze($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections')->diagnostics;
+    $diagnostics = analyzedDiagnostics($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections');
 
     expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([$mistake]);
 })->with([
@@ -216,12 +218,12 @@ it('never throws while validating broken text against a schema', function () {
     for ($i = 0; $i < 1500; $i++) {
         $source = implode(' ', array_map(static fn () => $words[mt_rand(0, count($words) - 1)], range(1, mt_rand(1, 16))));
 
-        expect(WarrantParser::analyze($source, $catalog, 'course_sections'))->toBeInstanceOf(AnalysisResult::class);
+        expect(analyzedDiagnostics($source, $catalog, 'course_sections'))->toBeArray();
     }
 });
 
 it('says which kind of mistake each rule the schema cannot accept is', function (string $source, array $codes) {
-    $diagnostics = WarrantParser::analyze($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections')->diagnostics;
+    $diagnostics = analyzedDiagnostics($source, catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections');
 
     expect(array_map(static fn (Diagnostic $diagnostic): DiagnosticCode => $diagnostic->code, $diagnostics))->toBe($codes);
 })->with([
@@ -235,66 +237,99 @@ it('says which kind of mistake each rule the schema cannot accept is', function 
 // -- the validation stage -----------------------------------------------------
 
 /**
- * Input validating rules with no header against the test schema, as $mode says.
+ * Input validating against the test schema alone.
  */
-function courseSectionsInput(GenericMode $mode = GenericMode::Either): ValidationInput
+function courseSectionsInput(): ValidationInput
 {
-    return new ValidationInput(catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections', $mode);
+    return new ValidationInput(catalogOf(['course_sections' => new WarrantTestSchema]));
 }
 
-it('makes a valid syntax of text with no mistakes, holding the input it passed under', function () {
-    $input = courseSectionsInput();
-    $valid = ValidSyntax::of(WarrantSyntax::parse('if is_teacher they can view'), $input);
+/**
+ * $source parsed, with rules that have no header about the test schema, as
+ * $mode says.
+ */
+function courseSectionsSyntax(string $source, GenericMode $mode = GenericMode::Either): WarrantSyntax
+{
+    return producedFor(WarrantSyntax::parse($source), 'course_sections', $mode);
+}
 
-    expect($valid->input)->toBe($input);
+/**
+ * $syntax answered by a derived condition that the rule calling it passed
+ * $callerColumnRef to.
+ */
+function answeredFor(WarrantSyntax $syntax, ColumnRef $callerColumnRef): WarrantSyntax
+{
+    $syntax->source->setProducer(SyntaxProducer::derivedCondition(
+        'course_sections',
+        WarrantTestSchema::class,
+        'derived',
+        'derived',
+        new ConditionNode(nameNode('derived'), [$callerColumnRef], SyntaxLocation::noProducer()),
+    ));
+
+    return $syntax;
+}
+
+it('makes a valid syntax of text with no mistakes, holding the input it passed under with the producer it had', function () {
+    $syntax = courseSectionsSyntax('if is_teacher they can view');
+    $input = courseSectionsInput();
+    $valid = ValidSyntax::of($syntax, $input);
+
+    expect($valid->input->catalog)->toBe($input->catalog)
+        ->and($valid->input->producer)->toBe($syntax->source->producer());
 });
 
 it('throws the first mistake rather than make a valid syntax', function () {
-    expect(fn () => ValidSyntax::of(WarrantSyntax::parse('if is_teachr they can view'), courseSectionsInput()))
+    expect(fn () => ValidSyntax::of(courseSectionsSyntax('if is_teachr they can view'), courseSectionsInput()))
         ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is not declared by the schema.');
 });
 
-it('hands back a syntax already valid under an equal input as it is', function () {
-    $valid = ValidSyntax::of(WarrantSyntax::parse('if is_teacher they can view'), courseSectionsInput());
+it('hands back a syntax already valid under an equal input as it is, and validates it again once handed over anew', function () {
+    $valid = ValidSyntax::of(courseSectionsSyntax('if is_teacher they can view'), courseSectionsInput());
 
     expect(ValidSyntax::of($valid, courseSectionsInput()))->toBe($valid)
-        ->and(ValidSyntax::of($valid, courseSectionsInput(GenericMode::RequireNotGeneric)))->not->toBe($valid);
+        ->and(ValidSyntax::of(producedFor($valid, 'course_sections', GenericMode::RequireNotGeneric), courseSectionsInput()))->not->toBe($valid);
 });
 
 it('leaves a @column the calling rule passed in unchecked in the scope it is passed into', function () {
-    $callerColumnRef = new ColumnRef('elsewhere', 'id');
-    $answer = new WarrantSyntax([new ConditionNode('is_teacher', [$callerColumnRef])]);
+    $callerColumnRef = new ColumnRef(nameNode('elsewhere'), nameNode('id'), SyntaxLocation::noProducer());
+    $answer = fn (): WarrantSyntax => new WarrantSyntax([new ConditionNode(nameNode('is_teacher'), [$callerColumnRef], SyntaxLocation::noProducer())]);
 
-    expect(fn () => ValidSyntax::of($answer, courseSectionsInput()))
+    expect(fn () => ValidSyntax::of(producedFor($answer(), 'course_sections'), courseSectionsInput()))
         ->toThrow(RuleValidationException::class, 'A @column reference names [elsewhere], which is not in scope here')
-        ->and(fn () => ValidSyntax::of($answer, new ValidationInput(
-            catalogOf(['course_sections' => new WarrantTestSchema]),
-            'course_sections',
-            callerColumnRefs: [$callerColumnRef],
-        )))->not->toThrow(RuleValidationException::class);
+        ->and(fn () => ValidSyntax::of(answeredFor($answer(), $callerColumnRef), courseSectionsInput()))
+        ->not->toThrow(RuleValidationException::class);
 });
 
-it('hands back a syntax already valid under an equal input holding caller column refs as it is', function () {
-    $callerColumnRef = new ColumnRef('elsewhere', 'id');
-    $input = new ValidationInput(catalogOf(['course_sections' => new WarrantTestSchema]), 'course_sections', callerColumnRefs: [$callerColumnRef]);
-    $valid = ValidSyntax::of(new WarrantSyntax([new ConditionNode('is_teacher', [$callerColumnRef])]), $input);
+it('checks a @column the calling rule did not pass in, even one equal to one it did', function () {
+    $callerColumnRef = new ColumnRef(nameNode('elsewhere'), nameNode('id'), SyntaxLocation::noProducer());
+    $equal = new ColumnRef(nameNode('elsewhere'), nameNode('id'), SyntaxLocation::noProducer());
+    $answer = new WarrantSyntax([new ConditionNode(nameNode('is_teacher'), [$equal], SyntaxLocation::noProducer())]);
 
-    expect(ValidSyntax::of($valid, $input))->toBe($valid);
+    expect(fn () => ValidSyntax::of(answeredFor($answer, $callerColumnRef), courseSectionsInput()))
+        ->toThrow(RuleValidationException::class, 'A @column reference names [elsewhere], which is not in scope here');
+});
+
+it('hands back a syntax answered with a caller\'s column, already valid under an equal input, as it is', function () {
+    $callerColumnRef = new ColumnRef(nameNode('elsewhere'), nameNode('id'), SyntaxLocation::noProducer());
+    $syntax = answeredFor(new WarrantSyntax([new ConditionNode(nameNode('is_teacher'), [$callerColumnRef], SyntaxLocation::noProducer())]), $callerColumnRef);
+    $valid = ValidSyntax::of($syntax, courseSectionsInput());
+
+    expect(ValidSyntax::of($valid, courseSectionsInput()))->toBe($valid);
 });
 
 it('validates again under a different input, which may find the text invalid', function () {
     $valid = ValidSyntax::of(WarrantSyntax::parse('if no_such_condition they can view'), new ValidationInput(null));
 
-    expect(fn () => ValidSyntax::of($valid, courseSectionsInput()))
+    expect(fn () => ValidSyntax::of(producedFor($valid, 'course_sections'), courseSectionsInput()))
         ->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is not declared by the schema.');
 });
 
 it('checks a text into an invalid syntax holding every mistake and the input', function () {
-    $input = courseSectionsInput();
-    $checked = ValidSyntax::check(WarrantSyntax::parse('if is_teachr they can frobnicate'), $input);
+    $checked = ValidSyntax::check(courseSectionsSyntax('if is_teachr they can frobnicate'), courseSectionsInput());
 
     expect($checked)->toBeInstanceOf(InvalidSyntax::class)
-        ->and($checked->input)->toBe($input)
+        ->and($checked->input->producer?->schemaKey)->toBe('course_sections')
         ->and(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $checked->diagnostics))->toBe([
             'Ability [frobnicate] is not declared by the schema.',
             'Condition [is_teachr] is not declared by the schema.',
@@ -302,7 +337,7 @@ it('checks a text into an invalid syntax holding every mistake and the input', f
 });
 
 it('checks a text with no mistakes into a valid syntax', function () {
-    expect(ValidSyntax::check(WarrantSyntax::parse('if is_teacher they can view'), courseSectionsInput()))
+    expect(ValidSyntax::check(courseSectionsSyntax('if is_teacher they can view'), courseSectionsInput()))
         ->toBeInstanceOf(ValidSyntax::class);
 });
 
@@ -313,7 +348,7 @@ it('checks a text with no mistakes into a valid syntax', function () {
  */
 function genericModeErrors(string $source, GenericMode $mode): array
 {
-    $checked = ValidSyntax::check(WarrantSyntax::parse($source), courseSectionsInput($mode));
+    $checked = ValidSyntax::check(courseSectionsSyntax($source, $mode), courseSectionsInput());
 
     return $checked instanceof InvalidSyntax
         ? array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $checked->diagnostics)
@@ -342,26 +377,14 @@ it('holds a for body to naming its abilities whatever the mode', function () {
         ->toBe([LanguageRuleMessages::unnamedOutsideBlock('course_sections')]);
 });
 
-it('checks a for body against the schema its header names, whatever schema the input gives', function () {
-    $input = new ValidationInput(catalogOf(['course_sections' => new WarrantTestSchema]), 'some_other_schema');
+it('checks a for body against the schema its header names, whatever schema the producer gives', function () {
+    $syntax = producedFor(WarrantSyntax::parse('for course_sections { if is_teachr they can view }'), 'some_other_schema');
 
-    expect(fn () => ValidSyntax::of(WarrantSyntax::parse('for course_sections { if is_teachr they can view }'), $input))
+    expect(fn () => ValidSyntax::of($syntax, courseSectionsInput()))
         ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is not declared by the schema.');
 });
 
 // -- validating a syntax ------------------------------------------------------
-
-it('validates rules with no header as rules for the schema it is given', function () {
-    expect(fn () => WarrantSyntax::parse('if is_teacher they can view')->validate('course_sections'))
-        ->not->toThrow(InvalidArgumentException::class)
-        ->and(fn () => WarrantSyntax::parse('if is_teachr they can view')->validate('course_sections'))
-        ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is not declared by the schema. (line 1, column 4)');
-});
-
-it('holds rules for a schema to naming their abilities', function () {
-    expect(fn () => WarrantSyntax::parse('if is_teacher they can')->validate('course_sections'))
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::unnamedOutsideBlock('course_sections'));
-});
 
 it('holds rules with no header and no schema only to the rules of the language', function () {
     expect(fn () => WarrantSyntax::parse('if no_such_condition they can')->validate())
@@ -370,7 +393,7 @@ it('holds rules with no header and no schema only to the rules of the language',
         ->toThrow(RuleValidationException::class, LanguageRuleMessages::namingDisagrees('This clause', false));
 });
 
-it('validates each for body against its registered schema, whatever schema it is given', function () {
-    expect(fn () => WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")->validate('elsewhere'))
+it('validates each for body against its registered schema', function () {
+    expect(fn () => WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")->validate())
         ->toThrow(RuleValidationException::class, 'Ability [frobnicate] is not declared by the schema. (line 2, column 12)');
 });

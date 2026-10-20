@@ -40,8 +40,8 @@ it('returns a condition builder from condition() and a rule builder from rule()'
 // -- parse ---------------------------------------------------------------------
 
 it('parses every form exactly as WarrantSyntax::parse does', function (string $source) {
-    expect(Warrant::parse($source)->children)->toEqual(WarrantSyntax::parse($source)->children)
-        ->and(Warrant::parse($source)->source)->toBe($source);
+    expect(Warrant::parse($source)->children)->toEqualSyntax(WarrantSyntax::parse($source)->children)
+        ->and(Warrant::parse($source)->source->bound->syntax)->toBe($source);
 })->with([
     'a condition' => ['is_owner or is_admin'],
     'a rule' => ['if is_self they can view'],
@@ -51,8 +51,8 @@ it('parses every form exactly as WarrantSyntax::parse does', function (string $s
 ]);
 
 it('resolves bindings through parse', function () {
-    expect(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->rule()
-        ->conditions->parameters)->toBe(['x-1']);
+    expect(argumentValues(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->validateWithoutSchemas()->rule()
+        ->conditions->parameters))->toBe(['x-1']);
 });
 
 it('parses a file through parseFile', function () {
@@ -60,14 +60,14 @@ it('parses a file through parseFile', function () {
     file_put_contents($path, 'for timesheets { they can view }');
 
     try {
-        expect(Warrant::parseFile($path)->ruleSet()->schemaKey)->toBe('timesheets');
+        expect(Warrant::parseFile($path)->validateWithoutSchemas()->ruleSet()->schemaKey?->name)->toBe('timesheets');
     } finally {
         unlink($path);
     }
 });
 
 it('parses a BoundSyntax with the bindings it holds', function () {
-    expect(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->rule()->conditions->parameters)
+    expect(argumentValues(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->validateWithoutSchemas()->rule()->conditions->parameters))
         ->toBe(['x-1']);
 });
 
@@ -75,7 +75,7 @@ it('parses a BoundSyntax with the bindings it holds', function () {
 
 it('parses through warrant() exactly as Warrant::parse does', function () {
     expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1'])->children)
-        ->toEqual(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->children);
+        ->toEqualSyntax(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->children);
 });
 
 it('parses a file through warrant_file(), with the extension left off', function () {
@@ -84,7 +84,7 @@ it('parses a file through warrant_file(), with the extension left off', function
 
     try {
         expect(warrant_file($base, ['id' => 'x-1'])->children)
-            ->toEqual(Warrant::parseFile($base.'.warrant', ['id' => 'x-1'])->children);
+            ->toEqualSyntax(Warrant::parseFile($base.'.warrant', ['id' => 'x-1'])->children);
     } finally {
         unlink($base.'.warrant');
     }
@@ -93,25 +93,11 @@ it('parses a file through warrant_file(), with the extension left off', function
 // -- the language-server case: the schema lives in the string ------------------
 
 it('takes the schema from the string\'s own for header', function () {
-    expect(Warrant::parse('for timesheets if is_self they can view')->ruleSet()->schemaKey)->toBe('timesheets');
+    expect(Warrant::parse('for timesheets if is_self they can view')->validateWithoutSchemas()->ruleSet()->schemaKey?->name)->toBe('timesheets');
     expect(Warrant::parse('for timesheets { they can view }')->schemaKeys())->toBe(['timesheets']);
 });
 
 it('rejects a header that disagrees with the schema it is scoped to', function () {
-    expect(fn () => Warrant::parse('for timesheets { they can view }')->scopedTo('documents'))
+    expect(fn () => Warrant::parse('for timesheets { they can view }')->validateWithoutSchemas()->scopedTo('documents'))
         ->toThrow(InvalidArgumentException::class, 'targets schema [timesheets] in its `for` header but was scoped to [documents]');
-});
-
-// -- a builder still needs no terminal where a value is expected ---------------
-
-it('feeds a facade-built rule straight into fromRules, unfinished', function () {
-    $set = RuleSetNode::fromRules(
-        'timesheets',
-        Warrant::rule()->if('is_self')->theyCan('view'),
-        Warrant::parse('they cannot delete')->rule(),
-    );
-
-    expect($set->entries)->toHaveCount(2);
-    expect($set->entries[0]->canAbilities())->toBe(['view']);
-    expect($set->entries[1]->cannotAbilities())->toBe(['delete']);
 });

@@ -22,6 +22,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -62,7 +63,7 @@ function bindCstRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
@@ -71,7 +72,7 @@ function bindCstRules(array $syntaxByKey): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }
@@ -156,11 +157,11 @@ it('spends one budget across every kind of call', function () {
 
 it('renders arguments the way the author wrote them', function () {
     $call = Call::condition(CstFolderSchema::class, 'is_visible', [
-        new ContextRef('tid'),
-        new ColumnRef('cst_folders', 'parent_id'),
-        'role-9',
-        7,
-        null,
+        new ContextRef(nameNode('tid'), SyntaxLocation::noProducer()),
+        new ColumnRef(nameNode('cst_folders'), nameNode('parent_id'), SyntaxLocation::noProducer()),
+        argumentNode('role-9'),
+        argumentNode(7),
+        argumentNode(null),
     ]);
 
     expect($call->signature())

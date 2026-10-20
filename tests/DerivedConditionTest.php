@@ -24,6 +24,7 @@ use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Validation\ValidationInput;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -203,14 +204,14 @@ it('is expanded once per guard, however many checks read it', function () {
 
 it('leaves the call in the expanded tree, around the expression it answered with', function () {
     $expanded = expandedFor(
-        WarrantSyntax::parse('if owned_or_tenant(@context tenant) they can view')->scopedTo('dk_docs'),
+        WarrantSyntax::parse('if owned_or_tenant(@context tenant) they can view')->validateWithoutSchemas()->scopedTo('dk_docs'),
         new DkDocSchema,
     );
 
     $node = $expanded->rules[0]->conditions;
 
     expect($node)->toBeInstanceOf(DerivedConditionNode::class);
-    expect($node->conditionKey)->toBe('owned_or_tenant');
+    expect($node->conditionKey?->name)->toBe('owned_or_tenant');
     expect($node->parameters[0])->toBeInstanceOf(ContextRef::class);
 
     // Written back out, it reads as the rule wrote it, not as what it expanded to.
@@ -219,7 +220,7 @@ it('leaves the call in the expanded tree, around the expression it answered with
 });
 
 it('refuses to compile a derived condition nobody expanded', function () {
-    $rule = WarrantSyntax::parse('if as_text they can view')->scopedTo('dk_docs')->entries[0];
+    $rule = WarrantSyntax::parse('if as_text they can view')->validateWithoutSchemas()->scopedTo('dk_docs')->entries[0];
 
     expect(fn () => (new RuleSetCompiler(new DkDocSchema))->compile(
         CompilationContext::ability(
@@ -228,7 +229,7 @@ it('refuses to compile a derived condition nobody expanded', function () {
             'view',
             // Made in the class's own scope, as nothing outside it may: the compiler's
             // own check is what is under test, for rules that skipped the expansion.
-            Closure::bind(static fn () => new ExpandedSyntax('dk_docs', [$rule]), null, ExpandedSyntax::class)(),
+            Closure::bind(static fn () => new ExpandedSyntax('dk_docs', [$rule], new ValidationInput(null)), null, ExpandedSyntax::class)(),
         )->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'reached the compiler unexpanded');
 });
@@ -237,7 +238,7 @@ it('refuses to compile a derived condition nobody expanded', function () {
 
 function validateDkExpanded(string $syntax): void
 {
-    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('dk_docs');
+    $ruleSet = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('dk_docs');
 
     validateRuleSet($ruleSet, new DkDocSchema);
     expandedFor($ruleSet, new DkDocSchema);
@@ -373,14 +374,14 @@ class DkDocSchema extends WarrantSchema
     {
         self::$lastTenant = $tenant;
 
-        return WarrantSyntax::parse(new BoundSyntax('is_owned or in_tenant(:tenant)', ['tenant' => $tenant]))->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('is_owned or in_tenant(:tenant)', ['tenant' => $tenant]))->validateWithoutSchemas()->conditionExpression();
     }
 
     /** Compares a column with the owner, through a binding, without reading it. */
     #[DerivedCondition]
     public function ownerMatches(mixed $column): IBooleanExpressionNode
     {
-        return WarrantSyntax::parse(new BoundSyntax('owner_is_column(:column)', ['column' => $column]))->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('owner_is_column(:column)', ['column' => $column]))->validateWithoutSchemas()->conditionExpression();
     }
 
     /** Compares a column with the owner, answering with the text and its binding. */
@@ -394,7 +395,7 @@ class DkDocSchema extends WarrantSchema
     #[DerivedCondition]
     public function ownerMatchesAgain(mixed $column): IBooleanExpressionNode
     {
-        return WarrantSyntax::parse(new BoundSyntax('owner_matches(:column)', ['column' => $column]))->conditionExpression();
+        return WarrantSyntax::parse(new BoundSyntax('owner_matches(:column)', ['column' => $column]))->validateWithoutSchemas()->conditionExpression();
     }
 
     #[RowCondition]
@@ -500,7 +501,7 @@ class DkDocSchema extends WarrantSchema
     #[RowCondition]
     public function returnsExpression(RowConditionContext $c): IBooleanExpressionNode
     {
-        return WarrantSyntax::parse('is_owned')->conditionExpression();
+        return WarrantSyntax::parse('is_owned')->validateWithoutSchemas()->conditionExpression();
     }
 }
 

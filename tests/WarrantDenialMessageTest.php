@@ -22,6 +22,7 @@ use Warrant\Schema\WarrantDenialContext;
 use Warrant\Schema\WarrantSchema;
 use Warrant\Schema\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
@@ -362,7 +363,11 @@ function seedDenialSections(): void
  */
 function bindDenialRules(array $rules, string $schema = WarrantTestSchema::class): void
 {
-    bindWarrantRuleSet(RuleSetNode::fromRules(Warrant::registry()->resolveSchemaKeyOrFail($schema), $rules));
+    bindWarrantRuleSet(new RuleSetNode(
+        nameNode(Warrant::registry()->resolveSchemaKeyOrFail($schema)),
+        array_map(static fn ($rule): WarrantRuleNode => $rule instanceof WarrantRuleNode ? $rule : $rule->toRule(), $rules),
+        SyntaxLocation::noProducer(),
+    ));
 }
 
 // -- string & closure messages ------------------------------------------------
@@ -698,8 +703,8 @@ it('cannot attribute a no-target denial to a targeted-only cannot', function () 
 it('surfaces a because message written directly in the DSL', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantSyntax::parse('they can update')->rule(),
-        WarrantSyntax::parse("if is_teacher they cannot update because 'This section is locked.'")->rule(),
+        WarrantSyntax::parse('they can update')->validateWithoutSchemas()->rule(),
+        WarrantSyntax::parse("if is_teacher they cannot update because 'This section is locked.'")->validateWithoutSchemas()->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -713,7 +718,7 @@ it('surfaces per-clause because messages for distinct abilities in one if', func
         if is_teacher
         they cannot update because 'Cannot update a teacher row.'
         they cannot archive because 'Cannot archive a teacher row.'
-        WARRANT)->ruleEntries());
+        WARRANT)->validateWithoutSchemas()->ruleEntries());
     $user = makeWarrantTestUser('teacher-role');
 
     expect(fn () => Warrant::guard($user)->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -771,10 +776,10 @@ it('scopes deniedAbilities to the fired clause message', function () {
 it('surfaces a because message supplied through a binding closure', function () {
     seedDenialSections();
     bindDenialRules([
-        WarrantSyntax::parse('they can update')->rule(),
+        WarrantSyntax::parse('they can update')->validateWithoutSchemas()->rule(),
         WarrantSyntax::parse(new BoundSyntax('if is_teacher they cannot update because :msg', [
             'msg' => fn (WarrantDenialContext $c) => "No editing {$c->target->getKey()}.",
-        ]))->rule(),
+        ]))->validateWithoutSchemas()->rule(),
     ]);
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role'))
@@ -956,12 +961,13 @@ it('surfaces a rule message through the middleware', function () {
     Schema::create('course_sections', fn ($table) => $table->string('id'));
     DB::table('course_sections')->insert([['id' => 'teacher:teacher-role']]);
 
-    bindWarrantRuleSet(RuleSetNode::fromRules(
-        WarrantScopedModelSchema::schemaKey(),
+    bindWarrantRuleSet(new RuleSetNode(
+        nameNode(WarrantScopedModelSchema::schemaKey()),
         [
             WarrantRuleNode::build()->theyCan('view')->toRule(),
             WarrantRuleNode::build()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),
         ],
+        SyntaxLocation::noProducer(),
     ));
 
     Route::bind('course_section', fn (string $value) => WarrantScopedModel::query()->find($value));

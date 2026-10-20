@@ -22,6 +22,7 @@ use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\RuleTemplate;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 class TemplateExpansionModel extends Model
 {
@@ -116,7 +117,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function answersWithAnInclude(): IncludeInvocationNode
     {
-        return new IncludeInvocationNode('grants_it');
+        return new IncludeInvocationNode(nameNode('grants_it'), [], [], SyntaxLocation::noProducer());
     }
 
     /** Every form at once, nested, in order. */
@@ -126,7 +127,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
         return [
             'if is_teacher they can',
             Warrant::parse(new BoundSyntax('if is_advisor they cannot because :why', ['why' => 'No.'])),
-            [new IncludeInvocationNode('grants_it')],
+            [new IncludeInvocationNode(nameNode('grants_it'), [], [], SyntaxLocation::noProducer())],
         ];
     }
 
@@ -145,13 +146,13 @@ class TemplateExpansionSchema extends WarrantTestSchema
     #[RuleTemplate]
     public function answersWithANamedInclude(): IncludeInvocationNode
     {
-        return new IncludeInvocationNode('grants_it', [], ['view']);
+        return new IncludeInvocationNode(nameNode('grants_it'), [], [nameNode('view')], SyntaxLocation::noProducer());
     }
 
     #[RuleTemplate]
     public function answersWithARuleSet(): RuleSetNode
     {
-        return new RuleSetNode('course_sections', []);
+        return new RuleSetNode(nameNode('course_sections'), [], SyntaxLocation::noProducer());
     }
 
     #[RuleTemplate]
@@ -240,7 +241,7 @@ class TemplateHopSchema extends TemplateExpansionSchema
 function expandSyntax(string $syntax): ExpandedSyntax
 {
     return expandedFor(
-        WarrantSyntax::parse($syntax)->scopedTo('course_sections'),
+        WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('course_sections'),
         new TemplateExpansionSchema,
     );
 }
@@ -253,7 +254,7 @@ beforeEach(function () {
 
 it('expands an include into the rules its longhand would produce', function () {
     $expanded = expandSyntax('can they view { @include requires_approval }');
-    $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->scopedTo('course_sections');
+    $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->validateWithoutSchemas()->scopedTo('course_sections');
 
     expect($expanded->rules)->toHaveCount(1);
     expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
@@ -295,16 +296,16 @@ it('splices the expansion in where the include was written', function () {
         WARRANT);
 
     expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
     expect($expanded->rules[1]->canAbilities())->toBe(['publish']);
     expect($expanded->rules[1]->conditions)->toBeNull();
-    expect($expanded->rules[2]->conditions->conditionKey)->toBe('is_advisor');
+    expect($expanded->rules[2]->conditions->conditionKey?->name)->toBe('is_advisor');
 });
 
 it('hands a template its arguments through bindings', function () {
     $expanded = expandSyntax("@include with_relation('folder') for view");
 
-    expect($expanded->rules[0]->conditions->parameters)->toBe(['folder']);
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax((['folder']));
 });
 
 it('expands a template that includes another', function () {
@@ -323,11 +324,11 @@ it('terminates a recursion whose argument decreases per level', function () {
 });
 
 it('leaves a set holding no includes exactly as it was', function () {
-    $set = WarrantSyntax::parse("if is_teacher they can view\nthey cannot archive")->scopedTo('course_sections');
+    $set = WarrantSyntax::parse("if is_teacher they can view\nthey cannot archive")->validateWithoutSchemas()->scopedTo('course_sections');
 
     $expanded = expandedFor($set, new TemplateExpansionSchema);
 
-    expect($expanded->schemaKey)->toBe($set->schemaKey);
+    expect($expanded->schemaKey)->toBe($set->schemaKey());
     expect($expanded->rules)->toBe($set->entries);
 });
 
@@ -358,7 +359,7 @@ it('expands a template answering with a rule that names no abilities', function 
     $expanded = expandSyntax('@include answers_with_a_rule for view');
 
     expect($expanded->rules[0]->canAbilities())->toBe(['view']);
-    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
 });
 
 it('expands a template answering with an include that names no abilities', function () {
@@ -372,7 +373,7 @@ it('expands a template answering with an iterable of every form, in order', func
     $expanded = expandSyntax('@include answers_with_a_list for view');
 
     expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->conditions->conditionKey)->toBe('is_teacher');
+    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
     expect($expanded->rules[0]->canAbilities())->toBe(['view']);
     expect($expanded->rules[1]->cannotAbilities())->toBe(['view']);
     expect($expanded->rules[1]->messageFor('view'))->toBe('No.');
@@ -504,7 +505,7 @@ it('derives a fresh trail per branch rather than sharing one', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         @include counts_down(40) for view
         @include counts_down(40) for publish
-        WARRANT)->scopedTo('course_sections');
+        WARRANT)->validateWithoutSchemas()->scopedTo('course_sections');
 
     $expanded = expandedFor($set, new TemplateExpansionSchema);
 
@@ -566,8 +567,9 @@ it('bounds a runaway template reached through a hop by the same expansion depth 
 
     $sets = [
         'course_sections' => WarrantSyntax::parse('if can(publish for template_hops) they can publish')
+            ->validateWithoutSchemas()
             ->scopedTo('course_sections'),
-        'template_hops' => WarrantSyntax::parse('@include loops for publish')->scopedTo('template_hops'),
+        'template_hops' => WarrantSyntax::parse('@include loops for publish')->validateWithoutSchemas()->scopedTo('template_hops'),
     ];
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
@@ -602,7 +604,7 @@ it('expands a guard\'s rule set once, however many abilities are asked about', f
 
 function validateSyntax(string $syntax): void
 {
-    $ruleSet = WarrantSyntax::parse($syntax)->scopedTo('course_sections');
+    $ruleSet = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('course_sections');
 
     validateRuleSet($ruleSet, new TemplateExpansionSchema);
     expandedFor($ruleSet, new TemplateExpansionSchema);
@@ -634,7 +636,7 @@ it('reports an unknown template over its name, and too few arguments over the in
         }
     };
 
-    $diagnostics = WarrantParser::analyze($source, $catalog)->diagnostics;
+    $diagnostics = analyzedDiagnostics($source, $catalog);
 
     expect(array_map(
         static fn ($diagnostic): array => [$diagnostic->code, substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset)],

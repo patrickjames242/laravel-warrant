@@ -135,10 +135,9 @@ it('throws when the rule set names an undeclared condition', function () {
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
 });
 
-it('throws when the provider returns a rule set for a different schema', function () {
-    /* `view` is declared by both schemas, so validation would pass and the foreign
-       rules would compile against this schema's table. The mismatch itself is what
-       makes it an error. */
+it('leaves out the rule sets the provider returns for a different schema', function () {
+    /* The provider may answer for any schema; only the rules about the schema
+       asked about are kept, so a set for another grants nothing here. */
     useWarrantSchemas([
         'course_sections' => WarrantTestSchema::class,
         'join_sections' => WarrantJoinConditionSchema::class,
@@ -146,8 +145,9 @@ it('throws when the provider returns a rule set for a different schema', functio
 
     bindWarrantRules('they can view', schemaKey: 'join_sections');
 
-    expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view'))
-        ->toThrow(InvalidArgumentException::class, 'asked for schema [course_sections] but returned a rule set targeting [join_sections]');
+    $sql = Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view')->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql('select * from "course_sections" where (1 = 0)'));
 });
 
 // -- schema rules -------------------------------------------------------------
@@ -304,7 +304,7 @@ it('rejects a condition invoked with fewer arguments than its required parameter
 it('rejects a rule that supplies fewer condition arguments than required, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->scopedTo($schema::schemaKey());
+    $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->validateWithoutSchemas()->scopedTo($schema::schemaKey());
 
     expect(fn () => validateRuleSet($ruleSet, $schema))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_specific_user] requires at least 1 argument');
@@ -313,7 +313,7 @@ it('rejects a rule that supplies fewer condition arguments than required, during
 it('accepts a rule that supplies the required condition arguments, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->scopedTo($schema::schemaKey());
+    $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->validateWithoutSchemas()->scopedTo($schema::schemaKey());
 
     validateRuleSet($ruleSet, $schema);
 

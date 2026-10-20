@@ -20,6 +20,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -80,7 +81,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = $syntax instanceof RuleSetNode ? $syntax : WarrantSyntax::parse($syntax)->scopedTo($key);
+        $sets[$key] = $syntax instanceof RuleSetNode ? $syntax : WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
@@ -89,7 +90,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }
@@ -149,9 +150,10 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
 
 it('compiles a builder-built row-bound reference to the same SQL as the DSL', function () {
     assertXcFilterSql(
-        RuleSetNode::fromRules(
-            'xc_docs',
-            WarrantRuleNode::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view'),
+        new RuleSetNode(
+            nameNode('xc_docs'),
+            [WarrantRuleNode::build()->ifCan('view', 'xc_folders', Ref::context('folder_id'))->theyCan('view')->toRule()],
+            SyntaxLocation::noProducer(),
         ),
         ['xc_folders' => 'if is_owner they can view'],
         'view',

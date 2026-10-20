@@ -14,6 +14,7 @@ use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -193,7 +194,7 @@ function bindMkRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider
@@ -203,7 +204,7 @@ function bindMkRules(array $syntaxByKey): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 
@@ -378,7 +379,7 @@ it('rejects a vocabulary attribute on matchKey', function () {
 it('does not expose the key as a condition a rule can name', function () {
     expect(MkDaySchema::conditionKeys())->not->toContain('match_key');
 
-    expect(fn () => validateRegistered(WarrantSyntax::parse('if match_key they can view')->scopedTo('mk_days')))
+    expect(fn () => validateRegistered(WarrantSyntax::parse('if match_key they can view')->validateWithoutSchemas()->scopedTo('mk_days')))
         ->toThrow(InvalidArgumentException::class);
 });
 

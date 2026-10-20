@@ -19,6 +19,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -72,7 +73,7 @@ beforeEach(function () {
  */
 function bindCheckDocRules(string|RuleSetNode $docSyntax): void
 {
-    $set = $docSyntax instanceof RuleSetNode ? $docSyntax : WarrantSyntax::parse($docSyntax)->scopedTo('chk_docs');
+    $set = $docSyntax instanceof RuleSetNode ? $docSyntax : WarrantSyntax::parse($docSyntax)->validateWithoutSchemas()->scopedTo('chk_docs');
 
     app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
         public function __construct(private RuleSetNode $set) {}
@@ -81,7 +82,7 @@ function bindCheckDocRules(string|RuleSetNode $docSyntax): void
         {
             return $context->schemaKey === 'chk_docs'
                 ? $this->set
-                : new RuleSetNode($context->schemaKey, []);
+                : new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }
@@ -173,11 +174,13 @@ it('does not let an absent row selector lift a cannot on a check', function () {
 
 it('compiles a builder-built row-bound predicate to the same SQL as the DSL', function () {
     assertChkFilterSql(
-        RuleSetNode::fromRules(
-            'chk_docs',
-            WarrantRuleNode::build()
+        new RuleSetNode(
+            nameNode('chk_docs'),
+            [WarrantRuleNode::build()
                 ->ifCheck(fn ($p) => $p->if('is_owner'), 'chk_targets', Ref::context('tid'))
-                ->theyCan('view'),
+                ->theyCan('view')
+                ->toRule()],
+            SyntaxLocation::noProducer(),
         ),
         ['tid' => 'f-owned'],
         <<<SQL

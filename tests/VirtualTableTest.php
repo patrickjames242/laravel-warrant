@@ -16,6 +16,7 @@ use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -178,7 +179,7 @@ function bindVtRules(array $syntaxByKey, array $bindings = []): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider
@@ -188,7 +189,7 @@ function bindVtRules(array $syntaxByKey, array $bindings = []): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 
@@ -369,7 +370,7 @@ it('refuses a targeted check against rows it cannot name', function () {
 it('refuses a row-bound reference to rows it cannot name', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if can(view for vt_keyless(@column id)) they can plan',
-    )->scopedTo('vt_teams')))->toThrow(InvalidArgumentException::class, 'has no way to name one');
+    )->validateWithoutSchemas()->scopedTo('vt_teams')))->toThrow(InvalidArgumentException::class, 'has no way to name one');
 });
 
 it('still filters and lists abilities for rows it cannot name', function () {

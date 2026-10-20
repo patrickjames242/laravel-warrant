@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__.'/Support/TestSupport.php';
+
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Query\Builder;
@@ -23,6 +25,7 @@ use Warrant\Schema\ConditionDefinition;
 use Warrant\Schema\ConditionKind;
 use Warrant\Schema\RuleTemplateDefinition;
 use Warrant\WarrantGate;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * A tiny user carrying just a role, enough for the fake conditions below.
@@ -185,7 +188,7 @@ final class FakeConditionResolver implements ConditionResolver
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo('docs'), new FakeConditionResolver);
+    $ruleSet = expandedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
 
     $query = DB::table('docs');
 
@@ -207,7 +210,7 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
 function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $matchMode, ?string $role = 'role-1'): array
 {
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse($syntax)->scopedTo('docs'), new FakeConditionResolver);
+    $ruleSet = expandedFor(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
 
     $query = DB::table('docs');
 
@@ -321,7 +324,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     $user = new CompilerTestUser('role-1');
 
     // No target row in scope, so is_teacher cannot be evaluated at all.
-    $granted = expandedFor(WarrantSyntax::parse('if is_teacher they can view')->scopedTo('docs'), new FakeConditionResolver);
+    $granted = expandedFor(WarrantSyntax::parse('if is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
     $q = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
@@ -331,7 +334,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     /* And `not is_teacher` selects nothing either: negating an unanswered
        question leaves it unanswered, and a `where` keeps a row only on a
        definite yes. */
-    $negated = expandedFor(WarrantSyntax::parse('if not is_teacher they can view')->scopedTo('docs'), new FakeConditionResolver);
+    $negated = expandedFor(WarrantSyntax::parse('if not is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
     $q2 = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
@@ -471,19 +474,19 @@ it('rejects a condition that adds no where clause', function () {
 it('accepts a rule referencing any context key without declaration', function () {
     // Context keys need no declaration; an absent one just makes its condition
     // false at compile time. Required-ness is enforced at check time, not here.
-    validateRuleSet(WarrantSyntax::parse('if id_is(@context nope) they can view')->scopedTo('docs'), new FakeConditionResolver);
+    validateRuleSet(WarrantSyntax::parse('if id_is(@context nope) they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
     expect(true)->toBeTrue();
 });
 
 it('validates unknown ability and condition names', function () {
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('they can fly')->scopedTo('docs'), new FakeConditionResolver))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('they can fly')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_wizard they can view')->scopedTo('docs'), new FakeConditionResolver))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_wizard they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard]');
 
     // A valid set passes silently.
-    validateRuleSet(WarrantSyntax::parse('if is_teacher they can view, edit')->scopedTo('docs'), new FakeConditionResolver);
+    validateRuleSet(WarrantSyntax::parse('if is_teacher they can view, edit')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
     expect(true)->toBeTrue();
 });
 
@@ -491,7 +494,7 @@ it('names the rule set, not the registry, when a schema-less can has nowhere to 
     /* A can(...) naming no schema crosses to nothing and looks nothing up, so the
        message points at the rule set rather than blaming the registry. */
     $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse('if can(edit) they can view')->scopedTo('docs'), new FakeConditionResolver);
+    $ruleSet = expandedFor(WarrantSyntax::parse('if can(edit) they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
 
     expect(fn () => $compiler->compile(
         CompilationContext::ability(
@@ -564,7 +567,7 @@ it('passes over the wildcard, which names no ability in particular', function ()
 
 it('refuses to compile the placeholder an analysis reads in place of a missing condition', function () {
     $ruleSet = expandedFor(
-        new RuleSetNode('docs', [new WarrantRuleNode(new MissingExpressionNode, [new CanClauseNode(['view'])], [])]),
+        new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
         new FakeConditionResolver,
     );
 
@@ -576,7 +579,7 @@ it('refuses to compile the placeholder an analysis reads in place of a missing c
 
 it('refuses to compile the placeholder an analysis reads in place of a missing argument', function () {
     $ruleSet = expandedFor(
-        new RuleSetNode('docs', [new WarrantRuleNode(new ConditionNode('is_owner', [new MissingArgumentNode]), [new CanClauseNode(['view'])], [])]),
+        new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(new ConditionNode(nameNode('is_owner'), [argumentNode(new MissingArgumentNode(SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
         new FakeConditionResolver,
     );
 

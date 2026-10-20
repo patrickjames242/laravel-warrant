@@ -15,6 +15,7 @@ use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -47,7 +48,7 @@ beforeEach(function () {
  */
 function bindSqlRules(string $syntax, string $schemaKey): void
 {
-    $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
+    $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schemaKey);
 
     app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
@@ -56,7 +57,7 @@ function bindSqlRules(string $syntax, string $schemaKey): void
         {
             return $context->schemaKey === $this->key
                 ? $this->set
-                : new RuleSetNode($context->schemaKey, []);
+                : new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }

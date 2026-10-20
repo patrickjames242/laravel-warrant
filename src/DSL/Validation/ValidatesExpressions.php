@@ -6,6 +6,7 @@ use InvalidArgumentException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
@@ -356,8 +357,16 @@ trait ValidatesExpressions
             $this->assertTargetRowsCanBeNamed($builtin, $node, $schemaKey, $target);
         }
 
+        /* A binding's value is looked up only when values are being checked; it
+           becomes a literal at expansion, where the compiler checks it again. */
         foreach ($node->boundKey as $argument) {
-            if ($argument instanceof LiteralNode && $argument->value === null) {
+            $isNull = match (true) {
+                $argument instanceof LiteralNode => $argument->value === null,
+                $argument instanceof BindingNode => $this->input->checkBindingValues && $argument->hasValue() && $argument->value() === null,
+                default => false,
+            };
+
+            if ($isNull) {
                 $this->fail(
                     DiagnosticCode::NullRowTarget,
                     sprintf(

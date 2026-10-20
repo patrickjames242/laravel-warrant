@@ -17,6 +17,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -54,7 +55,7 @@ beforeEach(function () {
  */
 function bindColRules(string $syntax, string $schemaKey): void
 {
-    $set = WarrantSyntax::parse($syntax)->scopedTo($schemaKey);
+    $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schemaKey);
 
     app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
@@ -63,7 +64,7 @@ function bindColRules(string $syntax, string $schemaKey): void
         {
             return $context->schemaKey === $this->key
                 ? $this->set
-                : new RuleSetNode($context->schemaKey, []);
+                : new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }
@@ -146,7 +147,7 @@ it('needs no schema in scope for an unqualified @column to validate', function (
     // Nothing is named, so there is nothing for validation to reject.
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if pay_period_matches(@column pay_period_id) they can view',
-    )->scopedTo('timesheets')))->not->toThrow(Exception::class);
+    )->validateWithoutSchemas()->scopedTo('timesheets')))->not->toThrow(Exception::class);
 });
 
 // -- a row that is not in scope ------------------------------------------------
@@ -237,8 +238,8 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
         public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === 'col_docs'
-                ? WarrantSyntax::parse('if can(view for col_targets(@column col_docs.target_id)) they can view')->scopedTo('col_docs')
-                : WarrantSyntax::parse('they can view')->scopedTo('col_targets');
+                ? WarrantSyntax::parse('if can(view for col_targets(@column col_docs.target_id)) they can view')->validateWithoutSchemas()->scopedTo('col_docs')
+                : WarrantSyntax::parse('they can view')->validateWithoutSchemas()->scopedTo('col_targets');
         }
     });
 
@@ -283,7 +284,7 @@ it('rejects a @column reference naming a table that is not in scope', function (
        in scope, which is the useful half. */
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         "if pay_period_matches(@column {$name}.col) they can view",
-    )->scopedTo('timesheets')))->toThrow(
+    )->validateWithoutSchemas()->scopedTo('timesheets')))->toThrow(
         InvalidArgumentException::class,
         "A @column reference names [{$name}], which is not in scope here; the names in scope are [timesheets].",
     );
@@ -297,7 +298,7 @@ it('allows a @column reference to the owning schema (self-reference)', function 
     // Unlike can(...)/check(...), referencing your own table's column is the point.
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if pay_period_matches(@column timesheets.pay_period_id) they can view',
-    )->scopedTo('timesheets')))->not->toThrow(Exception::class);
+    )->validateWithoutSchemas()->scopedTo('timesheets')))->not->toThrow(Exception::class);
 });
 
 it('puts the target of a check(...) in scope for its own predicate, alongside the caller', function () {
@@ -307,13 +308,13 @@ it('puts the target of a check(...) in scope for its own predicate, alongside th
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if check(id_matches(@column col_targets.id) and id_matches(@column col_docs.target_id) '
             .'for col_targets(@column col_docs.target_id)) they can view',
-    )->scopedTo('col_docs')))->not->toThrow(Exception::class);
+    )->validateWithoutSchemas()->scopedTo('col_docs')))->not->toThrow(Exception::class);
 });
 
 it('rejects a @column in a check(...) predicate naming neither frame', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if check(id_matches(@column timesheets.id) for col_targets(@column col_docs.target_id)) they can view',
-    )->scopedTo('col_docs')))->toThrow(
+    )->validateWithoutSchemas()->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         'the names in scope are [col_docs, col_targets].',
     );
@@ -321,7 +322,7 @@ it('rejects a @column in a check(...) predicate naming neither frame', function 
 
 it('rejects an alias on a handle that selects no row', function (string $syntax, string $builtin) {
     // An unbound handle emits no `from`, so its alias names nothing.
-    expect(fn () => validateRegistered(WarrantSyntax::parse($syntax)->scopedTo('col_docs')))->toThrow(
+    expect(fn () => validateRegistered(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         "A {$builtin}(...) reference to schema [col_targets] is aliased [as t2] but selects no row, "
             .'so the alias names nothing',
@@ -338,7 +339,7 @@ it('names a check(...) target by its alias, leaving its schema key for the calle
        resolve and neither shadows. */
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if check(id_matches(@column t2.id) for col_targets(@column col_docs.target_id) as t2) they can view',
-    )->scopedTo('col_docs')))->not->toThrow(Exception::class);
+    )->validateWithoutSchemas()->scopedTo('col_docs')))->not->toThrow(Exception::class);
 });
 
 it('stops the target schema key naming an aliased check(...) frame', function () {
@@ -347,7 +348,7 @@ it('stops the target schema key naming an aliased check(...) frame', function ()
        on meaning an outer frame of the same table. */
     expect(fn () => validateRegistered(WarrantSyntax::parse(
         'if check(id_matches(@column col_targets.id) for col_targets(@column col_docs.target_id) as t2) they can view',
-    )->scopedTo('col_docs')))->toThrow(
+    )->validateWithoutSchemas()->scopedTo('col_docs')))->toThrow(
         InvalidArgumentException::class,
         'A @column reference names [col_targets], which is not in scope here; '
             .'the names in scope are [col_docs, t2].',

@@ -17,6 +17,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 beforeEach(function () {
     useWarrantSchemas([
@@ -38,7 +39,7 @@ function analyze(string $syntax, string $ability, ?WarrantSchema $schema = null)
 
     return (new ReachabilityAnalyzer)->analyze(
         expandedFor(
-            WarrantSyntax::parse($syntax)->scopedTo($schema::schemaKey()),
+            WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schema::schemaKey()),
             $schema,
         ),
         $ability,
@@ -280,7 +281,7 @@ function bindRchRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
@@ -289,7 +290,7 @@ function bindRchRules(array $syntaxByKey): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }

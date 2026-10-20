@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -29,7 +30,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 // -- what each form parses to -------------------------------------------------
 
 it('parses an empty source to no children', function (string $source) {
-    $syntax = WarrantSyntax::parse($source);
+    $syntax = WarrantSyntax::parse($source)->validateWithoutSchemas();
 
     expect($syntax->isEmpty())->toBeTrue();
     expect($syntax->children)->toBe([]);
@@ -40,7 +41,7 @@ it('parses an empty source to no children', function (string $source) {
 ]);
 
 it('parses a bare boolean expression to one expression child', function () {
-    $syntax = WarrantSyntax::parse('some_condition or some_condition2');
+    $syntax = WarrantSyntax::parse('some_condition or some_condition2')->validateWithoutSchemas();
 
     expect($syntax->isExpression())->toBeTrue();
     expect($syntax->children)->toHaveCount(1);
@@ -48,7 +49,7 @@ it('parses a bare boolean expression to one expression child', function () {
 });
 
 it('parses a rule with no header to one rule child', function () {
-    $syntax = WarrantSyntax::parse('if something they can view');
+    $syntax = WarrantSyntax::parse('if something they can view')->validateWithoutSchemas();
 
     expect($syntax->isSingleRule())->toBeTrue();
     expect($syntax->isRuleEntries())->toBeTrue();
@@ -62,7 +63,7 @@ it('parses several unscoped rules, blocks and includes to a list of entries', fu
         if b they can edit
         can they delete { if c they can }
         @include approval for publish
-        WARRANT);
+        WARRANT)->validateWithoutSchemas();
 
     expect($syntax->isRuleEntries())->toBeTrue();
     expect($syntax->isSingleRule())->toBeFalse();
@@ -79,16 +80,16 @@ it('parses a for header and a body with no braces to one rule set', function () 
         for timesheets
 
         if something they can view
-        WARRANT);
+        WARRANT)->validateWithoutSchemas();
 
     expect($syntax->isSingleRuleSet())->toBeTrue();
-    expect($syntax->ruleSet()->schemaKey)->toBe('timesheets');
+    expect($syntax->ruleSet()->schemaKey?->name)->toBe('timesheets');
     expect($syntax->ruleSet()->entries)->toHaveCount(1);
     expect($syntax->ruleSet()->entries[0]->canAbilities())->toBe(['view']);
 });
 
 it('parses one braced block to one rule set', function () {
-    $syntax = WarrantSyntax::parse('for timesheets { they can view  if is_self they can edit }');
+    $syntax = WarrantSyntax::parse('for timesheets { they can view  if is_self they can edit }')->validateWithoutSchemas();
 
     expect($syntax->isSingleRuleSet())->toBeTrue();
     expect($syntax->ruleSet()->entries)->toHaveCount(2);
@@ -99,25 +100,25 @@ it('parses several braced blocks to a list of rule sets, unmerged', function () 
         for timesheets { if something they can view }
         for time_offs { if something they can view }
         for timesheets { they can edit }
-        WARRANT);
+        WARRANT)->validateWithoutSchemas();
 
     expect($syntax->isRuleSets())->toBeTrue();
     expect($syntax->isSingleRuleSet())->toBeFalse();
-    expect(array_map(fn (RuleSetNode $set) => $set->schemaKey, $syntax->ruleSets()))
+    expect(array_map(fn (RuleSetNode $set) => $set->schemaKey(), $syntax->ruleSets()))
         ->toBe(['timesheets', 'time_offs', 'timesheets']);
 });
 
 it('parses a for header and an expression to a schema condition', function () {
-    $syntax = WarrantSyntax::parse('for timesheets is_approved or is_owned');
+    $syntax = WarrantSyntax::parse('for timesheets is_approved or is_owned')->validateWithoutSchemas();
 
     expect($syntax->isSchemaCondition())->toBeTrue();
     expect($syntax->children[0])->toBeInstanceOf(SchemaConditionNode::class);
-    expect($syntax->children[0]->schemaKey)->toBe('timesheets');
+    expect($syntax->children[0]->schemaKey?->name)->toBe('timesheets');
     expect($syntax->conditionExpression())->toBeInstanceOf(OrNode::class);
 });
 
 it('parses braced blocks mixing rule sets and conditions', function () {
-    $syntax = WarrantSyntax::parse('for a { they can view } for b { is_owner }');
+    $syntax = WarrantSyntax::parse('for a { they can view } for b { is_owner }')->validateWithoutSchemas();
 
     expect($syntax->isSchemaScoped())->toBeTrue();
     expect($syntax->isRuleSets())->toBeFalse();
@@ -126,7 +127,7 @@ it('parses braced blocks mixing rule sets and conditions', function () {
 });
 
 it('parses an empty braced block to an empty rule set', function () {
-    expect(WarrantSyntax::parse('for timesheets { }')->ruleSet()->entries)->toBe([]);
+    expect(WarrantSyntax::parse('for timesheets { }')->validateWithoutSchemas()->ruleSet()->entries)->toBe([]);
 });
 
 // -- what the parser rejects --------------------------------------------------
@@ -187,7 +188,7 @@ it('rejects an ability list written without its can they', function () {
 // -- the accessors refuse the wrong shape -------------------------------------
 
 it('refuses an accessor that does not match what the source holds', function (string $source, Closure $ask, string $message) {
-    expect(fn () => $ask(WarrantSyntax::parse($source)))->toThrow(LogicException::class, $message);
+    expect(fn () => $ask(WarrantSyntax::parse($source)->validateWithoutSchemas()))->toThrow(LogicException::class, $message);
 })->with([
     'a rule from a rule set' => [
         'for timesheets { they can view }',
@@ -227,7 +228,7 @@ it('refuses an accessor that does not match what the source holds', function (st
 ]);
 
 it('answers empty lists for an empty source', function () {
-    $syntax = WarrantSyntax::parse('');
+    $syntax = WarrantSyntax::parse('')->validateWithoutSchemas();
 
     expect($syntax->ruleEntries())->toBe([]);
     expect($syntax->ruleSets())->toBe([]);
@@ -238,29 +239,29 @@ it('answers empty lists for an empty source', function () {
 // -- scopedTo -----------------------------------------------------------------
 
 it('scopes unscoped rules to a schema', function () {
-    $set = WarrantSyntax::parse('if is_self they can view  can they edit { they can }')->scopedTo('timesheets');
+    $set = WarrantSyntax::parse('if is_self they can view  can they edit { they can }')->validateWithoutSchemas()->scopedTo('timesheets');
 
-    expect($set->schemaKey)->toBe('timesheets');
+    expect($set->schemaKey?->name)->toBe('timesheets');
     expect($set->entries)->toHaveCount(2);
 });
 
 it('scopes an empty source to an empty rule set', function () {
-    expect(WarrantSyntax::parse('')->scopedTo('timesheets')->entries)->toBe([]);
+    expect(WarrantSyntax::parse('')->validateWithoutSchemas()->scopedTo('timesheets')->entries)->toBe([]);
 });
 
 it('scopes a rule set whose header names the same schema', function () {
-    $set = WarrantSyntax::parse('for timesheets { they can view }')->scopedTo('timesheets');
+    $set = WarrantSyntax::parse('for timesheets { they can view }')->validateWithoutSchemas()->scopedTo('timesheets');
 
-    expect($set->schemaKey)->toBe('timesheets');
+    expect($set->schemaKey?->name)->toBe('timesheets');
 });
 
 it('rejects scoping a rule set to a schema its header does not name', function () {
-    expect(fn () => WarrantSyntax::parse('for timesheets { they can view }')->scopedTo('documents'))
+    expect(fn () => WarrantSyntax::parse('for timesheets { they can view }')->validateWithoutSchemas()->scopedTo('documents'))
         ->toThrow(InvalidArgumentException::class, 'The rule text targets schema [timesheets] in its `for` header but was scoped to [documents].');
 });
 
 it('rejects scoping several rule sets', function () {
-    expect(fn () => WarrantSyntax::parse('for a { they can view } for b { they can edit }')->scopedTo('a'))
+    expect(fn () => WarrantSyntax::parse('for a { they can view } for b { they can edit }')->validateWithoutSchemas()->scopedTo('a'))
         ->toThrow(LogicException::class, 'Expected a single `for <schema>` rule set');
 });
 
@@ -271,7 +272,7 @@ it('folds every rule set for a schema into one, in source order', function () {
         for timesheets { they can view }
         for documents { they can view }
         for timesheets { if is_self they can edit }
-        WARRANT);
+        WARRANT)->validateWithoutSchemas();
 
     expect($syntax->schemaKeys())->toBe(['timesheets', 'documents']);
 
@@ -287,10 +288,10 @@ it('resolves bindings across every block', function () {
     $syntax = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if owns(:id) they can edit }
-        WARRANT, ['id' => 'x-1']));
+        WARRANT, ['id' => 'x-1']))->validateWithoutSchemas();
 
-    expect($syntax->forSchema('a')->entries[0]->conditions->parameters)->toBe(['x-1']);
-    expect($syntax->forSchema('b')->entries[0]->conditions->parameters)->toBe(['x-1']);
+    expect(argumentValues($syntax->forSchema('a')->entries[0]->conditions->parameters))->toEqualSyntax((['x-1']));
+    expect(argumentValues($syntax->forSchema('b')->entries[0]->conditions->parameters))->toEqualSyntax((['x-1']));
 });
 
 // -- parseFile ----------------------------------------------------------------
@@ -300,7 +301,7 @@ it('reads rule text from a file', function () {
     file_put_contents($path, 'for timesheets { if is_self they can view, edit }  for documents { they can view }');
 
     try {
-        $syntax = WarrantSyntax::parseFile($path);
+        $syntax = WarrantSyntax::parseFile($path)->validateWithoutSchemas();
 
         expect($syntax->schemaKeys())->toBe(['timesheets', 'documents']);
         expect($syntax->forSchema('timesheets')->entries[0]->canAbilities())->toBe(['view', 'edit']);
@@ -315,7 +316,7 @@ it('reads a .warrant file named without its extension', function () {
     file_put_contents($base . '.warrant', 'for timesheets { they can view }');
 
     try {
-        expect(WarrantSyntax::parseFile($base)->ruleSet()->schemaKey)->toBe('timesheets');
+        expect(WarrantSyntax::parseFile($base)->validateWithoutSchemas()->ruleSet()->schemaKey?->name)->toBe('timesheets');
     } finally {
         @unlink($base . '.warrant');
     }
@@ -327,7 +328,7 @@ it('reads the path as given before appending the extension', function () {
     file_put_contents($base . '.warrant', 'for documents { they can view }');
 
     try {
-        expect(WarrantSyntax::parseFile($base)->ruleSet()->schemaKey)->toBe('timesheets');
+        expect(WarrantSyntax::parseFile($base)->validateWithoutSchemas()->ruleSet()->schemaKey?->name)->toBe('timesheets');
     } finally {
         @unlink($base);
         @unlink($base . '.warrant');
@@ -363,12 +364,12 @@ it('names the extended path when a file named without its extension is missing',
 // -- parsing a BoundSyntax ------------------------------------------------------
 
 it('parses a BoundSyntax with the named bindings it holds', function () {
-    expect(WarrantSyntax::parse(new BoundSyntax('if is_self(:id) they can view', ['id' => 7]))->rule()->conditions->parameters)
+    expect(argumentValues(WarrantSyntax::parse(new BoundSyntax('if is_self(:id) they can view', ['id' => 7]))->validateWithoutSchemas()->rule()->conditions->parameters))
         ->toBe([7]);
 });
 
 it('parses a BoundSyntax with the positional bindings it holds', function () {
-    expect(WarrantSyntax::parse(new BoundSyntax('if in_department(?, ?) they can view', ['sales', 'eng']))->rule()->conditions->parameters)
+    expect(argumentValues(WarrantSyntax::parse(new BoundSyntax('if in_department(?, ?) they can view', ['sales', 'eng']))->validateWithoutSchemas()->rule()->conditions->parameters))
         ->toBe(['sales', 'eng']);
 });
 
@@ -383,17 +384,17 @@ it('keeps an ability block as a node over a generic body', function () {
                 @include requires_approval
             }
         }
-        WARRANT)->ruleSet();
+        WARRANT)->validateWithoutSchemas()->ruleSet();
 
     $block = $set->entries[0];
 
     expect($block)->toBeInstanceOf(AbilityBlockNode::class);
-    expect($block->abilities)->toBe(['view', 'edit']);
+    expect($block->abilities)->toEqualSyntax(array_map(nameNode(...), ['view', 'edit']));
 
     // The body names no abilities, as the source writes it.
-    expect($block->entries[0]->canClauses)->toEqual([new CanClauseNode([])]);
-    expect($block->entries[1]->cannotClauses)->toEqual([new CannotClauseNode([], 'Locked.')]);
-    expect($block->entries[2]->abilities)->toBe([]);
+    expect($block->entries[0]->canClauses)->toEqualSyntax([new CanClauseNode([], null, SyntaxLocation::noProducer())]);
+    expect($block->entries[1]->cannotClauses)->toEqualSyntax([new CannotClauseNode([], argumentNode('Locked.'), SyntaxLocation::noProducer())]);
+    expect($block->entries[2]->abilities)->toEqualSyntax(array_map(nameNode(...), []));
 });
 
 /**
@@ -404,19 +405,19 @@ it('keeps an ability block as a node over a generic body', function () {
  */
 function expandBuiltInCode(array $entries): void
 {
-    expandedFor(new RuleSetNode('docs', $entries), new WarrantTestSchema);
+    expandedFor(new RuleSetNode(nameNode('docs'), $entries, SyntaxLocation::noProducer()), new WarrantTestSchema);
 }
 
 it('rejects a block entry built in code that names abilities of its own', function (WarrantRuleNode|IncludeInvocationNode $entry) {
-    expect(fn () => expandBuiltInCode([new AbilityBlockNode(['view'], [$entry])]))->toThrow(
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode([nameNode('view')], [$entry], SyntaxLocation::noProducer())]))->toThrow(
         InvalidArgumentException::class,
         'inside an ability block may not name abilities; the block header already names them.',
     );
 })->with([
-    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode(['view'])], []),
-    'a cannot clause' => fn () => new WarrantRuleNode(null, [], [new CannotClauseNode(['edit'])]),
-    'one of two clauses' => fn () => new WarrantRuleNode(null, [new CanClauseNode([])], [new CannotClauseNode(['edit'])]),
-    'an include' => fn () => new IncludeInvocationNode('t', [], ['view']),
+    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
+    'a cannot clause' => fn () => new WarrantRuleNode(null, [], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'one of two clauses' => fn () => new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'an include' => fn () => new IncludeInvocationNode(nameNode('t'), [], [nameNode('view')], SyntaxLocation::noProducer()),
 ]);
 
 it('rejects a generic clause or include built in code outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
@@ -425,39 +426,39 @@ it('rejects a generic clause or include built in code outside an ability block',
         'Every clause and @include outside an ability block names the abilities it applies to; the rule set for [docs] holds one that names none.',
     );
 })->with([
-    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([])], []),
-    'a cannot clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode(['view'])], [new CannotClauseNode([])]),
-    'an include' => fn () => new IncludeInvocationNode('t'),
+    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
+    'a cannot clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [new CannotClauseNode([], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'an include' => fn () => new IncludeInvocationNode(nameNode('t'), [], [], SyntaxLocation::noProducer()),
 ]);
 
 it('refuses to give abilities to a rule or include that names its own', function () {
-    expect(fn () => (new WarrantRuleNode(null, [new CanClauseNode(['view'])], []))->withAbilities(['edit']))
+    expect(fn () => (new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()))->withAbilities(['edit']))
         ->toThrow(InvalidArgumentException::class, 'Only a generic rule takes abilities from outside; this rule names its own.');
 
-    expect(fn () => (new IncludeInvocationNode('t', [], ['view']))->withAbilities(['edit']))
+    expect(fn () => (new IncludeInvocationNode(nameNode('t'), [], [nameNode('view')], SyntaxLocation::noProducer()))->withAbilities(['edit']))
         ->toThrow(InvalidArgumentException::class, 'Only a generic @include takes abilities from outside; @include t names its own.');
 });
 
 it('rejects a block built in code inside a block, and one with no abilities', function () {
-    expect(fn () => expandBuiltInCode([new AbilityBlockNode(['view'], [new AbilityBlockNode(['view'])])]))
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode([nameNode('view')], [new AbilityBlockNode([nameNode('view')], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())]))
         ->toThrow(InvalidArgumentException::class, 'An ability block may not contain another');
 
-    expect(fn () => expandBuiltInCode([new AbilityBlockNode([])]))
+    expect(fn () => expandBuiltInCode([new AbilityBlockNode([], [], SyntaxLocation::noProducer())]))
         ->toThrow(InvalidArgumentException::class, 'An ability block names at least one ability.');
 });
 
 it('holds a block or rule set as it was written, for the validator to report on', function () {
-    expect((new AbilityBlockNode([], [new AbilityBlockNode(['view'])]))->entries)->toHaveCount(1)
-        ->and((new RuleSetNode('docs', [new WarrantRuleNode(null, [new CanClauseNode([])], [])]))->entries)->toHaveCount(1);
+    expect((new AbilityBlockNode([], [new AbilityBlockNode([nameNode('view')], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()))->entries)->toHaveCount(1)
+        ->and((new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()))->entries)->toHaveCount(1);
 });
 
 // -- the tree holds one shape --------------------------------------------------
 
 it('rejects a tree mixing shapes', function () {
-    $rule = new WarrantRuleNode(null, [new CanClauseNode(['view'])], []);
-    $expression = new ConditionNode('is_owner', []);
+    $rule = new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
+    $expression = new ConditionNode(nameNode('is_owner'), [], SyntaxLocation::noProducer());
 
-    expect(fn () => new WarrantSyntax([$rule, new RuleSetNode('a')]))
+    expect(fn () => new WarrantSyntax([$rule, new RuleSetNode(nameNode('a'), [], SyntaxLocation::noProducer())]))
         ->toThrow(InvalidArgumentException::class, 'A Warrant syntax tree holds one kind of child');
 
     expect(fn () => new WarrantSyntax([$expression, $expression]))
@@ -470,9 +471,9 @@ it('rejects a tree mixing shapes', function () {
 // -- round-trips ----------------------------------------------------------------
 
 it('round-trips every form through toSyntax', function (string $source) {
-    $syntax = WarrantSyntax::parse($source);
+    $syntax = WarrantSyntax::parse($source)->validateWithoutSchemas();
 
-    expect(WarrantSyntax::parse($syntax->toSyntax())->children)->toEqual($syntax->children);
+    expect(WarrantSyntax::parse($syntax->toSyntax())->children)->toEqualSyntax($syntax->children);
 })->with([
     'a condition' => ['is_owner or not is_admin'],
     'a rule' => ["if is_self they can edit they cannot delete because 'Locked.'"],
@@ -488,16 +489,16 @@ it('round-trips every block losslessly through bound syntax', function () {
     $syntax = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
         for a { if owns(:id) they can view }
         for b { if in(:list) they can edit }
-        WARRANT, ['id' => 'x-1', 'list' => [1, 2, 3]]));
+        WARRANT, ['id' => 'x-1', 'list' => [1, 2, 3]]))->validateWithoutSchemas();
 
     $bound = $syntax->toBoundSyntax();
 
     expect($bound->bindings)->toBe(['x-1', [1, 2, 3]]);
-    expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->resolveBindings()->children)->toEqual($syntax->resolveBindings()->children);
+    expect(WarrantSyntax::parse($bound)->validateWithoutSchemas()->toBoundSyntax())->toEqual($bound);
 });
 
 it('renders a lone rule set as one braced block', function () {
-    expect(WarrantSyntax::parse('for timesheets if is_self they can view, edit')->toSyntax())->toBe(<<<'TXT'
+    expect(WarrantSyntax::parse('for timesheets if is_self they can view, edit')->validateWithoutSchemas()->toSyntax())->toBe(<<<'TXT'
         for timesheets {
             if is_self
             they can view, edit
@@ -507,16 +508,16 @@ it('renders a lone rule set as one braced block', function () {
 
 it('keeps the text it was read from and where each node of it was written', function () {
     $source = 'if is_owner(:id) they can view';
-    $syntax = WarrantSyntax::parse(new BoundSyntax($source, ['id' => 5]));
-    $span = $syntax->positions->spanOf($syntax->written[0]->conditions);
+    $syntax = WarrantSyntax::parse(new BoundSyntax($source, ['id' => 5]))->validateWithoutSchemas();
+    $span = $syntax->children[0]->conditions->location->span;
 
-    expect($syntax->source)->toBe($source)
+    expect($syntax->source->bound->syntax)->toBe($source)
         ->and(substr($source, $span->offset, $span->length()))->toBe('is_owner(:id)');
 });
 
-it('has no text or positions when built by hand', function () {
+it('has no text or producer when built by hand', function () {
     $syntax = new WarrantSyntax([]);
 
-    expect($syntax->source)->toBeNull()
-        ->and($syntax->positions)->toBeNull();
+    expect($syntax->source->bound)->toBeNull()
+        ->and($syntax->source->producer())->toBeNull();
 });

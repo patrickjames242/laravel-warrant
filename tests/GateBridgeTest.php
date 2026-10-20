@@ -16,6 +16,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -232,11 +233,11 @@ it('does not resolve Warrant abilities when register_gate is false', function ()
 it('carries the Warrant denial message through inspect/authorize', function () {
     seedGateSections();
     useWarrantSchemas(['course_sections' => GateTestSchema::class]);
-    bindWarrantRuleSet(RuleSetNode::fromRules(GateTestSchema::schemaKey(), [
+    bindWarrantRuleSet(new RuleSetNode(nameNode(GateTestSchema::schemaKey()), [
         WarrantRuleNode::build()->theyCan('view')->toRule(),
         WarrantRuleNode::build()->if('is_teacher')
             ->theyCannotBecause('view', 'teacher blocked')->toRule(),
-    ]));
+    ], SyntaxLocation::noProducer()));
     $user = makeWarrantTestUser('teacher-role');
 
     $response = Gate::forUser($user)->inspect('view', gateTeacherRow());

@@ -14,6 +14,7 @@ use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -49,7 +50,7 @@ function bindRequiredContextRules(array $syntaxByKey): void
 {
     $sets = [];
     foreach ($syntaxByKey as $key => $syntax) {
-        $sets[$key] = WarrantSyntax::parse($syntax)->scopedTo($key);
+        $sets[$key] = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
     app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
@@ -58,7 +59,7 @@ function bindRequiredContextRules(array $syntaxByKey): void
 
         public function rules(RuleProviderContext $context): RuleSetNode
         {
-            return $this->sets[$context->schemaKey] ?? new RuleSetNode($context->schemaKey, []);
+            return $this->sets[$context->schemaKey] ?? new RuleSetNode(nameNode($context->schemaKey), [], SyntaxLocation::noProducer());
         }
     });
 }

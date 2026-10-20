@@ -5,6 +5,7 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -12,17 +13,25 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\SchemaCatalog;
@@ -350,8 +359,8 @@ class WarrantSchemaRulesSchema extends WarrantTestSchema
     {
         return [
             // Always grant publish, and never allow archive, regardless of the provider.
-            WarrantSyntax::parse('they can publish')->rule(),
-            WarrantSyntax::parse('they cannot archive')->rule(),
+            WarrantSyntax::parse('they can publish')->validateWithoutSchemas()->rule(),
+            WarrantSyntax::parse('they cannot archive')->validateWithoutSchemas()->rule(),
         ];
     }
 }
@@ -381,7 +390,7 @@ class WarrantSchemaRuleSetSchema extends WarrantTestSchema
         // Same rules as WarrantSchemaRulesSchema, but returned as a rule set.
         return WarrantSyntax::parse(
             "they can publish\nthey cannot archive",
-        )->scopedTo(self::schemaKey());
+        )->validateWithoutSchemas()->scopedTo(self::schemaKey());
     }
 }
 
@@ -442,7 +451,7 @@ function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKe
 {
     app()->instance(
         RuleProvider::class,
-        new FakeWarrantRuleProvider(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->scopedTo($schemaKey))
+        new FakeWarrantRuleProvider(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo($schemaKey))
     );
 }
 
@@ -657,7 +666,7 @@ class NonStaticWarrantSchemaModel extends Model
  */
 function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
 {
-    return (new WarrantSyntax([$node]))->toSyntax();
+    return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toSyntax();
 }
 
 /**
@@ -666,7 +675,7 @@ function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
  */
 function writeBoundSyntax(IRuleEntryNode|ISchemaScopedNode $node): BoundSyntax
 {
-    return (new WarrantSyntax([$node]))->toBoundSyntax();
+    return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toBoundSyntax();
 }
 
 /**
@@ -677,12 +686,12 @@ function treeToString(?object $node): string
 {
     return match (true) {
         $node === null => 'null',
-        $node instanceof ConditionNode => $node->conditionKey . ($node->parameters === []
+        $node instanceof ConditionNode => $node->conditionKey->name . ($node->parameters === []
             ? ''
             : '(' . implode(',', array_map(fn ($p) => argToString($p), $node->parameters)) . ')'),
         $node instanceof CrossSchemaCanNode => $node->schemaKey === null
-            ? 'can(' . $node->ability . ')'
-            : 'can(' . $node->ability . ' for ' . handleToString($node) . ')',
+            ? 'can(' . $node->ability->name . ')'
+            : 'can(' . $node->ability->name . ' for ' . handleToString($node) . ')',
         $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
         $node instanceof NotNode => '!' . treeToString($node->operand),
         $node instanceof AndNode => '(' . treeToString($node->leftSide) . ' and ' . treeToString($node->rightSide) . ')',
@@ -693,19 +702,159 @@ function treeToString(?object $node): string
 }
 
 /**
- * Render an argument value — a scalar, or one of the DSL's symbolic references,
- * which must stay distinguishable (a ContextRef would otherwise var_export to
- * NULL, making every ref look alike).
+ * Render an argument — a literal or binding as its value, or one of the DSL's
+ * symbolic references, which must stay distinguishable (a ContextRef would
+ * otherwise var_export to NULL, making every ref look alike).
  */
-function argToString(mixed $value): string
+function argToString(INode $argument): string
 {
     return match (true) {
-        $value instanceof ContextRef => '@context ' . $value->key,
-        $value instanceof ColumnRef => '@column '
-            . ($value->alias === null ? '' : $value->alias . '.') . $value->column,
-        $value instanceof SqlRef => '@sql ' . $value->sql,
-        default => var_export($value, true),
+        $argument instanceof ContextRef => '@context ' . $argument->key->name,
+        $argument instanceof ColumnRef => '@column '
+            . ($argument->alias === null ? '' : $argument->alias->name . '.') . $argument->column->name,
+        $argument instanceof SqlRef => '@sql ' . valueOf($argument->sql),
+        default => var_export(valueOf($argument), true),
     };
+}
+
+/**
+ * The value a literal holds, or a binding's source gives it.
+ */
+function valueOf(INode $node): mixed
+{
+    return match (true) {
+        $node instanceof LiteralNode => $node->value,
+        $node instanceof BindingNode => $node->value(),
+        default => throw new RuntimeException('no value for node ' . $node::class),
+    };
+}
+
+/**
+ * Each argument as a template or derived condition method is called with it: a
+ * literal's or binding's value, and a reference as itself.
+ *
+ * @param list<INode> $arguments
+ * @return list<mixed>
+ */
+function argumentValues(array $arguments): array
+{
+    return array_map(
+        static fn (INode $argument): mixed => $argument instanceof LiteralNode || $argument instanceof BindingNode ? valueOf($argument) : $argument,
+        $arguments,
+    );
+}
+
+/**
+ * A `with` map's entries as each key and the value its argument stands for.
+ *
+ * @param list<WithEntryNode> $contextMap
+ * @return array<string, mixed>
+ */
+function withEntryValues(array $contextMap): array
+{
+    $values = [];
+
+    foreach ($contextMap as $entry) {
+        $values[$entry->key->name] = argumentValues([$entry->value])[0];
+    }
+
+    return $values;
+}
+
+/**
+ * Every problem in $source, as an editor reports it: the syntax errors its
+ * analysis found, then the mistakes validating the tree under $catalog finds,
+ * with headerless rules about $schemaKey and no binding values.
+ *
+ * @return list<Diagnostic>
+ */
+function analyzedDiagnostics(string $source, ?SchemaCatalog $catalog, ?string $schemaKey = null): array
+{
+    $analysis = WarrantParser::analyze($source, SyntaxProducer::editor('test.warrant', $schemaKey));
+
+    return [...$analysis->diagnostics, ...mistakesOf($analysis->syntax, new ValidationInput($catalog, checkBindingValues: false))];
+}
+
+/**
+ * A name written nowhere, as a test builds one.
+ */
+function nameNode(string $name): NameNode
+{
+    return new NameNode($name, SyntaxLocation::noProducer());
+}
+
+/**
+ * $value as an argument a test builds: itself when it is already a node, else a
+ * literal of it.
+ */
+function argumentNode(mixed $value): INode
+{
+    return $value instanceof INode ? $value : new LiteralNode($value, SyntaxLocation::noProducer());
+}
+
+/**
+ * A `with` map a test builds, as its entries in the order given.
+ *
+ * @param array<string, mixed> $with
+ * @return list<WithEntryNode>
+ */
+function withEntries(array $with): array
+{
+    $entries = [];
+
+    foreach ($with as $key => $value) {
+        $entries[] = new WithEntryNode(nameNode((string) $key), argumentNode($value), SyntaxLocation::noProducer());
+    }
+
+    return $entries;
+}
+
+/**
+ * $value with every node in it replaced by its class and its fields, leaving out
+ * where each was written, so two trees compare by what they say.
+ */
+function syntaxShape(mixed $value): mixed
+{
+    if (is_array($value)) {
+        return array_map(syntaxShape(...), $value);
+    }
+
+    if (! $value instanceof INode) {
+        return $value;
+    }
+
+    $fields = get_object_vars($value);
+    unset($fields['location']);
+
+    return ['node' => $value::class, ...array_map(syntaxShape(...), $fields)];
+}
+
+expect()->extend('toEqualSyntax', function (mixed $expected) {
+    expect(syntaxShape($this->value))->toEqual(syntaxShape($expected));
+
+    return $this;
+});
+
+/**
+ * $syntax with a producer that validates its headerless rules as about
+ * $schemaKey under $mode: an editor's for either, a schema's own rules for
+ * not generic, and a template's for generic.
+ */
+function producedFor(WarrantSyntax $syntax, string $schemaKey, GenericMode $mode = GenericMode::Either): WarrantSyntax
+{
+    $syntax->source->setProducer(match ($mode) {
+        GenericMode::Either => SyntaxProducer::editor('test.warrant', $schemaKey),
+        GenericMode::RequireNotGeneric => SyntaxProducer::schemaRules($schemaKey, WarrantSchema::class),
+        GenericMode::RequireGeneric => SyntaxProducer::ruleTemplate(
+            $schemaKey,
+            WarrantSchema::class,
+            'template',
+            'template',
+            new IncludeInvocationNode(nameNode('template'), [], [], SyntaxLocation::noProducer()),
+        ),
+    });
+
+    return $syntax;
 }
 
 /**
@@ -717,21 +866,21 @@ function argToString(mixed $value): string
  */
 function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): string
 {
-    $out = $node->schemaKey;
+    $out = $node->schemaKey->name;
 
     if ($node->isRowBound) {
         $out .= '(' . implode(', ', array_map(fn ($a) => argToString($a), $node->boundKey)) . ')';
     }
 
     if ($node->alias !== null) {
-        $out .= ' as ' . $node->alias;
+        $out .= ' as ' . $node->alias->name;
     }
 
     if ($node->contextMap !== []) {
         $entries = [];
 
-        foreach ($node->contextMap as $key => $value) {
-            $entries[] = $key . ' = ' . argToString($value);
+        foreach ($node->contextMap as $entry) {
+            $entries[] = $entry->key->name . ' = ' . argToString($entry->value);
         }
 
         $out .= ' with ' . implode(', ', $entries);
@@ -763,19 +912,17 @@ function catalogOf(array $schemas, ?SchemaCatalog $behind = null): SchemaCatalog
 }
 
 /**
- * $set taken through every stage of a syntax: validated as written against
- * $schema, its bindings' values put in place, and expanded. Any other schema the
- * rules name is found as the application registers it.
+ * $set taken through every stage of a syntax: handed over as a schema's own
+ * rules, validated as written against $schema, and expanded, its bindings'
+ * values put in place. Any other schema the rules name is found as the
+ * application registers it.
  */
 function expandedFor(RuleSetNode $set, SchemaVocabulary $schema): ExpandedSyntax
 {
-    $input = new ValidationInput(
-        catalogOf([$set->schemaKey => $schema], new RegisteredSchemas),
-        $set->schemaKey,
-        GenericMode::RequireNotGeneric,
-    );
+    $input = new ValidationInput(catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas));
+    $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
 
-    return ExpandedSyntax::of(ValidSyntax::of(new WarrantSyntax([$set]), $input)->resolveBindings());
+    return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input));
 }
 
 /**
@@ -785,7 +932,7 @@ function expandedFor(RuleSetNode $set, SchemaVocabulary $schema): ExpandedSyntax
 function validateRuleSet(RuleSetNode $set, ?SchemaVocabulary $schema = null): ValidSyntax
 {
     return ValidSyntax::of(new WarrantSyntax([$set]), new ValidationInput(
-        $schema === null ? null : catalogOf([$set->schemaKey => $schema], new RegisteredSchemas),
+        $schema === null ? null : catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas),
     ));
 }
 

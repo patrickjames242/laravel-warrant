@@ -17,6 +17,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\DerivedCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -348,7 +349,7 @@ class DcFolderSchema extends WarrantSchema
     {
         return WarrantSyntax::parse(<<<WARRANT
             is_owner or owner_is('role-9')
-        WARRANT)->conditionExpression();
+        WARRANT)->validateWithoutSchemas()->conditionExpression();
     }
 
     /** Derived, as a bare AST node. */
@@ -413,7 +414,7 @@ class DcFolderSchema extends WarrantSchema
     #[DerivedCondition]
     public function alwaysTrue(): BooleanNode
     {
-        return new BooleanNode(true);
+        return new BooleanNode(true, SyntaxLocation::noProducer());
     }
 
     #[DerivedCondition]

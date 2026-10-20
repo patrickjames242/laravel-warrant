@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__.'/Support/TestSupport.php';
+
 use Warrant\DSL\Lexing\Lexer;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
@@ -132,7 +134,7 @@ it('parses rules with comments between any two tokens as it parses them without'
         WARRANT;
 
     expect(WarrantParser::parse($commented)->children)
-        ->toEqual(WarrantParser::parse('for docs { if is_owner(@context org) and can(view) they can view can they share { they can } }')->children);
+        ->toEqualSyntax(WarrantParser::parse('for docs { if is_owner(@context org) and can(view) they can view can they share { they can } }')->children);
 });
 
 // -- strict reading -----------------------------------------------------------

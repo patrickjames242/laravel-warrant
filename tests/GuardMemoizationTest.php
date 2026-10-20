@@ -30,7 +30,7 @@ class CountingWarrantRuleProvider implements RuleProvider
 function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can publish'): CountingWarrantRuleProvider
 {
     $resolver = new CountingWarrantRuleProvider(
-        WarrantSyntax::parse($syntax)->scopedTo('course_sections')
+        WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('course_sections')
     );
 
     app()->instance(RuleProvider::class, $resolver);
@@ -77,9 +77,9 @@ it('resolves the rule set once across repeated lookups for one user', function (
     $resolver = bindCountingWarrantResolver();
     $user = makeWarrantTestUser();
 
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
 
     expect($resolver->calls)->toBe(1);
 });
@@ -87,9 +87,9 @@ it('resolves the rule set once across repeated lookups for one user', function (
 it('resolves the rule set once per user', function () {
     $resolver = bindCountingWarrantResolver();
 
-    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-1'))->resolvedRuleSet();
-    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-2'))->resolvedRuleSet();
-    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-1'))->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-1'))->expandedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-2'))->expandedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, makeWarrantTestUser('role-1'))->expandedRuleSet();
 
     expect($resolver->calls)->toBe(2);
 });
@@ -98,9 +98,9 @@ it('re-resolves after a flush', function () {
     $resolver = bindCountingWarrantResolver();
     $user = makeWarrantTestUser();
 
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
     Warrant::flush();
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
 
     expect($resolver->calls)->toBe(2);
 });
@@ -145,16 +145,16 @@ it('re-resolves only the flushed user', function () {
     $alice = makeWarrantTestUser('role-1');
     $bob = makeWarrantTestUser('role-2');
 
-    Warrant::forSchema(WarrantTestModel::class, $alice)->resolvedRuleSet();
-    Warrant::forSchema(WarrantTestModel::class, $bob)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $alice)->expandedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $bob)->expandedRuleSet();
     expect($resolver->calls)->toBe(2);
 
     Warrant::flush($alice);
 
-    Warrant::forSchema(WarrantTestModel::class, $bob)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $bob)->expandedRuleSet();
     expect($resolver->calls)->toBe(2);
 
-    Warrant::forSchema(WarrantTestModel::class, $alice)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $alice)->expandedRuleSet();
     expect($resolver->calls)->toBe(3);
 });
 
@@ -211,9 +211,9 @@ it('re-resolves rules after a queue worker boundary', function () {
     $resolver = bindCountingWarrantResolver();
     $user = makeWarrantTestUser();
 
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
     app('events')->dispatch(\Illuminate\Queue\Events\JobProcessed::class);
-    Warrant::forSchema(WarrantTestModel::class, $user)->resolvedRuleSet();
+    Warrant::forSchema(WarrantTestModel::class, $user)->expandedRuleSet();
 
     expect($resolver->calls)->toBe(2);
 });

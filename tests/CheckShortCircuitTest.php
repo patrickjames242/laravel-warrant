@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\WarrantAuthorizationException;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 require_once __DIR__ . "/Support/TestSupport.php";
 
 beforeEach(function () {
@@ -282,9 +283,9 @@ it("queries a no-target ability gated on a global condition", function () {
 it("authorize() still diagnoses a folded denial", function () {
 	seedShortCircuitSections();
 	bindWarrantRuleSet(
-		new RuleSetNode(WarrantTestSchema::schemaKey(), [
+		new RuleSetNode(nameNode(WarrantTestSchema::schemaKey()), [
 			WarrantRuleNode::build()->theyCannotBecause("view", "not yours")->toRule(),
-		]),
+		], SyntaxLocation::noProducer()),
 	);
 	$section = loadedSection();
 

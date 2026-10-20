@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Ability;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * Validation for the cross-schema `can(<ability> for <schema>[(<row>)])` builtin.
@@ -30,12 +31,12 @@ beforeEach(function () {
 
 function validateOwnerSyntax(string $syntax): void
 {
-    validateRegistered(WarrantSyntax::parse($syntax)->scopedTo('xs_owner'));
+    validateRegistered(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('xs_owner'));
 }
 
 function validateOwnerRule(WarrantRuleBuilder $rule): void
 {
-    validateRegistered(RuleSetNode::fromRules('xs_owner', $rule));
+    validateRegistered(new RuleSetNode(nameNode('xs_owner'), [$rule->toRule()], SyntaxLocation::noProducer()));
 }
 
 it('accepts an unbound reference to a capability (no-model) schema', function () {
@@ -117,7 +118,7 @@ it('rejects a specified row target from a binding that resolved to null', functi
     expect(fn () => validateRegistered(WarrantSyntax::parse(new BoundSyntax(
         'if can(manage for xs_target(:folder)) they can edit',
         ['folder' => null],
-    ))->scopedTo('xs_owner')))
+    ))->validateWithoutSchemas()->scopedTo('xs_owner')))
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
 });
 

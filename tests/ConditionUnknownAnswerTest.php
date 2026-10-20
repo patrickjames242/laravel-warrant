@@ -96,7 +96,7 @@ class UnknownAnswerSchema extends WarrantSchema
     #[DerivedCondition]
     public function derivedFromUnanswerable()
     {
-        return WarrantSyntax::parse('unanswerable or is_owned')->conditionExpression();
+        return WarrantSyntax::parse('unanswerable or is_owned')->validateWithoutSchemas()->conditionExpression();
     }
 
     /** Constrains the query, then falls off the end — the forgotten return. */

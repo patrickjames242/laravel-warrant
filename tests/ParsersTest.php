@@ -13,23 +13,28 @@ use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\ParsingState;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
-use Warrant\DSL\Parsing\Positions\SourceEntry;
-use Warrant\DSL\Parsing\Positions\SourceMap;
-use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 
+require_once __DIR__.'/Support/TestSupport.php';
+
 /**
- * Parse $source with $root, and the map of where it was written.
+ * The state for reading $source.
+ */
+function parsingStateOf(string $source): ParsingState
+{
+    return ParsingState::forSource(new SyntaxSource(new BoundSyntax($source)));
+}
+
+/**
+ * Parse $source with $root.
  *
- * @return array{0: mixed, 1: SourceMap}
+ * @return array{0: mixed}
  */
 function runParser(Parser $root, string $source): array
 {
-    $state = ParsingState::forSource($source);
-    $result = Parser::run($root, $state);
-    $state->commitTo($map = new SourceMap);
-
-    return [$result, $map];
+    return [Parser::run($root, parsingStateOf($source))];
 }
 
 it('reads the first of several parsers that starts here', function () {
@@ -41,23 +46,21 @@ it('reads the first of several parsers that starts here', function () {
         }
     };
 
-    [$node, $map] = runParser($negationOrCondition, 'a(5)');
+    [$node] = runParser($negationOrCondition, 'a(5)');
 
-    expect($node)->toEqual(new ConditionNode('a', [5]))
-        ->and(array_map(static fn (SourceEntry $entry) => $entry->node, $map->containing(2)))
-        ->toBe([$node, $node]);
+    expect($node)->toEqualSyntax(new ConditionNode(nameNode('a'), [argumentNode(5)], SyntaxLocation::noProducer()))
+        ->and($node->location->span->contains(2))->toBeTrue();
 });
 
 it('reads a null argument as a value, not as nothing read', function () {
-    [$syntax, $map] = runParser(new ParseSyntax, 'a(null, ?, 1)');
-    $node = $syntax->children[0];
+    [[$node]] = runParser(new ParseSyntax, 'a(null, ?, 1)');
 
-    expect($node)->toEqual(new ConditionNode('a', [null, new BindingNode, 1]))
-        ->and(WarrantSyntax::parse(new BoundSyntax('a(null, ?, 1)', [null]))->conditionExpression())
-        ->toEqual(new ConditionNode('a', [null, null, 1]))
-        ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 0)?->offset)->toBe(2)
-        ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 1)?->offset)->toBe(8)
-        ->and($map->spanOf($node, ConditionNode::PART_PARAMETERS, 2)?->offset)->toBe(11);
+    expect($node)->toEqualSyntax(new ConditionNode(nameNode('a'), [argumentNode(null), new BindingNode(null, 0, SyntaxLocation::noProducer()), argumentNode(1)], SyntaxLocation::noProducer()))
+        ->and(argumentValues(WarrantSyntax::parse(new BoundSyntax('a(null, ?, 1)', [null]))->validateWithoutSchemas()->conditionExpression()->parameters))
+        ->toBe([null, null, 1])
+        ->and($node->parameters[0]->location->span->offset)->toBe(2)
+        ->and($node->parameters[1]->location->span->offset)->toBe(8)
+        ->and($node->parameters[2]->location->span->offset)->toBe(11);
 });
 
 it('reads repeated items until one does not start, and none when none does', function () {
@@ -71,7 +74,7 @@ it('reads repeated items until one does not start, and none when none does', fun
 
     [[$conditions, $none]] = runParser($root, 'a b(1) c');
 
-    expect($conditions)->toEqual([new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')])
+    expect($conditions)->toEqualSyntax([new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('b'), [argumentNode(1)], SyntaxLocation::noProducer()), new ConditionNode(nameNode('c'), [], SyntaxLocation::noProducer())])
         ->and($none)->toBe([]);
 });
 
@@ -114,27 +117,13 @@ it('reads separated items, and reports an item missing after a separator', funct
 
     $throws
         ? expect(fn () => runParser($root, $source))->toThrow(WarrantSyntaxException::class, 'Missing after a comma.')
-        : expect(runParser($root, $source)[0])->toEqual($expected);
+        : expect(runParser($root, $source)[0])->toEqualSyntax($expected);
 })->with([
-    'several' => ['a, b(1), c', [new ConditionNode('a'), new ConditionNode('b', [1]), new ConditionNode('c')]],
-    'one' => ['a', [new ConditionNode('a')]],
+    'several' => ['a, b(1), c', [new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('b'), [argumentNode(1)], SyntaxLocation::noProducer()), new ConditionNode(nameNode('c'), [], SyntaxLocation::noProducer())]],
+    'one' => ['a', [new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer())]],
     'none' => ['', []],
     'a trailing separator' => ['a, b,', null, true],
 ]);
-
-it('refuses a part read outside any node', function () {
-    $root = new class extends Parser
-    {
-        protected function read(): mixed
-        {
-            $this->part(ConditionNode::PART_CONDITION_KEY, null, $this->advance());
-
-            return true;
-        }
-    };
-
-    expect(fn () => runParser($root, 'a'))->toThrow(LogicException::class, 'Part [conditionKey] was read outside any node.');
-});
 
 it('starts one of several parsers wherever one of them starts', function (string $source, bool $conditionOrNegation, bool $conditionOrAnything) {
     $conditionOrNegationParser = new class extends ParseOneOf
@@ -171,7 +160,7 @@ it('starts one of several parsers wherever one of them starts', function (string
         }
     };
 
-    $state = ParsingState::forSource($source);
+    $state = parsingStateOf($source);
 
     expect($conditionOrNegationParser::startsAt($state->tokensAhead))->toBe($conditionOrNegation)
         ->and($conditionOrAnythingParser::startsAt($state->tokensAhead))->toBe($conditionOrAnything);
@@ -182,7 +171,7 @@ it('starts one of several parsers wherever one of them starts', function (string
 ]);
 
 it('tells whether the tokens ahead are the ones given, in order', function () {
-    $parsingState = ParsingState::forSource('can they view');
+    $parsingState = parsingStateOf('can they view');
     $state = $parsingState->tokensAhead;
 
     expect($state->nextIs(TokenType::CAN))->toBeTrue()
@@ -222,5 +211,5 @@ it('does not read a parser at a token it cannot start at', function () {
     [[$parsed, $condition]] = runParser($root, 'a');
 
     expect($parsed)->toBeNull()
-        ->and($condition)->toEqual(new ConditionNode('a'));
+        ->and($condition)->toEqualSyntax(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()));
 });

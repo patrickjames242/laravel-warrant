@@ -142,15 +142,15 @@ it('carries condition parameters onto the node', function () {
     $rule = WarrantRuleNode::build()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
-    expect($rule->conditions->conditionKey)->toBe('in_department');
-    expect($rule->conditions->parameters)->toBe(['sales', 'eng']);
+    expect($rule->conditions->conditionKey?->name)->toBe('in_department');
+    expect(argumentValues($rule->conditions->parameters))->toEqualSyntax((['sales', 'eng']));
 });
 
 it('wraps negated terms in a NotNode', function () {
     $rule = WarrantRuleNode::build()->ifNot('is_locked')->theyCan('view')->toRule();
 
     expect($rule->conditions)->toBeInstanceOf(NotNode::class);
-    expect($rule->conditions->operand->conditionKey)->toBe('is_locked');
+    expect($rule->conditions->operand->conditionKey?->name)->toBe('is_locked');
 });
 
 it('rejects a rule with no they-can/they-cannot clause, matching the DSL', function () {
@@ -208,7 +208,7 @@ it('negates a whole group', function () {
 // -- parity with the string DSL -----------------------------------------------
 
 it('produces the identical tree to the equivalent DSL expression', function (string $dsl, Closure $rule) {
-    $fromDsl = WarrantSyntax::parse($dsl)->conditionExpression();
+    $fromDsl = WarrantSyntax::parse($dsl)->validateWithoutSchemas()->conditionExpression();
     $fromBuilder = $rule()->toRule()->conditions;
 
     expect(treeToString($fromBuilder))->toBe(treeToString($fromDsl));
@@ -359,7 +359,7 @@ it('leaves a cross-schema reference unbound when no row selector is given', func
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeFalse();
-        expect($node->boundKey)->toBe([]);
+        expect(argumentValues($node->boundKey))->toEqualSyntax(([]));
     }
 });
 
@@ -371,7 +371,7 @@ it('keeps an explicit null row selector row-bound so validation can reject it', 
 
     foreach ([$can, $check] as $node) {
         expect($node->isRowBound)->toBeTrue();
-        expect($node->boundKey)->toBe([null]);
+        expect(argumentValues($node->boundKey))->toEqualSyntax(([null]));
     }
 });
 
@@ -387,7 +387,7 @@ it('passes a model row selector through untouched', function () {
     $node = WarrantRuleNode::build()->ifCan('manage', 'xs_target', $model)->buildConditions();
 
     expect($node->isRowBound)->toBeTrue();
-    expect($node->boundKey)->toBe([$model]);
+    expect(argumentValues($node->boundKey))->toEqualSyntax(([$model]));
 });
 
 it('preserves the with map insertion order', function () {
@@ -395,7 +395,7 @@ it('preserves the with map insertion order', function () {
         ->ifCan('manage', 'xs_target', 't-1', ['zebra' => 1, 'apple' => 2, 'mango' => 3])
         ->buildConditions();
 
-    expect(array_keys($node->contextMap))->toBe(['zebra', 'apple', 'mango']);
+    expect(array_keys(withEntryValues($node->contextMap)))->toBe(['zebra', 'apple', 'mango']);
 });
 
 it('rejects an empty check(...) predicate closure', function (string $method) {
@@ -407,7 +407,7 @@ it('normalizes a model or schema reference to its schema key', function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 
     $keys = array_map(
-        fn ($schema) => WarrantRuleNode::build()->ifCan('view', $schema)->buildConditions()->schemaKey,
+        fn ($schema) => WarrantRuleNode::build()->ifCan('view', $schema)->buildConditions()->schemaKey->name,
         [WarrantTestModel::class, new WarrantTestModel, WarrantTestSchema::class, new WarrantTestSchema, 'course_sections'],
     );
 
@@ -419,7 +419,7 @@ it('throws when a class-string reference resolves to no registered schema', func
 
     // A plain *key* string passes through unresolved by design — the builder stays
     // usable without a warm registry, and a typo'd key is caught by validate().
-    expect(WarrantRuleNode::build()->ifCan('view', 'never_registered')->buildConditions()->schemaKey)
+    expect(WarrantRuleNode::build()->ifCan('view', 'never_registered')->buildConditions()->schemaKey?->name)
         ->toBe('never_registered');
 
     expect(fn () => WarrantRuleNode::build()->ifCan('view', WarrantTestModel::class))
@@ -440,7 +440,7 @@ it('renders a built can/check back to DSL text that re-parses identically', func
 
     expect($syntax)->toContain('can(manage for xs_target(@context id) with tenant = @context t)');
     expect($syntax)->toContain('check(is_published and not is_locked for xs_other(@column xs_owner.other_id))');
-    expect(treeToString(WarrantSyntax::parse($syntax)->rule()->conditions))->toBe(treeToString($rule->conditions));
+    expect(treeToString(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->rule()->conditions))->toBe(treeToString($rule->conditions));
 });
 
 it('renders a built unbound handle without a row selector', function () {
@@ -470,7 +470,7 @@ it('renders built literal and @sql row selectors', function () {
     // The writer quotes an @sql body in its own literal style; the lexer takes
     // either quote, so it re-parses regardless.
     expect($syntax)->toContain("check(is_open for xs_target(@sql 'select id from xs_targets limit 1'))");
-    expect(treeToString(WarrantSyntax::parse($syntax)->rule()->conditions))->toBe(treeToString($rule->conditions));
+    expect(treeToString(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->rule()->conditions))->toBe(treeToString($rule->conditions));
 });
 
 it('carries a non-inlinable row selector as a binding in bound syntax', function () {
@@ -488,9 +488,9 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
     expect($bound->bindings)->toHaveCount(1);
 
     // The round-trip only closes if the binding refills the selector.
-    $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->rule();
+    $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
 
-    expect($reparsed->conditions->boundKey)->toBe([$bound->bindings[0]]);
+    expect(argumentValues($reparsed->conditions->boundKey))->toEqualSyntax(([$bound->bindings[0]]));
     expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));
 });
 
@@ -505,20 +505,6 @@ it('splices a parsed DSL fragment in as one group', function () {
     expect(treeToString($tree))->toBe('((a or b) and c)');
 });
 
-// -- fromRules accepts builders -----------------------------------------------
-
-it('accepts builders directly in fromRules', function () {
-    $set = RuleSetNode::fromRules(
-        'timesheets',
-        WarrantRuleNode::build()->if('is_self')->theyCan('view'),
-        WarrantRuleNode::build()->theyCannot('delete'),
-    );
-
-    expect($set->entries)->toHaveCount(2);
-    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
-    expect($set->entries[1]->conditions)->toBeNull();
-});
-
 // -- RuleSetNode::build (callback, one rule per $rule() call) ----------------
 
 it('builds a rule set with one rule per $rule() call, no toRule() needed', function () {
@@ -527,9 +513,9 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
         $rule()->theyCan('list');
     });
 
-    expect($set->schemaKey)->toBe('timesheets');
+    expect($set->schemaKey?->name)->toBe('timesheets');
     expect($set->entries)->toHaveCount(2);
-    expect($set->entries[0]->conditions->conditionKey)->toBe('is_self');
+    expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_self');
     expect($set->entries[0]->canAbilities())->toBe(['edit', 'view']);
     expect($set->entries[1]->conditions)->toBeNull();
     expect($set->entries[1]->canAbilities())->toBe(['list']);
@@ -554,7 +540,7 @@ it('compiles a built rule to SQL that filters rows', function () {
     DB::table('docs')->insert([['id' => 'teacher:role-1'], ['id' => 'other']]);
 
     $ruleSet = expandedFor(
-        RuleSetNode::fromRules('docs', WarrantRuleNode::build()->if('is_teacher')->theyCan('view')),
+        RuleSetNode::build('docs', fn ($rule) => $rule()->if('is_teacher')->theyCan('view')),
         new FakeConditionResolver,
     );
 

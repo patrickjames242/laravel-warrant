@@ -20,6 +20,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * Reference validation for the cross-schema `check(<predicate> for <schema>[(<row>)])`
@@ -39,12 +40,12 @@ beforeEach(function () {
 
 function validateOwnerCheckSyntax(string $syntax): void
 {
-    validateRegistered(WarrantSyntax::parse($syntax)->scopedTo('xcv_owner'));
+    validateRegistered(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('xcv_owner'));
 }
 
 function validateOwnerCheckRule(WarrantRuleBuilder $rule): void
 {
-    validateRegistered(RuleSetNode::fromRules('xcv_owner', $rule));
+    validateRegistered(new RuleSetNode(nameNode('xcv_owner'), [$rule->toRule()], SyntaxLocation::noProducer()));
 }
 
 it('accepts an unbound reference with a global condition', function () {
@@ -117,9 +118,9 @@ it('accepts a nested check(...) inside a check(...) predicate', function () {
 it('rejects a constant inside a check(...) predicate', function () {
     /* A predicate that decides itself asks the target nothing. The builder refuses
        to compose one, so this reaches the validator only as a hand-built node. */
-    $node = new CrossSchemaConditionNode('xcv_target', new BooleanNode(true), true, [Ref::context('id')]);
+    $node = new CrossSchemaConditionNode(nameNode('xcv_target'), new BooleanNode(true, SyntaxLocation::noProducer()), true, [argumentNode(Ref::context('id'))], [], null, SyntaxLocation::noProducer());
 
-    expect(fn () => validateRegistered(RuleSetNode::fromRules('xcv_owner', new WarrantRuleNode($node, [new CanClauseNode(['edit'])], []))))
+    expect(fn () => validateRegistered(new RuleSetNode(nameNode('xcv_owner'), [new WarrantRuleNode($node, [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())))
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');
 });
 
@@ -152,7 +153,7 @@ it('rejects a specified row target from a binding that resolved to null', functi
     expect(fn () => validateRegistered(WarrantSyntax::parse(new BoundSyntax(
         'if check(is_published for xcv_target(:pp)) they can edit',
         ['pp' => null],
-    ))->scopedTo('xcv_owner')))
+    ))->validateWithoutSchemas()->scopedTo('xcv_owner')))
         ->toThrow(InvalidArgumentException::class, 'specifies a row target that is null');
 });
 
