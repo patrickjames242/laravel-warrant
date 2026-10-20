@@ -172,18 +172,6 @@ it('reports syntax errors and then the rules a text breaks, when analysed agains
     ])->and(analyzedDiagnostics($source, catalogOf([]))[0]->message)->toBe("Unexpected character '~'.");
 });
 
-it('reports bindings of both kinds at each one of the kind the first did not use', function () {
-    $source = 'if a(:x, ?) and b(?) they can view';
-
-    expect(array_map(
-        static fn (Diagnostic $diagnostic): array => [$diagnostic->message, substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset)],
-        analyzedDiagnostics($source, null),
-    ))->toBe([
-        ['Cannot mix named and positional bindings.', '?'],
-        ['Cannot mix named and positional bindings.', '?'],
-    ]);
-});
-
 it('holds text to the rules that need no schema when analysed with no catalog', function () {
     expect(array_map(
         static fn (Diagnostic $diagnostic): string => $diagnostic->message,

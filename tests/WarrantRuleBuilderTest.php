@@ -485,13 +485,13 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
 
     $bound = writeBoundSyntax($rule);
 
-    expect($bound->syntax)->toContain('can(manage for xs_target(?))');
+    expect($bound->syntax)->toContain('can(manage for xs_target(:b0))');
     expect($bound->bindings)->toHaveCount(1);
 
     // The round-trip only closes if the binding refills the selector.
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
 
-    expect(argumentValues($reparsed->conditions->boundKey))->toEqualSyntax(([$bound->bindings[0]]));
+    expect(argumentValues($reparsed->conditions->boundKey))->toEqualSyntax(([$bound->bindings['b0']]));
     expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));
 });
 

@@ -162,38 +162,38 @@ class WarrantConditionBuilder
      * Splice a DSL expression fragment in as one AND-joined group — author the
      * readable part as text, compose the rest structurally.
      *
-     * @param array<int|string, mixed> $bindings
+     * @param array<string, mixed> $bindings
      */
     public function ifRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('and', false, $expression, $bindings);
     }
 
-    /** @param array<int|string, mixed> $bindings */
+    /** @param array<string, mixed> $bindings */
     public function andIfRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('and', false, $expression, $bindings);
     }
 
-    /** @param array<int|string, mixed> $bindings */
+    /** @param array<string, mixed> $bindings */
     public function orIfRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('or', false, $expression, $bindings);
     }
 
-    /** @param array<int|string, mixed> $bindings */
+    /** @param array<string, mixed> $bindings */
     public function ifNotRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('and', true, $expression, $bindings);
     }
 
-    /** @param array<int|string, mixed> $bindings */
+    /** @param array<string, mixed> $bindings */
     public function andIfNotRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('and', true, $expression, $bindings);
     }
 
-    /** @param array<int|string, mixed> $bindings */
+    /** @param array<string, mixed> $bindings */
     public function orIfNotRaw(string $expression, array $bindings = []): static
     {
         return $this->addRaw('or', true, $expression, $bindings);
@@ -358,7 +358,7 @@ class WarrantConditionBuilder
      * The expression is parsed here, as a raw condition in a source of its own,
      * so its nodes keep that producer wherever the built rule is handed over.
      *
-     * @param array<int|string, mixed> $bindings
+     * @param array<string, mixed> $bindings
      */
     private function addRaw(string $boolean, bool $negate, string $expression, array $bindings): static
     {

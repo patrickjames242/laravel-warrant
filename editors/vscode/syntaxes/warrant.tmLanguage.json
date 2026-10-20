@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Warrant",
   "scopeName": "source.warrant",
-  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector and optionally naming the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on. Arguments may be literals, :name / ? bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), or @sql \"<sql>\" (an arbitrary SQL fragment). If the DSL grows new tokens/keywords, add matching patterns here.",
+  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector and optionally naming the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on. Arguments may be literals, :name bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), or @sql \"<sql>\" (an arbitrary SQL fragment). If the DSL grows new tokens/keywords, add matching patterns here.",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
@@ -11,7 +11,6 @@
     { "include": "#context-ref" },
     { "include": "#sql-ref" },
     { "include": "#named-binding" },
-    { "include": "#positional-binding" },
     { "include": "#ability-block-header" },
     { "include": "#schema-target" },
     { "include": "#keywords" },
@@ -105,11 +104,6 @@
       "match": ":[A-Za-z_][A-Za-z0-9_-]*",
       "name": "variable.parameter.binding.warrant"
     },
-    "positional-binding": {
-      "comment": "A `?` placeholder binding, scoped like :name so both binding forms look alike.",
-      "match": "\\?",
-      "name": "variable.parameter.binding.warrant"
-    },
     "ability-block-header": {
       "comment": "`can they <ability>[, <ability>]... {` \u2014 the header of an ability block, whose clauses take these abilities instead of naming their own. The leading `can they` settles it: a clause reads `they can`, the other way round, and the cross-schema builtin is `can(`. The whole ability list is one scope, so the separating commas carry it too. Same-line only (a match cannot span lines), so a header split across lines falls back to the keyword and identifier rules below.",
       "match": "\\b(can)\\s+(they)\\b\\s*((?:[A-Za-z_][A-Za-z0-9_-]*|\\*)(?:\\s*,\\s*(?:[A-Za-z_][A-Za-z0-9_-]*|\\*))*)(?=\\s*\\{)",
@@ -141,7 +135,7 @@
       "name": "constant.numeric.warrant"
     },
     "operators": {
-      "comment": "! negation and * wildcard operators, plus `=` for the assignment in a `with key = value` context-mapping clause. A `?` is NOT here: it is a positional binding, matched by #positional-binding.",
+      "comment": "! negation and * wildcard operators, plus `=` for the assignment in a `with key = value` context-mapping clause.",
       "match": "[!*=]",
       "name": "keyword.operator.warrant"
     },

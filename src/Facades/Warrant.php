@@ -81,7 +81,7 @@ class Warrant extends Facade
      * off: `Warrant::parseFile(resource_path('warrant/timesheets'))` reads
      * `timesheets.warrant`.
      *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     * @param array<string, mixed> $bindings Values for `:name` placeholders, by name.
      */
     public static function parseFile(string $path, array $bindings = []): WarrantSyntax
     {

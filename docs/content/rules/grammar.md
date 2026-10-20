@@ -38,7 +38,7 @@ clause        = "they" ( "can" ability ( "," ability )*
                 (* inside an ability block the ability list is omitted *)
 
 ability       = IDENTIFIER | "*" ;
-message       = STRING | NAMED_BINDING | POSITIONAL ;
+message       = STRING | NAMED_BINDING ;
 
 expr          = or ;
 or            = and ( "or" and )* ;
@@ -53,12 +53,12 @@ handle        = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
 with_map      = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 
 arg           = STRING | INT | FLOAT | BOOL | NULL
-              | NAMED_BINDING | POSITIONAL
+              | NAMED_BINDING
               | CONTEXT_REF | COLUMN_REF | SQL_REF ;
 
 CONTEXT_REF   = "@context" IDENTIFIER ;
 COLUMN_REF    = "@column" IDENTIFIER [ "." IDENTIFIER ] ;
-SQL_REF       = "@sql" ( STRING | NAMED_BINDING | POSITIONAL ) ;
+SQL_REF       = "@sql" ( STRING | NAMED_BINDING ) ;
 ```
 
 Rule text may open with a `for <schema>` header naming the schema its conditions
@@ -148,9 +148,9 @@ Arrays and objects have no inline form. Pass them through a binding.
 | `@column frame.col` | a column of a named frame |
 | `@sql "..."` | a raw SQL expression, spliced verbatim |
 
-None of the three consumes a positional `?`, and none is subject to the
-every-binding-used rule. The one exception: an `@sql` body written as a binding
-does consume it.
+None of the three is a binding, and none is subject to the every-binding-used
+rule. The one exception: an `@sql` body written as a binding is a binding like
+any other.
 
 ## Whitespace and comments
 

@@ -15,10 +15,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
- * The checks a {@see SyntaxValidator} makes of a text's bindings: that they are
- * all named or all positional, and, when its {@see ValidationInput} says to,
- * that they fit the values given for them. Each binding is checked against the
- * source it was read from.
+ * The checks a {@see SyntaxValidator} makes of a text's bindings, when its
+ * {@see ValidationInput} says to: that they fit the values given for them. Each
+ * binding is checked against the source it was read from.
  *
  * @internal
  */
@@ -30,14 +29,15 @@ trait ValidatesBindings
 
     /**
      * The bindings of each text $syntax was read from fit the values given for
-     * them. A text's bindings are either all named or all positional, since its
-     * values are given one way or the other: the first binding written decides,
-     * and each of the other kind is a mistake. When the input checks binding
-     * values, every placeholder has a value, every value given is used, and an
+     * them: every placeholder has a value, every value given is used, and an
      * `@sql` body or a denial message has a value that can stand there.
      */
     private function assertBindingsFit(WarrantSyntax $syntax): void
     {
+        if (! $this->input->checkBindingValues) {
+            return;
+        }
+
         $sources = [spl_object_id($syntax->source) => $syntax->source];
         $bindingsBySource = [spl_object_id($syntax->source) => []];
 
@@ -62,25 +62,11 @@ trait ValidatesBindings
      */
     private function assertBindingsOfOneTextFit(SyntaxSource $source, array $bindings): void
     {
-        $first = $bindings[0][0] ?? null;
-
         foreach ($bindings as [$binding, $slot]) {
-            if ($binding->isPositional() !== $first->isPositional()) {
-                $this->fail(DiagnosticCode::MixedBindings, 'Cannot mix named and positional bindings.', $binding->location);
-
-                continue;
-            }
-
-            if (! $this->input->checkBindingValues) {
-                continue;
-            }
-
             if (! $binding->hasValue()) {
                 $this->fail(
                     DiagnosticCode::MissingBindingValue,
-                    $binding->isPositional()
-                        ? 'More positional placeholders (?) than bindings provided.'
-                        : sprintf('No binding provided for ":%s".', $binding->name),
+                    sprintf('No binding provided for ":%s".', $binding->name),
                     $binding->location,
                 );
 
@@ -90,9 +76,7 @@ trait ValidatesBindings
             $this->assertValueFits($binding, $slot);
         }
 
-        if ($this->input->checkBindingValues) {
-            $this->assertEveryValueUsed($source, $bindings, $first?->isPositional() ?? false);
-        }
+        $this->assertEveryValueUsed($source, $bindings);
     }
 
     private function assertValueFits(BindingNode $binding, string $slot): void
@@ -121,31 +105,12 @@ trait ValidatesBindings
      * mistake points at the end of the text, since no placeholder is to blame.
      *
      * @param list<array{0: BindingNode, 1: string}> $bindings
-     * @param bool $positional Whether the text's bindings are positional, as its
-     *   first one decides.
      */
-    private function assertEveryValueUsed(SyntaxSource $source, array $bindings, bool $positional): void
+    private function assertEveryValueUsed(SyntaxSource $source, array $bindings): void
     {
-        $values = $source->bound->bindings ?? [];
-        $used = array_filter($bindings, static fn (array $found): bool => $found[0]->isPositional() === $positional);
-
-        if ($positional) {
-            $unused = count($values) - count($used);
-
-            if ($unused > 0) {
-                $this->fail(
-                    DiagnosticCode::UnusedBinding,
-                    sprintf('%d positional binding(s) were provided but never used.', $unused),
-                    self::endOf($source),
-                );
-            }
-
-            return;
-        }
-
         $unused = array_diff(
-            array_keys($values),
-            array_map(static fn (array $found): string => $found[0]->name, $used),
+            array_keys($source->bound->bindings ?? []),
+            array_map(static fn (array $found): string => $found[0]->name, $bindings),
         );
 
         if ($unused !== []) {

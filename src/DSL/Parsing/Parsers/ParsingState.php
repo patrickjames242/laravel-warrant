@@ -67,9 +67,6 @@ final class ParsingState
      */
     private array $starts = [];
 
-    /** How many `?` placeholders have been read, which is the index of the next. */
-    private int $positionalBindings = 0;
-
     /** The text being parsed, which errors quote and point into. */
     public readonly string $text;
 
@@ -210,15 +207,6 @@ final class ParsingState
         $offset = $this->peek()->offset;
 
         return SyntaxLocation::in($this->source, new Span($offset, $offset));
-    }
-
-    /**
-     * The index of the `?` placeholder being read: its place among the `?`s of
-     * the text, from 0.
-     */
-    public function nextPositionalIndex(): int
-    {
-        return $this->positionalBindings++;
     }
 
     /**

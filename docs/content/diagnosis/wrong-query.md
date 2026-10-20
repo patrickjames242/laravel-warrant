@@ -144,12 +144,6 @@ return $c->query->whereExists(fn ($sub) => $sub
     ->where('team_managers.user_id', $c->user->getKey()));
 ```
 
-## Bindings in the wrong order
-
-`toRawSql()` inlines them, which is the fastest way to see a mis-ordered positional
-binding. Remember that positional `?` bindings fill left to right across the whole
-string, while `@context`, `@column`, and `@sql` string literals consume none.
-
 ## Comparing against what you meant
 
 Once you have the SQL, run it. The predicate is an ordinary `WHERE`:

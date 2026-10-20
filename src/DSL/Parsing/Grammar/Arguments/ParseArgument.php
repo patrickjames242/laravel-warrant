@@ -32,7 +32,6 @@ final class ParseArgument extends Parser
             TokenType::BOOL,
             TokenType::NULL,
             TokenType::NAMED_BINDING,
-            TokenType::POSITIONAL,
             TokenType::CONTEXT_REF,
             TokenType::COLUMN_REF,
             TokenType::SQL_REF,
@@ -47,8 +46,7 @@ final class ParseArgument extends Parser
             TokenType::FLOAT,
             TokenType::BOOL,
             TokenType::NULL => $this->parse(ParseLiteral::class)->value,
-            TokenType::NAMED_BINDING,
-            TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
+            TokenType::NAMED_BINDING => $this->parse(ParseBinding::class)->value,
             TokenType::CONTEXT_REF => $this->contextRef(),
             TokenType::COLUMN_REF => $this->columnRef(),
             TokenType::SQL_REF => $this->sqlRef(),
@@ -56,9 +54,8 @@ final class ParseArgument extends Parser
     }
 
     /**
-     * A `@context <key>` reference. It is neither a named nor a positional
-     * binding, so the binding rules do not apply to it; it is resolved at
-     * compile time.
+     * A `@context <key>` reference. It is not a binding, so the binding rules do
+     * not apply to it; it is resolved at compile time.
      */
     private function contextRef(): ContextRef|MissingArgumentNode
     {
@@ -111,15 +108,14 @@ final class ParseArgument extends Parser
 
         $sql = match ($token->type) {
             TokenType::STRING => $this->parse(ParseLiteral::class)->value,
-            TokenType::NAMED_BINDING,
-            TokenType::POSITIONAL => $this->parse(ParseBinding::class)->value,
+            TokenType::NAMED_BINDING => $this->parse(ParseBinding::class)->value,
             default => null,
         };
 
         if ($sql === null) {
             $this->report($this->errorAtCurrent(
                 DiagnosticCode::MissingArgument,
-                'Expected a quoted SQL string or a binding (:name or ?) after \'@sql\'.',
+                'Expected a quoted SQL string or a binding (:name) after \'@sql\'.',
             ));
 
             // A literal of another kind is the body written wrong, and is read past with the reference.

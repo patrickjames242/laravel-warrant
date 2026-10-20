@@ -267,8 +267,8 @@ final readonly class ValidSyntax extends WarrantSyntax
     }
 
     /**
-     * Render the tree to `?`-parameterized rule text plus one flat, left-to-right
-     * positional bindings list. Lossless for any value.
+     * Render the tree to rule text with every value a named binding, plus the
+     * values those bindings are given. Lossless for any value.
      */
     public function toBoundSyntax(): BoundSyntax
     {

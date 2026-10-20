@@ -124,7 +124,7 @@ module.exports = grammar({
     // so it is a literal string or a binding -- never an @context reference.
     because_clause: $ => seq(
       'because',
-      field('message', choice($.string, $.named_binding, $.positional)),
+      field('message', choice($.string, $.named_binding)),
     ),
 
     ability_list: $ => seq(
@@ -239,7 +239,6 @@ module.exports = grammar({
       $.boolean,
       $.null,
       $.named_binding,
-      $.positional,
       $.context_ref,
       $.column_ref,
       $.sql_ref,
@@ -270,7 +269,7 @@ module.exports = grammar({
     // An arbitrary SQL fragment, as a literal or a binding resolving to a string.
     sql_ref: $ => seq(
       '@sql',
-      field('sql', choice($.string, $.named_binding, $.positional)),
+      field('sql', choice($.string, $.named_binding)),
     ),
 
     // -- terminals -----------------------------------------------------------
@@ -301,8 +300,6 @@ module.exports = grammar({
     null: _ => 'null',
 
     named_binding: _ => /:[A-Za-z_][A-Za-z0-9_-]*/,
-
-    positional: _ => '?',
 
     // A letter or underscore, then letters, digits, underscores or dashes.
     identifier: _ => /[A-Za-z_][A-Za-z0-9_-]*/,

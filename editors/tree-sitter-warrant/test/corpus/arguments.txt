@@ -40,36 +40,6 @@ they can view
         (ability
           (identifier))))))
 
-============================================================
-positional bindings, which cannot be mixed with named ones
-============================================================
-
-# positional bindings, which cannot be mixed with named ones
-if between(?, ?) and named(@sql ?)
-they can view
-
----
-
-(source_file
-  (comment)
-  (rule
-    (condition_clause
-      condition: (and_expression
-        left: (condition
-          name: (identifier)
-          arguments: (argument_list
-            (positional)
-            (positional)))
-        right: (condition
-          name: (identifier)
-          arguments: (argument_list
-            (sql_ref
-              sql: (positional))))))
-    (can_clause
-      abilities: (ability_list
-        (ability
-          (identifier))))))
-
 =============================================================
 an @sql body, which injections.scm hands to the SQL grammar
 =============================================================
@@ -88,6 +58,27 @@ they can view
           (sql_ref
             sql: (string
               (string_content))))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+==========================================
+a ?, which is not a binding, is an error
+==========================================
+
+if between(?) they can view
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)
+        arguments: (argument_list
+          (ERROR
+            (UNEXPECTED '?')))))
     (can_clause
       abilities: (ability_list
         (ability

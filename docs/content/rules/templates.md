@@ -140,8 +140,9 @@ is unsafe, since a quote inside a string literal ends it early. And a closure
 denial message has no inline form at all, so a binding is the only way one reaches
 the language.
 
-A body's placeholders are its own. Every parse gets its own binding state, so a
-`:named` body expands cleanly inside a rule set parsed with positional `?` ones.
+A body's placeholders are its own. Each binding takes its value from the text it
+was written in, so a body's `:team` and a `:team` in the rule set that includes
+it never meet.
 
 :::tip[A fixed body stays a string]
 Parsing is only needed when the body has placeholders. A method free to answer

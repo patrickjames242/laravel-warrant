@@ -238,14 +238,6 @@ it('resolves named bindings inline, reused and order-independent', function () {
     ]));
 });
 
-it('resolves positional bindings left-to-right across the whole string', function () {
-    $set = WarrantSyntax::parse(new BoundSyntax('if is_department(?, ?, ?) they can view', [
-        'a', 'b', 'c',
-    ]))->validateWithoutSchemas()->scopedTo('timesheets');
-
-    expect(argumentValues($set->entries[0]->conditions->parameters))->toEqualSyntax((['a', 'b', 'c']));
-});
-
 it('accepts any value type through a binding', function () {
     $object = new stdClass;
     $set = WarrantSyntax::parse(new BoundSyntax('if is_thing(:v) they can view', ['v' => $object]))->validateWithoutSchemas()->scopedTo('timesheets');
@@ -481,10 +473,10 @@ it('resolves a :name binding as the @sql body at parse time', function () {
     expect(valueOf(argumentValues($set->entries[0]->conditions->parameters)[0]->sql))->toBe('select 1');
 });
 
-it('resolves a ? binding as the @sql body at parse time', function () {
+it('resolves a binding as the @sql body at parse time', function () {
     $set = WarrantSyntax::parse(new BoundSyntax(
-        'if is_teacher(@sql ?) they can view',
-        ['select 2'],
+        'if is_teacher(@sql :query) they can view',
+        ['query' => 'select 2'],
     ))->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect(valueOf(argumentValues($set->entries[0]->conditions->parameters)[0]->sql))->toBe('select 2');
@@ -628,12 +620,6 @@ it('resolves a named binding message to a string', function () {
     expect($rule->messageFor('edit'))->toBe('locked');
 });
 
-it('resolves a positional binding message to a string', function () {
-    $rule = WarrantSyntax::parse(new BoundSyntax('they cannot edit because ?', ['locked']))->validateWithoutSchemas()->rule();
-
-    expect($rule->messageFor('edit'))->toBe('locked');
-});
-
 it('accepts a closure resolved from a binding as the message', function () {
     $closure = fn () => 'dynamic';
     $rule = WarrantSyntax::parse(new BoundSyntax('they cannot edit because :msg', ['msg' => $closure]))->validateWithoutSchemas()->rule();
@@ -718,8 +704,7 @@ it('rejects bindings that do not match their placeholders', function (string $sy
 })->with([
     'missing named binding' => ['if is_thing(:missing) they can view', [], 'No binding provided for ":missing"'],
     'unused binding' => ['if is_self they can view', ['unused' => 1], 'never used'],
-    'too many positional placeholders' => ['if is_thing(?, ?) they can view', [1], 'More positional placeholders'],
-    'unused positional binding' => ['if is_thing(?) they can view', [1, 2], 'never used'],
+    'values given without names' => ['if is_self they can view', ['sales'], 'never used: 0'],
 ]);
 
 it('throws on invalid syntax', function (string $syntax, array $bindings, string $needle) {
@@ -860,10 +845,10 @@ it('resolves a named binding as the row selector', function () {
     expect(argumentValues($node->boundKey))->toEqualSyntax((['dept-1']));
 });
 
-it('resolves positional bindings across the row selector and with-map', function () {
+it('resolves bindings across the row selector and with-map', function () {
     $rules = WarrantSyntax::parse(new BoundSyntax(
-        'if can(manage for departments(?) with tenant = ?) they can update',
-        ['dept-1', 'tenant-9'],
+        'if can(manage for departments(:department) with tenant = :tenant) they can update',
+        ['department' => 'dept-1', 'tenant' => 'tenant-9'],
     ))->validateWithoutSchemas()->ruleEntries();
 
     $node = $rules[0]->conditions;
@@ -967,10 +952,10 @@ it('composes a check(...) leaf with a local condition, negated', function () {
     expect($node->rightSide->operand->schemaKey?->name)->toBe('pay_periods');
 });
 
-it('resolves positional bindings across a check(...) predicate arg, row selector and with-map', function () {
+it('resolves bindings across a check(...) predicate arg, row selector and with-map', function () {
     $rules = WarrantSyntax::parse(new BoundSyntax(
-        'if check(is_open(?) for pay_periods(?) with tenant = ?) they can view',
-        ['maintenance', 'pp-1', 'tenant-9'],
+        'if check(is_open(:mode) for pay_periods(:period) with tenant = :tenant) they can view',
+        ['mode' => 'maintenance', 'period' => 'pp-1', 'tenant' => 'tenant-9'],
     ))->validateWithoutSchemas()->ruleEntries();
 
     $node = $rules[0]->conditions;
@@ -1053,9 +1038,8 @@ it('parses a cross-schema check(...) leaf, predicate and all', function () {
     expect(treeToString($node->predicate))->toBe('(a or b)');
 });
 
-it('resolves named and positional bindings in a condition expression', function () {
+it('resolves named bindings in a condition expression', function () {
     expect(argumentValues(WarrantSyntax::parse(new BoundSyntax('is_owner(:id)', ['id' => 'x-1']))->validateWithoutSchemas()->conditionExpression()->parameters))->toBe(['x-1']);
-    expect(argumentValues(WarrantSyntax::parse(new BoundSyntax('is_owner(?)', ['p-1']))->validateWithoutSchemas()->conditionExpression()->parameters))->toBe(['p-1']);
 });
 
 // -- what may not follow the expression ---------------------------------------
@@ -1096,15 +1080,6 @@ it('rejects bindings the condition expression never used', function () {
         ->toThrow(RuleValidationException::class, 'never used');
 });
 
-it('rejects a condition expression that mixes named and positional bindings, validating it before resolving', function () {
-    expect(fn () => WarrantSyntax::parse(new BoundSyntax('is_owner(:a, ?)', ['a' => 1, 'p']))->validateWithoutSchemas()->conditionExpression())
-        ->toThrow(RuleValidationException::class, 'Cannot mix named and positional bindings.');
-});
-
-it('rejects rules that mix named and positional bindings, validating them before resolving', function () {
-    expect(fn () => WarrantSyntax::parse(new BoundSyntax('if is_thing(:a, ?) they can view', ['a' => 1]))->validateWithoutSchemas()->scopedTo('timesheets'))
-        ->toThrow(RuleValidationException::class, 'Cannot mix named and positional bindings.');
-});
 
 // -- the optional `for` header ------------------------------------------------
 
@@ -1644,8 +1619,8 @@ it('rejects an entry that is neither a rule, a block nor an include', function (
 
 // -- @include: arguments ------------------------------------------------------
 
-it('resolves positional bindings in include arguments', function () {
-    $set = WarrantSyntax::parse(new BoundSyntax('@include inherited(?, ?) for view', ['folder', 3]))->validateWithoutSchemas()->scopedTo('timesheets');
+it('resolves bindings in include arguments', function () {
+    $set = WarrantSyntax::parse(new BoundSyntax('@include inherited(:kind, :depth) for view', ['kind' => 'folder', 'depth' => 3]))->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect(argumentValues($set->entries[0]->arguments))->toEqualSyntax((['folder', 3]));
 });
@@ -1695,7 +1670,7 @@ it('round-trips an include through toBoundSyntax', function () {
     $bound = writeBoundSyntax($original);
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->ruleSet();
 
-    expect($bound->bindings)->toBe(['folder', 2]);
+    expect($bound->bindings)->toBe(['b0' => 'folder', 'b1' => 2]);
     expect(argumentValues($reparsed->entries[0]->arguments))->toEqualSyntax((['folder', 2]));
 });
 

@@ -236,14 +236,6 @@ abstract class Parser
         return $this->state->emptyLocationHere();
     }
 
-    /**
-     * The index of the `?` placeholder being read, among the `?`s of the text.
-     */
-    final protected function nextPositionalIndex(): int
-    {
-        return $this->state->nextPositionalIndex();
-    }
-
     // -- tokens ---------------------------------------------------------------
 
     /**

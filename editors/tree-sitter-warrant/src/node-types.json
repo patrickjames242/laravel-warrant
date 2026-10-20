@@ -32,10 +32,6 @@
         "named": true
       },
       {
-        "type": "positional",
-        "named": true
-      },
-      {
         "type": "sql_ref",
         "named": true
       },
@@ -190,10 +186,6 @@
         "types": [
           {
             "type": "named_binding",
-            "named": true
-          },
-          {
-            "type": "positional",
             "named": true
           },
           {
@@ -691,10 +683,6 @@
             "named": true
           },
           {
-            "type": "positional",
-            "named": true
-          },
-          {
             "type": "string",
             "named": true
           }
@@ -893,10 +881,6 @@
   {
     "type": "or",
     "named": false
-  },
-  {
-    "type": "positional",
-    "named": true
   },
   {
     "type": "they",

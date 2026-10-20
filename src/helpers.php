@@ -10,7 +10,7 @@ if (! function_exists('warrant')) {
      *
      *     return warrant('if in_team(:team) they can view', ['team' => $team]);
      *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     * @param array<string, mixed> $bindings Values for `:name` placeholders, by name.
      */
     function warrant(string $syntax, array $bindings = []): BoundSyntax
     {
@@ -26,7 +26,7 @@ if (! function_exists('warrant_file')) {
      *
      *     return warrant_file(resource_path('warrant/timesheets'));
      *
-     * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
+     * @param array<string, mixed> $bindings Values for `:name` placeholders, by name.
      */
     function warrant_file(string $path, array $bindings = []): BoundSyntax
     {

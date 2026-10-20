@@ -90,7 +90,7 @@ final class LanguageRuleMessages
 
     public static function messageIsNotText(): string
     {
-        return "A denial message after 'because' is a quoted string or a binding (:name or ?). "
+        return "A denial message after 'because' is a quoted string or a binding (:name). "
             .'@context is not allowed here.';
     }
 

@@ -4,9 +4,8 @@
 ; editors/vscode/syntaxes/warrant.tmLanguage.json so that a rule looks the same
 ; in Zed as it does in VS Code and PhpStorm. Two places deliberately do better
 ; than the TextMate grammar can, because a real parse tree knows more than a
-; regex: a positional `?` is highlighted as the binding it is rather than as a
-; generic operator, and a `@context` key is a property rather than falling
-; through to the bare-identifier rule.
+; regex: a `@context` key is a property rather than falling through to the
+; bare-identifier rule.
 
 ; -- keywords ----------------------------------------------------------------
 
@@ -68,11 +67,8 @@
   "@sql"
 ] @variable.special
 
-; Parse-time bindings: `:name` and `?`. A `?` is a positional binding, not an
-; operator -- see specs/language-server.md.
+; Parse-time bindings: `:name`.
 (named_binding) @variable.special
-
-(positional) @variable.special
 
 ; -- literals ----------------------------------------------------------------
 

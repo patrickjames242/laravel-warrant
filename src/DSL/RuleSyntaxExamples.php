@@ -223,7 +223,7 @@ class RuleSyntaxExamples
      *   // Variadic parameter -> a list argument -> a whereIn:
      *   #[RowCondition]
      *   public function isDepartment(RowConditionContext $c, string ...$departmentIds): Builder {
-     *       // is_department(?, ?, ?) with positional bindings ['a', 'b', 'c']
+     *       // is_department('a', 'b', 'c') -> $departmentIds === ['a', 'b', 'c']
      *       return $c->query->whereIn($c->column(), $departmentIds);
      *   }
      *
@@ -264,22 +264,6 @@ class RuleSyntaxExamples
             WARRANT, [
             'specific_user_id' => 'some-user-id',
             'some_list' => [1, null, false, 'some-string'],
-        ]))->validate()->scopedTo('timesheets');
-    }
-
-    /**
-     * Positional bindings (?). Values are matched left-to-right across the ENTIRE
-     * string. Positional and named bindings may NOT be mixed in the same call.
-     */
-    public function positionalBindings(): void
-    {
-        $ruleSet = WarrantSyntax::parse(new BoundSyntax(<<<'WARRANT'
-            if is_department(?, ?, ?)
-            they can view
-            WARRANT, [
-            'department-id-1',
-            'department-id-2',
-            'department-id-3',
         ]))->validate()->scopedTo('timesheets');
     }
 
@@ -337,17 +321,11 @@ class RuleSyntaxExamples
      */
     public function invalidExamples(): void
     {
-        // Mixing named and positional bindings in one call:
-        //   if is_thing(:a, ?) they can view
-
         // A named placeholder with no matching binding:
         //   WarrantSyntax::parse(new BoundSyntax("if is_thing(:missing) they can view", []))
 
         // A binding that is never referenced by any placeholder:
         //   WarrantSyntax::parse(new BoundSyntax("if is_self they can view", ['unused' => 1]))
-
-        // Positional count mismatch (2 placeholders, 3 values — or vice versa):
-        //   WarrantSyntax::parse(new BoundSyntax("if is_thing(?, ?) they can view", [1, 2, 3]))
 
         // A bare `if` with no `can` / `cannot` lines (grants/denies nothing):
         //   if is_self

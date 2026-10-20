@@ -2,12 +2,12 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Passing values to conditions
-description: Inline literals, named bindings, positional bindings, and the rules each obeys.
+description: Inline literals, named bindings, and the rules each obeys.
 sidebar:
   order: 4
 ---
 
-A condition may take arguments. There are three ways to supply them before
+A condition may take arguments. There are two ways to supply them before
 compilation, plus [`@context`](/concepts/context/in-rules/), which is resolved
 later when the check runs.
 
@@ -47,17 +47,6 @@ WarrantSyntax::parse(warrant('
 ', ['uid' => $currentUserId]))->validate()->scopedTo('documents');
 ```
 
-## Positional bindings
-
-`?` placeholders filled left to right across the entire string:
-
-```php
-WarrantSyntax::parse(warrant(
-    'if in_team(?, ?) they can view',
-    ['sales', 'eng'],
-))->validate()->rule();
-```
-
 ## The rules bindings obey
 
 Enforced when the rules are taken out of the text, and all three catch real
@@ -81,15 +70,12 @@ public function inTeams(RowConditionContext $c, array $teams): Builder
 }
 ```
 
-**Named and positional cannot be mixed** in one parse.
-
 **Every placeholder needs a value, and every value must be used.** A missing
-binding, an unused one, or a positional count mismatch is an error:
+binding or an unused one is an error:
 
 ```text
 No binding provided for ":uid".
 Binding(s) provided but never used: region.
-More positional placeholders (?) than bindings provided.
 ```
 
 ## How arguments reach the method
@@ -120,7 +106,7 @@ public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
 A parameter with a default is optional, so the rule may omit that argument.
 Supplying fewer than the required parameters is rejected during validation.
 Supplying more is fine: the extras are ignored by the call and stay reachable on
-`$c->arguments`, which is the full positional array.
+`$c->arguments`, which holds every argument in the order written.
 
 Type a parameter only as loosely as its values allow. An argument that may be an
 absent `@context` key has to be `mixed` or nullable.

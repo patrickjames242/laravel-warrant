@@ -101,7 +101,7 @@ class WarrantLexer : LexerBase() {
             c == '}' -> single(pos, WarrantTokenTypes.RBRACE)
             c == ',' -> single(pos, WarrantTokenTypes.COMMA)
             c == '.' -> single(pos, WarrantTokenTypes.DOT)
-            c == '!' || c == '*' || c == '?' || c == '=' -> single(pos, WarrantTokenTypes.OPERATOR)
+            c == '!' || c == '*' || c == '=' -> single(pos, WarrantTokenTypes.OPERATOR)
             else -> single(pos, TokenType.BAD_CHARACTER)
         }
     }

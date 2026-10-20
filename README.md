@@ -149,7 +149,7 @@ class TimesheetSchema extends WarrantSchema
     }
 
     // A variadic parameter collects a list argument:
-    // in_department(?, ?, ?) -> $departmentIds === ['a', 'b', 'c'].
+    // in_department('a', 'b', 'c') -> $departmentIds === ['a', 'b', 'c'].
     #[RowCondition]
     public function inDepartment(RowConditionContext $c, string ...$departmentIds): Builder
     {
@@ -194,7 +194,7 @@ The rules themselves are just text:
 
 ```text
 if is_self they can view, update, delete
-if in_department(?, ?) they can view, approve
+if in_department('sales', 'eng') they can view, approve
 if is_admin they can *
 ```
 

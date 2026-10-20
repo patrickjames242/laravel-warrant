@@ -38,7 +38,7 @@ final class ParseDenialMessage extends Parser
         if ($message === null) {
             $this->report($this->errorAtCurrent(
                 DiagnosticCode::MissingDenialMessage,
-                "Expected a denial message after 'because': a quoted string or a binding (:name or ?)."
+                "Expected a denial message after 'because': a quoted string or a binding (:name)."
             ));
 
             return null;

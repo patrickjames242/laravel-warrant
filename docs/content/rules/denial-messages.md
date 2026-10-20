@@ -172,4 +172,4 @@ model-bound route already carries the responsible rule's message.
 
 `WarrantSyntax::toSyntax()` re-renders a string message as `because '...'` and
 throws on a closure, which has no inline form. `toBoundSyntax()` carries either
-losslessly, as a `?` binding.
+losslessly, as a named binding.

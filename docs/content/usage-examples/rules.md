@@ -89,7 +89,6 @@ Bindings keep runtime values out of the text:
 use Warrant\Facades\Warrant;
 
 Warrant::parse(warrant('if in_team(:team) they can view', ['team' => $team]))->validate()->rule();
-Warrant::parse(warrant('if in_team(?, ?) they can view', ['sales', 'eng']))->validate()->rule();
 ```
 
 See [Values](/rules/values/).

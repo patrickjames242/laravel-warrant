@@ -31,7 +31,7 @@ behaviour you want.
 ## It mixes freely with everything else
 
 A `@context` reference carries no value at parse time, so it sits alongside
-literals and bindings and never consumes a positional `?`:
+literals and bindings:
 
 ```warrant
 if scoped_to('projects', @context project_id, :region) they can view
@@ -41,10 +41,9 @@ if scoped_to('projects', @context project_id, :region) they can view
 WarrantSyntax::parse(warrant($syntax, ['region' => 'west']))->validate()->scopedTo('documents');
 ```
 
-That matters because bindings are strict. Every `:name` must have a value, every
-value must be used, and named and positional bindings cannot be mixed in one
-parse. A `@context` reference is exempt from all three, since it is a name, not a
-value.
+That matters because bindings are strict. Every `:name` must have a value, and
+every value must be used. A `@context` reference is exempt from both, since it is
+a name, not a value.
 
 ## It works everywhere an argument does
 

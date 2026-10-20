@@ -133,7 +133,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 $syntax = (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas();
 
 $syntax->toSyntax();        // inline literals
-$syntax->toBoundSyntax();   // parameterized: ->syntax, plus a positional ->bindings array
+$syntax->toBoundSyntax();   // parameterized: ->syntax, plus ->bindings by name
 ```
 
 `toSyntax()` throws on anything with no inline form, such as an array parameter or

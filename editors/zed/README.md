@@ -30,10 +30,9 @@ for free — Zed's PHP extension injects whatever language the heredoc's closing
 label names, so no cooperation from that extension is needed.
 
 Highlight scopes intentionally mirror the TextMate grammar's, so a rule looks
-the same across all the editors, with two exceptions where a parse tree simply
-knows more than a regex can: a positional `?` is highlighted as the binding it
-is rather than as a generic operator, and a `@context` key is a property rather
-than falling through to the bare-identifier rule.
+the same across all the editors, with one exception where a parse tree simply
+knows more than a regex can: a `@context` key is a property rather than falling
+through to the bare-identifier rule.
 
 One thing goes further than the TextMate grammar can: the body of an
 `@sql "..."` reference is injected as SQL, so it is highlighted as real SQL

@@ -90,7 +90,7 @@ class OriginDocSchema extends WarrantSchema
     #[RuleTemplate]
     public function boundRules(): BoundSyntax
     {
-        return warrant('if owner_is(?) they can', ['t2']);
+        return warrant('if owner_is(:owner) they can', ['owner' => 't2']);
     }
 
     #[DerivedCondition]
@@ -196,7 +196,7 @@ it('gives every node a builder made the producer of the answer it is in, through
         ->if('is_owner')
         ->orIf(fn ($c) => $c->if('owner_is', ['u1'])->andIfNot('is_owner'))
         ->orIfCan(Build::can('view')->for(OriginDocSchema::class, Ref::column('id')))
-        ->ifRaw('owner_is(?)', ['u2'])
+        ->ifRaw('owner_is(:owner)', ['owner' => 'u2'])
         ->theyCan('view')
         ->theyCannotBecause('edit', 'Locked.'))[0];
 
@@ -294,7 +294,6 @@ it('checks what needs binding values only when values are checked', function (st
         ->and(bindingMistakes($source, $bindings, false))->toBe([]);
 })->with([
     'a named binding with no value' => ['if a(:x) they can view', [], 'No binding provided for ":x".'],
-    'more placeholders than values' => ['if a(?, ?) they can view', [1], 'More positional placeholders (?) than bindings provided.'],
     'a value never used' => ['if a they can view', ['x' => 1], 'Binding(s) provided but never used: x.'],
     'an @sql value that is no string' => ['if a(@sql :q) they can view', ['q' => 5], 'An @sql binding must resolve to a string, got int.'],
     'a message that is no string or closure' => ['they cannot view because :why', ['why' => 5], 'A denial message must be a string or a closure, got int.'],
@@ -304,10 +303,6 @@ it('checks what needs binding values only when values are checked', function (st
         'A can(...) reference to schema [docs] specifies a row target that is null; supply a row id or a @context reference, or drop the row selector.',
     ],
 ]);
-
-it('checks placeholders of both kinds mixed whether or not values are checked', function () {
-    expect(bindingMistakes('if a(:x, ?) they can view', ['x' => 1, 2], false))->toBe(['Cannot mix named and positional bindings.']);
-});
 
 // -- validating with no schemas -----------------------------------------------------
 

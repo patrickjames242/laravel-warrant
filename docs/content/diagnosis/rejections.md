@@ -20,8 +20,7 @@ to look.
 
 Taking rules out of a parsed text, with `->rule()`, `->scopedTo()` and the like,
 first validates the text as written against no schema: how ability blocks and
-clauses name their abilities, denial messages, and whether bindings are all named
-or all positional. Only then are the binding values put in place, so a mistake in
+clauses name their abilities, and denial messages. Only then are the binding values put in place, so a mistake in
 the text is reported before a binding that does not fit it.
 
 ## Syntax errors
@@ -71,20 +70,17 @@ nothing attached.
 
 ## Binding errors
 
-All five are about the same strictness, and all five are
+Both are about the same strictness, and both are
 `RuleValidationException`s from validation, each pointing at the binding it is
 about, or at the end of the text for a value never used. The values stay beside the
 text until a guard expands the rules, so validation is where they are checked:
 
 ```text
-Cannot mix named and positional bindings.
 No binding provided for ":uid".
-More positional placeholders (?) than bindings provided.
-2 positional binding(s) were provided but never used.
 Binding(s) provided but never used: region.
 ```
 
-The last one catches a real mistake more often than it looks: a binding left behind
+The second catches a real mistake more often than it looks: a binding left behind
 after a rule was edited, which usually means the rule no longer does what its
 author thought.
 

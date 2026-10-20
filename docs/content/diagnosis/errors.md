@@ -77,14 +77,10 @@ source that text was written in.
 
 ### Bindings
 
-- `Cannot mix named and positional bindings.`
 - `No binding provided for ":%s".`
-- `More positional placeholders (?) than bindings provided.`
-- `%d positional binding(s) were provided but never used.`
 - `Binding(s) provided but never used: %s.`
 
-Every one but the first needs the values, so an editor, which has none, reports
-only the first.
+Both need the values, so an editor, which has none, reports neither.
 
 ### Names
 

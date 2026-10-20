@@ -53,14 +53,14 @@ it('reads the first of several parsers that starts here', function () {
 });
 
 it('reads a null argument as a value, not as nothing read', function () {
-    [[$node]] = runParser(new ParseSyntax, 'a(null, ?, 1)');
+    [[$node]] = runParser(new ParseSyntax, 'a(null, :v, 1)');
 
-    expect($node)->toEqualSyntax(new ConditionNode(nameNode('a'), [argumentNode(null), new BindingNode(null, 0, SyntaxLocation::noProducer()), argumentNode(1)], SyntaxLocation::noProducer()))
-        ->and(argumentValues(WarrantSyntax::parse(new BoundSyntax('a(null, ?, 1)', [null]))->validateWithoutSchemas()->conditionExpression()->parameters))
+    expect($node)->toEqualSyntax(new ConditionNode(nameNode('a'), [argumentNode(null), new BindingNode('v', SyntaxLocation::noProducer()), argumentNode(1)], SyntaxLocation::noProducer()))
+        ->and(argumentValues(WarrantSyntax::parse(new BoundSyntax('a(null, :v, 1)', ['v' => null]))->validateWithoutSchemas()->conditionExpression()->parameters))
         ->toBe([null, null, 1])
         ->and($node->parameters[0]->location->span->offset)->toBe(2)
         ->and($node->parameters[1]->location->span->offset)->toBe(8)
-        ->and($node->parameters[2]->location->span->offset)->toBe(11);
+        ->and($node->parameters[2]->location->span->offset)->toBe(12);
 });
 
 it('reads repeated items until one does not start, and none when none does', function () {

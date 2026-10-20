@@ -8,9 +8,8 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
- * One binding: `:name` or `?`. Its value is not read here: the binding finds
- * it in the source it was read from. A `?` is given its index, its place among
- * the `?`s of the text.
+ * One binding: `:name`. Its value is not read here: the binding finds it in
+ * the source it was read from.
  *
  * @extends Parser<BindingNode>
  */
@@ -18,17 +17,11 @@ final class ParseBinding extends Parser
 {
     protected static function startsHere(TokensAhead $ahead): bool
     {
-        return in_array($ahead->peek()->type, [TokenType::NAMED_BINDING, TokenType::POSITIONAL], true);
+        return $ahead->peek()->type === TokenType::NAMED_BINDING;
     }
 
     protected function read(): BindingNode
     {
-        if ($this->check(TokenType::NAMED_BINDING)) {
-            return new BindingNode($this->advance()->value, null, $this->locationEndingHere());
-        }
-
-        $this->advance(); // consume '?'
-
-        return new BindingNode(null, $this->nextPositionalIndex(), $this->locationEndingHere());
+        return new BindingNode($this->advance()->value, $this->locationEndingHere());
     }
 }

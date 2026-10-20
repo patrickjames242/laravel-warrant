@@ -119,7 +119,7 @@ trait ReportsMissingSyntax
     {
         return $this->errorAtCurrent(
             DiagnosticCode::MissingArgument,
-            'Expected an argument: a literal, a binding (:name or ?), @context <key>, '
+            'Expected an argument: a literal, a binding (:name), @context <key>, '
                 .'@column <column> or @column <name>.<column>, or @sql "<sql>".'
         );
     }

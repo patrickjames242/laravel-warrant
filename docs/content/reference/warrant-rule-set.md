@@ -254,22 +254,23 @@ is written as text, so to write a single rule set, put it in a tree of its own:
 (new WarrantSyntax([$ruleSet]))->validate()->toSyntax();
 ```
 
-A binding is written as its value: inline as a literal, and bound as `?` with the
-value collected.
+A binding is written as its value: inline as a literal, and bound as a named
+binding of the writer's own, `:b0`, `:b1` and so on, with the value collected
+under that name.
 
 A `for <schema>` body is written as a `for <schema> { ... }` block, one blank line
 from the next.
 
 `toSyntax()` can only render parameters expressible as inline literals. An array,
 an object, `NAN`, `INF`, or a float needing exponent notation throws a
-`LogicException`. `toBoundSyntax()` extracts every parameter as a positional
-binding and always works.
+`LogicException`. `toBoundSyntax()` extracts every parameter as a named binding
+and always works.
 
 A closure denial message has no inline form, so `toSyntax()` throws on one and
-`toBoundSyntax()` carries it losslessly as a `?` binding.
+`toBoundSyntax()` carries it losslessly as a named binding.
 
-`@context`, `@column`, and `@sql` render as themselves in both forms and never
-consume a positional binding. A built `can` or `check` renders as
+`@context`, `@column`, and `@sql` render as themselves in both forms, never as
+bindings. A built `can` or `check` renders as
 `can(<ability> for <schema>(<row>) with <k> = <v>)`.
 
 An [ability block](/rules/ability-blocks/) stays a block in the tree, so it

@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 const EVERY_TOKEN_KIND = <<<'WARRANT'
     for docs {
         # a comment
-        if is_owner(:id, ?, @context org, @column docs.org_id, @sql "1 = 1")
+        if is_owner(:id, @context org, @column docs.org_id, @sql "1 = 1")
             and not check(is_open for folders(@context folder) as f with k = -1.5)
             or !can(view for docs) they can view, * they cannot edit because 'no'
         can they share { they can }
@@ -177,6 +177,11 @@ it('makes text that could mean anything an error token', function (string $sourc
         'a $ b',
         [[TokenType::IDENTIFIER, 'a'], [TokenType::ERROR, '$'], [TokenType::IDENTIFIER, 'b'], [TokenType::EOF, '']],
         [["Unexpected character '\$'.", 2, 3]],
+    ],
+    'a question mark, which is no binding' => [
+        'a(?)',
+        [[TokenType::IDENTIFIER, 'a'], [TokenType::LPAREN, '('], [TokenType::ERROR, '?'], [TokenType::RPAREN, ')'], [TokenType::EOF, '']],
+        [["Unexpected character '?'.", 2, 3]],
     ],
     'a multibyte character, as one token' => [
         'caf€',

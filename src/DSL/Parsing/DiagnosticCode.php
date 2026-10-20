@@ -73,9 +73,6 @@ enum DiagnosticCode: string
 
     // -- bindings: placeholders and the values given for them ---------------
 
-    /** Named (`:name`) and positional (`?`) placeholders in one text. */
-    case MixedBindings = 'mixed-bindings';
-
     /** A placeholder with no value given for it. */
     case MissingBindingValue = 'missing-binding-value';
 

@@ -36,9 +36,8 @@ npx tree-sitter parse ../../scratchpad.warrant
 ## Deliberately more permissive than the PHP parser
 
 This grammar accepts a few shapes the PHP parser rejects for *semantic* reasons
-— mixing a bare `for <schema>` header with braced blocks, a `because` on a `can`
-clause, or mixing `:named` and `?` bindings in one source. Highlighting a
-technically-invalid file sensibly beats collapsing it into one big error node,
+— mixing a bare `for <schema>` header with braced blocks, or a `because` on a
+`can` clause. Highlighting a technically-invalid file sensibly beats collapsing it into one big error node,
 and real diagnostics are the language server's job (`specs/language-server.md`).
 
 The one known place it is *wrong* rather than lenient: `@contextual` lexes as

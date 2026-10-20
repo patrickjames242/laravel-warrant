@@ -23,15 +23,6 @@ function bindingError(string $source, array $bindings): RuleValidationException
     throw new RuntimeException('Expected the validation to throw.');
 }
 
-it('gives positional values in the order the placeholders were written', function () {
-    $check = WarrantSyntax::parse(new BoundSyntax('check(a(?) for folders(?))', [1, 2]))->validateWithoutSchemas()->conditionExpression();
-
-    expect($check->predicate->parameters[0]->index)->toBe(0)
-        ->and($check->boundKey[0]->index)->toBe(1)
-        ->and(argumentValues($check->predicate->parameters))->toBe([1])
-        ->and(argumentValues($check->boundKey))->toBe([2]);
-});
-
 it('points a binding error at the binding it is about', function () {
     $error = bindingError("if a\n  and b(:missing) they can view", []);
 

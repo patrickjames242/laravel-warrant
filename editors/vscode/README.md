@@ -106,8 +106,7 @@ starts it.
 
 Keywords (`if they can cannot and or not`), single- and double-quoted string
 literals with `\'` / `\"` / `\\` escapes, numbers, `true`/`false`/`null`,
-`@context`, `:named` bindings,
-positional `?`, the `*` wildcard, and `#` line comments.
+`@context`, `:named` bindings, the `*` wildcard, and `#` line comments.
 
 ### Typing
 

@@ -42,7 +42,8 @@ use Warrant\DSL\Parsing\BoundSyntax;
  *   parameters written as literals. Throws if a parameter has no inline
  *   representation (arrays, objects, NAN/INF, exponent-only floats).
  * - **Bound** ({@see toBoundSyntax}) — every condition parameter becomes a
- *   positional `?`, and the raw values are collected into a flat, left-to-right
+ *   named binding of the writer's own, `:b0`, `:b1` and so on in the order
+ *   written, and the raw values are collected under those names into a
  *   {@see BoundSyntax}. Lossless for any PHP value.
  *
  * A binding is written as the value its own source gives it, so a placeholder
@@ -61,7 +62,7 @@ final class RuleSyntaxWriter
     private const PREC_AND = 2;
     private const PREC_NOT = 3;
 
-    /** @var list<mixed> Positional bindings collected in bound mode. */
+    /** @var array<string, mixed> The bindings collected in bound mode, by name. */
     private array $bindings = [];
 
     private function __construct(private readonly bool $bound)
@@ -80,7 +81,8 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * Render a whole tree to `?`-parameterized syntax plus the matching bindings.
+     * Render a whole tree to syntax with every value a named binding, plus the
+     * values those bindings are given.
      */
     public static function toBoundSyntax(ValidSyntax $syntax): BoundSyntax
     {
@@ -348,7 +350,7 @@ final class RuleSyntaxWriter
 
     /**
      * Render a `cannot` clause's denial message. In bound mode it becomes a
-     * positional `?` and its value — a string or a closure — is collected like
+     * named binding and its value — a string or a closure — is collected like
      * any other binding, so it round-trips losslessly via toBoundSyntax(). In
      * inline mode a string is written as a literal; a closure has no textual
      * form, so it throws, directing the caller to toBoundSyntax().
@@ -358,9 +360,7 @@ final class RuleSyntaxWriter
         $message = $this->value($node);
 
         if ($this->bound) {
-            $this->bindings[] = $message;
-
-            return '?';
+            return $this->bind($message);
         }
 
         if ($message instanceof Closure) {
@@ -376,33 +376,43 @@ final class RuleSyntaxWriter
     {
         $value = $this->value($node);
 
-        // A context ref is a compile-time reference, not a runtime value: it must
-        // render identically in inline and bound modes, and must NOT consume a
-        // positional binding (else the `?` count desyncs on re-parse).
+        // A context ref is a compile-time reference, not a runtime value: it
+        // renders identically in inline and bound modes, as a reference and not
+        // a binding.
         if ($value instanceof ContextRef) {
             return '@context ' . $value->key->name;
         }
 
         // A column ref is likewise a compile-time reference, not a runtime value —
-        // same rule: render identically in both modes and consume no `?` binding.
+        // same rule: it renders identically in both modes, and not as a binding.
         if ($value instanceof ColumnRef) {
             return '@column ' . ($value->alias === null ? '' : $value->alias->name . '.') . $value->column->name;
         }
 
         // An @sql ref is likewise a compile-time reference, not a runtime value —
-        // same rule: render identically in both modes and consume no `?` binding.
+        // same rule: it renders identically in both modes, and not as a binding.
         // The body is quoted/escaped so it round-trips back through the lexer.
         if ($value instanceof SqlRef) {
             return '@sql ' . $this->literal($this->value($value->sql));
         }
 
         if ($this->bound) {
-            $this->bindings[] = $value;
-
-            return '?';
+            return $this->bind($value);
         }
 
         return $this->literal($value);
+    }
+
+    /**
+     * Collect $value under the next of the writer's binding names, and render
+     * the binding that reads it.
+     */
+    private function bind(mixed $value): string
+    {
+        $name = 'b' . count($this->bindings);
+        $this->bindings[$name] = $value;
+
+        return ':' . $name;
     }
 
     /**

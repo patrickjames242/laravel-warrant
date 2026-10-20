@@ -380,10 +380,6 @@
               {
                 "type": "SYMBOL",
                 "name": "named_binding"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "positional"
               }
             ]
           }
@@ -914,10 +910,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "positional"
-        },
-        {
-          "type": "SYMBOL",
           "name": "context_ref"
         },
         {
@@ -1018,10 +1010,6 @@
               {
                 "type": "SYMBOL",
                 "name": "named_binding"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "positional"
               }
             ]
           }
@@ -1161,10 +1149,6 @@
     "named_binding": {
       "type": "PATTERN",
       "value": ":[A-Za-z_][A-Za-z0-9_-]*"
-    },
-    "positional": {
-      "type": "STRING",
-      "value": "?"
     },
     "identifier": {
       "type": "PATTERN",

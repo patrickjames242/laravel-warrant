@@ -131,7 +131,7 @@ A validated tree renders back to the language:
 
 ```php
 $syntax->toSyntax();        // canonical text, inline literals
-$syntax->toBoundSyntax();   // text plus a positional bindings array
+$syntax->toBoundSyntax();   // text plus its bindings, by name
 ```
 
 To render one rule set, put it in a tree of its own:
@@ -143,7 +143,8 @@ To render one rule set, put it in a tree of its own:
 `toSyntax()` can only render parameters expressible as inline literals. An array,
 an object, `NAN`, `INF`, or a float needing exponent notation throws a
 `LogicException`, and `toBoundSyntax()` is the answer, since it extracts every
-parameter as a positional binding.
+parameter as a named binding of its own: `:b0`, `:b1` and so on, in the order
+written.
 
 ```text
 Condition parameter of type array cannot be written inline; use toBoundSyntax().
@@ -152,5 +153,5 @@ Condition parameter of type array cannot be written inline; use toBoundSyntax().
 A closure denial message has no inline form either, so `toSyntax()` throws on one
 and `toBoundSyntax()` carries it losslessly.
 
-`@context`, `@column`, and `@sql` render as themselves in both forms and never
-consume a positional binding.
+`@context`, `@column`, and `@sql` render as themselves in both forms, never as
+bindings.

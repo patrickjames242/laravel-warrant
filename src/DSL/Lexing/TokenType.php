@@ -32,7 +32,6 @@ enum TokenType
 
     // Bindings.
     case NAMED_BINDING;  // :name
-    case POSITIONAL;     // ?
     case CONTEXT_REF;    // @context (followed by the key identifier)
     case COLUMN_REF;     // @column (followed by `<schema> . <column>`)
     case SQL_REF;        // @sql (followed by a quoted string literal)

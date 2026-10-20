@@ -99,18 +99,8 @@ it('keeps each placeholder as a binding node, since there are no values to bind'
     $syntax = WarrantParser::analyze('if in_period(:year, @sql :query) they cannot view because :why')->syntax;
     $rule = $syntax->children[0];
 
-    expect($rule->conditions)->toEqualSyntax(new ConditionNode(nameNode('in_period'), [argumentNode(new BindingNode('year', null, SyntaxLocation::noProducer())), argumentNode(new SqlRef(argumentNode(new BindingNode('query', null, SyntaxLocation::noProducer())), SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()))
-        ->and($rule->cannotClauses[0]->message)->toEqualSyntax(new BindingNode('why', null, SyntaxLocation::noProducer()))
-        ->and(WarrantParser::analyze('if in_period(?, ?) they can view')->syntax->children[0]->conditions)
-        ->toEqualSyntax(new ConditionNode(nameNode('in_period'), [new BindingNode(null, 0, SyntaxLocation::noProducer()), new BindingNode(null, 1, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()));
-});
-
-it('still reports named and positional placeholders mixed, and keeps the tree', function () {
-    $source = 'if a(:x, ?) they can view';
-
-    expect(analysisDiagnostics($source))->toBe([
-        ['Cannot mix named and positional bindings.', '?'],
-    ])->and(WarrantParser::analyze($source)->syntax->children)->toHaveCount(1);
+    expect($rule->conditions)->toEqualSyntax(new ConditionNode(nameNode('in_period'), [argumentNode(new BindingNode('year', SyntaxLocation::noProducer())), argumentNode(new SqlRef(argumentNode(new BindingNode('query', SyntaxLocation::noProducer())), SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()))
+        ->and($rule->cannotClauses[0]->message)->toEqualSyntax(new BindingNode('why', SyntaxLocation::noProducer()));
 });
 
 it('reports a lexical error and reads on past it', function () {
@@ -367,7 +357,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
         ->and(WarrantParser::analyze($source)->syntax->children)
         ->toEqualSyntax([new WarrantRuleNode(new ConditionNode(nameNode('a'), array_map(argumentNode(...), $arguments), SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with(function () {
-    $expectedArgument = 'Expected an argument: a literal, a binding (:name or ?), @context <key>, '
+    $expectedArgument = 'Expected an argument: a literal, a binding (:name), @context <key>, '
         .'@column <column> or @column <name>.<column>, or @sql "<sql>".';
 
     return [
@@ -375,7 +365,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
         'in an unclosed list' => ['if a( they can view', [$expectedArgument, 'they'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
         'a context reference with no key' => ['if a(@context) they can view', ["Expected a context key after '@context'.", ')'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
         'a column reference with no column' => ['if a(@column x.) they can view', ["Expected a column name after '@column x.'.", ')'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
-        'an sql reference with a number for a body' => ['if a(@sql 5) they can view', ["Expected a quoted SQL string or a binding (:name or ?) after '@sql'.", '5'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
+        'an sql reference with a number for a body' => ['if a(@sql 5) they can view', ["Expected a quoted SQL string or a binding (:name) after '@sql'.", '5'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
     ];
 });
 
@@ -386,7 +376,7 @@ it('reads a with map past a missing key or value, and keeps both of a key writte
 })->with([
     'a missing value' => [
         'if can(view for docs with org = ) they can edit',
-        ['Expected an argument: a literal, a binding (:name or ?), @context <key>, @column <column> or @column <name>.<column>, or @sql "<sql>".', ')'],
+        ['Expected an argument: a literal, a binding (:name), @context <key>, @column <column> or @column <name>.<column>, or @sql "<sql>".', ')'],
         withEntries(['org' => new MissingArgumentNode(SyntaxLocation::noProducer())]),
     ],
     'a missing key' => ['if can(view for docs with = 1, org = 2) they can edit', ['Expected a context key name.', '='], withEntries([INode::MISSING_NAME => 1, 'org' => 2])],
@@ -400,7 +390,7 @@ it('reads a with map past a missing key or value, and keeps both of a key writte
 it('reads a because with no message as giving none', function () {
     $source = 'if a they cannot view because';
 
-    expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string or a binding (:name or ?).", '']])
+    expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string or a binding (:name).", '']])
         ->and(WarrantParser::analyze($source)->syntax->children)->toEqualSyntax(WarrantParser::parse('if a they cannot view')->children);
 });
 
@@ -495,7 +485,6 @@ it('says which kind of mistake each diagnostic is about, and that it is an error
     'a block with no header' => ['{ they can view }', DiagnosticCode::BlockWithoutHeader],
     'a block after an unbraced one' => ['for docs they can view for files { they can edit }', DiagnosticCode::UnbracedBlockBesideAnother],
     'a block after rules with no header' => ['they can view for docs { }', DiagnosticCode::RulesBeforeBlock],
-    'named and positional placeholders' => ['if a(:x, ?) they can view', DiagnosticCode::MixedBindings],
 ]);
 
 it('throws the kind of mistake with the error in a strict parse', function () {

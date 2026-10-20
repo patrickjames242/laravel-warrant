@@ -28,8 +28,7 @@ final readonly class ValidationInput
      * @param bool $checkBindingValues Whether each binding is checked against
      *   the value its source gives it: that it has one, that every value given
      *   is used, and that it can stand where it was written. Off where the text
-     *   was read without its values, as an editor reads it; whether named and
-     *   positional bindings are mixed is checked either way.
+     *   was read without its values, as an editor reads it.
      * @param SyntaxProducer|null $producer What produced the text when it was
      *   validated; null when nothing had handed it over.
      */

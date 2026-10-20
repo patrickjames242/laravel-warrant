@@ -51,7 +51,7 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *              -- in rules with no `for` header, clauses and includes either all
  *                 name their abilities or all leave them off, as a rule template's
  *                 body does; the first one decides
- *   message  := STRING | NAMED_BINDING | POSITIONAL
+ *   message  := STRING | NAMED_BINDING
  *              -- a string literal, or a binding resolving to a string or closure
  *   ability  := IDENTIFIER | '*'
  *   expr     := or
@@ -71,7 +71,7 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
- *   arg      := literal | NAMED_BINDING | POSITIONAL | context_ref | column_ref
+ *   arg      := literal | NAMED_BINDING | context_ref | column_ref
  *   context_ref := '@context' IDENTIFIER
  *   column_ref  := '@column' IDENTIFIER ( '.' IDENTIFIER )?
  *              -- one name is the column, on the rows the rule is already about;

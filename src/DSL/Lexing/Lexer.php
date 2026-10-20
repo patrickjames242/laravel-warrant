@@ -64,7 +64,6 @@ final class Lexer
         '=' => TokenType::EQUALS,
         '.' => TokenType::DOT,
         '!' => TokenType::NOT,
-        '?' => TokenType::POSITIONAL,
     ];
 
     /** The characters `ctype_space()` accepts, which separate tokens. */

@@ -368,11 +368,6 @@ it('parses a BoundSyntax with the named bindings it holds', function () {
         ->toBe([7]);
 });
 
-it('parses a BoundSyntax with the positional bindings it holds', function () {
-    expect(argumentValues(WarrantSyntax::parse(new BoundSyntax('if in_department(?, ?) they can view', ['sales', 'eng']))->validateWithoutSchemas()->rule()->conditions->parameters))
-        ->toBe(['sales', 'eng']);
-});
-
 // -- the tree keeps ability blocks and includes --------------------------------
 
 it('keeps an ability block as a node over a generic body', function () {
@@ -493,7 +488,7 @@ it('round-trips every block losslessly through bound syntax', function () {
 
     $bound = $syntax->toBoundSyntax();
 
-    expect($bound->bindings)->toBe(['x-1', [1, 2, 3]]);
+    expect($bound->bindings)->toBe(['b0' => 'x-1', 'b1' => [1, 2, 3]]);
     expect(WarrantSyntax::parse($bound)->validateWithoutSchemas()->toBoundSyntax())->toEqual($bound);
 });
 

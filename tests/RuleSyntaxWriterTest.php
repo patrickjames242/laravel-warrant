@@ -91,14 +91,14 @@ it('throws when a parameter cannot be written inline', function () {
 
 // -- bound form ---------------------------------------------------------------
 
-it('extracts every parameter as a positional placeholder', function () {
+it('extracts every parameter as a named binding of its own', function () {
     $rule = Build::rule()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 
     $bound = writeBoundSyntax($rule);
 
     expect($bound)->toBeInstanceOf(BoundSyntax::class);
-    expect($bound->syntax)->toBe("if in_department(?, ?)\nthey can view");
-    expect($bound->bindings)->toBe(['sales', 'eng']);
+    expect($bound->syntax)->toBe("if in_department(:b0, :b1)\nthey can view");
+    expect($bound->bindings)->toBe(['b0' => 'sales', 'b1' => 'eng']);
 });
 
 it('binds any value losslessly, including non-inlinable ones', function () {
@@ -107,28 +107,28 @@ it('binds any value losslessly, including non-inlinable ones', function () {
 
     $bound = writeBoundSyntax($rule);
 
-    expect($bound->syntax)->toBe("if in(?)\nthey can view");
-    expect($bound->bindings)->toBe([$ids]);
+    expect($bound->syntax)->toBe("if in(:b0)\nthey can view");
+    expect($bound->bindings)->toBe(['b0' => $ids]);
 });
 
-it('orders bindings left-to-right across the whole set', function () {
+it('names bindings in the order written across the whole set', function () {
     $set = WarrantSyntax::parse(new BoundSyntax(
-        'if a(?) they can view if b(?, ?) they can edit',
-        ['first', 'second', 'third'],
+        'if a(:one) they can view if b(:two, :three) they can edit',
+        ['one' => 'first', 'two' => 'second', 'three' => 'third'],
     ))->validateWithoutSchemas()->scopedTo('docs');
 
     $bound = writeBoundSyntax($set);
 
     expect($bound->syntax)->toBe(<<<'TXT'
         for docs {
-            if a(?)
+            if a(:b0)
             they can view
 
-            if b(?, ?)
+            if b(:b1, :b2)
             they can edit
         }
         TXT);
-    expect($bound->bindings)->toBe(['first', 'second', 'third']);
+    expect($bound->bindings)->toBe(['b0' => 'first', 'b1' => 'second', 'b2' => 'third']);
 });
 
 // -- denial messages (because) ------------------------------------------------
@@ -151,13 +151,13 @@ it('round-trips a string denial message through the inline form', function () {
     expect(WarrantSyntax::parse(writeSyntax($rule))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe('locked');
 });
 
-it('extracts a string denial message as a positional binding in bound form', function () {
+it('extracts a string denial message as a named binding in bound form', function () {
     $rule = WarrantSyntax::parse("if is_locked they cannot edit because 'locked'")->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
 
-    expect($bound->syntax)->toBe("if is_locked\nthey cannot edit because ?");
-    expect($bound->bindings)->toBe(['locked']);
+    expect($bound->syntax)->toBe("if is_locked\nthey cannot edit because :b0");
+    expect($bound->bindings)->toBe(['b0' => 'locked']);
 
     // Re-parsing the bound form restores the message.
     expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe('locked');
@@ -168,8 +168,8 @@ it('orders the message binding after the condition bindings', function () {
 
     $bound = writeBoundSyntax($rule);
 
-    expect($bound->syntax)->toBe("if in_dept(?)\nthey cannot edit because ?");
-    expect($bound->bindings)->toBe(['sales', 'locked']);
+    expect($bound->syntax)->toBe("if in_dept(:b0)\nthey cannot edit because :b1");
+    expect($bound->bindings)->toBe(['b0' => 'sales', 'b1' => 'locked']);
 });
 
 it('carries a closure denial message losslessly through the bound form', function () {
@@ -178,8 +178,8 @@ it('carries a closure denial message losslessly through the bound form', functio
 
     $bound = writeBoundSyntax($rule);
 
-    expect($bound->syntax)->toBe('they cannot edit because ?');
-    expect($bound->bindings)->toBe([$closure]);
+    expect($bound->syntax)->toBe('they cannot edit because :b0');
+    expect($bound->bindings)->toBe(['b0' => $closure]);
     expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe($closure);
 });
 
@@ -215,18 +215,18 @@ it('renders a context ref as @context <key>, inline and bound alike', function (
     expect(writeSyntax($rule))->toBe("if is_teacher(@context academic_year_id)\nthey can view");
 
     // Bound form: the ref is NOT a runtime value, so it renders the same and
-    // consumes no positional binding.
+    // is not made a binding.
     $bound = writeBoundSyntax($rule);
     expect($bound->syntax)->toBe("if is_teacher(@context academic_year_id)\nthey can view");
     expect($bound->bindings)->toBe([]);
 });
 
-it('keeps a context ref out of the positional binding stream', function () {
+it('renders a context ref beside a bound value as a reference', function () {
     $rule = WarrantSyntax::parse("if is_teacher('x', @context year) they can view")->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
-    expect($bound->syntax)->toBe("if is_teacher(?, @context year)\nthey can view");
-    expect($bound->bindings)->toBe(['x']);
+    expect($bound->syntax)->toBe("if is_teacher(:b0, @context year)\nthey can view");
+    expect($bound->bindings)->toBe(['b0' => 'x']);
 
     // Re-parsing the bound form restores the same value + ref shape.
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
@@ -278,18 +278,18 @@ it('renders a column ref as @column <schema>.<column>, inline and bound alike', 
     expect(writeSyntax($rule))->toBe("if is_teacher(@column timesheets.pay_period_id)\nthey can view");
 
     // Bound form: the ref is NOT a runtime value, so it renders the same and
-    // consumes no positional binding.
+    // is not made a binding.
     $bound = writeBoundSyntax($rule);
     expect($bound->syntax)->toBe("if is_teacher(@column timesheets.pay_period_id)\nthey can view");
     expect($bound->bindings)->toBe([]);
 });
 
-it('keeps a column ref out of the positional binding stream', function () {
+it('renders a column ref beside a bound value as a reference', function () {
     $rule = WarrantSyntax::parse("if is_teacher('x', @column timesheets.id) they can view")->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
-    expect($bound->syntax)->toBe("if is_teacher(?, @column timesheets.id)\nthey can view");
-    expect($bound->bindings)->toBe(['x']);
+    expect($bound->syntax)->toBe("if is_teacher(:b0, @column timesheets.id)\nthey can view");
+    expect($bound->bindings)->toBe(['b0' => 'x']);
 
     // Re-parsing the bound form restores the same value + ref shape.
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
@@ -308,18 +308,18 @@ it('renders a @sql ref as @sql \'<sql>\', inline and bound alike', function () {
     expect(writeSyntax($rule))->toBe("if is_teacher(@sql 'select 1')\nthey can view");
 
     // Bound form: the ref is NOT a runtime value, so it renders the same and
-    // consumes no positional binding.
+    // is not made a binding.
     $bound = writeBoundSyntax($rule);
     expect($bound->syntax)->toBe("if is_teacher(@sql 'select 1')\nthey can view");
     expect($bound->bindings)->toBe([]);
 });
 
-it('keeps a @sql ref out of the positional binding stream', function () {
+it('renders a @sql ref beside a bound value as a reference', function () {
     $rule = WarrantSyntax::parse("if is_teacher('x', @sql \"select 1\") they can view")->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
-    expect($bound->syntax)->toBe("if is_teacher(?, @sql 'select 1')\nthey can view");
-    expect($bound->bindings)->toBe(['x']);
+    expect($bound->syntax)->toBe("if is_teacher(:b0, @sql 'select 1')\nthey can view");
+    expect($bound->bindings)->toBe(['b0' => 'x']);
 
     // Re-parsing the bound form restores the same value + ref shape.
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
@@ -354,15 +354,15 @@ it('round-trips the inline form back through the parser', function (string $synt
 
 it('round-trips the bound form back through the parser', function () {
     $set = WarrantSyntax::parse(new BoundSyntax(
-        "if in_department(?, ?) they can view they cannot delete if is_admin they can *",
-        ['sales', 'eng'],
+        "if in_department(:first, :second) they can view they cannot delete if is_admin they can *",
+        ['first' => 'sales', 'second' => 'eng'],
     ))->validateWithoutSchemas()->scopedTo('docs');
 
     $bound = writeBoundSyntax($set);
     $reparsed = WarrantSyntax::parse($bound)->validateWithoutSchemas()->scopedTo('docs');
 
     expect(writeBoundSyntax($reparsed)->syntax)->toBe($bound->syntax);
-    expect(writeBoundSyntax($reparsed)->bindings)->toBe(['sales', 'eng']);
+    expect(writeBoundSyntax($reparsed)->bindings)->toBe(['b0' => 'sales', 'b1' => 'eng']);
 });
 
 // -- Cross-schema can(...) round-trip -----------------------------------------
@@ -405,15 +405,15 @@ it('re-parses to an equal tree (inline round-trip)', function () {
 
 it('renders literal row selectors and with-values via bound syntax losslessly', function () {
     $rule = WarrantSyntax::parse(new BoundSyntax(
-        'if can(manage for departments(?) with tenant = ?) they can update',
-        ['dept-1', 'tenant-9'],
+        'if can(manage for departments(:department) with tenant = :tenant) they can update',
+        ['department' => 'dept-1', 'tenant' => 'tenant-9'],
     ))->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
-    expect($bound->bindings)->toBe(['dept-1', 'tenant-9']);
+    expect($bound->bindings)->toBe(['b0' => 'dept-1', 'b1' => 'tenant-9']);
 
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
-    expect($reparsed->conditions)->toEqualSyntax($rule->conditions);
+    expect(writeSyntax($reparsed))->toBe(writeSyntax($rule));
 });
 
 // -- Cross-schema check(...) round-trip ----------------------------------------
@@ -458,15 +458,15 @@ it('re-parses a check(...) to an equal tree (inline round-trip)', function () {
 
 it('renders a check(...) row selector and predicate args via bound syntax losslessly', function () {
     $rule = WarrantSyntax::parse(new BoundSyntax(
-        'if check(is_open(?) for pay_periods(?) with tenant = ?) they can view',
-        ['maintenance', 'pp-1', 'tenant-9'],
+        'if check(is_open(:mode) for pay_periods(:period) with tenant = :tenant) they can view',
+        ['mode' => 'maintenance', 'period' => 'pp-1', 'tenant' => 'tenant-9'],
     ))->validateWithoutSchemas()->rule();
 
     $bound = writeBoundSyntax($rule);
-    expect($bound->bindings)->toBe(['maintenance', 'pp-1', 'tenant-9']);
+    expect($bound->bindings)->toBe(['b0' => 'maintenance', 'b1' => 'pp-1', 'b2' => 'tenant-9']);
 
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
-    expect($reparsed->conditions)->toEqualSyntax($rule->conditions);
+    expect(writeSyntax($reparsed))->toBe(writeSyntax($rule));
 });
 
 // -- ability blocks -----------------------------------------------------------

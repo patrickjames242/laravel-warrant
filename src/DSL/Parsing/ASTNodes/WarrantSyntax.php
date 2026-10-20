@@ -65,7 +65,7 @@ readonly class WarrantSyntax
 
     /**
      * Parse rule text of any form, keeping the values a {@see BoundSyntax} holds
-     * for its named (:name) or positional (?) placeholders in the source each
+     * for its `:name` bindings in the source each
      * {@see BindingNode} finds its value in.
      * A string is rule text with no bindings. Nothing has handed the syntax over
      * yet, so it has no producer: the backend sets one when it receives it.
@@ -110,7 +110,7 @@ readonly class WarrantSyntax
      * Parse the rule text in the file at $path, read as
      * {@see BoundSyntax::fromFile()} reads it.
      *
-     * @param array<int|string, mixed> $bindings
+     * @param array<string, mixed> $bindings
      */
     public static function parseFile(string $path, array $bindings = []): self
     {

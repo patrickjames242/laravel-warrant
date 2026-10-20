@@ -91,7 +91,7 @@ The grammar distinguishes the categories the parser does:
 - keywords: `if`, `they`, `can`, `cannot`, `because`, `for`, `with`, `as`, `check`
 - operators: `and`, `or`, `not`, `!`, `*`
 - symbolic references: `@context`, `@column`, `@sql`, `@include`
-- placeholders: `:name` and `?`
+- bindings: `:name`
 - string literals, including denial messages
 - numbers, `true`, `false`, `null`
 - `#` line comments
