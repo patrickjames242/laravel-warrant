@@ -145,7 +145,7 @@ would ban exactly those.
 #[DerivedCondition]
 public function runaway(): WarrantConditionBuilder
 {
-    return WarrantConditionBuilder::build()->if('runaway');
+    return Build::condition()->if('runaway');
 }
 ```
 

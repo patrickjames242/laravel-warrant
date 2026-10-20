@@ -63,7 +63,8 @@ under a `for` header naming this schema; a header naming another is rejected.
 | --- | --- |
 | a `string` | rule text, parsed as a condition expression |
 | a `WarrantSyntax` | rule text you parsed, with bindings, holding a condition expression |
-| `Warrant::condition()->…` | the expression the builder composed |
+| `Build::condition()->…` | the expression the builder composed |
+| `Build::can(…)` / `Build::check(…)` | that `can(...)` or `check(...)` |
 | an expression node | used as it is |
 | `true` / `false` | decides the outcome outright |
 | `null` | [unknown](/sql/unknown/) |
@@ -98,18 +99,14 @@ The builder form is what you want when the expression needs a cross-schema
 reference:
 
 ```php
+use Warrant\Builders\Build;
+use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\Ref;
-use Warrant\Builders\WarrantConditionBuilder;
 
 #[DerivedCondition]
-public function parentIsOwned(): WarrantConditionBuilder
+public function parentIsOwned(): CrossSchemaCheckBuilder
 {
-    return WarrantConditionBuilder::build()->ifCheck(
-        'is_owner',
-        FolderSchema::class,
-        Ref::column('parent_id'),
-        as: 'parent',
-    );
+    return Build::check('is_owner')->for(FolderSchema::class, Ref::column('parent_id'))->as('parent');
 }
 ```
 
@@ -144,7 +141,7 @@ budget it shares with [templates](/rules/templates/):
 #[DerivedCondition]
 public function runaway(): WarrantConditionBuilder
 {
-    return WarrantConditionBuilder::build()->if('runaway');   // stopped at depth 64
+    return Build::condition()->if('runaway');   // stopped at depth 64
 }
 ```
 

@@ -141,7 +141,7 @@ Warrant::parse(warrant($text, $bindings))->validate()->scopedTo('documents');
 Warrant::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
 Warrant::parse('if is_mine they can view')->validate()->rule();
 Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();
-RuleSetNode::build('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
+Build::ruleSet('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
 Warrant::parse("for documents {\n{$text}\n}")->validate();
 (new WarrantSyntax([$set]))->validate()->toSyntax();
 (new WarrantSyntax([$set]))->validate()->toBoundSyntax();
@@ -159,14 +159,24 @@ return [$ruleA, $textB, $builder];             // rules() joins a list of any of
 ## Builder
 
 ```php
-Warrant::rule()
+Build::rule()
     ->if('is_mine')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
-    ->ifCan('view', 'folders', Ref::column('folder_id'))
-    ->ifCheck('is_open', 'pay_periods', Ref::context('period_id'))
-    ->theyCan('view')
-    ->theyCannotBecause('delete', 'Not allowed.')
-    ->toRule();
+    ->andIfCan(Build::can('view')->for('folders', Ref::column('folder_id')))
+    ->andIfCheck(Build::check('is_open')->for('pay_periods', Ref::context('period_id')))
+    ->andIfNotRaw('is_archived or is_locked')
+    ->when($isAdmin, fn ($r) => $r->theyCan('*'), fn ($r) => $r->theyCan('view'))
+    ->theyCannotBecause('delete', 'Not allowed.');
+
+$visible = Build::condition()->if('is_public')->orIf('is_mine');
+Build::rule()->if($visible)->ifNot(Build::can('manage')->for('departments', Ref::context('department_id')))->theyCan('view');
+Build::rule()->ifCheck(fn ($check) => $check->if('is_open')->andIfNot('is_locked')->for('pay_periods', Ref::column('pay_period_id')));
+
+Build::ruleSet('documents', function ($rule) {
+    $rule()->if('is_mine')->theyCan('view');
+    $rule->include('requires_approval', ['manager'])->for('publish');
+});
+Build::ruleSet(fn ($rule) => $rule()->if('is_owner')->theyCan());   // headless, for a template
 
 Ref::context('year');
 Ref::column('pay_period_id');

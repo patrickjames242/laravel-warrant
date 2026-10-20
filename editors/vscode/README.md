@@ -73,12 +73,12 @@ starts it.
 
 - Highlighting **inside PHP** for the rule-text argument of `warrant()`,
   `Warrant::parse()`, `WarrantSyntax::parse()`, `WarrantParser::parse()` and the
-  builders' `->ifRaw()` / `->orIfRaw()` — a single- or double-quoted string, or a
+  builders' raw methods, `->ifRaw()` to `->orIfNotRaw()` — a single- or double-quoted string, or a
   heredoc/nowdoc of any label, passed first or by name:
 
   ```php
   warrant('is_owner or in_team(:team)', ['team' => $team]);
-  Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+  Build::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
   ```
 
   A variable or a concatenation is left as PHP.

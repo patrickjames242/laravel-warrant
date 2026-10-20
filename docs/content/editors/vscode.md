@@ -52,11 +52,11 @@ WARRANT)->validate()->ruleSet();
 
 **Rule-text arguments in PHP**: the first argument of `warrant()`,
 `Warrant::parse()`, `WarrantSyntax::parse()`, `WarrantParser::parse()`, and a
-builder's `ifRaw()` and `orIfRaw()`, as a quoted string or a heredoc of any label:
+builder's raw methods, `ifRaw()` to `orIfNotRaw()`, as a quoted string or a heredoc of any label:
 
 ```php
 warrant('is_owner or in_team(:team)', ['team' => $team]);
-Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+Build::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
 ```
 
 **Returned rule text**: a string returned from a `#[DerivedCondition]` or

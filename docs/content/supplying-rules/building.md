@@ -8,7 +8,7 @@ sidebar:
 ---
 
 A rule set is a `RuleSetNode` for one schema key. Text becomes one through
-`WarrantSyntax::parse()`, and PHP builds one with `RuleSetNode::build()`. Every
+`WarrantSyntax::parse()`, and PHP builds one with `Build::ruleSet()`. Every
 node lives in `Warrant\DSL\Parsing\ASTNodes`.
 
 A parsed tree hands out its nodes once it is validated: `validate()` checks every
@@ -48,7 +48,7 @@ in any mix of text, rules, builders and rule sets, and joins them:
 ```php
 return [
     'if is_mine they can view, update',
-    WarrantRuleNode::build()->theyCannot('delete'),
+    Build::rule()->theyCannot('delete'),
 ];
 ```
 
@@ -65,7 +65,7 @@ Each `$rule()` call starts a fresh rule and appends it. You never call `toRule()
 yourself:
 
 ```php
-RuleSetNode::build('documents', function ($rule) {
+Build::ruleSet('documents', function ($rule) {
     $rule()->if('is_mine')->theyCan('view', 'update');
     $rule()->if('is_locked')->theyCannotBecause('update', 'This document is locked.');
     $rule()->theyCannot('delete');

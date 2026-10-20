@@ -44,7 +44,7 @@ In a PHP file, the same strings the editors highlight:
 
 - a heredoc or nowdoc labelled `WARRANT`, wherever it stands;
 - the first argument of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
-  `WarrantParser::parse()`, and a builder's `ifRaw()` and `orIfRaw()`;
+  `WarrantParser::parse()`, and a builder's raw methods, `ifRaw()` to `orIfNotRaw()`;
 - a string returned from `rules()`, or from a `#[DerivedCondition]` or
   `#[RuleTemplate]` method, alone or inside a returned array.
 

@@ -136,7 +136,7 @@ Stored text for the parts an administrator edits, builders for the parts that
 depend on runtime values:
 
 ```php
-$dynamic = RuleSetNode::build($key, function ($rule) use ($teamIds) {
+$dynamic = Build::ruleSet($key, function ($rule) use ($teamIds) {
     $rule()->if(fn ($c) => array_map(fn ($id) => $c->orIf('in_team', [$id]), $teamIds))
         ->theyCan('view');
 });

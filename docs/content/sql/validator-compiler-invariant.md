@@ -24,10 +24,9 @@ The validator reads rule text. Plenty of rules never are rule text.
 A rule built with the [fluent builder](/rules/builder/) goes straight to an AST:
 
 ```php
-WarrantRuleNode::build()
-    ->ifCan('view', 'folders', Ref::column('parent_id'))
-    ->theyCan('view')
-    ->toRule();
+Build::rule()
+    ->ifCan(Build::can('view')->for('folders', Ref::column('parent_id')))
+    ->theyCan('view');
 ```
 
 A [derived condition](/schemas/conditions-beyond-sql/) may build its expression
@@ -36,9 +35,9 @@ it, and not before:
 
 ```php
 #[DerivedCondition]
-public function parentIsOwned(): WarrantConditionBuilder
+public function parentIsOwned(): CrossSchemaCheckBuilder
 {
-    return WarrantConditionBuilder::build()->ifCheck('is_owner', FolderSchema::class, Ref::column('parent_id'));
+    return Build::check('is_owner')->for(FolderSchema::class, Ref::column('parent_id'));
 }
 ```
 
@@ -66,7 +65,7 @@ Produce the same mistake from PHP and the compiler catches it, with its own mess
 for the same thing:
 
 ```php
-WarrantConditionBuilder::build()->ifCan('view', 'folders', $someKey);
+Build::condition()->ifCan(Build::can('view')->for('folders', $someKey));
 ```
 
 The two need not word it identically. Both have to report.

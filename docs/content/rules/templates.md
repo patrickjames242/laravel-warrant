@@ -157,8 +157,8 @@ A template answers in whichever form it has its body, much as a
 |---|---|
 | rule text | `'if is_owner they can'` |
 | a `WarrantSyntax` | `Warrant::parse(warrant('if is_child_of(:rel) they can', ['rel' => $rel]))` |
-| a rule that names no abilities | `Warrant::rule()->if('is_owner')->theyCan()->toRule()` |
-| an `@include` that names no abilities | `new IncludeInvocationNode('requires_approval')` |
+| a rule that names no abilities | `Build::rule()->if('is_owner')->theyCan()` |
+| headless entries, rules and `@include`s naming no abilities | `Build::ruleSet(fn ($rule) => $rule->include('requires_approval'))` |
 | an iterable of any of these, nested | `['if is_owner they can', [$include]]` |
 
 Every rule and include in the answer must name no abilities, because the `@include`

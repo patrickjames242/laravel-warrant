@@ -53,7 +53,7 @@ so no editor needs a third copy.
 - **Inside PHP, where rule text is expected** — VS Code and PhpStorm only. A
   string literal, or a heredoc/nowdoc of any label, is highlighted when it is the
   first argument of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
-  `WarrantParser::parse()`, or a builder's `->ifRaw()` / `->orIfRaw()`:
+  `WarrantParser::parse()`, or a builder's raw methods, `->ifRaw()` to `->orIfNotRaw()`:
   ```php
   warrant('is_owner or in_team(:team)', ['team' => $team]);
   ```

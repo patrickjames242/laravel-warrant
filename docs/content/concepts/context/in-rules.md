@@ -77,9 +77,10 @@ When you assemble rules with the fluent builder, `Ref::context()` is the same
 reference:
 
 ```php
+use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 
-WarrantRuleNode::build()
+Build::rule()
     ->if('scoped_to', ['projects', Ref::context('project_id'), $region])
     ->theyCan('view')
     ->toRule();

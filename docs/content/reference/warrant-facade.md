@@ -72,15 +72,13 @@ Warrant::impossibleAbilities($schema, ?Authenticatable $user = null): array;
 ```php
 Warrant::parse(warrant(string $syntax, array $bindings = [])): WarrantSyntax;
 Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
-Warrant::condition(): WarrantConditionBuilder;
-Warrant::rule(): WarrantRuleBuilder;
 ```
 
 One `parse()` reads every form of rule text and returns a
 [`WarrantSyntax`](/reference/warrant-rule-set/) tree; `validate()` checks it, and
 you ask the validated tree for the shape you expect. `parseFile()` does the same for a file, such as a `.warrant`
-file. `condition()` and `rule()` take no arguments and return the builder that
-composes one.
+file. Building rules in PHP starts from `Warrant\Builders\Build` instead; see
+[the rule builder API](/reference/rule-builder/).
 
 ```php
 Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();             // IBooleanExpressionNode
@@ -88,8 +86,6 @@ Warrant::parse('if is_mine they can view')->validate()->rule();                 
 Warrant::parse('if is_mine they can view')->validate()->scopedTo('documents');         // RuleSetNode
 Warrant::parse('for documents { they can view }')->validate()->ruleSet();              // RuleSetNode
 Warrant::parse('for documents { … } for folders { … }')->validate()->forSchema('documents'); // ?RuleSetNode
-Warrant::condition()->if('is_owner')->orIf('is_admin');                    // WarrantConditionBuilder
-Warrant::rule()->if('is_mine')->theyCan('view');                           // WarrantRuleBuilder
 ```
 
 Two global helpers hold rule text with the values for its placeholders, as a

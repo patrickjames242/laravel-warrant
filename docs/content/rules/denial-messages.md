@@ -45,13 +45,12 @@ they cannot delete because 'Locked documents cannot be deleted.'
 ## With the builder
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\Builders\Build;
 
-WarrantRuleNode::build()
+Build::rule()
     ->if('is_locked')
     ->theyCannotBecause('update', 'This document is locked and can no longer be edited.')
-    ->theyCannotBecause('delete', 'Locked documents cannot be deleted.')
-    ->toRule();
+    ->theyCannotBecause('delete', 'Locked documents cannot be deleted.');
 ```
 
 Abilities passed together share one message:

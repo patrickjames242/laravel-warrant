@@ -125,7 +125,7 @@ $file = Cache::rememberForever(
 No text at all, when the shape depends on runtime data:
 
 ```php
-RuleSetNode::build('documents', function ($rule) use ($teamIds) {
+Build::ruleSet('documents', function ($rule) use ($teamIds) {
     $rule()->orIf(function ($c) use ($teamIds) {
         foreach ($teamIds as $id) {
             $c->orIf('in_team', [$id]);

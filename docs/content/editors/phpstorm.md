@@ -48,14 +48,14 @@ WARRANT)->validate()->ruleSet();
 ```
 
 **Rule-text arguments**: the first argument of `warrant()`, `Warrant::parse()`,
-`WarrantSyntax::parse()`, `WarrantParser::parse()`, and a builder's `ifRaw()` and
-`orIfRaw()`, as a quoted string or a heredoc of any label, passed first or by
+`WarrantSyntax::parse()`, `WarrantParser::parse()`, and a builder's raw methods,
+`ifRaw()` to `orIfNotRaw()`, as a quoted string or a heredoc of any label, passed first or by
 name:
 
 ```php
 warrant('is_owner or in_team(:team)', ['team' => $team]);
 Warrant::parse(syntax: 'for documents { if is_mine they can view }');
-Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+Build::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
 ```
 
 **Returned rule text**: a string returned, alone or inside a returned array, from

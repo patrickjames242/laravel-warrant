@@ -161,11 +161,12 @@ public function isMine(RowConditionContext $c): Builder|bool
 ## Derived conditions
 
 A derived condition is built from other conditions, as rule text, a parsed
-`WarrantSyntax`, or a condition builder:
+`WarrantSyntax`, or a condition, `can` or `check` builder:
 
 ```php
+use Warrant\Builders\Build;
+use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\Ref;
-use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\DerivedCondition;
@@ -183,14 +184,9 @@ public function ownedOrInTeam(mixed $team): WarrantSyntax
 }
 
 #[DerivedCondition]
-public function parentIsOwned(): WarrantConditionBuilder
+public function parentIsOwned(): CrossSchemaCheckBuilder
 {
-    return WarrantConditionBuilder::build()->ifCheck(
-        'is_owner',
-        FolderSchema::class,
-        Ref::column('parent_id'),
-        as: 'parent',
-    );
+    return Build::check('is_owner')->for(FolderSchema::class, Ref::column('parent_id'))->as('parent');
 }
 ```
 

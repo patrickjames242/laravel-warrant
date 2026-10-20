@@ -12,14 +12,13 @@ usually clearer when the rule's shape depends on runtime data: a list of team id
 a feature flag, values that have no business being serialized into a string.
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\Builders\Build;
 
-$rule = WarrantRuleNode::build()
+Build::rule()
     ->if('is_mine')
     ->orIf(fn ($c) => $c->if('is_manager')->andIf('in_region'))
     ->theyCan('view', 'update')
-    ->theyCannot('delete')
-    ->toRule();
+    ->theyCannot('delete');
 ```
 
 That is the same rule as:
@@ -34,24 +33,29 @@ It produces the same AST the parser does, so a built rule goes through identical
 validation and compilation. Nothing is serialized, so arbitrary PHP values in
 condition parameters survive untouched.
 
-:::tip[One front door]
-Every construct is reachable from the facade. `parse` reads rule text of any form
-and the result says which form it held; `condition` and `rule` hand you a builder:
+## The way in
 
-```php
-Warrant::condition()                                      // WarrantConditionBuilder
-Warrant::rule()                                           // WarrantRuleBuilder
-Warrant::parse('is_owner or is_admin')->validate()->conditionExpression()
-Warrant::parse('if is_mine they can view')->validate()->rule()
-Warrant::parse('for documents { they can view }')->validate()->ruleSet()
-Warrant::parse('for documents { … } for folders { … }')->validate()->forSchema('folders')
-```
+Everything starts from `Warrant\Builders\Build`:
 
-`warrant($syntax, $bindings)` and `warrant_file($path, $bindings)` are global
-helpers holding rule text with its values, as a `BoundSyntax` that `rules()` may
-return and `Warrant::parse()` reads.
+| Call | Makes |
+| --- | --- |
+| `Build::rule()` | a rule: conditions, then `theyCan` / `theyCannot` |
+| `Build::condition()` | a condition expression, with no clauses |
+| `Build::ruleSet('documents', fn ($rule) => ...)` | a `for documents` rule set |
+| `Build::ruleSet(fn ($rule) => ...)` | the entries alone, as a rule template writes them |
+| `Build::can('approve')` | a `can(...)` reference |
+| `Build::check('is_open')` | a `check(...)` reference |
 
-`Warrant::rule()` and `WarrantRuleNode::build()` are the same call.
+Everything that accepts rule text accepts these too: `rules()`, a
+[provider](/supplying-rules/provider/), a [rule template](/rules/templates/) and
+a [derived condition](/schemas/conditions-beyond-sql/). Return the builder as it
+is; Warrant finishes it.
+
+:::tip[A builder makes its nodes when it is handed over]
+A builder holds what you gave it and makes no nodes until it is resolved, in the
+syntax it was handed over in. So a condition you build once and use in two rules
+becomes two separate trees, and every node of each says where it came from:
+`rules()`, the provider, a template or a derived condition.
 :::
 
 ## Connectives
@@ -65,35 +69,57 @@ Each has a plain and a negated form, mirroring `where` / `orWhere` / `whereNot`:
 | `ifNot` / `andIfNot` | `and not` |
 | `orIfNot` | `or not` |
 
-Each takes a condition name with optional parameters, or a closure:
+Each takes any of these:
 
 ```php
-->if('in_team', ['sales', 'eng'])
-->orIf(fn ($c) => $c->if('a')->orIf('b'))
+->if('in_team', ['sales', 'eng'])            // a condition name, with parameters
+->orIf(fn ($c) => $c->if('a')->orIf('b'))    // a closure: a parenthesized group
+->andIf($featureEnabled)                     // a bool, folded in as a constant
+->andIf($visible)                            // a condition builder, spliced in as a group
+->andIf($node)                               // an expression node, used as it is
+->ifNot(Build::can('manage')->for(...))      // a can(...) or check(...) reference
 ```
 
-A closure is a parenthesized group. It receives a bare condition builder, with the
-connectives but no `theyCan` or `theyCannot`, because a group is only ever a
+A closure receives a bare condition builder, with the connectives but no
+`theyCan` or `theyCannot`, because a group is only ever a condition. Its return
+value is ignored.
+
+Only a condition name takes parameters. Passing them with anything else throws a
+`LogicException`, and so does passing a rule builder, because a rule is not a
 condition.
 
 Precedence is identical to the language, `not` then `and` then `or`, so
 `->if('a')->andIf('b')->orIf('c')` is `(a and b) or c`.
+
+## Reusing a condition
+
+Build a condition once and splice it into as many rules as you like:
+
+```php
+$visible = Build::condition()->if('is_public')->orIf('is_mine');
+
+return [
+    Build::rule()->if($visible)->andIfNot('is_archived')->theyCan('view'),
+    Build::rule()->ifNot($visible)->theyCannotBecause('view', 'You cannot see this document.'),
+];
+```
+
+An empty condition builder splices in as `false`.
 
 ## Where it earns its keep
 
 Folding a list:
 
 ```php
-$rule = WarrantRuleNode::build()
+Build::rule()
     ->if('is_mine')
     ->orIf(function ($c) use ($teamIds) {
         foreach ($teamIds as $id) {
             $c->orIf('in_team', [$id]);
         }
     })
-    ->when($includeManagers, fn ($c) => $c->orIf('is_manager'))
-    ->theyCan('view')
-    ->toRule();
+    ->when($includeManagers, fn ($r) => $r->orIf('is_manager'))
+    ->theyCan('view');
 ```
 
 An empty group folds to `false`, so it contributes nothing to an `or` and vetoes an
@@ -102,19 +128,47 @@ An empty group folds to `false`, so it contributes nothing to an `or` and vetoes
 Passing a value the language cannot express inline:
 
 ```php
-WarrantRuleNode::build()
+Build::rule()
     ->if('within_polygon', [$geoJsonArray])
-    ->theyCan('view')
-    ->toRule();
+    ->theyCan('view');
+```
+
+## Runtime branches
+
+`when()` and `unless()` follow Laravel: the callback runs when the value is truthy
+(or falsy, for `unless`), and an optional third callback runs otherwise. Each is
+handed the same builder, so it may add conditions and clauses alike:
+
+```php
+Build::rule()
+    ->if('is_manager')
+    ->when($isSenior,
+        fn ($r) => $r->theyCan('view', 'approve', 'reopen'),
+        fn ($r) => $r->theyCan('view', 'approve'))
+    ->unless($readOnly, fn ($r) => $r->theyCan('update'));
 ```
 
 ## Splicing in text
 
-Author the readable part as a string and compose the rest structurally:
+Author the readable part as a string and compose the rest structurally. Each raw
+method splices its text in as one group:
+
+| Method | Language |
+| --- | --- |
+| `ifRaw` / `andIfRaw` | `and (...)` |
+| `orIfRaw` | `or (...)` |
+| `ifNotRaw` / `andIfNotRaw` | `and not (...)` |
+| `orIfNotRaw` | `or not (...)` |
 
 ```php
-->ifRaw('is_admin or is_owner', $bindings = [])->andIf('in_region')
+Build::rule()
+    ->ifRaw('is_admin or is_owner')
+    ->andIfRaw('in_region(:region)', ['region' => 'west'])
+    ->orIfNotRaw('is_archived')
+    ->theyCan('update');
 ```
+
+The text is parsed where you write it, so a mistake in it throws there.
 
 ## Cross-schema references
 
@@ -124,16 +178,14 @@ is usually a runtime value:
 ```php
 use Warrant\Builders\Ref;
 
-WarrantRuleNode::build()
+Build::rule()
     ->if('is_author')
-    ->orIfCan('approve', PayPeriod::class, Ref::context('period_id'))
-    ->andIfCheck(
-        fn ($p) => $p->if('is_open')->andIfNot('is_locked'),
-        'pay_periods',
-        Ref::column('pay_period_id'),
-    )
-    ->theyCan('submit')
-    ->toRule();
+    ->orIfCan(Build::can('approve')->for(PayPeriod::class, Ref::context('period_id')))
+    ->andIfCheck(fn ($check) => $check
+        ->if('is_open')
+        ->andIfNot('is_locked')
+        ->for('pay_periods', Ref::column('pay_period_id')))
+    ->theyCan('submit');
 ```
 
 | Method | Language |
@@ -141,43 +193,75 @@ WarrantRuleNode::build()
 | `ifCan` / `andIfCan` / `orIfCan` | `can(...)` |
 | `ifCheck` / `andIfCheck` / `orIfCheck` | `check(...)` |
 
-Three things to remember.
-
-**There are no negated variants.** Negate with a group:
+A reference names its target the same way for both:
 
 ```php
-->ifNot(fn ($c) => $c->ifCan('manage', 'departments', Ref::context('department_id')))
+->for($schema, $key)        // the schema, and the row it selects
+->as('pp')                  // names the rows it selects
+->with(['year' => 2026])    // context handed to the target schema
 ```
 
-**Omitting the row means unbound.** Its default is a `NoRow` sentinel, not `null`:
+`$schema` is a schema key, a schema, or a model, as a class or an instance. It is
+resolved through the registry where you write it.
+
+### `can(...)`
+
+`ifCan` takes a string, a builder, or a closure:
 
 ```php
-->ifCan('access', 'billing')                 // can(access for billing)
-->ifCan('view', 'folders', $folder->id)      // can(view for folders('f-1'))
-->ifCan('view', 'folders', key: null)        // row-bound, and rejected by validate()
+->ifCan('edit')                                                // can(edit): this same schema
+->ifCan(Build::can('access')->for('billing'))                  // can(access for billing)
+->ifCan(fn ($can) => $can('view')->for('folders', $folder->id))
+```
+
+The closure is handed a factory that starts a reference from its ability. Call it
+exactly once; calling it never, or twice, throws a `LogicException`.
+
+### `check(...)`
+
+`ifCheck` takes a builder, or a closure handed a fresh one to configure:
+
+```php
+->ifCheck(Build::check('is_open')->for('pay_periods', Ref::context('period_id')))
+->ifCheck(Build::check('in_region', ['west'])->for('pay_periods'))
+->ifCheck(fn ($check) => $check->if('in_region', ['west'])->orIf('is_global')->for('pay_periods'))
+```
+
+`Build::check('is_open')` starts the predicate, and the rest of it is built on the
+check like any condition. The predicate is read against the target, so a `can(...)`
+inside it names one of the target's abilities.
+
+There is no string form, because a bare condition name has no schema to be checked
+against. A check needs `for()`, and a predicate of at least one term: unlike a
+group it cannot fall back to `false`, because a predicate may not contain a
+constant. Either mistake throws a `LogicException` where the check is written.
+
+### Things to remember
+
+**Negate through `ifNot`.** A reference is a condition, so there is no `ifNotCan`:
+
+```php
+->ifNot(Build::can('manage')->for('departments', Ref::context('department_id')))
+->orIfNot(Build::check('is_closed')->for('pay_periods', Ref::column('pay_period_id')))
+```
+
+**Omitting the key means unbound.** Its default is a `NoRow` sentinel, not `null`:
+
+```php
+Build::can('access')->for('billing')                 // can(access for billing)
+Build::can('view')->for('folders', $folder->id)      // can(view for folders('f-1'))
+Build::can('view')->for('folders', null)             // row-bound, and rejected by validation
 ```
 
 An explicit `null` stays row-bound, so a missing id fails loudly instead of quietly
 widening the question. When composing dynamically and wanting the unbound form as a
-fallback, say so: `key: $id ?? new NoRow`.
+fallback, say so: `->for('folders', $id ?? new NoRow)`.
 
 **A multi-part key takes a list**, bound positionally to `matchKey()`:
 
 ```php
-->ifCan('assign', 'shift_days', [Ref::column('team_id'), Ref::column('starts_on')])
+Build::can('assign')->for('shift_days', [Ref::column('team_id'), Ref::column('starts_on')])
 ```
-
-A `check` predicate may be a single condition name, or a closure for a tree, which
-is also the form to use when a leaf takes parameters:
-
-```php
-->ifCheck('is_open', 'pay_periods', Ref::context('period_id'))
-->ifCheck(fn ($p) => $p->if('in_region', ['west'])->orIf('is_global'), 'pay_periods')
-```
-
-The closure must add at least one term. Unlike a group it cannot fall back to
-`false`, because a predicate may not contain a constant, so it throws a
-`LogicException`.
 
 ## Symbolic references
 
@@ -196,29 +280,62 @@ a column ref against the registry and the query's grammar, a SQL ref verbatim.
 
 ## A rule needs a clause
 
-`toRule()` throws a `LogicException` if you call neither `theyCan` nor
-`theyCannot`, exactly as the language rejects a bare `if` with no clause.
+A rule with neither `theyCan` nor `theyCannot` throws a `LogicException` when it is
+finished, exactly as the language rejects a bare `if` with no clause.
+
+With no abilities, a clause is generic: `->theyCan()`, `->theyCannot()` or
+`->theyCannotBecause([], 'message')`. That is how a
+[rule template's](/rules/templates/) body writes them, since the `@include`
+expanding the template names the abilities.
 
 ## A whole rule set
 
-`RuleSetNode::build()` hands you a factory. Each `$rule()` call starts a fresh
-rule and adds it to the set, and you never call `toRule()` yourself:
+`Build::ruleSet()` hands its callback a `$rule`. Each `$rule()` starts a rule and
+`$rule->include()` an `@include`; they keep the order you wrote them in, and
+nothing calls `toRule()`:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+use Warrant\Builders\Build;
+use Warrant\Builders\RuleSetBuilder;
 
-$set = RuleSetNode::build('documents', function ($rule) {
+Build::ruleSet('documents', function (RuleSetBuilder $rule) {
     $rule()->if('is_mine')->theyCan('view', 'update');
 
     $rule()->if('is_locked')
         ->theyCannotBecause('update', 'This document is locked.');
 
-    $rule()->if('is_admin')->theyCan('view', 'update', 'delete');
+    $rule->include('requires_approval', ['manager'])->for('publish');
+    $rule->include('audit_trail')->for('*');
 });
 ```
 
-This is the shape you will most often return from a
+This is the shape you will most often return from `rules()` or a
 [provider](/supplying-rules/provider/).
+
+Given only the callback, `Build::ruleSet()` answers with the entries themselves,
+which is what a rule template returns:
+
+```php
+#[RuleTemplate]
+public function requiresApproval(string $level): array
+{
+    return Build::ruleSet(function (RuleSetBuilder $rule) use ($level) {
+        $rule()->if('is_approved_by', [$level])->theyCan();
+        $rule->include('audit_trail');      // no for(): the include is generic
+    });
+}
+```
+
+## Finishing a builder yourself
+
+Warrant finishes every builder it is handed, so you only need these when your own
+code works on the tree:
+
+```php
+$rule->toRule();                               // a WarrantRuleNode
+$condition->buildConditions(new SyntaxSource(null));   // an expression, or null with no terms
+Build::can('view')->toNode(new SyntaxSource(null));    // a CrossSchemaCanNode
+```
 
 ## Why the compiler checks the builder too
 

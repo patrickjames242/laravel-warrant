@@ -68,7 +68,6 @@ public function rules(RuleProviderContext $context): string|iterable
 ## Returning a rule set from a file
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 
 public function rules(RuleProviderContext $context): BoundSyntax
@@ -80,11 +79,14 @@ public function rules(RuleProviderContext $context): BoundSyntax
 ## Returning built rules
 
 ```php
+use Warrant\Builders\Build;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
+
 public function rules(RuleProviderContext $context): RuleSetNode
 {
     $teamIds = $context->user->teams->pluck('id');
 
-    return RuleSetNode::build($context->schemaKey, function ($rule) use ($teamIds) {
+    return Build::ruleSet($context->schemaKey, function ($rule) use ($teamIds) {
         $rule()->orIf(function ($c) use ($teamIds) {
             foreach ($teamIds as $id) {
                 $c->orIf('in_team', [$id]);

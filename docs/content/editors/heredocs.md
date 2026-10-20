@@ -35,15 +35,18 @@ without any label. It may be a single- or double-quoted string, or a heredoc wit
 any label:
 
 ```php
+use Warrant\Builders\Build;
+use Warrant\Facades\Warrant;
+
 warrant('is_owner or in_team(:team)', ['team' => $team]);
 
 Warrant::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
 
-Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
+Build::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
 ```
 
 The calls that count are `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
-`WarrantParser::parse()`, and a builder's `ifRaw()` and `orIfRaw()`. The argument
+`WarrantParser::parse()`, and a builder's raw methods, `ifRaw()` to `orIfNotRaw()`. The argument
 is recognised when it is passed first or by its parameter name. A variable or a
 concatenation is plain PHP, since there is no rule text to see until it runs.
 
