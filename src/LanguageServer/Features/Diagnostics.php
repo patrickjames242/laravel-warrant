@@ -24,7 +24,7 @@ final class Diagnostics
         foreach ($workspace->analyze($document) as $analyzed) {
             $fragment = $analyzed->fragment;
 
-            foreach ($analyzed->analysis->diagnostics as $diagnostic) {
+            foreach ($analyzed->diagnostics as $diagnostic) {
                 $found[] = [
                     'range' => $document->rangeOf(
                         $fragment->fileOffsetOf($diagnostic->offset),

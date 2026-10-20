@@ -5,10 +5,11 @@ namespace Warrant\LanguageServer\Features;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\DSL\Parsing\Positions\SourceMap;
 use Warrant\LanguageServer\Documents\AnalyzedFragment;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Workspace;
@@ -50,25 +51,28 @@ final class DocumentSymbols
     /**
      * The symbol for $node, or null when it has no place in the text.
      *
-     * @param object $node A node of the tree.
+     * @param INode $node A node of the tree.
      * @param AnalyzedFragment $analyzed The fragment it was read from.
      * @param Document $document The document the fragment is in.
      * @return array<string, mixed>|null
      */
-    private static function symbolOf(object $node, AnalyzedFragment $analyzed, Document $document): ?array
+    private static function symbolOf(INode $node, AnalyzedFragment $analyzed, Document $document): ?array
     {
-        $positions = $analyzed->analysis->syntax->positions ?? new SourceMap;
-        $span = $positions->spanOf($node);
+        $span = $node->location->span;
 
         if ($span === null) {
             return null;
         }
 
         [$name, $kind, $children] = match (true) {
-            $node instanceof RuleSetNode => ['for '.self::orMissing($node->schemaKey), self::KIND_NAMESPACE, $node->entries],
-            $node instanceof SchemaConditionNode => ['for '.self::orMissing($node->schemaKey), self::KIND_NAMESPACE, []],
-            $node instanceof AbilityBlockNode => ['can they '.implode(', ', $node->abilities), self::KIND_STRUCT, $node->entries],
-            $node instanceof IncludeInvocationNode => ['@include '.self::orMissing($node->templateKey), self::KIND_MODULE, []],
+            $node instanceof RuleSetNode => ['for '.self::orMissing($node->schemaKey()), self::KIND_NAMESPACE, $node->entries],
+            $node instanceof SchemaConditionNode => ['for '.self::orMissing($node->schemaKey()), self::KIND_NAMESPACE, []],
+            $node instanceof AbilityBlockNode => [
+                'can they '.implode(', ', array_map(static fn (NameNode $ability): string => $ability->name, $node->abilities)),
+                self::KIND_STRUCT,
+                $node->entries,
+            ],
+            $node instanceof IncludeInvocationNode => ['@include '.self::orMissing($node->templateKey->name), self::KIND_MODULE, []],
             $node instanceof WarrantRuleNode => [self::ruleName($node), self::KIND_FUNCTION, []],
             $node instanceof IBooleanExpressionNode => ['condition', self::KIND_BOOLEAN, []],
             default => [null, null, []],
@@ -92,7 +96,7 @@ final class DocumentSymbols
         }
 
         $childSymbols = array_values(array_filter(array_map(
-            static fn (object $child): ?array => self::symbolOf($child, $analyzed, $document),
+            static fn (INode $child): ?array => self::symbolOf($child, $analyzed, $document),
             $children,
         )));
 

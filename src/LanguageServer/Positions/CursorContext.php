@@ -4,7 +4,6 @@ namespace Warrant\LanguageServer\Positions;
 
 use Closure;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -15,31 +14,30 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
-use Warrant\DSL\Parsing\ASTNodes\NotNode;
-use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\DSL\Parsing\Positions\SourceEntry;
-use Warrant\DSL\Parsing\Positions\SourceMap;
+use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\SchemaCatalog;
 
 /**
  * What is at one offset of parsed rule text, for an editor answering about it: the
- * node and part written there, what kind of name the part is, and what is in
- * scope there.
+ * nodes written there, what kind of name the innermost is, and what is in scope
+ * there.
  *
- * A name the text is missing has no part, since nothing was written for it, so
- * an offset where one belongs is on the node around it with no slot. What was
- * written just before such an offset is in the tokens of the
- * {@see \Warrant\DSL\Parsing\AnalysisResult}.
+ * A name the text is missing was written nowhere, so an offset where one belongs
+ * is on the node around it, with no slot. What was written just before such an
+ * offset is in the tokens of the {@see \Warrant\DSL\Parsing\AnalysisResult}.
  */
 final readonly class CursorContext
 {
     /**
-     * @param list<SourceEntry> $entries Every node and part written over the
-     *   offset, widest first; see {@see SourceMap::containing()}.
+     * @param list<INode> $nodes Every node written over the offset, widest
+     *   first, and of two over the same text the one holding the other first.
+     *   The last is what the offset is on; the ones before it say what that
+     *   sits inside, such as the check(...) whose schema a condition name
+     *   belongs to.
      * @param CursorScope $scope What is in scope at the offset.
      * @param SlotKind|null $slot What kind of name the offset is on, or null when
      *   it is on no name.
@@ -52,7 +50,7 @@ final readonly class CursorContext
      *   declares, and when that schema is not known.
      */
     public function __construct(
-        public array $entries,
+        public array $nodes,
         public CursorScope $scope,
         public ?SlotKind $slot = null,
         public ?string $name = null,
@@ -63,8 +61,8 @@ final readonly class CursorContext
     /**
      * The context at byte $offset of $syntax.
      *
-     * @param WarrantSyntax $syntax The parsed text, with the positions its parse
-     *   recorded.
+     * @param WarrantSyntax $syntax The parsed text, each node placed where it was
+     *   written.
      * @param int $offset 0-based byte offset into the text; one just past a name
      *   is on that name, where a cursor sits after typing it.
      * @param SchemaCatalog|null $catalog Where the schemas the text names are
@@ -75,8 +73,18 @@ final readonly class CursorContext
      */
     public static function at(WarrantSyntax $syntax, int $offset, ?SchemaCatalog $catalog = null, ?string $schemaKey = null): self
     {
-        $entries = $syntax->positions?->containing($offset) ?? [];
-        $innermost = $entries === [] ? null : $entries[array_key_last($entries)];
+        $nodes = [];
+        $parents = [];
+
+        foreach ($syntax->children as $child) {
+            self::collect($child, null, $offset, $nodes, $parents);
+        }
+
+        /* The walk lists a node before the nodes inside it, and a stable sort
+           keeps that order between two over the same text. */
+        usort($nodes, static fn (INode $a, INode $b): int => $b->location->span->length() <=> $a->location->span->length());
+
+        $innermost = $nodes === [] ? null : $nodes[array_key_last($nodes)];
 
         $hasRows = static fn (string $key): bool => $catalog?->find($key)?->describesRows() ?? true;
         $headerless = CursorScope::root($schemaKey, $schemaKey !== null && $hasRows($schemaKey));
@@ -85,7 +93,7 @@ final readonly class CursorContext
 
         if ($innermost !== null) {
             foreach ($syntax->children as $child) {
-                $scope = self::scopeOf($innermost->node, $child, $headerless, $hasRows);
+                $scope = self::scopeOf($innermost, $child, $headerless, $hasRows);
 
                 if ($scope !== null) {
                     break;
@@ -95,25 +103,53 @@ final readonly class CursorContext
 
         $scope ??= $syntax->isSchemaScoped() ? new CursorScope : $headerless;
 
-        [$slot, $name, $nameSchemaKey] = $innermost === null
-            ? [null, null, null]
-            : self::slotOf($innermost, $scope);
+        [$slot, $name, $nameSchemaKey] = $innermost instanceof NameNode
+            ? self::slotOf($innermost, $parents, $scope)
+            : [null, null, null];
 
-        return new self($entries, $scope, $slot, $name, $nameSchemaKey);
+        return new self($nodes, $scope, $slot, $name, $nameSchemaKey);
+    }
+
+    /**
+     * Add $node and every node inside it that was written over $offset to
+     * $nodes, parent before child, and note each one's parent in $parents.
+     * Every node is looked in, since a stand-in for something missing is placed
+     * where it belongs, which may be past the end of the node holding it. A
+     * missing name was written nowhere, so it is never on the offset.
+     *
+     * @param list<INode> $nodes
+     * @param array<int, INode> $parents Each node's parent, by object id.
+     */
+    private static function collect(INode $node, ?INode $parent, int $offset, array &$nodes, array &$parents): void
+    {
+        if ($parent !== null) {
+            $parents[spl_object_id($node)] = $parent;
+        }
+
+        $span = $node->location->span;
+        $missingName = $node instanceof NameNode && $node->name === INode::MISSING_NAME;
+
+        if ($span !== null && $span->contains($offset) && ! $missingName) {
+            $nodes[] = $node;
+        }
+
+        foreach ($node->children() as $child) {
+            self::collect($child, $node, $offset, $nodes, $parents);
+        }
     }
 
     /**
      * The scope $target is written in, when it is $node or inside it; null when
      * it is not. A `for` body is its own scope, since what is written in it is
-     * about the schema its header names.
+     * about the schema its header names, and a `check(...)` predicate is written
+     * in the scope its handle enters.
      *
-     * @param object $target The node to find.
-     * @param mixed $node The node to look in, written in $scope; a value of any
-     *   other kind holds no node.
+     * @param INode $target The node to find.
+     * @param INode $node The node to look in, written in $scope.
      * @param CursorScope $scope The scope $node is written in.
      * @param Closure(string): bool $hasRows Whether the schema of a key has rows.
      */
-    private static function scopeOf(object $target, mixed $node, CursorScope $scope, Closure $hasRows): ?CursorScope
+    private static function scopeOf(INode $target, INode $node, CursorScope $scope, Closure $hasRows): ?CursorScope
     {
         if ($node instanceof ISchemaScopedNode) {
             $key = $node->schemaKey() === INode::MISSING_NAME ? null : $node->schemaKey();
@@ -124,79 +160,69 @@ final readonly class CursorContext
             return $scope;
         }
 
-        $inside = match (true) {
-            $node instanceof RuleSetNode, $node instanceof AbilityBlockNode => $node->entries,
-            $node instanceof SchemaConditionNode => [$node->expression],
-            $node instanceof WarrantRuleNode => [$node->conditions, ...$node->canClauses, ...$node->cannotClauses],
-            $node instanceof CanClauseNode, $node instanceof CannotClauseNode => [$node->message],
-            $node instanceof IncludeInvocationNode => $node->arguments,
-            $node instanceof AndNode, $node instanceof OrNode => [$node->leftSide, $node->rightSide],
-            $node instanceof NotNode => [$node->operand],
-            $node instanceof ConditionNode => $node->parameters,
-            $node instanceof CrossSchemaCanNode, $node instanceof CrossSchemaConditionNode => [...$node->boundKey, ...$node->contextMap],
-            default => [],
-        };
+        foreach ($node->children() as $child) {
+            $childScope = $scope;
 
-        foreach ($inside as $child) {
-            $found = self::scopeOf($target, $child, $scope, $hasRows);
+            if ($node instanceof CrossSchemaConditionNode && $child === $node->predicate) {
+                $key = $node->schemaKey->name === INode::MISSING_NAME ? null : $node->schemaKey->name;
+                $childScope = $scope->enteringPredicate($key, $node->alias?->name, $key !== null && $hasRows($key));
+            }
+
+            $found = self::scopeOf($target, $child, $childScope, $hasRows);
 
             if ($found !== null) {
                 return $found;
             }
         }
 
-        if ($node instanceof CrossSchemaConditionNode) {
-            $key = $node->schemaKey === INode::MISSING_NAME ? null : $node->schemaKey;
-
-            return self::scopeOf(
-                $target,
-                $node->predicate,
-                $scope->enteringPredicate($key, $node->alias, $key !== null && $hasRows($key)),
-                $hasRows,
-            );
-        }
-
         return null;
     }
 
     /**
-     * What kind of name $entry is, the name, and the schema that declares it.
+     * What kind of name $name is, the name, and the schema that declares it: read
+     * off the field of the node holding it.
      *
-     * @param SourceEntry $entry The innermost node or part over the offset.
-     * @param CursorScope $scope The scope $entry's node is written in.
+     * @param NameNode $name The innermost node over the offset.
+     * @param array<int, INode> $parents Each node's parent, by object id.
+     * @param CursorScope $scope The scope $name is written in.
      * @return array{0: ?SlotKind, 1: ?string, 2: ?string}
      */
-    private static function slotOf(SourceEntry $entry, CursorScope $scope): array
+    private static function slotOf(NameNode $name, array $parents, CursorScope $scope): array
     {
-        $node = $entry->node;
+        $holder = $parents[spl_object_id($name)] ?? null;
         $here = $scope->schemaKey;
+        $written = $name->name;
+
+        if ($holder instanceof WithEntryNode) {
+            $handle = $parents[spl_object_id($holder)] ?? null;
+
+            return [SlotKind::ContextKey, $written, $handle?->schemaKey?->name ?? $here];
+        }
 
         return match (true) {
-            $node instanceof ConditionNode && $entry->part === ConditionNode::PART_CONDITION_KEY
-                => [SlotKind::Condition, $node->conditionKey, $here],
-            $node instanceof CrossSchemaCanNode && $entry->part === CrossSchemaCanNode::PART_ABILITY
-                => [SlotKind::Ability, $node->ability, $node->schemaKey ?? $here],
-            ($node instanceof CanClauseNode || $node instanceof CannotClauseNode
-                || $node instanceof AbilityBlockNode || $node instanceof IncludeInvocationNode)
-                && $entry->part === $node::PART_ABILITIES
-                => [SlotKind::Ability, $node->abilities[$entry->key], $here],
-            $node instanceof IncludeInvocationNode && $entry->part === IncludeInvocationNode::PART_TEMPLATE_KEY
-                => [SlotKind::Template, $node->templateKey, $here],
-            ($node instanceof ISchemaScopedNode || $node instanceof CrossSchemaCanNode || $node instanceof CrossSchemaConditionNode)
-                && $entry->part === $node::PART_SCHEMA_KEY
-                => [SlotKind::Schema, $node instanceof ISchemaScopedNode ? $node->schemaKey() : $node->schemaKey, null],
-            ($node instanceof CrossSchemaCanNode || $node instanceof CrossSchemaConditionNode)
-                && $entry->part === $node::PART_ALIAS
-                => [SlotKind::Alias, $node->alias, $node->schemaKey],
-            ($node instanceof CrossSchemaCanNode || $node instanceof CrossSchemaConditionNode)
-                && $entry->part === $node::PART_CONTEXT_MAP_KEY
-                => [SlotKind::ContextKey, (string) $entry->key, $node->schemaKey ?? $here],
-            $node instanceof ContextRef && $entry->part === ContextRef::PART_KEY
-                => [SlotKind::ContextKey, $node->key, $here],
-            $node instanceof ColumnRef && $entry->part === ColumnRef::PART_ALIAS
-                => [SlotKind::Alias, $node->alias, $scope->frames[$node->alias] ?? null],
-            $node instanceof ColumnRef && $entry->part === ColumnRef::PART_COLUMN
-                => [SlotKind::Column, $node->column, $node->alias === null ? $scope->rowSchemaKey : ($scope->frames[$node->alias] ?? null)],
+            $holder instanceof ConditionNode && $name === $holder->conditionKey
+                => [SlotKind::Condition, $written, $here],
+            $holder instanceof CrossSchemaCanNode && $name === $holder->ability
+                => [SlotKind::Ability, $written, $holder->schemaKey?->name ?? $here],
+            ($holder instanceof CanClauseNode || $holder instanceof CannotClauseNode
+                || $holder instanceof AbilityBlockNode || $holder instanceof IncludeInvocationNode)
+                && in_array($name, $holder->abilities, true)
+                => [SlotKind::Ability, $written, $here],
+            $holder instanceof IncludeInvocationNode && $name === $holder->templateKey
+                => [SlotKind::Template, $written, $here],
+            ($holder instanceof RuleSetNode || $holder instanceof SchemaConditionNode
+                || $holder instanceof CrossSchemaCanNode || $holder instanceof CrossSchemaConditionNode)
+                && $name === $holder->schemaKey
+                => [SlotKind::Schema, $written, null],
+            ($holder instanceof CrossSchemaCanNode || $holder instanceof CrossSchemaConditionNode)
+                && $name === $holder->alias
+                => [SlotKind::Alias, $written, $holder->schemaKey?->name],
+            $holder instanceof ContextRef
+                => [SlotKind::ContextKey, $written, $here],
+            $holder instanceof ColumnRef && $name === $holder->alias
+                => [SlotKind::Alias, $written, $scope->frames[$written] ?? null],
+            $holder instanceof ColumnRef && $name === $holder->column
+                => [SlotKind::Column, $written, $holder->alias === null ? $scope->rowSchemaKey : ($scope->frames[$holder->alias->name] ?? null)],
             default => [null, null, null],
         };
     }

@@ -68,13 +68,13 @@ final readonly class Located
     }
 
     /**
-     * The span of the innermost node or part at the position, or null when it
-     * is on none.
+     * The span of the innermost node at the position, or null when it is on
+     * none.
      */
     public function span(): ?Span
     {
-        $entries = $this->context->entries;
+        $nodes = $this->context->nodes;
 
-        return $entries === [] ? null : $entries[array_key_last($entries)]->span;
+        return $nodes === [] ? null : $nodes[array_key_last($nodes)]->location->span;
     }
 }

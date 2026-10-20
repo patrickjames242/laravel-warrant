@@ -2,7 +2,11 @@
 
 namespace Warrant\LanguageServer\Documents;
 
+use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
+use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\LanguageServer\Fragments\FragmentExtractor;
 use Warrant\LanguageServer\Positions\LineIndex;
 use Warrant\LanguageServer\Positions\LinePosition;
@@ -89,6 +93,8 @@ final class Document
 
     /**
      * Every fragment of rule text in the document, analysed against $index.
+     * Each is read as the editor's, for the schema the fragment is about, and
+     * validated without binding values, which an editor never has.
      *
      * @param VocabularyIndex|null $index The schemas to check names against; null
      *   to check syntax and the rules of the language that need no schema only.
@@ -105,10 +111,16 @@ final class Document
         $fragments = (new FragmentExtractor($index ?? new VocabularyIndex))->extract($this->path, $this->text);
 
         $this->analyzed = array_map(
-            static fn ($fragment): AnalyzedFragment => new AnalyzedFragment(
-                $fragment,
-                WarrantParser::analyze($fragment->text, $index, $index === null ? null : $fragment->schemaKey),
-            ),
+            function ($fragment) use ($index): AnalyzedFragment {
+                $analysis = WarrantParser::analyze($fragment->text, SyntaxProducer::editor($this->path, $fragment->schemaKey));
+                $checked = ValidSyntax::check($analysis->syntax, new ValidationInput($index, checkBindingValues: false));
+
+                return new AnalyzedFragment(
+                    $fragment,
+                    $analysis,
+                    [...$analysis->diagnostics, ...($checked instanceof InvalidSyntax ? $checked->diagnostics : [])],
+                );
+            },
             $fragments,
         );
         $this->analyzedWith = $generation;

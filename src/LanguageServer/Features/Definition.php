@@ -40,11 +40,9 @@ final class Definition
             /* A frame name written in a `@column` is declared by the `as` of the
                innermost `check(...)` around it that gives that name; a frame named
                by its schema's key is declared by the schema. */
-            foreach (array_reverse($context->entries) as $entry) {
-                $node = $entry->node;
-
-                if ($node instanceof CrossSchemaConditionNode && $node->alias === $context->name) {
-                    $span = $located->fragment->analysis->syntax->positions?->spanOf($node, CrossSchemaConditionNode::PART_ALIAS);
+            foreach (array_reverse($context->nodes) as $node) {
+                if ($node instanceof CrossSchemaConditionNode && $node->alias?->name === $context->name) {
+                    $span = $node->alias->location->span;
 
                     if ($span !== null) {
                         return ['uri' => $document->uri, 'range' => $located->rangeOf($document, $span)];
