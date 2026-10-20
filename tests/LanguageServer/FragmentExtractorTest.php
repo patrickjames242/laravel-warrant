@@ -56,6 +56,8 @@ it('reads the rule text passed to the calls that take it, by position or by name
         Warrant::parse("they can \"view\"");
         \Warrant\DSL\Parsing\ASTNodes\WarrantSyntax::parse(syntax: 'they can edit');
         $rule->ifRaw('c')->orIfRaw('d');
+        $rule->andIfRaw('c2')->ifNotRaw('c3')->andIfNotRaw(expression: 'c4')->orIfNotRaw('c5');
+        $rule->ifRawish('not rule text');
         Warrant::parse(new BoundSyntax('if e(:x) they can view', ['x' => 1]));
         new \Warrant\DSL\Parsing\BoundSyntax(syntax: 'f');
         new Other('not rule text');
@@ -64,7 +66,7 @@ it('reads the rule text passed to the calls that take it, by position or by name
         warrant($text, 'not first');
         PHP;
 
-    expect(fragmentTexts($code))->toBe(['a or b', 'they can "view"', 'they can edit', 'c', 'd', 'if e(:x) they can view', 'f']);
+    expect(fragmentTexts($code))->toBe(['a or b', 'they can "view"', 'they can edit', 'c', 'd', 'c2', 'c3', 'c4', 'c5', 'if e(:x) they can view', 'f']);
 });
 
 it('reads a string returned from rules(), a template or a derived condition, alone or in an array', function () {
