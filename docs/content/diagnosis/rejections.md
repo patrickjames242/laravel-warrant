@@ -40,7 +40,7 @@ The exception carries the source so you can log it:
 
 ```php
 try {
-    WarrantSyntax::parse($text)->scopedTo('documents');
+    WarrantSyntax::parse($text)->validate()->scopedTo('documents');
 } catch (WarrantSyntaxException $e) {
     logger()->error($e->getMessage(), [
         'source' => $e->source,
@@ -71,9 +71,10 @@ nothing attached.
 
 ## Binding errors
 
-All five are about the same strictness. The first is a rule of the language, so it
-is a `RuleValidationException` reported before any value is put in place; the other
-four are `WarrantSyntaxException`, thrown as the values go in:
+All five are about the same strictness, and all five are
+`RuleValidationException`s from validation, each pointing at the binding it is
+about, or at the end of the text for a value never used. The values stay beside the
+text until a guard expands the rules, so validation is where they are checked:
 
 ```text
 Cannot mix named and positional bindings.
@@ -145,7 +146,7 @@ Find it by validating each one:
 ```php
 foreach (RoleRule::all() as $row) {
     try {
-        WarrantSyntax::parse($row->rules)->validate($row->schema_key);
+        WarrantSyntax::parse("for {$row->schema_key} {\n{$row->rules}\n}")->validate();
     } catch (Throwable $e) {
         $this->warn("{$row->id} ({$row->role}/{$row->schema_key}): {$e->getMessage()}");
     }

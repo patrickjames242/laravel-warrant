@@ -47,8 +47,7 @@ public function abilities(Model|string|int|null $target = null, array $context =
 public function schema(): WarrantSchema;
 public function user(): Authenticatable;
 public function query(): Builder;
-public function resolvedRuleSet(): RuleSetNode;
-public function expandedRuleSet(): ExpandedSyntax;   // blocks, includes and derived conditions expanded
+public function expandedRuleSet(): ExpandedSyntax;   // the schema's rules and the provider's, validated and expanded
 ```
 
 ```php

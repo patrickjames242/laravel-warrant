@@ -95,7 +95,7 @@ class DatabaseRuleProvider implements RuleProvider
                 if is_my_own_document or manages_team they can update
                 if is_document_locked and not is_admin they cannot update
                 if is_admin they can *
-            ')->scopedTo('documents');
+            ')->validate()->scopedTo('documents');
         }
 
         // ...

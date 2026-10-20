@@ -61,7 +61,7 @@ $rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 That works in VS Code, PhpStorm and Zed.

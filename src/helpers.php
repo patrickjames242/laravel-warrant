@@ -1,33 +1,35 @@
 <?php
 
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 
 if (! function_exists('warrant')) {
     /**
-     * Parse Warrant rule text of any form. The same call as `Warrant::parse()`.
+     * Rule text with the values for its placeholders, as a schema's `rules()`, the
+     * rule provider, a rule template or a derived condition may answer with.
+     * `Warrant::parse()` reads one into a tree.
      *
-     *     warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression()
+     *     return warrant('if in_team(:team) they can view', ['team' => $team]);
      *
      * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
      */
-    function warrant(string $syntax, array $bindings = []): WarrantSyntax
+    function warrant(string $syntax, array $bindings = []): BoundSyntax
     {
-        return WarrantSyntax::parse(new BoundSyntax($syntax, $bindings));
+        return new BoundSyntax($syntax, $bindings);
     }
 }
 
 if (! function_exists('warrant_file')) {
     /**
-     * Parse the Warrant rule text in a file. The same call as `Warrant::parseFile()`:
-     * the `.warrant` extension may be left off.
+     * The rule text in a file, with the values for its placeholders: the
+     * `.warrant` extension may be left off. `Warrant::parseFile()` reads one
+     * into a tree.
      *
-     *     warrant_file(resource_path('warrant/timesheets'))->ruleSet()
+     *     return warrant_file(resource_path('warrant/timesheets'));
      *
      * @param array<int|string, mixed> $bindings Values for `:name` / `?` placeholders.
      */
-    function warrant_file(string $path, array $bindings = []): WarrantSyntax
+    function warrant_file(string $path, array $bindings = []): BoundSyntax
     {
-        return WarrantSyntax::parseFile($path, $bindings);
+        return BoundSyntax::fromFile($path, $bindings);
     }
 }

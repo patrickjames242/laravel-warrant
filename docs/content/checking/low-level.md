@@ -98,26 +98,18 @@ or `null`. A row filter has to say something.
 The boolean checks do not. `can()`, `canAny()`, `cannot()`, and the `authorize`
 pair read the constant and return without querying.
 
-## Reading the resolved rule set
+## Reading the rules in effect
 
 ```php
-$guard->resolvedRuleSet();   // what your provider returned, plus schema rules
+$guard->expandedRuleSet();   // what your provider returned, plus schema rules
 ```
 
 Memoized per guard, validated once. This is the entry point for debugging and for
-anything that wants to introspect policy rather than evaluate it:
-
-```php
-$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();   // a RuleSetNode
-
-$set->schemaKey;
-$set->entries;       // rules, ability blocks and @includes, as written
-```
-
-The rules every check actually compiles are the
-[expanded](/sql/rule-to-query/#before-compiling-expansion) set: ability blocks
-opened, includes replaced by their templates' rules, and derived conditions by
-their expressions. It is memoized beside the resolved set:
+anything that wants to introspect policy rather than evaluate it. The rules are the
+[expanded](/sql/rule-to-query/#before-compiling-expansion) set every check
+compiles: ability blocks opened, includes replaced by their templates' rules,
+derived conditions by their expressions, and binding values put in place. Each
+rule still says where it was written, through its `location`:
 
 ```php
 $expanded = $guard->expandedRuleSet();   // an ExpandedSyntax
@@ -132,26 +124,27 @@ foreach ($expanded->rules as $rule) {
 
 ## Rendering it back to text
 
-Writing back to the language goes through a `WarrantSyntax`, the root a parse
-returns. Wrap the node you hold in one:
+Writing back to the language goes through a validated `WarrantSyntax`, the root a
+parse returns. Wrap the nodes you hold in one:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$syntax = new WarrantSyntax([$set]);
+$syntax = (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas();
 
 $syntax->toSyntax();        // inline literals
 $syntax->toBoundSyntax();   // parameterized: ->syntax, plus a positional ->bindings array
 ```
 
 `toSyntax()` throws on anything with no inline form, such as an array parameter or
-a closure denial message. `toBoundSyntax()` always works. Ability blocks and
+a closure denial message. `toBoundSyntax()` always works. A derived condition is
+written as the call the rule made, and a parsed tree's ability blocks and
 `@include`s are written back as they were written.
 
 ## What to build on this
 
 Good uses: an admin UI that shows the effective policy for a user, a CI check that
-diffs rule sets between deploys, a debug endpoint dumping `resolvedRuleSet()` for a
+diffs rule sets between deploys, a debug endpoint dumping `expandedRuleSet()` for a
 support ticket, a report of which abilities are reachable for each role.
 
 Less good: re-implementing a check. The high-level helpers exist because there are

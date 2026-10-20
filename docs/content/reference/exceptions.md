@@ -105,7 +105,7 @@ Validation, where both are worth surfacing to the author:
 
 ```php
 try {
-    Warrant::parse($text)->validate($schemaKey);
+    Warrant::parse("for {$schemaKey} {\n{$text}\n}")->validate();
 } catch (WarrantSyntaxException $e) {
     // syntax: carries line, column, and the source
 } catch (InvalidArgumentException $e) {

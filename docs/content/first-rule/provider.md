@@ -16,25 +16,23 @@ This one reads the file from step two:
 ```php
 namespace App\Warrant;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
 class FileRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode|iterable
+    public function rules(RuleProviderContext $context): BoundSyntax
     {
-        $file = WarrantSyntax::parseFile(base_path('warrant/documents.warrant'));
-
-        return $file->forSchema($context->schemaKey) ?? [];
+        return warrant_file(base_path('warrant/documents'));
     }
 }
 ```
 
-The provider is asked once for each schema a check touches. `forSchema()` hands
-back the `for documents` block when the schema is `documents`, and `null` for any
-other, which the `?? []` turns into no rules. Every user gets the same rules here,
+The provider is asked once for each schema a check touches. `warrant_file()` reads
+the file, and Warrant keeps the `for documents` block when the schema is
+`documents` and leaves out every block for another schema. Every user gets the
+same rules here,
 which is fine for a first pass. The context tells you who is asking and what
 about:
 
@@ -48,11 +46,9 @@ $context->model;      // App\Models\Document, or null for a schema with no model
 A real provider usually picks rules per user. One file per role:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode|iterable
+public function rules(RuleProviderContext $context): BoundSyntax
 {
-    $file = WarrantSyntax::parseFile(base_path("warrant/{$context->user->role}.warrant"));
-
-    return $file->forSchema($context->schemaKey) ?? [];
+    return warrant_file(base_path("warrant/{$context->user->role}"));
 }
 ```
 

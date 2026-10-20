@@ -14,9 +14,10 @@ misconfigured schema throws rather than silently granting or denying.
 
 | Stage | What is checked |
 |---|---|
-| parse | rule syntax, binding consistency |
+| parse | rule syntax |
+| validate | bindings, and ability and condition names against the schema |
 | expansion | templates and derived conditions resolve, answer sensibly, and terminate |
-| compile or validate | ability and condition names against the schema |
+| compile | everything validation checks, again, for rules that skipped it |
 | check | the requested ability exists, required context present, a user is available |
 | first resolution | schema registry consistency, condition method signatures |
 
@@ -69,6 +70,11 @@ Expected a single rule, but the source holds a rule set for [documents].
 The rule text targets schema [documents] in its `for` header but was scoped to [folders].
 ```
 
+## Validation, `RuleValidationException`
+
+Extends `InvalidArgumentException`. Each points at the text it is about, in the
+source that text was written in.
+
 ### Bindings
 
 - `Cannot mix named and positional bindings.`
@@ -77,7 +83,10 @@ The rule text targets schema [documents] in its `for` header but was scoped to [
 - `%d positional binding(s) were provided but never used.`
 - `Binding(s) provided but never used: %s.`
 
-## Validation, `InvalidArgumentException`
+Every one but the first needs the values, so an editor, which has none, reports
+only the first.
+
+### Names
 
 - `Ability [%s] is not declared by the schema.`
 - `Condition [%s] is not declared by the schema.`
@@ -90,8 +99,6 @@ error.
 
 Type guards:
 
-- `fromRules expects WarrantRuleNode or WarrantRuleBuilder instances, got %s.`
-- `validate expects RuleSetNode instances, got %s.`
 - `A rule set holds rules, ability blocks and includes, got %s.`
 - `Every clause and @include outside an ability block names the abilities it applies to; the rule set for [%s] holds one that names none.`
 
@@ -238,10 +245,11 @@ parent.
 
 ## Provider
 
-- `The rule provider was asked for schema [%s] but returned a rule set targeting [%s].`
-- `The rules() of schema [%s] was asked for schema [%s] but returned a rule set targeting [%s].`
-- `The rule provider returned %s; expected a rule set, a rule entry, rule text, or an iterable of them.` (also from a schema's `rules()`, an element of an iterable that holds no rules)
-- `Cannot merge rule sets for different schemas: [%s] and [%s].`
+- `The rules() of schema [%s] returned a rule set for schema [%s]; a schema's own rules are all for it.`
+- `The rule provider returned %s; expected a rule set, a rule entry, a rule builder, rule text, or an iterable of them.` (also from a schema's `rules()`, an element of an iterable that holds no rules)
+
+The rule provider may return rule sets for any schema; those for a schema other
+than the one it was asked about are left out, not rejected.
 
 ## Authorization, `WarrantAuthorizationException`
 

@@ -23,7 +23,7 @@ $rules = Warrant::parse(<<<'WARRANT'
         if is_mine or in_my_team they can view, update
         if is_locked they cannot update because 'This document is locked.'
     }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 This works in VS Code, PhpStorm and Zed.
@@ -35,9 +35,9 @@ without any label. It may be a single- or double-quoted string, or a heredoc wit
 any label:
 
 ```php
-warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression();
+warrant('is_owner or in_team(:team)', ['team' => $team]);
 
-Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
+Warrant::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
 
 Warrant::rule()->ifRaw('is_owner or is_admin')->theyCan('view');
 ```
@@ -86,15 +86,15 @@ $team = "sales' they can *; if x";
 // Now the rule text says something you did not write.
 Warrant::parse(<<<WARRANT
     for documents { if in_team('{$team}') they can view }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 **Bindings exist for this**, and they accept any PHP value rather than only strings:
 
 ```php
-Warrant::parse(<<<'WARRANT'
+Warrant::parse(warrant(<<<'WARRANT'
     for documents { if in_team(:team) they can view }
-WARRANT, bindings: ['team' => $team])->ruleSet();
+WARRANT, bindings: ['team' => $team]))->validate()->ruleSet();
 ```
 
 See [passing values to conditions](/rules/values/).
@@ -113,7 +113,7 @@ class DocumentRules
             for documents {
                 if is_mine they can view, update
             }
-            WARRANT)->ruleSet();
+            WARRANT)->validate()->ruleSet();
     }
 }
 ```
@@ -126,10 +126,10 @@ Whitespace is insignificant in the language anyway, so this is purely cosmetic.
 // Better: the header travels with the string.
 Warrant::parse(<<<'WARRANT'
     for documents { if is_mine they can view }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 
 // Works, but the string is unverifiable from the outside.
-Warrant::parse('if is_mine they can view')->scopedTo('documents');
+Warrant::parse('if is_mine they can view')->validate()->scopedTo('documents');
 ```
 
 Anything reading your source can check the first against a schema and cannot
@@ -150,7 +150,7 @@ public function rules(RuleProviderContext $context): array|RuleSetNode
     return Warrant::parse(<<<'WARRANT'
         if is_suspended they cannot * because 'Your account is suspended.'
         if is_super_admin they can *
-    WARRANT)->ruleEntries();
+    WARRANT)->validate()->ruleEntries();
 }
 ```
 

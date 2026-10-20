@@ -106,7 +106,7 @@ public function rules(RuleProviderContext $context): RuleSetNode
         fn () => $this->fetchRuleText($context),
     );
 
-    return WarrantSyntax::parse($text)->scopedTo($context->schemaKey);
+    return WarrantSyntax::parse($text)->validate()->scopedTo($context->schemaKey);
 }
 ```
 

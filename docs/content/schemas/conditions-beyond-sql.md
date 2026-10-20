@@ -83,7 +83,7 @@ by writing it into the string:
 #[DerivedCondition]
 public function ownedOrInTeam(mixed $team): WarrantSyntax
 {
-    return Warrant::parse('is_owner or in_team(:team)', ['team' => $team]);
+    return Warrant::parse(warrant('is_owner or in_team(:team)', ['team' => $team]));
 }
 ```
 

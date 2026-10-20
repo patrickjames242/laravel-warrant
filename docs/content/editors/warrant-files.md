@@ -44,14 +44,15 @@ Highlighted by extension in every editor that has the
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 
-$file = WarrantSyntax::parseFile(base_path('warrant/editor'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor'))->validate();
 
 $file->forSchema('documents');   // the RuleSetNode, or null
 $file->schemaKeys();             // ['documents', 'folders', 'comments']
 $file->ruleSets();               // every block, in source order
-
-$file->validate();
 ```
+
+`validate()` checks every block against the schema its header names, and throws
+the first mistake.
 
 The `.warrant` extension is optional. A path that names an existing file is read
 as given; otherwise `.warrant` is appended, so `warrant/editor` reads
@@ -97,27 +98,19 @@ warrant/
 ```php
 class FileRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode
+    public function rules(RuleProviderContext $context): array
     {
-        $sets = [];
+        $files = [];
 
         foreach ($context->user->roleNames() as $role) {
             $path = base_path("warrant/roles/{$role}.warrant");
 
-            if (! is_file($path)) {
-                continue;
-            }
-
-            $set = $this->parsed($path)->forSchema($context->schemaKey);
-
-            if ($set !== null) {
-                $sets[] = $set;
+            if (is_file($path)) {
+                $files[] = $this->parsed($path);
             }
         }
 
-        return $sets === []
-            ? RuleSetNode::fromRules($context->schemaKey)
-            : RuleSetNode::merge(...$sets);
+        return $files;
     }
 
     private function parsed(string $path): WarrantSyntax
@@ -130,7 +123,9 @@ class FileRuleProvider implements RuleProvider
 }
 ```
 
-Keying the cache on `filemtime` means an edit invalidates it without a deploy step.
+Each file's blocks for the schema the provider was asked about apply; its blocks
+for every other schema are left out. Keying the cache on `filemtime` means an edit
+invalidates it without a deploy step.
 
 ## Validating them in CI
 
@@ -164,7 +159,7 @@ file_put_contents(
 );
 ```
 
-`WarrantSyntax::toSyntax()` renders the canonical form with inline literals, and throws on
+`toSyntax()` on the validated file renders the canonical form with inline literals, and throws on
 anything with no inline form, such as an array parameter or a closure denial
 message. `toBoundSyntax()` handles those, at the cost of a separate bindings array:
 
@@ -176,7 +171,7 @@ $bound->bindings;   // one flat, left-to-right list across every block
 ```
 
 Rule sets from anywhere else, such as rows in a database, write out the same way
-once they are in a tree: `(new WarrantSyntax($ruleSets))->toSyntax()`.
+once they are in a tree: `(new WarrantSyntax($ruleSets))->validate()->toSyntax()`.
 
 That round-trip is how you would migrate rules from a database into files, or dump
 a tenant's stored rules to review them.
@@ -190,5 +185,5 @@ The database when policy differs per tenant, or an administrator edits it. See
 [an admin permissions UI](/recipes/admin-ui/).
 
 Both, commonly: files for the baseline, the database for per-tenant overrides,
-merged in the provider. See
+returned together from the provider. See
 [composing from several sources](/supplying-rules/composing/).

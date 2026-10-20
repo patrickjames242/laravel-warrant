@@ -136,9 +136,9 @@ accepted there.
 **The way out** is a closure message, carried through a binding:
 
 ```php
-WarrantSyntax::parse('if is_locked they cannot update because :msg', [
+WarrantSyntax::parse(warrant('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
-])->rule();
+]))->validate()->rule();
 ```
 
 ## Only three database families

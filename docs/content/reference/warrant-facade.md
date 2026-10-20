@@ -70,37 +70,39 @@ Warrant::impossibleAbilities($schema, ?Authenticatable $user = null): array;
 ## Authoring
 
 ```php
-Warrant::parse(string $syntax, array $bindings = []): WarrantSyntax;
+Warrant::parse(warrant(string $syntax, array $bindings = [])): WarrantSyntax;
 Warrant::parseFile(string $path, array $bindings = []): WarrantSyntax;
 Warrant::condition(): WarrantConditionBuilder;
 Warrant::rule(): WarrantRuleBuilder;
 ```
 
 One `parse()` reads every form of rule text and returns a
-[`WarrantSyntax`](/reference/warrant-rule-set/) tree; you ask the tree for the
-shape you expect. `parseFile()` does the same for a file, such as a `.warrant`
+[`WarrantSyntax`](/reference/warrant-rule-set/) tree; `validate()` checks it, and
+you ask the validated tree for the shape you expect. `parseFile()` does the same for a file, such as a `.warrant`
 file. `condition()` and `rule()` take no arguments and return the builder that
 composes one.
 
 ```php
-Warrant::parse('is_owner or is_admin')->conditionExpression();             // IBooleanExpressionNode
-Warrant::parse('if is_mine they can view')->rule();                        // WarrantRuleNode
-Warrant::parse('if is_mine they can view')->scopedTo('documents');         // RuleSetNode
-Warrant::parse('for documents { they can view }')->ruleSet();              // RuleSetNode
-Warrant::parse('for documents { … } for folders { … }')->forSchema('documents'); // ?RuleSetNode
+Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();             // IBooleanExpressionNode
+Warrant::parse('if is_mine they can view')->validate()->rule();                        // WarrantRuleNode
+Warrant::parse('if is_mine they can view')->validate()->scopedTo('documents');         // RuleSetNode
+Warrant::parse('for documents { they can view }')->validate()->ruleSet();              // RuleSetNode
+Warrant::parse('for documents { … } for folders { … }')->validate()->forSchema('documents'); // ?RuleSetNode
 Warrant::condition()->if('is_owner')->orIf('is_admin');                    // WarrantConditionBuilder
 Warrant::rule()->if('is_mine')->theyCan('view');                           // WarrantRuleBuilder
 ```
 
-`parse()` and `parseFile()` are also global helpers, taking the same arguments
-and returning the same `WarrantSyntax`:
+Two global helpers hold rule text with the values for its placeholders, as a
+`BoundSyntax`. `rules()`, a rule template or a derived condition may return one,
+and `parse()` reads one:
 
 ```php
-warrant(string $syntax, array $bindings = []): WarrantSyntax;     // = Warrant::parse
-warrant_file(string $path, array $bindings = []): WarrantSyntax;  // = Warrant::parseFile
+warrant(string $syntax, array $bindings = []): BoundSyntax;
+warrant_file(string $path, array $bindings = []): BoundSyntax;   // .warrant optional
 
-warrant('is_owner or in_team(:team)', ['team' => $team])->conditionExpression();
-warrant_file(base_path('warrant/documents'))->ruleSet();          // reads documents.warrant
+return warrant('if in_team(:team) they can view', ['team' => $team]);
+Warrant::parse(warrant('is_owner or in_team(:team)', ['team' => $team]))->validate()->conditionExpression();
+Warrant::parseFile(base_path('warrant/documents'))->validate()->ruleSet();   // reads documents.warrant
 ```
 
 `conditionExpression()` answers the expression under a `for <schema>` header as

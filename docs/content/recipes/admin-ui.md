@@ -57,7 +57,7 @@ class RoleRuleController extends Controller
         $text = $request->string('rules');
 
         try {
-            WarrantSyntax::parse($text)->validate($roleRule->schema_key);
+            WarrantSyntax::parse("for {$roleRule->schema_key} {\n{$text}\n}")->validate();
         } catch (WarrantSyntaxException $e) {
             return back()->withErrors(['rules' => $e->getMessage()])->withInput();
         } catch (InvalidArgumentException $e) {
@@ -125,19 +125,19 @@ able to do:
 ```php
 public function preview(Request $request, RoleRule $roleRule)
 {
-    $proposed = WarrantSyntax::parse($request->string('rules'))
-        ->validate($roleRule->schema_key)
-        ->scopedTo($roleRule->schema_key);
+    $proposed = (string) $request->string('rules');
 
     $subject = User::findOrFail($request->integer('user_id'));
 
     return app()->call(function () use ($proposed, $subject, $roleRule) {
+        /* The text has no `for` header, so it is about the schema the provider is
+           asked for, and the guard validates it against that schema. */
         app()->instance(RuleProvider::class, new class($proposed) implements RuleProvider {
-            public function __construct(private RuleSetNode $set) {}
+            public function __construct(private string $text) {}
 
-            public function rules(RuleProviderContext $context): RuleSetNode
+            public function rules(RuleProviderContext $context): string
             {
-                return $this->set;
+                return $this->text;
             }
         });
 
@@ -160,8 +160,8 @@ the provider for the process.
 
 ## Showing the effective policy
 
-Merging means the rules an administrator edited are not the whole story. Show what
-actually applies:
+The rules an administrator edited are not the whole story. Show what actually
+applies:
 
 ```php
 public function effective(User $user, string $schemaKey)
@@ -172,7 +172,7 @@ public function effective(User $user, string $schemaKey)
     );
 
     return [
-        'syntax' => (new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax(),
+        'syntax' => (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax(),
         'rules'  => count($guard->expandedRuleSet()->rules),
     ];
 }

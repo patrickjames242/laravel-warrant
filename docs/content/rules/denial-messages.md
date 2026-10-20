@@ -84,9 +84,9 @@ takes only a literal:
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-WarrantSyntax::parse('if is_locked they cannot update because :msg', [
+WarrantSyntax::parse(warrant('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) => "You cannot edit {$c->target->title} while it is locked.",
-])->rule();
+]))->validate()->rule();
 ```
 
 The context carries everything about the refusal:

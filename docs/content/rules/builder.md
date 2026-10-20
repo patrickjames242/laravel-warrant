@@ -41,14 +41,15 @@ and the result says which form it held; `condition` and `rule` hand you a builde
 ```php
 Warrant::condition()                                      // WarrantConditionBuilder
 Warrant::rule()                                           // WarrantRuleBuilder
-Warrant::parse('is_owner or is_admin')->conditionExpression()
-Warrant::parse('if is_mine they can view')->rule()
-Warrant::parse('for documents { they can view }')->ruleSet()
-Warrant::parse('for documents { … } for folders { … }')->forSchema('folders')
+Warrant::parse('is_owner or is_admin')->validate()->conditionExpression()
+Warrant::parse('if is_mine they can view')->validate()->rule()
+Warrant::parse('for documents { they can view }')->validate()->ruleSet()
+Warrant::parse('for documents { … } for folders { … }')->validate()->forSchema('folders')
 ```
 
 `warrant($syntax, $bindings)` and `warrant_file($path, $bindings)` are global
-helpers for `Warrant::parse()` and `Warrant::parseFile()`.
+helpers holding rule text with its values, as a `BoundSyntax` that `rules()` may
+return and `Warrant::parse()` reads.
 
 `Warrant::rule()` and `WarrantRuleNode::build()` are the same call.
 :::

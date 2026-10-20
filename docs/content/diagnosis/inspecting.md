@@ -14,21 +14,19 @@ Four things are worth dumping, and between them they answer almost every questio
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$set = Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
+$rules = Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
 
-(new WarrantSyntax([$set]))->toSyntax();
+(new WarrantSyntax($rules))->validateWithoutSchemas()->toSyntax();
 ```
 
 ```warrant
-for documents {
-    if is_suspended they cannot *
+if is_suspended they cannot *
 
-    if is_super_admin they can *
+if is_super_admin they can *
 
-    if is_mine or in_my_team they can view, update
+if is_mine or in_my_team they can view, update
 
-    if is_locked they cannot update because 'This document is locked.'
-}
+if is_locked they cannot update because 'This document is locked.'
 ```
 
 That is what your provider returned plus the schema's
@@ -116,7 +114,7 @@ class WarrantExplain extends Command
         $guard  = Warrant::forSchema($class, $user);
 
         $this->info('Rules in effect');
-        $this->line((new WarrantSyntax([$guard->resolvedRuleSet()]))->toSyntax());
+        $this->line((new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax());
 
         $this->newLine();
         $this->info('Reachability');
@@ -149,7 +147,7 @@ The three constants to look for are `1 = 1`, `1 = 0`, and `null`. See
 
 ```php
 it('shows what is in effect', function () {
-    dump((new WarrantSyntax([Warrant::forSchema(Document::class, $this->user)->resolvedRuleSet()]))->toSyntax());
+    dump((new WarrantSyntax(Warrant::forSchema(Document::class, $this->user)->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax());
     dump(Warrant::possibleAbilities(Document::class, $this->user));
     dump(Document::query()->userHasAbility('view', $this->user)->toRawSql());
 });

@@ -88,8 +88,8 @@ Bindings keep runtime values out of the text:
 ```php
 use Warrant\Facades\Warrant;
 
-Warrant::parse('if in_team(:team) they can view', ['team' => $team])->rule();
-Warrant::parse('if in_team(?, ?) they can view', ['sales', 'eng'])->rule();
+Warrant::parse(warrant('if in_team(:team) they can view', ['team' => $team]))->validate()->rule();
+Warrant::parse(warrant('if in_team(?, ?) they can view', ['sales', 'eng']))->validate()->rule();
 ```
 
 See [Values](/rules/values/).
@@ -205,7 +205,7 @@ for folders {
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'))->validate();
 
 $file->forSchema('documents');   // the RuleSetNode, or null
 $file->schemaKeys();             // ['documents', 'folders']

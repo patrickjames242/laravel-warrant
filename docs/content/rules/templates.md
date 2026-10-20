@@ -125,13 +125,13 @@ use Warrant\Schema\WarrantDenialContext;
 #[RuleTemplate]
 public function inheritedFrom(string $relation): WarrantSyntax
 {
-    return Warrant::parse(
+    return Warrant::parse(warrant(
         'if is_child_of(:relation) they cannot because :why',
         [
             'relation' => $relation,
             'why' => fn (WarrantDenialContext $c) => "No access through {$relation}.",
         ],
-    );
+    ));
 }
 ```
 
@@ -156,7 +156,7 @@ A template answers in whichever form it has its body, much as a
 | Answer | Example |
 |---|---|
 | rule text | `'if is_owner they can'` |
-| a `WarrantSyntax` | `Warrant::parse('if is_child_of(:rel) they can', ['rel' => $rel])` |
+| a `WarrantSyntax` | `Warrant::parse(warrant('if is_child_of(:rel) they can', ['rel' => $rel]))` |
 | a rule that names no abilities | `Warrant::rule()->if('is_owner')->theyCan()->toRule()` |
 | an `@include` that names no abilities | `new IncludeInvocationNode('requires_approval')` |
 | an iterable of any of these, nested | `['if is_owner they can', [$include]]` |
@@ -184,7 +184,7 @@ public function ancestor(int $depth): string|WarrantSyntax
 {
     return $depth <= 0
         ? 'they can'
-        : Warrant::parse('@include ancestor(:next)', ['next' => $depth - 1]);
+        : Warrant::parse(warrant('@include ancestor(:next)', ['next' => $depth - 1]));
 }
 ```
 

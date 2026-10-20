@@ -15,8 +15,6 @@ namespace App\Warrant;
 
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -77,9 +75,9 @@ class DocumentSchema extends WarrantSchema
     }
 
     // 8. Rules merged into every resolved set, whatever the provider returned.
-    public function rules(RuleProviderContext $context): array|RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
-        return [WarrantSyntax::parse('if is_suspended they cannot *')->rule()];
+        return 'if is_suspended they cannot *';
     }
 
     // 9. Context values callers may omit.

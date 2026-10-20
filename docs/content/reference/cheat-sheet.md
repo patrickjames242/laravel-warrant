@@ -42,9 +42,9 @@ class DocumentSchema extends WarrantSchema
         return "if not is_approved they cannot because 'Needs approval.'";
     }
 
-    public function rules(RuleProviderContext $context): array|RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
-        return Warrant::parse('if is_suspended they cannot *')->ruleEntries();
+        return 'if is_suspended they cannot *';
     }
 
     protected function defaultContext(): array
@@ -137,24 +137,23 @@ WarrantMiddleware::never('documents', 'approve');
 ## Rules as data
 
 ```php
-Warrant::parse($text, $bindings)->scopedTo('documents');
-Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
-Warrant::parse('if is_mine they can view')->rule();
-Warrant::parse('is_owner or is_admin')->conditionExpression();
-RuleSetNode::fromRules('documents', $ruleA, $ruleB);
+Warrant::parse(warrant($text, $bindings))->validate()->scopedTo('documents');
+Warrant::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
+Warrant::parse('if is_mine they can view')->validate()->rule();
+Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();
 RuleSetNode::build('documents', fn ($rule) => $rule()->if('is_mine')->theyCan('view'));
-RuleSetNode::merge($a, $b, $c);
-$a->mergeWith($b);
-Warrant::parse($text)->validate('documents');
-(new WarrantSyntax([$set]))->toSyntax();
-(new WarrantSyntax([$set]))->toBoundSyntax();
+Warrant::parse("for documents {\n{$text}\n}")->validate();
+(new WarrantSyntax([$set]))->validate()->toSyntax();
+(new WarrantSyntax([$set]))->validate()->toBoundSyntax();
 
-$file = Warrant::parseFile(base_path('warrant/editor.warrant'));
+$file = Warrant::parseFile(base_path('warrant/editor.warrant'))->validate();
 $file->forSchema('documents');
 $file->schemaKeys();
 
-warrant($text, $bindings);                     // = Warrant::parse
-warrant_file(base_path('warrant/editor'));     // = Warrant::parseFile, .warrant optional
+warrant($text, $bindings);                     // a BoundSyntax: text and its values, for rules() or Warrant::parse
+warrant_file(base_path('warrant/editor'));     // the same, read from a file, .warrant optional
+
+return [$ruleA, $textB, $builder];             // rules() joins a list of any of these
 ```
 
 ## Builder
@@ -179,7 +178,7 @@ new NoRow;
 ## Introspection
 
 ```php
-(new WarrantSyntax([Warrant::forSchema(Document::class, $user)->resolvedRuleSet()]))->toSyntax();
+(new WarrantSyntax(Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax();
 Warrant::registry()->registeredSchemas();
 Warrant::registry()->resolveSchemaKeyOrFail(Document::class);
 

@@ -76,20 +76,17 @@ home for rules stored as data.)
 ```php
 namespace App\Warrant;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Rules\RuleProvider;
 
 class FileRuleProvider implements RuleProvider
 {
-    public function rules(RuleProviderContext $context): RuleSetNode|iterable
+    public function rules(RuleProviderContext $context): BoundSyntax
     {
         // In a real app you'd pick rules per user/role/tenant.
         // Here everyone gets the rules in the file, for the schema being asked about.
-        $file = WarrantSyntax::parseFile(base_path('warrant/documents.warrant'));
-
-        return $file->forSchema($context->schemaKey) ?? [];
+        return warrant_file(base_path('warrant/documents'));
     }
 }
 ```

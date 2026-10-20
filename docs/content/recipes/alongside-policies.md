@@ -41,11 +41,11 @@ changes yet.
 **3. Write the rules and a provider** covering just that schema:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): RuleSetNode|array
 {
     return match ($context->schemaKey) {
         'documents' => $this->documentRules($context),
-        default => RuleSetNode::fromRules($context->schemaKey),
+        default => [],
     };
 }
 ```

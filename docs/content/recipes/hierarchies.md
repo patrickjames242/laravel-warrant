@@ -123,11 +123,11 @@ public function inheritedFrom(int $levels): string|WarrantSyntax
         return 'they cannot';
     }
 
-    return Warrant::parse(
+    return Warrant::parse(warrant(
         'if granted_directly they can
          @include inherited_from(:next)',
         ['next' => $levels - 1],
-    );
+    ));
 }
 ```
 

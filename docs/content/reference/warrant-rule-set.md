@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: WarrantSyntax and RuleSetNode
-description: Parsing, constructing, merging, validating, and rendering rules.
+description: Parsing, validating, constructing, and rendering rules.
 sidebar:
   order: 6
 ---
@@ -10,11 +10,19 @@ sidebar:
 Every syntax node lives in `Warrant\DSL\Parsing\ASTNodes`: `WarrantSyntax`,
 `RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `WarrantRuleNode`,
 `IncludeInvocationNode`, `CanClauseNode`, `CannotClauseNode`, the interfaces
-`IRuleEntryNode` and `ISchemaScopedNode`, and the expression nodes. They are plain
-data and never touch the schema registry, so a rule set takes a plain schema
-**key** string.
+`IRuleEntryNode` and `ISchemaScopedNode`, the expression nodes, and the leaves
+every name and literal is held in: `NameNode` (`$name`) and `LiteralNode`
+(`$value`). They are plain data and never touch the schema registry, so a rule set
+takes a plain schema **key** string.
 
-## `WarrantSyntax` (final, readonly)
+Every node knows where it came from. Its `$location` holds the source it was read
+from (the text, its bindings, and what handed it to Warrant: a schema's
+`rules()`, the rule provider, a template, a derived condition) and the span of
+text it was written at. A node built in PHP has no span. Errors use the location
+to point into the exact text a rule was written in, even after rules from many
+sources have been joined.
+
+## `WarrantSyntax` (readonly)
 
 The root of every parse. Its `children` say what the source held, so one call
 reads every form of rule text and nothing about the text has to be known first.
@@ -23,8 +31,11 @@ reads every form of rule text and nothing about the text has to be known first.
 ```php
 public array $children;   // list<INode>
 
-public static function parse(string $source, array $bindings = []): self;
+public static function parse(string|BoundSyntax $source): self;   // BoundSyntax: text with its bindings, as warrant() makes
 public static function parseFile(string $path, array $bindings = []): self;
+
+public function validate(): ValidSyntax;               // against the registered schemas
+public function validateWithoutSchemas(): ValidSyntax; // against the rules of the language alone
 
 public function isEmpty(): bool;
 public function isExpression(): bool;
@@ -34,20 +45,31 @@ public function isSchemaScoped(): bool;
 public function isSingleRuleSet(): bool;
 public function isRuleSets(): bool;
 public function isSchemaCondition(): bool;
+public function schemaKeys(): array;    // list<string>, distinct, source order
+```
 
+## `ValidSyntax` (final, readonly)
+
+A `WarrantSyntax` that passed validation. Only a validated syntax hands out its
+nodes or writes itself back as text:
+
+```php
 public function conditionExpression(): IBooleanExpressionNode;
 public function rule(): WarrantRuleNode;
 public function ruleEntries(): array;   // list<IRuleEntryNode>
 public function ruleSet(): RuleSetNode;
 public function ruleSets(): array;      // list<RuleSetNode>, source order, unmerged
 public function scoped(): array;        // list<ISchemaScopedNode>
-public function schemaKeys(): array;    // list<string>, distinct, source order
 public function forSchema(string $schemaKey): ?RuleSetNode;   // every block for that schema, folded
 public function scopedTo(string $schemaKey): RuleSetNode;
 
 public function toSyntax(): string;
 public function toBoundSyntax(): BoundSyntax;
 ```
+
+Bindings stay in the tree as `BindingNode` placeholders; `value()` on one looks
+its value up in the source it was written in. The values are put in place when a
+guard expands the rules.
 
 ### What a parse returns
 
@@ -98,9 +120,9 @@ a mismatch throws `InvalidArgumentException`. Any other shape throws
 `LogicException`.
 
 ```php
-WarrantSyntax::parse('if is_mine they can view')->scopedTo('documents');       // RuleSetNode
-WarrantSyntax::parse('for documents { they can view }')->scopedTo('documents'); // the same set
-WarrantSyntax::parse('for folders { they can view }')->scopedTo('documents');   // throws
+WarrantSyntax::parse('if is_mine they can view')->validate()->scopedTo('documents');       // RuleSetNode
+WarrantSyntax::parse('for documents { they can view }')->validate()->scopedTo('documents'); // the same set
+WarrantSyntax::parse('for folders { they can view }')->validate()->scopedTo('documents');   // throws
 ```
 
 ## `RuleSetNode` (final, readonly)
@@ -109,28 +131,25 @@ The rules for one schema: the body of a `for <schema>` header, or unscoped rules
 given their schema by `scopedTo()`.
 
 ```php
-public string $schemaKey;
-public array  $entries;   // list<IRuleEntryNode>: rules, ability blocks, includes, in source order
+public NameNode $schemaKey;
+public array    $entries;   // list<IRuleEntryNode>: rules, ability blocks, includes, in source order
 
-public function __construct(string $schemaKey, array $entries = []);
+public function schemaKey(): string;
 ```
 
 ### Constructing
 
 ```php
-public static function fromRules(
-    string $schemaKey,
-    WarrantRuleNode|WarrantRuleBuilder|array ...$rules,
-): self;   // flattens arrays, calls toRule() on builders, takes no bindings
-
 public static function build(
     string $schemaKey,
     Closure $callback,   // ($rule) => { $rule()->...; }
 ): self;
 ```
 
-From text, use `WarrantSyntax::parse($text)->ruleSet()` when the text carries its
-own `for` header, or `->scopedTo($schemaKey)` when it does not.
+From text, use `WarrantSyntax::parse($text)->validate()->ruleSet()` when the text
+carries its own `for` header, or `->scopedTo($schemaKey)` when it does not. To
+hand over several sources at once, return them as a list from `rules()`; Warrant
+joins them.
 
 ### Reading
 
@@ -154,31 +173,24 @@ The expanded rules are on the guard, as an `ExpandedSyntax` whose `$rules` is a
 Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
 ```
 
-### Merging
-
-```php
-public function mergeWith(RuleSetNode $other): self;
-public static function merge(RuleSetNode $first, RuleSetNode ...$rest): self;
-```
-
-Both concatenate entries, this set's first, into a new set. The schema keys must
-match:
-
-```text
-Cannot merge rule sets for different schemas: [documents] and [folders].
-```
-
 ### Validating
 
 ```php
-$syntax->validate(?string $schemaKey = null);   // the same syntax, validated
+$syntax->validate();   // a ValidSyntax
 ```
 
 `validate()` checks a parsed text as written: each `for` body against the schema
-registered for the key its header names, and rules with no header as rules for
-`$schemaKey`, each naming the abilities it applies to. With no `$schemaKey`, rules
-with no header are held only to the rules of the language. It throws the first
-mistake, saying where in the text it is.
+registered for the key its header names. Rules with no header are held only to
+the rules of the language, since nothing says which schema they are for; a guard
+checks their names when its schema's `rules()` or the rule provider hands them
+over. To check stored text with no header against a schema now, give it the
+header (error lines then count it):
+
+```php
+Warrant::parse("for {$schemaKey} {\n{$text}\n}")->validate();
+```
+
+It throws the first mistake, saying where in the text it is.
 
 ## `WarrantRuleNode` (readonly)
 
@@ -189,8 +201,8 @@ public array $cannotClauses;                  // list<CannotClauseNode>, each wi
 
 public static function build(): WarrantRuleBuilder;
 
-public function canAbilities(): array;
-public function cannotAbilities(): array;
+public function canAbilities(): array;      // list<string>, the names every can clause lists
+public function cannotAbilities(): array;   // list<string>
 public function deniesAbility(string $ability): bool;
 public function messageFor(string $ability): string|Closure|null;
 public function hasCannot(): bool;
@@ -198,11 +210,12 @@ public function isGeneric(): bool;                      // no clause names an ab
 public function withAbilities(array $abilities): self;   // a generic rule with $abilities on every clause
 ```
 
-`WarrantSyntax::parse($text)->rule()` throws if the text holds anything other
+`WarrantSyntax::parse($text)->validate()->rule()` throws if the text holds anything other
 than exactly one rule. A rule carries no schema; the `RuleSetNode` holding it
 does.
 
-A denial message lives on a `cannot` **clause**, not on the rule, so one rule can
+A clause's `$abilities` is a `list<NameNode>`, and its `$message` the node it was
+written as. A denial message lives on a `cannot` **clause**, not on the rule, so one rule can
 deny two sets of abilities for two reasons. Give a clause its message with
 `because` in rule text, or with `theyCannotBecause()` on the builder.
 
@@ -211,22 +224,13 @@ has an empty `$abilities` list, because the block header or the `@include` names
 them. `withAbilities()` gives such a rule its abilities, and throws on a rule that
 already names its own.
 
-## `WarrantParser` (final)
-
-```php
-public static function parse(string $source, array $bindings = []): WarrantSyntax;
-```
-
-The parser behind `WarrantSyntax::parse()`. Bindings are resolved as the tree is
-built, so the nodes hold only concrete values.
-
 ## `RuleProvider`
 
 ```php
 interface RuleProvider
 {
-    /** Any of: a rule set, a rule entry, rule text, or an iterable of those. */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable;
+    /** Any of: a rule set, a rule entry, a rule builder, rule text, or an iterable of those. */
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable;
 }
 ```
 
@@ -242,13 +246,16 @@ final readonly class RuleProviderContext
 
 ## Round-tripping
 
-`WarrantSyntax::toSyntax()` and `toBoundSyntax()` render a tree back to the
-language, and it parses back to an equal tree. They are the one place a tree is
-written as text, so to write a single rule set, put it in a tree of its own:
+`ValidSyntax::toSyntax()` and `toBoundSyntax()` render a validated tree back to
+the language, and it parses back to an equal tree. They are the one place a tree
+is written as text, so to write a single rule set, put it in a tree of its own:
 
 ```php
-(new WarrantSyntax([$ruleSet]))->toSyntax();
+(new WarrantSyntax([$ruleSet]))->validate()->toSyntax();
 ```
+
+A binding is written as its value: inline as a literal, and bound as `?` with the
+value collected.
 
 A `for <schema>` body is written as a `for <schema> { ... }` block, one blank line
 from the next.

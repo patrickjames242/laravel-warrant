@@ -8,6 +8,7 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 
 interface RuleProvider
 {
@@ -17,12 +18,13 @@ interface RuleProvider
      * SQL, so the implementation is free to build them however it likes — a
      * database lookup, hardcoded rules, ... — and to return them in whichever
      * form it has them: a rule set, a rule entry (a rule, ability block or
-     * include), a rule builder, rule text as a string or {@see WarrantSyntax},
+     * include), a rule builder, rule text as a string, {@see BoundSyntax} or
+     * {@see WarrantSyntax},
      * or an iterable (array, Collection) of those. They may hold rules for any
      * schema: only the rule sets for `$context->schemaKey`, and the rules with
      * no `for` header, apply to it.
      *
-     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string>
+     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable;
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable;
 }

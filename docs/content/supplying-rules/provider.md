@@ -47,26 +47,24 @@ key at a time rather than being asked for everything.
 
 ## What you may return
 
-Whatever form you have the rules in. Warrant reads each into the rule set for the
+Whatever form you have the rules in. Warrant reads each into the rules for the
 schema you were asked about:
 
 | Return | Read as |
 | --- | --- |
 | `string` | rule text — unscoped rules, or `for <schema>` rule sets |
+| `BoundSyntax` | rule text with its bindings, as `warrant()` and `warrant_file()` make |
 | `WarrantSyntax` | already-parsed rule text, read the same way |
 | `RuleSetNode` | its rules |
 | a rule entry — a rule, an ability block, an `@include` | that one entry |
+| a rule builder | the rule it builds |
 | an `array`, `Collection`, or any iterable | each element read by these same rules, in order |
 
 The forms nest and mix freely, so a list of strings, rule sets and single rules is
-fine. Every rule set among them — a `RuleSetNode`, or a `for <schema>` header in
-rule text — has to target the schema you were asked about. One for a different
-schema is caught:
-
-```text
-The rule provider was asked for schema [documents] but returned a rule set
-targeting [folders].
-```
+fine. A rule set for another schema — a `RuleSetNode`, or a `for <schema>` header
+in rule text — is left out, so a provider can return a whole file covering every
+schema. A schema's own [`rules()`](/schemas/schema-policy/) is stricter: every
+rule set it returns must be for that schema.
 
 Returning nothing — `''`, `[]`, an empty collection or an empty set — is legitimate
 and means this user has no rules for this resource, which denies everything. That is the right answer for an anonymous or
@@ -115,11 +113,9 @@ public function rules(RuleProviderContext $context): string|iterable
 files](/supplying-rules/where-rules-live/) are for:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode|iterable
+public function rules(RuleProviderContext $context): BoundSyntax
 {
-    $file = WarrantSyntax::parseFile(base_path("warrant/{$context->user->role}.warrant"));
-
-    return $file->forSchema($context->schemaKey) ?? [];
+    return warrant_file(base_path("warrant/{$context->user->role}"));
 }
 ```
 

@@ -170,6 +170,6 @@ Document::query()->userHasAbility('update')->paginate();
 
 ## Related
 
-[Composing from several sources](/supplying-rules/composing/) for the merging API.
+[Composing from several sources](/supplying-rules/composing/) for returning several sources at once.
 [Teams](/recipes/teams/) for the membership half.
 [Super admins](/recipes/super-admin/) for the role that grants everything.

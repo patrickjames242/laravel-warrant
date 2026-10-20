@@ -81,6 +81,18 @@ class OriginDocSchema extends WarrantSchema
     }
 
     #[DerivedCondition]
+    public function ownedByBound(): BoundSyntax
+    {
+        return warrant('owner_is(:id)', ['id' => 'u3']);
+    }
+
+    #[RuleTemplate]
+    public function boundRules(): BoundSyntax
+    {
+        return warrant('if owner_is(?) they can', ['t2']);
+    }
+
+    #[DerivedCondition]
     public function alwaysTrue(): bool
     {
         return true;
@@ -92,7 +104,7 @@ class OriginDocSchema extends WarrantSchema
         return WarrantRuleNode::build()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['t1']))->theyCan()->toRule();
     }
 
-    public function rules(RuleProviderContext $context): \Warrant\Builders\WarrantRuleBuilder|string
+    public function rules(RuleProviderContext $context): \Warrant\Builders\WarrantRuleBuilder|BoundSyntax|string
     {
         return (self::$answer)();
     }
@@ -243,6 +255,19 @@ it('gives the rule provider\'s answer its producer', function () {
     $rules = originRules(fn () => '');
 
     expect($rules[0]->location->source->producer()->kind)->toBe(SyntaxProducerKind::RuleProvider);
+});
+
+it('reads rule text answered with its values, from rules(), a template or a derived condition, as its producer\'s', function () {
+    $rules = originRules(fn () => warrant("if owner_is(:id) they can view\n@include bound_rules for edit\nif owned_by_bound they can edit", ['id' => 'u1']));
+
+    expect(array_map(static fn (WarrantRuleNode $rule): array => [
+        $rule->location->source->producer()->kind,
+        argumentValues($rule->conditions instanceof DerivedConditionNode ? $rule->conditions->body->parameters : $rule->conditions->parameters),
+    ], $rules))->toBe([
+        [SyntaxProducerKind::SchemaRules, ['u1']],
+        [SyntaxProducerKind::RuleTemplate, ['t2']],
+        [SyntaxProducerKind::SchemaRules, ['u3']],
+    ])->and($rules[2]->conditions->body->location->source->producer()->kind)->toBe(SyntaxProducerKind::DerivedCondition);
 });
 
 // -- binding checks with and without values ----------------------------------------

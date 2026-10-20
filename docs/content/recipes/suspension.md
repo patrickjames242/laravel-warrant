@@ -24,13 +24,9 @@ public function isSuspended(GlobalConditionContext $c): bool
 ```
 
 ```php
-public function rules(RuleProviderContext $context): array|RuleSetNode
+public function rules(RuleProviderContext $context): string
 {
-    return [
-        WarrantSyntax::parse(
-            "if is_suspended they cannot * because 'Your account is suspended.'"
-        )->rule(),
-    ];
+    return "if is_suspended they cannot * because 'Your account is suspended.'";
 }
 ```
 
@@ -54,9 +50,9 @@ abstract class AppSchema extends WarrantSchema
         return $c->user->suspended_at !== null;
     }
 
-    public function rules(RuleProviderContext $context): array|RuleSetNode
+    public function rules(RuleProviderContext $context): string
     {
-        return [WarrantSyntax::parse("if is_suspended they cannot * because 'Your account is suspended.'")->rule()];
+        return "if is_suspended they cannot * because 'Your account is suspended.'";
     }
 }
 ```
@@ -93,7 +89,7 @@ public function rules(RuleProviderContext $context): array|RuleSetNode
         WarrantSyntax::parse(
             "if is_read_only they cannot update, delete, submit, approve
              because 'Your account is limited to read-only access.'"
-        )->rule(),
+        )->validate()->rule(),
     ];
 }
 ```

@@ -25,10 +25,10 @@ your rule store once per row.
 ## Seeing what was resolved
 
 ```php
-Warrant::forSchema(Document::class, $user)->resolvedRuleSet();
+Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
 ```
 
-That is the merged, validated set actually in play: whatever your provider
+Those are the validated, expanded rules actually in play: whatever your provider
 returned, plus the schema's [own rules](/schemas/schema-policy/). It is the
 first thing to look at when a rule is not behaving, and
 [inspecting what is loaded](/diagnosis/inspecting/) covers using it.
@@ -104,7 +104,7 @@ public function rules(RuleProviderContext $context): RuleSetNode
         fn () => $this->fetchRuleText($context),
     );
 
-    return Warrant::parse($text)->scopedTo($context->schemaKey);
+    return Warrant::parse($text)->validate()->scopedTo($context->schemaKey);
 }
 ```
 

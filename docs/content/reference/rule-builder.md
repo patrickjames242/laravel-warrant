@@ -60,7 +60,7 @@ There are **no negated variants**. Negate with a group:
 abilities separate messages while abilities passed together share one.
 
 `toRule()` throws a `LogicException` if neither clause method was called. A
-builder handed to `RuleSetNode::fromRules()` needs no `toRule()`; the rule set
+builder returned from `rules()`, alone or in a list, needs no `toRule()`; Warrant
 finishes it.
 
 ## `NoRow` and `Ref`

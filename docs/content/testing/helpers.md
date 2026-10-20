@@ -23,23 +23,22 @@ use Warrant\Rules\RuleProvider;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
-    bindSyntax(new WarrantSyntax([WarrantSyntax::parse($syntax)->scopedTo($schemaKey)]));
+    bindProvidedRules(WarrantSyntax::parse($syntax)->validate()->scopedTo($schemaKey));
 }
 
 function bindGroup(string $syntax): void
 {
-    bindSyntax(WarrantSyntax::parse($syntax));
+    bindProvidedRules($syntax);
 }
 
-function bindSyntax(WarrantSyntax $syntax): void
+function bindProvidedRules(RuleSetNode|string $rules): void
 {
-    app()->instance(RuleProvider::class, new class($syntax) implements RuleProvider {
-        public function __construct(private WarrantSyntax $syntax) {}
+    app()->instance(RuleProvider::class, new class($rules) implements RuleProvider {
+        public function __construct(private RuleSetNode|string $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode
+        public function rules(RuleProviderContext $context): RuleSetNode|string
         {
-            return $this->syntax->forSchema($context->schemaKey)
-                ?? new RuleSetNode($context->schemaKey);
+            return $this->rules;
         }
     });
 
@@ -117,7 +116,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            WarrantSyntax::parse($row->rules)->validate($row->schema_key);
+            WarrantSyntax::parse("for {$row->schema_key} {\n{$row->rules}\n}")->validate();
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -142,7 +141,7 @@ names, and rules with no header against the schema you pass:
 
 ```php
 WarrantSyntax::parseFile($path)->validate();
-Warrant::parse($text)->validate('documents');
+Warrant::parse("for documents {\n{$text}\n}")->validate();
 ```
 
 Validation checks the rule set as written. A rule template's body and a derived
@@ -157,9 +156,9 @@ Useful when a permission change is meant to be a no-op:
 
 ```php
 it('has not changed the editor policy', function () {
-    $set = Warrant::forSchema(Document::class, $editor)->resolvedRuleSet();
+    $rules = Warrant::forSchema(Document::class, $editor)->expandedRuleSet()->rules;
 
-    expect((new WarrantSyntax([$set]))->toSyntax())->toMatchSnapshot();
+    expect((new WarrantSyntax($rules))->validateWithoutSchemas()->toSyntax())->toMatchSnapshot();
 });
 ```
 

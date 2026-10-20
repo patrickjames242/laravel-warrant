@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
@@ -65,7 +66,8 @@ trait ExpandsRuleTemplates
 
     /**
      * The generic rules and includes in what a rule template answered with, in
-     * whichever form it built them: rule text as a string or {@see WarrantSyntax},
+     * whichever form it built them: rule text as a string, {@see BoundSyntax} or
+     * {@see WarrantSyntax},
      * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, or an
      * iterable of any of these.
      *
@@ -84,7 +86,7 @@ trait ExpandsRuleTemplates
      */
     private function templateEntries(mixed $body, SyntaxProducer $producer): array
     {
-        if (is_string($body)) {
+        if (is_string($body) || $body instanceof BoundSyntax) {
             $body = WarrantParser::parse($body, $producer);
         } elseif ($body instanceof WarrantSyntax) {
             $body->source->setProducer($producer);

@@ -20,7 +20,7 @@ $rules = Warrant::parse(<<<'WARRANT'
         if is_mine or in_my_team they can view, update
         if is_locked they cannot update because 'This document is locked.'
     }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 Use the nowdoc form with quoted `'WARRANT'` unless you actually want PHP
@@ -46,7 +46,7 @@ Schema::create('role_rules', function (Blueprint $table) {
 ```
 
 ```php
-Warrant::parse($row->rules)->scopedTo($row->schema_key);
+Warrant::parse($row->rules)->validate()->scopedTo($row->schema_key);
 ```
 
 Good for: policy that differs per tenant, or that an administrator edits through a
@@ -75,7 +75,7 @@ for folders {
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'));
+$file = WarrantSyntax::parseFile(base_path('warrant/editor.warrant'))->validate();
 
 $file->forSchema('documents');   // the RuleSetNode for one schema, or null
 $file->schemaKeys();             // ['documents', 'folders']
@@ -101,20 +101,17 @@ targets by extension, so they get highlighting everywhere with no configuration.
 A provider built on them:
 
 ```php
-public function rules(RuleProviderContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): BoundSyntax|array
 {
     $path = base_path("warrant/{$context->user->role}.warrant");
 
-    if (! is_file($path)) {
-        return RuleSetNode::fromRules($context->schemaKey);
-    }
-
-    return WarrantSyntax::parseFile($path)->forSchema($context->schemaKey)
-        ?? RuleSetNode::fromRules($context->schemaKey);
+    return is_file($path) ? warrant_file($path) : [];
 }
 ```
 
-In production, cache the parse rather than reading and parsing per request:
+Only the file's blocks for the schema the provider was asked about apply. In
+production, cache the parse rather than reading and parsing per request, and
+return the parsed file:
 
 ```php
 $file = Cache::rememberForever(

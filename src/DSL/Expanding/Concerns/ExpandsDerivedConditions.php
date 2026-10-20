@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -74,7 +75,7 @@ trait ExpandsDerivedConditions
      * that named it, set on that source: its text's, the builder's, or a built
      * node's own.
      *
-     * Rule text, as a string or a {@see WarrantSyntax}, must hold a condition
+     * Rule text, as a string, a {@see BoundSyntax} or a {@see WarrantSyntax}, must hold a condition
      * expression, bare or under a `for` header naming this schema. A
      * {@see WarrantConditionBuilder} is unwrapped to the tree it composed. A bool
      * decides the outcome outright, and null answers unknown.
@@ -85,7 +86,7 @@ trait ExpandsDerivedConditions
      */
     private function derivedExpression(mixed $answer, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
     {
-        if (is_string($answer) || $answer instanceof WarrantSyntax) {
+        if (is_string($answer) || $answer instanceof BoundSyntax || $answer instanceof WarrantSyntax) {
             return $this->derivedSyntaxExpression($answer, $producer, $schemaKey);
         }
 
@@ -155,10 +156,10 @@ trait ExpandsDerivedConditions
      * is expanded and compiled against this one, so a header naming another is
      * rejected rather than read against the wrong vocabulary.
      */
-    private function derivedSyntaxExpression(string|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
+    private function derivedSyntaxExpression(string|BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
     {
         try {
-            if (is_string($text)) {
+            if (! $text instanceof WarrantSyntax) {
                 $syntax = WarrantParser::parse($text, $producer);
             } else {
                 $syntax = $text;

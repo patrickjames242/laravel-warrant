@@ -73,18 +73,18 @@ it('parses a BoundSyntax with the bindings it holds', function () {
 
 // -- the global helpers ---------------------------------------------------------
 
-it('parses through warrant() exactly as Warrant::parse does', function () {
-    expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1'])->children)
-        ->toEqualSyntax(Warrant::parse(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']))->children);
+it('holds rule text and its values through warrant()', function () {
+    expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1']))
+        ->toEqual(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']));
 });
 
-it('parses a file through warrant_file(), with the extension left off', function () {
+it('reads a file through warrant_file(), with the extension left off', function () {
     $base = sys_get_temp_dir().'/'.uniqid('warrant_', true);
     file_put_contents($base.'.warrant', 'for timesheets { if is_owner(:id) they can view }');
 
     try {
-        expect(warrant_file($base, ['id' => 'x-1'])->children)
-            ->toEqualSyntax(Warrant::parseFile($base.'.warrant', ['id' => 'x-1'])->children);
+        expect(warrant_file($base, ['id' => 'x-1']))
+            ->toEqual(new BoundSyntax('for timesheets { if is_owner(:id) they can view }', ['id' => 'x-1'], $base.'.warrant'));
     } finally {
         unlink($base.'.warrant');
     }

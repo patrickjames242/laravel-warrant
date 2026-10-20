@@ -38,7 +38,7 @@ if scoped_to('projects', @context project_id, :region) they can view
 ```
 
 ```php
-WarrantSyntax::parse($syntax, ['region' => 'west'])->scopedTo('documents');
+WarrantSyntax::parse(warrant($syntax, ['region' => 'west']))->validate()->scopedTo('documents');
 ```
 
 That matters because bindings are strict. Every `:name` must have a value, every

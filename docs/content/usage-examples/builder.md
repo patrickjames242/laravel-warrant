@@ -197,19 +197,19 @@ RuleSetNode::build('documents', function ($rule) {
 });
 ```
 
-Or from rules you already have:
+Rules you already have need no set around them: return them as a list from
+`rules()`:
 
 ```php
-RuleSetNode::fromRules('documents', [$own, $noDelete]);
+return [$own, $noDelete];
 ```
 
 ## Mixing text and builders
 
 ```php
-$stored  = Warrant::parse($textFromDatabase)->scopedTo('documents');
 $dynamic = RuleSetNode::build('documents', fn ($rule) => $rule()
     ->if('in_team', [$teamId])
     ->theyCan('view'));
 
-$stored->mergeWith($dynamic);
+return [$textFromDatabase, $dynamic];
 ```

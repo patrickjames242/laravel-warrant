@@ -60,7 +60,7 @@ built for `documents` cannot be compiled against `folders`. Text with no `for`
 header is given its schema by the code that reads it:
 
 ```php
-WarrantSyntax::parse('if is_mine they can view')->scopedTo('documents');
+WarrantSyntax::parse('if is_mine they can view')->validate()->scopedTo('documents');
 ```
 
 One source may hold several rule sets authored together, one braced block per
@@ -77,7 +77,7 @@ for folders {
 ```
 
 ```php
-$syntax = Warrant::parse($text);
+$syntax = Warrant::parse($text)->validate();
 $syntax->forSchema('documents');   // the RuleSetNode for documents
 $syntax->schemaKeys();             // ['documents', 'folders']
 ```

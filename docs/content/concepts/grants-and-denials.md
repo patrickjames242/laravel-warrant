@@ -65,9 +65,9 @@ does not matter which source each rule came from. A `cannot` declared on
 the schema beats any `can` a provider returns:
 
 ```php
-public function rules(RuleProviderContext $context): array|RuleSetNode
+public function rules(RuleProviderContext $context): string
 {
-    return WarrantSyntax::parse('if is_suspended they cannot *')->ruleEntries();
+    return 'if is_suspended they cannot *';
 }
 ```
 

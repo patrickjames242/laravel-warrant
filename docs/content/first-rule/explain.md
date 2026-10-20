@@ -59,10 +59,10 @@ text, the closure arrives through a binding:
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Schema\WarrantDenialContext;
 
-WarrantSyntax::parse('if is_locked they cannot update because :msg', [
+WarrantSyntax::parse(warrant('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) =>
         "You cannot edit {$c->target->title} while it is locked.",
-])->rule();
+]))->validate()->rule();
 ```
 
 ## When nothing granted it

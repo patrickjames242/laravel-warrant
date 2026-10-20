@@ -179,7 +179,7 @@ public function isEditable(): string
 #[DerivedCondition]
 public function ownedOrInTeam(mixed $team): WarrantSyntax
 {
-    return Warrant::parse('is_mine or in_team(:team)', ['team' => $team]);
+    return Warrant::parse(warrant('is_mine or in_team(:team)', ['team' => $team]));
 }
 
 #[DerivedCondition]

@@ -33,7 +33,7 @@ $rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 A plain string passed to `warrant('...')` or `Warrant::parse('...')` is not

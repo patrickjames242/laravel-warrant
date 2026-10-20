@@ -2,22 +2,26 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Building rule sets
-description: Four ways to construct one, and when each reads best.
+description: The ways to construct one, and when each reads best.
 sidebar:
   order: 2
 ---
 
 A rule set is a `RuleSetNode` for one schema key. Text becomes one through
-`WarrantSyntax::parse()`, and PHP builds one with `RuleSetNode::fromRules()` or
-`RuleSetNode::build()`. Every node lives in `Warrant\DSL\Parsing\ASTNodes`.
+`WarrantSyntax::parse()`, and PHP builds one with `RuleSetNode::build()`. Every
+node lives in `Warrant\DSL\Parsing\ASTNodes`.
+
+A parsed tree hands out its nodes once it is validated: `validate()` checks every
+name against the schemas the application registers and answers a `ValidSyntax`,
+whose accessors are below.
 
 ## From text
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-WarrantSyntax::parse('for documents { if is_mine they can view }')->ruleSet();
-WarrantSyntax::parse('for documents { if in_team(:t) they can view }', ['t' => 'sales'])->ruleSet();
+WarrantSyntax::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
+WarrantSyntax::parse(warrant('for documents { if in_team(:t) they can view }', ['t' => 'sales']))->validate()->ruleSet();
 ```
 
 `Warrant::parse()` is the same call from the facade. One parse reads every form of
@@ -27,35 +31,32 @@ asks for the single `for <schema>` rule set.
 Text with no header is given its schema by `scopedTo()`:
 
 ```php
-WarrantSyntax::parse('if is_mine they can view')->scopedTo('documents');
+WarrantSyntax::parse('if is_mine they can view')->validate()->scopedTo('documents');
 ```
 
-Prefer the header. It travels with the string, so editor tooling reading your
-source knows which schema to check the condition and ability names against. Text
-scoped from PHP is still valid, just unverifiable from the outside. A header that
-disagrees with `scopedTo()` is an error.
+Prefer the header. It travels with the string, so `validate()` and editor
+tooling both know which schema to check the condition and ability names against.
+Text with no header is checked by `validate()` only against the rules of the
+language, and its names when a guard first uses it. A header that disagrees with
+`scopedTo()` is an error.
 
-## From already-parsed rules
+## Several rules at once
+
+There is no set to build around rules you already have. `rules()` takes a list,
+in any mix of text, rules, builders and rule sets, and joins them:
 
 ```php
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-
-$own      = WarrantSyntax::parse('if is_mine they can view, update')->rule();
-$noDelete = WarrantSyntax::parse('they cannot delete')->rule();
-
-RuleSetNode::fromRules('documents', $own, $noDelete);
-RuleSetNode::fromRules('documents', [$own, $noDelete]);   // same
+return [
+    'if is_mine they can view, update',
+    WarrantRuleNode::build()->theyCannot('delete'),
+];
 ```
 
-`fromRules` takes a variadic list or a single array, flattens a mix of both,
-accepts builders directly, and takes no bindings, since the rules are already
-resolved.
-
-This is also how you build an empty set, which is the right answer for a user with
-no access:
+An empty list, or empty text, is no rules at all, which is the right answer for a
+user with no access:
 
 ```php
-RuleSetNode::fromRules('documents');
+return [];
 ```
 
 ## With a build callback
@@ -81,9 +82,9 @@ When you want the parsed rules without a set around them, ask the tree for the
 shape the text holds:
 
 ```php
-$entries = WarrantSyntax::parse('if is_mine they can view')->ruleEntries();   // IRuleEntryNode[]
-$one     = WarrantSyntax::parse('they cannot delete')->rule();               // WarrantRuleNode
-$expr    = WarrantSyntax::parse('a or not b')->conditionExpression();        // an expression
+$entries = WarrantSyntax::parse('if is_mine they can view')->validate()->ruleEntries();   // IRuleEntryNode[]
+$one     = WarrantSyntax::parse('they cannot delete')->validate()->rule();               // WarrantRuleNode
+$expr    = WarrantSyntax::parse('a or not b')->validate()->conditionExpression();        // an expression
 ```
 
 An accessor that does not match the text throws a `LogicException` naming what
@@ -106,7 +107,7 @@ $syntax = Warrant::parse(<<<'WARRANT'
     for folders {
         if is_owner they can view
     }
-WARRANT);
+WARRANT)->validate();
 
 $syntax->forSchema('documents');   // the RuleSetNode, or null
 $syntax->schemaKeys();             // ['documents', 'folders']
@@ -126,7 +127,7 @@ a file.
 
 ## Round-tripping
 
-A `WarrantSyntax` tree renders back to the language:
+A validated tree renders back to the language:
 
 ```php
 $syntax->toSyntax();        // canonical text, inline literals
@@ -136,7 +137,7 @@ $syntax->toBoundSyntax();   // text plus a positional bindings array
 To render one rule set, put it in a tree of its own:
 
 ```php
-(new WarrantSyntax([$set]))->toSyntax();
+(new WarrantSyntax([$set]))->validate()->toSyntax();
 ```
 
 `toSyntax()` can only render parameters expressible as inline literals. An array,

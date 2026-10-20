@@ -11,6 +11,7 @@ use Warrant\DSL\ConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\Rules\RuleProvider;
@@ -229,8 +230,8 @@ abstract class WarrantSchema implements ConditionResolver
      * The context is the one the global provider receives, so the rules may
      * depend on the user — a super-admin escape hatch, a universal deny, or rules
      * looked up for this user alone. Return them in any form the global
-     * provider may — a rule set, a rule entry, a rule builder, rule text, or an
-     * iterable of those. Unlike the global provider's, every rule set among
+     * provider may — a rule set, a rule entry, a rule builder, rule text (with
+     * its bindings, as a {@see BoundSyntax}), or an iterable of those. Unlike the global provider's, every rule set among
      * them must be for this schema:
      *
      * ```php
@@ -245,9 +246,9 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * Called once per guard, which is fixed to one (schema, user).
      *
-     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string>
+     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|string|iterable
+    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable
     {
         return [];
     }

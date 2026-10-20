@@ -47,7 +47,7 @@ $rules = Warrant::parse(<<<'WARRANT'
     for documents {
         if is_mine they can view
     }
-WARRANT)->ruleSet();
+WARRANT)->validate()->ruleSet();
 ```
 
 **Rule-text arguments in PHP**: the first argument of `warrant()`,
@@ -137,7 +137,7 @@ output is under **Warrant Language Server** in the Output panel.
       "    for ${1:documents} {",
       "        $0",
       "    }",
-      "WARRANT)->ruleSet();"
+      "WARRANT)->validate()->ruleSet();"
     ]
   }
 }

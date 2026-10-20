@@ -131,7 +131,7 @@ public function ancestor(int $depth): string|WarrantSyntax
 {
     return $depth <= 0
         ? 'they can'
-        : Warrant::parse('@include ancestor(:next)', ['next' => $depth - 1]);
+        : Warrant::parse(warrant('@include ancestor(:next)', ['next' => $depth - 1]));
 }
 ```
 

@@ -143,7 +143,7 @@ public function rules(RuleProviderContext $context): array|RuleSetNode
     return [
         WarrantSyntax::parse(
             "if is_trashed they cannot update, submit, approve because 'This document is in the trash.'"
-        )->rule(),
+        )->validate()->rule(),
     ];
 }
 ```

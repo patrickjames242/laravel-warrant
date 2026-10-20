@@ -12,7 +12,7 @@ that never existed, a typo in a stored string. Validation catches those without 
 user, a row, or a query.
 
 ```php
-Warrant::parse($storedRule)->validate('documents');
+Warrant::parse("for documents {\n{$storedRule}\n}")->validate();
 WarrantSyntax::parseFile(base_path('warrant/documents'))->validate();
 ```
 
@@ -25,9 +25,11 @@ Condition [in_team] requires at least 1 argument(s), but the rule supplied 0.
 ```
 
 A `for` body is checked against the schema registered for the key its header
-names. Rules with no header are checked as rules for the schema you pass, each
-naming the abilities it applies to; pass none and they belong to no schema yet, so
-only the rules of the language that need no schema apply. A denial
+names. Rules with no header say nothing about which schema they are for, so
+`validate()` holds them only to the rules of the language that need no schema.
+That is why the examples give stored text its header before validating it: the
+names are then checked against that schema. Line numbers in an error then count
+the header line, so the stored text's line 1 is reported as line 2. A denial
 message after `they can` never gets this far: `because` may only follow
 `they cannot`, so the parser rejects it.
 
@@ -42,7 +44,7 @@ public function store(Request $request)
     $ruleText = $request->string('rules');
 
     try {
-        Warrant::parse($ruleText)->validate($request->string('schema_key'));
+        Warrant::parse("for {$request->string('schema_key')} {\n{$ruleText}\n}")->validate();
     } catch (WarrantSyntaxException | InvalidArgumentException $e) {
         return back()->withErrors(['rules' => $e->getMessage()]);
     }
@@ -60,7 +62,7 @@ it('every stored rule still compiles', function () {
 
     foreach (RoleRule::all() as $row) {
         try {
-            Warrant::parse($row->rules)->validate($row->schema_key);
+            Warrant::parse("for {$row->schema_key} {\n{$row->rules}\n}")->validate();
         } catch (Throwable $e) {
             $broken[] = "{$row->role}/{$row->schema_key}: {$e->getMessage()}";
         }
@@ -75,7 +77,8 @@ That turns "a typo in a stored rule silently grants or denies" into a failing te
 ## What validation checks
 
 Syntax is checked earlier, at parse time, and throws eagerly with a caret. What
-`validate()` adds is names, against the registered schema:
+`validate()` adds is bindings, that every placeholder has a value of the right
+kind and every value is used, and names, against the registered schema:
 
 - every ability named by a `can` or `cannot` is declared;
 - every condition named is declared, with enough arguments;
@@ -128,7 +131,8 @@ compiler](/sql/validator-compiler-invariant/).
 
 ## Validation happens automatically too
 
-A resolved rule set is validated once per request when the guard resolves it, not
-once per check. So a stored typo does surface on the first check that touches that
+The rules a guard is handed are validated once per request when it resolves them,
+not once per check, each as the schema's own or the provider's rules for that
+schema. So a stored typo does surface on the first check that touches that
 schema, with the same message. Running `validate()` yourself is about hearing it
 somewhere better than a production request.

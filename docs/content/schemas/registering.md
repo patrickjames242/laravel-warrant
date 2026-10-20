@@ -102,7 +102,7 @@ Use the same key in the rule text header as in config, and prefer putting the
 header in the string:
 
 ```php
-Warrant::parse('for documents { if is_mine they can view }')->ruleSet();
+Warrant::parse('for documents { if is_mine they can view }')->validate()->ruleSet();
 ```
 
 A header travels with the string, so editor tooling reading your source knows which

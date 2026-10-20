@@ -47,8 +47,8 @@ $context->model;      // App\Models\Document, or null for a schema with no model
 
 ## Returning text, by role
 
-A provider can return rule text, a parsed `WarrantSyntax`, rules, a `RuleSetNode`,
-or an iterable of any of these:
+A provider can return rule text, `warrant()` text with its values, a parsed
+`WarrantSyntax`, rules, a `RuleSetNode`, or an iterable of any of these:
 
 ```php
 public function rules(RuleProviderContext $context): string|iterable
@@ -69,13 +69,11 @@ public function rules(RuleProviderContext $context): string|iterable
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\BoundSyntax;
 
-public function rules(RuleProviderContext $context): RuleSetNode|iterable
+public function rules(RuleProviderContext $context): BoundSyntax
 {
-    $file = WarrantSyntax::parseFile(base_path("warrant/{$context->user->role}.warrant"));
-
-    return $file->forSchema($context->schemaKey) ?? [];
+    return warrant_file(base_path("warrant/{$context->user->role}"));
 }
 ```
 
@@ -99,28 +97,27 @@ public function rules(RuleProviderContext $context): RuleSetNode
 ## Composing several sources
 
 ```php
-use Warrant\Facades\Warrant;
 
-public function rules(RuleProviderContext $context): RuleSetNode
+public function rules(RuleProviderContext $context): array
 {
     $key = $context->schemaKey;
 
-    $sets = [
-        Warrant::parse("for {$key} { they can view }")->ruleSet(),       // a baseline
-        $this->roles->forRole($context->user->role, $key),               // the role's rules
+    $sources = [
+        'they can view',                                         // a baseline
+        $this->roles->forRole($context->user->role, $key),       // the role's rules
     ];
 
     foreach ($context->user->teams as $team) {
-        $sets[] = $this->teams->forTeam($team, $key);                   // each team's rules
+        $sources[] = $this->teams->forTeam($team, $key);         // each team's rules
     }
 
-    $sets[] = Warrant::parse("for {$key} { if is_suspended they cannot * }")->ruleSet();
+    $sources[] = 'if is_suspended they cannot *';
 
-    return RuleSetNode::merge(...$sets);
+    return $sources;
 }
 ```
 
-Order never changes the answer, so sets merge in any sequence. See
+Order never changes the answer, so the sources join in any sequence. See
 [Composing](/supplying-rules/composing/).
 
 ## Rules stored in the database
@@ -136,7 +133,7 @@ Schema::create('role_rules', function (Blueprint $table) {
 ```
 
 ```php
-Warrant::parse($row->rules)->scopedTo($row->schema_key);
+Warrant::parse($row->rules)->validate()->scopedTo($row->schema_key);
 ```
 
 ## Validating rules before saving them
@@ -147,7 +144,7 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
 public function store(Request $request)
 {
     try {
-        Warrant::parse($request->string('rules'))->validate($request->string('schema_key'));
+        Warrant::parse("for {$request->string('schema_key')} {\n{$request->string('rules')}\n}")->validate();
     } catch (WarrantSyntaxException | InvalidArgumentException $e) {
         return back()->withErrors(['rules' => $e->getMessage()]);
     }

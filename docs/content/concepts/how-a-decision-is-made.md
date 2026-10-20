@@ -23,15 +23,15 @@ memoized for the request. Every later check on the same pair reuses it.
 
 **3. Resolve the rule set, once.** The guard asks your provider, if
 there is one, and the schema's own [`rules()`](/schemas/schema-policy/) — both
-handed the same context — checks that what they returned targets this schema,
-merges the two, and validates every ability and
-condition name against the schema. This happens at most once per user and schema
+handed the same context — validates every ability and condition name against the
+schema, keeps the provider's rules about this schema, and expands them all into
+one list. This happens at most once per user and schema
 per request, no matter how many checks follow.
 
 ```php
 $guard = Warrant::forSchema(Document::class, $user);
 
-$guard->resolvedRuleSet();   // the merged, validated set, for debugging
+$guard->expandedRuleSet();   // the validated, expanded rules, for debugging
 ```
 
 **4. Build the effective context.** Whatever the caller passed is merged over
