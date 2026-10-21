@@ -2,7 +2,7 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Passing values to conditions
-description: Inline literals, named bindings, and the rules each obeys.
+description: Inline literals, named bindings, abilities from a binding, and the rules each obeys.
 sidebar:
   order: 4
 ---
@@ -77,6 +77,52 @@ binding or an unused one is an error:
 No binding provided for ":uid".
 Binding(s) provided but never used: region.
 ```
+
+## Abilities from a binding
+
+A binding may also stand wherever an ability is written: in a `they can` or
+`they cannot` list, an ability block header, an `@include`'s `for` list, and a
+`can` reference. Its value is an ability name, `'*'`, or a list of them, and a
+list is spliced into the list where the binding stands:
+
+```php
+WarrantSyntax::parse(warrant('
+    if is_editor they can view, :editing
+    can they :reviewing { if is_reviewer they can }
+    @include owned for :owning
+    if can(:gate) they can publish
+', [
+    'editing'   => ['update', 'archive'],
+    'reviewing' => 'comment',
+    'owning'    => ['view', 'delete'],
+    'gate'      => 'approve',
+]))->validate()->scopedTo('documents');
+```
+
+The first rule grants `view`, `update` and `archive`. Names and bindings mix
+freely in one list.
+
+A `can` reference asks about one ability, so its binding's value is one ability
+name. A list there is an error.
+
+In a list the value must name at least one ability, and nothing else:
+
+```text
+The binding [:editing] stands in an ability list, so its value is an ability name or a non-empty list of them; got an empty list.
+The binding [:gate] stands for the one ability a can(...) reference asks about, so its value is an ability name; got array.
+```
+
+An empty list, an array with keys, a nested list and a value that is not a string
+are each rejected the same way. A bound ability the schema does not declare is
+the same error as a written one: `Ability [%s] is not declared by the schema.`
+
+Each of these needs the values, so an editor, which has none, reports none of
+them. It still reads a binding as an ability wherever one may stand.
+
+[Each ability once](/rules/basics/#each-ability-once) is judged on the list as
+written, never on what its bindings hold: `they can :editing, view` is fine even
+when `:editing` holds `view`, while `they can :editing, :editing` names one
+binding twice.
 
 ## How arguments reach the method
 

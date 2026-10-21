@@ -37,7 +37,9 @@ clause        = "they" ( "can" ability ( "," ability )*
                        | "cannot" ability ( "," ability )* ( "because" message )? ) ;
                 (* inside an ability block the ability list is omitted *)
 
-ability       = IDENTIFIER | "*" ;
+ability       = IDENTIFIER | "*" | NAMED_BINDING ;
+                (* a binding's value is an ability name, "*", or a list of
+                   them, spliced in where the binding stands *)
 message       = STRING | NAMED_BINDING ;
 
 expr          = or ;
@@ -47,8 +49,10 @@ not           = ( "not" | "!" ) not | primary ;
 primary       = "(" expr ")" | can_ref | check_ref | condition ;
 
 condition     = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
-can_ref       = "can" "(" IDENTIFIER ( "for" handle ( "with" with_map )? )? ")"
-              | "can" IDENTIFIER ;
+can_ref       = "can" "(" can_ability ( "for" handle ( "with" with_map )? )? ")"
+              | "can" can_ability ;
+can_ability   = IDENTIFIER | NAMED_BINDING ;
+                (* one ability: a binding's value is one ability name *)
 check_ref     = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
 handle        = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
 with_map      = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;

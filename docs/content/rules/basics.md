@@ -96,6 +96,32 @@ if is_suspended they cannot *
 `they cannot *` is the kill switch. Nothing can appeal it, so a suspended account
 loses everything regardless of what any other rule grants.
 
+## Each ability once
+
+A rule names each ability once among what it grants, and once among what it
+denies, however many clauses it splits them across. `*` already stands for every
+ability, so nothing is written beside it. Each of these is an error:
+
+```warrant
+they can view, view
+they can view they can view
+they cannot update they cannot update
+they can *, view
+```
+
+The same goes for an ability block header and an `@include`'s `for` list.
+Granting and denying one ability in the same rule is fine, as is naming it again
+in another rule.
+
+The list is judged as it is written. A [binding](/rules/values/#abilities-from-a-binding)
+written twice is a mistake, as is one written beside `*`. A binding whose value
+repeats a name written beside it is not.
+
+```text
+Ability [view] is written more than once among the abilities this rule grants; write it once.
+`*` stands for every ability, so nothing else is written beside it among the abilities this rule grants.
+```
+
 ## Syntax errors are eager and precise
 
 A malformed rule throws `Warrant\DSL\Parsing\WarrantSyntaxException` at parse time,

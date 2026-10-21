@@ -72,6 +72,7 @@ if is_manager and (in_team('sales') or in_team('eng')) they can approve
 if in_workspace(@context workspace_id) they can view
 if matches(@column pay_period_id) they can view
 if matches(@sql "select id from settings limit 1") they can view
+if is_editor they can view, :editing
 
 if can(view for folders(@column folder_id)) they can view
 if check(is_open for pay_periods(@context period_id)) they can submit

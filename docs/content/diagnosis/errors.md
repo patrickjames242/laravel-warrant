@@ -79,8 +79,10 @@ source that text was written in.
 
 - `No binding provided for ":%s".`
 - `Binding(s) provided but never used: %s.`
+- `The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list of them; got %s.`
+- `The binding [:%s] stands for the one ability a can(...) reference asks about, so its value is an ability name; got %s.`
 
-Both need the values, so an editor, which has none, reports neither.
+Each needs the values, so an editor, which has none, reports none of them.
 
 ### Names
 
@@ -90,8 +92,17 @@ Both need the values, so an editor, which has none, reports neither.
 - `Schema [%s] declares no rule template [%s], named by an @include.`
 - `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
 
+A bound ability is checked against the schema too, when the values are given.
+
 Context keys need no declaration to be referenced, so there is no unknown-context-key
 error.
+
+### Ability lists
+
+- `%s is written more than once among the abilities %s; write it once.` (`%s` is `Ability [view]` or `Binding [:more]`, then `this rule grants`, `this rule denies`, `this ability block names` or `this @include names`)
+- `` `*` stands for every ability, so nothing else is written beside it among the abilities %s. ``
+
+Both judge the list as written, not the values its bindings hold.
 
 Type guards:
 
@@ -202,6 +213,7 @@ An *optional* key that is absent does not throw. It is passed to its condition a
 Thrown while a rule set is expanded, by the guard before its first check:
 
 - `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.` Validation reports the same as written, before anything is expanded.
+- `InvalidArgumentException`: `The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list of them; got %s.` (or `stands for the one ability a can(...) reference asks about`) Validation reports the same when it checks binding values.
 - `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` Validation reports the same as written, too.
 - `RuntimeException`: `Rule template [%s::%s] must answer with rule text, a Warrant\DSL\Parsing\ASTNodes\WarrantSyntax, a rule or @include that names no abilities, or an iterable of them; got %s.`
 - `RuntimeException`: `Rule template [%s::%s] answered with a rule that names abilities; the @include that expands a template names the abilities its rules and includes take.` (or `an @include that names abilities`)
