@@ -88,7 +88,8 @@ should not be interpolating PHP variables. Values belong in
 
 The grammar distinguishes the categories the parser does:
 
-- keywords: `if`, `they`, `can`, `cannot`, `because`, `for`, `with`, `as`, `check`
+- keywords: `if`, `when`, `otherwise`, `they`, `can`, `cannot`, `because`, `for`,
+  `with`, `as`, `check`
 - operators: `and`, `or`, `not`, `!`, `*`
 - symbolic references: `@context`, `@column`, `@sql`, `@include`
 - bindings: `:name`

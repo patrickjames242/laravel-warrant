@@ -4,7 +4,7 @@ banner:
 title: Delegation
 description: Answer one ability in terms of another, on this schema or another one.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 Policies are full of sentences like "anyone who can edit can also comment" and

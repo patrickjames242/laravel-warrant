@@ -66,6 +66,12 @@ can they view {
     if is_confidential they cannot
 }
 
+when is_published {
+    if is_member they can view
+} otherwise {
+    they cannot view because 'Not published.'
+}
+
 if is_mine and not is_locked they can update
 if is_manager and (in_team('sales') or in_team('eng')) they can approve
 

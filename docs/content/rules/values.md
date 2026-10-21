@@ -4,7 +4,7 @@ banner:
 title: Passing values to conditions
 description: Inline literals, named bindings, abilities from a binding, and the rules each obeys.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 A condition may take arguments. There are two ways to supply them before

@@ -4,7 +4,7 @@ banner:
 title: Denial messages
 description: Turn a refusal into an explanation, from the rule, the builder, or the schema.
 sidebar:
-  order: 9
+  order: 10
 ---
 
 The strongest objection to expressing policy in a small language is that error

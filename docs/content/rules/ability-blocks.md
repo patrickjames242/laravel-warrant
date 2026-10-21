@@ -78,7 +78,7 @@ Three things, each because the header is the one place the ability is said:
 
 ```warrant
 can they view { if x they can edit }   # a clause naming its own abilities
-can they view { can they edit { … } }  # a block inside a block
+can they view { can they edit { … } }  # a block inside a block, even with a when block between
 for docs { if is_public they can }     # a generic clause in a rule set
 ```
 
@@ -103,6 +103,11 @@ Outside a block, the include has to name them:
 ```warrant
 @include requires_approval for view, edit
 ```
+
+## Blocks for a condition
+
+An ability block says the ability once. A [when block](/rules/when-blocks/) says a
+condition once, and the two nest inside each other either way round.
 
 :::note[Blocks in the parsed tree]
 A block stays in the parsed tree as an `AbilityBlockNode` holding its body exactly

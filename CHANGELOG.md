@@ -37,6 +37,15 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 - `$guard->expandedRuleSet()` returns an `ExpandedSyntax`, the validated and
   expanded rules every check compiles, each rule saying where it was written.
 
+- When blocks: `when <condition> { ... } otherwise { ... }` says a condition once
+  over the rules in its body, and its negation over the rules in its
+  `otherwise`. Expansion joins the condition to each rule with `and`, so a block
+  decides every check exactly as the rules written out in full. Both bodies are
+  always braced, there is no `otherwise when`, and an unknown condition leaves
+  both bodies without effect. `when` and `otherwise` are reserved words. The VS
+  Code (0.13.0) and PhpStorm (0.8.0) extensions and the language server know
+  them.
+
 ### Changed
 
 - Rule text is handled in fixed stages: validate, put binding values in place,
@@ -76,3 +85,5 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 - New sections on building rules through `Build`, abilities from bindings, each
   ability written once, template and derived condition parameters as bindings,
   and telling a template its abilities.
+- A When blocks page under Rules, and when blocks in the grammar reference, the
+  cheat sheet and the expansion steps.

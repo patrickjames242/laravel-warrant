@@ -4,7 +4,7 @@ banner:
 title: Rule templates
 description: Name a reusable piece of policy on the schema and expand it with @include.
 sidebar:
-  order: 8
+  order: 9
 ---
 
 A condition already names a reusable predicate, and a

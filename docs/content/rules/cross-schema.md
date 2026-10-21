@@ -4,7 +4,7 @@ banner:
 title: Longer chains
 description: Depth, cycles, aliasing, and what a hop actually costs.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 One hop is easy to reason about. Chains get interesting, and this page is the

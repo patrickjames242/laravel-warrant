@@ -273,6 +273,6 @@ A closure denial message has no inline form, so `toSyntax()` throws on one and
 bindings. A built `can` or `check` renders as
 `can(<ability> for <schema>(<row>) with <k> = <v>)`.
 
-An [ability block](/rules/ability-blocks/) stays a block in the tree, so it
-writes back as a block. An [`@include`](/rules/templates/) renders as itself
+An [ability block](/rules/ability-blocks/) or a [when block](/rules/when-blocks/)
+stays a block in the tree, so it writes back as a block. An [`@include`](/rules/templates/) renders as itself
 rather than as what it expands to.

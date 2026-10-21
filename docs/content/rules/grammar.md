@@ -4,7 +4,7 @@ banner:
 title: Grammar reference
 description: The complete grammar, keywords, and operators, in one page to search.
 sidebar:
-  order: 11
+  order: 12
 ---
 
 A page to search rather than read. Concepts are on the pages this one summarizes.
@@ -24,9 +24,14 @@ body          = ruleset | expr ;
 entries       = ruleset ;
                 (* no header, at least one entry *)
 
-ruleset       = ( clause+ | "if" expr clause+ | ability_block | include )* ;
+ruleset       = ( clause+ | "if" expr clause+ | ability_block | when_block | include )* ;
 
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
+
+when_block    = "when" expr "{" ruleset "}" [ "otherwise" "{" ruleset "}" ] ;
+                (* every rule in the body takes the condition, every rule in
+                   the otherwise takes its negation; both bodies are always
+                   braced *)
 
 include       = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]
                            [ "for" ability { "," ability } ] ;
@@ -96,7 +101,7 @@ form it held:
 | nothing, or only comments | `isEmpty()` | |
 | a condition, `a or b` | `isExpression()` | `conditionExpression()` |
 | one rule, `if a they can view` | `isSingleRule()` | `rule()` |
-| rules, ability blocks and includes with no header | `isRuleEntries()` | `ruleEntries()`, or `scopedTo('documents')` |
+| rules, ability blocks, when blocks and includes with no header | `isRuleEntries()` | `ruleEntries()`, or `scopedTo('documents')` |
 | one `for documents` rule set, braced or not | `isSingleRuleSet()` | `ruleSet()` |
 | several braced rule sets | `isRuleSets()` | `ruleSets()`, `forSchema('documents')`, `schemaKeys()` |
 | `for documents a or b` | `isSchemaCondition()` | `conditionExpression()` |
@@ -107,8 +112,8 @@ such as `Expected a single rule, but the source holds a rule set for [documents]
 
 ## Keywords
 
-`if`, `they`, `can`, `cannot`, `because`, `check`, `and`, `or`, `not`, `for`,
-`with`, `as`, plus the literals `true`, `false`, `null`.
+`if`, `when`, `otherwise`, `they`, `can`, `cannot`, `because`, `check`, `and`,
+`or`, `not`, `for`, `with`, `as`, plus the literals `true`, `false`, `null`.
 
 None may be used as an exact condition or ability name. A name may contain or start
 with one: `canonical`, `cannot_publish`, `is_and_something`.

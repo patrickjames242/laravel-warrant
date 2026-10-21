@@ -4,7 +4,7 @@ banner:
 title: Combining conditions
 description: and, or, not, parentheses, precedence, and what happens when an operand is unknown.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 The `if` expression is a boolean combination of conditions:

@@ -64,6 +64,13 @@ go.
 **`Expected at least one 'they can ...' or 'they cannot ...' clause.`** An `if` with
 nothing attached.
 
+**`'otherwise' is followed by a body in braces, not another 'when'.`** An
+`otherwise when`, which [when blocks](/rules/when-blocks/#otherwise) leave out.
+Write the next case as a when block of its own, with its whole condition.
+
+**`A when block holds at least one rule; this one guards nothing.`** An empty
+`when … { }`, and its sibling for an empty `otherwise { }`.
+
 **`Reserved word '%s' cannot be used as a name.`** A condition or ability named
 `for`, `with`, `as`, `check`, and so on. It may *contain* one, so rename
 `for` to `for_team`.

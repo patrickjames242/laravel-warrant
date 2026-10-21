@@ -4,7 +4,7 @@ banner:
 title: The PHP builder
 description: Build the same rules fluently, for shapes that depend on runtime data.
 sidebar:
-  order: 10
+  order: 11
 ---
 
 The language is one way to author a rule. The builder is the other, and it is

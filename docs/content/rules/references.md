@@ -4,7 +4,7 @@ banner:
 title: Referring to other rows
 description: Column references, and the two builtins that reach another schema.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 A rule normally asks questions of its own schema. Sometimes the answer is
