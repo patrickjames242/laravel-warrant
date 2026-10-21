@@ -40,8 +40,8 @@ trait LooksAheadAtRuleEntries
 
     /**
      * Whether reading can go on here after a token between rule entries that
-     * starts none: where the entries end, or where an `if` rule, an `@include`
-     * or an ability block starts. A rule of bare `they` clauses is not one,
+     * starts none: where the entries end, or where an `if` rule, an `@include`,
+     * an ability block or a when block starts. A rule of bare `they` clauses is not one,
      * because a `they` after such a token most often goes on with the rule
      * before it, as in `if a(1)) they can view`, and is skipped with the token
      * rather than read as a rule that grants to everyone.
@@ -53,6 +53,7 @@ trait LooksAheadAtRuleEntries
         return self::ruleEntriesEndHere($ahead)
             || $ahead->nextIs(TokenType::IF)
             || $ahead->nextIs(TokenType::INCLUDE_REF)
+            || $ahead->nextIs(TokenType::WHEN)
             || $ahead->nextIs(TokenType::CAN, TokenType::THEY);
     }
 

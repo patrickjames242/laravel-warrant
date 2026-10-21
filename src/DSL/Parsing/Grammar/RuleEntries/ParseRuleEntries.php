@@ -7,8 +7,8 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
 /**
- * The entries of a rule body: unconditional rules, `if` rules, ability blocks
- * and `@include` directives, in any order, up to where the body ends.
+ * The entries of a rule body: unconditional rules, `if` rules, ability blocks,
+ * when blocks and `@include` directives, in any order, up to where the body ends.
  *
  * What comes back is one list in source order. An include keeps its place
  * among the rules because expansion splices the template's rules in where it

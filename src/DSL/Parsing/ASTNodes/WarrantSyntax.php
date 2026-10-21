@@ -140,7 +140,7 @@ readonly class WarrantSyntax
 
     /**
      * Whether the source is unscoped rule entries: one or more rules, ability
-     * blocks or includes, with no `for` header.
+     * blocks, when blocks or includes, with no `for` header.
      */
     public function isRuleEntries(): bool
     {
@@ -280,6 +280,7 @@ readonly class WarrantSyntax
             $this->isSingleRule() => 'a single rule',
             $first instanceof AbilityBlockNode && count($this->children) === 1 => 'an ability block',
             $first instanceof IncludeInvocationNode && count($this->children) === 1 => 'an @include',
+            $first instanceof WhenBlockNode && count($this->children) === 1 => 'a when block',
             $this->isRuleEntries() => sprintf('%d unscoped rule entries', count($this->children)),
             $first instanceof RuleSetNode && count($this->children) === 1 => sprintf('a rule set for [%s]', $first->schemaKey()),
             $first instanceof SchemaConditionNode && count($this->children) === 1 => sprintf('a condition for [%s]', $first->schemaKey()),

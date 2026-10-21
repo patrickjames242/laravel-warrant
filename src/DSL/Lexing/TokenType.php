@@ -14,6 +14,8 @@ enum TokenType
     case FOR;  // cross-schema handle: can(<ability> for <handle>)
     case WITH; // cross-schema context map: ... with <key> = <value>
     case AS;   // cross-schema handle alias: ... for <handle> as <alias>
+    case WHEN; // when block: when <condition> { ... }
+    case OTHERWISE; // the block after a when block's: } otherwise { ... }
 
     // Boolean operators.
     case AND;

@@ -51,6 +51,8 @@ final class Lexer
         'for' => TokenType::FOR,
         'with' => TokenType::WITH,
         'as' => TokenType::AS,
+        'when' => TokenType::WHEN,
+        'otherwise' => TokenType::OTHERWISE,
     ];
 
     /** The tokens that are one character, by that character. */

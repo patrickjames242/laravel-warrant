@@ -16,6 +16,7 @@ const EVERY_TOKEN_KIND = <<<'WARRANT'
             and not check(is_open for folders(@context folder) as f with k = -1.5)
             or !can(view for docs) they can view, * they cannot edit because 'no'
         can they share { they can }
+        when is_open { they can list } otherwise { they cannot list }
         @include admin(true, null, 3)
     }
     WARRANT;
@@ -67,6 +68,15 @@ it('ends every token where its source text ends', function (string $source) {
     'multibyte text' => ["if a('café — ok') they cannot view because \"naïve\""],
     'a string spanning lines' => ["if a('one\ntwo') they can view"],
 ]);
+
+it('reads when and otherwise as keywords, and else as a name', function () {
+    expect(lexedTokens('when otherwise else'))->toBe([
+        [TokenType::WHEN, 'when'],
+        [TokenType::OTHERWISE, 'otherwise'],
+        [TokenType::IDENTIFIER, 'else'],
+        [TokenType::EOF, ''],
+    ]);
+});
 
 it('measures the width of a token in bytes, not characters', function () {
     $string = (new Lexer("'café'"))->tokenize()[0];

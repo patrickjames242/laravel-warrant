@@ -91,6 +91,7 @@ it('reads sound text to the same tree and positions as a strict read, with no di
 })->with([
     'a rule set' => "for docs {\n  if is_owner(@context org) they can view # mine\n  can they share { they can }\n}",
     'unscoped rules' => 'they can view if is_owner they can edit @include shared for view',
+    'a when block' => "when is_open {\n  if is_owner they can view\n} otherwise {\n  they cannot view\n}",
     'a bare expression' => 'is_owner or (is_admin and check(is_open for folders(@column folder_id)))',
     'nothing' => '',
 ]);
@@ -171,6 +172,9 @@ it('gives the error a strict read throws as its first diagnostic', function (str
     'an unclosed block' => 'for docs { if a they can view',
     'a broken block before a sound one' => 'for docs { a and } for files { they can view }',
     'an unclosed ability block' => 'can they view { if a they can',
+    'an unclosed when block' => 'when a { if b they can view',
+    'an otherwise with no body' => 'when a { they can view } otherwise they cannot view',
+    'an otherwise when' => 'when a { they can view } otherwise when b { they can edit }',
     'a for block after headerless rules' => 'they can view for docs { }',
     'an include with no template' => 'if a they can view @include if b they can edit',
     'an ability list with no can they' => 'for docs { view, edit { they can } }',
@@ -268,7 +272,20 @@ it('reads on as though a missing bracket or keyword were there', function (strin
     'the parenthesis after check' => ['if check a for docs) they can view', "Expected '(' after 'check'.", 'a', 'if check(a for docs) they can view'],
     'the end of a check' => ['if check(a for docs they can view', "Expected ')' to close 'check(...)'.", 'they', 'if check(a for docs) they can view'],
     'the brace after a block header' => ['can they view if a they can }', "Expected '{' to open the ability block body.", 'if', 'can they view { if a they can }'],
+    'the brace after a when condition' => ['when a if b they can view }', "Expected '{' to open the when block body.", 'if', 'when a { if b they can view }'],
+    'the brace closing a when block' => ['when a { they can view', "Expected '}' to close the when block body.", '', 'when a { they can view }'],
+    'the brace after otherwise' => ['when a { they can view } otherwise they cannot view }', "Expected '{' to open the otherwise body.", 'they', 'when a { they can view } otherwise { they cannot view }'],
 ]);
+
+it('reads the when block after otherwise when as the otherwise body, and says otherwise takes a body', function () {
+    $source = 'when a { they can view } otherwise when b { they can edit }';
+
+    expect(analysisDiagnostics($source))->toBe([[
+        "'otherwise' is followed by a body in braces, not another 'when'. Write the next case as a when block of its own, with its whole condition.",
+        'when',
+    ]])->and(WarrantParser::analyze($source)->syntax->children)
+        ->toEqualSyntax(WarrantParser::parse('when a { they can view } otherwise { when b { they can edit } }')->children);
+});
 
 it('keeps a rule whose clauses are missing', function (string $source, string $mistake) {
     expect(array_column(analysisDiagnostics($source), 0))->toBe([$mistake])

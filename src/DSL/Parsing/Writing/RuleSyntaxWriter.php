@@ -29,6 +29,7 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 
@@ -117,6 +118,7 @@ final class RuleSyntaxWriter
         return match (true) {
             $entry instanceof IncludeInvocationNode => $this->writeInclude($entry),
             $entry instanceof AbilityBlockNode => $this->writeAbilityBlock($entry),
+            $entry instanceof WhenBlockNode => $this->writeWhenBlock($entry),
             $entry instanceof WarrantRuleNode => $this->writeRule($entry),
             default => throw new LogicException('Cannot render unknown entry ' . $entry::class . '.'),
         };
@@ -143,9 +145,30 @@ final class RuleSyntaxWriter
      */
     private function writeAbilityBlock(AbilityBlockNode $block): string
     {
-        $body = $this->writeEntries($block->entries);
+        return $this->writeBraced('can they ' . $this->names($block->abilities), $block->entries);
+    }
 
-        $header = 'can they ' . $this->names($block->abilities);
+    /**
+     * Render a `when <condition> { ... }` block, and its `otherwise { ... }` when
+     * it has one, as written rather than as the rules it expands to.
+     */
+    private function writeWhenBlock(WhenBlockNode $block): string
+    {
+        $written = $this->writeBraced('when ' . $this->writeExpression($block->condition), $block->entries);
+
+        return $block->otherwiseEntries === null
+            ? $written
+            : $written . ' ' . $this->writeBraced('otherwise', $block->otherwiseEntries);
+    }
+
+    /**
+     * Render $header and its body of $entries in braces, the body indented.
+     *
+     * @param list<IRuleEntryNode> $entries
+     */
+    private function writeBraced(string $header, array $entries): string
+    {
+        $body = $this->writeEntries($entries);
 
         return $body === '' ? "{$header} {\n}" : "{$header} {\n" . $this->indent($body) . "\n}";
     }

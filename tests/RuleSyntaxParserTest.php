@@ -16,8 +16,10 @@ use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaCatalog;
@@ -1417,6 +1419,85 @@ it('rejects a generic clause in a for body', function () {
     expect(languageRuleErrors('for timesheets { if is_public they can }'))
         ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
 });
+
+// -- When blocks --------------------------------------------------------------
+
+it('parses a when block into its condition and body', function () {
+    expect(WarrantParser::parse('when is_published { if is_member they can view @include shared for edit }')->children)
+        ->toEqualSyntax([new WhenBlockNode(
+            new ConditionNode(nameNode('is_published'), [], SyntaxLocation::noProducer()),
+            WarrantParser::parse('if is_member they can view @include shared for edit')->children,
+            null,
+            SyntaxLocation::noProducer(),
+        )]);
+});
+
+it('parses the otherwise body after a when block', function () {
+    expect(WarrantParser::parse('when is_published { if is_member they can view } otherwise { they cannot view }')->children)
+        ->toEqualSyntax([new WhenBlockNode(
+            new ConditionNode(nameNode('is_published'), [], SyntaxLocation::noProducer()),
+            WarrantParser::parse('if is_member they can view')->children,
+            WarrantParser::parse('they cannot view')->children,
+            SyntaxLocation::noProducer(),
+        )]);
+});
+
+it('reads a whole boolean expression as the condition', function () {
+    $block = WarrantParser::parse('when not is_archived and (is_public or can(view for folders)) { they can view }')->children[0];
+
+    expect($block->condition)
+        ->toEqualSyntax(WarrantParser::parse('not is_archived and (is_public or can(view for folders))')->children[0]);
+});
+
+it('keeps an empty body as written', function () {
+    expect(WarrantParser::parse('when a { } otherwise { }')->children)
+        ->toEqualSyntax([new WhenBlockNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())]);
+});
+
+it('nests when blocks and ability blocks either way round', function () {
+    $syntax = WarrantParser::parse(<<<'WARRANT'
+        for docs {
+            when is_published {
+                can they view {
+                    when is_shared { they can }
+                }
+            } otherwise {
+                when is_draft { if is_owner they can edit }
+            }
+        }
+        WARRANT);
+
+    $block = $syntax->children[0]->entries[0];
+
+    expect($block)->toBeInstanceOf(WhenBlockNode::class)
+        ->and($block->entries[0])->toBeInstanceOf(AbilityBlockNode::class)
+        ->and($block->entries[0]->entries[0])->toBeInstanceOf(WhenBlockNode::class)
+        ->and($block->otherwiseEntries[0])->toBeInstanceOf(WhenBlockNode::class);
+});
+
+it('reads rules around a when block as entries of their own', function () {
+    $entries = WarrantParser::parse('if a they can view when b { they can edit } they can list')->children;
+
+    expect(array_map(static fn ($entry): string => $entry::class, $entries))
+        ->toBe([WarrantRuleNode::class, WhenBlockNode::class, WarrantRuleNode::class]);
+});
+
+it('rejects a when block with no braces', function () {
+    expect(fn () => WarrantParser::parse('when a if b they can view'))
+        ->toThrow(WarrantSyntaxException::class, "Expected '{' to open the when block body.");
+});
+
+it('rejects otherwise when', function () {
+    expect(fn () => WarrantParser::parse('when a { they can view } otherwise when b { they can edit }'))
+        ->toThrow(WarrantSyntaxException::class, "'otherwise' is followed by a body in braces, not another 'when'.");
+});
+
+it('rejects when and otherwise as names', function (string $source) {
+    expect(fn () => WarrantParser::parse($source))->toThrow(WarrantSyntaxException::class, 'Reserved word');
+})->with([
+    'a condition named when' => 'if when they can view',
+    'an ability named otherwise' => 'they can otherwise',
+]);
 
 // -- @include -----------------------------------------------------------------
 

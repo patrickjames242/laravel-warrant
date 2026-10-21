@@ -96,6 +96,7 @@ const POSITIONS_CORPUS = [
     'cross-schema references' => 'if check(is_open and not is_locked for folders(@context folder) as f with org = @context org) '
         .'or can(edit for folders) they can view',
     'unscoped rules' => 'they can view if is_owner they can edit, delete @include shared for view',
+    'a when block' => 'when is_open and is_shared { if is_owner they can edit @include shared for view } otherwise { they cannot edit }',
     'a bare expression' => 'is_owner or (is_admin and is_active)',
     'a scoped expression' => 'for docs is_owner and can(view)',
     'braced blocks' => 'for docs { they can view } for folders { is_open } for docs { }',
@@ -122,6 +123,21 @@ it('records every node with the text it was written as', function () {
         ['CrossSchemaCanNode', 'can(view)'],
         ['CanClauseNode', 'can'],
         ['IncludeInvocationNode', '@include admin(1) for delete'],
+    ]);
+});
+
+it('records a when block whole, its condition and both bodies', function () {
+    expect(recordedNodes(POSITIONS_CORPUS['a when block']))->toBe([
+        ['WhenBlockNode', POSITIONS_CORPUS['a when block']],
+        ['AndNode', 'is_open and is_shared'],
+        ['ConditionNode', 'is_open'],
+        ['ConditionNode', 'is_shared'],
+        ['WarrantRuleNode', 'if is_owner they can edit'],
+        ['ConditionNode', 'is_owner'],
+        ['CanClauseNode', 'can edit'],
+        ['IncludeInvocationNode', '@include shared for view'],
+        ['WarrantRuleNode', 'they cannot edit'],
+        ['CannotClauseNode', 'cannot edit'],
     ]);
 });
 

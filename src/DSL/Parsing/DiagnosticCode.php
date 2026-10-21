@@ -71,6 +71,9 @@ enum DiagnosticCode: string
     /** Rules with no `for` header followed by a `for` block. */
     case RulesBeforeBlock = 'rules-before-block';
 
+    /** `otherwise when`, a chained branch, where `otherwise` takes a braced body. */
+    case OtherwiseWhen = 'otherwise-when';
+
     // -- bindings: placeholders and the values given for them ---------------
 
     /** A placeholder with no value given for it. */

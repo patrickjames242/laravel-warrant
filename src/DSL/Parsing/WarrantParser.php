@@ -31,12 +31,16 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   header   := 'for' IDENTIFIER
  *   body     := ruleset | expr                         -- a RuleSetNode, or a SchemaConditionNode
  *   entries  := ruleset                                -- unscoped, at least one entry
- *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | include )*
+ *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | when_block | include )*
  *              -- consecutive `they` clauses merge into one unconditional rule
  *   ability_block := 'can' 'they' ability (',' ability)* '{' ruleset '}'
  *              -- the header says the abilities once, so clauses inside are
  *                 generic and may not name their own; a block never contains
  *                 another
+ *   when_block := 'when' expr '{' ruleset '}' ( 'otherwise' '{' ruleset '}' )?
+ *              -- every rule the body expands to takes the condition, and every
+ *                 rule the `otherwise` body expands to takes its negation. Both
+ *                 bodies are always braced, and `otherwise when` is an error
  *   include  := '@include' IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
  *                          ( 'for' ability (',' ability)* )?
  *              -- expands a schema's rule template. The `for` list is required

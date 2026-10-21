@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 
 /**
  * One entry of a rule body: an unconditional rule, an `@include` directive, an
- * `if` rule or an ability block.
+ * `if` rule, an ability block or a when block.
  *
  * @extends ParseOneOf<IRuleEntryNode>
  */
@@ -20,6 +20,7 @@ final class ParseRuleEntry extends ParseOneOf
             ParseIncludeInvocation::class,
             ParseConditionalRule::class,
             ParseAbilityBlock::class,
+            ParseWhenBlock::class,
         ];
     }
 }
