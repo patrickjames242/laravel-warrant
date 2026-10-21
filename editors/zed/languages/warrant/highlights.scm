@@ -11,6 +11,8 @@
 
 [
   "if"
+  "when"
+  "otherwise"
   "they"
   "can"
   "cannot"
