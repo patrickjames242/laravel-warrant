@@ -83,3 +83,38 @@ if between(?) they can view
       abilities: (ability_list
         (ability
           (identifier))))))
+
+=====================================
+bindings standing for abilities
+=====================================
+
+can they :shared, edit {
+    if can(:ability for folders) they can
+}
+if can :other they cannot :denied
+
+---
+
+(source_file
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (named_binding))
+      (ability
+        (identifier)))
+    body: (block_body
+      (rule
+        (condition_clause
+          condition: (can_expression
+            ability: (named_binding)
+            target: (handle
+              schema: (identifier))))
+        (can_clause))))
+  (rule
+    (condition_clause
+      condition: (can_expression
+        ability: (named_binding)))
+    (cannot_clause
+      abilities: (ability_list
+        (ability
+          (named_binding))))))

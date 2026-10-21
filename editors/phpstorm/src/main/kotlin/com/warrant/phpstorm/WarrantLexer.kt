@@ -185,6 +185,7 @@ class WarrantLexer : LexerBase() {
         private val KEYWORDS = setOf(
             "if", "they", "can", "cannot", "because",
             "check", "and", "or", "not", "for", "with", "as",
+            "when", "otherwise",
         )
         private val CONSTANTS = setOf("true", "false", "null")
     }

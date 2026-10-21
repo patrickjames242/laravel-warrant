@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0
+
+- Highlight `when` and `otherwise` as keywords, for when blocks.
+- Stop highlighting `?` as a binding, now that every binding is named (`:name`).
+
 ## 0.12.2
 
 - Rename the extension to **Warrant for Laravel**.

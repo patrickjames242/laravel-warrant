@@ -36,6 +36,10 @@
                   },
                   {
                     "type": "SYMBOL",
+                    "name": "when_block"
+                  },
+                  {
+                    "type": "SYMBOL",
                     "name": "include"
                   },
                   {
@@ -109,6 +113,10 @@
                   {
                     "type": "SYMBOL",
                     "name": "ability_block"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "when_block"
                   },
                   {
                     "type": "SYMBOL",
@@ -225,6 +233,56 @@
             "type": "SYMBOL",
             "name": "block_body"
           }
+        }
+      ]
+    },
+    "when_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "when"
+        },
+        {
+          "type": "FIELD",
+          "name": "condition",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "body",
+          "content": {
+            "type": "SYMBOL",
+            "name": "block_body"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "otherwise"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "otherwise",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "block_body"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -421,6 +479,10 @@
         {
           "type": "SYMBOL",
           "name": "wildcard"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "named_binding"
         }
       ]
     },
@@ -584,8 +646,17 @@
               "type": "FIELD",
               "name": "ability",
               "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "named_binding"
+                  }
+                ]
               }
             },
             {
@@ -646,8 +717,17 @@
               "type": "FIELD",
               "name": "ability",
               "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "named_binding"
+                  }
+                ]
               }
             }
           ]

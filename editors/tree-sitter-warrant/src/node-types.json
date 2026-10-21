@@ -88,6 +88,10 @@
           "named": true
         },
         {
+          "type": "named_binding",
+          "named": true
+        },
+        {
           "type": "wildcard",
           "named": true
         }
@@ -226,6 +230,10 @@
         {
           "type": "rule",
           "named": true
+        },
+        {
+          "type": "when_block",
+          "named": true
         }
       ]
     }
@@ -261,6 +269,10 @@
         "types": [
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "named_binding",
             "named": true
           }
         ]
@@ -666,6 +678,10 @@
         {
           "type": "schema_header",
           "named": true
+        },
+        {
+          "type": "when_block",
+          "named": true
         }
       ]
     }
@@ -718,6 +734,42 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "when_block",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_body",
+            "named": true
+          }
+        ]
+      },
+      "condition": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "_expression",
+            "named": true
+          }
+        ]
+      },
+      "otherwise": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_body",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -883,11 +935,19 @@
     "named": false
   },
   {
+    "type": "otherwise",
+    "named": false
+  },
+  {
     "type": "they",
     "named": false
   },
   {
     "type": "true",
+    "named": false
+  },
+  {
+    "type": "when",
     "named": false
   },
   {

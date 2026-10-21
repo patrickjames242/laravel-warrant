@@ -123,7 +123,7 @@
     },
     "keywords": {
       "comment": "The DSL's reserved words (Lexer::KEYWORDS). `can`/`check` also act as expression-position builtins for cross-schema references; they still scope as keywords here.",
-      "match": "\\b(if|they|can|cannot|because|and|or|not|check|for|with|as)\\b",
+      "match": "\\b(if|when|otherwise|they|can|cannot|because|and|or|not|check|for|with|as)\\b",
       "name": "keyword.control.warrant"
     },
     "constants": {

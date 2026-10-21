@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.7.2</version>
+    <version>0.8.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,9 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.8.0</b> &mdash; Colour <code>when</code> and <code>otherwise</code> as
+                keywords, for when blocks. Stop colouring <code>?</code> as a binding, now
+                that every binding is named (<code>:name</code>).</li>
             <li><b>0.7.2</b> &mdash; Rename the plugin to <b>Warrant for Laravel</b>.</li>
             <li><b>0.7.1</b> &mdash; Make the plugin's icon an inked rubber stamp: WARRANT
                 across a round stamp, with &ldquo;for Laravel&rdquo; around its foot. The

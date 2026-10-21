@@ -224,3 +224,94 @@ they can list
       abilities: (ability_list
         (ability
           (identifier))))))
+
+=====================================
+a when block with an otherwise
+=====================================
+
+for documents {
+    when is_published and not is_archived {
+        if is_member they can view
+        @include shared for edit
+    } otherwise {
+        they cannot view because 'Not published.'
+    }
+}
+
+---
+
+(source_file
+  (schema_block
+    (schema_header
+      schema: (identifier))
+    body: (block_body
+      (when_block
+        condition: (and_expression
+          left: (condition
+            name: (identifier))
+          right: (not_expression
+            operand: (condition
+              name: (identifier))))
+        body: (block_body
+          (rule
+            (condition_clause
+              condition: (condition
+                name: (identifier)))
+            (can_clause
+              abilities: (ability_list
+                (ability
+                  (identifier)))))
+          (include
+            template: (identifier)
+            abilities: (ability_list
+              (ability
+                (identifier)))))
+        otherwise: (block_body
+          (rule
+            (cannot_clause
+              abilities: (ability_list
+                (ability
+                  (identifier)))
+              denial: (because_clause
+                message: (string
+                  (string_content))))))))))
+
+=====================================
+when blocks nested in ability blocks
+=====================================
+
+can they view {
+    when is_shared { they can }
+}
+when is_published {
+    can they edit { if is_owner they can }
+}
+
+---
+
+(source_file
+  (ability_block
+    abilities: (ability_list
+      (ability
+        (identifier)))
+    body: (block_body
+      (when_block
+        condition: (condition
+          name: (identifier))
+        body: (block_body
+          (rule
+            (can_clause))))))
+  (when_block
+    condition: (condition
+      name: (identifier))
+    body: (block_body
+      (ability_block
+        abilities: (ability_list
+          (ability
+            (identifier)))
+        body: (block_body
+          (rule
+            (condition_clause
+              condition: (condition
+                name: (identifier)))
+            (can_clause)))))))

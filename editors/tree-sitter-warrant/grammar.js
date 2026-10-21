@@ -34,7 +34,7 @@ module.exports = grammar({
     source_file: $ => seq(
       optional($.schema_header),
       choice(
-        repeat(choice($.schema_block, $.ability_block, $.include, $.rule)),
+        repeat(choice($.schema_block, $.ability_block, $.when_block, $.include, $.rule)),
         field('condition', $._expression),
       ),
     ),
@@ -55,7 +55,7 @@ module.exports = grammar({
     block_body: $ => seq(
       '{',
       choice(
-        repeat(choice($.ability_block, $.include, $.rule)),
+        repeat(choice($.ability_block, $.when_block, $.include, $.rule)),
         field('condition', $._expression),
       ),
       '}',
@@ -84,6 +84,17 @@ module.exports = grammar({
       'they',
       field('abilities', $.ability_list),
       field('body', $.block_body),
+    ),
+
+    // `when <expression> { ... } otherwise { ... }` -- a condition said once over
+    // the rules in its body, and its negation over the rules in its `otherwise`.
+    // Both bodies are always braced, and `otherwise` takes a body and nothing
+    // else; the PHP parser reports `otherwise when`.
+    when_block: $ => seq(
+      'when',
+      field('condition', $._expression),
+      field('body', $.block_body),
+      optional(seq('otherwise', field('otherwise', $.block_body))),
     ),
 
     // One rule: an optional `if <expression>` guard, then the `they can` /
@@ -132,7 +143,8 @@ module.exports = grammar({
       repeat(seq(',', $.ability)),
     ),
 
-    ability: $ => choice($.identifier, $.wildcard),
+    // An ability name, `*`, or a binding whose value names one or a list of them.
+    ability: $ => choice($.identifier, $.wildcard, $.named_binding),
 
     wildcard: _ => '*',
 
@@ -178,7 +190,7 @@ module.exports = grammar({
       seq(
         'can',
         '(',
-        field('ability', $.identifier),
+        field('ability', choice($.identifier, $.named_binding)),
         optional(seq(
           'for',
           field('target', $.handle),
@@ -188,7 +200,7 @@ module.exports = grammar({
       ),
       seq(
         'can',
-        field('ability', $.identifier),
+        field('ability', choice($.identifier, $.named_binding)),
       ),
     ),
 

@@ -32,6 +32,24 @@ class WarrantLexerTest : BasePlatformTestCase() {
         assertEquals(listOf(8 to 14), strings("because \"a\\\"b\" x"))
     }
 
+    fun testReadsWhenAndOtherwiseAsKeywords() {
+        assertEquals(listOf("when", "otherwise"), keywords("when whenever { } otherwise else"))
+    }
+
+    /** The text of each keyword the lexer finds in $text. */
+    private fun keywords(text: String): List<String> {
+        val lexer = WarrantLexer()
+        lexer.start(text)
+        val found = mutableListOf<String>()
+
+        while (lexer.tokenType != null) {
+            if (lexer.tokenType == WarrantTokenTypes.KEYWORD) found.add(text.substring(lexer.tokenStart, lexer.tokenEnd))
+            lexer.advance()
+        }
+
+        return found
+    }
+
     /** The start and end offsets of each string literal the lexer finds in $text. */
     private fun strings(text: String): List<Pair<Int, Int>> {
         val lexer = WarrantLexer()
