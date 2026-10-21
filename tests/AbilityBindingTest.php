@@ -10,6 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
@@ -51,27 +52,51 @@ beforeEach(function () {
 });
 
 /**
- * $syntax with $bindings validated as the test schema's own rules, with its
- * binding values checked.
+ * $syntax with $bindings handed over as the test schema's own rules.
  *
  * @param array<string, mixed> $bindings
  */
-function abilityBindingValid(string $syntax, array $bindings = []): ValidSyntax
+function abilityBindingSyntax(string $syntax, array $bindings = []): WarrantSyntax
 {
-    return ValidSyntax::of(
-        producedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings)), 'course_sections', GenericMode::RequireNotGeneric),
-        new ValidationInput(new RegisteredSchemas),
+    return producedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings)), 'course_sections', GenericMode::RequireNotGeneric);
+}
+
+/**
+ * $syntax with $bindings validated as the test schema's own rules, its
+ * binding values checked unless $checkValues says not to.
+ *
+ * @param array<string, mixed> $bindings
+ */
+function abilityBindingValid(string $syntax, array $bindings = [], bool $checkValues = true): ValidSyntax
+{
+    return ValidSyntax::of(abilityBindingSyntax($syntax, $bindings), new ValidationInput(new RegisteredSchemas, $checkValues));
+}
+
+/**
+ * The messages of every mistake $syntax with $bindings makes as the test
+ * schema's own rules, its binding values checked unless $checkValues says not
+ * to.
+ *
+ * @param array<string, mixed> $bindings
+ * @return list<string>
+ */
+function abilityBindingMistakes(string $syntax, array $bindings = [], bool $checkValues = true): array
+{
+    return array_map(
+        static fn ($diagnostic): string => $diagnostic->message,
+        mistakesOf(abilityBindingSyntax($syntax, $bindings), new ValidationInput(new RegisteredSchemas, $checkValues)),
     );
 }
 
 /**
- * $syntax with $bindings validated and expanded as the test schema's own rules.
+ * $syntax with $bindings validated and expanded as the test schema's own rules,
+ * its binding values checked while validating unless $checkValues says not to.
  *
  * @param array<string, mixed> $bindings
  */
-function abilityBindingExpanded(string $syntax, array $bindings = []): ExpandedSyntax
+function abilityBindingExpanded(string $syntax, array $bindings = [], bool $checkValues = true): ExpandedSyntax
 {
-    return ExpandedSyntax::expand('course_sections', new ValidationInput(new RegisteredSchemas), abilityBindingValid($syntax, $bindings));
+    return ExpandedSyntax::expand('course_sections', new ValidationInput(new RegisteredSchemas), abilityBindingValid($syntax, $bindings, $checkValues));
 }
 
 // -- parsing ------------------------------------------------------------------
@@ -124,6 +149,75 @@ it('counts a clause naming only a binding as naming its abilities', function () 
     ))->toThrow(InvalidArgumentException::class, 'This clause names abilities');
 });
 
+it('reports an ability list binding whose value names no abilities, at the binding', function (mixed $value, string $got) {
+    $diagnostics = mistakesOf(abilityBindingSyntax('they can view, :abilities', ['abilities' => $value]), new ValidationInput(new RegisteredSchemas));
+
+    expect(array_map(fn ($diagnostic) => [$diagnostic->code, $diagnostic->message, $diagnostic->offset], $diagnostics))->toBe([[
+        DiagnosticCode::InvalidBindingValue,
+        "The binding [:abilities] stands in an ability list, so its value is an ability name or a non-empty list of them; got $got.",
+        15,
+    ]]);
+})->with([
+    'an int' => [5, 'int'],
+    'an empty list' => [[], 'an empty list'],
+    'an array with keys' => [['a' => 'view'], 'an array with keys'],
+    'a nested list' => [[['view']], 'a list holding array'],
+]);
+
+it('reports a can expression binding whose value is not one ability name', function (string $syntax) {
+    expect(abilityBindingMistakes($syntax, ['ability' => ['view']]))->toBe([
+        'The binding [:ability] stands for the one ability a can(...) reference asks about, so its value is an ability name; got array.',
+    ]);
+})->with([
+    'bare' => 'if can :ability they can update',
+    'across a boundary' => 'if can(:ability for course_sections) they can update',
+]);
+
+it('reports a bound ability the schema does not declare', function (string $syntax, array $bindings, string $message) {
+    expect(abilityBindingMistakes($syntax, $bindings))->toBe([$message]);
+})->with([
+    'in a clause' => ['they can view, :more', ['more' => ['update', 'veiw']], 'Ability [veiw] is not declared by the schema.'],
+    'in a block header' => ['can they :abilities { they can }', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
+    'in an @include' => ['@include grants_it for :abilities', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
+    'in a can expression' => ['if can :ability they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
+    'across a boundary' => ['if can(:ability for course_sections) they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by schema [course_sections].'],
+]);
+
+it('accepts a bound * as declared', function () {
+    expect(abilityBindingMistakes('they can :all', ['all' => '*']))->toBe([]);
+});
+
+it('leaves a bound ability unchecked when binding values are not checked', function () {
+    expect(abilityBindingMistakes('they can :a if can :b they can update', ['a' => 5, 'b' => 'veiw'], checkValues: false))->toBe([]);
+});
+
+// -- duplicates ---------------------------------------------------------------
+
+it('reports an ability list that writes an ability or binding twice, or * beside anything else', function (string $syntax, string $message) {
+    expect(abilityBindingMistakes($syntax, ['a' => 'view', 'b' => ['update']], checkValues: false))->toBe([$message]);
+})->with([
+    'a name twice in a can list' => ['they can view, view', 'Ability [view] is written more than once among the abilities this rule grants; write it once.'],
+    'a name in two can clauses' => ['they can view they can view', 'Ability [view] is written more than once among the abilities this rule grants; write it once.'],
+    'a name in two cannot clauses' => ['they cannot view they cannot view', 'Ability [view] is written more than once among the abilities this rule denies; write it once.'],
+    'a binding twice' => ['they can :a, :a', 'Binding [:a] is written more than once among the abilities this rule grants; write it once.'],
+    'a name twice in a block header' => ['can they view, view { they can }', 'Ability [view] is written more than once among the abilities this ability block names; write it once.'],
+    'a name twice in an @include' => ['@include grants_it for view, view', 'Ability [view] is written more than once among the abilities this @include names; write it once.'],
+    '* beside a name' => ['they can *, view', '`*` stands for every ability, so nothing else is written beside it among the abilities this rule grants.'],
+    '* beside a binding' => ['they can :a, *', '`*` stands for every ability, so nothing else is written beside it among the abilities this rule grants.'],
+    '* in another can clause' => ['they can * they can view', '`*` stands for every ability, so nothing else is written beside it among the abilities this rule grants.'],
+]);
+
+it('judges an ability list as written, not by the values its bindings give it', function (string $syntax, array $bindings) {
+    expect(abilityBindingMistakes($syntax, $bindings))->toBe([]);
+})->with([
+    'a binding naming a name beside it' => ['they can :a, view', ['a' => 'view']],
+    'two bindings naming one ability' => ['they can :a, :b', ['a' => 'view', 'b' => ['view']]],
+    'a list naming one ability twice' => ['they can :a', ['a' => ['view', 'view']]],
+    'a bound * beside a name' => ['they can :a, view', ['a' => '*']],
+    'a list holding * and a name' => ['they can :a', ['a' => ['*', 'view']]],
+    'one ability granted and denied' => ['they can view they cannot view', []],
+]);
+
 // -- expanding ----------------------------------------------------------------
 
 it('puts the ability a binding names in its place, where the binding was written', function () {
@@ -164,8 +258,8 @@ it('puts the ability a can expression binds in its place', function () {
         ->and($can->ability->name)->toBe('view');
 });
 
-it('rejects an ability list binding whose value names no abilities', function (mixed $value, string $got) {
-    expect(fn () => abilityBindingExpanded('they can :abilities', ['abilities' => $value]))->toThrow(
+it('rejects an ability list binding whose value names no abilities while expanding', function (mixed $value, string $got) {
+    expect(fn () => abilityBindingExpanded('they can :abilities', ['abilities' => $value], checkValues: false))->toThrow(
         InvalidArgumentException::class,
         "The binding [:abilities] stands in an ability list, so its value is an ability name or a non-empty list of them; got $got.",
     );
@@ -176,8 +270,8 @@ it('rejects an ability list binding whose value names no abilities', function (m
     'a nested list' => [[['view']], 'a list holding array'],
 ]);
 
-it('rejects a can expression binding whose value is not one ability name', function (mixed $value, string $got) {
-    expect(fn () => abilityBindingExpanded('if can :ability they can update', ['ability' => $value]))->toThrow(
+it('rejects a can expression binding whose value is not one ability name while expanding', function (mixed $value, string $got) {
+    expect(fn () => abilityBindingExpanded('if can :ability they can update', ['ability' => $value], checkValues: false))->toThrow(
         InvalidArgumentException::class,
         "The binding [:ability] stands for the one ability a can(...) reference asks about, so its value is an ability name; got $got.",
     );

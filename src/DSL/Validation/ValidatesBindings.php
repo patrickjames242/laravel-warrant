@@ -3,9 +3,12 @@
 namespace Warrant\DSL\Validation;
 
 use Closure;
+use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -26,11 +29,14 @@ trait ValidatesBindings
     private const BINDING_IN_ARGUMENT_SLOT = 'argument';
     private const BINDING_IN_SQL_BODY_SLOT = 'sql body';
     private const BINDING_IN_DENIAL_MESSAGE_SLOT = 'denial message';
+    private const BINDING_IN_ABILITY_LIST_SLOT = 'ability list';
+    private const BINDING_IN_ONE_ABILITY_SLOT = 'one ability';
 
     /**
      * The bindings of each text $syntax was read from fit the values given for
      * them: every placeholder has a value, every value given is used, and an
-     * `@sql` body or a denial message has a value that can stand there.
+     * `@sql` body, a denial message, an ability list or the ability a
+     * `can(...)` asks about has a value that can stand there.
      */
     private function assertBindingsFit(WarrantSyntax $syntax): void
     {
@@ -98,6 +104,16 @@ trait ValidatesBindings
                 $binding->location,
             );
         }
+
+        $abilityMistake = match ($slot) {
+            self::BINDING_IN_ABILITY_LIST_SLOT => AbilityMistakes::inBoundList($binding),
+            self::BINDING_IN_ONE_ABILITY_SLOT => AbilityMistakes::inBoundAbility($binding),
+            default => null,
+        };
+
+        if ($abilityMistake !== null) {
+            $this->fail(DiagnosticCode::InvalidBindingValue, $abilityMistake, $binding->location);
+        }
     }
 
     /**
@@ -124,7 +140,8 @@ trait ValidatesBindings
 
     /**
      * Every binding in $node, with the slot it is written in: the body of an `@sql`
-     * reference, a denial message, or else an argument.
+     * reference, a denial message, an ability list, the ability a `can(...)`
+     * asks about, or else an argument.
      *
      * @return list<array{0: BindingNode, 1: string}>
      */
@@ -140,6 +157,10 @@ trait ValidatesBindings
             $found = [...$found, ...self::bindingsIn($child, match (true) {
                 $node instanceof SqlRef && $child === $node->sql => self::BINDING_IN_SQL_BODY_SLOT,
                 ($node instanceof CanClauseNode || $node instanceof CannotClauseNode) && $child === $node->message => self::BINDING_IN_DENIAL_MESSAGE_SLOT,
+                ($node instanceof CanClauseNode || $node instanceof CannotClauseNode
+                    || $node instanceof AbilityBlockNode || $node instanceof IncludeInvocationNode)
+                    && in_array($child, $node->abilities, true) => self::BINDING_IN_ABILITY_LIST_SLOT,
+                $node instanceof CrossSchemaCanNode && $child === $node->ability => self::BINDING_IN_ONE_ABILITY_SLOT,
                 default => self::BINDING_IN_ARGUMENT_SLOT,
             })];
         }

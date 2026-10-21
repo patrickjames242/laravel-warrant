@@ -21,7 +21,7 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
-use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\DSL\Validation\AbilityMistakes;
 
 /**
  * How {@see Expander} replaces every binding with its value, so an
@@ -139,22 +139,13 @@ trait ReplacesBindings
                 continue;
             }
 
-            $value = $ability->value();
-            $names = is_array($value) ? $value : [$value];
-            $notNames = array_filter($names, static fn (mixed $name): bool => ! is_string($name));
-            $mistake = match (true) {
-                $names === [] => 'an empty list',
-                ! array_is_list($names) => 'an array with keys',
-                $notNames === [] => null,
-                is_array($value) => 'a list holding '.get_debug_type(reset($notNames)),
-                default => get_debug_type($value),
-            };
+            $mistake = AbilityMistakes::inBoundList($ability);
 
             if ($mistake !== null) {
-                throw new InvalidArgumentException(LanguageRuleMessages::abilityListBindingValue($ability->name, $mistake));
+                throw new InvalidArgumentException($mistake);
             }
 
-            foreach ($names as $name) {
+            foreach (AbilityMistakes::boundNames($ability) as $name) {
                 $replaced[] = new NameNode($name, $ability->location);
             }
         }
@@ -172,12 +163,12 @@ trait ReplacesBindings
             return $ability;
         }
 
-        $value = $ability->value();
+        $mistake = AbilityMistakes::inBoundAbility($ability);
 
-        if (! is_string($value)) {
-            throw new InvalidArgumentException(LanguageRuleMessages::oneAbilityBindingValue($ability->name, get_debug_type($value)));
+        if ($mistake !== null) {
+            throw new InvalidArgumentException($mistake);
         }
 
-        return new NameNode($value, $ability->location);
+        return new NameNode($ability->value(), $ability->location);
     }
 }

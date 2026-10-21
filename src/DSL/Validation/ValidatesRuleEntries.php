@@ -81,6 +81,7 @@ trait ValidatesRuleEntries
                 }
 
                 $this->assertAbilitiesDeclared($entry->abilities, $schema);
+                $this->assertAbilityListsWellWritten($entry);
                 $this->assertTemplateDeclared($entry, $schema, $schemaKey);
             } elseif ($entry instanceof WarrantRuleNode) {
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
@@ -119,6 +120,7 @@ trait ValidatesRuleEntries
         }
 
         $this->assertAbilitiesDeclared($block->abilities, $schema);
+        $this->assertAbilityListsWellWritten($block);
 
         foreach ($block->entries as $entry) {
             if ($entry instanceof AbilityBlockNode) {
@@ -229,7 +231,7 @@ trait ValidatesRuleEntries
             $this->assertAbilitiesDeclared($clause->abilities, $schema);
         }
 
-        $this->assertNoDuplicateCannotAbility($rule);
+        $this->assertAbilityListsWellWritten($rule);
         $this->assertMessagesAreMessages($rule);
 
         if ($rule->conditions !== null) {
@@ -238,9 +240,11 @@ trait ValidatesRuleEntries
     }
 
     /**
-     * Every name in an ability list must be one the schema declares. `*` is not a
-     * name but a stand-in for all of them, so it is passed over, and so is a
-     * binding, whose value is not written in the text.
+     * Every name in an ability list must be one the schema declares, and so
+     * must every name a binding's value gives it when binding values are
+     * checked. `*` is not a name but a stand-in for all of them, so it is
+     * passed over. A binding with no value, or one whose value names no
+     * abilities, is reported by the binding checks.
      *
      * @param list<NameNode|BindingNode> $abilities
      */
@@ -251,45 +255,33 @@ trait ValidatesRuleEntries
         }
 
         foreach ($abilities as $ability) {
-            if ($ability instanceof NameNode && $ability->name !== '*' && $schema->getAbilityDefinition($ability->name) === null) {
-                $this->fail(
-                    DiagnosticCode::UnknownAbility,
-                    sprintf('Ability [%s] is not declared by the schema.', $ability->name),
-                    $ability->location,
-                );
+            $names = match (true) {
+                $ability instanceof NameNode => [$ability->name],
+                $this->input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundList($ability) === null
+                    => AbilityMistakes::boundNames($ability),
+                default => [],
+            };
+
+            foreach ($names as $name) {
+                if ($name !== '*' && $schema->getAbilityDefinition($name) === null) {
+                    $this->fail(
+                        DiagnosticCode::UnknownAbility,
+                        sprintf('Ability [%s] is not declared by the schema.', $name),
+                        $ability->location,
+                    );
+                }
             }
         }
     }
 
     /**
-     * An ability may appear in at most one `cannot` clause of a rule. A duplicate
-     * would give that ability two denial messages, of which only the first could
-     * ever surface (see {@see WarrantRuleNode::messageFor()}), so it is almost always
-     * a mistake — reject it rather than silently dropping the later message.
+     * The ability lists $entry writes hold no ability or binding twice, and no
+     * `*` beside anything else ({@see AbilityMistakes}).
      */
-    private function assertNoDuplicateCannotAbility(WarrantRuleNode $rule): void
+    private function assertAbilityListsWellWritten(IRuleEntryNode $entry): void
     {
-        $seen = [];
-
-        foreach ($rule->cannotClauses as $clause) {
-            foreach ($clause->abilities as $ability) {
-                if ($ability instanceof BindingNode) {
-                    continue;
-                }
-
-                if (isset($seen[$ability->name])) {
-                    $this->fail(
-                        DiagnosticCode::DuplicateCannotAbility,
-                        sprintf(
-                        'Ability [%s] appears in more than one `they cannot ...` clause of the same rule; list it once.',
-                        $ability->name,
-                    ),
-                        $ability->location,
-                    );
-                }
-
-                $seen[$ability->name] = true;
-            }
+        foreach (AbilityMistakes::inWrittenLists($entry) as [$code, $message, $location]) {
+            $this->fail($code, $message, $location);
         }
     }
 

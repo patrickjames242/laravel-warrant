@@ -108,8 +108,11 @@ enum DiagnosticCode: string
     /** A denial message that is not text, as a `@context` reference. */
     case MessageNotText = 'message-not-text';
 
-    /** An ability listed in more than one `they cannot` clause of one rule. */
-    case DuplicateCannotAbility = 'duplicate-cannot-ability';
+    /** An ability or a binding written twice in one ability list, or among one rule's `can` or `cannot` clauses. */
+    case DuplicateAbility = 'duplicate-ability';
+
+    /** `*` written beside another ability or a binding in one ability list. */
+    case StarBesideAbilities = 'star-beside-abilities';
 
     // -- the schema: names and shapes the schema does not have ---------------
 

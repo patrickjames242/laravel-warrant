@@ -154,7 +154,7 @@ trait ValidatesExpressions
         }
 
         $schemaKey = $node->schemaKey->name;
-        $ability = $node->ability->name;
+        $ability = self::abilityToLookUp($node, $this->input);
 
         // A handle with no name was reported where it was read; there is no schema to look up.
         if ($schemaKey === INode::MISSING_NAME) {
@@ -169,7 +169,7 @@ trait ValidatesExpressions
             return;
         }
 
-        if ($target !== null && $node->ability instanceof NameNode && $ability !== INode::MISSING_NAME && $target->getAbilityDefinition($ability) === null) {
+        if ($target !== null && $ability !== null && $target->getAbilityDefinition($ability) === null) {
             $this->fail(
                 DiagnosticCode::UnknownAbility,
                 sprintf('Ability [%s] is not declared by schema [%s].', $ability, $schemaKey),
@@ -249,6 +249,24 @@ trait ValidatesExpressions
     }
 
     /**
+     * The ability $node asks about, to look up in a schema: its name, or the
+     * name a binding's value gives it when binding values are checked. Null
+     * when there is none to look up: a name missing from the text, which was
+     * reported where it was read, or a binding whose value is unchecked or is
+     * reported by the binding checks.
+     */
+    private static function abilityToLookUp(CrossSchemaCanNode $node, ValidationInput $input): ?string
+    {
+        $ability = $node->ability;
+
+        return match (true) {
+            $ability instanceof NameNode => $ability->name === INode::MISSING_NAME ? null : $ability->name,
+            $input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundAbility($ability) === null => $ability->value(),
+            default => null,
+        };
+    }
+
+    /**
      * Validate a `can(<ability>)` with no `for` clause: the ability has to be one
      * the frame's own schema declares, and nothing may be passed across a boundary
      * that is not being crossed.
@@ -260,12 +278,13 @@ trait ValidatesExpressions
      */
     private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?SchemaVocabulary $vocabulary): void
     {
-        $ability = $node->ability instanceof BindingNode ? ':'.$node->ability->name : $node->ability->name;
+        $lookedUp = self::abilityToLookUp($node, $this->input);
 
-        // An ability with no name was reported where it was read, and a binding's value is not written in the text.
-        if ($vocabulary !== null && $node->ability instanceof NameNode && $ability !== INode::MISSING_NAME && $vocabulary->getAbilityDefinition($ability) === null) {
-            $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $ability), $node->ability->location);
+        if ($vocabulary !== null && $lookedUp !== null && $vocabulary->getAbilityDefinition($lookedUp) === null) {
+            $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $lookedUp), $node->ability->location);
         }
+
+        $ability = $node->ability instanceof BindingNode ? ':'.$node->ability->name : $node->ability->name;
 
         if ($node->contextMap !== []) {
             $this->fail(

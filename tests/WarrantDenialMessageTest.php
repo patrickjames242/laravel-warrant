@@ -952,7 +952,7 @@ it('rejects an ability duplicated across a rule\'s cannot clauses', function () 
         bindWarrantRules("if is_teacher they cannot update because 'a' they cannot update because 'b'");
 
         Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema(WarrantTestSchema::class)->authorize('update', 'teacher:teacher-role');
-    })->toThrow(InvalidArgumentException::class, 'appears in more than one');
+    })->toThrow(InvalidArgumentException::class, 'is written more than once among the abilities this rule denies');
 });
 
 // -- middleware integration ---------------------------------------------------

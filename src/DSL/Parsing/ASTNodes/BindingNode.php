@@ -7,8 +7,8 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * A placeholder for a value supplied beside the rule text: `:name`. It may
- * stand wherever an argument may, as the body of an `@sql` reference, and as a
- * denial message.
+ * stand wherever an argument may, wherever an ability may, as the body of an
+ * `@sql` reference, and as a denial message.
  *
  * It stays in the tree as written, and finds its value by its name among the
  * bindings of the source it was written in. The expander puts the value in its

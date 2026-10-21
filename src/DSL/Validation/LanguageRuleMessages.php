@@ -6,7 +6,8 @@ namespace Warrant\DSL\Validation;
  * The words for a rule of the language broken by text the parser can read: an
  * entry naming its abilities where it may not, or naming none where it must; a
  * denial message where none belongs, or one that cannot be one; a binding
- * standing for abilities whose value names none; an `@include`
+ * standing for abilities whose value names none; an ability written twice, or
+ * `*` beside another; an `@include`
  * naming a template the schema does not declare, or giving it too few
  * arguments. The validator reports these against rule text, and the expander
  * rejects the same in any rule set that reaches it, so both say them here, in
@@ -136,5 +137,23 @@ final class LanguageRuleMessages
             $binding,
             $got,
         );
+    }
+
+    /**
+     * @param string $written The ability or binding as words for the author,
+     *   such as 'Ability [view]' or 'Binding [:more]'.
+     * @param string $among The abilities it is written among, such as 'this rule grants'.
+     */
+    public static function abilityWrittenTwice(string $written, string $among): string
+    {
+        return sprintf('%s is written more than once among the abilities %s; write it once.', $written, $among);
+    }
+
+    /**
+     * @param string $among The abilities `*` is written among, such as 'this rule grants'.
+     */
+    public static function starBesideAbilities(string $among): string
+    {
+        return sprintf('`*` stands for every ability, so nothing else is written beside it among the abilities %s.', $among);
     }
 }
