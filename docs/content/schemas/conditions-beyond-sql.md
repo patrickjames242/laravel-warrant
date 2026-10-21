@@ -61,7 +61,7 @@ under a `for` header naming this schema; a header naming another is rejected.
 
 | Answer | Meaning |
 | --- | --- |
-| a `string` | rule text, parsed as a condition expression |
+| a `string` | rule text, parsed as a condition expression, its bindings taking the method's parameters |
 | a `WarrantSyntax` | rule text you parsed, with bindings, holding a condition expression |
 | `Build::condition()->…` | the expression the builder composed |
 | `Build::can(…)` / `Build::check(…)` | that `can(...)` or `check(...)` |
@@ -78,13 +78,14 @@ parameter.
 An argument written as `@context` or `@column` reaches the method as the
 *reference*, not its value: at expansion there is no value yet. The method can't
 read it, only pass it on. Pass it back into the expression through a binding, never
-by writing it into the string:
+by writing it into the string. Rule text returned as a string may write each
+parameter as a binding, by its name as declared or in snake case:
 
 ```php
 #[DerivedCondition]
-public function ownedOrInTeam(mixed $team): WarrantSyntax
+public function ownedOrInTeam(mixed $team): string
 {
-    return Warrant::parse(warrant('is_owner or in_team(:team)', ['team' => $team]));
+    return 'is_owner or in_team(:team)';
 }
 ```
 
@@ -92,6 +93,25 @@ public function ownedOrInTeam(mixed $team): WarrantSyntax
 check's context, exactly as `in_team(@context team)` written inline would. A
 `@column` argument keeps meaning the row the *rule* named, however many derived
 conditions pass it on.
+
+A parameter `$teamId` is `:teamId` or `:team_id`. One the rule left off takes its
+default, and a variadic one is the list of every argument from there on. A binding
+that names no parameter is rejected when the condition is expanded, naming it.
+
+Only a string is bound this way. To bind a value that is not a parameter, parse the
+text with its bindings and return the `WarrantSyntax`, or return a `BoundSyntax`;
+either gives exactly the bindings it was made with:
+
+```php
+#[DerivedCondition]
+public function inTeamOrDefault(mixed $team): WarrantSyntax
+{
+    return Warrant::parse(warrant('in_team(:team) or in_team(:fallback)', [
+        'team' => $team,
+        'fallback' => config('teams.default'),
+    ]));
+}
+```
 
 ## Building one structurally
 

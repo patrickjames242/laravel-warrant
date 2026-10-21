@@ -116,7 +116,25 @@ A template may take parameters, passed at the reference the way a condition's ar
 ```
 
 Give the values back to the body through bindings, not by writing them into the
-string. Parse the body with them and return the result:
+string. A body returned as a string may write each parameter as a binding, by its
+name as declared or in snake case:
+
+```php
+#[RuleTemplate]
+public function inheritedFrom(string $parentRelation): string
+{
+    return "if is_child_of(:parent_relation) they cannot because 'No access through the parent.'";
+}
+```
+
+`:parentRelation` reads the same. A parameter the include left off takes its
+default, and a variadic one is the list of every argument from there on. Each
+string in an iterable the template answers with is bound the same way. A binding
+that names no parameter is rejected when the template is expanded.
+
+Only a string is bound this way. A body that binds a value of its own, such as a
+closure denial message, is parsed with its bindings and returned, and gives exactly
+the bindings it was parsed with:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -144,9 +162,9 @@ A body's placeholders are its own. Each binding takes its value from the text it
 was written in, so a body's `:team` and a `:team` in the rule set that includes
 it never meet.
 
-:::tip[A fixed body stays a string]
-Parsing is only needed when the body has placeholders. A method free to answer
-with either may declare no return type at all.
+:::tip[A body stays a string]
+Parsing is only needed when the body binds a value that is not a parameter. A
+method free to answer with either may declare no return type at all.
 :::
 
 ## What a template may answer with
@@ -156,7 +174,7 @@ A template answers in whichever form it has its body, much as a
 
 | Answer | Example |
 |---|---|
-| rule text | `'if is_owner they can'` |
+| rule text, its bindings taking the template's parameters | `'if is_child_of(:relation) they can'` |
 | a `WarrantSyntax` | `Warrant::parse(warrant('if is_child_of(:rel) they can', ['rel' => $rel]))` |
 | a rule that names no abilities | `Build::rule()->if('is_owner')->theyCan()` |
 | headless entries, rules and `@include`s naming no abilities | `Build::ruleSet(fn ($rule) => $rule->include('requires_approval'))` |

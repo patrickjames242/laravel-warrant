@@ -161,14 +161,13 @@ public function isMine(RowConditionContext $c): Builder|bool
 ## Derived conditions
 
 A derived condition is built from other conditions, as rule text, a parsed
-`WarrantSyntax`, or a condition, `can` or `check` builder:
+`WarrantSyntax`, or a condition, `can` or `check` builder. Rule text returned as a
+string may write the method's parameters as bindings, by name:
 
 ```php
 use Warrant\Builders\Build;
 use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\Ref;
-use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Facades\Warrant;
 use Warrant\Schema\DerivedCondition;
 
 #[DerivedCondition]
@@ -178,9 +177,9 @@ public function isEditable(): string
 }
 
 #[DerivedCondition]
-public function ownedOrInTeam(mixed $team): WarrantSyntax
+public function ownedOrInTeam(mixed $team): string
 {
-    return Warrant::parse(warrant('is_mine or in_team(:team)', ['team' => $team]));
+    return 'is_mine or in_team(:team)';
 }
 
 #[DerivedCondition]
