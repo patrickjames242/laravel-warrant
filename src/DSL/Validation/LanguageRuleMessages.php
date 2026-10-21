@@ -44,6 +44,16 @@ final class LanguageRuleMessages
         return 'An ability block names at least one ability.';
     }
 
+    public static function whenBlockEmpty(): string
+    {
+        return 'A when block holds at least one rule; this one guards nothing.';
+    }
+
+    public static function otherwiseEmpty(): string
+    {
+        return "An otherwise body holds at least one rule; leave 'otherwise' off instead.";
+    }
+
     public static function blockInsideBlock(): string
     {
         return 'An ability block may not contain another; the enclosing block already names the abilities.';

@@ -73,9 +73,11 @@ use Warrant\DSL\SchemaVocabulary;
  */
 final class SyntaxValidator
 {
+    use ValidatesAbilityBlocks;
     use ValidatesBindings;
     use ValidatesExpressions;
     use ValidatesRuleEntries;
+    use ValidatesWhenBlocks;
 
     /** @var list<RuleValidationException> The mistakes found so far, in the order found, when validating tolerantly. */
     private array $found = [];

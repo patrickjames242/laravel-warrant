@@ -93,6 +93,9 @@ enum DiagnosticCode: string
     /** An ability block inside another. */
     case AbilityBlockInsideBlock = 'ability-block-inside-block';
 
+    /** A when block, or its `otherwise`, with nothing in its body. */
+    case WhenBlockEmpty = 'when-block-empty';
+
     /** A clause or @include inside an ability block that names abilities, which the header names already. */
     case AbilitiesNamedInsideBlock = 'abilities-named-inside-block';
 

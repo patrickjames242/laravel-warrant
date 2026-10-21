@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\SchemaVocabulary;
 
@@ -21,8 +22,12 @@ use Warrant\DSL\SchemaVocabulary;
  * they name their abilities, or leave them to an `@include`, as what produced
  * them says; that every ability they name and every template they include is
  * one the schema declares; and that each rule's own clauses and messages are
- * well formed. A rule's `if` expression is checked by
- * {@see ValidatesExpressions}.
+ * well formed. A rule's `if` expression, and a when block's condition, is
+ * checked by {@see ValidatesExpressions}.
+ *
+ * A when block is transparent to all of that: the entries in its bodies are
+ * held to what the entries around it are, as the expansion will put them
+ * where the block stands.
  *
  * The abilities are checked where they are written, because the expansion
  * only carries them on the rules they end up on, and an empty block or a
@@ -52,8 +57,22 @@ trait ValidatesRuleEntries
             $this->assertNamingAgrees($entries);
         }
 
+        $this->validateEachEntry($entries, $mode, $schema, $schemaKey);
+    }
+
+    /**
+     * Validate each of $entries, and the entries in a when block's bodies, with
+     * $mode saying whether they name their abilities.
+     *
+     * @param list<IRuleEntryNode> $entries
+     */
+    private function validateEachEntry(array $entries, GenericMode $mode, ?SchemaVocabulary $schema, ?string $schemaKey): void
+    {
         foreach ($entries as $entry) {
-            if ($entry instanceof AbilityBlockNode) {
+            if ($entry instanceof WhenBlockNode) {
+                $this->validateWhenBlock($entry, $schema, $schemaKey);
+                $this->validateEachEntry([...$entry->entries, ...$entry->otherwiseEntries ?? []], $mode, $schema, $schemaKey);
+            } elseif ($entry instanceof AbilityBlockNode) {
                 if ($mode === GenericMode::RequireGeneric) {
                     $this->fail(
                         DiagnosticCode::AbilitiesNamedWhereGeneric,
@@ -108,54 +127,10 @@ trait ValidatesRuleEntries
     }
 
     /**
-     * An ability block names at least one ability in its header, and the rules
-     * and includes in its body name none: the header names them all. A block
-     * inside it is reported and not read further, having no header of its own
-     * to stand under.
-     */
-    private function validateAbilityBlock(AbilityBlockNode $block, ?SchemaVocabulary $schema, ?string $schemaKey): void
-    {
-        if ($block->abilities === []) {
-            $this->fail(DiagnosticCode::AbilityBlockNamesNone, LanguageRuleMessages::blockNamesNone(), $block->location);
-        }
-
-        $this->assertAbilitiesDeclared($block->abilities, $schema);
-        $this->assertAbilityListsWellWritten($block);
-
-        foreach ($block->entries as $entry) {
-            if ($entry instanceof AbilityBlockNode) {
-                $this->fail(DiagnosticCode::AbilityBlockInsideBlock, LanguageRuleMessages::blockInsideBlock(), $entry->location);
-            } elseif ($entry instanceof IncludeInvocationNode) {
-                if (! $entry->isGeneric()) {
-                    $this->fail(
-                        DiagnosticCode::AbilitiesNamedInsideBlock,
-                        LanguageRuleMessages::namedInsideBlock('An @include'),
-                        $entry->abilities[0]->location,
-                    );
-                }
-
-                $this->assertTemplateDeclared($entry, $schema, $schemaKey);
-            } elseif ($entry instanceof WarrantRuleNode) {
-                foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
-                    if ($clause->abilities !== []) {
-                        $this->fail(
-                            DiagnosticCode::AbilitiesNamedInsideBlock,
-                            LanguageRuleMessages::namedInsideBlock('A clause'),
-                            $clause->abilities[0]->location,
-                        );
-                    }
-                }
-
-                $this->validateRule($entry, $schema, $schemaKey);
-            }
-        }
-    }
-
-    /**
      * Rules with no `for` header either all name their abilities or all leave
      * them to be named where the rules are placed: the first clause, include or
      * block decides, and each one after it that does not do the same is
-     * reported.
+     * reported. What a when block holds is held to that with everything else.
      *
      * @param list<IRuleEntryNode> $entries
      */
@@ -163,7 +138,7 @@ trait ValidatesRuleEntries
     {
         $first = null;
 
-        foreach ($entries as $entry) {
+        foreach (self::throughWhenBlocks($entries) as $entry) {
             $named = match (true) {
                 $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
                 $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],

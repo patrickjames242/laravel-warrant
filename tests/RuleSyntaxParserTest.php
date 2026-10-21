@@ -1499,6 +1499,64 @@ it('rejects when and otherwise as names', function (string $source) {
     'an ability named otherwise' => 'they can otherwise',
 ]);
 
+// -- When blocks: validation ---------------------------------------------------
+
+it('accepts a when block whose rules name their abilities in a rule set', function () {
+    expect(languageRuleErrors(<<<'WARRANT'
+        for docs {
+            when is_published {
+                if is_member they can view
+                @include shared for edit
+            } otherwise {
+                they cannot view because 'Not published.'
+            }
+        }
+        WARRANT))->toBe([]);
+});
+
+it('holds the rules in a when block to what a rule set asks of the rules around it', function () {
+    expect(languageRuleErrors('for docs { when a { if b they can } }'))
+        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('docs')])
+        ->and(languageRuleErrors('for docs { when a { if b they can view } otherwise { @include shared } }'))
+        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('docs')]);
+});
+
+it('accepts a when block inside an ability block, its rules taking the header', function () {
+    expect(languageRuleErrors('can they view { when a { if b they can } otherwise { they cannot } }'))->toBe([]);
+});
+
+it('holds the rules in a when block inside an ability block to what the block asks', function () {
+    expect(languageRuleErrors('can they view { when a { if b they can edit } }'))
+        ->toBe([LanguageRuleMessages::namedInsideBlock('A clause')])
+        ->and(languageRuleErrors('can they view { when a { can they edit { they can } } }'))
+        ->toBe([LanguageRuleMessages::blockInsideBlock()]);
+});
+
+it('accepts an ability block inside a when block', function () {
+    expect(languageRuleErrors('for docs { when a { can they view { if b they can } } }'))->toBe([]);
+});
+
+it('holds rules with no for header to one way of naming, through when blocks', function () {
+    expect(languageRuleErrors('if a they can view when b { if c they can }'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', false)])
+        ->and(languageRuleErrors('when b { if c they can } if a they can view'))
+        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', true)])
+        ->and(languageRuleErrors('when b { if c they can } otherwise { they cannot }'))
+        ->toBe([]);
+});
+
+it('rejects a when block or an otherwise with an empty body', function () {
+    expect(languageRuleErrors('for docs { when a { } }'))->toBe([LanguageRuleMessages::whenBlockEmpty()])
+        ->and(languageRuleErrors('for docs { when a { they can view } otherwise { } }'))->toBe([LanguageRuleMessages::otherwiseEmpty()]);
+});
+
+it('validates a when block condition as a rule condition is validated', function () {
+    expect(fn () => validateRuleSet(
+        WarrantSyntax::parse('when no_such_condition { they can view }')->validateWithoutSchemas()->scopedTo('timesheets'),
+        new WarrantTestSchema,
+    ))->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is not declared');
+});
+
 // -- @include -----------------------------------------------------------------
 
 it('sits generic in the ability block whose header names its abilities', function () {

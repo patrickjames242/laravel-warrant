@@ -502,3 +502,41 @@ it('round-trips an ability block to the same tree', function () {
 
     expect(WarrantSyntax::parse(writeSyntax($set))->validateWithoutSchemas()->ruleSet())->toEqualSyntax($set);
 });
+
+// -- when blocks --------------------------------------------------------------
+
+it('renders a when block and its otherwise as written', function () {
+    $set = WarrantSyntax::parse(<<<'WARRANT'
+        when is_published and not is_archived {
+            if is_member they can view
+            @include shared for edit
+        } otherwise {
+            they cannot view because 'Not published.'
+        }
+        WARRANT)->validateWithoutSchemas()->scopedTo('docs');
+
+    expect(writeSyntax($set))->toBe(<<<'TXT'
+        for docs {
+            when is_published and not is_archived {
+                if is_member
+                they can view
+
+                @include shared for edit
+            } otherwise {
+                they cannot view because 'Not published.'
+            }
+        }
+        TXT);
+});
+
+it('round-trips nested when and ability blocks to the same tree', function () {
+    $set = WarrantSyntax::parse(<<<'WARRANT'
+        when is_published {
+            can they view {
+                when is_shared { if is_member they can } otherwise { they cannot }
+            }
+        }
+        WARRANT)->validateWithoutSchemas()->scopedTo('docs');
+
+    expect(WarrantSyntax::parse(writeSyntax($set))->validateWithoutSchemas()->ruleSet())->toEqualSyntax($set);
+});
