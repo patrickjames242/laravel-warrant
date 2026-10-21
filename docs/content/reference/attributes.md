@@ -147,6 +147,16 @@ The method answers with rule text as a string or a `WarrantSyntax` parsed with
 bindings, a rule or `@include` that names no abilities, or an iterable of any of
 these. See [what a template may answer with](/rules/templates/#what-a-template-may-answer-with).
 
+A first parameter typed `RuleTemplateContext` is handed the abilities the `@include`
+supplies, and is not a DSL argument. With `callOncePerAbility: true` the method is
+called once for each of them, and `$context->ability()` returns the one; the flag
+requires the context parameter. See [knowing the abilities](/rules/templates/#knowing-the-abilities).
+
+```php
+#[RuleTemplate(callOncePerAbility: true)]
+public function frozen(RuleTemplateContext $context): string { /* ... */ }
+```
+
 A method cannot be both a condition and a template. Both attributes on one method is
 rejected when the schema is read.
 

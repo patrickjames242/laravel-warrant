@@ -51,8 +51,9 @@ use Warrant\Registry\RegisteredSchemas;
  * reference arrives as the reference, not its value, and can only be passed on —
  * and answers with text or an expression about no row. What it answers with is
  * placed in a source of its own, whose producer is that template or condition,
- * naming the `@include` or condition that invoked it. It
- * reads no user, no row, no query and no check context, so a rule set is expanded
+ * naming the `@include` or condition that invoked it. A template may also be
+ * handed a {@see \Warrant\Schema\RuleTemplateContext} naming the abilities its
+ * include takes, which the rule set says too. It reads no user, no row, no query and no check context, so a rule set is expanded
  * once and the result serves every check, filter, diagnosis and reachability
  * question asked of it.
  *

@@ -7,6 +7,7 @@ use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplateContext;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -28,6 +29,12 @@ class TemplatedSchema extends WarrantSchema
             'if is_child_of(:relation, :depth) they can',
             ['relation' => $relation, 'depth' => $depth],
         ));
+    }
+
+    #[RuleTemplate(callOncePerAbility: true)]
+    public function perAbility(RuleTemplateContext $context, string $relation): string
+    {
+        return 'they can';
     }
 
     #[RowCondition]
@@ -53,9 +60,22 @@ it('takes an explicit key from the attribute', function () {
 });
 
 it('counts every parameter without a default as a required argument', function () {
-    // A template takes no leading context object, so unlike a condition none of
-    // its parameters are dropped from the count.
     expect((new TemplatedSchema)->getRuleTemplateDefinition('inherited')->requiredArgumentCount)->toBe(1);
+});
+
+it('leaves a leading context out of the required arguments', function () {
+    $definition = (new TemplatedSchema)->getRuleTemplateDefinition('per_ability');
+
+    expect($definition->takesContext)->toBeTrue();
+    expect($definition->callOncePerAbility)->toBeTrue();
+    expect($definition->requiredArgumentCount)->toBe(1);
+});
+
+it('records a template taking no context as called once for all abilities', function () {
+    $definition = (new TemplatedSchema)->getRuleTemplateDefinition('inherited');
+
+    expect($definition->takesContext)->toBeFalse();
+    expect($definition->callOncePerAbility)->toBeFalse();
 });
 
 it('returns null for a template the schema does not declare', function () {
@@ -63,7 +83,7 @@ it('returns null for a template the schema does not declare', function () {
 });
 
 it('lists every declared template key, sorted', function () {
-    expect(TemplatedSchema::ruleTemplateKeys())->toBe(['inherited', 'requires_approval']);
+    expect(TemplatedSchema::ruleTemplateKeys())->toBe(['inherited', 'per_ability', 'requires_approval']);
 });
 
 it('keeps templates out of the condition vocabulary and conditions out of templates', function () {
@@ -90,6 +110,15 @@ class TemplateAndConditionSchema extends WarrantSchema
     public function both(RowConditionContext $c): string
     {
         return '1 = 1';
+    }
+}
+
+class PerAbilityWithoutContextSchema extends WarrantSchema
+{
+    #[RuleTemplate(callOncePerAbility: true)]
+    public function blind(): string
+    {
+        return 'they can';
     }
 }
 
@@ -122,6 +151,11 @@ it('rejects a method that is both a condition and a template', function () {
 it('rejects two templates sharing a key', function () {
     expect(fn () => DuplicateTemplateKeySchema::ruleTemplateKeys())
         ->toThrow(InvalidArgumentException::class, 'declares rule template [shared] more than once');
+});
+
+it('rejects a template called once per ability that takes no context', function () {
+    expect(fn () => PerAbilityWithoutContextSchema::ruleTemplateKeys())
+        ->toThrow(InvalidArgumentException::class, 'is declared callOncePerAbility, so it must accept a');
 });
 
 it('rejects an empty template key on the attribute', function () {

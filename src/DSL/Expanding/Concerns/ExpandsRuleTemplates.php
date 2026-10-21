@@ -8,6 +8,7 @@ use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
@@ -20,6 +21,7 @@ use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
+use Warrant\Schema\RuleTemplateContext;
 use Warrant\Schema\RuleTemplateDefinition;
 
 /**
@@ -46,26 +48,53 @@ trait ExpandsRuleTemplates
         $definition = self::resolveTemplate($schema, $schemaKey, $include);
         $producer = SyntaxProducer::ruleTemplate($schemaKey, $schema::class, $definition->key, $definition->methodName, $include);
 
-        $values = self::argumentValues($include->arguments);
+        $arguments = self::argumentValues($include->arguments);
 
-        $generic = $this->templateEntries(
-            $schema->{$definition->methodName}(...$values),
-            $producer,
-            self::parametersUsableAsBindings($schema, $definition->methodName, $values),
-        );
+        /* A template is called once for all the include's abilities, or, declared
+           callOncePerAbility, once for each of them, each call's rules taking its
+           ability alone. */
+        $calls = $definition->callOncePerAbility
+            ? array_map(static fn (NameNode $ability): array => [$ability], $include->abilities)
+            : [$include->abilities];
 
-        /* The body is generic, as an ability block's is: the include names the
-           abilities its clauses take, so they are applied here. */
-        $entries = array_map(
-            static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
-                => $entry->withAbilities($include->abilities),
-            $generic,
-        );
+        $expanded = [];
 
-        /* The body may hold includes of its own, taking the same abilities. They
-           are expanded here rather than left for the caller so that what comes
-           back is rules and only rules, however deep the templates went. */
-        return $this->expandEntries($entries, $schema, $schemaKey, $deeper);
+        foreach ($calls as $abilities) {
+            $values = $definition->takesContext
+                ? [new RuleTemplateContext(
+                    array_map(static fn (NameNode $ability): string => $ability->name, $abilities),
+                    $definition->callOncePerAbility,
+                ), ...$arguments]
+                : $arguments;
+
+            /* The context is told to the method, not to its rule text: a binding
+               names a DSL argument, and the context is none. */
+            $bindings = array_filter(
+                self::parametersUsableAsBindings($schema, $definition->methodName, $values),
+                static fn (mixed $value): bool => ! $value instanceof RuleTemplateContext,
+            );
+
+            $generic = $this->templateEntries(
+                $schema->{$definition->methodName}(...$values),
+                $producer,
+                $bindings,
+            );
+
+            /* The body is generic, as an ability block's is: the include names the
+               abilities its clauses take, so they are applied here. */
+            $entries = array_map(
+                static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
+                    => $entry->withAbilities($abilities),
+                $generic,
+            );
+
+            /* The body may hold includes of its own, taking the same abilities. They
+               are expanded here rather than left for the caller so that what comes
+               back is rules and only rules, however deep the templates went. */
+            array_push($expanded, ...$this->expandEntries($entries, $schema, $schemaKey, $deeper));
+        }
+
+        return $expanded;
     }
 
     /**

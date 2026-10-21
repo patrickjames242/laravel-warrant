@@ -17,6 +17,7 @@ use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplateContext;
 use Warrant\Schema\RuleTemplateDefinition;
 use Warrant\Schema\WarrantSchema;
 
@@ -195,13 +196,25 @@ final class StaticSchemaScanner
 
             if ($template !== null) {
                 $templateKey = self::keyOf($template->argument('key', 0), $method->name);
+
+                /* A template may take a context first, which rule text does not
+                   pass. */
+                $takesContext = ($method->parameters[0] ?? null)?->type === RuleTemplateContext::class;
+                $dslParameters = $takesContext ? array_slice($method->parameters, 1) : $method->parameters;
+
                 $templates[$templateKey] = new Declaration(
                     $templateKey,
-                    new RuleTemplateDefinition($templateKey, $method->name, $method->requiredParameterCount()),
+                    new RuleTemplateDefinition(
+                        $templateKey,
+                        $method->name,
+                        max(0, $method->requiredParameterCount() - ($takesContext ? 1 : 0)),
+                        $takesContext,
+                        $template->argument('callOncePerAbility', 1) === true,
+                    ),
                     $owner->file,
                     $method->line,
                     self::summary($method->docComment),
-                    array_map(static fn ($parameter): string => $parameter->name, $method->parameters),
+                    array_map(static fn ($parameter): string => $parameter->name, $dslParameters),
                 );
 
                 continue;

@@ -21,6 +21,7 @@ use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
 use Warrant\Schema\RowCondition;
 use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplateContext;
 use Warrant\Schema\RuleTemplateDefinition;
 
 /**
@@ -318,10 +319,11 @@ trait ReflectsSchemaDefinition
      * The schema's `#[RuleTemplate]` methods, resolved to definitions. The single
      * source of truth the other template accessors project from.
      *
-     * A template takes no context object. It is handed argument values and answers
-     * with DSL text, reading no row and no query, so every parameter is a DSL
-     * argument — which is why the required count is read whole here where a
-     * condition's drops its leading context parameter.
+     * A template is handed argument values and answers with DSL text, reading no
+     * row and no query. It may ask to be told the abilities its rules will take by
+     * declaring a {@see RuleTemplateContext} first; that parameter is not a DSL
+     * argument, so it is dropped from the required count as a condition's context
+     * is, and every other parameter counts.
      *
      * @return array<int, RuleTemplateDefinition>
      */
@@ -365,8 +367,8 @@ trait ReflectsSchemaDefinition
                     ));
                 }
 
-                $templateKey = $attributes[0]->newInstance()->key
-                    ?? static::ruleTemplateKeyFromMethodName($method->getName());
+                $attribute = $attributes[0]->newInstance();
+                $templateKey = $attribute->key ?? static::ruleTemplateKeyFromMethodName($method->getName());
 
                 if (! is_string($templateKey) || $templateKey === '') {
                     throw new InvalidArgumentException(sprintf(
@@ -383,10 +385,30 @@ trait ReflectsSchemaDefinition
                    none. What it actually answered with is checked at the
                    expansion that reads it, where the value exists. */
 
+                $parameterType = ($method->getParameters()[0] ?? null)?->getType();
+                $takesContext = $parameterType instanceof ReflectionNamedType
+                    && $parameterType->getName() === RuleTemplateContext::class;
+
+                /* Called once per ability, a template that cannot see which one
+                   answers the same rules every time, so the flag would only split
+                   them into one rule per ability: a template written for one
+                   ability that forgot to ask which. */
+                if ($attribute->callOncePerAbility && ! $takesContext) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Rule template [%s::%s] is declared callOncePerAbility, so it must accept a [%s] as its '
+                            .'first parameter to be told which ability each call is for.',
+                        static::class,
+                        $method->getName(),
+                        RuleTemplateContext::class,
+                    ));
+                }
+
                 return new RuleTemplateDefinition(
                     $templateKey,
                     $method->getName(),
-                    $method->getNumberOfRequiredParameters(),
+                    max(0, $method->getNumberOfRequiredParameters() - ($takesContext ? 1 : 0)),
+                    $takesContext,
+                    $attribute->callOncePerAbility,
                 );
             })
             ->filter()

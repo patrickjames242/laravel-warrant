@@ -71,8 +71,8 @@ class DocumentSchema extends BaseSchema
             WARRANT;
     }
 
-    #[RuleTemplate]
-    public function sharedWith(mixed $team): WarrantSyntax
+    #[RuleTemplate(callOncePerAbility: true)]
+    public function sharedWith(\Warrant\Schema\RuleTemplateContext $context, mixed $team): WarrantSyntax
     {
         return Warrant::parse(new BoundSyntax('if in_team(:team) they can', ['team' => $team]));
     }

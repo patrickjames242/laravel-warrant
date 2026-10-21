@@ -24,6 +24,7 @@ use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplateContext;
 
 class TemplateExpansionModel extends Model
 {
@@ -257,6 +258,33 @@ class TemplateExpansionSchema extends WarrantTestSchema
     {
         return 'if is_teacher they can  if is_advisor they cannot view';
     }
+
+    #[RuleTemplate]
+    public function deniesNamingItsAbilities(RuleTemplateContext $context): WarrantSyntax
+    {
+        return Warrant::parse(warrant('they cannot because :why', ['why' => implode(', ', $context->abilities)]));
+    }
+
+    #[RuleTemplate(callOncePerAbility: true)]
+    public function deniesNamingItsAbility(RuleTemplateContext $context, string $prefix = ''): WarrantSyntax
+    {
+        return Warrant::parse(warrant('they cannot because :why', ['why' => $prefix.$context->ability()]));
+    }
+
+    #[RuleTemplate(callOncePerAbility: true)]
+    public function nestsAllAtOnce(RuleTemplateContext $context): string
+    {
+        return '@include denies_naming_its_abilities';
+    }
+
+    /** Asks for one ability without being declared to be called once per ability. */
+    #[RuleTemplate]
+    public function asksForOneAbility(RuleTemplateContext $context): string
+    {
+        $context->ability();
+
+        return 'they can';
+    }
 }
 
 class TemplateHopModel extends Model
@@ -286,6 +314,20 @@ function expandSyntax(string $syntax): ExpandedSyntax
     return expandedFor(
         WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('course_sections'),
         new TemplateExpansionSchema,
+    );
+}
+
+/**
+ * The rules $rules write out longhand, to compare an expansion with. Each is
+ * parsed alone, since clauses written one after another read as one rule.
+ *
+ * @return list<WarrantRuleNode>
+ */
+function longhand(string ...$rules): array
+{
+    return array_map(
+        static fn (string $rule): WarrantRuleNode => WarrantSyntax::parse($rule)->validateWithoutSchemas()->rule(),
+        $rules,
     );
 }
 
@@ -438,6 +480,43 @@ it('rejects an include supplying too few arguments', function () {
 });
 
 // -- what a template may answer with --------------------------------------------
+
+// -- the abilities a template is told -----------------------------------------
+
+it('tells a template every ability its include names, in one call', function () {
+    expect(expandSyntax('@include denies_naming_its_abilities for view, publish')->rules)
+        ->toEqualSyntax(longhand("they cannot view, publish because 'view, publish'"));
+});
+
+it('tells a template the abilities of the block its include sits in', function () {
+    expect(expandSyntax('can they view, publish { @include denies_naming_its_abilities }')->rules)
+        ->toEqualSyntax(longhand("they cannot view, publish because 'view, publish'"));
+});
+
+it('calls a template declared callOncePerAbility once for each ability, each rule taking its own', function () {
+    expect(expandSyntax('@include denies_naming_its_ability for view, publish')->rules)
+        ->toEqualSyntax(longhand("they cannot view because 'view'", "they cannot publish because 'publish'"));
+});
+
+it('hands a template its arguments after its context', function () {
+    expect(expandSyntax("@include denies_naming_its_ability('No ') for view")->rules)
+        ->toEqualSyntax(longhand("they cannot view because 'No view'"));
+});
+
+it('tells an include inside a per-ability template the one ability', function () {
+    expect(expandSyntax('@include nests_all_at_once for view, publish')->rules)
+        ->toEqualSyntax(longhand("they cannot view because 'view'", "they cannot publish because 'publish'"));
+});
+
+it('calls a per-ability template once for the wildcard, as written', function () {
+    expect(expandSyntax('@include denies_naming_its_ability for *')->rules)
+        ->toEqualSyntax(longhand("they cannot * because '*'"));
+});
+
+it('refuses the one ability to a template not declared callOncePerAbility, even for one ability', function () {
+    expect(fn () => expandSyntax('@include asks_for_one_ability for view'))
+        ->toThrow(LogicException::class, 'is only for a rule template declared #[RuleTemplate(callOncePerAbility: true)]');
+});
 
 it('expands a template answering with a rule that names no abilities', function () {
     $expanded = expandSyntax('@include answers_with_a_rule for view');

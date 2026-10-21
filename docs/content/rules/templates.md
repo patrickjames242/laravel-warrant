@@ -167,6 +167,62 @@ Parsing is only needed when the body binds a value that is not a parameter. A
 method free to answer with either may declare no return type at all.
 :::
 
+## Knowing the abilities
+
+A body names no abilities, but it may need to know them, to say which one a denial
+is about, say. Take a `RuleTemplateContext` as the first parameter and it holds the
+abilities the `@include` supplies, from its `for` list, the block around it, or the
+`@include` that expanded the template it sits in:
+
+```php
+use Warrant\Schema\RuleTemplateContext;
+
+#[RuleTemplate]
+public function frozen(RuleTemplateContext $context): WarrantSyntax
+{
+    return Warrant::parse(warrant('if is_frozen they cannot because :why', [
+        'why' => 'This document is frozen: no '.implode(' or ', $context->abilities).'.',
+    ]));
+}
+```
+
+`@include frozen for edit, delete` calls it once, with `['edit', 'delete']`, and
+its rules take both abilities.
+
+The context is not a DSL argument, so it is not passed at the `@include`: arguments
+written there go to the parameters after it, and only those count towards the
+required arguments. Nor is it a binding: a string body's `:context` names no
+parameter.
+
+### One ability at a time
+
+To write the body for one ability at a time, declare the template
+`callOncePerAbility`. It is called once for each ability the `@include` supplies,
+each call's rules taking that ability alone, and `ability()` returns which one:
+
+```php
+#[RuleTemplate(callOncePerAbility: true)]
+public function frozen(RuleTemplateContext $context): WarrantSyntax
+{
+    return Warrant::parse(warrant('if is_frozen they cannot because :why', [
+        'why' => "You cannot {$context->ability()} a frozen document.",
+    ]));
+}
+```
+
+`@include frozen for edit, delete` now expands to two rules, one for `edit` and one
+for `delete`, each with its own message. An `@include` inside the body takes the
+one ability too.
+
+`ability()` is refused to a template not declared `callOncePerAbility`, even when
+its `@include` happens to name a single ability. Such a template is called once for
+all of them, and would break the day a second is added. A template declared
+`callOncePerAbility` must take a `RuleTemplateContext`, since without one every call
+answers the same.
+
+The wildcard is passed as written: `@include frozen for *` calls a per-ability
+template once, and `ability()` returns `'*'`.
+
 ## What a template may answer with
 
 A template answers in whichever form it has its body, much as a
@@ -224,9 +280,10 @@ mixing the two is reported as one.
 | `WarrantSyntax::toSyntax()` | writes the `@include` back as written, not what it expands to |
 
 Expansion happens before anything compiles, once per rule set, and needs no user,
-row or check context: a `@context` or `@column` argument reaches the template
-method as the reference, to be passed on through a binding. That is what lets a
-guard expand its rules once and use them for every check.
+row or check context (the abilities a template is told are written in the rule
+set): a `@context` or `@column` argument reaches the template method as the
+reference, to be passed on through a binding. That is what lets a guard expand its
+rules once and use them for every check.
 
 ## Errors
 
@@ -239,6 +296,8 @@ guard expand its rules once and use them for every check.
 | `@include x` in a provider's rules with no `for` header | `... the rule set for [docs] holds one that names none`, when it is placed in a rule set |
 | `if a they can view  @include x` | `This @include names none, but the rules before it name theirs` |
 | a template answering with a rule that names abilities | `Rule template [...] answered with a rule that names abilities` |
+| `#[RuleTemplate(callOncePerAbility: true)]` on a method taking no `RuleTemplateContext` | `Rule template [...] is declared callOncePerAbility, so it must accept a [...RuleTemplateContext] as its first parameter`, when the schema is read |
+| `$context->ability()` in a template not declared `callOncePerAbility` | `RuleTemplateContext::ability() is only for a rule template declared #[RuleTemplate(callOncePerAbility: true)]` |
 | `can they view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
 | a body that never stops including | `Expansion exceeded the maximum nesting depth of 64`, followed by the chain |
 | a mistake inside a body | reported as it would be in the rule, e.g. `Condition [x] is not declared by the schema` |

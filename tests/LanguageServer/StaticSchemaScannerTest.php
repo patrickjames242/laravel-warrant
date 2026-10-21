@@ -53,6 +53,10 @@ it('reads templates, required context, and whether and how rows are named', func
 
     expect(array_keys($vocabulary->find('documents')->templates))->toBe(['owner_edits', 'shared_with'])
         ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->requiredArgumentCount)->toBe(1)
+        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->takesContext)->toBeTrue()
+        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->callOncePerAbility)->toBeTrue()
+        ->and($vocabulary->find('documents')->templates['shared_with']->parameters)->toBe(['team'])
+        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('owner_edits')->takesContext)->toBeFalse()
         ->and($vocabulary->find('documents')->requiredContextKeys)->toBe(['org'])
         ->and($vocabulary->find('documents')->contextKeys())->toBe(['org'])
         ->and($vocabulary->find('folders')->keyArgumentCount)->toBe(2)

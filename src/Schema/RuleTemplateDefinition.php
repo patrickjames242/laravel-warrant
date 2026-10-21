@@ -4,13 +4,14 @@ namespace Warrant\Schema;
 
 /**
  * A schema's rule template, resolved from a `#[RuleTemplate]` method: its DSL
- * key, the name of the method that answers with the template's body, and how many
- * DSL arguments it requires.
+ * key, the name of the method that answers with the template's body, how many
+ * DSL arguments it requires, and how it is told the abilities.
  *
  * A template's body is generic — its clauses name no abilities, taking them from
- * the ability block or the `for` list at the `@include` that expands it. That is
- * why the definition says nothing about abilities: a template is a shape, and the
- * abilities belong to the reference.
+ * the ability block or the `for` list at the `@include` that expands it. A
+ * template may be told which abilities those are, through a
+ * {@see RuleTemplateContext}, and choose what its rules say by them, but the
+ * abilities still belong to the reference.
  *
  * This is a plain value — it carries the method *name*, not a reflection handle —
  * so it is the single object a schema's template resolution returns and any
@@ -20,15 +21,20 @@ final readonly class RuleTemplateDefinition
 {
     /**
      * @param int $requiredArgumentCount The number of DSL arguments the template
-     *   requires — its parameters with no default value. Unlike a condition, a
-     *   template takes no leading context object: it is handed argument values and
-     *   answers with text, reading no row and no query, so every parameter is an
-     *   argument. Supplying fewer is rejected wherever the template is expanded,
-     *   and by validation ahead of that for a rule written as text.
+     *   requires — its parameters with no default value, not counting a leading
+     *   {@see RuleTemplateContext}. Supplying fewer is rejected wherever the
+     *   template is expanded, and by validation ahead of that for a rule written
+     *   as text.
+     * @param bool $takesContext Whether the method's first parameter is a
+     *   {@see RuleTemplateContext}, handed before the DSL arguments.
+     * @param bool $callOncePerAbility Whether the method is called once for each
+     *   ability the include names rather than once for all of them.
      */
     public function __construct(
         public string $key,
         public string $methodName,
         public int $requiredArgumentCount = 0,
+        public bool $takesContext = false,
+        public bool $callOncePerAbility = false,
     ) {}
 }
