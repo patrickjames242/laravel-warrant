@@ -4,6 +4,7 @@ namespace Warrant\DSL\Expanding;
 
 use Closure;
 use InvalidArgumentException;
+use Warrant\DSL\Expanding\Concerns\BindsParametersByName;
 use Warrant\DSL\Expanding\Concerns\ExpandsAbilityBlocks;
 use Warrant\DSL\Expanding\Concerns\ExpandsCheckPredicates;
 use Warrant\DSL\Expanding\Concerns\ExpandsDerivedConditions;
@@ -66,6 +67,7 @@ use Warrant\Registry\RegisteredSchemas;
  */
 final class Expander
 {
+    use BindsParametersByName;
     use ExpandsAbilityBlocks;
     use ExpandsCheckPredicates;
     use ExpandsDerivedConditions;

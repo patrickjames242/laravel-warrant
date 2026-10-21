@@ -61,12 +61,14 @@ trait ExpandsDerivedConditions
         }
 
         $producer = SyntaxProducer::derivedCondition($schemaKey, $schema::class, $definition->key, $definition->methodName, $node);
-        $answer = $schema->{$definition->methodName}(...self::argumentValues($node->parameters));
+        $values = self::argumentValues($node->parameters);
+        $answer = $schema->{$definition->methodName}(...$values);
+        $parametersUsableAsBindings = self::parametersUsableAsBindings($schema, $definition->methodName, $values);
 
         return new DerivedConditionNode(
             $node->conditionKey,
             $node->parameters,
-            $this->expandExpression($this->derivedExpression($answer, $producer, $schemaKey), $schema, $schemaKey, $deeper),
+            $this->expandExpression($this->derivedExpression($answer, $producer, $schemaKey, $parametersUsableAsBindings), $schema, $schemaKey, $deeper),
             $node->location,
         );
     }
@@ -78,7 +80,9 @@ trait ExpandsDerivedConditions
      * new one that a builder is resolved in.
      *
      * Rule text, as a string, a {@see BoundSyntax} or a {@see WarrantSyntax}, must hold a condition
-     * expression, bare or under a `for` header naming this schema. A
+     * expression, bare or under a `for` header naming this schema. A string's
+     * bindings take their values from $parametersUsableAsBindings, the condition's
+     * parameters by name. A
      * {@see WarrantConditionBuilder} is resolved to the tree it composed, and a
      * {@see CrossSchemaCanBuilder} or {@see CrossSchemaCheckBuilder} to its
      * `can(...)` or `check(...)`. A bool
@@ -87,10 +91,16 @@ trait ExpandsDerivedConditions
      * An expression is validated before it is spliced in: rule text as the text
      * it is, so an error points into it, and an expression built in code as the
      * nodes it is.
+     *
+     * @param array<string, mixed> $parametersUsableAsBindings
      */
-    private function derivedExpression(mixed $answer, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
+    private function derivedExpression(mixed $answer, SyntaxProducer $producer, string $schemaKey, array $parametersUsableAsBindings): IBooleanExpressionNode
     {
-        if (is_string($answer) || $answer instanceof BoundSyntax || $answer instanceof WarrantSyntax) {
+        if (is_string($answer)) {
+            $answer = self::withParameterBindings($answer, $parametersUsableAsBindings);
+        }
+
+        if ($answer instanceof BoundSyntax || $answer instanceof WarrantSyntax) {
             return $this->derivedSyntaxExpression($answer, $producer, $schemaKey);
         }
 
@@ -161,7 +171,7 @@ trait ExpandsDerivedConditions
      * is expanded and compiled against this one, so a header naming another is
      * rejected rather than read against the wrong vocabulary.
      */
-    private function derivedSyntaxExpression(string|BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
+    private function derivedSyntaxExpression(BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
     {
         try {
             if (! $text instanceof WarrantSyntax) {

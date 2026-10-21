@@ -113,6 +113,26 @@ it('reads a @column argument naming the caller\'s alias, which the condition can
         ->toBe(dkFilterSql('if check(owner_is_column(@column other.tenant_id) for dk_docs(@column id) as other) they can view'));
 });
 
+it('binds a parameter by name in rule text it answers with as a string', function () {
+    expect(dkFilterSql("if owned_or_tenant_by_name('t-1') they can view"))
+        ->toBe(dkFilterSql("if is_owned or in_tenant('t-1') they can view"));
+});
+
+it('binds a parameter by its name in snake case', function () {
+    expect(dkFilterSql("if owned_or_tenant_by_snake_name('t-1') they can view"))
+        ->toBe(dkFilterSql("if is_owned or in_tenant('t-1') they can view"));
+});
+
+it('passes on a @context argument through a parameter\'s binding', function () {
+    expect(dkFilterSql('if owned_or_tenant_by_snake_name(@context tenant) they can view', ['tenant' => 't-1']))
+        ->toBe(dkFilterSql('if is_owned or in_tenant(@context tenant) they can view', ['tenant' => 't-1']));
+});
+
+it('binds no parameter in a BoundSyntax it answers with', function () {
+    expect(fn () => dkFilterSql("if bound_without_its_parameter('t-1') they can view"))
+        ->toThrow(RuleValidationException::class, 'No binding provided for ":tenant".');
+});
+
 it('answers with rule text, parsed as a condition expression', function () {
     expect(dkFilterSql('if as_text they can view'))->toBe(dkFilterSql('if is_owned they can view'));
 });
@@ -375,6 +395,27 @@ class DkDocSchema extends WarrantSchema
         self::$lastTenant = $tenant;
 
         return WarrantSyntax::parse(new BoundSyntax('is_owned or in_tenant(:tenant)', ['tenant' => $tenant]))->validateWithoutSchemas()->conditionExpression();
+    }
+
+    /** Hands its argument back through a binding named as the parameter is. */
+    #[DerivedCondition]
+    public function ownedOrTenantByName(mixed $tenantKey): string
+    {
+        return 'is_owned or in_tenant(:tenantKey)';
+    }
+
+    /** Hands its argument back through a binding named as the parameter is, in snake case. */
+    #[DerivedCondition]
+    public function ownedOrTenantBySnakeName(mixed $tenantKey): string
+    {
+        return 'is_owned or in_tenant(:tenant_key)';
+    }
+
+    /** Writes a binding into a BoundSyntax that gives it no value. */
+    #[DerivedCondition]
+    public function boundWithoutItsParameter(mixed $tenant): BoundSyntax
+    {
+        return new BoundSyntax('in_tenant(:tenant)');
     }
 
     /** Compares a column with the owner, through a binding, without reading it. */

@@ -46,9 +46,12 @@ trait ExpandsRuleTemplates
         $definition = self::resolveTemplate($schema, $schemaKey, $include);
         $producer = SyntaxProducer::ruleTemplate($schemaKey, $schema::class, $definition->key, $definition->methodName, $include);
 
+        $values = self::argumentValues($include->arguments);
+
         $generic = $this->templateEntries(
-            $schema->{$definition->methodName}(...self::argumentValues($include->arguments)),
+            $schema->{$definition->methodName}(...$values),
             $producer,
+            self::parametersUsableAsBindings($schema, $definition->methodName, $values),
         );
 
         /* The body is generic, as an ability block's is: the include names the
@@ -71,7 +74,8 @@ trait ExpandsRuleTemplates
      * {@see WarrantSyntax},
      * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, a
      * {@see WarrantRuleBuilder} making a generic rule, or an iterable of any of
-     * these.
+     * these. A string's bindings take their values from
+     * $parametersUsableAsBindings, the template's parameters by name.
      *
      * Every entry must be generic. The `@include` expanding the template names the
      * abilities its clauses take, so an entry naming its own has two answers to the
@@ -85,15 +89,20 @@ trait ExpandsRuleTemplates
      * rule text as the text it is, so an error points into it, and a rule or
      * include built in code as the node it is.
      *
+     * @param array<string, mixed> $parametersUsableAsBindings
      * @return list<WarrantRuleNode|IncludeInvocationNode>
      */
-    private function templateEntries(mixed $body, SyntaxProducer $producer): array
+    private function templateEntries(mixed $body, SyntaxProducer $producer, array $parametersUsableAsBindings): array
     {
         if ($body instanceof WarrantRuleBuilder) {
             $body = $body->toRule();
         }
 
-        if (is_string($body) || $body instanceof BoundSyntax) {
+        if (is_string($body)) {
+            $body = self::withParameterBindings($body, $parametersUsableAsBindings);
+        }
+
+        if ($body instanceof BoundSyntax) {
             $body = WarrantParser::parse($body, $producer);
         } elseif ($body instanceof WarrantSyntax) {
             $body->source->setProducer($producer);
@@ -124,7 +133,7 @@ trait ExpandsRuleTemplates
                 ));
             }
 
-            return $this->templateEntries(new WarrantSyntax([$body], $body->location->source), $producer);
+            return $this->templateEntries(new WarrantSyntax([$body], $body->location->source), $producer, $parametersUsableAsBindings);
         }
 
         if ($body instanceof AbilityBlockNode || $body instanceof RuleSetNode) {
@@ -140,7 +149,7 @@ trait ExpandsRuleTemplates
             $entries = [];
 
             foreach ($body as $item) {
-                array_push($entries, ...$this->templateEntries($item, $producer));
+                array_push($entries, ...$this->templateEntries($item, $producer, $parametersUsableAsBindings));
             }
 
             return $entries;

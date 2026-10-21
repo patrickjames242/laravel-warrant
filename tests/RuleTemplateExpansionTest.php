@@ -81,6 +81,48 @@ class TemplateExpansionSchema extends WarrantTestSchema
         return Warrant::parse(new BoundSyntax('if is_teacher(:relation) they can', ['relation' => $relation]));
     }
 
+    #[RuleTemplate]
+    public function relationByName(string $folderRelation): string
+    {
+        return 'if is_teacher(:folderRelation) they can';
+    }
+
+    #[RuleTemplate]
+    public function relationBySnakeName(string $folderRelation): string
+    {
+        return 'if is_teacher(:folder_relation) they can';
+    }
+
+    #[RuleTemplate]
+    public function relationByDefault(string $relation = 'parent'): string
+    {
+        return 'if is_teacher(:relation) they can';
+    }
+
+    #[RuleTemplate]
+    public function relationsByVariadic(string ...$relations): string
+    {
+        return 'if is_teacher(:relations) they can';
+    }
+
+    #[RuleTemplate]
+    public function relationsInAList(string $first, string $second): array
+    {
+        return ['if is_teacher(:first) they can', 'if is_advisor(:second) they can'];
+    }
+
+    #[RuleTemplate]
+    public function namesNoParameter(string $relation): string
+    {
+        return 'if is_teacher(:other) they can';
+    }
+
+    #[RuleTemplate]
+    public function boundWithoutItsParameter(string $relation): BoundSyntax
+    {
+        return new BoundSyntax('if is_teacher(:relation) they can');
+    }
+
     /** Terminates because the argument decreases at every level. */
     #[RuleTemplate]
     public function countsDown(int $n): string|WarrantSyntax
@@ -307,6 +349,47 @@ it('hands a template its arguments through bindings', function () {
     $expanded = expandSyntax("@include with_relation('folder') for view");
 
     expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax((['folder']));
+});
+
+it('binds a parameter by name in rule text the template answers with as a string', function () {
+    $expanded = expandSyntax("@include relation_by_name('folder') for view");
+
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
+});
+
+it('binds a parameter by its name in snake case', function () {
+    $expanded = expandSyntax("@include relation_by_snake_name('folder') for view");
+
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
+});
+
+it('binds a parameter the include left off to its default', function () {
+    $expanded = expandSyntax('@include relation_by_default for view');
+
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['parent']);
+});
+
+it('binds a variadic parameter to every argument from there on', function () {
+    $expanded = expandSyntax("@include relations_by_variadic('folder', 'drive') for view");
+
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax([['folder', 'drive']]);
+});
+
+it('binds parameters in each string of an iterable the template answers with', function () {
+    $expanded = expandSyntax("@include relations_in_a_list('folder', 'drive') for view");
+
+    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
+    expect(argumentValues($expanded->rules[1]->conditions->parameters))->toEqualSyntax(['drive']);
+});
+
+it('rejects a binding in a template\'s string naming no parameter', function () {
+    expect(fn () => expandSyntax("@include names_no_parameter('folder') for view"))
+        ->toThrow(RuleValidationException::class, 'No binding provided for ":other".');
+});
+
+it('binds no parameter in a BoundSyntax the template answers with', function () {
+    expect(fn () => expandSyntax("@include bound_without_its_parameter('folder') for view"))
+        ->toThrow(RuleValidationException::class, 'No binding provided for ":relation".');
 });
 
 it('expands a template that includes another', function () {
