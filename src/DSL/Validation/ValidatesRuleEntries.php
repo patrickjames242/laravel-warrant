@@ -138,22 +138,24 @@ trait ValidatesRuleEntries
     {
         $first = null;
 
-        foreach (self::throughWhenBlocks($entries) as $entry) {
-            $named = match (true) {
-                $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
-                $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],
-                $entry instanceof WarrantRuleNode => array_map(
-                    static fn (CanClauseNode|CannotClauseNode $clause): array => ['This clause', $clause->abilities !== [], $clause],
-                    [...$entry->canClauses, ...$entry->cannotClauses],
-                ),
-                default => [],
-            };
+        foreach ($entries as $written) {
+            foreach ($written instanceof WhenBlockNode ? $written->entriesInside() : [$written] as $entry) {
+                $named = match (true) {
+                    $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
+                    $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],
+                    $entry instanceof WarrantRuleNode => array_map(
+                        static fn (CanClauseNode|CannotClauseNode $clause): array => ['This clause', $clause->abilities !== [], $clause],
+                        [...$entry->canClauses, ...$entry->cannotClauses],
+                    ),
+                    default => [],
+                };
 
-            foreach ($named as [$what, $names, $node]) {
-                $first ??= $names;
+                foreach ($named as [$what, $names, $node]) {
+                    $first ??= $names;
 
-                if ($names !== $first) {
-                    $this->fail(DiagnosticCode::AbilityNamingDisagrees, LanguageRuleMessages::namingDisagrees($what, $names), $node->location);
+                    if ($names !== $first) {
+                        $this->fail(DiagnosticCode::AbilityNamingDisagrees, LanguageRuleMessages::namingDisagrees($what, $names), $node->location);
+                    }
                 }
             }
         }

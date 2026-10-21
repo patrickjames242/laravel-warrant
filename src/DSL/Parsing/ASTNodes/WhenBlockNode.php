@@ -42,6 +42,52 @@ final readonly class WhenBlockNode implements IRuleEntryNode
         }
     }
 
+    /**
+     * A copy of this block whose bodies take $abilities: the block it means once
+     * the enclosing ability block header or `@include` has named them. Every
+     * rule and include in the bodies must be generic, at any depth.
+     *
+     * @param list<NameNode> $abilities
+     */
+    public function withAbilities(array $abilities): self
+    {
+        $applied = static fn (array $entries): array => array_map(
+            static fn (IRuleEntryNode $entry): IRuleEntryNode => $entry instanceof AbilityBlockNode
+                ? throw new InvalidArgumentException('An ability block inside a when block takes no abilities from outside; it names its own.')
+                : $entry->withAbilities($abilities),
+            $entries,
+        );
+
+        return new self(
+            $this->condition,
+            $applied($this->entries),
+            $this->otherwiseEntries === null ? null : $applied($this->otherwiseEntries),
+            $this->location,
+        );
+    }
+
+    /**
+     * The entries inside this block, in both bodies, and inside the when blocks
+     * in them at any depth: what rules about abilities see, since a when block
+     * is transparent to them.
+     *
+     * @return list<IRuleEntryNode>
+     */
+    public function entriesInside(): array
+    {
+        $inside = [];
+
+        foreach ([...$this->entries, ...$this->otherwiseEntries ?? []] as $entry) {
+            if ($entry instanceof self) {
+                array_push($inside, ...$entry->entriesInside());
+            } else {
+                $inside[] = $entry;
+            }
+        }
+
+        return $inside;
+    }
+
     public function children(): array
     {
         return [

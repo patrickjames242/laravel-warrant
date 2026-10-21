@@ -20,6 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Validation\AbilityMistakes;
 
@@ -102,6 +103,12 @@ trait ReplacesBindings
                 $node->location,
             ),
             $node instanceof AbilityBlockNode => new AbilityBlockNode(self::abilitiesWithBindingsReplaced($node->abilities), self::eachWithBindingsReplaced($node->entries), $node->location),
+            $node instanceof WhenBlockNode => new WhenBlockNode(
+                self::withBindingsReplaced($node->condition),
+                self::eachWithBindingsReplaced($node->entries),
+                $node->otherwiseEntries === null ? null : self::eachWithBindingsReplaced($node->otherwiseEntries),
+                $node->location,
+            ),
             default => $node,
         };
 

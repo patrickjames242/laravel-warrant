@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
@@ -83,7 +84,7 @@ trait ExpandsRuleTemplates
             /* The body is generic, as an ability block's is: the include names the
                abilities its clauses take, so they are applied here. */
             $entries = array_map(
-                static fn (WarrantRuleNode|IncludeInvocationNode $entry): WarrantRuleNode|IncludeInvocationNode
+                static fn (WarrantRuleNode|IncludeInvocationNode|WhenBlockNode $entry): WarrantRuleNode|IncludeInvocationNode|WhenBlockNode
                     => $entry->withAbilities($abilities),
                 $generic,
             );
@@ -98,12 +99,12 @@ trait ExpandsRuleTemplates
     }
 
     /**
-     * The generic rules and includes in what a rule template answered with, in
-     * whichever form it built them: rule text as a string, {@see BoundSyntax} or
-     * {@see WarrantSyntax},
+     * The generic rules, includes and when blocks in what a rule template
+     * answered with, in whichever form it built them: rule text as a string,
+     * {@see BoundSyntax} or {@see WarrantSyntax},
      * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, a
      * {@see WarrantRuleBuilder} making a generic rule, or an iterable of any of
-     * these. A string's bindings take their values from
+     * these. Only rule text may hold a when block. A string's bindings take their values from
      * $parametersUsableAsBindings, the template's parameters by name.
      *
      * Every entry must be generic. The `@include` expanding the template names the
@@ -119,7 +120,7 @@ trait ExpandsRuleTemplates
      * include built in code as the node it is.
      *
      * @param array<string, mixed> $parametersUsableAsBindings
-     * @return list<WarrantRuleNode|IncludeInvocationNode>
+     * @return list<WarrantRuleNode|IncludeInvocationNode|WhenBlockNode>
      */
     private function templateEntries(mixed $body, SyntaxProducer $producer, array $parametersUsableAsBindings): array
     {
@@ -148,7 +149,7 @@ trait ExpandsRuleTemplates
 
             $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($body, new ValidationInput($this->catalog)));
 
-            /** @var list<WarrantRuleNode|IncludeInvocationNode> */
+            /** @var list<WarrantRuleNode|IncludeInvocationNode|WhenBlockNode> */
             return self::eachWithBindingsReplaced($valid->ruleEntries());
         }
 

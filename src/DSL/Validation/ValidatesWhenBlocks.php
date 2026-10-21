@@ -2,7 +2,6 @@
 
 namespace Warrant\DSL\Validation;
 
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\SchemaVocabulary;
@@ -32,27 +31,5 @@ trait ValidatesWhenBlocks
         if ($block->otherwiseEntries === []) {
             $this->fail(DiagnosticCode::WhenBlockEmpty, LanguageRuleMessages::otherwiseEmpty(), $block->location);
         }
-    }
-
-    /**
-     * $entries with the entries of each when block's bodies in its place, at any
-     * depth.
-     *
-     * @param list<IRuleEntryNode> $entries
-     * @return list<IRuleEntryNode>
-     */
-    private static function throughWhenBlocks(array $entries): array
-    {
-        $through = [];
-
-        foreach ($entries as $entry) {
-            if ($entry instanceof WhenBlockNode) {
-                array_push($through, ...self::throughWhenBlocks([...$entry->entries, ...$entry->otherwiseEntries ?? []]));
-            } else {
-                $through[] = $entry;
-            }
-        }
-
-        return $through;
     }
 }

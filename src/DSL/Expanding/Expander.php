@@ -11,6 +11,7 @@ use Warrant\DSL\Expanding\Concerns\ExpandsDerivedConditions;
 use Warrant\DSL\Expanding\Concerns\ExpandsExpressions;
 use Warrant\DSL\Expanding\Concerns\ExpandsRules;
 use Warrant\DSL\Expanding\Concerns\ExpandsRuleTemplates;
+use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
 use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
@@ -19,6 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\SchemaCatalog;
@@ -40,6 +42,8 @@ use Warrant\Registry\RegisteredSchemas;
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
  *  - every ability block's header is applied to the clauses under it;
+ *  - every when block's condition is put on the rules in its body, and its
+ *    negation on the rules in its `otherwise`;
  *  - every {@see IncludeInvocationNode} is replaced by the rules its template
  *    expands to, where the include was written — position is meaning;
  *  - every derived condition a rule names is replaced by the expression its
@@ -75,6 +79,7 @@ final class Expander
     use ExpandsExpressions;
     use ExpandsRules;
     use ExpandsRuleTemplates;
+    use ExpandsWhenBlocks;
     use ReplacesBindings;
 
     /**
@@ -88,9 +93,10 @@ final class Expander
 
     /**
      * Expand the rules in $syntaxes that are about $schemaKey into rules alone,
-     * in order: ability blocks opened up, every include replaced by what its
-     * template expands to, and every derived condition by the expression it
-     * answers with. Rules about any other schema are left out.
+     * in order: ability blocks and when blocks opened up, every include
+     * replaced by what its template expands to, and every derived condition by
+     * the expression it answers with. Rules about any other schema are left
+     * out.
      *
      * @return list<WarrantRuleNode>
      */
@@ -122,16 +128,18 @@ final class Expander
     {
         /* Outside an ability block nothing names abilities on an entry's behalf.
            The validator reports a generic one against the text; this rejects it
-           in any rule set, built in code or not. */
-        foreach ($entries as $entry) {
-            $generic = match (true) {
-                $entry instanceof WarrantRuleNode => $entry->hasGenericClause(),
-                $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
-                default => false,
-            };
+           in any rule set, built in code or not, looking through when blocks. */
+        foreach ($entries as $written) {
+            foreach ($written instanceof WhenBlockNode ? $written->entriesInside() : [$written] as $entry) {
+                $generic = match (true) {
+                    $entry instanceof WarrantRuleNode => $entry->hasGenericClause(),
+                    $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
+                    default => false,
+                };
 
-            if ($generic) {
-                throw new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($schemaKey));
+                if ($generic) {
+                    throw new InvalidArgumentException(LanguageRuleMessages::unnamedOutsideBlock($schemaKey));
+                }
             }
         }
 
@@ -158,6 +166,7 @@ final class Expander
             $rules = match (true) {
                 $entry instanceof AbilityBlockNode => $this->expandAbilityBlock($entry, $schema, $schemaKey, $trail),
                 $entry instanceof IncludeInvocationNode => $this->expandInclude($entry, $schema, $schemaKey, $trail),
+                $entry instanceof WhenBlockNode => $this->expandWhenBlock($entry, $schema, $schemaKey, $trail),
                 default => [$this->expandRule($entry, $schema, $schemaKey, $trail)],
             };
 
