@@ -128,11 +128,11 @@ final class Completion
             $p1 === TokenType::CONTEXT_REF => $this->contextKeys($this->scopeSchemaKey),
             $p1 === TokenType::INCLUDE_REF => $this->templates(),
             $p1 === TokenType::COLUMN_REF => $this->frames(),
-            $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE => [],
+            $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE, $p1 === TokenType::OTHERWISE => [],
             $p1 === TokenType::FOR => $this->afterFor(),
             $p1 === TokenType::WITH => $this->contextKeys($this->handleSchema()),
             $p1 === TokenType::LPAREN && $p2 === TokenType::CAN,
-            $p1 === TokenType::CAN && in_array($p2, [TokenType::IF, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->abilities($this->namedSchema() ?? $this->scopeSchemaKey),
+            $p1 === TokenType::CAN && in_array($p2, [TokenType::IF, TokenType::WHEN, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->abilities($this->namedSchema() ?? $this->scopeSchemaKey),
             $p1 === TokenType::LPAREN && $p2 === TokenType::CHECK => $this->expressionStart(),
             $p1 === TokenType::LPAREN && $p2 === TokenType::IDENTIFIER,
             $p1 === TokenType::EQUALS => $this->argumentStarts(),
@@ -140,8 +140,12 @@ final class Completion
             $p1 === TokenType::THEY && $p2 === TokenType::CAN => $this->abilities($this->scopeSchemaKey, withWildcard: true),
             $p1 === TokenType::THEY => [['can', self::KIND_KEYWORD, 'grant abilities'], ['cannot', self::KIND_KEYWORD, 'deny abilities']],
             $p1 === TokenType::COMMA => $this->afterComma(),
-            in_array($p1, [TokenType::IF, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->expressionStart(),
-            $p1 === null, $p1 === TokenType::LBRACE, $p1 === TokenType::RBRACE => $this->entryStart(topLevel: $p1 !== TokenType::LBRACE && $this->depth(TokenType::LBRACE, TokenType::RBRACE) === 0),
+            in_array($p1, [TokenType::IF, TokenType::WHEN, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->expressionStart(),
+            $p1 === TokenType::RBRACE => [
+                ...($this->closesWhenBody() ? [['otherwise', self::KIND_KEYWORD, 'the rules for when the condition is false', 'otherwise ']] : []),
+                ...$this->entryStart(topLevel: $this->depth(TokenType::LBRACE, TokenType::RBRACE) === 0),
+            ],
+            $p1 === null, $p1 === TokenType::LBRACE => $this->entryStart(topLevel: $p1 === null),
             default => $this->afterOperand(),
         };
     }
@@ -176,6 +180,45 @@ final class Completion
         }
 
         return $depth;
+    }
+
+    /**
+     * Whether the `}` just before the cursor closes the body of a when block,
+     * which an `otherwise` may follow: whether what heads the `{` it closes,
+     * outside any parentheses, starts with `when`.
+     */
+    private function closesWhenBody(): bool
+    {
+        $depth = 0;
+        $i = count($this->before) - 1;
+
+        // The `{` the `}` closes.
+        for (; $i >= 0; $i--) {
+            $type = $this->before[$i]->type;
+
+            if ($type === TokenType::RBRACE) {
+                $depth++;
+            } elseif ($type === TokenType::LBRACE && --$depth === 0) {
+                break;
+            }
+        }
+
+        $parentheses = 0;
+
+        for ($i--; $i >= 0; $i--) {
+            $type = $this->before[$i]->type;
+            $parentheses += match ($type) {
+                TokenType::RPAREN => 1,
+                TokenType::LPAREN => -1,
+                default => 0,
+            };
+
+            if ($parentheses === 0 && in_array($type, [TokenType::WHEN, TokenType::OTHERWISE, TokenType::IF, TokenType::THEY, TokenType::FOR, TokenType::LBRACE, TokenType::RBRACE, TokenType::INCLUDE_REF], true)) {
+                return $type === TokenType::WHEN;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -263,9 +306,16 @@ final class Completion
         $last = null;
 
         foreach ($this->before as $token) {
-            if (in_array($token->type, [TokenType::IF, TokenType::THEY, TokenType::LBRACE, TokenType::RBRACE, TokenType::INCLUDE_REF], true)) {
+            if (in_array($token->type, [TokenType::IF, TokenType::WHEN, TokenType::THEY, TokenType::LBRACE, TokenType::RBRACE, TokenType::INCLUDE_REF], true)) {
                 $last = $token->type;
             }
+        }
+
+        if ($last === TokenType::WHEN) {
+            return [
+                ['and', self::KIND_KEYWORD, 'both'],
+                ['or', self::KIND_KEYWORD, 'either'],
+            ];
         }
 
         if ($last === TokenType::IF) {
@@ -298,7 +348,7 @@ final class Completion
                 return true;
             }
 
-            if (in_array($found, [TokenType::IF, TokenType::LBRACE, TokenType::RBRACE], true)
+            if (in_array($found, [TokenType::IF, TokenType::WHEN, TokenType::LBRACE, TokenType::RBRACE], true)
                 || ($found === TokenType::THEY && $type !== TokenType::CANNOT && $type !== TokenType::BECAUSE)
             ) {
                 return false;
@@ -321,6 +371,7 @@ final class Completion
             ['if', self::KIND_KEYWORD, 'a conditional rule', 'if '],
             ['they', self::KIND_KEYWORD, 'an unconditional rule', 'they '],
             ['can they', self::KIND_KEYWORD, 'an ability block', 'can they '],
+            ['when', self::KIND_KEYWORD, 'a when block', 'when '],
             ['@include', self::KIND_KEYWORD, 'a rule template', '@include '],
             ...($topLevel ? [['for', self::KIND_KEYWORD, 'a block of rules for a schema', 'for ']] : []),
         ];

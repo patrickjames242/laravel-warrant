@@ -13,13 +13,15 @@ use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\LanguageServer\Documents\AnalyzedFragment;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Workspace;
 
 /**
- * The outline of a document's rule text: each `for` block, ability block, rule
- * and `@include`, nested as they are written.
+ * The outline of a document's rule text: each `for` block, ability block, when
+ * block, rule and `@include`, nested as they are written. A when block's
+ * children are the entries of both its bodies.
  */
 final class DocumentSymbols
 {
@@ -75,6 +77,11 @@ final class DocumentSymbols
                 self::KIND_STRUCT,
                 $node->entries,
             ],
+            $node instanceof WhenBlockNode => [
+                'when '.self::writtenCondition($node, $analyzed),
+                self::KIND_STRUCT,
+                [...$node->entries, ...$node->otherwiseEntries ?? []],
+            ],
             $node instanceof IncludeInvocationNode => ['@include '.self::orMissing($node->templateKey->name), self::KIND_MODULE, []],
             $node instanceof WarrantRuleNode => [self::ruleName($node), self::KIND_FUNCTION, []],
             $node instanceof IBooleanExpressionNode => ['condition', self::KIND_BOOLEAN, []],
@@ -108,6 +115,19 @@ final class DocumentSymbols
         }
 
         return $symbol;
+    }
+
+    /**
+     * A when block's condition as written, on one line, or `…` when it was not
+     * written.
+     */
+    private static function writtenCondition(WhenBlockNode $block, AnalyzedFragment $analyzed): string
+    {
+        $span = $block->condition->location->span;
+
+        return $span === null || $span->length() === 0
+            ? '…'
+            : self::firstLine(substr($analyzed->fragment->text, $span->offset, $span->length()));
     }
 
     /**

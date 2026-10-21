@@ -96,7 +96,21 @@ it('offers what belongs at the cursor, from the schema in scope', function () {
         ->and(completionLabels('for documents { if a(@context |) they can view }'))->toBe(['org'])
         ->and(completionLabels('for documents { if check(| for folders(1, 2)) they can view }'))->toContain('is_shared')
         ->and(completionLabels('for documents { if a | }'))->toBe(['and', 'or', 'they'])
-        ->and(completionLabels('|'))->toBe(['if', 'they', 'can they', '@include', 'for']);
+        ->and(completionLabels('|'))->toBe(['if', 'they', 'can they', 'when', '@include', 'for']);
+});
+
+it('offers a condition after when, and otherwise after the body it closes', function () {
+    expect(completionLabels('for documents { when | }'))->toContain('is_owner', 'in_team', 'can(', 'check(', 'not')
+        ->and(completionLabels('for documents { when can | }'))->toBe(['view', 'edit', 'archive'])
+        ->and(completionLabels('for documents { when is_owner | }'))->toBe(['and', 'or'])
+        ->and(completionLabels('for documents { when is_owner { | } }'))->toBe(['if', 'they', 'can they', 'when', '@include'])
+        ->and(completionLabels('for documents { when is_owner { they can view } | }'))->toBe(['otherwise', 'if', 'they', 'can they', 'when', '@include'])
+        ->and(completionLabels('for documents { when can(view for folders(1)) { they can view } | }'))->toContain('otherwise')
+        ->and(completionLabels('for documents { when a { when b { they can view } } | }'))->toContain('otherwise')
+        ->and(completionLabels('for documents { when a { they can view } otherwise | }'))->toBe([])
+        ->and(completionLabels('for documents { when a { they can view } otherwise { they can edit } | }'))->not->toContain('otherwise')
+        ->and(completionLabels('for documents { can they view { they can } | }'))->not->toContain('otherwise')
+        ->and(completionLabels('for documents { they can view } |'))->not->toContain('otherwise');
 });
 
 it('offers nothing inside a comment or a string', function () {
@@ -160,10 +174,20 @@ it('outlines blocks, rules and includes as they nest', function () {
         ->and($symbols[0]['children'][1]['children'][0]['name'])->toBe('@include owner_edits');
 });
 
+it('outlines a when block by its condition, holding the entries of both its bodies', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n  when is_owner and in_team {\n    they can edit\n  } otherwise {\n    @include owner_edits\n  }\n}");
+
+    $symbols = DocumentSymbols::of($workspace, $document);
+
+    expect(array_column($symbols[0]['children'], 'name'))->toBe(['when is_owner and in_team'])
+        ->and(array_column($symbols[0]['children'][0]['children'], 'name'))->toBe(['can edit', '@include owner_edits']);
+});
+
 it('answers at every position of half-typed and broken text without throwing', function () {
     $texts = [
         ['rules.warrant', "for documents {\n  if check(in_folder(@column d2.id) for documents(1) as d2 with org = @context o) they can view\n  can they edit { @include owner_edits }\n}"],
         ['rules.warrant', 'for documents { if check( for ) they can'],
+        ['rules.warrant', "for documents {\n  when is_owner { they can view } otherwise when { otherwise { when\n  when can( { } otherwise"],
         ['rules.warrant', 'for { if ( and or not they can , , @column . @context @include for'],
         ['rules.warrant', "é😀 for documents { if is_owner they can view } ~ \$ 'unterminated"],
         ['app/X.php', "<?php\n\$a = <<<WARRANT\n    if {\$x} a they can\n    WARRANT;\nwarrant('a or');\n\$b = <<<'WARRANT'\n"],

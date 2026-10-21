@@ -47,6 +47,12 @@ it('names an ability in a clause, a block header and an include as the schema in
         ->and(slotOf(contextAtBar('for docs { @include owners for sha|re }')))->toBe([SlotKind::Ability, 'share', 'docs']);
 });
 
+it('names the names in a when block, and in its condition, as the schema in scope', function () {
+    expect(slotOf(contextAtBar('for docs { when is_ow|ner { they can view } }')))->toBe([SlotKind::Condition, 'is_owner', 'docs'])
+        ->and(slotOf(contextAtBar('for docs { when is_owner { if in_te|am they can view } otherwise { they cannot view } }')))->toBe([SlotKind::Condition, 'in_team', 'docs'])
+        ->and(slotOf(contextAtBar('for docs { when a { they can view } otherwise { they cannot ed|it } }')))->toBe([SlotKind::Ability, 'edit', 'docs']);
+});
+
 it('names the ability of a can(...) as the schema it crosses to, or the one in scope', function () {
     expect(slotOf(contextAtBar('for docs { if can(vi|ew for folders(1)) they can view }')))->toBe([SlotKind::Ability, 'view', 'folders'])
         ->and(slotOf(contextAtBar('for docs { if can(ed|it) they can view }')))->toBe([SlotKind::Ability, 'edit', 'docs']);
