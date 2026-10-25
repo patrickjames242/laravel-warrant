@@ -14,19 +14,19 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  * {@see RuleSetNode}, or the caller of an unscoped parse.
  *
  * Inside an ability block or a rule template's body the rule is generic: every
- * clause names no abilities, because the block header or the `@include` names
+ * can/cannot clause names no abilities, because the block header or the `@include` names
  * them. {@see withAbilities()} gives a generic rule the abilities it takes.
  */
 readonly class WarrantRuleNode implements IRuleEntryNode
 {
     /**
-     * @param list<CanClauseNode> $canClauses The granted abilities, one clause
+     * @param list<CanClauseNode> $canClauses The granted abilities, one can clause
      *   per `they can` written. Flatten with {@see canAbilities()}.
      * @param list<CannotClauseNode> $cannotClauses The denied abilities, grouped into
-     *   clauses so each group can carry its own denial message. Flatten with
+     *   cannot clauses so each group can carry its own denial message. Flatten with
      *   {@see cannotAbilities()}; resolve an ability's message with
      *   {@see messageFor()}. A denial message is only ever surfaced for a matching
-     *   `cannot`, so it lives on a clause — a rule that only grants has no place
+     *   `cannot`, so it lives on a cannot clause — a rule that only grants has no place
      *   for one.
      */
     public function __construct(
@@ -55,7 +55,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Every granted ability, flattened across all clauses in order.
+     * Every granted ability, flattened across all can clauses in order.
      *
      * @return list<string>
      */
@@ -73,7 +73,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Whether every clause is generic, naming no abilities of its own.
+     * Whether every can/cannot clause is generic, naming no abilities of its own.
      */
     public function isGeneric(): bool
     {
@@ -87,11 +87,11 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Whether any clause is generic. Outside an ability block or a template body
-     * such a clause grants or denies nothing, because nothing names what it is
+     * Whether any can/cannot clause is generic. Outside an ability block or a template body
+     * such a can/cannot clause grants or denies nothing, because nothing names what it is
      * about.
      */
-    public function hasGenericClause(): bool
+    public function hasGenericCanOrCannotClause(): bool
     {
         foreach ([...$this->canClauses, ...$this->cannotClauses] as $clause) {
             if ($clause->abilities === []) {
@@ -103,9 +103,9 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * A copy of this generic rule with $abilities on every clause: the rule its
+     * A copy of this generic rule with $abilities on every can/cannot clause: the rule its
      * clauses mean once the enclosing block header or `@include` has named what
-     * they are about. Denial messages stay on the clauses that carried them.
+     * they are about. Denial messages stay on the cannot clauses that carried them.
      *
      * @param list<NameNode> $abilities
      */
@@ -129,7 +129,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Every denied ability, flattened across all clauses in order. Used by the
+     * Every denied ability, flattened across all cannot clauses in order. Used by the
      * compiler / reachability / validator as a plain membership list; messages
      * are irrelevant there.
      *
@@ -149,7 +149,7 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * Whether this rule denies $ability — it appears in some clause, or a clause
+     * Whether this rule denies $ability — it appears in some cannot clause, or a cannot clause
      * denies `*`.
      */
     public function deniesAbility(string $ability): bool
@@ -166,9 +166,9 @@ readonly class WarrantRuleNode implements IRuleEntryNode
     }
 
     /**
-     * The denial message for $ability: the first clause that lists it wins; else
-     * the first clause that denies `*`; else null (no message). An exact listing
-     * always beats a `*` clause. The message is its value, as a literal holds it
+     * The denial message for $ability: the first cannot clause that lists it wins; else
+     * the first cannot clause that denies `*`; else null (no message). An exact listing
+     * always beats a `*` cannot clause. The message is its value, as a literal holds it
      * or a binding's source gives it.
      *
      * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null

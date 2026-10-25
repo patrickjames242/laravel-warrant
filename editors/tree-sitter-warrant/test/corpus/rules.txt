@@ -1,5 +1,5 @@
 ===================================
-consecutive clauses form one rule
+consecutive can/cannot clauses form one rule
 ===================================
 
 they can view, delete
@@ -23,7 +23,7 @@ they cannot touch, fight
           (identifier))))))
 
 ==============================================
-an if guard shared by every following clause
+an if guard shared by every following can/cannot clause
 ==============================================
 
 if is_self

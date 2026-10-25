@@ -8,7 +8,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * What the tokens ahead say about rule entries: whether one starts here,
- * whether a clause has just ended, whether the entries end here, and where
+ * whether a can/cannot clause has just ended, whether the entries end here, and where
  * reading can go on after a mistake among them. Used by parsers of the grammar,
  * which supply the token helpers these read with.
  */
@@ -41,7 +41,7 @@ trait LooksAheadAtRuleEntries
     /**
      * Whether reading can go on here after a token between rule entries that
      * starts none: where the entries end, or where an `if` rule, an `@include`,
-     * an ability block or a when block starts. A rule of bare `they` clauses is not one,
+     * an ability block or a when block starts. A rule of bare can/cannot clauses is not one,
      * because a `they` after such a token most often goes on with the rule
      * before it, as in `if a(1)) they can view`, and is skipped with the token
      * rather than read as a rule that grants to everyone.
@@ -59,13 +59,13 @@ trait LooksAheadAtRuleEntries
 
     /**
      * Whether the next token follows a finished `they can` / `they cannot`
-     * clause: the start of another clause or entry, a `because`, a `for` header,
-     * or the end of the input. In rules with no `for` header, a clause leaves
-     * out its abilities exactly when one of these follows its keyword, so a
-     * reserved word written as an ability is reported as one rather than as an
-     * ability-less clause followed by a stray token.
+     * clause: the start of another can/cannot clause or entry, a `because`, a `for`
+     * header, or the end of the input. In rules with no `for` header, a can/cannot
+     * clause leaves out its abilities exactly when one of these follows its
+     * keyword, so a reserved word written as an ability is reported as one
+     * rather than as an ability-less can/cannot clause followed by a stray token.
      */
-    private function clauseEndAhead(): bool
+    private function canOrCannotClauseEndAhead(): bool
     {
         return $this->ruleEntryAhead()
             || $this->check(TokenType::BECAUSE)

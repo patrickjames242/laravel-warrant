@@ -243,7 +243,7 @@ return [$own, $noDelete];
 ## A template's body
 
 Given only a callback, `Build::ruleSet()` answers with the entries themselves.
-Clauses and includes with no abilities are generic, as a template writes them:
+Can/cannot clauses and includes with no abilities are generic, as a template writes them:
 
 ```php
 #[RuleTemplate]

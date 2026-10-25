@@ -61,7 +61,7 @@ use Warrant\DSL\SchemaVocabulary;
  * ## Where an error points
  *
  * An error says where it is in the text the node it is about was read from,
- * at the name, value or clause it is about. A node built in code was written
+ * at the name, value or can/cannot clause it is about. A node built in code was written
  * nowhere, and its error says only what is wrong.
  *
  * {@see assertValid()} validates strictly, throwing the first mistake, and

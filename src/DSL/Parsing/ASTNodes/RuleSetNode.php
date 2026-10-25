@@ -17,7 +17,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class RuleSetNode implements ISchemaScopedNode
 {
     /**
-     * Outside an ability block nothing names abilities on a clause's behalf, so
+     * Outside an ability block nothing names abilities on a can/cannot clause's behalf, so
      * every rule and include held directly here should name its own; a generic
      * one would grant or deny nothing. The node holds the entries as they were
      * written, and the validator and the expander hold them to that.

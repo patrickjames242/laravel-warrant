@@ -308,7 +308,7 @@
             "type": "REPEAT1",
             "content": {
               "type": "SYMBOL",
-              "name": "_clause"
+              "name": "_can_or_cannot_clause"
             }
           }
         ]
@@ -331,7 +331,7 @@
         }
       ]
     },
-    "_clause": {
+    "_can_or_cannot_clause": {
       "type": "CHOICE",
       "members": [
         {

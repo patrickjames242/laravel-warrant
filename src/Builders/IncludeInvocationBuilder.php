@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\SyntaxSource;
 /**
  * One `@include` in a built rule set, made by `$rule->include(...)` inside
  * {@see Build::ruleSet()}: the rule template to expand, the arguments to hand it,
- * and the abilities its generic clauses take.
+ * and the abilities its generic can/cannot clauses take.
  *
  * ```php
  * $rule->include('requires_approval', ['manager'])->for('submit', 'reopen');

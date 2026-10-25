@@ -177,8 +177,8 @@ it('holds text to the rules that need no schema when analysed with no catalog', 
         static fn (Diagnostic $diagnostic): string => $diagnostic->message,
         analyzedDiagnostics("for nowhere { can they view { they can edit } they can because 'no' }", null),
     ))->toBe([
-        'A clause inside an ability block may not name abilities; the block header already names them.',
-        'Every clause and @include outside an ability block names the abilities it applies to; the rule set for [nowhere] holds one that names none.',
+        'A can/cannot clause inside an ability block may not name abilities; the block header already names them.',
+        'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [nowhere] holds one that names none.',
         "'because' may only follow a 'they cannot ...' clause, not 'they can ...'.",
     ]);
 });
@@ -349,7 +349,7 @@ it('holds rules with no header to naming their abilities, or not, as the mode sa
     'named, required named' => ['if is_teacher they can view', GenericMode::RequireNotGeneric, []],
     'generic, required named' => ['if is_teacher they can', GenericMode::RequireNotGeneric, [LanguageRuleMessages::unnamedOutsideBlock('course_sections')]],
     'generic, required generic' => ['if is_teacher they can', GenericMode::RequireGeneric, []],
-    'named clause, required generic' => ['if is_teacher they can view', GenericMode::RequireGeneric, [LanguageRuleMessages::namedWhereGeneric('This clause')]],
+    'named clause, required generic' => ['if is_teacher they can view', GenericMode::RequireGeneric, [LanguageRuleMessages::namedWhereGeneric('This can/cannot clause')]],
     'named include, required generic' => ['@include anything for view', GenericMode::RequireGeneric, [
         LanguageRuleMessages::namedWhereGeneric('This @include'),
         LanguageRuleMessages::unknownTemplate('course_sections', 'anything'),
@@ -357,7 +357,7 @@ it('holds rules with no header to naming their abilities, or not, as the mode sa
     'a block, required generic' => ['can they view { if is_teacher they can }', GenericMode::RequireGeneric, [LanguageRuleMessages::namedWhereGeneric('An ability block')]],
     'generic, either' => ['if is_teacher they can', GenericMode::Either, []],
     'named, either' => ['if is_teacher they can view', GenericMode::Either, []],
-    'mixed, either' => ['if is_teacher they can view if is_advisor they can', GenericMode::Either, [LanguageRuleMessages::namingDisagrees('This clause', false)]],
+    'mixed, either' => ['if is_teacher they can view if is_advisor they can', GenericMode::Either, [LanguageRuleMessages::namingDisagrees('This can/cannot clause', false)]],
 ]);
 
 it('holds a for body to naming its abilities whatever the mode', function () {
@@ -378,7 +378,7 @@ it('holds rules with no header and no schema only to the rules of the language',
     expect(fn () => WarrantSyntax::parse('if no_such_condition they can')->validate())
         ->not->toThrow(InvalidArgumentException::class)
         ->and(fn () => WarrantSyntax::parse('if is_teacher they can view if is_advisor they can')->validate())
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namingDisagrees('This clause', false));
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namingDisagrees('This can/cannot clause', false));
 });
 
 it('validates each for body against its registered schema', function () {

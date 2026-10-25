@@ -31,11 +31,11 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   header   := 'for' IDENTIFIER
  *   body     := ruleset | expr                         -- a RuleSetNode, or a SchemaConditionNode
  *   entries  := ruleset                                -- unscoped, at least one entry
- *   ruleset  := ( clauses | 'if' expr clause+ | ability_block | when_block | include )*
- *              -- consecutive `they` clauses merge into one unconditional rule
+ *   ruleset  := ( can_or_cannot_clause+ | 'if' expr can_or_cannot_clause+ | ability_block | when_block | include )*
+ *              -- consecutive can/cannot clauses merge into one unconditional rule
  *   ability_block := 'can' 'they' ability (',' ability)* '{' ruleset '}'
- *              -- the header says the abilities once, so clauses inside are
- *                 generic and may not name their own; a block never contains
+ *              -- the header says the abilities once, so can/cannot clauses
+ *                 inside are generic and may not name their own; a block never contains
  *                 another
  *   when_block := 'when' expr '{' ruleset '}' ( 'otherwise' '{' ruleset '}' )?
  *              -- every rule the body expands to takes the condition, and every
@@ -46,13 +46,13 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *              -- expands a schema's rule template. The `for` list is required
  *                 in a `for` body and forbidden inside an ability block, where the
  *                 header already names the abilities
- *   clause   := 'they' ( 'can' ability (',' ability)*
- *                      | 'cannot' ability (',' ability)* ( 'because' message )? )
+ *   can_or_cannot_clause := 'they' ( 'can' ability (',' ability)*
+ *                                  | 'cannot' ability (',' ability)* ( 'because' message )? )
  *              -- `because` attaches a denial message; valid only after `cannot`.
  *                 Each `they cannot ...` clause becomes one CannotClauseNode on the
- *                 rule, so distinct clauses keep distinct messages.
+ *                 rule, so distinct cannot clauses keep distinct messages.
  *                 Inside an ability block the ability list is omitted entirely.
- *              -- in rules with no `for` header, clauses and includes either all
+ *              -- in rules with no `for` header, can/cannot clauses and includes either all
  *                 name their abilities or all leave them off, as a rule template's
  *                 body does; the first one decides
  *   message  := STRING | NAMED_BINDING
@@ -117,7 +117,7 @@ final class WarrantParser
      * there, a missing condition as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode},
      * a missing argument as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode},
      * a missing name as {@see \Warrant\DSL\Parsing\ASTNodes\INode::MISSING_NAME},
-     * and missing clauses, abilities, an alias or a denial message as none, so
+     * and missing can/cannot clauses, abilities, an alias or a denial message as none, so
      * the entry around the mistake is kept. Text between entries that starts
      * none is skipped to where the next one can start. After a mistake, no other
      * is reported until three tokens have been read, since the first often leads

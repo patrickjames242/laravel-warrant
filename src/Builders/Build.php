@@ -35,7 +35,7 @@ final class Build
     }
 
     /**
-     * A condition expression: the `if` half of a rule, with no clauses. It is
+     * A condition expression: the `if` half of a rule, with no can/cannot clauses. It is
      * what a schema's `#[DerivedCondition]` returns to build itself from other
      * conditions, and what a rule takes to reuse a condition built elsewhere.
      */

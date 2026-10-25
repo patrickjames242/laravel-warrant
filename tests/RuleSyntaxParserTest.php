@@ -1010,7 +1010,7 @@ it('rejects a duplicate key in a check(...) with-map', function () {
 //
 // The entry point behind the builder's ifRaw() bridge and Build::condition().
 // It parses the `if` half of a rule and nothing else, which gives it four rules
-// of its own on top of the shared expression grammar: no clauses may follow, the
+// of its own on top of the shared expression grammar: no can/cannot clauses may follow, the
 // source must be consumed to the end, every binding must be used, and an optional
 // `for <schema>` header is accepted and discarded (it is there so tooling reading
 // a condition string knows which schema's names to resolve, which is the one
@@ -1075,7 +1075,7 @@ it('rejects anything after a condition expression', function (string $source) {
     expect(fn () => WarrantSyntax::parse($source)->validateWithoutSchemas()->conditionExpression())
         ->toThrow(WarrantSyntaxException::class);
 })->with([
-    // An expression is the `if` half alone, so a clause after it is a rule
+    // An expression is the `if` half alone, so a can/cannot clause after it is a rule
     // written without its `if`.
     'a they-can clause' => ['is_owner they can view'],
     'a they-cannot clause' => ['is_owner they cannot view'],
@@ -1216,7 +1216,7 @@ it('parses an ability block into the rules its longhand would produce', function
     expect(openBlocks($block)[1]->messageFor('view'))->toBe('Locked.');
 });
 
-it('gives every clause of a block the whole header ability list', function () {
+it('gives every can/cannot clause of a block the whole header ability list', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         can they edit, delete {
             if is_owner they can
@@ -1238,7 +1238,7 @@ it('accepts a wildcard block header', function () {
     expect(openBlocks($set)[1]->cannotAbilities())->toBe(['*']);
 });
 
-it('carries several clauses of one block rule onto the same rule', function () {
+it('carries several can/cannot clauses of one block rule onto the same rule', function () {
     $set = WarrantSyntax::parse(<<<'WARRANT'
         can they view {
             if is_self
@@ -1318,14 +1318,14 @@ it('allows the same ability in more than one block header', function () {
     expect(openBlocks($set)[1]->canAbilities())->toBe(['view']);
 });
 
-it('rejects a clause inside an ability block naming its own abilities', function () {
+it('rejects a can/cannot clause inside an ability block naming its own abilities', function () {
     expect(languageRuleErrors('can they view { if x they can edit }'))
-        ->toBe(['A clause inside an ability block may not name abilities; the block header already names them.']);
+        ->toBe(['A can/cannot clause inside an ability block may not name abilities; the block header already names them.']);
 });
 
-it('rejects a wildcard clause inside an ability block', function () {
+it('rejects a wildcard can/cannot clause inside an ability block', function () {
     expect(languageRuleErrors('can they view { if x they cannot * }'))
-        ->toBe([LanguageRuleMessages::namedInsideBlock('A clause')]);
+        ->toBe([LanguageRuleMessages::namedInsideBlock('A can/cannot clause')]);
 });
 
 it('rejects a nested ability block', function () {
@@ -1339,7 +1339,7 @@ it('rejects a nested ability block', function () {
         ->toBe(['An ability block may not contain another; the enclosing block already names the abilities.']);
 });
 
-it('rejects a nested block opened after a clause', function () {
+it('rejects a nested block opened after a can/cannot clause', function () {
     expect(languageRuleErrors(<<<'WARRANT'
         can they view {
             if is_public they can
@@ -1371,7 +1371,7 @@ it('rejects a block header naming no ability', function () {
         ->toBe(['An ability block names at least one ability.']);
 });
 
-it('reads a generic clause in rules with no for header', function () {
+it('reads a generic can/cannot clause in rules with no for header', function () {
     $rule = WarrantSyntax::parse(new BoundSyntax('if is_public they can  if is_locked they cannot because :why', ['why' => 'No.']))->validateWithoutSchemas()->ruleEntries();
 
     expect($rule)->toHaveCount(2);
@@ -1380,21 +1380,21 @@ it('reads a generic clause in rules with no for header', function () {
     expect(valueOf($rule[1]->cannotClauses[0]->message))->toBe('No.');
 });
 
-it('rejects a generic clause after rules that name their abilities', function () {
+it('rejects a generic can/cannot clause after rules that name their abilities', function () {
     expect(languageRuleErrors('if is_public they can view  if is_locked they cannot'))->toBe([
-        'This clause names none, but the rules before it name theirs; rules with no `for` header either all '
+        'This can/cannot clause names none, but the rules before it name theirs; rules with no `for` header either all '
             .'name their abilities or all leave them to be named where the rules are placed.',
     ]);
 });
 
-it('rejects a named clause after generic rules', function () {
+it('rejects a named can/cannot clause after generic rules', function () {
     expect(languageRuleErrors('if is_public they can  if is_locked they cannot view'))
-        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', true)]);
+        ->toBe([LanguageRuleMessages::namingDisagrees('This can/cannot clause', true)]);
 });
 
-it('rejects a rule mixing named and generic clauses', function () {
+it('rejects a rule mixing named and generic can/cannot clauses', function () {
     expect(languageRuleErrors('if is_public they can view they cannot'))
-        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', false)]);
+        ->toBe([LanguageRuleMessages::namingDisagrees('This can/cannot clause', false)]);
 });
 
 it('rejects an ability block after generic rules', function () {
@@ -1410,12 +1410,12 @@ it('reads an ability block among rules that name their abilities', function () {
     expect($entries)->toHaveCount(3);
 });
 
-it('rejects a generic clause outside an ability block once it is placed in a rule set', function () {
+it('rejects a generic can/cannot clause outside an ability block once it is placed in a rule set', function () {
     expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_public they can')->validateWithoutSchemas()->scopedTo('timesheets')))
         ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
 });
 
-it('rejects a generic clause in a for body', function () {
+it('rejects a generic can/cannot clause in a for body', function () {
     expect(languageRuleErrors('for timesheets { if is_public they can }'))
         ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
 });
@@ -1527,7 +1527,7 @@ it('accepts a when block inside an ability block, its rules taking the header', 
 
 it('holds the rules in a when block inside an ability block to what the block asks', function () {
     expect(languageRuleErrors('can they view { when a { if b they can edit } }'))
-        ->toBe([LanguageRuleMessages::namedInsideBlock('A clause')])
+        ->toBe([LanguageRuleMessages::namedInsideBlock('A can/cannot clause')])
         ->and(languageRuleErrors('can they view { when a { can they edit { they can } } }'))
         ->toBe([LanguageRuleMessages::blockInsideBlock()]);
 });
@@ -1538,9 +1538,9 @@ it('accepts an ability block inside a when block', function () {
 
 it('holds rules with no for header to one way of naming, through when blocks', function () {
     expect(languageRuleErrors('if a they can view when b { if c they can }'))
-        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', false)])
+        ->toBe([LanguageRuleMessages::namingDisagrees('This can/cannot clause', false)])
         ->and(languageRuleErrors('when b { if c they can } if a they can view'))
-        ->toBe([LanguageRuleMessages::namingDisagrees('This clause', true)])
+        ->toBe([LanguageRuleMessages::namingDisagrees('This can/cannot clause', true)])
         ->and(languageRuleErrors('when b { if c they can } otherwise { they cannot }'))
         ->toBe([]);
 });

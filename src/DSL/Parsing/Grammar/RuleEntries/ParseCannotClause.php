@@ -23,7 +23,7 @@ final class ParseCannotClause extends Parser
     protected function read(): CannotClauseNode
     {
         $this->advance(); // consume 'cannot'
-        $abilities = $this->parse(ParseClauseAbilityList::class)->value;
+        $abilities = $this->parse(ParseCanOrCannotAbilityList::class)->value;
         $message = $this->parse(ParseDenialMessage::class)?->value;
 
         return new CannotClauseNode($abilities, $message, $this->locationEndingHere());

@@ -21,7 +21,7 @@ use Warrant\WarrantGate;
  *
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
- * *forbidden* by a `cannot` (surfacing that clause's
+ * *forbidden* by a `cannot` (surfacing that cannot clause's
  * {@see WarrantRuleNode::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
  * {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook).
@@ -255,7 +255,7 @@ trait DiagnosesDenials
     /**
      * The gate abilities this rule blocks that share $ability's denial message —
      * so a per-ability message's context lists only the abilities it explains,
-     * not siblings a different clause denied. For a rule-level/blanket message
+     * not siblings a different cannot clause denied. For a rule-level/blanket message
      * every blocked ability resolves to the same message, so this is the whole
      * blocked set.
      *

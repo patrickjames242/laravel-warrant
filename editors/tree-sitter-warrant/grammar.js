@@ -75,9 +75,9 @@ module.exports = grammar({
       optional(seq('for', field('abilities', $.ability_list))),
     )),
 
-    // `can they <abilities> { ... }` heads a body with the abilities its clauses
-    // take, so the clauses inside name none of their own. The PHP parser rejects a
-    // nested block and a clause that names abilities anyway; both parse here, since
+    // `can they <abilities> { ... }` heads a body with the abilities its can/cannot clauses
+    // take, so the can/cannot clauses inside name none of their own. The PHP parser rejects a
+    // nested block and a can/cannot clause that names abilities anyway; both parse here, since
     // a sensibly highlighted mistake beats an ERROR node.
     ability_block: $ => seq(
       'can',
@@ -100,15 +100,15 @@ module.exports = grammar({
     // One rule: an optional `if <expression>` guard, then the `they can` /
     // `they cannot` clauses that share it. Clauses with no `if` form a single
     // unconditional rule; each `if` begins a new one.
-    // Right-associative so consecutive clauses are absorbed greedily into the
-    // rule already being built, mirroring parseTheyCanCannotClauses()'s
-    // `while ($this->check(THEY))` loop -- every `they` clause up to the next
+    // Right-associative so consecutive can/cannot clauses are absorbed greedily into the
+    // rule already being built, mirroring ParseTheyCanAndCannotClauses's
+    // `while ($this->check(THEY))` loop -- every can/cannot clause up to the next
     // `if` shares that rule's condition. Left associativity would instead end
-    // the rule after each clause, wrongly making a trailing `they cannot ...`
+    // the rule after each can/cannot clause, wrongly making a trailing `they cannot ...`
     // an unconditional rule of its own.
     rule: $ => prec.right(seq(
       optional($.condition_clause),
-      repeat1($._clause),
+      repeat1($._can_or_cannot_clause),
     )),
 
     condition_clause: $ => seq(
@@ -116,7 +116,7 @@ module.exports = grammar({
       field('condition', $._expression),
     ),
 
-    _clause: $ => choice($.can_clause, $.cannot_clause),
+    _can_or_cannot_clause: $ => choice($.can_clause, $.cannot_clause),
 
     can_clause: $ => seq(
       'they',

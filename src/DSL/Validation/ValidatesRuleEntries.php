@@ -21,7 +21,7 @@ use Warrant\DSL\SchemaVocabulary;
  * The checks a {@see SyntaxValidator} makes of rule entries as written: that
  * they name their abilities, or leave them to an `@include`, as what produced
  * them says; that every ability they name and every template they include is
- * one the schema declares; and that each rule's own clauses and messages are
+ * one the schema declares; and that each rule's own can/cannot clauses and messages are
  * well formed. A rule's `if` expression, and a when block's condition, is
  * checked by {@see ValidatesExpressions}.
  *
@@ -115,7 +115,7 @@ trait ValidatesRuleEntries
                     if ($mode === GenericMode::RequireGeneric && $clause->abilities !== []) {
                         $this->fail(
                             DiagnosticCode::AbilitiesNamedWhereGeneric,
-                            LanguageRuleMessages::namedWhereGeneric('This clause'),
+                            LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'),
                             $clause->abilities[0]->location,
                         );
                     }
@@ -128,7 +128,7 @@ trait ValidatesRuleEntries
 
     /**
      * Rules with no `for` header either all name their abilities or all leave
-     * them to be named where the rules are placed: the first clause, include or
+     * them to be named where the rules are placed: the first can/cannot clause, include or
      * block decides, and each one after it that does not do the same is
      * reported. What a when block holds is held to that with everything else.
      *
@@ -144,7 +144,7 @@ trait ValidatesRuleEntries
                     $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
                     $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],
                     $entry instanceof WarrantRuleNode => array_map(
-                        static fn (CanClauseNode|CannotClauseNode $clause): array => ['This clause', $clause->abilities !== [], $clause],
+                        static fn (CanClauseNode|CannotClauseNode $clause): array => ['This can/cannot clause', $clause->abilities !== [], $clause],
                         [...$entry->canClauses, ...$entry->cannotClauses],
                     ),
                     default => [],

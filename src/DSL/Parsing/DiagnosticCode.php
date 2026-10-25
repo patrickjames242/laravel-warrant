@@ -54,7 +54,7 @@ enum DiagnosticCode: string
     case MissingDenialMessage = 'missing-denial-message';
 
     /** A rule with no `they can ...` or `they cannot ...` clause, or a `they` with neither after it. */
-    case MissingClause = 'missing-clause';
+    case MissingCanOrCannotClause = 'missing-can-or-cannot-clause';
 
     /** A key written twice in one `with` map. */
     case DuplicateContextKey = 'duplicate-context-key';
@@ -96,16 +96,16 @@ enum DiagnosticCode: string
     /** A when block, or its `otherwise`, with nothing in its body. */
     case WhenBlockEmpty = 'when-block-empty';
 
-    /** A clause or @include inside an ability block that names abilities, which the header names already. */
+    /** A can/cannot clause or @include inside an ability block that names abilities, which the header names already. */
     case AbilitiesNamedInsideBlock = 'abilities-named-inside-block';
 
-    /** A clause or @include outside an ability block that names no ability. */
+    /** A can/cannot clause or @include outside an ability block that names no ability. */
     case AbilitiesUnnamedOutsideBlock = 'abilities-unnamed-outside-block';
 
     /** Rules with no `for` header of which some name their abilities and some do not. */
     case AbilityNamingDisagrees = 'ability-naming-disagrees';
 
-    /** A clause, @include or ability block naming abilities in rules that must leave them to the @include placing them. */
+    /** A can/cannot clause, @include or ability block naming abilities in rules that must leave them to the @include placing them. */
     case AbilitiesNamedWhereGeneric = 'abilities-named-where-generic';
 
     /** A denial message after `they can`, where it could never be shown. */

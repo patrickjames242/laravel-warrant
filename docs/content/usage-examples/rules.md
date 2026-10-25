@@ -63,7 +63,7 @@ if is_suspended they cannot *
 
 ## Denial messages
 
-The message is what `authorize()` and `Gate::authorize()` report when this clause
+The message is what `authorize()` and `Gate::authorize()` report when this cannot clause
 is the cause of a denial:
 
 ```warrant

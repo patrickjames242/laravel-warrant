@@ -93,7 +93,7 @@ missing subset.
 | a parse accessor that does not match the source's shape | `LogicException` |
 | a `for` header that disagrees with `scopedTo()` | `InvalidArgumentException` |
 | an unreadable rule file | `InvalidArgumentException` |
-| a builder rule with no clause | `LogicException` |
+| a builder rule with no can/cannot clause | `LogicException` |
 | an unsupported driver | `RuntimeException` |
 | an authorization denial | `WarrantAuthorizationException` |
 | no user available, from the engine | `InvalidArgumentException` |

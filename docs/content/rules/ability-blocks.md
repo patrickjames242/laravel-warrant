@@ -7,7 +7,7 @@ sidebar:
   order: 2
 ---
 
-When several rules concern one ability, repeating its name on every clause buries
+When several rules concern one ability, repeating its name on every can/cannot clause buries
 what is actually different between them. An ability block says it once in the
 header:
 
@@ -18,16 +18,16 @@ can they view {
 }
 ```
 
-That decides every check exactly as writing each clause in full does:
+That decides every check exactly as writing each can/cannot clause in full does:
 
 ```warrant
 if is_public they can view
 if is_locked they cannot view because 'This document is locked.'
 ```
 
-Clauses inside a block name no abilities, because the header already did. A rule
+Can/cannot clauses inside a block name no abilities, because the header already did. A rule
 like that is **generic**: it can grant or deny whichever abilities it is given,
-and the block gives it the header's. A rule whose clauses name their abilities is
+and the block gives it the header's. A rule whose can/cannot clauses name their abilities is
 **specific**, and a block is how generic rules become specific. A rule template's
 body is generic in the same way, and its [`@include`](/rules/templates/) supplies
 the abilities.
@@ -77,9 +77,9 @@ does. Both blocks' rules apply, exactly as the longhand would.
 Three things, each because the header is the one place the ability is said:
 
 ```warrant
-can they view { if x they can edit }   # a clause naming its own abilities
+can they view { if x they can edit }   # a can/cannot clause naming its own abilities
 can they view { can they edit { … } }  # a block inside a block, even with a when block between
-for docs { if is_public they can }     # a generic clause in a rule set
+for docs { if is_public they can }     # a generic can/cannot clause in a rule set
 ```
 
 Rules with no `for` header may all leave their abilities off, so the same text can
@@ -111,7 +111,7 @@ condition once, and the two nest inside each other either way round.
 
 :::note[Blocks in the parsed tree]
 A block stays in the parsed tree as an `AbilityBlockNode` holding its body exactly
-as written, with clauses and includes that name no abilities. The header is the
+as written, with can/cannot clauses and includes that name no abilities. The header is the
 only place the abilities live, so [`toSyntax()`](/reference/warrant-rule-set/)
 writes the block back as a block. [Expansion](/sql/rule-to-query/#before-compiling-expansion)
 applies the header to each entry, and since [rule order never

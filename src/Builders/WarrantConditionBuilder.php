@@ -36,9 +36,9 @@ use Warrant\DSL\Parsing\WarrantParser;
  * materialized with the DSL's precedence (`not` > `and` > `or`), so the builder
  * and the string language always agree. A closure is a parenthesized group, and
  * receives a bare condition builder — a group has no `they can`/`they cannot`
- * clauses, only conditions.
+ * can/cannot clauses, only conditions.
  *
- * {@see WarrantRuleBuilder} extends this with the clause half (`theyCan` /
+ * {@see WarrantRuleBuilder} extends this with the can/cannot clause half (`theyCan` /
  * `theyCannot`) and `toRule()`.
  */
 class WarrantConditionBuilder
@@ -204,7 +204,7 @@ class WarrantConditionBuilder
     /**
      * Apply $callback when $value is truthy, else $default when given,
      * Laravel-style. Each receives this same builder and $value, so on a
-     * {@see WarrantRuleBuilder} it may also add clauses.
+     * {@see WarrantRuleBuilder} it may also add can/cannot clauses.
      *
      * @param Closure(static, mixed): mixed $callback
      * @param (Closure(static, mixed): mixed)|null $default

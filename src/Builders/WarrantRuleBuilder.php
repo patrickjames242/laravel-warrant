@@ -16,7 +16,7 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  * {@see WarrantRuleNode} in PHP instead of the string DSL. {@see Build::rule()}
  * makes one, and so does `$rule()` inside {@see Build::ruleSet()}.
  *
- * It extends {@see WarrantConditionBuilder} with the clause half of a rule
+ * It extends {@see WarrantConditionBuilder} with the can/cannot clause half of a rule
  * (`theyCan` / `theyCannot` / `theyCannotBecause`) and finalization via
  * `toRule()`. The condition methods it inherits return `static`, so a top-level
  * chain keeps the rule builder — `->if(...)->theyCan(...)` works — while a group
@@ -41,10 +41,10 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     /** @var list<array{abilities: list<string>, message: string|Closure|null}> */
     private array $cannotClauses = [];
 
-    // -- clauses --------------------------------------------------------------
+    // -- can/cannot clauses ---------------------------------------------------
 
     /**
-     * Grant $abilities. With none the clause is generic, as a rule template's
+     * Grant $abilities. With none the can clause is generic, as a rule template's
      * body writes it: the `@include` that expands the template names the
      * abilities.
      */
@@ -56,7 +56,7 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     }
 
     /**
-     * Deny $abilities. With none the clause is generic, as {@see theyCan()}'s is.
+     * Deny $abilities. With none the cannot clause is generic, as {@see theyCan()}'s is.
      */
     public function theyCannot(string ...$abilities): static
     {
@@ -66,13 +66,13 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     }
 
     /**
-     * Deny the given abilities with a denial message, surfaced when this clause is
+     * Deny the given abilities with a denial message, surfaced when this cannot clause is
      * the attributable cause of a singular-target denial. Each call adds one
-     * clause, so calling it more than once gives different abilities different
+     * cannot clause, so calling it more than once gives different abilities different
      * messages. Pass a single ability as a string or several as an array; the
      * abilities in one call share the message.
      *
-     * With no abilities the clause is generic, as {@see theyCan()}'s is, and the
+     * With no abilities the cannot clause is generic, as {@see theyCan()}'s is, and the
      * message is passed by name: `theyCannotBecause(message: '...')`. The message
      * is required all the same, so a lone ability passed by position, its message
      * forgotten, is reported rather than read as a message.
@@ -84,7 +84,7 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     {
         if ($message === null) {
             throw new LogicException(
-                "theyCannotBecause() needs a message; pass it after the abilities, or by name for a clause with no abilities: theyCannotBecause(message: '...')."
+                "theyCannotBecause() needs a message; pass it after the abilities, or by name for a cannot clause with no abilities: theyCannotBecause(message: '...')."
             );
         }
 

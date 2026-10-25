@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
  * One `@include` in a rule set: the rule template to expand, the arguments to
- * hand it, and the abilities its generic clauses take.
+ * hand it, and the abilities its generic can/cannot clauses take.
  *
  * Outside an ability block the include names its abilities with its own `for`
  * list. Inside a block, or inside a rule template's body, it is generic: its
@@ -27,7 +27,7 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
      *   condition's are: literals, bindings, and the symbolic `@context` /
      *   `@column` references, which stay unresolved until a compile.
      * @param list<NameNode|BindingNode> $abilities The abilities the expanded
-     *   clauses apply to, and bindings whose values name them until expansion
+     *   can/cannot clauses apply to, and bindings whose values name them until expansion
      *   puts those names in their place; empty on a generic include. `*` is
      *   permitted, as it is in any ability list.
      */

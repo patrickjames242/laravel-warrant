@@ -110,7 +110,7 @@ it('shares one message across several abilities in a theyCannotBecause array', f
     expect($rule->messageFor('delete'))->toBe('locked');
 });
 
-it('gives each theyCannotBecause clause its own message', function () {
+it('gives each theyCannotBecause cannot clause its own message', function () {
     $rule = Build::rule()
         ->theyCannotBecause('update', 'no update')
         ->theyCannotBecause('delete', 'no delete')
@@ -159,7 +159,7 @@ it('rejects a rule with no they-can/they-cannot clause, matching the DSL', funct
         ->toThrow(LogicException::class);
 });
 
-it('hands a group closure a bare condition builder with no clause methods', function () {
+it('hands a group closure a bare condition builder with no can/cannot clause methods', function () {
     $received = null;
 
     Build::rule()

@@ -24,7 +24,7 @@ body          = ruleset | expr ;
 entries       = ruleset ;
                 (* no header, at least one entry *)
 
-ruleset       = ( clause+ | "if" expr clause+ | ability_block | when_block | include )* ;
+ruleset       = ( can_or_cannot_clause+ | "if" expr can_or_cannot_clause+ | ability_block | when_block | include )* ;
 
 ability_block = "can" "they" ability ( "," ability )* "{" ruleset "}" ;
 
@@ -38,8 +38,8 @@ include       = "@include" IDENTIFIER [ "(" [ arg { "," arg } ] ")" ]
                 (* the `for` list is required outside an ability block
                    and forbidden inside one *)
 
-clause        = "they" ( "can" ability ( "," ability )*
-                       | "cannot" ability ( "," ability )* ( "because" message )? ) ;
+can_or_cannot_clause = "they" ( "can" ability ( "," ability )*
+                              | "cannot" ability ( "," ability )* ( "because" message )? ) ;
                 (* inside an ability block the ability list is omitted *)
 
 ability       = IDENTIFIER | "*" | NAMED_BINDING ;

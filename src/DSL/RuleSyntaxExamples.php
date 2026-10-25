@@ -105,7 +105,7 @@ class RuleSyntaxExamples
      * after a `cannot` clause — never after `can`.
      *
      * Each `they cannot ...` clause is its own denial, so different abilities
-     * under one `if` can give different reasons — the two clauses below deny
+     * under one `if` can give different reasons — the two cannot clauses below deny
      * `edit` and `delete` with different messages, all on ONE rule.
      */
     public function denialMessage(): void
@@ -118,7 +118,7 @@ class RuleSyntaxExamples
             WARRANT)->validate()->scopedTo('timesheets');
 
         // edit/delete are granted unless is_locked; when a locked row denies one,
-        // the denial surfaces that clause's own message instead of the generic 403.
+        // the denial surfaces that cannot clause's own message instead of the generic 403.
         //
         // The message may also come from a binding rather than an inline literal.
         // A `?`/`:name` binding may resolve to a string, or to a closure of the

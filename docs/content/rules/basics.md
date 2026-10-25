@@ -7,7 +7,7 @@ sidebar:
   order: 1
 ---
 
-A rule is an optional `if <expression>` followed by one or more clauses:
+A rule is an optional `if <expression>` followed by one or more can/cannot clauses:
 
 ```warrant
 if is_mine
@@ -24,8 +24,8 @@ they cannot delete
 
 ## Where one rule ends
 
-Every `if` starts a new rule. Clauses attach to the nearest `if` above them.
-Clauses written before any `if` form one leading unconditional rule.
+Every `if` starts a new rule. Can/cannot clauses attach to the nearest `if` above them.
+Can/cannot clauses written before any `if` form one leading unconditional rule.
 
 ```warrant
 they can view                # rule 1, unconditional
@@ -71,7 +71,7 @@ they cannot update because 'This document is locked and can no longer be edited.
 they cannot delete because 'Locked documents cannot be deleted.'
 ```
 
-Each clause carries its own, so one rule can deny two things for two reasons.
+Each cannot clause carries its own, so one rule can deny two things for two reasons.
 [Denial messages](/rules/denial-messages/) has the rest.
 
 ## Names and reserved words
@@ -99,7 +99,7 @@ loses everything regardless of what any other rule grants.
 ## Each ability once
 
 A rule names each ability once among what it grants, and once among what it
-denies, however many clauses it splits them across. `*` already stands for every
+denies, however many cannot clauses it splits them across. `*` already stands for every
 ability, so nothing is written beside it. Each of these is an error:
 
 ```warrant

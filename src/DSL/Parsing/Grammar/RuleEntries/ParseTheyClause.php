@@ -13,8 +13,8 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * One `they can ...` or `they cannot ...` clause. The clause node is placed
  * from its `can` / `cannot`, without the `they`.
  *
- * A `they` with neither after it is a clause that says nothing: a tolerant parse
- * reports it and reads no clause there, so the rule keeps its other clauses.
+ * A `they` with neither after it is a can/cannot clause that says nothing: a tolerant parse
+ * reports it and reads no can/cannot clause there, so the rule keeps its other ones.
  *
  * @extends Parser<CanClauseNode|CannotClauseNode|null>
  */
@@ -32,7 +32,7 @@ final class ParseTheyClause extends Parser
         $clause = $this->parse(new ParseCanClause) ?? $this->parse(new ParseCannotClause);
 
         if ($clause === null) {
-            $this->report($this->errorAtCurrent(DiagnosticCode::MissingClause, "Expected 'can' or 'cannot' after 'they'."));
+            $this->report($this->errorAtCurrent(DiagnosticCode::MissingCanOrCannotClause, "Expected 'can' or 'cannot' after 'they'."));
 
             return null;
         }

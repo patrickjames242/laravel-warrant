@@ -13,8 +13,8 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * least one. Each clause is its own node, so distinct `cannot` clauses keep
  * distinct messages on the same rule.
  *
- * A tolerant parse reports a rule with none and reads it with no clauses, so
- * the rest of the rule, its condition, is kept. A `they` that heads no clause
+ * A tolerant parse reports a rule with none and reads it with no can/cannot clauses, so
+ * the rest of the rule, its condition, is kept. A `they` that heads no can/cannot clause
  * adds none.
  *
  * @extends Parser<array{0: list<CanClauseNode>, 1: list<CannotClauseNode>}>
@@ -29,7 +29,7 @@ final class ParseTheyCanAndCannotClauses extends Parser
         $clauses = $this->parseRepeated(new ParseTheyClause);
 
         if ($clauses === []) {
-            $this->report($this->errorAtCurrent(DiagnosticCode::MissingClause, "Expected at least one 'they can ...' or 'they cannot ...' clause."));
+            $this->report($this->errorAtCurrent(DiagnosticCode::MissingCanOrCannotClause, "Expected at least one 'they can ...' or 'they cannot ...' clause."));
         }
 
         return [

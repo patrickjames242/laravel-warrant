@@ -33,7 +33,7 @@ final class ParseAbilityBlock extends Parser
         $this->advance(); // consume 'can'
         $this->advance(); // consume 'they'
 
-        $abilities = $this->parse(ParseClauseAbilityList::class)->value;
+        $abilities = $this->parse(ParseCanOrCannotAbilityList::class)->value;
 
         $this->expectOrAssume(TokenType::LBRACE, "Expected '{' to open the ability block body.");
         $unclosed = "Expected '}' to close the ability block body.";

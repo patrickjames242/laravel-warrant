@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * belongs to the `check`. The ability is a name, or a binding whose value
  * names it.
  *
- * In expression position `can` is always this builtin: the clause keyword in
+ * In expression position `can` is always this builtin: the can/cannot clause keyword in
  * `they can ...` is read by {@see \Warrant\DSL\Parsing\Grammar\RuleEntries\ParseCanClause} and never reaches here.
  *
  * @extends Parser<CrossSchemaCanNode>

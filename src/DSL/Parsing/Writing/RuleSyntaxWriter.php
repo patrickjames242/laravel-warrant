@@ -200,8 +200,8 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * Render a rule's `if` line and clauses, one line per clause. A generic
-     * clause names no abilities, so it says only `they can` or `they cannot`.
+     * Render a rule's `if` line and can/cannot clauses, one line per clause. A generic
+     * can/cannot clause names no abilities, so it says only `they can` or `they cannot`.
      */
     private function writeRule(WarrantRuleNode $rule): string
     {
@@ -212,12 +212,12 @@ final class RuleSyntaxWriter
         }
 
         foreach ($rule->canClauses as $clause) {
-            $lines[] = $this->clauseLine('they can', $clause->abilities);
+            $lines[] = $this->canOrCannotClauseLine('they can', $clause->abilities);
         }
 
         // Each `they cannot ...` clause groups the abilities that share its message.
         foreach ($rule->cannotClauses as $clause) {
-            $line = $this->clauseLine('they cannot', $clause->abilities);
+            $line = $this->canOrCannotClauseLine('they cannot', $clause->abilities);
 
             if ($clause->message !== null) {
                 $line .= ' because ' . $this->messageArg($clause->message);
@@ -232,7 +232,7 @@ final class RuleSyntaxWriter
     /**
      * @param list<NameNode> $abilities
      */
-    private function clauseLine(string $keyword, array $abilities): string
+    private function canOrCannotClauseLine(string $keyword, array $abilities): string
     {
         return $abilities === [] ? $keyword : $keyword . ' ' . $this->names($abilities);
     }

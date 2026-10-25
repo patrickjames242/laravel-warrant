@@ -42,7 +42,7 @@ Representative messages:
 - `Expected 'can' or 'cannot' after 'they'.`
 - `Expected at least one 'they can ...' or 'they cannot ...' clause.`
 - `'because' may only follow a 'they cannot ...' clause, not 'they can ...'.`
-- `A clause inside an ability block may not name abilities; the block header already names them.`
+- `A can/cannot clause inside an ability block may not name abilities; the block header already names them.`
 - `Expected ')' to close the group.`, `Expected ')' to close the condition arguments.`
 - `Reserved word '%s' cannot be used as a name; expected %s.`
 
@@ -52,7 +52,7 @@ One parse reads every form, so these are about how the pieces sit together:
 
 - `` A `{ ... }` block needs a `for <schema>` header before it. ``
 - `` Rules without a `for` header cannot be followed by a `for` block; put them in a block of their own. ``
-- `` %s names abilities, but the rules before it name none; rules with no `for` header either all name their abilities or all leave them to be named where the rules are placed. `` (or `names none` / `name theirs`; `%s` is `This clause`, `This @include` or `An ability block`)
+- `` %s names abilities, but the rules before it name none; rules with no `for` header either all name their abilities or all leave them to be named where the rules are placed. `` (or `names none` / `name theirs`; `%s` is `This can/cannot clause`, `This @include` or `An ability block`)
 - `` Multiple rule sets in one source must each be braced, as `for <schema> { ... }`. ``
 - `Unexpected token; expected end of input.`, usually a condition expression with
   rules after it.
@@ -107,7 +107,7 @@ Both judge the list as written, not the values its bindings hold.
 Type guards:
 
 - `A rule set holds rules, ability blocks and includes, got %s.`
-- `Every clause and @include outside an ability block names the abilities it applies to; the rule set for [%s] holds one that names none.`
+- `Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [%s] holds one that names none.`
 
 :::note[Two "unknown ability" messages]
 *is not declared by the schema* comes from validating a rule set. A different one

@@ -35,15 +35,15 @@ Ability [aprove] is not declared by the schema.
 if is_mine they can view, update
 ```
 
-That is one rule with one `if` and one clause. This is two rules:
+That is one rule with one `if` and one can/cannot clause. This is two rules:
 
 ```warrant
 if is_mine they can view, update
 if is_locked they cannot update
 ```
 
-Every `if` starts a new rule. Clauses attach to the most recent `if` above them,
-and clauses written before any `if` form a leading unconditional rule:
+Every `if` starts a new rule. Can/cannot clauses attach to the most recent `if` above them,
+and can/cannot clauses written before any `if` form a leading unconditional rule:
 
 ```warrant
 they can view                 # unconditional: every row

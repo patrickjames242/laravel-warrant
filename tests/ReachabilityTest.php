@@ -72,7 +72,7 @@ it('is NEVER when a standalone unconditional deny precedes a conditional grant',
     expect(analyze("they cannot view\nif is_teacher they can view", 'view'))->toBe(Reachability::NEVER);
 });
 
-it('is MAYBE when can and cannot share one conditional rule (no unconditional clause)', function () {
+it('is MAYBE when can and cannot share one conditional rule (no unconditional can/cannot clause)', function () {
     // `if is_teacher they can view` + `they cannot view` group into ONE conditional
     // rule; with nothing unconditional, the spec keeps us unsure.
     expect(analyze("if is_teacher they can view\nthey cannot view", 'view'))->toBe(Reachability::MAYBE);

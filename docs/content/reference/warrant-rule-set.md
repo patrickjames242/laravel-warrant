@@ -158,7 +158,7 @@ public array $entries;   // list<IRuleEntryNode>: rules, ability blocks and incl
 ```
 
 An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
-`$entries`). Its body is generic, as the source writes it: the clauses and
+`$entries`). Its body is generic, as the source writes it: the can/cannot clauses and
 includes inside name no abilities, and the header is the only place they are
 said. [Expansion](/sql/rule-to-query/#before-compiling-expansion) applies the
 header to each entry, so the rules it produces grant and deny exactly what the
@@ -206,20 +206,20 @@ public function cannotAbilities(): array;   // list<string>
 public function deniesAbility(string $ability): bool;
 public function messageFor(string $ability): string|Closure|null;
 public function hasCannot(): bool;
-public function isGeneric(): bool;                      // no clause names an ability
-public function withAbilities(array $abilities): self;   // a generic rule with $abilities on every clause
+public function isGeneric(): bool;                      // no can/cannot clause names an ability
+public function withAbilities(array $abilities): self;   // a generic rule with $abilities on every can/cannot clause
 ```
 
 `WarrantSyntax::parse($text)->validate()->rule()` throws if the text holds anything other
 than exactly one rule. A rule carries no schema; the `RuleSetNode` holding it
 does.
 
-A clause's `$abilities` is a `list<NameNode>`, and its `$message` the node it was
+A can/cannot clause's `$abilities` is a `list<NameNode>`, and its `$message` the node it was
 written as. A denial message lives on a `cannot` **clause**, not on the rule, so one rule can
-deny two sets of abilities for two reasons. Give a clause its message with
+deny two sets of abilities for two reasons. Give a cannot clause its message with
 `because` in rule text, or with `theyCannotBecause()` on the builder.
 
-Inside an ability block or a rule template's body a rule is generic: each clause
+Inside an ability block or a rule template's body a rule is generic: each can/cannot clause
 has an empty `$abilities` list, because the block header or the `@include` names
 them. `withAbilities()` gives such a rule its abilities, and throws on a rule that
 already names its own.

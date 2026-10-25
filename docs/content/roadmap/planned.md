@@ -41,7 +41,7 @@ a permission hierarchy. See
 [composing from several sources](/supplying-rules/composing/).
 
 Scopes add lexical structure to a rule set, so that a `cannot` applies only within
-its scope while clauses at an outer level can override it. The design lives in
+its scope while can/cannot clauses at an outer level can override it. The design lives in
 `specs/scopes.md`.
 
 Status: **design**, not implemented.

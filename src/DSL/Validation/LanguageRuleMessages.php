@@ -60,7 +60,7 @@ final class LanguageRuleMessages
     }
 
     /**
-     * @param string $entry 'A clause' or 'An @include'.
+     * @param string $entry 'A can/cannot clause' or 'An @include'.
      */
     public static function namedInsideBlock(string $entry): string
     {
@@ -74,17 +74,17 @@ final class LanguageRuleMessages
     public static function unnamedOutsideBlock(?string $schemaKey): string
     {
         return $schemaKey === null
-            ? 'Every clause and @include outside an ability block names the abilities it applies to; these rules '
+            ? 'Every can/cannot clause and @include outside an ability block names the abilities it applies to; these rules '
                 .'hold one that names none.'
             : sprintf(
-                'Every clause and @include outside an ability block names the abilities it applies to; the rule set '
+                'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set '
                     .'for [%s] holds one that names none.',
                 $schemaKey,
             );
     }
 
     /**
-     * @param string $entry 'This clause', 'This @include' or 'An ability block'.
+     * @param string $entry 'This can/cannot clause', 'This @include' or 'An ability block'.
      */
     public static function namedWhereGeneric(string $entry): string
     {
@@ -107,7 +107,7 @@ final class LanguageRuleMessages
     }
 
     /**
-     * @param string $entry 'This clause', 'This @include' or 'An ability block'.
+     * @param string $entry 'This can/cannot clause', 'This @include' or 'An ability block'.
      * @param bool $names Whether that entry names abilities.
      */
     public static function namingDisagrees(string $entry, bool $names): string

@@ -285,7 +285,7 @@ final class Completion
     }
 
     /**
-     * After a whole operand, or a whole clause.
+     * After a whole operand, or a whole can/cannot clause.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string}>
      */
@@ -322,7 +322,7 @@ final class Completion
             return [
                 ['and', self::KIND_KEYWORD, 'both'],
                 ['or', self::KIND_KEYWORD, 'either'],
-                ['they', self::KIND_KEYWORD, 'the clauses this condition grants or denies'],
+                ['they', self::KIND_KEYWORD, 'the can/cannot clauses this condition grants or denies'],
             ];
         }
 

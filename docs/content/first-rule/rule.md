@@ -46,7 +46,7 @@ if is_mine
 they can view, update
 ```
 
-## Adding a second clause
+## Adding a second can/cannot clause
 
 Suppose locked documents cannot be edited by anyone. That is a `cannot`, and it
 goes in its own rule:
@@ -87,7 +87,7 @@ can they update {
 }
 ```
 
-That produces exactly the two rules above. Clauses inside a block name no
+That produces exactly the two rules above. Can/cannot clauses inside a block name no
 abilities of their own, because the block's `can they update` already did.
 
 ## What a rule is not

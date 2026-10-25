@@ -142,11 +142,11 @@ it('accepts a bound ability without its value when binding values are not checke
     expect($checked)->toBeInstanceOf(ValidSyntax::class);
 });
 
-it('counts a clause naming only a binding as naming its abilities', function () {
+it('counts a can/cannot clause naming only a binding as naming its abilities', function () {
     expect(fn () => ValidSyntax::of(
         producedFor(WarrantSyntax::parse('they can :abilities'), 'course_sections', GenericMode::RequireGeneric),
         new ValidationInput(new RegisteredSchemas, checkBindingValues: false),
-    ))->toThrow(InvalidArgumentException::class, 'This clause names abilities');
+    ))->toThrow(InvalidArgumentException::class, 'This can/cannot clause names abilities');
 });
 
 it('reports an ability list binding whose value names no abilities, at the binding', function (mixed $value, string $got) {
@@ -176,7 +176,7 @@ it('reports a can expression binding whose value is not one ability name', funct
 it('reports a bound ability the schema does not declare', function (string $syntax, array $bindings, string $message) {
     expect(abilityBindingMistakes($syntax, $bindings))->toBe([$message]);
 })->with([
-    'in a clause' => ['they can view, :more', ['more' => ['update', 'veiw']], 'Ability [veiw] is not declared by the schema.'],
+    'in a can/cannot clause' => ['they can view, :more', ['more' => ['update', 'veiw']], 'Ability [veiw] is not declared by the schema.'],
     'in a block header' => ['can they :abilities { they can }', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
     'in an @include' => ['@include grants_it for :abilities', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
     'in a can expression' => ['if can :ability they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
@@ -239,7 +239,7 @@ it('puts a bound * in its place', function () {
     expect(abilityBindingExpanded('they cannot :all', ['all' => '*'])->rules[0]->cannotAbilities())->toBe(['*']);
 });
 
-it('applies the abilities a block header binds to every clause under it', function () {
+it('applies the abilities a block header binds to every can/cannot clause under it', function () {
     $rules = abilityBindingExpanded('can they :abilities { if is_teacher they can }', ['abilities' => ['view', 'update']])->rules;
 
     expect($rules[0]->canAbilities())->toBe(['view', 'update']);

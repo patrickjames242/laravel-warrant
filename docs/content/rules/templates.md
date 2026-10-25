@@ -60,13 +60,13 @@ rejected when the schema is read.
 
 ## The body names no abilities
 
-Clauses in a body take the abilities the `@include` supplies:
+Can/cannot clauses in a body take the abilities the `@include` supplies:
 
 ```warrant
 if not is_approved they cannot because 'This needs approval first.'
 ```
 
-Three things are rejected in a body, all for the same reason: a clause naming its
+Three things are rejected in a body, all for the same reason: a can/cannot clause naming its
 own abilities, an [ability block](/rules/ability-blocks/), and a `for <schema>`
 header. A body may hold several rules, and may include other templates.
 
@@ -88,7 +88,7 @@ Anywhere else, the include names them:
 
 The `for` list is required in a rule set and rejected inside a block. Rules with
 no `for` header may leave it off, as a template's body does, but only if every
-other clause and include in the text leaves its abilities off too.
+other can/cannot clause and include in the text leaves its abilities off too.
 
 Either way the result is the rules the longhand would have produced, in the place
 the `@include` was written:
@@ -242,7 +242,7 @@ own, with an ability block, or with a rule set is rejected when it is expanded,
 naming the template. An empty answer, `''` or `[]`, expands to no rules.
 
 `Warrant::parse()` reads a body like any other rule text. Rules with no `for`
-header either all name their abilities or all leave them off: the first clause,
+header either all name their abilities or all leave them off: the first can/cannot clause,
 `@include` or ability block decides, and one that disagrees is a syntax error at
 its position.
 

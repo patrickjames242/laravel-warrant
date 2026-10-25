@@ -116,7 +116,7 @@ too.
 when is_published if is_member they can view   # braces are always required
 when is_published { }                          # an empty body
 when a { they can view } otherwise when b { }  # otherwise takes a body, not another when
-for docs { when a { if b they can } }          # a generic clause in a rule set
+for docs { when a { if b they can } }          # a generic can/cannot clause in a rule set
 ```
 
 A one-rule block needs its braces too. It can always be written as one rule with

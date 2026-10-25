@@ -189,7 +189,7 @@ it('throws when writing a closure denial message inline', function () {
     expect(fn () => writeSyntax($rule))->toThrow(LogicException::class, 'no inline representation');
 });
 
-it('renders one they-cannot line per clause and round-trips them', function () {
+it('renders one they-cannot line per cannot clause and round-trips them', function () {
     $rule = WarrantSyntax::parse(
         "if is_locked they cannot update because 'no update' they cannot delete because 'no delete'",
     )->validateWithoutSchemas()->rule();
@@ -200,7 +200,7 @@ it('renders one they-cannot line per clause and round-trips them', function () {
         they cannot delete because 'no delete'
         TXT);
 
-    // Re-parsing yields the same single rule with both clause messages.
+    // Re-parsing yields the same single rule with both cannot clause messages.
     $reparsed = WarrantSyntax::parse(writeSyntax($rule))->validateWithoutSchemas()->rule();
     expect($reparsed->cannotClauses)->toHaveCount(2);
     expect($reparsed->messageFor('update'))->toBe('no update');

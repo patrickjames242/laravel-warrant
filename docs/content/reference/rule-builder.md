@@ -94,7 +94,7 @@ are the predicate. It adds:
 ->assertComplete(): static   // throws unless for() was called and the predicate has a term
 ```
 
-## Clause methods, from `WarrantRuleBuilder`
+## Can/cannot clause methods, from `WarrantRuleBuilder`
 
 ```php
 ->theyCan(string ...$abilities): static
@@ -103,14 +103,14 @@ are the predicate. It adds:
 ->toRule(SyntaxSource $source = new SyntaxSource(null)): WarrantRuleNode
 ```
 
-`theyCannotBecause()` adds one clause per call, so separate calls give separate
+`theyCannotBecause()` adds one cannot clause per call, so separate calls give separate
 abilities separate messages while abilities passed together share one. With no
-abilities, a clause is generic, as a rule template's body writes it; pass the
+abilities, a can/cannot clause is generic, as a rule template's body writes it; pass the
 message by name, `theyCannotBecause(message: '...')`. The message is required: a
 call without one throws a `LogicException`, so a lone ability is never read as a
 message.
 
-`toRule()` throws a `LogicException` if neither clause method was called.
+`toRule()` throws a `LogicException` if no can/cannot clause method was called.
 
 ## `RuleSetBuilder` and `IncludeInvocationBuilder`
 

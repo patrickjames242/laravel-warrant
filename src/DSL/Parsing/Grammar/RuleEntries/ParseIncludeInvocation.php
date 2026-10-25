@@ -11,11 +11,11 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
  * An `@include`: the template to expand, its arguments, and the abilities the
- * clauses it expands to will take.
+ * can/cannot clauses it expands to will take.
  *
  * The include names those abilities with a `for` list, or leaves them to the
  * ability block it is written in. Whether it may name them where it is written
- * is the validator's to report, as for a clause.
+ * is the validator's to report, as for a can/cannot clause.
  *
  * @extends Parser<IncludeInvocationNode>
  */

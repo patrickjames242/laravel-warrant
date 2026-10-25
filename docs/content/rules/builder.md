@@ -40,7 +40,7 @@ Everything starts from `Warrant\Builders\Build`:
 | Call | Makes |
 | --- | --- |
 | `Build::rule()` | a rule: conditions, then `theyCan` / `theyCannot` |
-| `Build::condition()` | a condition expression, with no clauses |
+| `Build::condition()` | a condition expression, with no can/cannot clauses |
 | `Build::ruleSet('documents', fn ($rule) => ...)` | a `for documents` rule set |
 | `Build::ruleSet(fn ($rule) => ...)` | the entries alone, as a rule template writes them |
 | `Build::can('approve')` | a `can(...)` reference |
@@ -137,7 +137,7 @@ Build::rule()
 
 `when()` and `unless()` follow Laravel: the callback runs when the value is truthy
 (or falsy, for `unless`), and an optional third callback runs otherwise. Each is
-handed the same builder, so it may add conditions and clauses alike:
+handed the same builder, so it may add conditions and can/cannot clauses alike:
 
 ```php
 Build::rule()
@@ -278,12 +278,12 @@ argument value:
 They stay symbolic in the AST and resolve at compile time: a context ref per check,
 a column ref against the registry and the query's grammar, a SQL ref verbatim.
 
-## A rule needs a clause
+## A rule needs a can/cannot clause
 
 A rule with neither `theyCan` nor `theyCannot` throws a `LogicException` when it is
-finished, exactly as the language rejects a bare `if` with no clause.
+finished, exactly as the language rejects a bare `if` with no can/cannot clause.
 
-With no abilities, a clause is generic: `->theyCan()`, `->theyCannot()` or
+With no abilities, a can/cannot clause is generic: `->theyCan()`, `->theyCannot()` or
 `->theyCannotBecause(message: '...')`. That is how a
 [rule template's](/rules/templates/) body writes them, since the `@include`
 expanding the template names the abilities.

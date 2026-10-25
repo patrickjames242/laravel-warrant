@@ -65,7 +65,7 @@ trait ValidatesAbilityBlocks
                     if ($clause->abilities !== []) {
                         $this->fail(
                             DiagnosticCode::AbilitiesNamedInsideBlock,
-                            LanguageRuleMessages::namedInsideBlock('A clause'),
+                            LanguageRuleMessages::namedInsideBlock('A can/cannot clause'),
                             $clause->abilities[0]->location,
                         );
                     }

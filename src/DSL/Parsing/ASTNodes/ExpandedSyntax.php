@@ -11,7 +11,7 @@ use Warrant\DSL\Validation\ValidationInput;
  * it is about, for one schema.
  *
  * Parsing keeps what the author wrote — ability blocks, `@include`s, generic
- * clauses — so that rules can be written back out as they were read. Everything
+ * can/cannot clauses — so that rules can be written back out as they were read. Everything
  * downstream of expansion wants the opposite: the compiler folds rules, the
  * reachability analyzer reads them, denial diagnosis blames one. Giving that the
  * type of its own is what lets those readers take it as given rather than check

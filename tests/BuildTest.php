@@ -171,7 +171,7 @@ it('builds a rule set with a schema key, includes in the order written', functio
     )->validateWithoutSchemas()->ruleSet());
 });
 
-it('builds headless entries with generic clauses and includes when given only a callback', function () {
+it('builds headless entries with generic can/cannot clauses and includes when given only a callback', function () {
     $entries = Build::ruleSet(function ($rule) {
         $rule()->if('is_approved')->theyCan();
         $rule()->if('is_draft')->theyCannotBecause(message: 'Not approved yet.');
@@ -289,7 +289,7 @@ it('makes a generic denial with a message passed by name, or after an empty list
 
 it('rejects a denial with no message, rather than reading a lone ability as one', function (Closure $deny) {
     expect(fn () => $deny(Build::rule()->if('is_locked')))
-        ->toThrow(LogicException::class, "theyCannotBecause() needs a message; pass it after the abilities, or by name for a clause with no abilities: theyCannotBecause(message: '...').");
+        ->toThrow(LogicException::class, "theyCannotBecause() needs a message; pass it after the abilities, or by name for a cannot clause with no abilities: theyCannotBecause(message: '...').");
 })->with([
     'a lone ability' => [fn (WarrantRuleBuilder $rule) => $rule->theyCannotBecause('delete')],
     'abilities only' => [fn (WarrantRuleBuilder $rule) => $rule->theyCannotBecause(['delete', 'edit'])],

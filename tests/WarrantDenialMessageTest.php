@@ -712,7 +712,7 @@ it('surfaces a because message written directly in the DSL', function () {
         ->toThrow(WarrantAuthorizationException::class, 'This section is locked.');
 });
 
-it('surfaces per-clause because messages for distinct abilities in one if', function () {
+it('surfaces per-cannot-clause because messages for distinct abilities in one if', function () {
     seedDenialSections();
     bindDenialRules(WarrantSyntax::parse(<<<'WARRANT'
         they can update, archive
@@ -729,7 +729,7 @@ it('surfaces per-clause because messages for distinct abilities in one if', func
         ->toThrow(WarrantAuthorizationException::class, 'Cannot archive a teacher row.');
 });
 
-it('surfaces per-clause messages from a fluent builder rule', function () {
+it('surfaces per-cannot-clause messages from a fluent builder rule', function () {
     seedDenialSections();
     bindDenialRules([
         Build::rule()->theyCan('update', 'archive')->toRule(),
@@ -747,7 +747,7 @@ it('surfaces per-clause messages from a fluent builder rule', function () {
         ->toThrow(WarrantAuthorizationException::class, 'Cannot archive a teacher row.');
 });
 
-it('scopes deniedAbilities to the fired clause message', function () {
+it('scopes deniedAbilities to the fired cannot clause message', function () {
     seedDenialSections();
 
     $captured = null;
@@ -769,7 +769,7 @@ it('scopes deniedAbilities to the fired clause message', function () {
         // expected
     }
 
-    // The update clause's closure sees only 'update' — not 'archive', which
+    // The update cannot clause's closure sees only 'update' — not 'archive', which
     // carries a different message.
     expect($captured->deniedAbilities)->toBe(['update']);
 });

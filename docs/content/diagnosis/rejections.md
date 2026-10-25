@@ -20,7 +20,7 @@ to look.
 
 Taking rules out of a parsed text, with `->rule()`, `->scopedTo()` and the like,
 first validates the text as written against no schema: how ability blocks and
-clauses name their abilities, and denial messages. Only then are the binding values put in place, so a mistake in
+can/cannot clauses name their abilities, and denial messages. Only then are the binding values put in place, so a mistake in
 the text is reported before a binding that does not fit it.
 
 ## Syntax errors
@@ -56,8 +56,8 @@ delimiter rather than escaping: `"can't"` instead of `'can\'t'`.
 
 **`Expected 'can' or 'cannot' after 'they'.`** A typo.
 
-**`A clause inside an ability block may not name abilities; the block header already names them.`**
-A clause in a `can they … { }` block that spelled out its own abilities. Inside a
+**`A can/cannot clause inside an ability block may not name abilities; the block header already names them.`**
+A can/cannot clause in a `can they … { }` block that spelled out its own abilities. Inside a
 block, write `they can` and `they cannot` bare; the header is where the abilities
 go.
 

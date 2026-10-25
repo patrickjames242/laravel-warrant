@@ -47,7 +47,7 @@ trait ExpandsAbilityBlocks
                 match (true) {
                     $entry instanceof AbilityBlockNode => throw new InvalidArgumentException(LanguageRuleMessages::blockInsideBlock()),
                     $entry instanceof WarrantRuleNode && ! $entry->isGeneric()
-                        => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A clause')),
+                        => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A can/cannot clause')),
                     $entry instanceof IncludeInvocationNode && ! $entry->isGeneric()
                         => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('An @include')),
                     default => null,

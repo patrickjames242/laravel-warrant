@@ -7,7 +7,7 @@ namespace Warrant\Schema\RuleTemplates;
  * key, the name of the method that answers with the template's body, how many
  * DSL arguments it requires, and how it is told the abilities.
  *
- * A template's body is generic — its clauses name no abilities, taking them from
+ * A template's body is generic — its can/cannot clauses name no abilities, taking them from
  * the ability block or the `for` list at the `@include` that expands it. A
  * template may be told which abilities those are, through a
  * {@see RuleTemplateContext}, and choose what its rules say by them, but the

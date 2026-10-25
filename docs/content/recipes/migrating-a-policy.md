@@ -140,7 +140,7 @@ to work when there is no `$document` in hand.
 
 ## Step 2: translate each method
 
-Method by method, with the early returns turned into clauses.
+Method by method, with the early returns turned into can/cannot clauses.
 
 `view`: an admin, or mine, or my team's.
 

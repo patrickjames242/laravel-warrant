@@ -41,7 +41,7 @@ it('names a condition in rules with no header after the schema given for them', 
         ->toBe([SlotKind::Condition, 'is_owner', null]);
 });
 
-it('names an ability in a clause, a block header and an include as the schema in scope', function () {
+it('names an ability in a can/cannot clause, a block header and an include as the schema in scope', function () {
     expect(slotOf(contextAtBar('for docs { they can view, ed|it }')))->toBe([SlotKind::Ability, 'edit', 'docs'])
         ->and(slotOf(contextAtBar('for docs { can they vi|ew { if a they can } }')))->toBe([SlotKind::Ability, 'view', 'docs'])
         ->and(slotOf(contextAtBar('for docs { @include owners for sha|re }')))->toBe([SlotKind::Ability, 'share', 'docs']);

@@ -82,7 +82,7 @@ trait ExpandsRuleTemplates
             );
 
             /* The body is generic, as an ability block's is: the include names the
-               abilities its clauses take, so they are applied here. */
+               abilities its can/cannot clauses take, so they are applied here. */
             $entries = array_map(
                 static fn (WarrantRuleNode|IncludeInvocationNode|WhenBlockNode $entry): WarrantRuleNode|IncludeInvocationNode|WhenBlockNode
                     => $entry->withAbilities($abilities),
@@ -108,7 +108,7 @@ trait ExpandsRuleTemplates
      * $parametersUsableAsBindings, the template's parameters by name.
      *
      * Every entry must be generic. The `@include` expanding the template names the
-     * abilities its clauses take, so an entry naming its own has two answers to the
+     * abilities its can/cannot clauses take, so an entry naming its own has two answers to the
      * one question, and a rule set or ability block, which always name theirs, has
      * no place in a template at all.
      *

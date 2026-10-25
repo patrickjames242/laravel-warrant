@@ -24,7 +24,7 @@ final class ParseCanClause extends Parser
         $this->advance(); // consume 'can'
 
         return new CanClauseNode(
-            $this->parse(ParseClauseAbilityList::class)->value,
+            $this->parse(ParseCanOrCannotAbilityList::class)->value,
             $this->parse(ParseDenialMessage::class)?->value,
             $this->locationEndingHere(),
         );

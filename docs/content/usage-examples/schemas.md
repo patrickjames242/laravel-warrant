@@ -219,7 +219,7 @@ See [Context](/concepts/context/).
 
 ## Rule templates
 
-A template is a reusable piece of policy, expanded with `@include`. Its clauses
+A template is a reusable piece of policy, expanded with `@include`. Its can/cannot clauses
 name no abilities, because the `@include` names them:
 
 ```php

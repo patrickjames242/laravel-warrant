@@ -15,7 +15,7 @@ they are.
 A rule set goes through three steps. It is **parsed** into a tree, **expanded**,
 and **compiled**. Expansion spells out the shorthand an author wrote:
 
-- an [ability block](/rules/ability-blocks/)'s header is applied to every clause
+- an [ability block](/rules/ability-blocks/)'s header is applied to every can/cannot clause
   under it;
 - a [when block](/rules/when-blocks/)'s condition is joined with `and` to every
   rule in its body, and its negation to every rule in its `otherwise`;

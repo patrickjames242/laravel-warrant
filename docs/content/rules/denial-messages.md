@@ -34,7 +34,7 @@ they cannot update because 'This document is locked and can no longer be edited.
 `cannot` actively forbids. A missing `can` is the absence of a grant, which names
 no single rule, and that case is [handled separately](#when-nothing-granted-it).
 
-Each clause carries its own message, so one rule can explain two denials:
+Each cannot clause carries its own message, so one rule can explain two denials:
 
 ```warrant
 if is_locked
@@ -100,7 +100,7 @@ The context carries everything about the refusal:
 | `$c->rule` | `WarrantRuleNode` | the responsible `cannot` |
 | `$c->deniedAbilities` | `array` | the concrete abilities this message explains, with `*` resolved |
 
-`deniedAbilities` has the wildcard expanded, so a per-clause message sees only the
+`deniedAbilities` has the wildcard expanded, so a per-cannot-clause message sees only the
 abilities it is about.
 
 ## How the responsible rule is chosen

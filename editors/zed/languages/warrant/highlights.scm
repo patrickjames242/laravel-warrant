@@ -42,7 +42,7 @@
 (can_expression
   ability: (identifier) @function)
 
-; Abilities granted or denied by a clause.
+; Abilities granted or denied by a can/cannot clause.
 (ability
   (identifier) @function)
 

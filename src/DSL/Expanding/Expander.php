@@ -41,7 +41,7 @@ use Warrant\Registry\RegisteredSchemas;
  *
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
- *  - every ability block's header is applied to the clauses under it;
+ *  - every ability block's header is applied to the can/cannot clauses under it;
  *  - every when block's condition is put on the rules in its body, and its
  *    negation on the rules in its `otherwise`;
  *  - every {@see IncludeInvocationNode} is replaced by the rules its template
@@ -132,7 +132,7 @@ final class Expander
         foreach ($entries as $written) {
             foreach ($written instanceof WhenBlockNode ? $written->entriesInside() : [$written] as $entry) {
                 $generic = match (true) {
-                    $entry instanceof WarrantRuleNode => $entry->hasGenericClause(),
+                    $entry instanceof WarrantRuleNode => $entry->hasGenericCanOrCannotClause(),
                     $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
                     default => false,
                 };

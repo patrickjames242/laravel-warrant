@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Validation;
 
 /**
- * Whether rules with no `for` header name the abilities their clauses and
+ * Whether rules with no `for` header name the abilities their can/cannot clauses and
  * includes apply to. A rule set always names them, so this is about headerless
  * rules alone, and what produced the rules says which they must do: rules
  * placed in a rule set as they are must name theirs, and rules placed by an
@@ -15,12 +15,12 @@ namespace Warrant\DSL\Validation;
  */
 enum GenericMode
 {
-    /** Every clause and include leaves its abilities off, and no ability block is opened. */
+    /** Every can/cannot clause and include leaves its abilities off, and no ability block is opened. */
     case RequireGeneric;
 
-    /** Every clause and include outside an ability block names its abilities. */
+    /** Every can/cannot clause and include outside an ability block names its abilities. */
     case RequireNotGeneric;
 
-    /** Either, as long as every clause, include and block does the same. */
+    /** Either, as long as every can/cannot clause, include and block does the same. */
     case Either;
 }

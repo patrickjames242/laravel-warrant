@@ -319,7 +319,7 @@ function expandSyntax(string $syntax): ExpandedSyntax
 
 /**
  * The rules $rules write out longhand, to compare an expansion with. Each is
- * parsed alone, since clauses written one after another read as one rule.
+ * parsed alone, since can/cannot clauses written one after another read as one rule.
  *
  * @return list<WarrantRuleNode>
  */
@@ -569,7 +569,7 @@ it('rejects a template answering with a rule set', function () {
 
 it('rejects a template answering with parsed rules that name abilities', function () {
     expect(fn () => expandSyntax('@include answers_with_parsed_named_rules for view'))
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'));
 });
 
 it('rejects a template answering with a parsed ability block', function () {
@@ -593,7 +593,7 @@ it('rejects a template answering with something that is not rules', function () 
 });
 
 it('rejects an ability block in a template body', function () {
-    // A body is generic for the same reason a block's clauses are: the abilities
+    // A body is generic for the same reason a block's can/cannot clauses are: the abilities
     // are settled by the reference, so the body has nothing to open a block over.
     expect(fn () => expandSyntax('@include opens_a_block for view'))->toThrow(
         RuleValidationException::class,
@@ -601,26 +601,26 @@ it('rejects an ability block in a template body', function () {
     );
 });
 
-it('rejects a clause in a template body naming its own abilities', function () {
+it('rejects a can/cannot clause in a template body naming its own abilities', function () {
     expect(fn () => expandSyntax('@include names_an_ability for view'))->toThrow(
         RuleValidationException::class,
-        'Rule template [TemplateExpansionSchema::namesAnAbility] answered with a mistake: '.LanguageRuleMessages::namedWhereGeneric('This clause'),
+        'Rule template [TemplateExpansionSchema::namesAnAbility] answered with a mistake: '.LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'),
     );
 });
 
 it('rejects abilities named on a cannot clause in a template body', function () {
     expect(fn () => expandSyntax('@include names_an_ability_in_a_cannot for view'))
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'));
 });
 
 it('rejects the wildcard named in a template body', function () {
     expect(fn () => expandSyntax('@include names_the_wildcard for view'))
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'));
 });
 
-it('rejects the named clause in a template body that mixes generic and named rules', function () {
+it('rejects the named can/cannot clause in a template body that mixes generic and named rules', function () {
     expect(fn () => expandSyntax('@include mixes_naming for view'))
-        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This clause'));
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'));
 });
 
 // -- reachability -------------------------------------------------------------

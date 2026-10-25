@@ -43,7 +43,7 @@ it('checks syntax only when no schema could be read', function () {
     [, $document] = openInFixture('rules.warrant', 'for nowhere { if anything they can fly } for documents { they }');
     $workspace->open($document);
 
-    expect(array_column(Diagnostics::of($workspace, $document), 'code'))->toBe(['missing-clause']);
+    expect(array_column(Diagnostics::of($workspace, $document), 'code'))->toBe(['missing-can-or-cannot-clause']);
 });
 
 it('describes a condition, an ability and a schema on hover', function () {

@@ -165,7 +165,7 @@ it('gives the error a strict read throws as its first diagnostic', function (str
         ->and([$first?->message, $first?->offset])->toBe($strict);
 })->with([
     'a stray token after rules' => 'if a they can view ) if b they can edit',
-    'a clause with no can' => "if a they view\nif b they can edit",
+    'a can/cannot clause with no can' => "if a they view\nif b they can edit",
     'a reserved word as a condition' => 'if ( they can view',
     'a check with no parenthesis' => 'if check a for docs) they can edit',
     'a stray token in a block' => 'for docs { if a they can view ) if b they can edit }',
@@ -287,7 +287,7 @@ it('reads the when block after otherwise when as the otherwise body, and says ot
         ->toEqualSyntax(WarrantParser::parse('when a { they can view } otherwise { when b { they can edit } }')->children);
 });
 
-it('keeps a rule whose clauses are missing', function (string $source, string $mistake) {
+it('keeps a rule whose can/cannot clauses are missing', function (string $source, string $mistake) {
     expect(array_column(analysisDiagnostics($source), 0))->toBe([$mistake])
         ->and(WarrantParser::analyze($source)->syntax->children)->toEqualSyntax([new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())]);
 })->with([
@@ -295,7 +295,7 @@ it('keeps a rule whose clauses are missing', function (string $source, string $m
     'a they with no can' => ['if a they', "Expected 'can' or 'cannot' after 'they'."],
 ]);
 
-it('keeps the clauses around a they that heads none', function () {
+it('keeps the can/cannot clauses around a they that heads none', function () {
     expect(WarrantParser::analyze('if a they can view they')->syntax->children)
         ->toEqualSyntax(WarrantParser::parse('if a they can view')->children);
 });
@@ -496,7 +496,7 @@ it('says which kind of mistake each diagnostic is about, and that it is an error
     'a missing condition' => ['if () they can view', DiagnosticCode::MissingCondition],
     'a missing argument' => ['if a(1, ) they can view', DiagnosticCode::MissingArgument],
     'a missing denial message' => ['if a they cannot view because', DiagnosticCode::MissingDenialMessage],
-    'a missing clause' => ['if a they view', DiagnosticCode::MissingClause],
+    'a missing can/cannot clause' => ['if a they view', DiagnosticCode::MissingCanOrCannotClause],
     'a key written twice' => ['if can(view for docs with org = 1, org = 2) they can edit', DiagnosticCode::DuplicateContextKey],
     'an ability list with no can they' => ['for docs { view, edit { they can } }', DiagnosticCode::AbilityListWithoutCanThey],
     'a block with no header' => ['{ they can view }', DiagnosticCode::BlockWithoutHeader],
@@ -510,6 +510,6 @@ it('throws the kind of mistake with the error in a strict parse', function () {
     } catch (WarrantSyntaxException $error) {
     }
 
-    expect($error->diagnosticCode ?? null)->toBe(DiagnosticCode::MissingClause);
+    expect($error->diagnosticCode ?? null)->toBe(DiagnosticCode::MissingCanOrCannotClause);
 });
 
