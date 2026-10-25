@@ -2,7 +2,7 @@
 
 return [
     /*
-     * The global rule provider: a class implementing Warrant\Rules\RuleProvider.
+     * The global rule provider: a class implementing Warrant\Rules\IRuleProvider.
      *
      * Optional. It maps the current user to the rule set that governs their
      * access to an entity, built from wherever your access rules live:

@@ -14,7 +14,7 @@ use Warrant\WarrantGate;
  * unconditionally granted ability is simply `true` and the other abilities never
  * reach the SQL at all.
  */
-final readonly class GateUnit implements CompilationUnit
+final readonly class GateUnit implements ICompilationUnit
 {
     public function __construct(
         public WarrantGate $gate,

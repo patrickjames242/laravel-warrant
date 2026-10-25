@@ -81,15 +81,15 @@ because only the rule text can supply it. See
 ## Your own ability attribute
 
 When the required context follows from something you would rather say once, write
-an attribute that implements `DeclaresAbility`. That interface is what discovery
+an attribute that implements `IDeclaresAbility`. That interface is what discovery
 actually looks for, and `#[Ability]` is just one implementation of it.
 
 ```php
 use Attribute;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
-final class TenantAbility implements DeclaresAbility
+final class TenantAbility implements IDeclaresAbility
 {
     public function __construct(private bool $scopedToBranch = false) {}
 

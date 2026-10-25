@@ -13,7 +13,7 @@ use Illuminate\Support\ServiceProvider;
 use Warrant\Gate\WarrantGateBridge;
 use Warrant\Middleware\WarrantMiddleware;
 use Warrant\Registry\SchemaRegistry;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 
 final class WarrantServiceProvider extends ServiceProvider
 {
@@ -30,7 +30,7 @@ final class WarrantServiceProvider extends ServiceProvider
         $providerClass = $this->app['config']->get('warrant.rule_provider');
 
         if ($providerClass !== null) {
-            $this->app->bind(RuleProvider::class, $providerClass);
+            $this->app->bind(IRuleProvider::class, $providerClass);
         }
     }
 

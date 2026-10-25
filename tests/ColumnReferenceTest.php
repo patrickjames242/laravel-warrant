@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -57,7 +57,7 @@ function bindColRules(string $syntax, string $schemaKey): void
 {
     $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schemaKey);
 
-    app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set, $schemaKey) implements IRuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode
@@ -234,7 +234,7 @@ it('correlates a can(...) subquery to the outer table via a @column row selector
     bindColRules('if can(view for col_targets(@column col_docs.target_id)) they can view', 'col_docs');
 
     // The target schema grants view to everyone.
-    app()->instance(RuleProvider::class, new class implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class implements IRuleProvider {
         public function rules(RuleProviderContext $context): RuleSetNode
         {
             return $context->schemaKey === 'col_docs'

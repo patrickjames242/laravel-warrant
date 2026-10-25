@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
@@ -33,7 +33,7 @@ function bindGroup(string $syntax): void
 
 function bindProvidedRules(RuleSetNode|string $rules): void
 {
-    app()->instance(RuleProvider::class, new class($rules) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($rules) implements IRuleProvider {
         public function __construct(private RuleSetNode|string $rules) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode|string

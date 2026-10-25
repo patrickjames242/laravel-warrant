@@ -20,10 +20,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * expanded, so it rides beside the rules in a {@see RuleSetNode} instead
  * of inside one.
  */
-final readonly class IncludeInvocationNode implements RuleEntryNode
+final readonly class IncludeInvocationNode implements IRuleEntryNode
 {
     /**
-     * @param list<Node> $arguments The template's DSL arguments, read as a
+     * @param list<INode> $arguments The template's DSL arguments, read as a
      *   condition's are: literals, bindings, and the symbolic `@context` /
      *   `@column` references, which stay unresolved until a compile.
      * @param list<NameNode|BindingNode> $abilities The abilities the expanded

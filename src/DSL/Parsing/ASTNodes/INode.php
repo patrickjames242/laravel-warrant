@@ -7,7 +7,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * {@see \Warrant\DSL\Parsing\Positions\SyntaxLocation} it came from as a
  * public `$location`, and lists the nodes it holds through {@see children()}.
  */
-interface Node
+interface INode
 {
     /**
      * The name a node holds where the text should name something and does not,
@@ -20,7 +20,7 @@ interface Node
     /**
      * Every node directly inside this one, in the order it holds them.
      *
-     * @return list<Node>
+     * @return list<INode>
      */
     public function children(): array;
 }

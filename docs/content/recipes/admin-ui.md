@@ -132,7 +132,7 @@ public function preview(Request $request, RoleRule $roleRule)
     return app()->call(function () use ($proposed, $subject, $roleRule) {
         /* The text has no `for` header, so it is about the schema the provider is
            asked for, and the guard validates it against that schema. */
-        app()->instance(RuleProvider::class, new class($proposed) implements RuleProvider {
+        app()->instance(IRuleProvider::class, new class($proposed) implements IRuleProvider {
             public function __construct(private string $text) {}
 
             public function rules(RuleProviderContext $context): string

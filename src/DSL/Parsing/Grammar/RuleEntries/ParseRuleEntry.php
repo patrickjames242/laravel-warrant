@@ -2,14 +2,14 @@
 
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\Parsers\ParseOneOf;
 
 /**
  * One entry of a rule body: an unconditional rule, an `@include` directive, an
  * `if` rule, an ability block or a when block.
  *
- * @extends ParseOneOf<RuleEntryNode>
+ * @extends ParseOneOf<IRuleEntryNode>
  */
 final class ParseRuleEntry extends ParseOneOf
 {

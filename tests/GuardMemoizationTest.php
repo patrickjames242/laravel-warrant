@@ -5,7 +5,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
 
@@ -13,7 +13,7 @@ use Warrant\WarrantManager;
  * Counts resolutions so a test can assert the rule set was resolved once rather
  * than once per check.
  */
-class CountingWarrantRuleProvider implements RuleProvider
+class CountingWarrantRuleProvider implements IRuleProvider
 {
     public int $calls = 0;
 
@@ -33,7 +33,7 @@ function bindCountingWarrantResolver(string $syntax = 'if is_teacher they can pu
         WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('course_sections')
     );
 
-    app()->instance(RuleProvider::class, $resolver);
+    app()->instance(IRuleProvider::class, $resolver);
 
     return $resolver;
 }

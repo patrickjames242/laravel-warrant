@@ -13,7 +13,7 @@ use Warrant\DSL\Compiling\Units\AbilityUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
-use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\UnknownNode;
@@ -25,8 +25,8 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
@@ -42,7 +42,7 @@ use Warrant\WarrantManager;
  *
  * One way in — {@see compile()} — taking a {@see CompilationContext} and returning
  * a {@see CompilationResult}. The context names what to compile (a
- * {@see \Warrant\DSL\Compiling\Units\CompilationUnit}: a gate, one ability, or a
+ * {@see \Warrant\DSL\Compiling\Units\ICompilationUnit}: a gate, one ability, or a
  * bare condition) along with the facts common to all three; the result offers the
  * compile in whichever form the caller needs, folded or as SQL.
  *
@@ -80,7 +80,7 @@ use Warrant\WarrantManager;
  * {@see CompilationContext::forTargetRow()} — it is the half they genuinely know and
  * the compiler cannot, since a predicate is detached and where it is eventually
  * spliced is the caller's business. {@see compile()} narrows that answer against
- * {@see ConditionResolver::modelClass()} on the way in, so the walk reads a single
+ * {@see IConditionResolver::modelClass()} on the way in, so the walk reads a single
  * already-correct flag. What the row is *called* in SQL is settled here too, and
  * unlike the flag it is nobody else's to know: {@see compile()} seeds an
  * {@see AliasScope} from the schema and the host query, and each cross-schema hop
@@ -118,7 +118,7 @@ final class RuleSetCompiler
      *   for rule sets with no cross-schema references.
      */
     public function __construct(
-        private readonly ConditionResolver $conditions,
+        private readonly IConditionResolver $conditions,
         private readonly ?WarrantManager $manager = null,
     ) {
     }
@@ -219,9 +219,9 @@ final class RuleSetCompiler
 
         $abilityNode = new CompiledWhereClauseNode;
 
-        /** @var list<BooleanExpressionNode|null> $grants */
+        /** @var list<IBooleanExpressionNode|null> $grants */
         $grants = [];
-        /** @var list<BooleanExpressionNode|null> $denies */
+        /** @var list<IBooleanExpressionNode|null> $denies */
         $denies = [];
 
         foreach ($ruleSet->rules as $rule) {
@@ -364,7 +364,7 @@ final class RuleSetCompiler
      * nothing else; a leaf's own connector is decided by the operand it becomes,
      * not by its position.
      */
-    private function expression(BooleanExpressionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
+    private function expression(IBooleanExpressionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
         if ($node instanceof NotNode) {
             return $this->expression($node->operand, $ctx->negated());
@@ -470,7 +470,7 @@ final class RuleSetCompiler
      * otherwise: a model's table, or — for a virtual table, whose rows have no
      * table of their own — the schema's key, which is also what its rules name.
      *
-     * @param class-string<ConditionResolver> $schemaClass
+     * @param class-string<IConditionResolver> $schemaClass
      */
     private function defaultRowName(string $schemaClass): string
     {
@@ -671,7 +671,7 @@ final class RuleSetCompiler
            A value A cannot resolve here settles the whole reference. A bag
            missing a key B requires is a mistake in the rule text, and throws. */
         $bValues = $this->resolveArgValues(
-            array_map(static fn (WithEntryNode $entry): Node => $entry->value, $node->contextMap),
+            array_map(static fn (WithEntryNode $entry): INode => $entry->value, $node->contextMap),
             $ctx,
         );
 
@@ -834,7 +834,7 @@ final class RuleSetCompiler
            A value A cannot resolve here settles the whole reference. A bag
            missing a key B requires is a mistake in the rule text, and throws. */
         $bValues = $this->resolveArgValues(
-            array_map(static fn (WithEntryNode $entry): Node => $entry->value, $node->contextMap),
+            array_map(static fn (WithEntryNode $entry): INode => $entry->value, $node->contextMap),
             $ctx,
         );
 
@@ -948,7 +948,7 @@ final class RuleSetCompiler
      * The counterpart of {@see hopQualifier()} — the two must agree, or the
      * predicate would name rows the subquery never selected.
      *
-     * @param class-string<ConditionResolver> $schemaClass
+     * @param class-string<IConditionResolver> $schemaClass
      */
     private function hopFrom(Builder $subquery, string $schemaClass, string $qualifier): Builder
     {
@@ -1037,7 +1037,7 @@ final class RuleSetCompiler
 
         $literalNulls = array_filter(
             $node->boundKey,
-            static fn (Node $argument): bool => $argument instanceof LiteralNode && $argument->value === null,
+            static fn (INode $argument): bool => $argument instanceof LiteralNode && $argument->value === null,
         );
 
         if ($node->isRowBound && $literalNulls !== []) {
@@ -1068,7 +1068,7 @@ final class RuleSetCompiler
      * mistake in rule text. A derived condition in it may still answer with a
      * constant: that answer is the condition's, not the predicate's.
      */
-    private function assertPredicateAsksTarget(BooleanExpressionNode $predicate, CrossSchemaConditionNode $check): void
+    private function assertPredicateAsksTarget(IBooleanExpressionNode $predicate, CrossSchemaConditionNode $check): void
     {
         if ($predicate instanceof NotNode) {
             $this->assertPredicateAsksTarget($predicate->operand, $check);
@@ -1134,7 +1134,7 @@ final class RuleSetCompiler
      * behind a virtual table was built for. Null when the schema names neither,
      * which is a capability schema with no rows to be anywhere.
      *
-     * @param class-string<ConditionResolver> $schemaClass
+     * @param class-string<IConditionResolver> $schemaClass
      */
     private function connectionNameFor(string $schemaClass): ?string
     {
@@ -1158,7 +1158,7 @@ final class RuleSetCompiler
      * identically — and all three against the *enclosing* frame, which is where
      * their text was written.
      */
-    private function resolveArgValue(Node $argument, CompilationContext $ctx): mixed
+    private function resolveArgValue(INode $argument, CompilationContext $ctx): mixed
     {
         /* Only an analysis reads one, in place of an argument the text is missing,
            and the text then has a syntax error that a parse to compile throws. */
@@ -1223,7 +1223,7 @@ final class RuleSetCompiler
      * to `false`. (A name the frame does not bind at all *is* a mistake, and
      * {@see AliasScope::resolve()} still throws for it.)
      *
-     * @param list<Node> $arguments
+     * @param list<INode> $arguments
      * @return array<int, mixed>|null
      */
     private function resolveArgValues(array $arguments, CompilationContext $ctx): ?array

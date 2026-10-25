@@ -11,7 +11,7 @@ use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Validation\RuleValidationException;
@@ -390,7 +390,7 @@ class DkDocSchema extends WarrantSchema
 
     /** Hands its argument back through a binding without reading it. */
     #[DerivedCondition]
-    public function ownedOrTenant(mixed $tenant): BooleanExpressionNode
+    public function ownedOrTenant(mixed $tenant): IBooleanExpressionNode
     {
         self::$lastTenant = $tenant;
 
@@ -420,7 +420,7 @@ class DkDocSchema extends WarrantSchema
 
     /** Compares a column with the owner, through a binding, without reading it. */
     #[DerivedCondition]
-    public function ownerMatches(mixed $column): BooleanExpressionNode
+    public function ownerMatches(mixed $column): IBooleanExpressionNode
     {
         return WarrantSyntax::parse(new BoundSyntax('owner_is_column(:column)', ['column' => $column]))->validateWithoutSchemas()->conditionExpression();
     }
@@ -434,7 +434,7 @@ class DkDocSchema extends WarrantSchema
 
     /** Passes its argument on to another derived condition. */
     #[DerivedCondition]
-    public function ownerMatchesAgain(mixed $column): BooleanExpressionNode
+    public function ownerMatchesAgain(mixed $column): IBooleanExpressionNode
     {
         return WarrantSyntax::parse(new BoundSyntax('owner_matches(:column)', ['column' => $column]))->validateWithoutSchemas()->conditionExpression();
     }
@@ -540,7 +540,7 @@ class DkDocSchema extends WarrantSchema
 
     /** The old contract: a row condition answering with an expression. */
     #[RowCondition]
-    public function returnsExpression(RowConditionContext $c): BooleanExpressionNode
+    public function returnsExpression(RowConditionContext $c): IBooleanExpressionNode
     {
         return WarrantSyntax::parse('is_owned')->validateWithoutSchemas()->conditionExpression();
     }

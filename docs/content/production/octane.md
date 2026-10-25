@@ -33,7 +33,7 @@ property survives requests under Octane:
 
 ```php
 // Dangerous under Octane.
-class CachingRuleProvider implements RuleProvider
+class CachingRuleProvider implements IRuleProvider
 {
     private array $cache = [];
 
@@ -47,7 +47,7 @@ class CachingRuleProvider implements RuleProvider
 Either do not cache in a property, or bind the provider as a scoped instance:
 
 ```php
-$this->app->scoped(RuleProvider::class, CachingRuleProvider::class);
+$this->app->scoped(IRuleProvider::class, CachingRuleProvider::class);
 ```
 
 Or use the cache, which has explicit invalidation.

@@ -5,7 +5,7 @@ use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -396,7 +396,7 @@ it('keeps an ability block as a node over a generic body', function () {
  * Take $entries, a rule set for `docs` built in code, through every stage of a
  * syntax to its expansion.
  *
- * @param list<RuleEntryNode> $entries
+ * @param list<IRuleEntryNode> $entries
  */
 function expandBuiltInCode(array $entries): void
 {

@@ -2,13 +2,13 @@
 
 namespace Warrant\LanguageServer\Vocabulary;
 
-use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\ISchemaCatalog;
 
 /**
  * Every schema the language server knows of, by key: the catalog rule text is
  * validated against, and what completion lists.
  */
-final readonly class VocabularyIndex implements SchemaCatalog
+final readonly class VocabularyIndex implements ISchemaCatalog
 {
     /**
      * @param array<string, IndexedSchema> $schemas By key.

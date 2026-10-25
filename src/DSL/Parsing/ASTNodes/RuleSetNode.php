@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * caller's business, which keeps a rule set constructible without a booted
  * application.
  */
-final readonly class RuleSetNode implements SchemaScopedNode
+final readonly class RuleSetNode implements ISchemaScopedNode
 {
     /**
      * Outside an ability block nothing names abilities on a can/cannot clause's behalf, so
@@ -23,7 +23,7 @@ final readonly class RuleSetNode implements SchemaScopedNode
      * written, and the validator and the expander hold them to that.
      *
      * @param NameNode $schemaKey The schema the `for` header names.
-     * @param list<RuleEntryNode> $entries
+     * @param list<IRuleEntryNode> $entries
      */
     public function __construct(
         public NameNode $schemaKey,
@@ -31,7 +31,7 @@ final readonly class RuleSetNode implements SchemaScopedNode
         public SyntaxLocation $location,
     ) {
         foreach ($entries as $entry) {
-            if (! $entry instanceof RuleEntryNode) {
+            if (! $entry instanceof IRuleEntryNode) {
                 throw new InvalidArgumentException(sprintf(
                     'A rule set holds rules, ability blocks and includes, got %s.',
                     get_debug_type($entry),

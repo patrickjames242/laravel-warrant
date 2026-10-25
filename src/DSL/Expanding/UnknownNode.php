@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Expanding;
 
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * The rule language has no way to write one, so it only ever comes out of
  * expansion.
  */
-final readonly class UnknownNode implements BooleanExpressionNode
+final readonly class UnknownNode implements IBooleanExpressionNode
 {
     public function __construct(public SyntaxLocation $location) {}
 

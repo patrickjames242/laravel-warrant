@@ -28,7 +28,7 @@ only rules for that schema.
 ## The shape most applications end up with
 
 ```php
-class CompositeRuleProvider implements RuleProvider
+class CompositeRuleProvider implements IRuleProvider
 {
     public function __construct(private RoleRules $roles, private TeamRules $teams) {}
 

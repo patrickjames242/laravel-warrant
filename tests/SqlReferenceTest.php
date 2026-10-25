@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -50,7 +50,7 @@ function bindSqlRules(string $syntax, string $schemaKey): void
 {
     $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schemaKey);
 
-    app()->instance(RuleProvider::class, new class($set, $schemaKey) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set, $schemaKey) implements IRuleProvider {
         public function __construct(private RuleSetNode $set, private string $key) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode

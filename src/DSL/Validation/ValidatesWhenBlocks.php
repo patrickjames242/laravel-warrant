@@ -4,7 +4,7 @@ namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 
 /**
  * How a {@see SyntaxValidator} checks a when block of its own: its condition,
@@ -20,7 +20,7 @@ trait ValidatesWhenBlocks
      * bodies is empty: a body with nothing in it guards nothing, and an empty
      * `otherwise` is one to leave off.
      */
-    private function validateWhenBlock(WhenBlockNode $block, ?SchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateWhenBlock(WhenBlockNode $block, ?ISchemaVocabulary $schema, ?string $schemaKey): void
     {
         $this->validateCondition($block->condition, $schema, $schemaKey);
 

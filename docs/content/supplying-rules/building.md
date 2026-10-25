@@ -82,7 +82,7 @@ When you want the parsed rules without a set around them, ask the tree for the
 shape the text holds:
 
 ```php
-$entries = WarrantSyntax::parse('if is_mine they can view')->validate()->ruleEntries();   // RuleEntryNode[]
+$entries = WarrantSyntax::parse('if is_mine they can view')->validate()->ruleEntries();   // IRuleEntryNode[]
 $one     = WarrantSyntax::parse('they cannot delete')->validate()->rule();               // RuleNode
 $expr    = WarrantSyntax::parse('a or not b')->validate()->conditionExpression();        // an expression
 ```

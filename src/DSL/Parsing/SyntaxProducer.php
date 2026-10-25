@@ -109,7 +109,7 @@ final readonly class SyntaxProducer
      * arguments, as the caller wrote them. They are the caller's, placed where
      * the caller produced them.
      *
-     * @return list<\Warrant\DSL\Parsing\ASTNodes\Node>
+     * @return list<\Warrant\DSL\Parsing\ASTNodes\INode>
      */
     public function callerArguments(): array
     {

@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\Reachability;
@@ -145,7 +145,7 @@ final class ReachabilityAnalyzer
         return $outcome;
     }
 
-    private function expression(BooleanExpressionNode $node, string $schemaKey): TruthSet
+    private function expression(IBooleanExpressionNode $node, string $schemaKey): TruthSet
     {
         if ($node instanceof AndNode) {
             return $this->expression($node->leftSide, $schemaKey)

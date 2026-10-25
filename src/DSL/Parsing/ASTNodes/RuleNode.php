@@ -17,7 +17,7 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  * can/cannot clause names no abilities, because the block header or the `@include` names
  * them. {@see withAbilities()} gives a generic rule the abilities it takes.
  */
-readonly class RuleNode implements RuleEntryNode
+readonly class RuleNode implements IRuleEntryNode
 {
     /**
      * @param list<CanClauseNode> $canClauses The granted abilities, one can clause
@@ -30,7 +30,7 @@ readonly class RuleNode implements RuleEntryNode
      *   for one.
      */
     public function __construct(
-        public ?BooleanExpressionNode $conditions,
+        public ?IBooleanExpressionNode $conditions,
         public array $canClauses,
         public array $cannotClauses,
         public SyntaxLocation $location,
@@ -221,7 +221,7 @@ readonly class RuleNode implements RuleEntryNode
     /**
      * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null
      */
-    private static function messageValue(?Node $message): string|Closure|null
+    private static function messageValue(?INode $message): string|Closure|null
     {
         return match (true) {
             $message === null => null,

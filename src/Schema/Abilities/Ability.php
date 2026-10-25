@@ -11,10 +11,10 @@ use Attribute;
  * This is the ability attribute Warrant ships, and the one a schema uses unless
  * it has a reason not to. It states its required context as a literal list. A
  * schema that would rather derive that list can declare an attribute of its own
- * implementing {@see DeclaresAbility}, which the engine recognizes identically.
+ * implementing {@see IDeclaresAbility}, which the engine recognizes identically.
  */
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
-class Ability implements DeclaresAbility
+class Ability implements IDeclaresAbility
 {
     /**
      * @param array<int, string> $requiredContext Context keys that must be present

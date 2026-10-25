@@ -24,7 +24,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * can splice it straight into the query builder without it being re-quoted or
  * bound as a value.
  */
-readonly class ColumnRef implements Node
+readonly class ColumnRef implements INode
 {
     /**
      * @param NameNode|null $alias The name of the frame whose rows this column

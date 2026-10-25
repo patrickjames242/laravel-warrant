@@ -15,16 +15,16 @@ use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
 use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Registry\RegisteredSchemas;
@@ -83,11 +83,11 @@ final class Expander
     use ReplacesBindings;
 
     /**
-     * @param SchemaCatalog $catalog Where the schema the rules are for is found,
+     * @param ISchemaCatalog $catalog Where the schema the rules are for is found,
      *   whose templates and derived conditions are called, and the schema a
      *   `check(... for <schema>)` names, to expand its predicate against.
      */
-    public function __construct(private readonly SchemaCatalog $catalog = new RegisteredSchemas)
+    public function __construct(private readonly ISchemaCatalog $catalog = new RegisteredSchemas)
     {
     }
 
@@ -121,10 +121,10 @@ final class Expander
      * block or `@include`, where every entry names its own abilities, starting
      * a fresh expansion trail.
      *
-     * @param list<RuleEntryNode> $entries
+     * @param list<IRuleEntryNode> $entries
      * @return list<RuleNode>
      */
-    private function expandTopLevelEntries(array $entries, SchemaVocabulary $schema, string $schemaKey): array
+    private function expandTopLevelEntries(array $entries, ISchemaVocabulary $schema, string $schemaKey): array
     {
         /* Outside an ability block nothing names abilities on an entry's behalf.
            The validator reports a generic one against the text; this rejects it
@@ -150,12 +150,12 @@ final class Expander
      * Expand $entries at any depth — at the top, in an ability block's body, or
      * in what a template answered with — into rules, carrying $trail down.
      *
-     * @param list<RuleEntryNode> $entries
+     * @param list<IRuleEntryNode> $entries
      * @return list<RuleNode>
      */
     private function expandEntries(
         array $entries,
-        SchemaVocabulary $schema,
+        ISchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array
@@ -208,13 +208,13 @@ final class Expander
      * literal as its value, and a `@context`, `@column` or `@sql` reference as
      * the reference itself. Bindings are replaced by their values by now.
      *
-     * @param list<Node> $arguments
+     * @param list<INode> $arguments
      * @return list<mixed>
      */
     private static function argumentValues(array $arguments): array
     {
         return array_map(
-            static fn (Node $argument): mixed => $argument instanceof LiteralNode ? $argument->value : $argument,
+            static fn (INode $argument): mixed => $argument instanceof LiteralNode ? $argument->value : $argument,
             $arguments,
         );
     }

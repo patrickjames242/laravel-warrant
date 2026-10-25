@@ -1,7 +1,7 @@
 <?php
 
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -11,7 +11,7 @@ require_once __DIR__.'/Support/TestSupport.php';
  * how it was constructed instead of restating a literal list on every constant.
  */
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
-final class TenantAbility implements DeclaresAbility
+final class TenantAbility implements IDeclaresAbility
 {
     public function __construct(private bool $scopedToBranch = false) {}
 

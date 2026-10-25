@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowCondition;
@@ -59,7 +59,7 @@ function assertSelfRefSql(string $syntax, string $ability, string $expectedSql, 
 {
     $set = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('sr_docs');
 
-    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set) implements IRuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode
@@ -271,7 +271,7 @@ it('lets through exactly the rows either ability allows when cans with no parent
         if can do_thing_1 or can do_thing_2 they can do_thing_3
         WARRANT)->validateWithoutSchemas()->scopedTo('sr_docs');
 
-    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set) implements IRuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode
@@ -366,7 +366,7 @@ it('leaves an inlined can unanswerable when the frame it inlines into has no row
         "if is_owner they can do_thing_1\nif can(do_thing_1) they can do_thing_2",
     )->validateWithoutSchemas()->scopedTo('sr_docs');
 
-    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set) implements IRuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode

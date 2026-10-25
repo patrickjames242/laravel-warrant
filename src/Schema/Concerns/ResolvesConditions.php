@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Warrant\Builders\CrossSchemaCanBuilder;
 use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 
 /**
- * The vocabulary seam the compiler dispatches into (the {@see \Warrant\DSL\ConditionResolver}
+ * The vocabulary seam the compiler dispatches into (the {@see \Warrant\DSL\IConditionResolver}
  * implementation): validating ability names and applying a named condition's SQL
  * predicate to a builder.
  */
@@ -27,7 +27,7 @@ trait ResolvesConditions
      *
      * A condition method may return the builder it constrained, a bool to decide
      * the outcome outright, or null to answer unknown — see
-     * {@see \Warrant\DSL\ConditionResolver::applyCondition()}. A condition that
+     * {@see \Warrant\DSL\IConditionResolver::applyCondition()}. A condition that
      * derives itself from other conditions is a `#[DerivedCondition]`, expanded
      * before anything compiles, and is never dispatched here.
      *
@@ -47,7 +47,7 @@ trait ResolvesConditions
      * @param array<string, mixed> $context The effective check-time context bag.
      * @param string|null $rowQualifier The SQL name the target row answers to where
      *   this predicate lands — see
-     *   {@see \Warrant\DSL\ConditionResolver::applyCondition()}. Null falls back to
+     *   {@see \Warrant\DSL\IConditionResolver::applyCondition()}. Null falls back to
      *   the schema model's own table.
      */
     public function applyConditionFilter(
@@ -111,7 +111,7 @@ trait ResolvesConditions
            with SQL, a constant or unknown. An expression is a different kind of
            answer — one built from other conditions — and belongs to a condition
            whose expansion can happen before any of that is known. */
-        if ($result instanceof BooleanExpressionNode || $result instanceof WarrantConditionBuilder || $result instanceof CrossSchemaCanBuilder) {
+        if ($result instanceof IBooleanExpressionNode || $result instanceof WarrantConditionBuilder || $result instanceof CrossSchemaCanBuilder) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] returned an expression; a row or global condition answers with '
                     .'the query it constrained, a bool or null. Declare a condition built from other conditions '
@@ -307,7 +307,7 @@ trait ResolvesConditions
         return $result instanceof EloquentBuilder ? $result->toBase() : $result;
     }
 
-    // -- ConditionResolver ----------------------------------------------------
+    // -- IConditionResolver ----------------------------------------------------
 
     public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
     {

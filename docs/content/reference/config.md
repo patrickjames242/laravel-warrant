@@ -34,7 +34,7 @@ return [
 
 ## `rule_provider`
 
-A class-string implementing `Warrant\Rules\RuleProvider`. Built through the
+A class-string implementing `Warrant\Rules\IRuleProvider`. Built through the
 container, so constructor dependencies are injected.
 
 Optional, and `null` by default. Left unset, each schema's own `rules()` governs

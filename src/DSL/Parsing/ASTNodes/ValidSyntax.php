@@ -92,7 +92,7 @@ final readonly class ValidSyntax extends WarrantSyntax
      * under a single `for <schema>` header, which scopes the names without
      * changing the tree.
      */
-    public function conditionExpression(): BooleanExpressionNode
+    public function conditionExpression(): IBooleanExpressionNode
     {
         if (! $this->isExpression() && ! $this->isSchemaCondition()) {
             throw $this->shapeError('a condition expression');
@@ -119,7 +119,7 @@ final readonly class ValidSyntax extends WarrantSyntax
      * The unscoped entries. An empty source answers an empty list, since no rules
      * is a valid rule body.
      *
-     * @return list<RuleEntryNode>
+     * @return list<IRuleEntryNode>
      */
     public function ruleEntries(): array
     {
@@ -127,7 +127,7 @@ final readonly class ValidSyntax extends WarrantSyntax
             throw $this->shapeError('unscoped rules');
         }
 
-        /** @var list<RuleEntryNode> */
+        /** @var list<IRuleEntryNode> */
         return $this->children;
     }
 
@@ -163,7 +163,7 @@ final readonly class ValidSyntax extends WarrantSyntax
      * Every `for <schema>` body, rule sets and conditions alike, in source
      * order. An empty source answers an empty list.
      *
-     * @return list<SchemaScopedNode>
+     * @return list<ISchemaScopedNode>
      */
     public function scoped(): array
     {
@@ -171,7 +171,7 @@ final readonly class ValidSyntax extends WarrantSyntax
             throw $this->shapeError('`for <schema>` bodies');
         }
 
-        /** @var list<SchemaScopedNode> */
+        /** @var list<ISchemaScopedNode> */
         return $this->children;
     }
 
@@ -181,7 +181,7 @@ final readonly class ValidSyntax extends WarrantSyntax
      * header, all of them when what produced them is for that schema. Rules
      * about any other schema are left out, and a condition holds none.
      *
-     * @return list<RuleEntryNode>
+     * @return list<IRuleEntryNode>
      */
     public function entriesFor(string $schemaKey): array
     {

@@ -24,7 +24,7 @@ namespace Warrant\Schema\Abilities;
  *
  * ```php
  * #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
- * final class TenantAbility implements DeclaresAbility
+ * final class TenantAbility implements IDeclaresAbility
  * {
  *     public function __construct(private bool $scopedToBranch = false) {}
  *
@@ -35,7 +35,7 @@ namespace Warrant\Schema\Abilities;
  * }
  * ```
  */
-interface DeclaresAbility
+interface IDeclaresAbility
 {
     /**
      * Context keys that must be present whenever the ability is checked. When

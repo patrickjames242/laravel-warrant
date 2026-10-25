@@ -19,6 +19,6 @@ namespace Warrant\DSL\Compiling\Units;
  * @see AbilityUnit
  * @see ConditionUnit
  */
-interface CompilationUnit
+interface ICompilationUnit
 {
 }

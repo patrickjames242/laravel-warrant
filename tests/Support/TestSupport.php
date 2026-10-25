@@ -14,10 +14,10 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -34,12 +34,12 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Registry\RegisteredSchemas;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
@@ -421,7 +421,7 @@ class WarrantUserRulesSchema extends WarrantTestSchema
     }
 }
 
-class FakeWarrantRuleProvider implements RuleProvider
+class FakeWarrantRuleProvider implements IRuleProvider
 {
     public function __construct(private RuleSetNode $ruleSet) {}
 
@@ -450,7 +450,7 @@ function useWarrantSchemas(array $schemas): void
 function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKey = 'course_sections'): void
 {
     app()->instance(
-        RuleProvider::class,
+        IRuleProvider::class,
         new FakeWarrantRuleProvider(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo($schemaKey))
     );
 }
@@ -460,7 +460,7 @@ function bindWarrantRules(string $syntax, array $bindings = [], string $schemaKe
  */
 function bindWarrantRuleSet(RuleSetNode $ruleSet): void
 {
-    app()->instance(RuleProvider::class, new FakeWarrantRuleProvider($ruleSet));
+    app()->instance(IRuleProvider::class, new FakeWarrantRuleProvider($ruleSet));
 }
 
 /**
@@ -664,7 +664,7 @@ class NonStaticWarrantSchemaModel extends Model
  * Write one rule entry or rule set back to rule text, through the
  * WarrantSyntax that would hold it on its own.
  */
-function writeSyntax(RuleEntryNode|SchemaScopedNode $node): string
+function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
 {
     return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toSyntax();
 }
@@ -673,7 +673,7 @@ function writeSyntax(RuleEntryNode|SchemaScopedNode $node): string
  * Write one rule entry or rule set to `?`-parameterized rule text and its
  * bindings, through the WarrantSyntax that would hold it on its own.
  */
-function writeBoundSyntax(RuleEntryNode|SchemaScopedNode $node): BoundSyntax
+function writeBoundSyntax(IRuleEntryNode|ISchemaScopedNode $node): BoundSyntax
 {
     return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toBoundSyntax();
 }
@@ -706,7 +706,7 @@ function treeToString(?object $node): string
  * symbolic references, which must stay distinguishable (a ContextRef would
  * otherwise var_export to NULL, making every ref look alike).
  */
-function argToString(Node $argument): string
+function argToString(INode $argument): string
 {
     return match (true) {
         $argument instanceof ContextRef => '@context ' . $argument->key->name,
@@ -720,7 +720,7 @@ function argToString(Node $argument): string
 /**
  * The value a literal holds, or a binding's source gives it.
  */
-function valueOf(Node $node): mixed
+function valueOf(INode $node): mixed
 {
     return match (true) {
         $node instanceof LiteralNode => $node->value,
@@ -733,13 +733,13 @@ function valueOf(Node $node): mixed
  * Each argument as a template or derived condition method is called with it: a
  * literal's or binding's value, and a reference as itself.
  *
- * @param list<Node> $arguments
+ * @param list<INode> $arguments
  * @return list<mixed>
  */
 function argumentValues(array $arguments): array
 {
     return array_map(
-        static fn (Node $argument): mixed => $argument instanceof LiteralNode || $argument instanceof BindingNode ? valueOf($argument) : $argument,
+        static fn (INode $argument): mixed => $argument instanceof LiteralNode || $argument instanceof BindingNode ? valueOf($argument) : $argument,
         $arguments,
     );
 }
@@ -768,7 +768,7 @@ function withEntryValues(array $contextMap): array
  *
  * @return list<Diagnostic>
  */
-function analyzedDiagnostics(string $source, ?SchemaCatalog $catalog, ?string $schemaKey = null): array
+function analyzedDiagnostics(string $source, ?ISchemaCatalog $catalog, ?string $schemaKey = null): array
 {
     $analysis = WarrantParser::analyze($source, SyntaxProducer::editor('test.warrant', $schemaKey));
 
@@ -787,9 +787,9 @@ function nameNode(string $name): NameNode
  * $value as an argument a test builds: itself when it is already a node, else a
  * literal of it.
  */
-function argumentNode(mixed $value): Node
+function argumentNode(mixed $value): INode
 {
-    return $value instanceof Node ? $value : new LiteralNode($value, SyntaxLocation::noProducer());
+    return $value instanceof INode ? $value : new LiteralNode($value, SyntaxLocation::noProducer());
 }
 
 /**
@@ -819,7 +819,7 @@ function syntaxShape(mixed $value): mixed
         return array_map(syntaxShape(...), $value);
     }
 
-    if (! $value instanceof Node) {
+    if (! $value instanceof INode) {
         return $value;
     }
 
@@ -895,16 +895,16 @@ function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): stri
  * A catalog holding $schemas, by key, and finding any other in $behind; with
  * nothing behind, only $schemas.
  *
- * @param array<string, SchemaVocabulary> $schemas
+ * @param array<string, ISchemaVocabulary> $schemas
  */
-function catalogOf(array $schemas, ?SchemaCatalog $behind = null): SchemaCatalog
+function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatalog
 {
-    return new class($schemas, $behind) implements SchemaCatalog
+    return new class($schemas, $behind) implements ISchemaCatalog
     {
-        /** @param array<string, SchemaVocabulary> $schemas */
-        public function __construct(private array $schemas, private ?SchemaCatalog $behind) {}
+        /** @param array<string, ISchemaVocabulary> $schemas */
+        public function __construct(private array $schemas, private ?ISchemaCatalog $behind) {}
 
-        public function find(string $schemaKey): ?SchemaVocabulary
+        public function find(string $schemaKey): ?ISchemaVocabulary
         {
             return $this->schemas[$schemaKey] ?? $this->behind?->find($schemaKey);
         }
@@ -917,7 +917,7 @@ function catalogOf(array $schemas, ?SchemaCatalog $behind = null): SchemaCatalog
  * values put in place. Any other schema the rules name is found as the
  * application registers it.
  */
-function expandedFor(RuleSetNode $set, SchemaVocabulary $schema): ExpandedSyntax
+function expandedFor(RuleSetNode $set, ISchemaVocabulary $schema): ExpandedSyntax
 {
     $input = new ValidationInput(catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas));
     $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
@@ -929,7 +929,7 @@ function expandedFor(RuleSetNode $set, SchemaVocabulary $schema): ExpandedSyntax
  * $set validated as written against $schema, or with no schema against the
  * rules of the language alone. Throws the first mistake.
  */
-function validateRuleSet(RuleSetNode $set, ?SchemaVocabulary $schema = null): ValidSyntax
+function validateRuleSet(RuleSetNode $set, ?ISchemaVocabulary $schema = null): ValidSyntax
 {
     return ValidSyntax::of(new WarrantSyntax([$set]), new ValidationInput(
         $schema === null ? null : catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas),

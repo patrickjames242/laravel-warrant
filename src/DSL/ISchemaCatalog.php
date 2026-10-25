@@ -11,11 +11,11 @@ namespace Warrant\DSL;
  * ({@see \Warrant\Registry\RegisteredSchemas}), or against an index of the
  * project's schemas in tooling that does not boot the application.
  */
-interface SchemaCatalog
+interface ISchemaCatalog
 {
     /**
      * The vocabulary of the schema registered under $schemaKey, or null when no
      * schema is.
      */
-    public function find(string $schemaKey): ?SchemaVocabulary;
+    public function find(string $schemaKey): ?ISchemaVocabulary;
 }

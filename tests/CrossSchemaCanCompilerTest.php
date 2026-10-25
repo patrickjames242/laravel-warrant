@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalCondition;
@@ -84,7 +84,7 @@ function bindCrossSchemaRules(array $syntaxByKey): void
         $sets[$key] = $syntax instanceof RuleSetNode ? $syntax : WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
-    app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($sets) implements IRuleProvider {
         /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 

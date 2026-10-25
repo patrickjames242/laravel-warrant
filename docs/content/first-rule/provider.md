@@ -17,10 +17,10 @@ This one reads the file from step two:
 namespace App\Warrant;
 
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
-class FileRuleProvider implements RuleProvider
+class FileRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): BoundSyntax
     {

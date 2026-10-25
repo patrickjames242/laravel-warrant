@@ -7,7 +7,7 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * {@see SchemaConditionNode}. The header names the schema whose conditions and
  * abilities the names inside belong to.
  */
-interface SchemaScopedNode extends Node
+interface ISchemaScopedNode extends INode
 {
     /**
      * The key of the schema the `for` header names.

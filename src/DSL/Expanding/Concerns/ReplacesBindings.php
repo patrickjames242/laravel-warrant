@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -40,16 +40,16 @@ trait ReplacesBindings
      * binding in it comes back as the
      * same instance, so a reference keeps its identity.
      *
-     * @template T of Node
+     * @template T of INode
      * @param T $node
      * @return T
      */
-    private static function withBindingsReplaced(Node $node): Node
+    private static function withBindingsReplaced(INode $node): INode
     {
         if ($node instanceof BindingNode) {
             $value = $node->value();
 
-            return $value instanceof Node ? $value : new LiteralNode($value, $node->location);
+            return $value instanceof INode ? $value : new LiteralNode($value, $node->location);
         }
 
         $rebuilt = match (true) {
@@ -118,7 +118,7 @@ trait ReplacesBindings
     /**
      * $nodes, each with every binding in it replaced by its value.
      *
-     * @template T of Node
+     * @template T of INode
      * @param list<T> $nodes
      * @return list<T>
      */

@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * neither the schema registry nor the query grammar: the body is emitted verbatim.
  * The SQL is entirely the rule author's responsibility (table scoping, injection).
  */
-readonly class SqlRef implements Node
+readonly class SqlRef implements INode
 {
     /**
      * @param LiteralNode|BindingNode $sql The SQL as a string literal, or the

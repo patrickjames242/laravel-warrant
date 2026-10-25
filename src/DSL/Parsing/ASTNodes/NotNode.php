@@ -4,10 +4,10 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
-readonly class NotNode implements BooleanExpressionNode
+readonly class NotNode implements IBooleanExpressionNode
 {
     public function __construct(
-        public BooleanExpressionNode $operand,
+        public IBooleanExpressionNode $operand,
         public SyntaxLocation $location,
     ){
 

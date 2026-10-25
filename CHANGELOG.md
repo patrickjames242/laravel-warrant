@@ -14,7 +14,7 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 ### Changed
 
 - The schema classes are grouped by feature under `Warrant\Schema`:
-  `Abilities\` holds `Ability`, `DeclaresAbility`, `AbilityDefinition` and
+  `Abilities\` holds `Ability`, `IDeclaresAbility`, `AbilityDefinition` and
   `StandardAbilities`; `Conditions\` holds the `#[RowCondition]`,
   `#[GlobalCondition]` and `#[DerivedCondition]` attributes beside their
   contexts, `ConditionDefinition` and `ConditionKind`; `RuleTemplates\` holds
@@ -27,9 +27,12 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   and `RuleNode::hasGenericClause()` is now
   `hasGenericCanOrCannotClause()`.
 - `WarrantRuleNode` is now `RuleNode`.
-- The syntax node interfaces drop their `I`: `INode`, `IBooleanExpressionNode`,
-  `IRuleEntryNode` and `ISchemaScopedNode` are now `Node`,
-  `BooleanExpressionNode`, `RuleEntryNode` and `SchemaScopedNode`.
+- Every interface's name starts with `I`, so it can't be mistaken for a class:
+  `DeclaresAbility`, `RuleProvider`, `SchemaCatalog`, `SchemaVocabulary`,
+  `ConditionResolver` and `CompilationUnit` are now `IDeclaresAbility`,
+  `IRuleProvider`, `ISchemaCatalog`, `ISchemaVocabulary`, `IConditionResolver`
+  and `ICompilationUnit`. The syntax node interfaces keep theirs: `INode`,
+  `IBooleanExpressionNode`, `IRuleEntryNode` and `ISchemaScopedNode`.
 
 ## 4.4.0 — 2026-10-21
 

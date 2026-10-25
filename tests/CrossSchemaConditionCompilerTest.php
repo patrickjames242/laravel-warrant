@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalCondition;
@@ -75,7 +75,7 @@ function bindCheckDocRules(string|RuleSetNode $docSyntax): void
 {
     $set = $docSyntax instanceof RuleSetNode ? $docSyntax : WarrantSyntax::parse($docSyntax)->validateWithoutSchemas()->scopedTo('chk_docs');
 
-    app()->instance(RuleProvider::class, new class($set) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($set) implements IRuleProvider {
         public function __construct(private RuleSetNode $set) {}
 
         public function rules(RuleProviderContext $context): RuleSetNode

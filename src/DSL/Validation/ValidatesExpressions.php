@@ -4,15 +4,15 @@ namespace Warrant\DSL\Validation;
 
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\AliasScope;
-use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
@@ -20,7 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 
 /**
  * The checks a {@see SyntaxValidator} makes of a boolean expression: every
@@ -28,7 +28,7 @@ use Warrant\DSL\SchemaVocabulary;
  * called with at least the arguments it requires, and every cross-schema
  * `can(...)` and `check(...)` names a schema, row and alias that can work.
  *
- * Own-schema checks depend only on the schema's {@see SchemaVocabulary} — name
+ * Own-schema checks depend only on the schema's {@see ISchemaVocabulary} — name
  * existence, no SQL. A cross-schema reference is additionally resolved against
  * the catalog (by schema key) to confirm the target schema and ability exist;
  * the referenced schema's *rules* are never consulted here (they are per-user
@@ -52,7 +52,7 @@ trait ValidatesExpressions
      * names up in and no scope to place its `@column` references in, and it is
      * held to every other rule of the language.
      */
-    private function validateCondition(BooleanExpressionNode $expression, ?SchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateCondition(IBooleanExpressionNode $expression, ?ISchemaVocabulary $schema, ?string $schemaKey): void
     {
         $this->validateExpression($expression, $schema, $schema === null ? null : $this->rootScope($schema, $schemaKey));
     }
@@ -65,9 +65,9 @@ trait ValidatesExpressions
      * A capability schema is the exception — it has no model and so no table, so
      * its own key names nothing and a `@column` in its rules has nothing in scope
      * at all. The vocabulary contract does not expose a model, so this asks the
-     * richer {@see ConditionResolver} when it has one and otherwise assumes rows.
+     * richer {@see IConditionResolver} when it has one and otherwise assumes rows.
      */
-    private function rootScope(SchemaVocabulary $schema, ?string $schemaKey): AliasScope
+    private function rootScope(ISchemaVocabulary $schema, ?string $schemaKey): AliasScope
     {
         $rowless = ! $schema->describesRows();
 
@@ -87,7 +87,7 @@ trait ValidatesExpressions
      * a reference written where the scope is not known has nothing to be checked
      * against. Everything else about it is checked all the same.
      *
-     * @param SchemaVocabulary|null $vocabulary Whose conditions and abilities the
+     * @param ISchemaVocabulary|null $vocabulary Whose conditions and abilities the
      *   leaves of $node name; null when that schema is not known.
      * @param AliasScope|null $scope The frames in scope where $node is written; see
      *   {@see assertColumnRefsInScope}. Every qualifier in it is null — nothing is
@@ -97,8 +97,8 @@ trait ValidatesExpressions
      *   predicate this is, or null for a rule's own expression.
      */
     private function validateExpression(
-        BooleanExpressionNode $node,
-        ?SchemaVocabulary $vocabulary,
+        IBooleanExpressionNode $node,
+        ?ISchemaVocabulary $vocabulary,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
     ): void {
@@ -144,7 +144,7 @@ trait ValidatesExpressions
      */
     private function assertCrossSchemaCanValid(
         CrossSchemaCanNode $node,
-        ?SchemaVocabulary $vocabulary,
+        ?ISchemaVocabulary $vocabulary,
         ?AliasScope $scope,
     ): void {
         if ($node->schemaKey === null) {
@@ -157,7 +157,7 @@ trait ValidatesExpressions
         $ability = self::abilityToLookUp($node, $this->input);
 
         // A handle with no name was reported where it was read; there is no schema to look up.
-        if ($schemaKey === Node::MISSING_NAME) {
+        if ($schemaKey === INode::MISSING_NAME) {
             return;
         }
 
@@ -207,7 +207,7 @@ trait ValidatesExpressions
         $schemaKey = $node->schemaKey->name;
 
         // A handle with no name was reported where it was read; there is no schema to check the predicate against.
-        if ($schemaKey === Node::MISSING_NAME) {
+        if ($schemaKey === INode::MISSING_NAME) {
             return;
         }
 
@@ -260,7 +260,7 @@ trait ValidatesExpressions
         $ability = $node->ability;
 
         return match (true) {
-            $ability instanceof NameNode => $ability->name === Node::MISSING_NAME ? null : $ability->name,
+            $ability instanceof NameNode => $ability->name === INode::MISSING_NAME ? null : $ability->name,
             $input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundAbility($ability) === null => $ability->value(),
             default => null,
         };
@@ -276,7 +276,7 @@ trait ValidatesExpressions
      * vocabulary arrives as $vocabulary. Inside a `check(...)` predicate that is
      * the schema the handle named, not the one the rule is written on.
      */
-    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?SchemaVocabulary $vocabulary): void
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?ISchemaVocabulary $vocabulary): void
     {
         $lookedUp = self::abilityToLookUp($node, $this->input);
 
@@ -366,7 +366,7 @@ trait ValidatesExpressions
         string $builtin,
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         string $schemaKey,
-        ?SchemaVocabulary $target,
+        ?ISchemaVocabulary $target,
     ): void {
         if (! $node->isRowBound) {
             return;
@@ -408,7 +408,7 @@ trait ValidatesExpressions
         string $builtin,
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         string $schemaKey,
-        SchemaVocabulary $target,
+        ISchemaVocabulary $target,
     ): void {
         if (! $target->describesRows()) {
             $this->fail(
@@ -480,7 +480,7 @@ trait ValidatesExpressions
      */
     private function assertConditionValid(
         ConditionNode $node,
-        ?SchemaVocabulary $vocabulary,
+        ?ISchemaVocabulary $vocabulary,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
@@ -500,7 +500,7 @@ trait ValidatesExpressions
      * $vocabulary declares the condition $node names, and $node gives it at least
      * the arguments it requires.
      */
-    private function assertConditionDeclared(ConditionNode $node, SchemaVocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
+    private function assertConditionDeclared(ConditionNode $node, ISchemaVocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
     {
         $definition = $vocabulary->getConditionDefinition($node->conditionKey->name);
 
@@ -561,7 +561,7 @@ trait ValidatesExpressions
      * name itself is not checked — there is no column introspection.
      * Non-{@see ColumnRef} values are ignored.
      *
-     * @param list<Node> $arguments
+     * @param list<INode> $arguments
      * @param AliasScope|null $scope The frames in scope where these arguments are
      *   written; null when they are not known, and nothing is checked.
      */
@@ -611,7 +611,7 @@ trait ValidatesExpressions
         foreach ($entries as $entry) {
             $key = $entry->key->name;
 
-            if ($key === Node::MISSING_NAME) {
+            if ($key === INode::MISSING_NAME) {
                 continue;
             }
 
@@ -631,10 +631,10 @@ trait ValidatesExpressions
      * The values of a `with` map's entries, in the order written.
      *
      * @param list<WithEntryNode> $entries
-     * @return list<Node>
+     * @return list<INode>
      */
     private static function withValues(array $entries): array
     {
-        return array_map(static fn (WithEntryNode $entry): Node => $entry->value, $entries);
+        return array_map(static fn (WithEntryNode $entry): INode => $entry->value, $entries);
     }
 }

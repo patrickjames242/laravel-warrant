@@ -16,10 +16,10 @@ These examples show the shapes it can return and the places rules usually live.
 ```php
 namespace App\Warrant;
 
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
-class DatabaseRuleProvider implements RuleProvider
+class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): iterable
     {

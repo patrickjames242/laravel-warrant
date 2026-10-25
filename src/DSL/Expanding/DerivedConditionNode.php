@@ -2,8 +2,8 @@
 
 namespace Warrant\DSL\Expanding;
 
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
@@ -22,16 +22,16 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * It belongs to the schema whose rule or `check(...)` predicate named it, which
  * is the schema compiling it — so the node carries no schema of its own.
  */
-final readonly class DerivedConditionNode implements BooleanExpressionNode
+final readonly class DerivedConditionNode implements IBooleanExpressionNode
 {
     /**
-     * @param list<Node> $parameters The arguments as the rule wrote them,
+     * @param list<INode> $parameters The arguments as the rule wrote them,
      *   `@context` / `@column` references unresolved.
      */
     public function __construct(
         public NameNode $conditionKey,
         public array $parameters,
-        public BooleanExpressionNode $body,
+        public IBooleanExpressionNode $body,
         public SyntaxLocation $location,
     ) {
     }

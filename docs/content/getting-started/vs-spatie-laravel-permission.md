@@ -139,7 +139,7 @@ just strings, they can come from anywhere: a database, derived from UI settings,
 hardcoded. They're inline here just for the example:
 
 ```php
-class DocumentRuleProvider implements RuleProvider
+class DocumentRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): string
     {
@@ -249,9 +249,9 @@ for a resource:
 
 ```php
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 
-class DatabaseRuleProvider implements RuleProvider
+class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): string
     {

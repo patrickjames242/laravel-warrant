@@ -96,7 +96,7 @@ warrant/
 ```
 
 ```php
-class FileRuleProvider implements RuleProvider
+class FileRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): array
     {

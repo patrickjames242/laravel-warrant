@@ -17,14 +17,14 @@ The things this documentation covers as API:
 - the `Warrant` facade and the two guards;
 - `WarrantSchema` and its hooks, including `matchKey()`, `virtualTable()`,
   `rules()`, `defaultContext()`, and the denial-message hooks;
-- the attributes: `#[Ability]`, `DeclaresAbility`, `#[RowCondition]`,
+- the attributes: `#[Ability]`, `IDeclaresAbility`, `#[RowCondition]`,
   `#[GlobalCondition]`, `#[RequiredContext]`, `#[RuleTemplate]`;
 - the condition context objects and their properties;
 - `HasWarrantSchema`, its scopes, and `warrantQualifyColumn()`;
 - `WarrantSyntax` and the syntax nodes a parse returns (`RuleSetNode`,
   `RuleNode`, `AbilityBlockNode`, `IncludeInvocationNode`,
   `SchemaConditionNode` and their can/cannot clause nodes), the builders, and `Ref`;
-- `RuleProvider` and `RuleProviderContext`;
+- `IRuleProvider` and `RuleProviderContext`;
 - `WarrantMiddleware` and the registered aliases;
 - the exception classes and the denial-context objects;
 - **the rule language itself**, which is the most important one, because rule text

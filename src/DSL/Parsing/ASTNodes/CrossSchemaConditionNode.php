@@ -36,10 +36,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * Validated by {@see \Warrant\DSL\Validation\ValidatesExpressions::assertCrossSchemaConditionValid()}
  * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCheckLeaf()}.
  */
-readonly class CrossSchemaConditionNode implements BooleanExpressionNode
+readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {
     /**
-     * @param list<Node> $boundKey The handle's row-selector arguments, bound
+     * @param list<INode> $boundKey The handle's row-selector arguments, bound
      *   positionally to the target schema's row key. Empty on an unbound handle,
      *   and also on `schema()`, whose key requires no arguments.
      * @param list<WithEntryNode> $contextMap Explicit boundary context, each
@@ -56,7 +56,7 @@ readonly class CrossSchemaConditionNode implements BooleanExpressionNode
      */
     public function __construct(
         public NameNode $schemaKey,
-        public BooleanExpressionNode $predicate,
+        public IBooleanExpressionNode $predicate,
         public bool $isRowBound,
         public array $boundKey,
         public array $contextMap,

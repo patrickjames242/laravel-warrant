@@ -11,7 +11,7 @@ enum SyntaxProducerKind
     /** A schema's own `rules()`. */
     case SchemaRules;
 
-    /** The application's global `RuleProvider`. */
+    /** The application's global `IRuleProvider`. */
     case RuleProvider;
 
     /** A schema's `#[RuleTemplate]` method, answering for an `@include`. */

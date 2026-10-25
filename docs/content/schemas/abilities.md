@@ -102,17 +102,17 @@ Warrant::abilities($document);        // 'publish' is simply absent
 
 ## Your own ability attribute
 
-`#[Ability]` is one implementation of the `DeclaresAbility` interface, and
+`#[Ability]` is one implementation of the `IDeclaresAbility` interface, and
 discovery looks for the interface. Write your own when the required context follows
 from something you would rather say once than restate as a literal list on every
 constant:
 
 ```php
 use Attribute;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
-final class TenantAbility implements DeclaresAbility
+final class TenantAbility implements IDeclaresAbility
 {
     public function __construct(private bool $scopedToBranch = false) {}
 

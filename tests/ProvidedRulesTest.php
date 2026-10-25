@@ -1,11 +1,11 @@
 <?php
 
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
 
@@ -22,11 +22,11 @@ beforeEach(function () {
  */
 function rulesProvidedAs(mixed $rules): array
 {
-    app()->instance(RuleProvider::class, new class($rules) implements RuleProvider
+    app()->instance(IRuleProvider::class, new class($rules) implements IRuleProvider
     {
-        public function __construct(private RuleSetNode|RuleEntryNode|WarrantSyntax|string|iterable $rules) {}
+        public function __construct(private RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|WarrantSyntax|string|iterable
+        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable
         {
             return $this->rules;
         }

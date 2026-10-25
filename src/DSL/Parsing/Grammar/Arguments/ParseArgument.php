@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * so the key of `@context org` and the frame and column of `@column docs.org_id`
  * each have a place in the text of their own.
  *
- * @extends Parser<Node>
+ * @extends Parser<INode>
  */
 final class ParseArgument extends Parser
 {
@@ -38,7 +38,7 @@ final class ParseArgument extends Parser
         ], true);
     }
 
-    protected function read(): Node
+    protected function read(): INode
     {
         return match ($this->peek()->type) {
             TokenType::STRING,

@@ -26,17 +26,17 @@ instead.
 #[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
 ```
 
-## `DeclaresAbility`
+## `IDeclaresAbility`
 
 The interface `#[Ability]` implements, and the one discovery looks for. Any
 attribute implementing it declares an ability.
 
 ```php
 use Attribute;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
-final class TenantAbility implements DeclaresAbility
+final class TenantAbility implements IDeclaresAbility
 {
     public function __construct(private bool $scopedToBranch = false) {}
 

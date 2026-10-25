@@ -5,7 +5,7 @@ namespace Warrant\DSL\Validation;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -36,7 +36,7 @@ final class AbilityMistakes
      *
      * @return list<array{0: DiagnosticCode, 1: string, 2: SyntaxLocation}>
      */
-    public static function inWrittenLists(RuleEntryNode $entry): array
+    public static function inWrittenLists(IRuleEntryNode $entry): array
     {
         return match (true) {
             $entry instanceof RuleNode => [

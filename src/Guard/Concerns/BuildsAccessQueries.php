@@ -19,7 +19,7 @@ use Warrant\WarrantGate;
  * access-control predicates and attaches them to entity queries (row filtering
  * and per-row ability selection). All condition SQL is produced by the
  * {@see RuleSetCompiler}, which dispatches condition emission back into the
- * schema (the {@see \Warrant\DSL\ConditionResolver}).
+ * schema (the {@see \Warrant\DSL\IConditionResolver}).
  *
  * Producing a predicate and attaching one are separate steps here:
  * {@see compileGate} returns the compiled gate, whose decision() is a constant

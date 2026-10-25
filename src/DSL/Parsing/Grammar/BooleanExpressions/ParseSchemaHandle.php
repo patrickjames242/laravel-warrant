@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
 use Warrant\DSL\Parsing\Grammar\ParseName;
@@ -23,14 +23,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * of the handle's coherence, including whether the alias is allowed, since an
  * unbound handle selects nothing to name.
  *
- * @extends Parser<array{0: NameNode, 1: bool, 2: list<Node>, 3: ?NameNode}>
+ * @extends Parser<array{0: NameNode, 1: bool, 2: list<INode>, 3: ?NameNode}>
  */
 final class ParseSchemaHandle extends Parser
 {
     use ReportsMissingSyntax;
 
     /**
-     * @return array{0: NameNode, 1: bool, 2: list<Node>, 3: ?NameNode} [schemaKey, isRowBound, boundKey, alias]
+     * @return array{0: NameNode, 1: bool, 2: list<INode>, 3: ?NameNode} [schemaKey, isRowBound, boundKey, alias]
      */
     protected function read(): array
     {

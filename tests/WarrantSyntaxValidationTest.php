@@ -4,7 +4,7 @@ use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -13,15 +13,15 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
 use Warrant\Registry\RegisteredSchemas;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
 
@@ -36,11 +36,11 @@ beforeEach(function () {
  */
 function providedRulesError(mixed $rules): InvalidArgumentException
 {
-    app()->instance(RuleProvider::class, new class($rules) implements RuleProvider
+    app()->instance(IRuleProvider::class, new class($rules) implements IRuleProvider
     {
         public function __construct(private mixed $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|\Warrant\Builders\WarrantRuleBuilder|WarrantSyntax|string|iterable
+        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|\Warrant\Builders\WarrantRuleBuilder|WarrantSyntax|string|iterable
         {
             return $this->rules;
         }

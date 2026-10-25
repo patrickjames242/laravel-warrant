@@ -78,9 +78,9 @@ namespace App\Warrant;
 
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 
-class FileRuleProvider implements RuleProvider
+class FileRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): BoundSyntax
     {

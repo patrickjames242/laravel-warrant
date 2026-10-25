@@ -14,14 +14,14 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
@@ -736,7 +736,7 @@ it('bounds a runaway template reached through a hop by the same expansion depth 
         'template_hops' => WarrantSyntax::parse('@include loops for publish')->validateWithoutSchemas()->scopedTo('template_hops'),
     ];
 
-    app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($sets) implements IRuleProvider {
         /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 
@@ -792,9 +792,9 @@ it('rejects too few include arguments from rule text', function () {
 
 it('reports an unknown template over its name, and too few arguments over the include, in an analysis', function () {
     $source = "for course_sections {\n  @include nope for view\n  can they view { @include needs_two('a') }\n}";
-    $catalog = new class implements SchemaCatalog
+    $catalog = new class implements ISchemaCatalog
     {
-        public function find(string $schemaKey): ?SchemaVocabulary
+        public function find(string $schemaKey): ?ISchemaVocabulary
         {
             return $schemaKey === 'course_sections' ? new TemplateExpansionSchema : null;
         }

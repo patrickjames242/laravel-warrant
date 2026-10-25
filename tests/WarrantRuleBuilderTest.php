@@ -11,7 +11,7 @@ use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
-use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -46,7 +46,7 @@ final class BuilderTestUser implements Authenticatable
     public function getRememberTokenName(): ?string { return null; }
 }
 
-final class BuilderFakeResolver implements ConditionResolver
+final class BuilderFakeResolver implements IConditionResolver
 {
     public static function schemaKey(): string { return 'builder-fake'; }
     public static function modelClass(): string { return CompilerDocModel::class; }

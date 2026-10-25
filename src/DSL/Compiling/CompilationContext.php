@@ -5,16 +5,16 @@ namespace Warrant\DSL\Compiling;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\Compiling\Units\AbilityUnit;
-use Warrant\DSL\Compiling\Units\CompilationUnit;
+use Warrant\DSL\Compiling\Units\ICompilationUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\WarrantGate;
 
 /**
  * Everything one call to {@see RuleSetCompiler::compile()} needs, and everything
- * the walk derives on the way down: the {@see CompilationUnit} being compiled,
+ * the walk derives on the way down: the {@see ICompilationUnit} being compiled,
  * the check-time facts that are the same for all three kinds of unit, the
  * {@see CallStack} of layers already descended through, and whether the subtree
  * being built sits under a `not`.
@@ -102,7 +102,7 @@ final readonly class CompilationContext
      *   frame it is building.
      */
     public function __construct(
-        public CompilationUnit $unit,
+        public ICompilationUnit $unit,
         public QueryFactory $queries,
         public Authenticatable $user,
         public bool $targeted = false,
@@ -146,7 +146,7 @@ final readonly class CompilationContext
     public static function condition(
         QueryFactory $queries,
         Authenticatable $user,
-        ?BooleanExpressionNode $condition,
+        ?IBooleanExpressionNode $condition,
     ): self {
         return new self(new ConditionUnit($condition), $queries, $user);
     }
@@ -216,7 +216,7 @@ final readonly class CompilationContext
      * @param array<string, mixed>|null $checkContext
      */
     private function with(
-        ?CompilationUnit $unit = null,
+        ?ICompilationUnit $unit = null,
         ?bool $targeted = null,
         ?Model $targetModel = null,
         ?array $checkContext = null,

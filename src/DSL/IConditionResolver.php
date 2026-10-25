@@ -11,11 +11,11 @@ use Illuminate\Database\Query\Builder;
  * compiler only knows how to assemble boolean structure and the deny-overrides
  * formula; emitting a condition's SQL is delegated here.
  *
- * Extends {@see SchemaVocabulary}: the declared abilities and conditions (including
- * whether a condition is a row condition, via {@see SchemaVocabulary::getConditionDefinition})
+ * Extends {@see ISchemaVocabulary}: the declared abilities and conditions (including
+ * whether a condition is a row condition, via {@see ISchemaVocabulary::getConditionDefinition})
  * are pure vocabulary, shared with validation — which needs nothing more.
  */
-interface ConditionResolver extends SchemaVocabulary
+interface IConditionResolver extends ISchemaVocabulary
 {
     /**
      * The schema's key. Used by the compiler to seed the cross-schema cycle

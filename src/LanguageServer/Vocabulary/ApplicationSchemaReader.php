@@ -8,7 +8,7 @@ use ReflectionClass;
 use ReflectionMethod;
 use Throwable;
 use Warrant\Schema\Abilities\AbilityDefinition;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
@@ -221,7 +221,7 @@ final class ApplicationSchemaReader
     private static function constantLocation(ReflectionClass $class, string $ability): array
     {
         foreach ($class->getReflectionConstants() as $constant) {
-            if ($constant->getValue() !== $ability || $constant->getAttributes(DeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF) === []) {
+            if ($constant->getValue() !== $ability || $constant->getAttributes(IDeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF) === []) {
                 continue;
             }
 

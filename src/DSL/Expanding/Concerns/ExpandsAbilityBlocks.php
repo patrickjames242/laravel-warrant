@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 
 /**
@@ -31,7 +31,7 @@ trait ExpandsAbilityBlocks
      */
     private function expandAbilityBlock(
         AbilityBlockNode $block,
-        SchemaVocabulary $schema,
+        ISchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {

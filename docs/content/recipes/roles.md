@@ -61,7 +61,7 @@ class DocumentSchema extends WarrantSchema
 ## The provider
 
 ```php
-class RoleRuleProvider implements RuleProvider
+class RoleRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): iterable
     {
@@ -88,7 +88,7 @@ Which compiles, for `view`, to an unconditional grant, and for `approve`, to
 If your roles rarely change and belong in version control, skip the table:
 
 ```php
-class RoleRuleProvider implements RuleProvider
+class RoleRuleProvider implements IRuleProvider
 {
     private const RULES = [
         'viewer'   => ['documents' => 'they can view'],

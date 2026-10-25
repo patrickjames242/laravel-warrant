@@ -11,7 +11,7 @@ use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
-use Warrant\DSL\ConditionResolver;
+use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
@@ -66,7 +66,7 @@ final class CompilerDocModel extends EloquentModel
  *  - is_owner(id) (targeted, param) : id = param[0]
  *  - is_admin     (no-target bool)  : role === 'admin'
  */
-final class FakeConditionResolver implements ConditionResolver
+final class FakeConditionResolver implements IConditionResolver
 {
     private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true, 'adds_nothing' => true];
 

@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Compiling\Units;
 
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 
 /**
  * A bare expression tree, compiled in isolation without the deny-overrides
@@ -15,10 +15,10 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
  *
  * A null condition — an unconditional `cannot` — always matches.
  */
-final readonly class ConditionUnit implements CompilationUnit
+final readonly class ConditionUnit implements ICompilationUnit
 {
     public function __construct(
-        public ?BooleanExpressionNode $condition,
+        public ?IBooleanExpressionNode $condition,
     ) {
     }
 }

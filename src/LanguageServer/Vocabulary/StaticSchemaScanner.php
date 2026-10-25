@@ -9,7 +9,7 @@ use Warrant\LanguageServer\Php\PhpMember;
 use Warrant\LanguageServer\Php\PhpSourceReader;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Abilities\AbilityDefinition;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\Conditions\DerivedCondition;
@@ -361,14 +361,14 @@ final class StaticSchemaScanner
 
     /**
      * The attribute declaring $constant an ability: {@see Ability}, or an
-     * attribute of the project's own that implements {@see DeclaresAbility}.
+     * attribute of the project's own that implements {@see IDeclaresAbility}.
      *
      * @param PhpMember $constant A class constant.
      */
     private function abilityAttribute(PhpMember $constant): ?PhpAttribute
     {
         foreach ($constant->attributes as $attribute) {
-            if ($attribute->name === Ability::class || $this->implements($attribute->name, DeclaresAbility::class)) {
+            if ($attribute->name === Ability::class || $this->implements($attribute->name, IDeclaresAbility::class)) {
                 return $attribute;
             }
         }

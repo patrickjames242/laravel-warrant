@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\SchemaCatalog;
+use Warrant\DSL\ISchemaCatalog;
 
 /**
  * What rule text is validated against, beyond the text itself: the schemas it
@@ -21,7 +21,7 @@ use Warrant\DSL\SchemaCatalog;
 final readonly class ValidationInput
 {
     /**
-     * @param SchemaCatalog|null $catalog Where the schema each `for` header
+     * @param ISchemaCatalog|null $catalog Where the schema each `for` header
      *   names is found, and the schemas cross-schema references name; null when
      *   no schema can be known, so the text is held only to the rules of the
      *   language that need none, and no header is reported as unknown.
@@ -33,7 +33,7 @@ final readonly class ValidationInput
      *   validated; null when nothing had handed it over.
      */
     public function __construct(
-        public ?SchemaCatalog $catalog,
+        public ?ISchemaCatalog $catalog,
         public bool $checkBindingValues = true,
         public ?SyntaxProducer $producer = null,
     ) {

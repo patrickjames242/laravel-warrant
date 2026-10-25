@@ -81,7 +81,7 @@ file. Building rules in PHP starts from `Warrant\Builders\Build` instead; see
 [the rule builder API](/reference/rule-builder/).
 
 ```php
-Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();             // BooleanExpressionNode
+Warrant::parse('is_owner or is_admin')->validate()->conditionExpression();             // IBooleanExpressionNode
 Warrant::parse('if is_mine they can view')->validate()->rule();                        // RuleNode
 Warrant::parse('if is_mine they can view')->validate()->scopedTo('documents');         // RuleSetNode
 Warrant::parse('for documents { they can view }')->validate()->ruleSet();              // RuleSetNode

@@ -3,10 +3,10 @@
 namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Expanding\Expander;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 
 /**
  * Finds every mistake in one text as its author wrote it, against the schema
@@ -145,8 +145,8 @@ final class SyntaxValidator
                     $child->schemaKey(),
                 ),
                 $child instanceof SchemaConditionNode => $this->validateCondition($child->expression, $this->schemaNamedBy($child), $child->schemaKey()),
-                $child instanceof RuleEntryNode => $headerless[] = $child,
-                $child instanceof BooleanExpressionNode => $this->validateCondition($child, $producerSchema, $producerSchemaKey),
+                $child instanceof IRuleEntryNode => $headerless[] = $child,
+                $child instanceof IBooleanExpressionNode => $this->validateCondition($child, $producerSchema, $producerSchemaKey),
                 default => null,
             };
         }
@@ -160,10 +160,10 @@ final class SyntaxValidator
      * The schema $body's `for` header names, as the catalog has it. A header
      * naming no schema the catalog holds is a mistake.
      */
-    private function schemaNamedBy(SchemaScopedNode $body): ?SchemaVocabulary
+    private function schemaNamedBy(ISchemaScopedNode $body): ?ISchemaVocabulary
     {
         // A header with no name was reported where it was read; there is no schema to look up.
-        if ($body->schemaKey() === Node::MISSING_NAME || $this->input->catalog === null) {
+        if ($body->schemaKey() === INode::MISSING_NAME || $this->input->catalog === null) {
             return null;
         }
 

@@ -2,7 +2,7 @@
 
 namespace Warrant\LanguageServer\Vocabulary;
 
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
@@ -16,7 +16,7 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
  * against it exactly as against the schema, and it keeps where each name is
  * declared for hover and go-to-definition.
  */
-final readonly class IndexedSchema implements SchemaVocabulary
+final readonly class IndexedSchema implements ISchemaVocabulary
 {
     /**
      * @param string $key The key the schema is registered under.

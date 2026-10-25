@@ -5,7 +5,7 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -20,7 +20,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  *
  * Each `and` / `or` node is placed from its first operand to its last.
  *
- * @extends Parser<BooleanExpressionNode>
+ * @extends Parser<IBooleanExpressionNode>
  */
 final class ParseBooleanExpression extends Parser
 {
@@ -31,7 +31,7 @@ final class ParseBooleanExpression extends Parser
         return ParseBooleanOperand::startsHere($ahead);
     }
 
-    protected function read(): BooleanExpressionNode
+    protected function read(): IBooleanExpressionNode
     {
         $start = $this->peek();
         $operand = $this->parse(ParseBooleanOperand::class)->value;
@@ -54,10 +54,10 @@ final class ParseBooleanExpression extends Parser
 
     private static function join(
         TokenType $operator,
-        BooleanExpressionNode $left,
-        BooleanExpressionNode $right,
+        IBooleanExpressionNode $left,
+        IBooleanExpressionNode $right,
         SyntaxLocation $location,
-    ): BooleanExpressionNode {
+    ): IBooleanExpressionNode {
         return match ($operator) {
             TokenType::OR => new OrNode($left, $right, $location),
             TokenType::AND => new AndNode($left, $right, $location),
@@ -68,7 +68,7 @@ final class ParseBooleanExpression extends Parser
      * Join $left, which starts at $start, to the operators after it that bind
      * at least as tightly as $minimum.
      */
-    private function joinOperators(BooleanExpressionNode $left, Token $start, int $minimum): BooleanExpressionNode
+    private function joinOperators(IBooleanExpressionNode $left, Token $start, int $minimum): IBooleanExpressionNode
     {
         while (($precedence = self::precedence($this->peek()->type)) !== null && $precedence >= $minimum) {
             $operator = $this->advance()->type;

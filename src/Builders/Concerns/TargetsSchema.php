@@ -4,7 +4,7 @@ namespace Warrant\Builders\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Warrant\Builders\NoRow;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -88,7 +88,7 @@ trait TargetsSchema
      * Keys are dropped from an associative array: arguments bind positionally to
      * the key's parameters, exactly as a condition's do.
      *
-     * @return list<Node>
+     * @return list<INode>
      */
     private function keyArgumentNodes(SyntaxSource $source): array
     {
@@ -98,7 +98,7 @@ trait TargetsSchema
 
         $arguments = is_array($this->key) ? array_values($this->key) : [$this->key];
 
-        return array_map(fn (mixed $argument): Node => self::argumentNode($argument, $source), $arguments);
+        return array_map(fn (mixed $argument): INode => self::argumentNode($argument, $source), $arguments);
     }
 
     /** @return list<WithEntryNode> */

@@ -11,7 +11,7 @@ use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\Abilities\AbilityDefinition;
-use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\Conditions\DerivedCondition;
@@ -600,7 +600,7 @@ trait ReflectsSchemaDefinition
 
     /**
      * The abilities declared by the schema, resolved to {@see AbilityDefinition}
-     * objects from the constants carrying a {@see DeclaresAbility} attribute — `#[Ability]`,
+     * objects from the constants carrying an {@see IDeclaresAbility} attribute — `#[Ability]`,
      * or an attribute of the author's own implementing the same interface. The
      * single source of truth every other ability accessor projects from. Throws if
      * a name is declared more than once.
@@ -616,7 +616,7 @@ trait ReflectsSchemaDefinition
 
         $definitions = collect($reflection->getReflectionConstants())
             ->map(function (ReflectionClassConstant $constant): ?AbilityDefinition {
-                $attributes = $constant->getAttributes(DeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF);
+                $attributes = $constant->getAttributes(IDeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF);
 
                 if ($attributes === []) {
                     return null;

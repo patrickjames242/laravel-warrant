@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
  * splices in, so a constant folds across both boundaries instead of stopping at
  * a `1 = 1`.
  */
-final readonly class AbilityUnit implements CompilationUnit
+final readonly class AbilityUnit implements ICompilationUnit
 {
     public function __construct(
         public string $ability,

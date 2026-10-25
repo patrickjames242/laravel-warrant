@@ -14,7 +14,7 @@ use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -23,7 +23,7 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Schema\Conditions\ConditionDefinition;
 
@@ -44,7 +44,7 @@ trait ExpandsDerivedConditions
     private function expandDerivedCondition(
         ConditionNode $node,
         ConditionDefinition $definition,
-        SchemaVocabulary $schema,
+        ISchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): DerivedConditionNode {
@@ -94,7 +94,7 @@ trait ExpandsDerivedConditions
      *
      * @param array<string, mixed> $parametersUsableAsBindings
      */
-    private function derivedExpression(mixed $answer, SyntaxProducer $producer, string $schemaKey, array $parametersUsableAsBindings): BooleanExpressionNode
+    private function derivedExpression(mixed $answer, SyntaxProducer $producer, string $schemaKey, array $parametersUsableAsBindings): IBooleanExpressionNode
     {
         if (is_string($answer)) {
             $answer = self::withParameterBindings($answer, $parametersUsableAsBindings);
@@ -106,7 +106,7 @@ trait ExpandsDerivedConditions
 
         /* A constant built here is held in a source of its own, so it keeps
            no producer. */
-        $source = $answer instanceof BooleanExpressionNode ? $answer->location->source : new SyntaxSource(null);
+        $source = $answer instanceof IBooleanExpressionNode ? $answer->location->source : new SyntaxSource(null);
         $expression = $this->derivedNodeExpression($answer, $producer, $source);
         $source->setProducer($producer);
 
@@ -126,7 +126,7 @@ trait ExpandsDerivedConditions
      * rule text. A builder is resolved in $source. A constant it answered with
      * is a node built here, with no text and no producer.
      */
-    private function derivedNodeExpression(mixed $answer, SyntaxProducer $producer, SyntaxSource $source): BooleanExpressionNode
+    private function derivedNodeExpression(mixed $answer, SyntaxProducer $producer, SyntaxSource $source): IBooleanExpressionNode
     {
         if ($answer instanceof CrossSchemaCanBuilder || $answer instanceof CrossSchemaCheckBuilder) {
             return $answer->toNode($source);
@@ -145,7 +145,7 @@ trait ExpandsDerivedConditions
         }
 
         return match (true) {
-            $answer instanceof BooleanExpressionNode => $answer,
+            $answer instanceof IBooleanExpressionNode => $answer,
             is_bool($answer) => new BooleanNode($answer, SyntaxLocation::noProducer()),
             $answer === null => new UnknownNode(SyntaxLocation::noProducer()),
             default => throw new RuntimeException(sprintf(
@@ -171,7 +171,7 @@ trait ExpandsDerivedConditions
      * is expanded and compiled against this one, so a header naming another is
      * rejected rather than read against the wrong vocabulary.
      */
-    private function derivedSyntaxExpression(BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): BooleanExpressionNode
+    private function derivedSyntaxExpression(BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
     {
         try {
             if (! $text instanceof WarrantSyntax) {

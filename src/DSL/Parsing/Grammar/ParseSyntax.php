@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\LooksAheadAtRuleEntries;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -15,7 +15,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * the text took is what they are. A text that starts with `{` is blocks whose
  * first is missing its `for <schema>` header.
  *
- * @extends Parser<list<Node>>
+ * @extends Parser<list<INode>>
  */
 final class ParseSyntax extends Parser
 {
@@ -23,7 +23,7 @@ final class ParseSyntax extends Parser
     use LooksAheadAtRuleEntries;
 
     /**
-     * @return list<Node>
+     * @return list<INode>
      */
     protected function read(): array
     {

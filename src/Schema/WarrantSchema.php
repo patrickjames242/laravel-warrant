@@ -7,14 +7,14 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\ConditionResolver;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\IConditionResolver;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
@@ -27,7 +27,7 @@ use Warrant\Schema\Denials\WarrantUngrantedContext;
  * A Warrant schema declares the vocabulary a rule string may reference for one
  * entity: its abilities (`#[Ability]` constants) and its conditions
  * (`#[RowCondition]` / `#[GlobalCondition]` methods, which emit SQL). Rules come
- * from the optional global {@see \Warrant\Rules\RuleProvider} and from this
+ * from the optional global {@see \Warrant\Rules\IRuleProvider} and from this
  * schema's own {@see rules()}, merged into one
  * {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode} compiled against this schema.
  *
@@ -40,13 +40,13 @@ use Warrant\Schema\Denials\WarrantUngrantedContext;
  *
  * The definition is split across concerns:
  *  - {@see ReflectsSchemaDefinition} — discovering abilities/conditions via reflection;
- *  - {@see ResolvesConditions}       — the ConditionResolver seam + ability validation;
+ *  - {@see ResolvesConditions}       — the IConditionResolver seam + ability validation;
  *  - {@see ResolvesContext}          — merging/enforcing the schema's context policy.
  *
  * This class itself carries the configuration constants, the instance lifecycle,
  * and the author-facing override hooks the engine consults.
  */
-abstract class WarrantSchema implements ConditionResolver
+abstract class WarrantSchema implements IConditionResolver
 {
     use ReflectsSchemaDefinition;
     use ResolvesConditions;
@@ -81,7 +81,7 @@ abstract class WarrantSchema implements ConditionResolver
     public const key = '';
 
     /**
-     * The {@see ConditionResolver} view of {@see model}, so the compiler can tell
+     * The {@see IConditionResolver} view of {@see model}, so the compiler can tell
      * whether this schema has rows at all without being handed the answer.
      *
      * @return class-string<Model>|''
@@ -225,7 +225,7 @@ abstract class WarrantSchema implements ConditionResolver
 
     /**
      * This schema's own rules, merged ahead of whatever the global
-     * {@see RuleProvider} returns (when one is configured) before compilation, so
+     * {@see IRuleProvider} returns (when one is configured) before compilation, so
      * they are validated and compiled exactly like provider rules (deny-overrides
      * still applies across both). Without a global provider, these are the rules.
      *
@@ -248,7 +248,7 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * Called once per guard, which is fixed to one (schema, user).
      *
-     * @return RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
+     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
     public function rules(RuleProviderContext $context): mixed
     {

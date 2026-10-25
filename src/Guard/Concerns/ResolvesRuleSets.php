@@ -5,7 +5,7 @@ namespace Warrant\Guard\Concerns;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -15,12 +15,12 @@ use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Registry\RegisteredSchemas;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
 /**
  * The rules that govern this guard's user's access to the managed entity: what
- * the schema's own `rules()` and the bound {@see RuleProvider}, if any, answer
+ * the schema's own `rules()` and the bound {@see IRuleProvider}, if any, answer
  * with, each validated as written ({@see ValidSyntax}) and then expanded
  * together into one {@see ExpandedSyntax}, the schema's first. The provider may
  * answer with rules for any schema, of which only this schema's are kept; the
@@ -56,8 +56,8 @@ trait ResolvesRuleSets
 
         $answers = $this->validated($this->schema->rules($context), SyntaxProducer::schemaRules($schemaKey, $this->schema::class));
 
-        if (app()->bound(RuleProvider::class)) {
-            $provider = app(RuleProvider::class);
+        if (app()->bound(IRuleProvider::class)) {
+            $provider = app(IRuleProvider::class);
 
             array_push($answers, ...$this->validated($provider->rules($context), SyntaxProducer::ruleProvider($schemaKey, $provider::class)));
         }
@@ -94,7 +94,7 @@ trait ResolvesRuleSets
             $rules = $rules->toRule();
         }
 
-        if ($rules instanceof RuleEntryNode || $rules instanceof RuleSetNode) {
+        if ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
             $rules = new WarrantSyntax([$rules], $rules->location->source);
         }
 

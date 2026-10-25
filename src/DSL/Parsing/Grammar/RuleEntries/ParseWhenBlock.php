@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
@@ -46,7 +46,7 @@ final class ParseWhenBlock extends Parser
     /**
      * The `otherwise` body after the block's, or null when there is none.
      *
-     * @return list<RuleEntryNode>|null
+     * @return list<IRuleEntryNode>|null
      */
     private function otherwiseEntries(): ?array
     {
@@ -70,7 +70,7 @@ final class ParseWhenBlock extends Parser
     }
 
     /**
-     * @return list<RuleEntryNode>
+     * @return list<IRuleEntryNode>
      */
     private function body(string $unopened, string $unclosed): array
     {

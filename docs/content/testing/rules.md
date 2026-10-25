@@ -17,11 +17,11 @@ production rule store:
 
 ```php
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 
 function bindRules(string $syntax, string $schemaKey = 'documents'): void
 {
-    app()->instance(RuleProvider::class, new class($syntax, $schemaKey) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($syntax, $schemaKey) implements IRuleProvider {
         public function __construct(private string $syntax, private string $schemaKey) {}
 
         public function rules(RuleProviderContext $context): string

@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
@@ -284,7 +284,7 @@ function bindRchRules(array $syntaxByKey): void
         $sets[$key] = WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($key);
     }
 
-    app()->instance(RuleProvider::class, new class($sets) implements RuleProvider {
+    app()->instance(IRuleProvider::class, new class($sets) implements IRuleProvider {
         /** @param array<string, RuleSetNode> $sets */
         public function __construct(private array $sets) {}
 

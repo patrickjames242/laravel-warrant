@@ -22,8 +22,8 @@ use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\SchemaCatalog;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
@@ -42,9 +42,9 @@ require_once __DIR__.'/Support/TestSupport.php';
  */
 function languageRuleErrors(string $syntax): array
 {
-    $noSchemas = new class implements SchemaCatalog
+    $noSchemas = new class implements ISchemaCatalog
     {
-        public function find(string $schemaKey): ?SchemaVocabulary
+        public function find(string $schemaKey): ?ISchemaVocabulary
         {
             return null;
         }

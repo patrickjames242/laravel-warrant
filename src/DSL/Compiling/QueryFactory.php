@@ -19,7 +19,7 @@ use Illuminate\Database\Query\Expression;
  *
  * The guarantee is narrow and worth stating plainly. This protects the specific
  * builder the caller passed in. Every builder the compiler *creates* is still
- * handed out raw — to {@see \Warrant\DSL\ConditionResolver::applyCondition()},
+ * handed out raw — to {@see \Warrant\DSL\IConditionResolver::applyCondition()},
  * which mutates it by contract, and to callers through
  * {@see CompilationResult::toQuery()}. What the wrapper buys is not safety from
  * a bug that exists today, but a name for what the compiler actually needs, so

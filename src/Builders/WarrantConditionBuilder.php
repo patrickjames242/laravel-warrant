@@ -8,7 +8,7 @@ use Warrant\Builders\Concerns\PlacesNodes;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -45,7 +45,7 @@ class WarrantConditionBuilder
 {
     use PlacesNodes;
 
-    /** @var list<array{boolean: string, node: Closure(SyntaxSource): BooleanExpressionNode}> */
+    /** @var list<array{boolean: string, node: Closure(SyntaxSource): IBooleanExpressionNode}> */
     private array $terms = [];
 
     // -- condition terms ------------------------------------------------------
@@ -53,7 +53,7 @@ class WarrantConditionBuilder
     /**
      * Add a condition, AND-joined to what precedes it (the default connective).
      *
-     * @param string|Closure(WarrantConditionBuilder):mixed|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition
+     * @param string|Closure(WarrantConditionBuilder):mixed|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition
      *   A condition name; a closure that receives a fresh condition builder to
      *   compose a parenthesized group, its return value ignored; a bool, folded
      *   into the tree as a constant; a condition builder, spliced in as a group,
@@ -62,37 +62,37 @@ class WarrantConditionBuilder
      * @param array<int, mixed> $parameters The condition's arguments; only a
      *   condition name takes them.
      */
-    public function if(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function if(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('and', false, $condition, $parameters);
     }
 
     /** @param array<int, mixed> $parameters */
-    public function andIf(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function andIf(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('and', false, $condition, $parameters);
     }
 
     /** @param array<int, mixed> $parameters */
-    public function orIf(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function orIf(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('or', false, $condition, $parameters);
     }
 
     /** @param array<int, mixed> $parameters */
-    public function ifNot(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function ifNot(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('and', true, $condition, $parameters);
     }
 
     /** @param array<int, mixed> $parameters */
-    public function andIfNot(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function andIfNot(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('and', true, $condition, $parameters);
     }
 
     /** @param array<int, mixed> $parameters */
-    public function orIfNot(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
+    public function orIfNot(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = []): static
     {
         return $this->addTerm('or', true, $condition, $parameters);
     }
@@ -249,7 +249,7 @@ class WarrantConditionBuilder
      * precedence, every node placed in $source. Returns null when there are no
      * terms (an unconditional rule).
      */
-    public function buildConditions(SyntaxSource $source): ?BooleanExpressionNode
+    public function buildConditions(SyntaxSource $source): ?IBooleanExpressionNode
     {
         if ($this->terms === []) {
             return null;
@@ -276,7 +276,7 @@ class WarrantConditionBuilder
     /**
      * @param array<int, mixed> $parameters
      */
-    private function addTerm(string $boolean, bool $negate, string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters): static
+    private function addTerm(string $boolean, bool $negate, string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters): static
     {
         if ($parameters !== [] && ! is_string($condition)) {
             throw new LogicException(sprintf(
@@ -298,17 +298,17 @@ class WarrantConditionBuilder
         }
 
         $node = match (true) {
-            is_string($condition) => fn (SyntaxSource $source): BooleanExpressionNode => new ConditionNode(
+            is_string($condition) => fn (SyntaxSource $source): IBooleanExpressionNode => new ConditionNode(
                 self::nameNode($condition, $source),
                 array_map(fn (mixed $parameter) => self::argumentNode($parameter, $source), array_values($parameters)),
                 self::location($source),
             ),
-            is_bool($condition) => fn (SyntaxSource $source): BooleanExpressionNode => new BooleanNode($condition, self::location($source)),
+            is_bool($condition) => fn (SyntaxSource $source): IBooleanExpressionNode => new BooleanNode($condition, self::location($source)),
             $condition instanceof CrossSchemaCheckBuilder => $condition->assertComplete()->toNode(...),
             $condition instanceof CrossSchemaCanBuilder => $condition->toNode(...),
-            $condition instanceof WarrantConditionBuilder => fn (SyntaxSource $source): BooleanExpressionNode => $condition->buildConditions($source)
+            $condition instanceof WarrantConditionBuilder => fn (SyntaxSource $source): IBooleanExpressionNode => $condition->buildConditions($source)
                 ?? new BooleanNode(false, self::location($source)),
-            default => fn (): BooleanExpressionNode => $condition,
+            default => fn (): IBooleanExpressionNode => $condition,
         };
 
         return $this->pushTerm($boolean, $negate, $node);
@@ -366,19 +366,19 @@ class WarrantConditionBuilder
             ->validateWithoutSchemas()
             ->conditionExpression();
 
-        return $this->pushTerm($boolean, $negate, fn (): BooleanExpressionNode => $node);
+        return $this->pushTerm($boolean, $negate, fn (): IBooleanExpressionNode => $node);
     }
 
     /**
      * Append an operand to the flat term sequence, made in the source the
      * builder is resolved in.
      *
-     * @param Closure(SyntaxSource): BooleanExpressionNode $node
+     * @param Closure(SyntaxSource): IBooleanExpressionNode $node
      */
     private function pushTerm(string $boolean, bool $negate, Closure $node): static
     {
         if ($negate) {
-            $node = fn (SyntaxSource $source): BooleanExpressionNode => new NotNode($node($source), self::location($source));
+            $node = fn (SyntaxSource $source): IBooleanExpressionNode => new NotNode($node($source), self::location($source));
         }
 
         $this->terms[] = ['boolean' => $boolean, 'node' => $node];
@@ -387,9 +387,9 @@ class WarrantConditionBuilder
     }
 
     /**
-     * @param list<BooleanExpressionNode> $nodes
+     * @param list<IBooleanExpressionNode> $nodes
      */
-    private function foldAnd(array $nodes, SyntaxSource $source): BooleanExpressionNode
+    private function foldAnd(array $nodes, SyntaxSource $source): IBooleanExpressionNode
     {
         $accumulator = array_shift($nodes);
 
@@ -401,9 +401,9 @@ class WarrantConditionBuilder
     }
 
     /**
-     * @param list<BooleanExpressionNode> $nodes
+     * @param list<IBooleanExpressionNode> $nodes
      */
-    private function foldOr(array $nodes, SyntaxSource $source): BooleanExpressionNode
+    private function foldOr(array $nodes, SyntaxSource $source): IBooleanExpressionNode
     {
         $accumulator = array_shift($nodes);
 

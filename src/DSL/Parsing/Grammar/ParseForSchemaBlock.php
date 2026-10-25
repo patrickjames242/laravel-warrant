@@ -3,10 +3,10 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\Node;
-use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -29,7 +29,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * the node, so the body is read here rather than by a parser of its own, which
  * would place the node from where the body starts.
  *
- * @extends Parser<SchemaScopedNode>
+ * @extends Parser<ISchemaScopedNode>
  */
 final class ParseForSchemaBlock extends Parser
 {
@@ -45,11 +45,11 @@ final class ParseForSchemaBlock extends Parser
         return $ahead->nextIs(TokenType::FOR) || $ahead->nextIs(TokenType::LBRACE);
     }
 
-    protected function read(): SchemaScopedNode
+    protected function read(): ISchemaScopedNode
     {
         if ($this->check(TokenType::LBRACE)) {
             $this->report($this->errorAtCurrent(DiagnosticCode::BlockWithoutHeader, 'A `{ ... }` block needs a `for <schema>` header before it.'));
-            $schemaKey = new NameNode(Node::MISSING_NAME, $this->emptyLocationHere());
+            $schemaKey = new NameNode(INode::MISSING_NAME, $this->emptyLocationHere());
         } else {
             $this->advance(); // consume 'for'
             $schemaKey = $this->nameOrMissing('a schema name after `for`');
@@ -75,9 +75,9 @@ final class ParseForSchemaBlock extends Parser
      *
      * @param string $unexpectedToken The error for a token after the body that
      *   should not be there, as {@see ParseRuleEntries} takes it.
-     * @return list<RuleEntryNode>|BooleanExpressionNode
+     * @return list<IRuleEntryNode>|IBooleanExpressionNode
      */
-    private function body(string $unexpectedToken): array|BooleanExpressionNode
+    private function body(string $unexpectedToken): array|IBooleanExpressionNode
     {
         if ($this->check(TokenType::EOF) || $this->check(TokenType::RBRACE) || $this->ruleEntryAhead()) {
             return $this->parse(new ParseRuleEntries($unexpectedToken))->value;
@@ -93,9 +93,9 @@ final class ParseForSchemaBlock extends Parser
      *
      * @param NameNode $schemaKey The schema the block's header names, which the
      *   node is scoped to.
-     * @param list<RuleEntryNode>|BooleanExpressionNode $body
+     * @param list<IRuleEntryNode>|IBooleanExpressionNode $body
      */
-    private function scoped(NameNode $schemaKey, array|BooleanExpressionNode $body): SchemaScopedNode
+    private function scoped(NameNode $schemaKey, array|IBooleanExpressionNode $body): ISchemaScopedNode
     {
         if (is_array($body)) {
             return new RuleSetNode($schemaKey, $body, $this->locationEndingHere());

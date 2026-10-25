@@ -84,7 +84,7 @@ if is_admin they can *
 You can return any rule you want to for any entity in this global rule provider. You can fetch them from the database, derive them from some ui settings, or simply hard code them in your app.
 
 ```php
-class DatabaseRuleProvider implements RuleProvider
+class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): RuleSetNode
     {

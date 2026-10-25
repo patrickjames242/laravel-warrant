@@ -172,10 +172,10 @@ namespace App\Warrant;
 
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Rules\RuleProvider;
+use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
-class DatabaseRuleProvider implements RuleProvider
+class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): RuleSetNode
     {

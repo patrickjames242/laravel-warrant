@@ -18,7 +18,7 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\SchemaVocabulary;
+use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
@@ -40,7 +40,7 @@ trait ExpandsRuleTemplates
      */
     private function expandInclude(
         IncludeInvocationNode $include,
-        SchemaVocabulary $schema,
+        ISchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {
@@ -199,7 +199,7 @@ trait ExpandsRuleTemplates
      * one the include gives too few arguments.
      */
     private static function resolveTemplate(
-        SchemaVocabulary $schema,
+        ISchemaVocabulary $schema,
         string $schemaKey,
         IncludeInvocationNode $include,
     ): RuleTemplateDefinition {
