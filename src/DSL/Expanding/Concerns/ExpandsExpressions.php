@@ -7,7 +7,7 @@ use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\SchemaVocabulary;
@@ -25,11 +25,11 @@ trait ExpandsExpressions
      * $schema. A subtree with nothing to expand comes back as the same instance.
      */
     private function expandExpression(
-        IBooleanExpressionNode $node,
+        BooleanExpressionNode $node,
         SchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
-    ): IBooleanExpressionNode {
+    ): BooleanExpressionNode {
         if ($node instanceof AndNode || $node instanceof OrNode) {
             $left = $this->expandExpression($node->leftSide, $schema, $schemaKey, $trail);
             $right = $this->expandExpression($node->rightSide, $schema, $schemaKey, $trail);

@@ -12,19 +12,19 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * `@include` names them. Its {@see $abilities} are then empty until
  * {@see RuleNode::withAbilities()} applies the enclosing ones.
  */
-readonly class CanClauseNode implements INode
+readonly class CanClauseNode implements Node
 {
     /**
      * @param list<NameNode|BindingNode> $abilities Granted ability names (or
      *   `*`), and bindings whose values name them until expansion puts those
      *   names in their place; empty on a generic clause.
-     * @param INode|null $message A denial message written after `because`, which a
+     * @param Node|null $message A denial message written after `because`, which a
      *   `can` clause cannot have: one only ever surfaces for a matching
      *   `cannot`. Held as written for the validator to report; null otherwise.
      */
     public function __construct(
         public array $abilities,
-        public ?INode $message,
+        public ?Node $message,
         public SyntaxLocation $location,
     ) {}
 

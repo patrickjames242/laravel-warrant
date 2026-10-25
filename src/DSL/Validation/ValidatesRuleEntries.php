@@ -8,8 +8,8 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
@@ -44,7 +44,7 @@ trait ValidatesRuleEntries
      * Validate rule entries as written, with $mode saying whether they name
      * their abilities.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      * @param SchemaVocabulary|null $schema The schema the entries belong to;
      *   null when it is not known, and their names are not looked up.
      * @param string|null $schemaKey The key of the schema the entries are for:
@@ -64,7 +64,7 @@ trait ValidatesRuleEntries
      * Validate each of $entries, and the entries in a when block's bodies, with
      * $mode saying whether they name their abilities.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      */
     private function validateEachEntry(array $entries, GenericMode $mode, ?SchemaVocabulary $schema, ?string $schemaKey): void
     {
@@ -132,7 +132,7 @@ trait ValidatesRuleEntries
      * block decides, and each one after it that does not do the same is
      * reported. What a when block holds is held to that with everything else.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      */
     private function assertNamingAgrees(array $entries): void
     {
@@ -173,7 +173,7 @@ trait ValidatesRuleEntries
     {
         $templateKey = $include->templateKey->name;
 
-        if ($schema === null || $schemaKey === null || $templateKey === INode::MISSING_NAME) {
+        if ($schema === null || $schemaKey === null || $templateKey === Node::MISSING_NAME) {
             return;
         }
 
@@ -255,7 +255,7 @@ trait ValidatesRuleEntries
      * The ability lists $entry writes hold no ability or binding twice, and no
      * `*` beside anything else ({@see AbilityMistakes}).
      */
-    private function assertAbilityListsWellWritten(IRuleEntryNode $entry): void
+    private function assertAbilityListsWellWritten(RuleEntryNode $entry): void
     {
         foreach (AbilityMistakes::inWrittenLists($entry) as [$code, $message, $location]) {
             $this->fail($code, $message, $location);

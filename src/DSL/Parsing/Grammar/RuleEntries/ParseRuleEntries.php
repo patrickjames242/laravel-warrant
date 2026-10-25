@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 
@@ -21,7 +21,7 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * what follows it, to the next place an entry can start, so the entries after it
  * are still read.
  *
- * @extends Parser<list<IRuleEntryNode>>
+ * @extends Parser<list<RuleEntryNode>>
  */
 final class ParseRuleEntries extends Parser
 {
@@ -37,7 +37,7 @@ final class ParseRuleEntries extends Parser
     }
 
     /**
-     * @return list<IRuleEntryNode>
+     * @return list<RuleEntryNode>
      */
     protected function read(): array
     {

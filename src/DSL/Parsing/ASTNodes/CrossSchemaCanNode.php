@@ -32,10 +32,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * Validated by {@see \Warrant\DSL\Validation\ValidatesExpressions::assertCrossSchemaCanValid()}
  * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCanLeaf()}.
  */
-readonly class CrossSchemaCanNode implements IBooleanExpressionNode
+readonly class CrossSchemaCanNode implements BooleanExpressionNode
 {
     /**
-     * @param list<INode> $boundKey The handle's row-selector arguments, bound
+     * @param list<Node> $boundKey The handle's row-selector arguments, bound
      *   positionally to the target schema's row key. Empty on an unbound handle,
      *   and also on `schema()`, whose key requires no arguments.
      * @param list<WithEntryNode> $contextMap Explicit boundary context, each

@@ -16,7 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -134,8 +134,8 @@ function buildDocRules(Closure $answer): array
     return Warrant::guard(makeWarrantTestUser('build'))->forSchema(BuildDocSchema::class)->expandedRuleSet()->rules;
 }
 
-/** @return list<INode> */
-function builtNodes(INode $node): array
+/** @return list<Node> */
+function builtNodes(Node $node): array
 {
     $nodes = [$node];
 
@@ -189,7 +189,7 @@ it('places every entry of a rule set in one source', function () {
         $rule->include('t', [1])->for('edit');
     });
 
-    expect(array_unique(array_map(static fn (INode $node): int => spl_object_id($node->location->source), builtNodes($set))))
+    expect(array_unique(array_map(static fn (Node $node): int => spl_object_id($node->location->source), builtNodes($set))))
         ->toBe([spl_object_id($set->location->source)]);
 });
 
@@ -344,7 +344,7 @@ it('resolves a builder used twice as two trees, each in its own source', functio
         ->and($one->location->source)->not->toBe($two->location->source);
 
     foreach ([$one, $two] as $rule) {
-        expect(array_unique(array_map(static fn (INode $node): int => spl_object_id($node->location->source), builtNodes($rule))))
+        expect(array_unique(array_map(static fn (Node $node): int => spl_object_id($node->location->source), builtNodes($rule))))
             ->toBe([spl_object_id($rule->location->source)]);
     }
 });

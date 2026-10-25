@@ -9,13 +9,13 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * context, under its key. A key written twice in one map is read twice; that
  * is the validator's to report.
  */
-final readonly class WithEntryNode implements INode
+final readonly class WithEntryNode implements Node
 {
     /**
-     * @param INode $value An argument: a literal, a binding, or an `@context`,
+     * @param Node $value An argument: a literal, a binding, or an `@context`,
      *   `@column` or `@sql` reference.
      */
-    public function __construct(public NameNode $key, public INode $value, public SyntaxLocation $location) {}
+    public function __construct(public NameNode $key, public Node $value, public SyntaxLocation $location) {}
 
     public function children(): array
     {

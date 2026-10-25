@@ -9,11 +9,11 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * which schema's conditions the names in the expression are, which an expression
  * alone cannot say; it changes nothing about the expression itself.
  */
-final readonly class SchemaConditionNode implements ISchemaScopedNode
+final readonly class SchemaConditionNode implements SchemaScopedNode
 {
     public function __construct(
         public NameNode $schemaKey,
-        public IBooleanExpressionNode $expression,
+        public BooleanExpressionNode $expression,
         public SyntaxLocation $location,
     ) {
     }

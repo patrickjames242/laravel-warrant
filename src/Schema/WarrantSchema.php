@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\ConditionResolver;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -248,7 +248,7 @@ abstract class WarrantSchema implements ConditionResolver
      *
      * Called once per guard, which is fixed to one (schema, user).
      *
-     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
+     * @return RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
     public function rules(RuleProviderContext $context): mixed
     {

@@ -16,9 +16,9 @@ use Warrant\Registry\RegisteredSchemas;
  * of four shapes:
  *
  *   - nothing                         an empty source
- *   - one IBooleanExpressionNode      a bare condition
- *   - IRuleEntryNode, ...             unscoped rules, ability blocks, includes
- *   - ISchemaScopedNode, ...          one bare `for` body, or braced blocks
+ *   - one BooleanExpressionNode      a bare condition
+ *   - RuleEntryNode, ...             unscoped rules, ability blocks, includes
+ *   - SchemaScopedNode, ...          one bare `for` body, or braced blocks
  *
  * The shapes never mix. The caller asks which one it got, so one {@see parse()}
  * reads every form of rule text and nothing about the text is known before it
@@ -50,7 +50,7 @@ readonly class WarrantSyntax
     public SyntaxSource $source;
 
     /**
-     * @param list<INode> $children
+     * @param list<Node> $children
      * @param SyntaxSource|null $source Where the children came from; with none,
      *   application code built them.
      */
@@ -127,7 +127,7 @@ readonly class WarrantSyntax
      */
     public function isExpression(): bool
     {
-        return count($this->children) === 1 && $this->children[0] instanceof IBooleanExpressionNode;
+        return count($this->children) === 1 && $this->children[0] instanceof BooleanExpressionNode;
     }
 
     /**
@@ -144,7 +144,7 @@ readonly class WarrantSyntax
      */
     public function isRuleEntries(): bool
     {
-        return $this->children !== [] && $this->children[0] instanceof IRuleEntryNode;
+        return $this->children !== [] && $this->children[0] instanceof RuleEntryNode;
     }
 
     /**
@@ -152,7 +152,7 @@ readonly class WarrantSyntax
      */
     public function isSchemaScoped(): bool
     {
-        return $this->children !== [] && $this->children[0] instanceof ISchemaScopedNode;
+        return $this->children !== [] && $this->children[0] instanceof SchemaScopedNode;
     }
 
     /**
@@ -202,7 +202,7 @@ readonly class WarrantSyntax
         }
 
         return array_values(array_unique(array_map(
-            static fn (ISchemaScopedNode $node): string => $node->schemaKey(),
+            static fn (SchemaScopedNode $node): string => $node->schemaKey(),
             $this->children,
         )));
     }
@@ -221,7 +221,7 @@ readonly class WarrantSyntax
      * every shape check, and each accessor would reject it with a message that
      * names no particular shape.
      *
-     * @param list<INode> $children
+     * @param list<Node> $children
      */
     private static function assertOneShape(array $children): void
     {
@@ -231,7 +231,7 @@ readonly class WarrantSyntax
 
         $kind = self::kindOf($children[0]);
 
-        if ($kind === IBooleanExpressionNode::class && count($children) > 1) {
+        if ($kind === BooleanExpressionNode::class && count($children) > 1) {
             throw new InvalidArgumentException('A Warrant syntax tree holds at most one condition expression.');
         }
 
@@ -252,9 +252,9 @@ readonly class WarrantSyntax
     private static function kindOf(mixed $node): string
     {
         return match (true) {
-            $node instanceof IBooleanExpressionNode => IBooleanExpressionNode::class,
-            $node instanceof IRuleEntryNode => IRuleEntryNode::class,
-            $node instanceof ISchemaScopedNode => ISchemaScopedNode::class,
+            $node instanceof BooleanExpressionNode => BooleanExpressionNode::class,
+            $node instanceof RuleEntryNode => RuleEntryNode::class,
+            $node instanceof SchemaScopedNode => SchemaScopedNode::class,
             default => throw new InvalidArgumentException(sprintf(
                 'A Warrant syntax tree cannot hold %s.',
                 get_debug_type($node),

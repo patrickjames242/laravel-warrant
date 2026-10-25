@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * bindings of the source it was written in. The expander puts the value in its
  * place.
  */
-final readonly class BindingNode implements INode
+final readonly class BindingNode implements Node
 {
     /**
      * @param string $name The binding's name, without its colon.

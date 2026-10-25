@@ -2,7 +2,7 @@
 
 namespace Warrant\Builders\Concerns;
 
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -29,8 +29,8 @@ trait PlacesNodes
      * $value as an argument: itself when it is already a node, such as a
      * {@see \Warrant\Builders\Ref}, else a {@see LiteralNode} of it.
      */
-    protected static function argumentNode(mixed $value, SyntaxSource $source): INode
+    protected static function argumentNode(mixed $value, SyntaxSource $source): Node
     {
-        return $value instanceof INode ? $value : new LiteralNode($value, self::location($source));
+        return $value instanceof Node ? $value : new LiteralNode($value, self::location($source));
     }
 }

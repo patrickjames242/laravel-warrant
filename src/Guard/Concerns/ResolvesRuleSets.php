@@ -5,7 +5,7 @@ namespace Warrant\Guard\Concerns;
 use InvalidArgumentException;
 use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -94,7 +94,7 @@ trait ResolvesRuleSets
             $rules = $rules->toRule();
         }
 
-        if ($rules instanceof IRuleEntryNode || $rules instanceof RuleSetNode) {
+        if ($rules instanceof RuleEntryNode || $rules instanceof RuleSetNode) {
             $rules = new WarrantSyntax([$rules], $rules->location->source);
         }
 

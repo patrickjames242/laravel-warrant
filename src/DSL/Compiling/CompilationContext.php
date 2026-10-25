@@ -9,7 +9,7 @@ use Warrant\DSL\Compiling\Units\CompilationUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\WarrantGate;
 
 /**
@@ -146,7 +146,7 @@ final readonly class CompilationContext
     public static function condition(
         QueryFactory $queries,
         Authenticatable $user,
-        ?IBooleanExpressionNode $condition,
+        ?BooleanExpressionNode $condition,
     ): self {
         return new self(new ConditionUnit($condition), $queries, $user);
     }

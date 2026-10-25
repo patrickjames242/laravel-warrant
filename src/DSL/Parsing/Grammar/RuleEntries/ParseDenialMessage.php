@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * as `@context` — a message is fixed before any check, not resolved per check —
  * is the validator's to report, as is a message after `they can`.
  *
- * @extends Parser<\Warrant\DSL\Parsing\ASTNodes\INode|null>
+ * @extends Parser<\Warrant\DSL\Parsing\ASTNodes\Node|null>
  */
 final class ParseDenialMessage extends Parser
 {

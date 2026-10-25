@@ -2,7 +2,7 @@
 
 namespace Warrant\Builders;
 
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
@@ -33,12 +33,12 @@ final class RuleSetBuilder
     /**
      * Every entry, in the order written, placed in $source.
      *
-     * @return list<IRuleEntryNode>
+     * @return list<RuleEntryNode>
      */
     public function entries(SyntaxSource $source): array
     {
         return array_map(
-            fn (WarrantRuleBuilder|IncludeInvocationBuilder $entry): IRuleEntryNode => $entry instanceof WarrantRuleBuilder
+            fn (WarrantRuleBuilder|IncludeInvocationBuilder $entry): RuleEntryNode => $entry instanceof WarrantRuleBuilder
                 ? $entry->toRule($source)
                 : $entry->toNode($source),
             $this->entries,

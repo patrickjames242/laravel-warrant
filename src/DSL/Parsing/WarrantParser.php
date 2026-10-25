@@ -116,7 +116,7 @@ final class WarrantParser
      * `for` blocks. A missing bracket or keyword is read as though it were
      * there, a missing condition as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode},
      * a missing argument as a {@see \Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode},
-     * a missing name as {@see \Warrant\DSL\Parsing\ASTNodes\INode::MISSING_NAME},
+     * a missing name as {@see \Warrant\DSL\Parsing\ASTNodes\Node::MISSING_NAME},
      * and missing can/cannot clauses, abilities, an alias or a denial message as none, so
      * the entry around the mistake is kept. Text between entries that starts
      * none is skipped to where the next one can start. After a mistake, no other

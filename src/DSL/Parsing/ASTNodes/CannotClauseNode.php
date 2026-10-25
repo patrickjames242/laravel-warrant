@@ -16,13 +16,13 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * so the message never affects the compiled predicate — it is surfaced only when
  * diagnosing a denial (see {@see RuleNode::messageFor()}).
  */
-readonly class CannotClauseNode implements INode
+readonly class CannotClauseNode implements Node
 {
     /**
      * @param list<NameNode|BindingNode> $abilities Denied ability names (or
      *   `*`), and bindings whose values name them until expansion puts those
      *   names in their place.
-     * @param INode|null $message The denial message shared by every ability in
+     * @param Node|null $message The denial message shared by every ability in
      *   this clause, as a {@see LiteralNode} or a {@see BindingNode} that
      *   supplies one until expansion puts it in its place. Its value is a string,
      *   wrapped in a {@see \Warrant\WarrantAuthorizationException}, or a
@@ -33,7 +33,7 @@ readonly class CannotClauseNode implements INode
      */
     public function __construct(
         public array $abilities,
-        public ?INode $message,
+        public ?Node $message,
         public SyntaxLocation $location,
     ) {}
 

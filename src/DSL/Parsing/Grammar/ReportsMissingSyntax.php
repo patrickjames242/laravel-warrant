@@ -3,8 +3,8 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -41,7 +41,7 @@ trait ReportsMissingSyntax
 
     /**
      * Read a name here, or report one missing: a strict parse throws, and a
-     * tolerant one notes it and puts {@see INode::MISSING_NAME} in its place,
+     * tolerant one notes it and puts {@see Node::MISSING_NAME} in its place,
      * placed where the name should be.
      *
      * @param string $expected What the spot expects, as words for the author,
@@ -57,7 +57,7 @@ trait ReportsMissingSyntax
 
         $this->report($this->nameError($expected));
 
-        return new NameNode(INode::MISSING_NAME, $this->emptyLocationHere());
+        return new NameNode(Node::MISSING_NAME, $this->emptyLocationHere());
     }
 
     /**
@@ -92,11 +92,11 @@ trait ReportsMissingSyntax
      * strict parse throws, and a tolerant one notes it and puts a
      * {@see MissingExpressionNode} in its place, so what is around it is kept.
      *
-     * @param class-string<Parser<IBooleanExpressionNode>> $parser What reads the
+     * @param class-string<Parser<BooleanExpressionNode>> $parser What reads the
      *   expression here: a whole one, or the single operand that `not`, `and` and
      *   `or` take.
      */
-    private function expressionOrMissing(string $parser): IBooleanExpressionNode
+    private function expressionOrMissing(string $parser): BooleanExpressionNode
     {
         $parsed = $this->parse($parser);
 

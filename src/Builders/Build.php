@@ -3,7 +3,7 @@
 namespace Warrant\Builders;
 
 use Closure;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -56,7 +56,7 @@ final class Build
      *
      * @param string|Closure(RuleSetBuilder): mixed $schemaOrCallback
      * @param (Closure(RuleSetBuilder): mixed)|null $callback
-     * @return ($callback is null ? list<IRuleEntryNode> : RuleSetNode)
+     * @return ($callback is null ? list<RuleEntryNode> : RuleSetNode)
      */
     public static function ruleSet(string|Closure $schemaOrCallback, ?Closure $callback = null): RuleSetNode|array
     {

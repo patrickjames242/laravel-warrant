@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * and a parse finds it not here, which a handle reads as selecting no rows and
  * a condition as taking no arguments, where `()` is a list that is empty.
  *
- * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\INode>>
+ * @extends Parser<list<\Warrant\DSL\Parsing\ASTNodes\Node>>
  */
 final class ParseArguments extends Parser
 {
@@ -35,7 +35,7 @@ final class ParseArguments extends Parser
     }
 
     /**
-     * @return list<\Warrant\DSL\Parsing\ASTNodes\INode>
+     * @return list<\Warrant\DSL\Parsing\ASTNodes\Node>
      */
     protected function read(): array
     {

@@ -1,6 +1,6 @@
 <?php
 
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -24,9 +24,9 @@ function rulesProvidedAs(mixed $rules): array
 {
     app()->instance(RuleProvider::class, new class($rules) implements RuleProvider
     {
-        public function __construct(private RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable $rules) {}
+        public function __construct(private RuleSetNode|RuleEntryNode|WarrantSyntax|string|iterable $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable
+        public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|WarrantSyntax|string|iterable
         {
             return $this->rules;
         }

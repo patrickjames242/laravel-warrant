@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * A group hands back the expression inside it, which keeps the span it was read
  * with: the parentheses belong to no node.
  *
- * @extends Parser<IBooleanExpressionNode>
+ * @extends Parser<BooleanExpressionNode>
  */
 final class ParseParenthesizedBooleanExpression extends Parser
 {
@@ -25,7 +25,7 @@ final class ParseParenthesizedBooleanExpression extends Parser
         return $ahead->nextIs(TokenType::LPAREN);
     }
 
-    protected function read(): IBooleanExpressionNode
+    protected function read(): BooleanExpressionNode
     {
         $this->advance(); // consume '('
         $expression = $this->expressionOrMissing(ParseBooleanExpression::class);

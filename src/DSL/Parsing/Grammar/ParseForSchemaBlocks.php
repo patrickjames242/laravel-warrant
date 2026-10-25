@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -24,7 +24,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * after an unbraced one, is reported; a tolerant parse reads it, and every block
  * after it, all the same.
  *
- * @extends Parser<list<ISchemaScopedNode>>
+ * @extends Parser<list<SchemaScopedNode>>
  */
 final class ParseForSchemaBlocks extends Parser
 {
@@ -34,7 +34,7 @@ final class ParseForSchemaBlocks extends Parser
     }
 
     /**
-     * @return list<ISchemaScopedNode>
+     * @return list<SchemaScopedNode>
      */
     protected function read(): array
     {
@@ -89,7 +89,7 @@ final class ParseForSchemaBlocks extends Parser
      * that follows, braced or not as it is written, so their rules are kept. A
      * strict parse has thrown by then, and reads none.
      *
-     * @return list<ISchemaScopedNode>
+     * @return list<SchemaScopedNode>
      */
     private function blocksAfterAMistake(): array
     {

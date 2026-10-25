@@ -9,7 +9,7 @@ use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
@@ -346,7 +346,7 @@ class DcFolderSchema extends WarrantSchema
 
     /** Derived: answers with the expression rather than SQL of its own. */
     #[DerivedCondition]
-    public function isEditable(): IBooleanExpressionNode
+    public function isEditable(): BooleanExpressionNode
     {
         return WarrantSyntax::parse(<<<WARRANT
             is_owner or owner_is('role-9')

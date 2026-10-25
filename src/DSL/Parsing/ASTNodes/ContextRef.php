@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * the compiled AST (inside {@see ConditionNode::$parameters}) and is filled per
  * check from the context bag by {@see RuleSetCompiler}.
  */
-readonly class ContextRef implements INode
+readonly class ContextRef implements Node
 {
     public function __construct(public NameNode $key, public SyntaxLocation $location) {}
 

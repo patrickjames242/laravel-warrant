@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -47,7 +47,7 @@ trait ValidatesBindings
         $sources = [spl_object_id($syntax->source) => $syntax->source];
         $bindingsBySource = [spl_object_id($syntax->source) => []];
 
-        $bindings = array_merge([], ...array_map(static fn (INode $child): array => self::bindingsIn($child), $syntax->children));
+        $bindings = array_merge([], ...array_map(static fn (Node $child): array => self::bindingsIn($child), $syntax->children));
 
         foreach ($bindings as [$binding, $slot]) {
             $source = $binding->location->source;
@@ -145,7 +145,7 @@ trait ValidatesBindings
      *
      * @return list<array{0: BindingNode, 1: string}>
      */
-    private static function bindingsIn(INode $node, string $slot = self::BINDING_IN_ARGUMENT_SLOT): array
+    private static function bindingsIn(Node $node, string $slot = self::BINDING_IN_ARGUMENT_SLOT): array
     {
         if ($node instanceof BindingNode) {
             return [[$node, $slot]];

@@ -16,7 +16,7 @@ Every class here is in `Warrant\Builders`. Conceptual coverage is in
 Build::rule(): WarrantRuleBuilder
 Build::condition(): WarrantConditionBuilder
 Build::ruleSet(string $schemaKey, Closure(RuleSetBuilder): mixed $callback): RuleSetNode
-Build::ruleSet(Closure(RuleSetBuilder): mixed $callback): list<IRuleEntryNode>   // headless
+Build::ruleSet(Closure(RuleSetBuilder): mixed $callback): list<RuleEntryNode>   // headless
 Build::can(string $ability): CrossSchemaCanBuilder
 Build::check(?string $condition = null, array $parameters = []): CrossSchemaCheckBuilder
 ```
@@ -29,7 +29,7 @@ accept the builders as they are, alone or in a list, and finish them.
 Each returns `static`.
 
 ```php
-->if(string|Closure|bool|WarrantConditionBuilder|IBooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = [])
+->if(string|Closure|bool|WarrantConditionBuilder|BooleanExpressionNode|CrossSchemaCanBuilder $condition, array $parameters = [])
 ->andIf(...)     // alias of if; both mean `and`
 ->orIf(...)      // `or`
 ->ifNot(...)     // `and not`
@@ -43,7 +43,7 @@ Each returns `static`.
 | `Closure(WarrantConditionBuilder): mixed` | a parenthesized group |
 | `bool` | a constant |
 | `WarrantConditionBuilder` | a group; an empty one is `false` |
-| `IBooleanExpressionNode` | that expression, as it is |
+| `BooleanExpressionNode` | that expression, as it is |
 | `CrossSchemaCanBuilder` / `CrossSchemaCheckBuilder` | its `can(...)` or `check(...)` |
 
 ```php
@@ -58,7 +58,7 @@ Each returns `static`.
 ->unless(mixed $value, Closure $callback, ?Closure $default = null): static
 
 ->hasTerms(): bool
-->buildConditions(SyntaxSource $source): ?IBooleanExpressionNode
+->buildConditions(SyntaxSource $source): ?BooleanExpressionNode
 ```
 
 ## Cross-schema methods
@@ -119,7 +119,7 @@ The `$rule` a `Build::ruleSet()` callback receives:
 ```php
 $rule(): WarrantRuleBuilder                                              // a new rule
 $rule->include(string $template, array $arguments = []): IncludeInvocationBuilder
-$rule->entries(SyntaxSource $source): list<IRuleEntryNode>
+$rule->entries(SyntaxSource $source): list<RuleEntryNode>
 
 // IncludeInvocationBuilder
 ->for(string ...$abilities): static     // leave it out for a generic include

@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntries;
 use Warrant\DSL\Parsing\Grammar\RuleEntries\ParseRuleEntry;
@@ -17,7 +17,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * them to be named where the rules are placed, as a rule template's body does;
  * entries that do not agree are the validator's to report.
  *
- * @extends Parser<list<IRuleEntryNode>>
+ * @extends Parser<list<RuleEntryNode>>
  */
 final class ParseRulesWithoutForHeader extends Parser
 {
@@ -27,7 +27,7 @@ final class ParseRulesWithoutForHeader extends Parser
     }
 
     /**
-     * @return list<IRuleEntryNode>
+     * @return list<RuleEntryNode>
      */
     protected function read(): array
     {

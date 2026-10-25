@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * empty group (e.g. a folded-over empty list) must resolve to a concrete operand.
  * An empty group is `false`: it contributes nothing to an `or` and vetoes an `and`.
  */
-readonly class BooleanNode implements IBooleanExpressionNode
+readonly class BooleanNode implements BooleanExpressionNode
 {
     public function __construct(
         public bool $value,

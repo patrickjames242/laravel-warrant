@@ -6,9 +6,9 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -56,12 +56,12 @@ final class DocumentSymbols
     /**
      * The symbol for $node, or null when it has no place in the text.
      *
-     * @param INode $node A node of the tree.
+     * @param Node $node A node of the tree.
      * @param AnalyzedFragment $analyzed The fragment it was read from.
      * @param Document $document The document the fragment is in.
      * @return array<string, mixed>|null
      */
-    private static function symbolOf(INode $node, AnalyzedFragment $analyzed, Document $document): ?array
+    private static function symbolOf(Node $node, AnalyzedFragment $analyzed, Document $document): ?array
     {
         $span = $node->location->span;
 
@@ -84,7 +84,7 @@ final class DocumentSymbols
             ],
             $node instanceof IncludeInvocationNode => ['@include '.self::orMissing($node->templateKey->name), self::KIND_MODULE, []],
             $node instanceof RuleNode => [self::ruleName($node), self::KIND_FUNCTION, []],
-            $node instanceof IBooleanExpressionNode => ['condition', self::KIND_BOOLEAN, []],
+            $node instanceof BooleanExpressionNode => ['condition', self::KIND_BOOLEAN, []],
             default => [null, null, []],
         };
 
@@ -106,7 +106,7 @@ final class DocumentSymbols
         }
 
         $childSymbols = array_values(array_filter(array_map(
-            static fn (INode $child): ?array => self::symbolOf($child, $analyzed, $document),
+            static fn (Node $child): ?array => self::symbolOf($child, $analyzed, $document),
             $children,
         )));
 

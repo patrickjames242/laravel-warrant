@@ -5,7 +5,7 @@ namespace Warrant\DSL\Expanding\Concerns;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
@@ -72,7 +72,7 @@ trait ExpandsWhenBlocks
      * @param list<RuleNode> $rules
      * @return list<RuleNode>
      */
-    private static function guarded(array $rules, IBooleanExpressionNode $guard, SyntaxLocation $implied): array
+    private static function guarded(array $rules, BooleanExpressionNode $guard, SyntaxLocation $implied): array
     {
         return array_map(
             static fn (RuleNode $rule): RuleNode => new RuleNode(

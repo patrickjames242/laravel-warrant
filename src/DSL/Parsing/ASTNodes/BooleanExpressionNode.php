@@ -2,7 +2,7 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
-interface IBooleanExpressionNode extends INode
+interface BooleanExpressionNode extends Node
 {
 
 }

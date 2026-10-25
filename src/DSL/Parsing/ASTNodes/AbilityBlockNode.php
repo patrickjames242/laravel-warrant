@@ -17,13 +17,13 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * naming nothing, an entry naming its own abilities, or a block inside it. The
  * validator reports those against the text, and the expander rejects them.
  */
-final readonly class AbilityBlockNode implements IRuleEntryNode
+final readonly class AbilityBlockNode implements RuleEntryNode
 {
     /**
      * @param list<NameNode|BindingNode> $abilities The abilities every can/cannot clause in
      *   the body takes, and bindings whose values name them until expansion puts
      *   those names in their place.
-     * @param list<IRuleEntryNode> $entries The body, in source order.
+     * @param list<RuleEntryNode> $entries The body, in source order.
      */
     public function __construct(
         public array $abilities,
@@ -31,7 +31,7 @@ final readonly class AbilityBlockNode implements IRuleEntryNode
         public SyntaxLocation $location,
     ) {
         foreach ($entries as $entry) {
-            if (! $entry instanceof IRuleEntryNode) {
+            if (! $entry instanceof RuleEntryNode) {
                 throw new InvalidArgumentException(sprintf(
                     'An ability block holds rules, includes and ability blocks, got %s.',
                     get_debug_type($entry),

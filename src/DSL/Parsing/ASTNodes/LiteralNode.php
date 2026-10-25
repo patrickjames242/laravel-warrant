@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * given in code, such as a closure for a denial message, is held in one too,
  * built by the code that gave it.
  */
-final readonly class LiteralNode implements INode
+final readonly class LiteralNode implements Node
 {
     public function __construct(public mixed $value, public SyntaxLocation $location) {}
 

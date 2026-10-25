@@ -15,6 +15,6 @@ namespace Warrant\DSL\Parsing\ASTNodes;
  * splices the template's rules in at that position, so a reader that keeps only
  * "the rules, then the includes" has already lost the answer.
  */
-interface IRuleEntryNode extends INode
+interface RuleEntryNode extends Node
 {
 }

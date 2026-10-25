@@ -53,7 +53,7 @@ Both are read by reflection, so asking never builds a query.
 
 ```php
 public static function virtualTable(): ?Builder;         // default null
-public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable; // default []; merged ahead of the provider's rules
+public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|WarrantSyntax|string|iterable; // default []; merged ahead of the provider's rules
 protected function defaultContext(): array;              // default []
 
 // Declared on your schema when needed; deliberately not inherited.

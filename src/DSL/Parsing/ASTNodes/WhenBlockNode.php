@@ -18,22 +18,22 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * The node holds a block as it was written, even an empty body; the validator
  * reports that against the text.
  */
-final readonly class WhenBlockNode implements IRuleEntryNode
+final readonly class WhenBlockNode implements RuleEntryNode
 {
     /**
-     * @param IBooleanExpressionNode $condition What the body's rules require.
-     * @param list<IRuleEntryNode> $entries The body, in source order.
-     * @param list<IRuleEntryNode>|null $otherwiseEntries The `otherwise` body, in
+     * @param BooleanExpressionNode $condition What the body's rules require.
+     * @param list<RuleEntryNode> $entries The body, in source order.
+     * @param list<RuleEntryNode>|null $otherwiseEntries The `otherwise` body, in
      *   source order, or null when the block has no `otherwise`.
      */
     public function __construct(
-        public IBooleanExpressionNode $condition,
+        public BooleanExpressionNode $condition,
         public array $entries,
         public ?array $otherwiseEntries,
         public SyntaxLocation $location,
     ) {
         foreach ([...$entries, ...$otherwiseEntries ?? []] as $entry) {
-            if (! $entry instanceof IRuleEntryNode) {
+            if (! $entry instanceof RuleEntryNode) {
                 throw new InvalidArgumentException(sprintf(
                     'A when block holds rules, includes and blocks, got %s.',
                     get_debug_type($entry),
@@ -52,7 +52,7 @@ final readonly class WhenBlockNode implements IRuleEntryNode
     public function withAbilities(array $abilities): self
     {
         $applied = static fn (array $entries): array => array_map(
-            static fn (IRuleEntryNode $entry): IRuleEntryNode => $entry instanceof AbilityBlockNode
+            static fn (RuleEntryNode $entry): RuleEntryNode => $entry instanceof AbilityBlockNode
                 ? throw new InvalidArgumentException('An ability block inside a when block takes no abilities from outside; it names its own.')
                 : $entry->withAbilities($abilities),
             $entries,
@@ -71,7 +71,7 @@ final readonly class WhenBlockNode implements IRuleEntryNode
      * in them at any depth: what rules about abilities see, since a when block
      * is transparent to them.
      *
-     * @return list<IRuleEntryNode>
+     * @return list<RuleEntryNode>
      */
     public function entriesInside(): array
     {

@@ -14,10 +14,10 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -664,7 +664,7 @@ class NonStaticWarrantSchemaModel extends Model
  * Write one rule entry or rule set back to rule text, through the
  * WarrantSyntax that would hold it on its own.
  */
-function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
+function writeSyntax(RuleEntryNode|SchemaScopedNode $node): string
 {
     return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toSyntax();
 }
@@ -673,7 +673,7 @@ function writeSyntax(IRuleEntryNode|ISchemaScopedNode $node): string
  * Write one rule entry or rule set to `?`-parameterized rule text and its
  * bindings, through the WarrantSyntax that would hold it on its own.
  */
-function writeBoundSyntax(IRuleEntryNode|ISchemaScopedNode $node): BoundSyntax
+function writeBoundSyntax(RuleEntryNode|SchemaScopedNode $node): BoundSyntax
 {
     return (new WarrantSyntax([$node]))->validateWithoutSchemas()->toBoundSyntax();
 }
@@ -706,7 +706,7 @@ function treeToString(?object $node): string
  * symbolic references, which must stay distinguishable (a ContextRef would
  * otherwise var_export to NULL, making every ref look alike).
  */
-function argToString(INode $argument): string
+function argToString(Node $argument): string
 {
     return match (true) {
         $argument instanceof ContextRef => '@context ' . $argument->key->name,
@@ -720,7 +720,7 @@ function argToString(INode $argument): string
 /**
  * The value a literal holds, or a binding's source gives it.
  */
-function valueOf(INode $node): mixed
+function valueOf(Node $node): mixed
 {
     return match (true) {
         $node instanceof LiteralNode => $node->value,
@@ -733,13 +733,13 @@ function valueOf(INode $node): mixed
  * Each argument as a template or derived condition method is called with it: a
  * literal's or binding's value, and a reference as itself.
  *
- * @param list<INode> $arguments
+ * @param list<Node> $arguments
  * @return list<mixed>
  */
 function argumentValues(array $arguments): array
 {
     return array_map(
-        static fn (INode $argument): mixed => $argument instanceof LiteralNode || $argument instanceof BindingNode ? valueOf($argument) : $argument,
+        static fn (Node $argument): mixed => $argument instanceof LiteralNode || $argument instanceof BindingNode ? valueOf($argument) : $argument,
         $arguments,
     );
 }
@@ -787,9 +787,9 @@ function nameNode(string $name): NameNode
  * $value as an argument a test builds: itself when it is already a node, else a
  * literal of it.
  */
-function argumentNode(mixed $value): INode
+function argumentNode(mixed $value): Node
 {
-    return $value instanceof INode ? $value : new LiteralNode($value, SyntaxLocation::noProducer());
+    return $value instanceof Node ? $value : new LiteralNode($value, SyntaxLocation::noProducer());
 }
 
 /**
@@ -819,7 +819,7 @@ function syntaxShape(mixed $value): mixed
         return array_map(syntaxShape(...), $value);
     }
 
-    if (! $value instanceof INode) {
+    if (! $value instanceof Node) {
         return $value;
     }
 

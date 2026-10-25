@@ -4,7 +4,7 @@ use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -40,7 +40,7 @@ function providedRulesError(mixed $rules): InvalidArgumentException
     {
         public function __construct(private mixed $rules) {}
 
-        public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|\Warrant\Builders\WarrantRuleBuilder|WarrantSyntax|string|iterable
+        public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|\Warrant\Builders\WarrantRuleBuilder|WarrantSyntax|string|iterable
         {
             return $this->rules;
         }

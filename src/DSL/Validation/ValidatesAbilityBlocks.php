@@ -4,7 +4,7 @@ namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -40,7 +40,7 @@ trait ValidatesAbilityBlocks
      * The entries of an ability block's body, and of the when blocks in it,
      * which name no abilities and open no ability block of their own.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      */
     private function validateAbilityBlockEntries(array $entries, ?SchemaVocabulary $schema, ?string $schemaKey): void
     {

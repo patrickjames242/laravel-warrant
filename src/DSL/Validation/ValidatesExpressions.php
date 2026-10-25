@@ -11,8 +11,8 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
@@ -52,7 +52,7 @@ trait ValidatesExpressions
      * names up in and no scope to place its `@column` references in, and it is
      * held to every other rule of the language.
      */
-    private function validateCondition(IBooleanExpressionNode $expression, ?SchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateCondition(BooleanExpressionNode $expression, ?SchemaVocabulary $schema, ?string $schemaKey): void
     {
         $this->validateExpression($expression, $schema, $schema === null ? null : $this->rootScope($schema, $schemaKey));
     }
@@ -97,7 +97,7 @@ trait ValidatesExpressions
      *   predicate this is, or null for a rule's own expression.
      */
     private function validateExpression(
-        IBooleanExpressionNode $node,
+        BooleanExpressionNode $node,
         ?SchemaVocabulary $vocabulary,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
@@ -157,7 +157,7 @@ trait ValidatesExpressions
         $ability = self::abilityToLookUp($node, $this->input);
 
         // A handle with no name was reported where it was read; there is no schema to look up.
-        if ($schemaKey === INode::MISSING_NAME) {
+        if ($schemaKey === Node::MISSING_NAME) {
             return;
         }
 
@@ -207,7 +207,7 @@ trait ValidatesExpressions
         $schemaKey = $node->schemaKey->name;
 
         // A handle with no name was reported where it was read; there is no schema to check the predicate against.
-        if ($schemaKey === INode::MISSING_NAME) {
+        if ($schemaKey === Node::MISSING_NAME) {
             return;
         }
 
@@ -260,7 +260,7 @@ trait ValidatesExpressions
         $ability = $node->ability;
 
         return match (true) {
-            $ability instanceof NameNode => $ability->name === INode::MISSING_NAME ? null : $ability->name,
+            $ability instanceof NameNode => $ability->name === Node::MISSING_NAME ? null : $ability->name,
             $input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundAbility($ability) === null => $ability->value(),
             default => null,
         };
@@ -561,7 +561,7 @@ trait ValidatesExpressions
      * name itself is not checked — there is no column introspection.
      * Non-{@see ColumnRef} values are ignored.
      *
-     * @param list<INode> $arguments
+     * @param list<Node> $arguments
      * @param AliasScope|null $scope The frames in scope where these arguments are
      *   written; null when they are not known, and nothing is checked.
      */
@@ -611,7 +611,7 @@ trait ValidatesExpressions
         foreach ($entries as $entry) {
             $key = $entry->key->name;
 
-            if ($key === INode::MISSING_NAME) {
+            if ($key === Node::MISSING_NAME) {
                 continue;
             }
 
@@ -631,10 +631,10 @@ trait ValidatesExpressions
      * The values of a `with` map's entries, in the order written.
      *
      * @param list<WithEntryNode> $entries
-     * @return list<INode>
+     * @return list<Node>
      */
     private static function withValues(array $entries): array
     {
-        return array_map(static fn (WithEntryNode $entry): INode => $entry->value, $entries);
+        return array_map(static fn (WithEntryNode $entry): Node => $entry->value, $entries);
     }
 }

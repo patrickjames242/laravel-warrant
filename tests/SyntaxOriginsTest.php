@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
@@ -135,7 +135,7 @@ function originRules(Closure $answer): array
  *
  * @return list<string>
  */
-function producersOf(INode $node): array
+function producersOf(Node $node): array
 {
     $nodes = [$node];
 
@@ -143,7 +143,7 @@ function producersOf(INode $node): array
         array_push($nodes, ...$nodes[$i]->children());
     }
 
-    return array_map(static function (INode $node): string {
+    return array_map(static function (Node $node): string {
         $held = match (true) {
             property_exists($node, 'name') && is_string($node->name) => '('.$node->name.')',
             $node instanceof \Warrant\DSL\Parsing\ASTNodes\LiteralNode || $node instanceof BooleanNode => '('.var_export($node->value, true).')',
@@ -222,7 +222,7 @@ it('places every node of a builder, its groups and predicates included, in the o
         array_push($nodes, ...$nodes[$i]->children());
     }
 
-    expect(array_unique(array_map(static fn (INode $node): int => spl_object_id($node->location->source), $nodes)))
+    expect(array_unique(array_map(static fn (Node $node): int => spl_object_id($node->location->source), $nodes)))
         ->toBe([spl_object_id($rule->location->source)]);
 });
 
@@ -230,7 +230,7 @@ it('gives a derived condition\'s builder answer its producer, and a constant it 
     $rules = originRules(fn () => 'if owned_or_named or always_true they can view');
     $derived = array_values(array_filter(
         [$rules[0]->conditions->leftSide, $rules[0]->conditions->rightSide],
-        static fn (INode $node): bool => $node instanceof DerivedConditionNode,
+        static fn (Node $node): bool => $node instanceof DerivedConditionNode,
     ));
 
     expect(producersOf($derived[0]->body))->each->toEndWith('DerivedCondition')

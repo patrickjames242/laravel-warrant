@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Warrant\Rules;
 
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -24,7 +24,7 @@ interface RuleProvider
      * schema: only the rule sets for `$context->schemaKey`, and the rules with
      * no `for` header, apply to it.
      *
-     * @return RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
+     * @return RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable<RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string>
      */
     public function rules(RuleProviderContext $context): mixed;
 }

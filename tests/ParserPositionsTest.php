@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
@@ -25,13 +25,13 @@ require_once __DIR__.'/Support/TestSupport.php';
  * Every node of a tree, parents before children, in the order each node
  * lists the nodes it holds.
  *
- * @return list<INode>
+ * @return list<Node>
  */
-function treeNodes(WarrantSyntax|INode $value): array
+function treeNodes(WarrantSyntax|Node $value): array
 {
-    $nodes = $value instanceof INode ? [$value] : [];
+    $nodes = $value instanceof Node ? [$value] : [];
 
-    foreach ($value instanceof INode ? $value->children() : $value->children as $child) {
+    foreach ($value instanceof Node ? $value->children() : $value->children as $child) {
         array_push($nodes, ...treeNodes($child));
     }
 
@@ -42,7 +42,7 @@ function treeNodes(WarrantSyntax|INode $value): array
  * Whether $node is a name, a literal or a `with` entry: a piece of the node
  * holding it rather than a construct of its own.
  */
-function isLeafPiece(INode $node): bool
+function isLeafPiece(Node $node): bool
 {
     return $node instanceof NameNode || $node instanceof LiteralNode || $node instanceof WithEntryNode;
 }
@@ -50,7 +50,7 @@ function isLeafPiece(INode $node): bool
 /**
  * The text $node was written as in $source, or null when it was written nowhere.
  */
-function writtenText(string $source, ?INode $node): ?string
+function writtenText(string $source, ?Node $node): ?string
 {
     $span = $node?->location->span;
 
@@ -66,8 +66,8 @@ function writtenText(string $source, ?INode $node): ?string
 function recordedNodes(string $source): array
 {
     return array_map(
-        static fn (INode $node): array => [(new ReflectionClass($node))->getShortName(), writtenText($source, $node)],
-        array_values(array_filter(treeNodes(WarrantParser::parse($source)), static fn (INode $node): bool => ! isLeafPiece($node))),
+        static fn (Node $node): array => [(new ReflectionClass($node))->getShortName(), writtenText($source, $node)],
+        array_values(array_filter(treeNodes(WarrantParser::parse($source)), static fn (Node $node): bool => ! isLeafPiece($node))),
     );
 }
 
@@ -80,8 +80,8 @@ function recordedNodes(string $source): array
 function nodesOver(WarrantSyntax $syntax, int $offset): array
 {
     return array_values(array_map(
-        static fn (INode $node): string => (new ReflectionClass($node))->getShortName(),
-        array_filter(treeNodes($syntax), static fn (INode $node): bool => $node->location->span?->contains($offset) ?? false),
+        static fn (Node $node): string => (new ReflectionClass($node))->getShortName(),
+        array_filter(treeNodes($syntax), static fn (Node $node): bool => $node->location->span?->contains($offset) ?? false),
     ));
 }
 

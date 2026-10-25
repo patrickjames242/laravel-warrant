@@ -15,11 +15,11 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\BooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -95,10 +95,10 @@ final class RuleSyntaxWriter
     private function writeSyntax(ValidSyntax $syntax): string
     {
         return implode("\n\n", array_map(
-            fn (INode $child): string => match (true) {
-                $child instanceof ISchemaScopedNode => $this->writeScoped($child),
-                $child instanceof IRuleEntryNode => $this->writeEntry($child),
-                $child instanceof IBooleanExpressionNode => $this->writeExpression($child),
+            fn (Node $child): string => match (true) {
+                $child instanceof SchemaScopedNode => $this->writeScoped($child),
+                $child instanceof RuleEntryNode => $this->writeEntry($child),
+                $child instanceof BooleanExpressionNode => $this->writeExpression($child),
                 default => throw new LogicException('Cannot render unknown node ' . $child::class . '.'),
             },
             $syntax->children,
@@ -106,14 +106,14 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      */
     private function writeEntries(array $entries): string
     {
         return implode("\n\n", array_map($this->writeEntry(...), $entries));
     }
 
-    private function writeEntry(IRuleEntryNode $entry): string
+    private function writeEntry(RuleEntryNode $entry): string
     {
         return match (true) {
             $entry instanceof IncludeInvocationNode => $this->writeInclude($entry),
@@ -164,7 +164,7 @@ final class RuleSyntaxWriter
     /**
      * Render $header and its body of $entries in braces, the body indented.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      */
     private function writeBraced(string $header, array $entries): string
     {
@@ -173,7 +173,7 @@ final class RuleSyntaxWriter
         return $body === '' ? "{$header} {\n}" : "{$header} {\n" . $this->indent($body) . "\n}";
     }
 
-    private function writeScoped(ISchemaScopedNode $node): string
+    private function writeScoped(SchemaScopedNode $node): string
     {
         $body = match (true) {
             $node instanceof RuleSetNode => $this->writeEntries($node->entries),
@@ -254,7 +254,7 @@ final class RuleSyntaxWriter
         return $ability instanceof BindingNode ? implode(', ', (array) $ability->value()) : $ability->name;
     }
 
-    private function writeExpression(IBooleanExpressionNode $node): string
+    private function writeExpression(BooleanExpressionNode $node): string
     {
         return match (true) {
             $node instanceof OrNode => $this->child($node->leftSide, self::PREC_OR)
@@ -284,14 +284,14 @@ final class RuleSyntaxWriter
      * Render a child, parenthesizing only when its own precedence binds looser
      * than the surrounding context requires.
      */
-    private function child(IBooleanExpressionNode $node, int $context): string
+    private function child(BooleanExpressionNode $node, int $context): string
     {
         $rendered = $this->writeExpression($node);
 
         return $this->precedence($node) < $context ? "($rendered)" : $rendered;
     }
 
-    private function precedence(IBooleanExpressionNode $node): int
+    private function precedence(BooleanExpressionNode $node): int
     {
         return match (true) {
             $node instanceof OrNode => self::PREC_OR,
@@ -338,7 +338,7 @@ final class RuleSyntaxWriter
      * `schema()` addresses a row with a key that takes no arguments, and bare
      * `schema` addresses none, so the parentheses are what tell them apart.
      *
-     * @param list<INode> $boundKey
+     * @param list<Node> $boundKey
      * @param list<WithEntryNode> $contextMap
      */
     private function writeHandleAndWith(
@@ -387,7 +387,7 @@ final class RuleSyntaxWriter
      * inline mode a string is written as a literal; a closure has no textual
      * form, so it throws, directing the caller to toBoundSyntax().
      */
-    private function messageArg(INode $node): string
+    private function messageArg(Node $node): string
     {
         $message = $this->value($node);
 
@@ -404,7 +404,7 @@ final class RuleSyntaxWriter
         return $this->literal($message);
     }
 
-    private function arg(INode $node): string
+    private function arg(Node $node): string
     {
         $value = $this->value($node);
 
@@ -451,7 +451,7 @@ final class RuleSyntaxWriter
      * What $node stands for: a literal's value, a binding's value, or the node
      * itself for a reference. A binding's value may itself be a reference.
      */
-    private function value(INode $node): mixed
+    private function value(Node $node): mixed
     {
         return match (true) {
             $node instanceof LiteralNode => $node->value,

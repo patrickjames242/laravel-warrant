@@ -15,8 +15,8 @@ use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
 use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\RuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
@@ -121,7 +121,7 @@ final class Expander
      * block or `@include`, where every entry names its own abilities, starting
      * a fresh expansion trail.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      * @return list<RuleNode>
      */
     private function expandTopLevelEntries(array $entries, SchemaVocabulary $schema, string $schemaKey): array
@@ -150,7 +150,7 @@ final class Expander
      * Expand $entries at any depth — at the top, in an ability block's body, or
      * in what a template answered with — into rules, carrying $trail down.
      *
-     * @param list<IRuleEntryNode> $entries
+     * @param list<RuleEntryNode> $entries
      * @return list<RuleNode>
      */
     private function expandEntries(
@@ -208,13 +208,13 @@ final class Expander
      * literal as its value, and a `@context`, `@column` or `@sql` reference as
      * the reference itself. Bindings are replaced by their values by now.
      *
-     * @param list<INode> $arguments
+     * @param list<Node> $arguments
      * @return list<mixed>
      */
     private static function argumentValues(array $arguments): array
     {
         return array_map(
-            static fn (INode $argument): mixed => $argument instanceof LiteralNode ? $argument->value : $argument,
+            static fn (Node $argument): mixed => $argument instanceof LiteralNode ? $argument->value : $argument,
             $arguments,
         );
     }

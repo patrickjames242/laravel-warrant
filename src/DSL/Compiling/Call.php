@@ -5,7 +5,7 @@ namespace Warrant\DSL\Compiling;
 use Throwable;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
-use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\Facades\Warrant;
@@ -61,7 +61,7 @@ final readonly class Call
 
     /**
      * @param class-string $schemaClass
-     * @param array<int, INode> $arguments The condition's *unresolved* DSL arguments.
+     * @param array<int, Node> $arguments The condition's *unresolved* DSL arguments.
      */
     public static function condition(string $schemaClass, string $condition, array $arguments = []): self
     {
@@ -129,7 +129,7 @@ final readonly class Call
      * Render one DSL argument for display: a reference as the reference an author
      * wrote, anything else as its literal value, truncated.
      */
-    private static function describeArgument(INode $argument): string
+    private static function describeArgument(Node $argument): string
     {
         if ($argument instanceof ContextRef) {
             return '@context '.$argument->key->name;

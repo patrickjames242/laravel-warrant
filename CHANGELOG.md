@@ -22,6 +22,9 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   and `RuleNode::hasGenericClause()` is now
   `hasGenericCanOrCannotClause()`.
 - `WarrantRuleNode` is now `RuleNode`.
+- The syntax node interfaces drop their `I`: `INode`, `IBooleanExpressionNode`,
+  `IRuleEntryNode` and `ISchemaScopedNode` are now `Node`,
+  `BooleanExpressionNode`, `RuleEntryNode` and `SchemaScopedNode`.
 
 ## 4.4.0 — 2026-10-21
 

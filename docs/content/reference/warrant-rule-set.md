@@ -10,7 +10,7 @@ sidebar:
 Every syntax node lives in `Warrant\DSL\Parsing\ASTNodes`: `WarrantSyntax`,
 `RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `RuleNode`,
 `IncludeInvocationNode`, `CanClauseNode`, `CannotClauseNode`, the interfaces
-`IRuleEntryNode` and `ISchemaScopedNode`, the expression nodes, and the leaves
+`RuleEntryNode` and `SchemaScopedNode`, the expression nodes, and the leaves
 every name and literal is held in: `NameNode` (`$name`) and `LiteralNode`
 (`$value`). They are plain data and never touch the schema registry, so a rule set
 takes a plain schema **key** string.
@@ -29,7 +29,7 @@ reads every form of rule text and nothing about the text has to be known first.
 `Warrant::parse()` and `Warrant::parseFile()` are the same calls from the facade.
 
 ```php
-public array $children;   // list<INode>
+public array $children;   // list<Node>
 
 public static function parse(string|BoundSyntax $source): self;   // BoundSyntax: text with its bindings, as warrant() makes
 public static function parseFile(string $path, array $bindings = []): self;
@@ -54,12 +54,12 @@ A `WarrantSyntax` that passed validation. Only a validated syntax hands out its
 nodes or writes itself back as text:
 
 ```php
-public function conditionExpression(): IBooleanExpressionNode;
+public function conditionExpression(): BooleanExpressionNode;
 public function rule(): RuleNode;
-public function ruleEntries(): array;   // list<IRuleEntryNode>
+public function ruleEntries(): array;   // list<RuleEntryNode>
 public function ruleSet(): RuleSetNode;
 public function ruleSets(): array;      // list<RuleSetNode>, source order, unmerged
-public function scoped(): array;        // list<ISchemaScopedNode>
+public function scoped(): array;        // list<SchemaScopedNode>
 public function forSchema(string $schemaKey): ?RuleSetNode;   // every block for that schema, folded
 public function scopedTo(string $schemaKey): RuleSetNode;
 
@@ -76,13 +76,13 @@ guard expands the rules.
 | Source | `children` | Accessor |
 | --- | --- | --- |
 | empty, or comments only | none | `isEmpty()` |
-| `is_owner or is_admin` | one `IBooleanExpressionNode` | `conditionExpression()` |
+| `is_owner or is_admin` | one `BooleanExpressionNode` | `conditionExpression()` |
 | `if is_mine they can view` | one `RuleNode` | `rule()` |
-| several rules, `can they … { … }` blocks or `@include`s, no header | `IRuleEntryNode`, … | `ruleEntries()` |
+| several rules, `can they … { … }` blocks or `@include`s, no header | `RuleEntryNode`, … | `ruleEntries()` |
 | `for documents` then a body, braced or not | one `RuleSetNode` | `ruleSet()` |
 | `for documents { … } for folders { … }` | `RuleSetNode`, … | `ruleSets()`, `forSchema()`, `schemaKeys()` |
 | `for documents is_owner or is_admin` | one `SchemaConditionNode` | `conditionExpression()` |
-| braced blocks of rules and of conditions | `ISchemaScopedNode`, … | `scoped()` |
+| braced blocks of rules and of conditions | `SchemaScopedNode`, … | `scoped()` |
 
 An accessor that does not match the shape throws a `LogicException` naming what
 the source holds:
@@ -132,7 +132,7 @@ given their schema by `scopedTo()`.
 
 ```php
 public NameNode $schemaKey;
-public array    $entries;   // list<IRuleEntryNode>: rules, ability blocks, includes, in source order
+public array    $entries;   // list<RuleEntryNode>: rules, ability blocks, includes, in source order
 
 public function schemaKey(): string;
 ```
@@ -154,7 +154,7 @@ joins them.
 ### Reading
 
 ```php
-public array $entries;   // list<IRuleEntryNode>: rules, ability blocks and includes, as written
+public array $entries;   // list<RuleEntryNode>: rules, ability blocks and includes, as written
 ```
 
 An ability block stays in `$entries` as an `AbilityBlockNode` (`$abilities` and
@@ -195,7 +195,7 @@ It throws the first mistake, saying where in the text it is.
 ## `RuleNode` (readonly)
 
 ```php
-public ?IBooleanExpressionNode $conditions;   // null means unconditional
+public ?BooleanExpressionNode $conditions;   // null means unconditional
 public array $canClauses;                     // list<CanClauseNode>, one per `they can`
 public array $cannotClauses;                  // list<CannotClauseNode>, each with its own message
 
@@ -230,7 +230,7 @@ already names its own.
 interface RuleProvider
 {
     /** Any of: a rule set, a rule entry, a rule builder, rule text, or an iterable of those. */
-    public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable;
+    public function rules(RuleProviderContext $context): RuleSetNode|RuleEntryNode|WarrantRuleBuilder|WarrantSyntax|BoundSyntax|string|iterable;
 }
 ```
 

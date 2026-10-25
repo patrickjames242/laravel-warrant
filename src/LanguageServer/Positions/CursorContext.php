@@ -12,8 +12,8 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\Node;
+use Warrant\DSL\Parsing\ASTNodes\SchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -33,7 +33,7 @@ use Warrant\DSL\SchemaCatalog;
 final readonly class CursorContext
 {
     /**
-     * @param list<INode> $nodes Every node written over the offset, widest
+     * @param list<Node> $nodes Every node written over the offset, widest
      *   first, and of two over the same text the one holding the other first.
      *   The last is what the offset is on; the ones before it say what that
      *   sits inside, such as the check(...) whose schema a condition name
@@ -82,7 +82,7 @@ final readonly class CursorContext
 
         /* The walk lists a node before the nodes inside it, and a stable sort
            keeps that order between two over the same text. */
-        usort($nodes, static fn (INode $a, INode $b): int => $b->location->span->length() <=> $a->location->span->length());
+        usort($nodes, static fn (Node $a, Node $b): int => $b->location->span->length() <=> $a->location->span->length());
 
         $innermost = $nodes === [] ? null : $nodes[array_key_last($nodes)];
 
@@ -117,17 +117,17 @@ final readonly class CursorContext
      * where it belongs, which may be past the end of the node holding it. A
      * missing name was written nowhere, so it is never on the offset.
      *
-     * @param list<INode> $nodes
-     * @param array<int, INode> $parents Each node's parent, by object id.
+     * @param list<Node> $nodes
+     * @param array<int, Node> $parents Each node's parent, by object id.
      */
-    private static function collect(INode $node, ?INode $parent, int $offset, array &$nodes, array &$parents): void
+    private static function collect(Node $node, ?Node $parent, int $offset, array &$nodes, array &$parents): void
     {
         if ($parent !== null) {
             $parents[spl_object_id($node)] = $parent;
         }
 
         $span = $node->location->span;
-        $missingName = $node instanceof NameNode && $node->name === INode::MISSING_NAME;
+        $missingName = $node instanceof NameNode && $node->name === Node::MISSING_NAME;
 
         if ($span !== null && $span->contains($offset) && ! $missingName) {
             $nodes[] = $node;
@@ -144,15 +144,15 @@ final readonly class CursorContext
      * about the schema its header names, and a `check(...)` predicate is written
      * in the scope its handle enters.
      *
-     * @param INode $target The node to find.
-     * @param INode $node The node to look in, written in $scope.
+     * @param Node $target The node to find.
+     * @param Node $node The node to look in, written in $scope.
      * @param CursorScope $scope The scope $node is written in.
      * @param Closure(string): bool $hasRows Whether the schema of a key has rows.
      */
-    private static function scopeOf(INode $target, INode $node, CursorScope $scope, Closure $hasRows): ?CursorScope
+    private static function scopeOf(Node $target, Node $node, CursorScope $scope, Closure $hasRows): ?CursorScope
     {
-        if ($node instanceof ISchemaScopedNode) {
-            $key = $node->schemaKey() === INode::MISSING_NAME ? null : $node->schemaKey();
+        if ($node instanceof SchemaScopedNode) {
+            $key = $node->schemaKey() === Node::MISSING_NAME ? null : $node->schemaKey();
             $scope = CursorScope::root($key, $key !== null && $hasRows($key));
         }
 
@@ -164,7 +164,7 @@ final readonly class CursorContext
             $childScope = $scope;
 
             if ($node instanceof CrossSchemaConditionNode && $child === $node->predicate) {
-                $key = $node->schemaKey->name === INode::MISSING_NAME ? null : $node->schemaKey->name;
+                $key = $node->schemaKey->name === Node::MISSING_NAME ? null : $node->schemaKey->name;
                 $childScope = $scope->enteringPredicate($key, $node->alias?->name, $key !== null && $hasRows($key));
             }
 
@@ -183,7 +183,7 @@ final readonly class CursorContext
      * off the field of the node holding it.
      *
      * @param NameNode $name The innermost node over the offset.
-     * @param array<int, INode> $parents Each node's parent, by object id.
+     * @param array<int, Node> $parents Each node's parent, by object id.
      * @param CursorScope $scope The scope $name is written in.
      * @return array{0: ?SlotKind, 1: ?string, 2: ?string}
      */

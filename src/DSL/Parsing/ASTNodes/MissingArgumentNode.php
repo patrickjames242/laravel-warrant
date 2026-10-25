@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * validator passes over it, since the mistake is reported already, and the
  * compiler refuses it.
  */
-final readonly class MissingArgumentNode implements INode
+final readonly class MissingArgumentNode implements Node
 {
     public function __construct(public SyntaxLocation $location) {}
 
