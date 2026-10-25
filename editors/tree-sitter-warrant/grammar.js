@@ -173,7 +173,7 @@ module.exports = grammar({
     )),
 
     not_expression: $ => prec.right(3, seq(
-      choice('not', '!'),
+      'not',
       field('operand', $._expression),
     )),
 

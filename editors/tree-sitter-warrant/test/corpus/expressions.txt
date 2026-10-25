@@ -29,7 +29,7 @@ they can create
 and binds tighter than or, and not binds tightest
 ===================================================
 
-if not (a or b) and !c or check(x('p') and not y for tenant_settings with k = 1, j = :bee)
+if not (a or b) and not c or check(x('p') and not y for tenant_settings with k = 1, j = :bee)
 they can *
 they cannot edit because :msg
 

@@ -16,14 +16,13 @@ if is_manager and (in_team('sales') or in_team('eng'))
 if not (is_archived or is_locked)
 ```
 
-`and` and `or` are binary. `not` negates, and `!` is an accepted synonym, though
-`not` is the canonical spelling. Parentheses group.
+`and` and `or` are binary. `not` negates. Parentheses group.
 
-`&&` and `||` are not supported.
+`!`, `&&` and `||` are not supported.
 
 ## Precedence
 
-Tightest to loosest: `not` and `!`, then `and`, then `or`. So this:
+Tightest to loosest: `not`, then `and`, then `or`. So this:
 
 ```warrant
 if is_mine or not is_manager and is_owner

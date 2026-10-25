@@ -6,6 +6,11 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ## Unreleased
 
+### Removed
+
+- `!` is no longer a synonym for `not`. A rule writing it is rejected as an
+  unexpected character; write `not` instead.
+
 ### Changed
 
 - The schema classes are grouped by feature under `Warrant\Schema`:

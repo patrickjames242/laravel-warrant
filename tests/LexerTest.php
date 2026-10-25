@@ -14,7 +14,7 @@ const EVERY_TOKEN_KIND = <<<'WARRANT'
         # a comment
         if is_owner(:id, @context org, @column docs.org_id, @sql "1 = 1")
             and not check(is_open for folders(@context folder) as f with k = -1.5)
-            or !can(view for docs) they can view, * they cannot edit because 'no'
+            or can(view for docs) they can view, * they cannot edit because 'no'
         can they share { they can }
         when is_open { they can list } otherwise { they cannot list }
         @include admin(true, null, 3)
@@ -192,6 +192,11 @@ it('makes text that could mean anything an error token', function (string $sourc
         'a(?)',
         [[TokenType::IDENTIFIER, 'a'], [TokenType::LPAREN, '('], [TokenType::ERROR, '?'], [TokenType::RPAREN, ')'], [TokenType::EOF, '']],
         [["Unexpected character '?'.", 2, 3]],
+    ],
+    'an exclamation mark, which is no not' => [
+        '!a',
+        [[TokenType::ERROR, '!'], [TokenType::IDENTIFIER, 'a'], [TokenType::EOF, '']],
+        [["Unexpected character '!'.", 0, 1]],
     ],
     'a multibyte character, as one token' => [
         'caf€',

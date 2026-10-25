@@ -171,16 +171,13 @@ class RuleSyntaxExamples
             WARRANT)->validate()->scopedTo('timesheets');
     }
 
-    /** `!` is an accepted synonym for `not`; parentheses group freely. */
-    public function negationSynonymAndGrouping(): void
+    /** `not` negates the operand after it; parentheses group freely. */
+    public function negationAndGrouping(): void
     {
         $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
-            if !(is_self or (!is_manager and is_specific_user('some-user-id')))
+            if not (is_self or (not is_manager and is_specific_user('some-user-id')))
             they cannot edit
             WARRANT)->validate()->scopedTo('timesheets');
-
-        // Equivalent, using canonical `not`:
-        //   if not (is_self or (not is_manager and is_specific_user('some-user-id')))
     }
 
     // -------------------------------------------------------------------------

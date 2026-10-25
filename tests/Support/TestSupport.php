@@ -693,7 +693,7 @@ function treeToString(?object $node): string
             ? 'can(' . $node->ability->name . ')'
             : 'can(' . $node->ability->name . ' for ' . handleToString($node) . ')',
         $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
-        $node instanceof NotNode => '!' . treeToString($node->operand),
+        $node instanceof NotNode => 'not ' . treeToString($node->operand),
         $node instanceof AndNode => '(' . treeToString($node->leftSide) . ' and ' . treeToString($node->rightSide) . ')',
         $node instanceof OrNode => '(' . treeToString($node->leftSide) . ' or ' . treeToString($node->rightSide) . ')',
         $node instanceof BooleanNode => $node->value ? 'true' : 'false',

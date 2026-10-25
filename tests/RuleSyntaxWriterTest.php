@@ -58,7 +58,6 @@ it('drops redundant parens but keeps semantically necessary ones', function (str
     'redundant parens removed'   => ['a and (b and c)', 'a and b and c'],
     'not group keeps parens'     => ['not (a and b)', 'not (a and b)'],
     'not condition no parens'    => ['not a and b', 'not a and b'],
-    '! normalized to not'        => ['!a', 'not a'],
 ]);
 
 // -- inline literals ----------------------------------------------------------
