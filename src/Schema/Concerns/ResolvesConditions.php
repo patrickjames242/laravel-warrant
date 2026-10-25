@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use Warrant\Builders\CrossSchemaCanBuilder;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
-use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
 

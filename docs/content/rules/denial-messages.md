@@ -65,7 +65,7 @@ Pass a closure and it receives a `WarrantDenialContext`, returning either a stri
 or a `Throwable` to throw as-is:
 
 ```php
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 ->theyCannotBecause('update', fn (WarrantDenialContext $c) =>
     "You cannot edit {$c->target->title} while it is locked.")
@@ -119,7 +119,7 @@ The other way a check fails is that no `cannot` forbade the user and no `can`
 allowed them. There is no rule to point at, so the message lives on the schema:
 
 ```php
-use Warrant\Schema\WarrantUngrantedContext;
+use Warrant\Schema\Denials\WarrantUngrantedContext;
 
 public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null
 {

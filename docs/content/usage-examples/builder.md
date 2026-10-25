@@ -81,7 +81,7 @@ Build::rule()
 A message can be a closure that sees the row, and may return an exception to throw:
 
 ```php
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 ->theyCannotBecause('update', fn (WarrantDenialContext $c) =>
     "You cannot edit {$c->target->title} while it is locked.")

@@ -7,8 +7,8 @@ use Warrant\LanguageServer\Positions\SlotKind;
 use Warrant\LanguageServer\Vocabulary\Declaration;
 use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
 
 /**
  * What the editor shows on hovering over a name in rule text: what it names, and

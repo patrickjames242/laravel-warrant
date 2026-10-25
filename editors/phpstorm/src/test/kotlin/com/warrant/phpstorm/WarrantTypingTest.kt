@@ -137,7 +137,7 @@ class WarrantTypingTest : BasePlatformTestCase() {
 
     /** A PHP schema whose #[RuleTemplate] method returns a multi-line string holding the line $rule. */
     private fun ruleTemplate(rule: String): String =
-        "<?php\nuse Warrant\\Schema\\RuleTemplate;\n\nclass S\n{\n    #[RuleTemplate]\n    public function t(): string\n    {\n        return \"\n            $rule\n        \";\n    }\n}\n"
+        "<?php\nuse Warrant\\Schema\\RuleTemplates\\RuleTemplate;\n\nclass S\n{\n    #[RuleTemplate]\n    public function t(): string\n    {\n        return \"\n            $rule\n        \";\n    }\n}\n"
 
     /** A PHP file whose WARRANT heredoc holds the line $rule. */
     private fun heredoc(rule: String): String = "<?php\n\$rules = <<<'WARRANT'\n    $rule\n    WARRANT;\n"

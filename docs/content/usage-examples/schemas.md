@@ -18,9 +18,9 @@ namespace App\Warrant;
 
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\RowCondition;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
 class DocumentSchema extends WarrantSchema
@@ -63,8 +63,8 @@ class Document extends Model
 ## Abilities
 
 ```php
-use Warrant\Schema\Ability;
-use Warrant\Schema\StandardAbilities;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Abilities\StandardAbilities;
 
 #[Ability] public const VIEW    = StandardAbilities::VIEW;   // 'view'
 #[Ability] public const APPROVE = 'approve';
@@ -120,7 +120,7 @@ A global condition asks about the user, not a row, and answers with a bool:
 
 ```php
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\Conditions\GlobalCondition;
 
 #[GlobalCondition]
 public function isAdmin(GlobalConditionContext $c): bool
@@ -168,7 +168,7 @@ string may write the method's parameters as bindings, by name:
 use Warrant\Builders\Build;
 use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\Ref;
-use Warrant\Schema\DerivedCondition;
+use Warrant\Schema\Conditions\DerivedCondition;
 
 #[DerivedCondition]
 public function isEditable(): string
@@ -223,7 +223,7 @@ A template is a reusable piece of policy, expanded with `@include`. Its clauses
 name no abilities, because the `@include` names them:
 
 ```php
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 #[RuleTemplate]
 public function requiresApproval(): string

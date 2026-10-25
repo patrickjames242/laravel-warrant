@@ -13,7 +13,7 @@ Marks a class constant as an ability. The constant's **value** is the name; its
 name is ignored, since discovery is by attribute.
 
 ```php
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 
 #[Ability] public const VIEW = 'view';
 ```
@@ -33,7 +33,7 @@ attribute implementing it declares an ability.
 
 ```php
 use Attribute;
-use Warrant\Schema\DeclaresAbility;
+use Warrant\Schema\Abilities\DeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
 final class TenantAbility implements DeclaresAbility
@@ -91,7 +91,7 @@ Marks a public method as a condition built from other conditions. The key works 
 for the other two.
 
 ```php
-use Warrant\Schema\DerivedCondition;
+use Warrant\Schema\Conditions\DerivedCondition;
 
 #[DerivedCondition]
 public function canEdit(): string
@@ -131,7 +131,7 @@ Marks a public method as a [rule template](/rules/templates/). The name is the
 method name snake-cased, overridable with a key.
 
 ```php
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 #[RuleTemplate]
 public function requiresApproval(): string

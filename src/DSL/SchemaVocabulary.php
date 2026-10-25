@@ -2,9 +2,9 @@
 
 namespace Warrant\DSL;
 
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
  * A schema's declared vocabulary: the abilities, conditions and rule templates a

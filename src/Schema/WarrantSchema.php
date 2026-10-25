@@ -20,6 +20,8 @@ use Warrant\Schema\Concerns\ReflectsSchemaDefinition;
 use Warrant\Schema\Concerns\ResolvesConditions;
 use Warrant\Schema\Concerns\ResolvesContext;
 use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantUngrantedContext;
 
 /**
  * A Warrant schema declares the vocabulary a rule string may reference for one

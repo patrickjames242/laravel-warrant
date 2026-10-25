@@ -25,7 +25,7 @@ use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\Schema\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
 
 /**
  * How {@see Expander} expands a derived condition a rule names: it calls

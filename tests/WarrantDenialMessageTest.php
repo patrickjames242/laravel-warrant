@@ -16,13 +16,13 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Conditions\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\GlobalCondition;
-use Warrant\Schema\RuleTemplate;
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantUngrantedContext;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\WarrantSchema;
-use Warrant\Schema\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
 

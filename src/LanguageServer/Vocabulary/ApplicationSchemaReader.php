@@ -7,11 +7,11 @@ use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
 use Throwable;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
-use Warrant\Schema\DeclaresAbility;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\WarrantSchema;
 
 /**

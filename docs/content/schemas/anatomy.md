@@ -16,14 +16,14 @@ namespace App\Warrant;
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\DerivedCondition;
+use Warrant\Schema\Conditions\DerivedCondition;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\Conditions\GlobalCondition;
 use Warrant\Schema\RequiredContext;
-use Warrant\Schema\RowCondition;
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\WarrantSchema;
 
 class DocumentSchema extends WarrantSchema

@@ -45,7 +45,7 @@ Read them back with `DocumentSchema::requiredContextKeys()`.
 When only one ability needs the frame, require it there:
 
 ```php
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 
 #[Ability] public const VIEW = 'view';
 #[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
@@ -86,7 +86,7 @@ actually looks for, and `#[Ability]` is just one implementation of it.
 
 ```php
 use Attribute;
-use Warrant\Schema\DeclaresAbility;
+use Warrant\Schema\Abilities\DeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
 final class TenantAbility implements DeclaresAbility

@@ -11,11 +11,11 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Conditions\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\GlobalCondition;
-use Warrant\Schema\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';

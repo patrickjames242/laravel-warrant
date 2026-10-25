@@ -16,7 +16,7 @@ use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Registry\RegisteredSchemas;
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 require_once __DIR__.'/Support/TestSupport.php';
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\Conditions;
 
 /**
  * A schema condition, resolved from a `#[RowCondition]`, `#[GlobalCondition]` or

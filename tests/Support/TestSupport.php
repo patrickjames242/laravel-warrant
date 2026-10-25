@@ -41,11 +41,11 @@ use Warrant\HasWarrantSchema;
 use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\GlobalConditionContext;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\GlobalCondition;
-use Warrant\Schema\RowCondition;
+use Warrant\Schema\Conditions\GlobalCondition;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantManager;
 

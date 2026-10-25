@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\RuleTemplates;
 
 /**
  * A schema's rule template, resolved from a `#[RuleTemplate]` method: its DSL

@@ -1,7 +1,7 @@
 <?php
 
-use Warrant\Schema\Ability;
-use Warrant\Schema\DeclaresAbility;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Abilities\DeclaresAbility;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';

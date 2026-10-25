@@ -6,7 +6,7 @@ use Closure;
 use InvalidArgumentException;
 use LogicException;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 /**
  * One rule: a condition, and the abilities it grants and denies when that

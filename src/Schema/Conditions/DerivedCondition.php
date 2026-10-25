@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\Conditions;
 
 use Attribute;
 use InvalidArgumentException;

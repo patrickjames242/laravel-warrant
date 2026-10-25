@@ -126,7 +126,7 @@ class RuleSyntaxExamples
         // dynamic message form theyCannotBecause() accepts on the builder:
         WarrantSyntax::parse(new BoundSyntax(
             "if is_locked they cannot edit because :msg",
-            ['msg' => fn (\Warrant\Schema\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
+            ['msg' => fn (\Warrant\Schema\Denials\WarrantDenialContext $c) => "You cannot edit {$c->target->getKey()}."],
         ))->validate()->rule();
 
         // The same rule built fluently — theyCannotBecause() carries the message:
@@ -208,8 +208,8 @@ class RuleSyntaxExamples
      * The condition binds every value as a placeholder — never interpolating it
      * into SQL:
      *
-     *   use Warrant\Schema\RowCondition;
-     *   use Warrant\Schema\GlobalCondition;
+     *   use Warrant\Schema\Conditions\RowCondition;
+     *   use Warrant\Schema\Conditions\GlobalCondition;
      *   use Warrant\Schema\Conditions\RowConditionContext;
      *   use Warrant\Schema\Conditions\GlobalConditionContext;
      *

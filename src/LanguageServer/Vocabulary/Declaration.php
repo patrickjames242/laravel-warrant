@@ -2,9 +2,9 @@
 
 namespace Warrant\LanguageServer\Vocabulary;
 
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
  * One name a schema declares, with what an editor shows and jumps to for it: the

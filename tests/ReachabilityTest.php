@@ -12,10 +12,10 @@ use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\DerivedCondition;
-use Warrant\Schema\RowCondition;
+use Warrant\Schema\Conditions\DerivedCondition;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\WarrantSchema;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 

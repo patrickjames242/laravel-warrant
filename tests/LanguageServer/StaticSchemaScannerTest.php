@@ -6,7 +6,7 @@ use Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader;
 use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
-use Warrant\Schema\ConditionKind;
+use Warrant\Schema\Conditions\ConditionKind;
 
 it('reads the schemas config/warrant.php registers, by key, however the class is written', function () {
     $scanner = new StaticSchemaScanner(fixtureRoot(), ClassFileLocator::forProject(fixtureRoot()));

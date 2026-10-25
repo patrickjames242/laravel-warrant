@@ -57,7 +57,7 @@ text, the closure arrives through a binding:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 WarrantSyntax::parse(warrant('if is_locked they cannot update because :msg', [
     'msg' => fn (WarrantDenialContext $c) =>

@@ -31,7 +31,7 @@ always the model's table:
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\RowCondition;
+use Warrant\Schema\Conditions\RowCondition;
 
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
@@ -63,7 +63,7 @@ it may simply return a `bool`:
 
 ```php
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\GlobalCondition;
+use Warrant\Schema\Conditions\GlobalCondition;
 
 #[GlobalCondition]
 public function isAdmin(GlobalConditionContext $c): bool

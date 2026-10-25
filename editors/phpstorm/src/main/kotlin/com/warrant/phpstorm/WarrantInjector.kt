@@ -77,8 +77,8 @@ class WarrantInjector : MultiHostInjector {
 
         /** Attributes on a schema method whose returned string is rule text. */
         private val RULE_TEXT_ATTRIBUTES = setOf(
-            "\\Warrant\\Schema\\DerivedCondition",
-            "\\Warrant\\Schema\\RuleTemplate",
+            "\\Warrant\\Schema\\Conditions\\DerivedCondition",
+            "\\Warrant\\Schema\\RuleTemplates\\RuleTemplate",
         )
 
         /** Types whose `rules()` returns rule text. */

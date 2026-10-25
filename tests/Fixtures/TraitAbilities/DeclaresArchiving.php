@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Warrant\Tests\Fixtures\TraitAbilities;
 
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 
 /**
  * Used by {@see DeclaresPublishing}, so its ability reaches the schema through

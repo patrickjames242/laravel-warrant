@@ -35,7 +35,7 @@ A template names that whole shape once.
 A public method marked `#[RuleTemplate]`, answering with rule text:
 
 ```php
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 #[RuleTemplate]
 public function requiresApproval(): string
@@ -138,7 +138,7 @@ the bindings it was parsed with:
 
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 #[RuleTemplate]
 public function inheritedFrom(string $relation): WarrantSyntax
@@ -175,7 +175,7 @@ abilities the `@include` supplies, from its `for` list, the block around it, or 
 `@include` that expanded the template it sits in:
 
 ```php
-use Warrant\Schema\RuleTemplateContext;
+use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 
 #[RuleTemplate]
 public function frozen(RuleTemplateContext $context): WarrantSyntax

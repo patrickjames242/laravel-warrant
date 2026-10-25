@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\HasWarrantSchema;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\WarrantSchema;
 
 /**

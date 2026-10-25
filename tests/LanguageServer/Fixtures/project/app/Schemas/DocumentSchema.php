@@ -4,12 +4,12 @@ namespace App\Schemas;
 
 use App\Models\Document;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\DerivedCondition;
+use Warrant\Schema\Conditions\DerivedCondition;
 use Warrant\Schema\RequiredContext;
-use Warrant\Schema\RowCondition;
-use Warrant\Schema\RuleTemplate;
+use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Facades\Warrant;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
@@ -72,7 +72,7 @@ class DocumentSchema extends BaseSchema
     }
 
     #[RuleTemplate(callOncePerAbility: true)]
-    public function sharedWith(\Warrant\Schema\RuleTemplateContext $context, mixed $team): WarrantSyntax
+    public function sharedWith(\Warrant\Schema\RuleTemplates\RuleTemplateContext $context, mixed $team): WarrantSyntax
     {
         return Warrant::parse(new BoundSyntax('if in_team(:team) they can', ['team' => $team]));
     }

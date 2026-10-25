@@ -4,6 +4,19 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Changed
+
+- The schema classes are grouped by feature under `Warrant\Schema`:
+  `Abilities\` holds `Ability`, `DeclaresAbility`, `AbilityDefinition` and
+  `StandardAbilities`; `Conditions\` holds the `#[RowCondition]`,
+  `#[GlobalCondition]` and `#[DerivedCondition]` attributes beside their
+  contexts, `ConditionDefinition` and `ConditionKind`; `RuleTemplates\` holds
+  `RuleTemplate`, `RuleTemplateContext` and `RuleTemplateDefinition`; and
+  `Denials\` holds `WarrantDenialContext` and `WarrantUngrantedContext`.
+  `WarrantSchema` and `RequiredContext` stay in `Warrant\Schema`.
+
 ## 4.4.0 — 2026-10-21
 
 ### Added

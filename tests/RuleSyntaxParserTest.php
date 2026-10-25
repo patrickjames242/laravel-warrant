@@ -28,9 +28,9 @@ use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
 
 require_once __DIR__.'/Support/TestSupport.php';
 

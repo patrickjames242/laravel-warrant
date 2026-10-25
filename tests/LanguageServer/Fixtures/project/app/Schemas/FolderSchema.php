@@ -2,9 +2,9 @@
 
 namespace App\Schemas;
 
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\RowCondition;
 
 final class FolderSchema extends BaseSchema
 {

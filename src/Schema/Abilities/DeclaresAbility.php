@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\Abilities;
 
 /**
  * The contract an attribute must satisfy to declare a schema ability.

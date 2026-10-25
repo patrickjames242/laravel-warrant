@@ -3,10 +3,10 @@
 namespace Warrant\LanguageServer\Vocabulary;
 
 use Warrant\DSL\SchemaVocabulary;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
  * What the language server knows of one schema, read from its source or from the

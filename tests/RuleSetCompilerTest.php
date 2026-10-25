@@ -20,10 +20,10 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\WarrantGate;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 

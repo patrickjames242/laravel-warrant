@@ -10,19 +10,19 @@ use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Abilities\DeclaresAbility;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\Conditions\DerivedCondition;
+use Warrant\Schema\Conditions\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
+use Warrant\Schema\Conditions\RowCondition;
 use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\DeclaresAbility;
-use Warrant\Schema\DerivedCondition;
-use Warrant\Schema\GlobalCondition;
 use Warrant\Schema\RequiredContext;
-use Warrant\Schema\RowCondition;
-use Warrant\Schema\RuleTemplate;
-use Warrant\Schema\RuleTemplateContext;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplateContext;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
  * Reflection over a schema's declared vocabulary: the abilities (from `#[Ability]`

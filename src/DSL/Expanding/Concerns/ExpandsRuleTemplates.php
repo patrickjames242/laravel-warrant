@@ -22,8 +22,8 @@ use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\Schema\RuleTemplateContext;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\RuleTemplates\RuleTemplateContext;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
  * How {@see Expander} expands an `@include`: it calls the template the

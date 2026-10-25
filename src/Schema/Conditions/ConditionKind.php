@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\Conditions;
 
 /**
  * What kind of condition a {@see ConditionDefinition} describes, which decides
@@ -10,13 +10,13 @@ enum ConditionKind
 {
     /**
      * `#[RowCondition]`: narrows which rows match. Handed a
-     * {@see Conditions\RowConditionContext}, and needs a row in scope.
+     * {@see RowConditionContext}, and needs a row in scope.
      */
     case Row;
 
     /**
      * `#[GlobalCondition]`: a row-independent yes/no or query constraint. Handed a
-     * {@see Conditions\GlobalConditionContext}.
+     * {@see GlobalConditionContext}.
      */
     case Global;
 

@@ -2,8 +2,8 @@
 
 namespace App\Schemas;
 
+use Warrant\Schema\Conditions\GlobalCondition;
 use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\GlobalCondition;
 
 trait ChecksTeams
 {

@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
 use Warrant\DSL\Parsing\SyntaxSource;
-use Warrant\Schema\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole

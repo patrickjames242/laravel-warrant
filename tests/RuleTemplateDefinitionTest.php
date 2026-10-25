@@ -2,12 +2,12 @@
 
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\RowConditionContext;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\RowCondition;
-use Warrant\Schema\RuleTemplate;
-use Warrant\Schema\RuleTemplateContext;
+use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';

@@ -2,7 +2,7 @@
 
 namespace App\Schemas;
 
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\WarrantSchema;
 
 final class BillingSchema extends WarrantSchema

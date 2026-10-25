@@ -11,7 +11,7 @@ Abilities are the verbs a rule can grant or deny. Declare each as a class consta
 marked `#[Ability]`:
 
 ```php
-use Warrant\Schema\Ability;
+use Warrant\Schema\Abilities\Ability;
 
 #[Ability] public const VIEW    = 'view';
 #[Ability] public const APPROVE = 'approve';
@@ -66,7 +66,7 @@ If you want a shared vocabulary across schemas, `StandardAbilities` ships common
 ones:
 
 ```php
-use Warrant\Schema\StandardAbilities;
+use Warrant\Schema\Abilities\StandardAbilities;
 
 #[Ability] public const VIEW = StandardAbilities::VIEW;   // 'view'
 ```
@@ -109,7 +109,7 @@ constant:
 
 ```php
 use Attribute;
-use Warrant\Schema\DeclaresAbility;
+use Warrant\Schema\Abilities\DeclaresAbility;
 
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
 final class TenantAbility implements DeclaresAbility

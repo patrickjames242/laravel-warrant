@@ -10,8 +10,8 @@ use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
-use Warrant\Schema\WarrantDenialContext;
-use Warrant\Schema\WarrantUngrantedContext;
+use Warrant\Schema\Denials\WarrantDenialContext;
+use Warrant\Schema\Denials\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
 use Warrant\WarrantGate;
 

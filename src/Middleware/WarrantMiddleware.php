@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
 use Warrant\AbilityMatchMode;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\StandardAbilities;
+use Warrant\Schema\Abilities\StandardAbilities;
 
 class WarrantMiddleware
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema;
+namespace Warrant\Schema\Abilities;
 
 /**
  * A schema ability, resolved from an `#[Ability]` constant: its name and the

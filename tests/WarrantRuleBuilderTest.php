@@ -26,10 +26,10 @@ use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\SyntaxSource;
-use Warrant\Schema\AbilityDefinition;
-use Warrant\Schema\ConditionDefinition;
-use Warrant\Schema\ConditionKind;
-use Warrant\Schema\RuleTemplateDefinition;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 require_once __DIR__.'/Support/TestSupport.php';
 

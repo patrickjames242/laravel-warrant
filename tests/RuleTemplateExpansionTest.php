@@ -23,8 +23,8 @@ use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
 use Warrant\Rules\RuleProvider;
 use Warrant\Rules\RuleProviderContext;
-use Warrant\Schema\RuleTemplate;
-use Warrant\Schema\RuleTemplateContext;
+use Warrant\Schema\RuleTemplates\RuleTemplate;
+use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 
 class TemplateExpansionModel extends Model
 {
