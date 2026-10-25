@@ -278,7 +278,7 @@ abstract class WarrantSchema implements ConditionResolver
 
     /**
      * The schema-level fallback message for a *forbidden* denial — a matching
-     * `cannot` rule blocked the check but carried no {@see \Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode::$message}
+     * `cannot` rule blocked the check but carried no {@see \Warrant\DSL\Parsing\ASTNodes\RuleNode::$message}
      * of its own. Consulted after a rule's own message and before the generic 403,
      * so it catches every message-less `cannot`.
      *

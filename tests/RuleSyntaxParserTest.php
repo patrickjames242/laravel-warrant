@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -65,7 +65,7 @@ it('parses source and bindings into a flat list of rules', function () {
     $rules = WarrantSyntax::parse('if is_teacher they can view if is_admin they can edit')->validateWithoutSchemas()->ruleEntries();
 
     expect($rules)->toBeArray()->toHaveCount(2);
-    expect($rules[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($rules[0])->toBeInstanceOf(RuleNode::class);
     expect($rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
     expect($rules[1]->conditions->conditionKey?->name)->toBe('is_admin');
 });
@@ -1167,7 +1167,7 @@ it('reads a header with nothing after it as an empty rule set, not a condition',
  * The rules a rule set's ability blocks stand for. The parser keeps a block as
  * written; expansion is what applies its header.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function openBlocks(RuleSetNode $set): array
 {
@@ -1479,7 +1479,7 @@ it('reads rules around a when block as entries of their own', function () {
     $entries = WarrantParser::parse('if a they can view when b { they can edit } they can list')->children;
 
     expect(array_map(static fn ($entry): string => $entry::class, $entries))
-        ->toBe([WarrantRuleNode::class, WhenBlockNode::class, WarrantRuleNode::class]);
+        ->toBe([RuleNode::class, WhenBlockNode::class, RuleNode::class]);
 });
 
 it('rejects a when block with no braces', function () {
@@ -1622,7 +1622,7 @@ it('keeps an include in source order among the rules', function () {
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect($set->entries)->toHaveCount(3);
-    expect($set->entries[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($set->entries[0])->toBeInstanceOf(RuleNode::class);
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_first');
     expect($set->entries[1])->toBeInstanceOf(AbilityBlockNode::class);
     expect($set->entries[1]->entries[0])->toBeInstanceOf(IncludeInvocationNode::class);
@@ -1725,9 +1725,9 @@ it('keeps rules and includes interleaved inside one block', function () {
 
     $body = $set->entries[0]->entries;
 
-    expect($body[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($body[0])->toBeInstanceOf(RuleNode::class);
     expect($body[1])->toBeInstanceOf(IncludeInvocationNode::class);
-    expect($body[2])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($body[2])->toBeInstanceOf(RuleNode::class);
 });
 
 it('takes a wildcard block header for an include', function () {

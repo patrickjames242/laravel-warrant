@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -360,13 +360,13 @@ function seedDenialSections(): void
 }
 
 /**
- * @param  array<int, WarrantRuleNode|\Warrant\Builders\WarrantRuleBuilder>  $rules
+ * @param  array<int, RuleNode|\Warrant\Builders\WarrantRuleBuilder>  $rules
  */
 function bindDenialRules(array $rules, string $schema = WarrantTestSchema::class): void
 {
     bindWarrantRuleSet(new RuleSetNode(
         nameNode(Warrant::registry()->resolveSchemaKeyOrFail($schema)),
-        array_map(static fn ($rule): WarrantRuleNode => $rule instanceof WarrantRuleNode ? $rule : $rule->toRule(), $rules),
+        array_map(static fn ($rule): RuleNode => $rule instanceof RuleNode ? $rule : $rule->toRule(), $rules),
         SyntaxLocation::noProducer(),
     ));
 }
@@ -440,7 +440,7 @@ it('passes the resolved target model and ability into the closure context', func
     expect($captured->gate->abilities)->toBe(['update']);
     expect($captured->gate->matchMode)->toBe(AbilityMatchMode::ALL);
     expect($captured->deniedAbilities)->toBe(['update']);
-    expect($captured->rule)->toBeInstanceOf(WarrantRuleNode::class);
+    expect($captured->rule)->toBeInstanceOf(RuleNode::class);
     expect($captured->schema)->toBe(WarrantTestSchema::class);
 });
 

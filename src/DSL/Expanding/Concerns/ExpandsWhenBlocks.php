@@ -7,7 +7,7 @@ use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\SchemaVocabulary;
@@ -37,7 +37,7 @@ trait ExpandsWhenBlocks
      *
      * A block is grouping and nothing more, so it spends nothing of the trail.
      *
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     private function expandWhenBlock(
         WhenBlockNode $block,
@@ -69,13 +69,13 @@ trait ExpandsWhenBlocks
      * $rules, each holding only where $guard holds too: `$guard and (its own
      * condition)`, or $guard alone for a rule with none.
      *
-     * @param list<WarrantRuleNode> $rules
-     * @return list<WarrantRuleNode>
+     * @param list<RuleNode> $rules
+     * @return list<RuleNode>
      */
     private static function guarded(array $rules, IBooleanExpressionNode $guard, SyntaxLocation $implied): array
     {
         return array_map(
-            static fn (WarrantRuleNode $rule): WarrantRuleNode => new WarrantRuleNode(
+            static fn (RuleNode $rule): RuleNode => new RuleNode(
                 $rule->conditions === null ? $guard : new AndNode($guard, $rule->conditions, $implied),
                 $rule->canClauses,
                 $rule->cannotClauses,

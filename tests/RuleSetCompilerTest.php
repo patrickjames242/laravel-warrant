@@ -17,7 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\Abilities\AbilityDefinition;
@@ -567,7 +567,7 @@ it('passes over the wildcard, which names no ability in particular', function ()
 
 it('refuses to compile the placeholder an analysis reads in place of a missing condition', function () {
     $ruleSet = expandedFor(
-        new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+        new RuleSetNode(nameNode('docs'), [new RuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
         new FakeConditionResolver,
     );
 
@@ -579,7 +579,7 @@ it('refuses to compile the placeholder an analysis reads in place of a missing c
 
 it('refuses to compile the placeholder an analysis reads in place of a missing argument', function () {
     $ruleSet = expandedFor(
-        new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(new ConditionNode(nameNode('is_owner'), [argumentNode(new MissingArgumentNode(SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+        new RuleSetNode(nameNode('docs'), [new RuleNode(new ConditionNode(nameNode('is_owner'), [argumentNode(new MissingArgumentNode(SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
         new FakeConditionResolver,
     );
 

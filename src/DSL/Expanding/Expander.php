@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
@@ -98,7 +98,7 @@ final class Expander
      * the expression it answers with. Rules about any other schema are left
      * out.
      *
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     public function expand(string $schemaKey, ValidSyntax ...$syntaxes): array
     {
@@ -122,7 +122,7 @@ final class Expander
      * a fresh expansion trail.
      *
      * @param list<IRuleEntryNode> $entries
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     private function expandTopLevelEntries(array $entries, SchemaVocabulary $schema, string $schemaKey): array
     {
@@ -132,7 +132,7 @@ final class Expander
         foreach ($entries as $written) {
             foreach ($written instanceof WhenBlockNode ? $written->entriesInside() : [$written] as $entry) {
                 $generic = match (true) {
-                    $entry instanceof WarrantRuleNode => $entry->hasGenericCanOrCannotClause(),
+                    $entry instanceof RuleNode => $entry->hasGenericCanOrCannotClause(),
                     $entry instanceof IncludeInvocationNode => $entry->isGeneric(),
                     default => false,
                 };
@@ -151,7 +151,7 @@ final class Expander
      * in what a template answered with — into rules, carrying $trail down.
      *
      * @param list<IRuleEntryNode> $entries
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     private function expandEntries(
         array $entries,

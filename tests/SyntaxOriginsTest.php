@@ -17,7 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
@@ -100,7 +100,7 @@ class OriginDocSchema extends WarrantSchema
     }
 
     #[RuleTemplate]
-    public function ownedRules(): WarrantRuleNode
+    public function ownedRules(): RuleNode
     {
         return Build::rule()->if('is_owner')->orIf(fn ($c) => $c->if('owner_is', ['t1']))->theyCan()->toRule();
     }
@@ -119,7 +119,7 @@ beforeEach(function () {
  * The rules a fresh guard expands when the schema's rules() answers with what
  * $answer returns.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function originRules(Closure $answer): array
 {
@@ -261,7 +261,7 @@ it('gives the rule provider\'s answer its producer', function () {
 it('reads rule text answered with its values, from rules(), a template or a derived condition, as its producer\'s', function () {
     $rules = originRules(fn () => warrant("if owner_is(:id) they can view\n@include bound_rules for edit\nif owned_by_bound they can edit", ['id' => 'u1']));
 
-    expect(array_map(static fn (WarrantRuleNode $rule): array => [
+    expect(array_map(static fn (RuleNode $rule): array => [
         $rule->location->source->producer()->kind,
         argumentValues($rule->conditions instanceof DerivedConditionNode ? $rule->conditions->body->parameters : $rule->conditions->parameters),
     ], $rules))->toBe([
@@ -356,7 +356,7 @@ it('rejects a with key written twice in the compiler too', function () {
         null,
         SyntaxLocation::noProducer(),
     );
-    $rule = new WarrantRuleNode($handle, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
+    $rule = new RuleNode($handle, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
 
     expect(fn () => (new RuleSetCompiler(new OriginDocSchema, app(WarrantManager::class)))->compile(
         CompilationContext::ability(

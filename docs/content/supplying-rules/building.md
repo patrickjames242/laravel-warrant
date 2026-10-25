@@ -83,7 +83,7 @@ shape the text holds:
 
 ```php
 $entries = WarrantSyntax::parse('if is_mine they can view')->validate()->ruleEntries();   // IRuleEntryNode[]
-$one     = WarrantSyntax::parse('they cannot delete')->validate()->rule();               // WarrantRuleNode
+$one     = WarrantSyntax::parse('they cannot delete')->validate()->rule();               // RuleNode
 $expr    = WarrantSyntax::parse('a or not b')->validate()->conditionExpression();        // an expression
 ```
 

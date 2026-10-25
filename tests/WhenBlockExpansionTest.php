@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Facades\Warrant;
@@ -103,7 +103,7 @@ class WhenBlockSchema extends WarrantSchema
 /**
  * The rules $syntax expands to against the when-block schema.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function whenExpanded(string|BoundSyntax $syntax): array
 {
@@ -113,7 +113,7 @@ function whenExpanded(string|BoundSyntax $syntax): array
 /**
  * The rules $syntax writes out longhand, as written.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function whenLonghand(string $syntax): array
 {

@@ -97,7 +97,7 @@ The context carries everything about the refusal:
 | `$c->schema` | `string` | the schema class |
 | `$c->context` | `array` | the effective check-time context |
 | `$c->gate` | `WarrantGate` | what was asked: `abilities` and `matchMode` |
-| `$c->rule` | `WarrantRuleNode` | the responsible `cannot` |
+| `$c->rule` | `RuleNode` | the responsible `cannot` |
 | `$c->deniedAbilities` | `array` | the concrete abilities this message explains, with `*` resolved |
 
 `deniedAbilities` has the wildcard expanded, so a per-cannot-clause message sees only the

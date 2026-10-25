@@ -4,7 +4,7 @@ namespace Warrant\Schema\Denials;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\WarrantGate;
 
 /**
@@ -31,7 +31,7 @@ final readonly class WarrantDenialContext
         public string $schema,
         public array $context,
         public WarrantGate $gate,
-        public WarrantRuleNode $rule,
+        public RuleNode $rule,
         public array $deniedAbilities,
     ) {
     }

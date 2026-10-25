@@ -19,7 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Validation\AbilityMistakes;
@@ -90,7 +90,7 @@ trait ReplacesBindings
                 $node->message === null ? null : self::withBindingsReplaced($node->message),
                 $node->location,
             ),
-            $node instanceof WarrantRuleNode => new WarrantRuleNode(
+            $node instanceof RuleNode => new RuleNode(
                 $node->conditions === null ? null : self::withBindingsReplaced($node->conditions),
                 self::eachWithBindingsReplaced($node->canClauses),
                 self::eachWithBindingsReplaced($node->cannotClauses),

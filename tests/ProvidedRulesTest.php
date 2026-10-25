@@ -2,7 +2,7 @@
 
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\Rules\RuleProvider;
@@ -18,7 +18,7 @@ beforeEach(function () {
 /**
  * The rules a guard expands when the global provider returns $rules.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function rulesProvidedAs(mixed $rules): array
 {

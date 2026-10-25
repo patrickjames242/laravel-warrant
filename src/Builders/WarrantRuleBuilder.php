@@ -7,13 +7,13 @@ use LogicException;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\Schema\Denials\WarrantDenialContext;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for constructing a whole
- * {@see WarrantRuleNode} in PHP instead of the string DSL. {@see Build::rule()}
+ * {@see RuleNode} in PHP instead of the string DSL. {@see Build::rule()}
  * makes one, and so does `$rule()` inside {@see Build::ruleSet()}.
  *
  * It extends {@see WarrantConditionBuilder} with the can/cannot clause half of a rule
@@ -102,7 +102,7 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      * The rule, every node placed in $source: the source of the syntax that
      * holds it, or a new one when the rule is the root of what is handed over.
      */
-    public function toRule(SyntaxSource $source = new SyntaxSource(null)): WarrantRuleNode
+    public function toRule(SyntaxSource $source = new SyntaxSource(null)): RuleNode
     {
         if ($this->canClauses === [] && $this->cannotClauses === []) {
             throw new LogicException(
@@ -110,7 +110,7 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
             );
         }
 
-        return new WarrantRuleNode(
+        return new RuleNode(
             $this->buildConditions($source),
             array_map(fn (array $abilities): CanClauseNode => new CanClauseNode(
                 $this->abilityNodes($abilities, $source),

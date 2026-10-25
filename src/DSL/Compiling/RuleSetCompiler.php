@@ -33,7 +33,7 @@ use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\WarrantManager;
 
@@ -331,7 +331,7 @@ final class RuleSetCompiler
      * `*` names no ability in particular but stands for all of them, so it is
      * passed over.
      */
-    private function assertRuleAbilitiesDeclared(WarrantRuleNode $rule): void
+    private function assertRuleAbilitiesDeclared(RuleNode $rule): void
     {
         foreach ([...$rule->canAbilities(), ...$rule->cannotAbilities()] as $ability) {
             if ($ability !== '*' && $this->conditions->getAbilityDefinition($ability) === null) {

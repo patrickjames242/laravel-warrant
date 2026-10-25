@@ -9,7 +9,7 @@ use Throwable;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\Schema\Denials\WarrantDenialContext;
 use Warrant\Schema\Denials\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
@@ -22,7 +22,7 @@ use Warrant\WarrantGate;
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
  * *forbidden* by a `cannot` (surfacing that cannot clause's
- * {@see WarrantRuleNode::messageFor()}) from being *ungranted* (nothing forbade and
+ * {@see RuleNode::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
  * {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook).
  */
@@ -241,7 +241,7 @@ trait DiagnosesDenials
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRule(WarrantRuleNode $rule, array $gateAbilities): array
+    private function abilitiesBlockedByRule(RuleNode $rule, array $gateAbilities): array
     {
         $cannotAbilities = $rule->cannotAbilities();
 
@@ -262,7 +262,7 @@ trait DiagnosesDenials
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRuleForMessage(WarrantRuleNode $rule, array $gateAbilities, string $ability): array
+    private function abilitiesBlockedByRuleForMessage(RuleNode $rule, array $gateAbilities, string $ability): array
     {
         $target = $rule->messageFor($ability);
 
@@ -281,7 +281,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildDenialException(
-        WarrantRuleNode $rule,
+        RuleNode $rule,
         string $ability,
         string|Closure $message,
         ?Model $targetModel,
@@ -325,7 +325,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildForbiddenException(
-        WarrantRuleNode $rule,
+        RuleNode $rule,
         ?Model $targetModel,
         WarrantGate $gate,
         array $context,

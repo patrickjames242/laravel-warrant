@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\LanguageServer\Documents\AnalyzedFragment;
 use Warrant\LanguageServer\Documents\Document;
@@ -83,7 +83,7 @@ final class DocumentSymbols
                 [...$node->entries, ...$node->otherwiseEntries ?? []],
             ],
             $node instanceof IncludeInvocationNode => ['@include '.self::orMissing($node->templateKey->name), self::KIND_MODULE, []],
-            $node instanceof WarrantRuleNode => [self::ruleName($node), self::KIND_FUNCTION, []],
+            $node instanceof RuleNode => [self::ruleName($node), self::KIND_FUNCTION, []],
             $node instanceof IBooleanExpressionNode => ['condition', self::KIND_BOOLEAN, []],
             default => [null, null, []],
         };
@@ -101,7 +101,7 @@ final class DocumentSymbols
             'selectionRange' => $range,
         ];
 
-        if ($node instanceof WarrantRuleNode) {
+        if ($node instanceof RuleNode) {
             $symbol['detail'] = self::firstLine(substr($fragment->text, $span->offset, $span->length()));
         }
 
@@ -133,9 +133,9 @@ final class DocumentSymbols
     /**
      * What a rule grants and denies: `can view, edit · cannot delete`.
      *
-     * @param WarrantRuleNode $rule The rule.
+     * @param RuleNode $rule The rule.
      */
-    private static function ruleName(WarrantRuleNode $rule): string
+    private static function ruleName(RuleNode $rule): string
     {
         $parts = [];
 

@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
@@ -53,7 +53,7 @@ it('parses a rule with no header to one rule child', function () {
 
     expect($syntax->isSingleRule())->toBeTrue();
     expect($syntax->isRuleEntries())->toBeTrue();
-    expect($syntax->rule())->toBeInstanceOf(WarrantRuleNode::class);
+    expect($syntax->rule())->toBeInstanceOf(RuleNode::class);
     expect($syntax->rule()->canAbilities())->toBe(['view']);
 });
 
@@ -68,8 +68,8 @@ it('parses several unscoped rules, blocks and includes to a list of entries', fu
     expect($syntax->isRuleEntries())->toBeTrue();
     expect($syntax->isSingleRule())->toBeFalse();
     expect(array_map(get_class(...), $syntax->ruleEntries()))->toBe([
-        WarrantRuleNode::class,
-        WarrantRuleNode::class,
+        RuleNode::class,
+        RuleNode::class,
         AbilityBlockNode::class,
         IncludeInvocationNode::class,
     ]);
@@ -403,31 +403,31 @@ function expandBuiltInCode(array $entries): void
     expandedFor(new RuleSetNode(nameNode('docs'), $entries, SyntaxLocation::noProducer()), new WarrantTestSchema);
 }
 
-it('rejects a block entry built in code that names abilities of its own', function (WarrantRuleNode|IncludeInvocationNode $entry) {
+it('rejects a block entry built in code that names abilities of its own', function (RuleNode|IncludeInvocationNode $entry) {
     expect(fn () => expandBuiltInCode([new AbilityBlockNode([nameNode('view')], [$entry], SyntaxLocation::noProducer())]))->toThrow(
         InvalidArgumentException::class,
         'inside an ability block may not name abilities; the block header already names them.',
     );
 })->with([
-    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
-    'a cannot clause' => fn () => new WarrantRuleNode(null, [], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
-    'one of two clauses' => fn () => new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'a can clause' => fn () => new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
+    'a cannot clause' => fn () => new RuleNode(null, [], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'one of two clauses' => fn () => new RuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [new CannotClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
     'an include' => fn () => new IncludeInvocationNode(nameNode('t'), [], [nameNode('view')], SyntaxLocation::noProducer()),
 ]);
 
-it('rejects a generic can/cannot clause or include built in code outside an ability block', function (WarrantRuleNode|IncludeInvocationNode $entry) {
+it('rejects a generic can/cannot clause or include built in code outside an ability block', function (RuleNode|IncludeInvocationNode $entry) {
     expect(fn () => expandBuiltInCode([$entry]))->toThrow(
         InvalidArgumentException::class,
         'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [docs] holds one that names none.',
     );
 })->with([
-    'a can clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
-    'a cannot clause' => fn () => new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [new CannotClauseNode([], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+    'a can clause' => fn () => new RuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
+    'a cannot clause' => fn () => new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [new CannotClauseNode([], null, SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
     'an include' => fn () => new IncludeInvocationNode(nameNode('t'), [], [], SyntaxLocation::noProducer()),
 ]);
 
 it('refuses to give abilities to a rule or include that names its own', function () {
-    expect(fn () => (new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()))->withAbilities(['edit']))
+    expect(fn () => (new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()))->withAbilities(['edit']))
         ->toThrow(InvalidArgumentException::class, 'Only a generic rule takes abilities from outside; this rule names its own.');
 
     expect(fn () => (new IncludeInvocationNode(nameNode('t'), [], [nameNode('view')], SyntaxLocation::noProducer()))->withAbilities(['edit']))
@@ -444,13 +444,13 @@ it('rejects a block built in code inside a block, and one with no abilities', fu
 
 it('holds a block or rule set as it was written, for the validator to report on', function () {
     expect((new AbilityBlockNode([], [new AbilityBlockNode([nameNode('view')], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()))->entries)->toHaveCount(1)
-        ->and((new RuleSetNode(nameNode('docs'), [new WarrantRuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()))->entries)->toHaveCount(1);
+        ->and((new RuleSetNode(nameNode('docs'), [new RuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()))->entries)->toHaveCount(1);
 });
 
 // -- the tree holds one shape --------------------------------------------------
 
 it('rejects a tree mixing shapes', function () {
-    $rule = new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
+    $rule = new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
     $expression = new ConditionNode(nameNode('is_owner'), [], SyntaxLocation::noProducer());
 
     expect(fn () => new WarrantSyntax([$rule, new RuleSetNode(nameNode('a'), [], SyntaxLocation::noProducer())]))

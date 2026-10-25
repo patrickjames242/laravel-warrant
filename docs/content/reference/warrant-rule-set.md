@@ -8,7 +8,7 @@ sidebar:
 ---
 
 Every syntax node lives in `Warrant\DSL\Parsing\ASTNodes`: `WarrantSyntax`,
-`RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `WarrantRuleNode`,
+`RuleSetNode`, `SchemaConditionNode`, `AbilityBlockNode`, `RuleNode`,
 `IncludeInvocationNode`, `CanClauseNode`, `CannotClauseNode`, the interfaces
 `IRuleEntryNode` and `ISchemaScopedNode`, the expression nodes, and the leaves
 every name and literal is held in: `NameNode` (`$name`) and `LiteralNode`
@@ -55,7 +55,7 @@ nodes or writes itself back as text:
 
 ```php
 public function conditionExpression(): IBooleanExpressionNode;
-public function rule(): WarrantRuleNode;
+public function rule(): RuleNode;
 public function ruleEntries(): array;   // list<IRuleEntryNode>
 public function ruleSet(): RuleSetNode;
 public function ruleSets(): array;      // list<RuleSetNode>, source order, unmerged
@@ -77,7 +77,7 @@ guard expands the rules.
 | --- | --- | --- |
 | empty, or comments only | none | `isEmpty()` |
 | `is_owner or is_admin` | one `IBooleanExpressionNode` | `conditionExpression()` |
-| `if is_mine they can view` | one `WarrantRuleNode` | `rule()` |
+| `if is_mine they can view` | one `RuleNode` | `rule()` |
 | several rules, `can they … { … }` blocks or `@include`s, no header | `IRuleEntryNode`, … | `ruleEntries()` |
 | `for documents` then a body, braced or not | one `RuleSetNode` | `ruleSet()` |
 | `for documents { … } for folders { … }` | `RuleSetNode`, … | `ruleSets()`, `forSchema()`, `schemaKeys()` |
@@ -167,7 +167,7 @@ and include held directly in `$entries` must name its own abilities; a generic
 one there throws `InvalidArgumentException`.
 
 The expanded rules are on the guard, as an `ExpandedSyntax` whose `$rules` is a
-`list<WarrantRuleNode>`:
+`list<RuleNode>`:
 
 ```php
 Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
@@ -192,7 +192,7 @@ Warrant::parse("for {$schemaKey} {\n{$text}\n}")->validate();
 
 It throws the first mistake, saying where in the text it is.
 
-## `WarrantRuleNode` (readonly)
+## `RuleNode` (readonly)
 
 ```php
 public ?IBooleanExpressionNode $conditions;   // null means unconditional

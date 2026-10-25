@@ -7,7 +7,7 @@ use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
@@ -27,7 +27,7 @@ trait ExpandsAbilityBlocks
      *
      * A block is grouping and nothing more, so it spends nothing of the trail.
      *
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     private function expandAbilityBlock(
         AbilityBlockNode $block,
@@ -46,7 +46,7 @@ trait ExpandsAbilityBlocks
             foreach ($written instanceof WhenBlockNode ? $written->entriesInside() : [$written] as $entry) {
                 match (true) {
                     $entry instanceof AbilityBlockNode => throw new InvalidArgumentException(LanguageRuleMessages::blockInsideBlock()),
-                    $entry instanceof WarrantRuleNode && ! $entry->isGeneric()
+                    $entry instanceof RuleNode && ! $entry->isGeneric()
                         => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('A can/cannot clause')),
                     $entry instanceof IncludeInvocationNode && ! $entry->isGeneric()
                         => throw new InvalidArgumentException(LanguageRuleMessages::namedInsideBlock('An @include')),
@@ -56,7 +56,7 @@ trait ExpandsAbilityBlocks
         }
 
         $entries = array_map(
-            static fn (WarrantRuleNode|IncludeInvocationNode|WhenBlockNode $entry): WarrantRuleNode|IncludeInvocationNode|WhenBlockNode
+            static fn (RuleNode|IncludeInvocationNode|WhenBlockNode $entry): RuleNode|IncludeInvocationNode|WhenBlockNode
                 => $entry->withAbilities($block->abilities),
             $block->entries,
         );

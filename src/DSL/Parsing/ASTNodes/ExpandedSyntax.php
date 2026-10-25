@@ -33,7 +33,7 @@ final readonly class ExpandedSyntax
 {
     /**
      * @param string $schemaKey The schema the rules are for.
-     * @param list<WarrantRuleNode> $rules In source order, each include's rules
+     * @param list<RuleNode> $rules In source order, each include's rules
      *   where the include stood.
      * @param ValidationInput $input What the rules were expanded against, with
      *   no producer: an expanded syntax holds rules of many producers, and each

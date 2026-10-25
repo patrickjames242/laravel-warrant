@@ -17,7 +17,7 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  * can/cannot clause names no abilities, because the block header or the `@include` names
  * them. {@see withAbilities()} gives a generic rule the abilities it takes.
  */
-readonly class WarrantRuleNode implements IRuleEntryNode
+readonly class RuleNode implements IRuleEntryNode
 {
     /**
      * @param list<CanClauseNode> $canClauses The granted abilities, one can clause

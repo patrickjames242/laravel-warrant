@@ -135,7 +135,7 @@ readonly class WarrantSyntax
      */
     public function isSingleRule(): bool
     {
-        return count($this->children) === 1 && $this->children[0] instanceof WarrantRuleNode;
+        return count($this->children) === 1 && $this->children[0] instanceof RuleNode;
     }
 
     /**

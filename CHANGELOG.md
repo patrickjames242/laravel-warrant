@@ -19,8 +19,9 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 - Messages, docs and names say "can/cannot clause" where they said only
   "clause". The `missing-clause` diagnostic is now
   `missing-can-or-cannot-clause` (`DiagnosticCode::MissingCanOrCannotClause`),
-  and `WarrantRuleNode::hasGenericClause()` is now
+  and `RuleNode::hasGenericClause()` is now
   `hasGenericCanOrCannotClause()`.
+- `WarrantRuleNode` is now `RuleNode`.
 
 ## 4.4.0 — 2026-10-21
 

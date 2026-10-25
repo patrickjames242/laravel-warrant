@@ -15,7 +15,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * names them, and {@see withAbilities()} applies them. What is left for the
  * expansion is the template's body, which only the schema can answer with.
  *
- * An invocation is deliberately not part of a {@see WarrantRuleNode}. A rule holds
+ * An invocation is deliberately not part of a {@see RuleNode}. A rule holds
  * concrete abilities and a condition tree; an include holds neither until it is
  * expanded, so it rides beside the rules in a {@see RuleSetNode} instead
  * of inside one.

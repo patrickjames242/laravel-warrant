@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\Grammar\RuleEntries;
 
 use Warrant\DSL\Lexing\TokenType;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\Grammar\BooleanExpressions\ParseBooleanExpression;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * A rule with a condition: `if <boolean expression>` and then the
  * `they can` / `they cannot` clauses it applies to.
  *
- * @extends Parser<WarrantRuleNode>
+ * @extends Parser<RuleNode>
  */
 final class ParseConditionalRule extends Parser
 {
@@ -24,12 +24,12 @@ final class ParseConditionalRule extends Parser
         return $ahead->nextIs(TokenType::IF);
     }
 
-    protected function read(): WarrantRuleNode
+    protected function read(): RuleNode
     {
         $this->advance(); // consume 'if'
         $conditions = $this->expressionOrMissing(ParseBooleanExpression::class);
         [$canClauses, $cannotClauses] = $this->parse(new ParseTheyCanAndCannotClauses)->value;
 
-        return new WarrantRuleNode($conditions, $canClauses, $cannotClauses, $this->locationEndingHere());
+        return new RuleNode($conditions, $canClauses, $cannotClauses, $this->locationEndingHere());
     }
 }

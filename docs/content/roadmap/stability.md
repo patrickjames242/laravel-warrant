@@ -22,7 +22,7 @@ The things this documentation covers as API:
 - the condition context objects and their properties;
 - `HasWarrantSchema`, its scopes, and `warrantQualifyColumn()`;
 - `WarrantSyntax` and the syntax nodes a parse returns (`RuleSetNode`,
-  `WarrantRuleNode`, `AbilityBlockNode`, `IncludeInvocationNode`,
+  `RuleNode`, `AbilityBlockNode`, `IncludeInvocationNode`,
   `SchemaConditionNode` and their can/cannot clause nodes), the builders, and `Ref`;
 - `RuleProvider` and `RuleProviderContext`;
 - `WarrantMiddleware` and the registered aliases;

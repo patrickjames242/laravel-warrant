@@ -5,7 +5,7 @@ namespace Warrant\DSL\Validation;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\SchemaVocabulary;
@@ -60,7 +60,7 @@ trait ValidatesAbilityBlocks
                 }
 
                 $this->assertTemplateDeclared($entry, $schema, $schemaKey);
-            } elseif ($entry instanceof WarrantRuleNode) {
+            } elseif ($entry instanceof RuleNode) {
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($clause->abilities !== []) {
                         $this->fail(

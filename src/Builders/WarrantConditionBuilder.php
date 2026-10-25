@@ -18,7 +18,7 @@ use Warrant\DSL\Parsing\WarrantParser;
 
 /**
  * A fluent, Laravel-query-builder-style front-end for composing the boolean
- * condition tree of a {@see \Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode} — the
+ * condition tree of a {@see \Warrant\DSL\Parsing\ASTNodes\RuleNode} — the
  * `if`/`and`/`or` half of a rule. {@see Build::condition()} makes one.
  *
  * It produces AST nodes directly — the same tree the parser builds — so a built

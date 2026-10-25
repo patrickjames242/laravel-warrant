@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -121,7 +121,7 @@ it('rejects a constant inside a check(...) predicate', function () {
        to compose one, so this reaches the validator only as a hand-built node. */
     $node = new CrossSchemaConditionNode(nameNode('xcv_target'), new BooleanNode(true, SyntaxLocation::noProducer()), true, [argumentNode(Ref::context('id'))], [], null, SyntaxLocation::noProducer());
 
-    expect(fn () => validateRegistered(new RuleSetNode(nameNode('xcv_owner'), [new WarrantRuleNode($node, [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())))
+    expect(fn () => validateRegistered(new RuleSetNode(nameNode('xcv_owner'), [new RuleNode($node, [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())))
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');
 });
 

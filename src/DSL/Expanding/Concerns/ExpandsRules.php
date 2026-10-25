@@ -7,7 +7,7 @@ use InvalidArgumentException;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\SchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 
@@ -24,11 +24,11 @@ trait ExpandsRules
      * nothing to expand comes back as the same instance.
      */
     private function expandRule(
-        WarrantRuleNode $rule,
+        RuleNode $rule,
         SchemaVocabulary $schema,
         string $schemaKey,
         ExpansionTrail $trail,
-    ): WarrantRuleNode {
+    ): RuleNode {
         /* A message after `they can` could never surface, and one that is not
            text cannot be shown. The validator reports these against the text;
            this rejects them in any rule, built in code or not. */
@@ -55,6 +55,6 @@ trait ExpandsRules
 
         return $conditions === $rule->conditions
             ? $rule
-            : new WarrantRuleNode($conditions, $rule->canClauses, $rule->cannotClauses, $rule->location);
+            : new RuleNode($conditions, $rule->canClauses, $rule->cannotClauses, $rule->location);
     }
 }

@@ -18,7 +18,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\DiagnosticSeverity;
@@ -191,9 +191,9 @@ it('reports each mistake in a text, and keeps every rule, repaired where it can 
         ["Expected 'can' or 'cannot' after 'they'.", 'view'],
         ["Reserved word 'they' cannot be used as a name; expected a condition, 'can', 'check(', or '('.", 'they'],
     ])->and($analysed->syntax->children)->toEqualSyntax([
-        new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer()),
+        new RuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer()),
         ...WarrantParser::parse('if b they can edit')->children,
-        new WarrantRuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('x')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
+        new RuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('x')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),
         ...WarrantParser::parse('if d they can delete')->children,
     ]);
 });
@@ -231,7 +231,7 @@ it('keeps a mistake inside an ability block within the block', function () {
 
     expect(analysisDiagnostics($source))->toBe([["Expected 'can' or 'cannot' after 'they'.", '}']])
         ->and($analysed->syntax->children)->toEqualSyntax([
-            new AbilityBlockNode([nameNode('view')], [new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
+            new AbilityBlockNode([nameNode('view')], [new RuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
             ...WarrantParser::parse('if b they can edit')->children,
         ]);
 });
@@ -240,7 +240,7 @@ it('puts a placeholder where a condition is missing, and keeps what is around it
     $analysed = WarrantParser::analyze($source);
 
     expect(analysisDiagnostics($source))->toBe([$missing])
-        ->and($analysed->syntax->children)->toEqualSyntax([new WarrantRuleNode($conditions, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
+        ->and($analysed->syntax->children)->toEqualSyntax([new RuleNode($conditions, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with(function () {
     $beforeThey = ["Reserved word 'they' cannot be used as a name; expected a condition, 'can', 'check(', or '('.", 'they'];
 
@@ -289,7 +289,7 @@ it('reads the when block after otherwise when as the otherwise body, and says ot
 
 it('keeps a rule whose can/cannot clauses are missing', function (string $source, string $mistake) {
     expect(array_column(analysisDiagnostics($source), 0))->toBe([$mistake])
-        ->and(WarrantParser::analyze($source)->syntax->children)->toEqualSyntax([new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())]);
+        ->and(WarrantParser::analyze($source)->syntax->children)->toEqualSyntax([new RuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], [], SyntaxLocation::noProducer())]);
 })->with([
     'no they' => ['if a', "Expected at least one 'they can ...' or 'they cannot ...' clause."],
     'a they with no can' => ['if a they', "Expected 'can' or 'cannot' after 'they'."],
@@ -337,17 +337,17 @@ it('reads a missing name as none, and keeps what is around it', function (string
         'the schema of a for header' => [
             'for if a they can view',
             ["Reserved word 'if' cannot be used as a name; expected a schema name after `for`.", 'if'],
-            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new WarrantRuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
+            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new RuleNode(new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
         ],
         'the ability of a can' => [
             'if can( for docs) they can edit',
             ["Reserved word 'for' cannot be used as a name; expected an ability name.", 'for'],
-            [new WarrantRuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode(INode::MISSING_NAME), false, [], [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode(INode::MISSING_NAME), false, [], [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
         ],
         'the schema of a check' => [
             'if check(a for ) they can view',
             ['Expected a schema name.', ')'],
-            [new WarrantRuleNode(new CrossSchemaConditionNode(nameNode(INode::MISSING_NAME), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), false, [], [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaConditionNode(nameNode(INode::MISSING_NAME), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), false, [], [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
         ],
         'the template of an include' => [
             '@include for view',
@@ -357,7 +357,7 @@ it('reads a missing name as none, and keeps what is around it', function (string
         'an ability after a comma' => [
             'they can view,',
             ['Expected an ability name.', ''],
-            [new WarrantRuleNode(null, $canView, [], SyntaxLocation::noProducer())],
+            [new RuleNode(null, $canView, [], SyntaxLocation::noProducer())],
         ],
     ];
 });
@@ -372,7 +372,7 @@ it('reads an as with no name after it as no alias', function () {
 it('puts a placeholder where an argument is missing, so the arguments keep their count', function (string $source, array $missing, array $arguments) {
     expect(analysisDiagnostics($source))->toBe([$missing])
         ->and(WarrantParser::analyze($source)->syntax->children)
-        ->toEqualSyntax([new WarrantRuleNode(new ConditionNode(nameNode('a'), array_map(argumentNode(...), $arguments), SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
+        ->toEqualSyntax([new RuleNode(new ConditionNode(nameNode('a'), array_map(argumentNode(...), $arguments), SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with(function () {
     $expectedArgument = 'Expected an argument: a literal, a binding (:name), @context <key>, '
         .'@column <column> or @column <name>.<column>, or @sql "<sql>".';
@@ -389,7 +389,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
 it('reads a with map past a missing key or value, and keeps both of a key written twice', function (string $source, array $missing, array $contextMap) {
     expect(analysisDiagnostics($source))->toBe([$missing])
         ->and(WarrantParser::analyze($source)->syntax->children)
-        ->toEqualSyntax([new WarrantRuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode('view'), false, [], $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
+        ->toEqualSyntax([new RuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode('view'), false, [], $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with([
     'a missing value' => [
         'if can(view for docs with org = ) they can edit',
@@ -421,7 +421,7 @@ it('reads a block missing its for header as one whose header names no schema', f
         'with rules' => [
             '{ they can view }',
             $noHeader,
-            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
+            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
         ],
         'with an expression' => [
             '{ a and b }',
@@ -431,7 +431,7 @@ it('reads a block missing its for header as one whose header names no schema', f
         'with no name after for' => [
             'for { they can view }',
             ['Expected a schema name after `for`.', '{'],
-            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new WarrantRuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
+            [new RuleSetNode(nameNode(INode::MISSING_NAME), [new RuleNode(null, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())],
         ],
     ];
 });

@@ -28,7 +28,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -119,7 +119,7 @@ final class RuleSyntaxWriter
             $entry instanceof IncludeInvocationNode => $this->writeInclude($entry),
             $entry instanceof AbilityBlockNode => $this->writeAbilityBlock($entry),
             $entry instanceof WhenBlockNode => $this->writeWhenBlock($entry),
-            $entry instanceof WarrantRuleNode => $this->writeRule($entry),
+            $entry instanceof RuleNode => $this->writeRule($entry),
             default => throw new LogicException('Cannot render unknown entry ' . $entry::class . '.'),
         };
     }
@@ -203,7 +203,7 @@ final class RuleSyntaxWriter
      * Render a rule's `if` line and can/cannot clauses, one line per clause. A generic
      * can/cannot clause names no abilities, so it says only `they can` or `they cannot`.
      */
-    private function writeRule(WarrantRuleNode $rule): string
+    private function writeRule(RuleNode $rule): string
     {
         $lines = [];
 

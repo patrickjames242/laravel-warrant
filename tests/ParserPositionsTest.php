@@ -108,7 +108,7 @@ const POSITIONS_CORPUS = [
 it('records every node with the text it was written as', function () {
     expect(recordedNodes(POSITIONS_CORPUS['a rule set with every kind of rule']))->toBe([
         ['RuleSetNode', POSITIONS_CORPUS['a rule set with every kind of rule']],
-        ['WarrantRuleNode', "if is_owner(@context org) and not (is_archived or is_locked) they can view they cannot edit because 'no'"],
+        ['RuleNode', "if is_owner(@context org) and not (is_archived or is_locked) they can view they cannot edit because 'no'"],
         ['AndNode', 'is_owner(@context org) and not (is_archived or is_locked)'],
         ['ConditionNode', 'is_owner(@context org)'],
         ['ContextRef', '@context org'],
@@ -119,7 +119,7 @@ it('records every node with the text it was written as', function () {
         ['CanClauseNode', 'can view'],
         ['CannotClauseNode', "cannot edit because 'no'"],
         ['AbilityBlockNode', 'can they share { if can(view) they can }'],
-        ['WarrantRuleNode', 'if can(view) they can'],
+        ['RuleNode', 'if can(view) they can'],
         ['CrossSchemaCanNode', 'can(view)'],
         ['CanClauseNode', 'can'],
         ['IncludeInvocationNode', '@include admin(1) for delete'],
@@ -132,18 +132,18 @@ it('records a when block whole, its condition and both bodies', function () {
         ['AndNode', 'is_open and is_shared'],
         ['ConditionNode', 'is_open'],
         ['ConditionNode', 'is_shared'],
-        ['WarrantRuleNode', 'if is_owner they can edit'],
+        ['RuleNode', 'if is_owner they can edit'],
         ['ConditionNode', 'is_owner'],
         ['CanClauseNode', 'can edit'],
         ['IncludeInvocationNode', '@include shared for view'],
-        ['WarrantRuleNode', 'they cannot edit'],
+        ['RuleNode', 'they cannot edit'],
         ['CannotClauseNode', 'cannot edit'],
     ]);
 });
 
 it('records cross-schema references whole, and the predicate inside', function () {
     expect(recordedNodes(POSITIONS_CORPUS['cross-schema references']))->toBe([
-        ['WarrantRuleNode', POSITIONS_CORPUS['cross-schema references']],
+        ['RuleNode', POSITIONS_CORPUS['cross-schema references']],
         ['OrNode', 'check(is_open and not is_locked for folders(@context folder) as f with org = @context org) or can(edit for folders)'],
         ['CrossSchemaConditionNode', 'check(is_open and not is_locked for folders(@context folder) as f with org = @context org)'],
         ['AndNode', 'is_open and not is_locked'],
@@ -159,9 +159,9 @@ it('records cross-schema references whole, and the predicate inside', function (
 
 it('records rules and expressions written with no for header', function () {
     expect(recordedNodes(POSITIONS_CORPUS['unscoped rules']))->toBe([
-        ['WarrantRuleNode', 'they can view'],
+        ['RuleNode', 'they can view'],
         ['CanClauseNode', 'can view'],
-        ['WarrantRuleNode', 'if is_owner they can edit, delete'],
+        ['RuleNode', 'if is_owner they can edit, delete'],
         ['ConditionNode', 'is_owner'],
         ['CanClauseNode', 'can edit, delete'],
         ['IncludeInvocationNode', '@include shared for view'],
@@ -182,7 +182,7 @@ it('records each for body from its header', function () {
         ['CrossSchemaCanNode', 'can(view)'],
     ])->and(recordedNodes(POSITIONS_CORPUS['braced blocks']))->toBe([
         ['RuleSetNode', 'for docs { they can view }'],
-        ['WarrantRuleNode', 'they can view'],
+        ['RuleNode', 'they can view'],
         ['CanClauseNode', 'can view'],
         ['SchemaConditionNode', 'for folders { is_open }'],
         ['ConditionNode', 'is_open'],
@@ -194,7 +194,7 @@ it('records each for body from its header', function () {
 
 it('records each symbolic reference as written', function () {
     expect(recordedNodes(POSITIONS_CORPUS['symbolic references']))->toBe([
-        ['WarrantRuleNode', POSITIONS_CORPUS['symbolic references']],
+        ['RuleNode', POSITIONS_CORPUS['symbolic references']],
         ['ConditionNode', 'in_period(@context year, @column docs.org_id, @column org_id, @sql "select 1")'],
         ['ContextRef', '@context year'],
         ['ColumnRef', '@column docs.org_id'],
@@ -207,7 +207,7 @@ it('records each symbolic reference as written', function () {
 it('leaves a comment after a node out of its range', function () {
     expect(recordedNodes(POSITIONS_CORPUS['comments']))->toBe([
         ['RuleSetNode', "for docs { # rules\n  if is_owner # why\n they can view # done\n}"],
-        ['WarrantRuleNode', "if is_owner # why\n they can view"],
+        ['RuleNode', "if is_owner # why\n they can view"],
         ['ConditionNode', 'is_owner'],
         ['CanClauseNode', 'can view'],
     ]);
@@ -235,7 +235,7 @@ it('finds what an offset is inside, from the rule set down to the name', functio
     $source = POSITIONS_CORPUS['a rule set with every kind of rule'];
 
     expect(nodesOver(WarrantParser::parse($source), strpos($source, 'is_locked') + 3))->toBe([
-        'RuleSetNode', 'WarrantRuleNode', 'AndNode', 'NotNode', 'OrNode', 'ConditionNode', 'NameNode',
+        'RuleSetNode', 'RuleNode', 'AndNode', 'NotNode', 'OrNode', 'ConditionNode', 'NameNode',
     ]);
 });
 
@@ -243,7 +243,7 @@ it('puts an argument inside the node it is passed to', function () {
     $source = POSITIONS_CORPUS['symbolic references'];
 
     expect(nodesOver(WarrantParser::parse($source), strpos($source, 'org_id') + 2))->toBe([
-        'WarrantRuleNode', 'ConditionNode', 'ColumnRef', 'NameNode',
+        'RuleNode', 'ConditionNode', 'ColumnRef', 'NameNode',
     ]);
 });
 

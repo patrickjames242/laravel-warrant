@@ -3,7 +3,7 @@
 namespace Warrant\DSL\Parsing\ASTNodes;
 
 /**
- * One entry in a rule body: a {@see WarrantRuleNode}, an {@see IncludeInvocationNode}
+ * One entry in a rule body: a {@see RuleNode}, an {@see IncludeInvocationNode}
  * that expands into rules, an {@see AbilityBlockNode} that groups both under one
  * ability header, or a {@see WhenBlockNode} that groups them under one condition.
  * A rule body is what a {@see RuleSetNode}, an ability block, a when block, a

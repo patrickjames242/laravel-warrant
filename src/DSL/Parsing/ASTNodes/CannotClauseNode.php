@@ -5,16 +5,16 @@ namespace Warrant\DSL\Parsing\ASTNodes;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
 /**
- * One `they cannot <abilities> [because <message>]` clause of a {@see WarrantRuleNode}.
+ * One `they cannot <abilities> [because <message>]` clause of a {@see RuleNode}.
  *
  * A rule's `cannot` side is a list of these, so different abilities can carry
  * different denial messages while still living on one rule. Every ability in a
  * single clause shares that clause's {@see $message}.
  *
  * The compiler and reachability analyzer treat the abilities purely as a
- * membership list ({@see WarrantRuleNode::cannotAbilities()} flattens every clause),
+ * membership list ({@see RuleNode::cannotAbilities()} flattens every clause),
  * so the message never affects the compiled predicate — it is surfaced only when
- * diagnosing a denial (see {@see WarrantRuleNode::messageFor()}).
+ * diagnosing a denial (see {@see RuleNode::messageFor()}).
  */
 readonly class CannotClauseNode implements INode
 {

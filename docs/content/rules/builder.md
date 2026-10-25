@@ -336,7 +336,7 @@ Warrant finishes every builder it is handed, so you only need these when your ow
 code works on the tree:
 
 ```php
-$rule->toRule();                               // a WarrantRuleNode
+$rule->toRule();                               // a RuleNode
 $condition->buildConditions(new SyntaxSource(null));   // an expression, or null with no terms
 Build::can('view')->toNode(new SyntaxSource(null));    // a CrossSchemaCanNode
 ```

@@ -67,7 +67,7 @@ public readonly ?Model $target;              // null for a no-row check
 public readonly string $schema;
 public readonly array $context;              // the effective check-time context
 public readonly WarrantGate $gate;
-public readonly WarrantRuleNode $rule;       // the matching `cannot`
+public readonly RuleNode $rule;       // the matching `cannot`
 public readonly array $deniedAbilities;      // with `*` already resolved
 ```
 

@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\SchemaVocabulary;
@@ -102,7 +102,7 @@ trait ValidatesRuleEntries
                 $this->assertAbilitiesDeclared($entry->abilities, $schema);
                 $this->assertAbilityListsWellWritten($entry);
                 $this->assertTemplateDeclared($entry, $schema, $schemaKey);
-            } elseif ($entry instanceof WarrantRuleNode) {
+            } elseif ($entry instanceof RuleNode) {
                 foreach ([...$entry->canClauses, ...$entry->cannotClauses] as $clause) {
                     if ($mode === GenericMode::RequireNotGeneric && $clause->abilities === []) {
                         $this->fail(
@@ -143,7 +143,7 @@ trait ValidatesRuleEntries
                 $named = match (true) {
                     $entry instanceof AbilityBlockNode => [['An ability block', true, $entry]],
                     $entry instanceof IncludeInvocationNode => [['This @include', ! $entry->isGeneric(), $entry]],
-                    $entry instanceof WarrantRuleNode => array_map(
+                    $entry instanceof RuleNode => array_map(
                         static fn (CanClauseNode|CannotClauseNode $clause): array => ['This can/cannot clause', $clause->abilities !== [], $clause],
                         [...$entry->canClauses, ...$entry->cannotClauses],
                     ),
@@ -202,7 +202,7 @@ trait ValidatesRuleEntries
         }
     }
 
-    private function validateRule(WarrantRuleNode $rule, ?SchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateRule(RuleNode $rule, ?SchemaVocabulary $schema, ?string $schemaKey): void
     {
         foreach ([...$rule->canClauses, ...$rule->cannotClauses] as $clause) {
             $this->assertAbilitiesDeclared($clause->abilities, $schema);
@@ -269,7 +269,7 @@ trait ValidatesRuleEntries
      * because a message is fixed before any check rather than read from it.
      * Whether a binding's value is a message is the binding checks' to say.
      */
-    private function assertMessagesAreMessages(WarrantRuleNode $rule): void
+    private function assertMessagesAreMessages(RuleNode $rule): void
     {
         foreach ($rule->canClauses as $clause) {
             if ($clause->message !== null) {

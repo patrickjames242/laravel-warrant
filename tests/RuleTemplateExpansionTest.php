@@ -7,7 +7,7 @@ use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -153,7 +153,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
-    public function answersWithARule(): WarrantRuleNode
+    public function answersWithARule(): RuleNode
     {
         return Build::rule()->if('is_teacher')->theyCan()->toRule();
     }
@@ -182,7 +182,7 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
-    public function answersWithANamedRule(): WarrantRuleNode
+    public function answersWithANamedRule(): RuleNode
     {
         return Build::rule()->theyCan('view')->toRule();
     }
@@ -321,12 +321,12 @@ function expandSyntax(string $syntax): ExpandedSyntax
  * The rules $rules write out longhand, to compare an expansion with. Each is
  * parsed alone, since can/cannot clauses written one after another read as one rule.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function longhand(string ...$rules): array
 {
     return array_map(
-        static fn (string $rule): WarrantRuleNode => WarrantSyntax::parse($rule)->validateWithoutSchemas()->rule(),
+        static fn (string $rule): RuleNode => WarrantSyntax::parse($rule)->validateWithoutSchemas()->rule(),
         $rules,
     );
 }
@@ -342,7 +342,7 @@ it('expands an include into the rules its longhand would produce', function () {
     $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->validateWithoutSchemas()->scopedTo('course_sections');
 
     expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->rules[0])->toBeInstanceOf(RuleNode::class);
     expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->entries[0]->cannotAbilities());
     expect($expanded->rules[0]->messageFor('view'))->toBe('Needs approval.');
 });
@@ -438,7 +438,7 @@ it('expands a template that includes another', function () {
     $expanded = expandSyntax('@include nests_another for view');
 
     expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(WarrantRuleNode::class);
+    expect($expanded->rules[0])->toBeInstanceOf(RuleNode::class);
     expect($expanded->rules[0]->canAbilities())->toBe(['view']);
 });
 

@@ -106,7 +106,7 @@ final readonly class ValidSyntax extends WarrantSyntax
     /**
      * The one unscoped rule this source holds.
      */
-    public function rule(): WarrantRuleNode
+    public function rule(): RuleNode
     {
         if (! $this->isSingleRule()) {
             throw $this->shapeError('a single rule');

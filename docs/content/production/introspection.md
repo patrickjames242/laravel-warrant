@@ -16,7 +16,7 @@ answer it, and all three are available at runtime.
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 $guard = Warrant::forSchema(Document::class, $user);
-$rules = $guard->expandedRuleSet()->rules; // WarrantRuleNode[]: blocks, includes and derived conditions expanded
+$rules = $guard->expandedRuleSet()->rules; // RuleNode[]: blocks, includes and derived conditions expanded
 
 (new WarrantSyntax($rules))->validateWithoutSchemas()->toSyntax();   // rendered back to the language
 ```

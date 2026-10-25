@@ -11,7 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
@@ -36,7 +36,7 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 trait ExpandsRuleTemplates
 {
     /**
-     * @return list<WarrantRuleNode>
+     * @return list<RuleNode>
      */
     private function expandInclude(
         IncludeInvocationNode $include,
@@ -84,7 +84,7 @@ trait ExpandsRuleTemplates
             /* The body is generic, as an ability block's is: the include names the
                abilities its can/cannot clauses take, so they are applied here. */
             $entries = array_map(
-                static fn (WarrantRuleNode|IncludeInvocationNode|WhenBlockNode $entry): WarrantRuleNode|IncludeInvocationNode|WhenBlockNode
+                static fn (RuleNode|IncludeInvocationNode|WhenBlockNode $entry): RuleNode|IncludeInvocationNode|WhenBlockNode
                     => $entry->withAbilities($abilities),
                 $generic,
             );
@@ -102,7 +102,7 @@ trait ExpandsRuleTemplates
      * The generic rules, includes and when blocks in what a rule template
      * answered with, in whichever form it built them: rule text as a string,
      * {@see BoundSyntax} or {@see WarrantSyntax},
-     * a generic {@see WarrantRuleNode} or {@see IncludeInvocationNode}, a
+     * a generic {@see RuleNode} or {@see IncludeInvocationNode}, a
      * {@see WarrantRuleBuilder} making a generic rule, or an iterable of any of
      * these. Only rule text may hold a when block. A string's bindings take their values from
      * $parametersUsableAsBindings, the template's parameters by name.
@@ -120,7 +120,7 @@ trait ExpandsRuleTemplates
      * include built in code as the node it is.
      *
      * @param array<string, mixed> $parametersUsableAsBindings
-     * @return list<WarrantRuleNode|IncludeInvocationNode|WhenBlockNode>
+     * @return list<RuleNode|IncludeInvocationNode|WhenBlockNode>
      */
     private function templateEntries(mixed $body, SyntaxProducer $producer, array $parametersUsableAsBindings): array
     {
@@ -149,17 +149,17 @@ trait ExpandsRuleTemplates
 
             $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($body, new ValidationInput($this->catalog)));
 
-            /** @var list<WarrantRuleNode|IncludeInvocationNode|WhenBlockNode> */
+            /** @var list<RuleNode|IncludeInvocationNode|WhenBlockNode> */
             return self::eachWithBindingsReplaced($valid->ruleEntries());
         }
 
-        if ($body instanceof WarrantRuleNode || $body instanceof IncludeInvocationNode) {
+        if ($body instanceof RuleNode || $body instanceof IncludeInvocationNode) {
             if (! $body->isGeneric()) {
                 throw new RuntimeException(sprintf(
                     '%s answered with %s that names abilities; the @include that expands a template names the '
                         .'abilities its rules and includes take.',
                     $producer->describe(),
-                    $body instanceof WarrantRuleNode ? 'a rule' : 'an @include',
+                    $body instanceof RuleNode ? 'a rule' : 'an @include',
                 ));
             }
 

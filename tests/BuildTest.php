@@ -18,7 +18,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -124,7 +124,7 @@ beforeEach(function () {
  * The rules a fresh guard expands when the schema's rules() answers with what
  * $answer returns.
  *
- * @return list<WarrantRuleNode>
+ * @return list<RuleNode>
  */
 function buildDocRules(Closure $answer): array
 {
@@ -146,7 +146,7 @@ function builtNodes(INode $node): array
     return $nodes;
 }
 
-function parsedRule(string $text): WarrantRuleNode
+function parsedRule(string $text): RuleNode
 {
     return WarrantSyntax::parse($text)->validateWithoutSchemas()->rule();
 }
@@ -393,7 +393,7 @@ it('takes rules from a provider whose rules() is declared mixed', function () {
 
     $rules = buildDocRules(fn () => Build::rule()->if('is_owner')->theyCan('view'));
 
-    expect(array_map(static fn (WarrantRuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
+    expect(array_map(static fn (RuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
         ->toBe([SyntaxProducerKind::SchemaRules, SyntaxProducerKind::RuleProvider]);
 });
 
@@ -403,8 +403,8 @@ it('expands a template answering with headless entries and a bare rule builder',
     }));
 
     expect($rules)->toHaveCount(2)
-        ->and(array_map(static fn (WarrantRuleNode $rule): array => $rule->canAbilities(), $rules))->toBe([['edit'], ['edit']])
-        ->and(array_map(static fn (WarrantRuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
+        ->and(array_map(static fn (RuleNode $rule): array => $rule->canAbilities(), $rules))->toBe([['edit'], ['edit']])
+        ->and(array_map(static fn (RuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
         ->toBe([SyntaxProducerKind::RuleTemplate, SyntaxProducerKind::RuleTemplate]);
 });
 

@@ -7,7 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
-use Warrant\DSL\Parsing\ASTNodes\WarrantRuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 
@@ -39,7 +39,7 @@ final class AbilityMistakes
     public static function inWrittenLists(IRuleEntryNode $entry): array
     {
         return match (true) {
-            $entry instanceof WarrantRuleNode => [
+            $entry instanceof RuleNode => [
                 ...self::inWrittenList(self::abilitiesOf($entry->canClauses), 'this rule grants'),
                 ...self::inWrittenList(self::abilitiesOf($entry->cannotClauses), 'this rule denies'),
             ],

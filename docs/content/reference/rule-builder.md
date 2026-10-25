@@ -100,7 +100,7 @@ are the predicate. It adds:
 ->theyCan(string ...$abilities): static
 ->theyCannot(string ...$abilities): static
 ->theyCannotBecause(string|list<string> $abilities = [], string|Closure|null $message = null): static
-->toRule(SyntaxSource $source = new SyntaxSource(null)): WarrantRuleNode
+->toRule(SyntaxSource $source = new SyntaxSource(null)): RuleNode
 ```
 
 `theyCannotBecause()` adds one cannot clause per call, so separate calls give separate
