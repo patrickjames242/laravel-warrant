@@ -9,8 +9,8 @@ use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
 
 /**
- * `not <operand>`, written `not` or `!`. It applies to the one operand after
- * it, so `not a and b` is `(not a) and b`, and `not not a` negates twice.
+ * `not <operand>`. It applies to the one operand after it, so `not a and b`
+ * is `(not a) and b`, and `not not a` negates twice.
  *
  * @extends Parser<NotNode>
  */
@@ -25,7 +25,7 @@ final class ParseNegation extends Parser
 
     protected function read(): NotNode
     {
-        $this->advance(); // consume 'not' or '!'
+        $this->advance(); // consume 'not'
 
         return new NotNode(
             $this->expressionOrMissing(ParseBooleanOperand::class),

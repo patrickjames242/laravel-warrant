@@ -63,7 +63,7 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   expr     := or
  *   or       := and ('or' and)*
  *   and      := not ('and' not)*
- *   not      := ('not'|'!') not | primary
+ *   not      := 'not' not | primary
  *   primary  := '(' expr ')' | can_expr | check_expr | condition
  *   can_expr := 'can' '(' can_ability ( 'for' handle ( 'with' with_map )? )? ')'
  *             | 'can' can_ability

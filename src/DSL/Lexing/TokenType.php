@@ -20,7 +20,7 @@ enum TokenType
     // Boolean operators.
     case AND;
     case OR;
-    case NOT; // covers both `not` and `!`
+    case NOT;
 
     // Punctuation.
     case LPAREN;

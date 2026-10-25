@@ -135,8 +135,8 @@
       "name": "constant.numeric.warrant"
     },
     "operators": {
-      "comment": "! negation and * wildcard operators, plus `=` for the assignment in a `with key = value` context-mapping clause.",
-      "match": "[!*=]",
+      "comment": "The * wildcard operator, plus `=` for the assignment in a `with key = value` context-mapping clause.",
+      "match": "[*=]",
       "name": "keyword.operator.warrant"
     },
     "punctuation": {

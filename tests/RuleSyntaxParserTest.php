@@ -159,16 +159,8 @@ it('applies precedence not > and > or', function () {
     expect($expr->rightSide->rightSide->conditionKey?->name)->toBe('is_owner');
 });
 
-it('treats ! as a synonym for not', function () {
-    $bang = WarrantSyntax::parse('if !is_manager they can view')->validateWithoutSchemas()->scopedTo('timesheets');
-    $word = WarrantSyntax::parse('if not is_manager they can view')->validateWithoutSchemas()->scopedTo('timesheets');
-
-    expect($bang->entries[0]->conditions)->toBeInstanceOf(NotNode::class);
-    expect($word->entries[0]->conditions)->toBeInstanceOf(NotNode::class);
-});
-
 it('honours parentheses over precedence', function () {
-    $set = WarrantSyntax::parse('if !(is_self or is_manager) they cannot edit')->validateWithoutSchemas()->scopedTo('timesheets');
+    $set = WarrantSyntax::parse('if not (is_self or is_manager) they cannot edit')->validateWithoutSchemas()->scopedTo('timesheets');
 
     $expr = $set->entries[0]->conditions;
     expect($expr)->toBeInstanceOf(NotNode::class);
@@ -388,7 +380,7 @@ it('reads a can with no parentheses as the same reference written with them', fu
 })->with([
     'alone' => ['if can do_thing_1 they can do_thing_2', 'if can(do_thing_1) they can do_thing_2'],
     'negated' => ['if not can delete they can view', 'if not can(delete) they can view'],
-    'beside other operands' => ['if can view and !can delete or is_owner they can edit', 'if can(view) and !can(delete) or is_owner they can edit'],
+    'beside other operands' => ['if can view and not can delete or is_owner they can edit', 'if can(view) and not can(delete) or is_owner they can edit'],
     'in a check predicate, whose for is the check\'s' => ['if check(can view for folders) they can edit', 'if check(can(view) for folders) they can edit'],
 ]);
 
@@ -1025,9 +1017,9 @@ it('parses an expression through the condition entry point', function (string $s
     'grouping overrides precedence' => ['(a or b) and c', '((a or b) and c)'],
     'and is left associative' => ['a and b and c', '((a and b) and c)'],
     'or is left associative' => ['a or b or c', '((a or b) or c)'],
-    'not binds tighter than and' => ['not a and b', '(!a and b)'],
-    'not over a group' => ['not (a and b)', '!(a and b)'],
-    'double negation is kept' => ['not not a', '!!a'],
+    'not binds tighter than and' => ['not a and b', '(not a and b)'],
+    'not over a group' => ['not (a and b)', 'not (a and b)'],
+    'double negation is kept' => ['not not a', 'not not a'],
     'redundant parens collapse' => ['((a))', 'a'],
 ]);
 
@@ -1134,7 +1126,7 @@ it('accepts a for header ahead of any expression form', function (string $source
     expect(treeToString(WarrantSyntax::parse($source)->validateWithoutSchemas()->conditionExpression()))->toBe($expected);
 })->with([
     'a single condition' => ['for timesheets is_owner', 'is_owner'],
-    'a negation' => ['for timesheets not is_owner', '!is_owner'],
+    'a negation' => ['for timesheets not is_owner', 'not is_owner'],
     'a group' => ['for timesheets (a or b)', '(a or b)'],
     'a can(...) leaf' => ['for timesheets can(view for other)', 'can(view for other)'],
 ]);

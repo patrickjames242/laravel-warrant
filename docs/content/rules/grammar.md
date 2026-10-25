@@ -50,7 +50,7 @@ message       = STRING | NAMED_BINDING ;
 expr          = or ;
 or            = and ( "or" and )* ;
 and           = not ( "and" not )* ;
-not           = ( "not" | "!" ) not | primary ;
+not           = "not" not | primary ;
 primary       = "(" expr ")" | can_ref | check_ref | condition ;
 
 condition     = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
@@ -124,7 +124,7 @@ with one: `canonical`, `cannot_publish`, `is_and_something`.
 |---|---|
 | `and` | conjunction |
 | `or` | disjunction |
-| `not`, `!` | negation; `not` is canonical |
+| `not` | negation |
 | `( )` | grouping |
 | `*` | every declared ability |
 

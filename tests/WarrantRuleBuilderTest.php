@@ -203,7 +203,7 @@ it('negates a whole group', function () {
         ->ifNot(fn ($c) => $c->if('a')->andIf('b'))
         ->buildConditions(new SyntaxSource(null));
 
-    expect(treeToString($tree))->toBe('!(a and b)');
+    expect(treeToString($tree))->toBe('not (a and b)');
 });
 
 // -- parity with the string DSL -----------------------------------------------
