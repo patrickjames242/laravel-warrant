@@ -19,8 +19,8 @@ namespace App\Warrant;
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
 class DocumentSchema extends WarrantSchema
@@ -119,8 +119,8 @@ public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
 A global condition asks about the user, not a row, and answers with a bool:
 
 ```php
-use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
 
 #[GlobalCondition]
 public function isAdmin(GlobalConditionContext $c): bool
@@ -168,7 +168,7 @@ string may write the method's parameters as bindings, by name:
 use Warrant\Builders\Build;
 use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\Ref;
-use Warrant\Schema\Conditions\DerivedCondition;
+use Warrant\Schema\Conditions\Derived\DerivedCondition;
 
 #[DerivedCondition]
 public function isEditable(): string
@@ -197,7 +197,7 @@ Context is the values a check supplies alongside the user and the row. A schema 
 require keys, per schema or per ability, and supply defaults:
 
 ```php
-use Warrant\Schema\RequiredContext;
+use Warrant\Schema\Context\RequiredContext;
 
 #[RequiredContext] public const TENANT = 'tenant_id';
 

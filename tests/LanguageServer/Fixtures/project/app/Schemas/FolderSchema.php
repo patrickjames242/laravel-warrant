@@ -3,8 +3,8 @@
 namespace App\Schemas;
 
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\RowCondition;
-use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 
 final class FolderSchema extends BaseSchema
 {

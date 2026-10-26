@@ -42,10 +42,10 @@ use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\Conditions\GlobalCondition;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\WarrantSchema;
 use Warrant\WarrantManager;
 

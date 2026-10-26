@@ -21,7 +21,7 @@ use Warrant\WarrantGate;
 final readonly class WarrantDenialContext
 {
     /**
-     * @param class-string<\Warrant\Schema\WarrantSchema> $schema
+     * @param class-string<\Warrant\Schema\Types\Interfaces\IAbilitySchema> $schema
      * @param array<string, mixed> $context The effective check-time context.
      * @param array<int, string> $deniedAbilities Gate abilities this rule blocked (`*` resolved).
      */

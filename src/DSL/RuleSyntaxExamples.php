@@ -205,10 +205,10 @@ class RuleSyntaxExamples
      * The condition binds every value as a placeholder — never interpolating it
      * into SQL:
      *
-     *   use Warrant\Schema\Conditions\RowCondition;
-     *   use Warrant\Schema\Conditions\GlobalCondition;
-     *   use Warrant\Schema\Conditions\RowConditionContext;
-     *   use Warrant\Schema\Conditions\GlobalConditionContext;
+     *   use Warrant\Schema\Conditions\Row\RowCondition;
+     *   use Warrant\Schema\Conditions\Global\GlobalCondition;
+     *   use Warrant\Schema\Conditions\Row\RowConditionContext;
+     *   use Warrant\Schema\Conditions\Global\GlobalConditionContext;
      *
      *   // Row: the context exposes the target row's SQL identity; the argument binds a parameter.
      *   #[RowCondition]

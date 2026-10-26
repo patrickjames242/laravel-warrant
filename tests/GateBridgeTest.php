@@ -12,10 +12,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\GlobalCondition;
-use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\RowCondition;
-use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\WarrantSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';

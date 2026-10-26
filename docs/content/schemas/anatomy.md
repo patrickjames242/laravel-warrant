@@ -17,12 +17,12 @@ use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\DerivedCondition;
-use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\Conditions\GlobalCondition;
-use Warrant\Schema\RequiredContext;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Derived\DerivedCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Context\RequiredContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\WarrantSchema;
 

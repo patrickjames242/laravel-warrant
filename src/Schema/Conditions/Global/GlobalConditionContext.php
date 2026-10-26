@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\Schema\Conditions;
+namespace Warrant\Schema\Conditions\Global;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;

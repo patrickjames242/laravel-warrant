@@ -19,7 +19,7 @@ going missing into an error with a name.
 its name is ignored:
 
 ```php
-use Warrant\Schema\RequiredContext;
+use Warrant\Schema\Context\RequiredContext;
 
 class DocumentSchema extends WarrantSchema
 {

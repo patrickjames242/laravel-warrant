@@ -3,9 +3,9 @@
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 use Warrant\Schema\WarrantSchema;

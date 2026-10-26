@@ -1,17 +1,17 @@
 <?php
 
-namespace Warrant\Schema\Conditions;
+namespace Warrant\Schema\Conditions\Derived;
 
 use Attribute;
 use InvalidArgumentException;
 
 #[Attribute(Attribute::TARGET_METHOD)]
-class RowCondition
+class DerivedCondition
 {
     public function __construct(public ?string $key = null)
     {
         if ($this->key === '') {
-            throw new InvalidArgumentException('RowCondition key cannot be empty.');
+            throw new InvalidArgumentException('DerivedCondition key cannot be empty.');
         }
     }
 }

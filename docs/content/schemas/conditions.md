@@ -30,8 +30,8 @@ always the model's table:
 
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
 
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
@@ -62,8 +62,8 @@ A global condition is about the user or the world. Its context has no `column()`
 it may simply return a `bool`:
 
 ```php
-use Warrant\Schema\Conditions\GlobalConditionContext;
-use Warrant\Schema\Conditions\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
 
 #[GlobalCondition]
 public function isAdmin(GlobalConditionContext $c): bool

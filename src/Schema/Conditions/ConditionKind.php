@@ -2,6 +2,9 @@
 
 namespace Warrant\Schema\Conditions;
 
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+
 /**
  * What kind of condition a {@see ConditionDefinition} describes, which decides
  * when and how it is answered.

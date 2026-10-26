@@ -21,8 +21,8 @@ namespace App\Warrant;
 use App\Models\Document;
 use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\RowConditionContext;
-use Warrant\Schema\Conditions\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\WarrantSchema;
 
 class DocumentSchema extends WarrantSchema

@@ -42,7 +42,7 @@ key:
 
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
-use Warrant\Schema\Conditions\RowConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 
 public function matchKey(RowConditionContext $c, mixed $team, mixed $day): ?Builder
 {

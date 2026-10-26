@@ -1,17 +1,17 @@
 <?php
 
-namespace Warrant\Schema\Conditions;
+namespace Warrant\Schema\Conditions\Global;
 
 use Attribute;
 use InvalidArgumentException;
 
 #[Attribute(Attribute::TARGET_METHOD)]
-class DerivedCondition
+class GlobalCondition
 {
     public function __construct(public ?string $key = null)
     {
         if ($this->key === '') {
-            throw new InvalidArgumentException('DerivedCondition key cannot be empty.');
+            throw new InvalidArgumentException('GlobalCondition key cannot be empty.');
         }
     }
 }

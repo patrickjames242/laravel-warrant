@@ -17,7 +17,7 @@ return the expression instead of SQL. Expansion puts the expression where the
 condition was named, before anything compiles:
 
 ```php
-use Warrant\Schema\Conditions\DerivedCondition;
+use Warrant\Schema\Conditions\Derived\DerivedCondition;
 
 #[DerivedCondition]
 public function isEditable(): string

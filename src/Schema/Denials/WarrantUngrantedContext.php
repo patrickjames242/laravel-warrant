@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Warrant\WarrantGate;
 
 /**
- * The context handed to a schema's {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()}
+ * The context handed to a schema's {@see \Warrant\Schema\Denials\IProvidesDenialMessages::ungrantedDenialMessage()}
  * hook when a check fails for lack of a grant — nothing forbade the user, but
  * nothing granted them either, so there is no rule to name (contrast
  * {@see WarrantDenialContext}, which always carries the responsible `rule`).
@@ -21,7 +21,7 @@ use Warrant\WarrantGate;
 final readonly class WarrantUngrantedContext
 {
     /**
-     * @param class-string<\Warrant\Schema\WarrantSchema> $schema
+     * @param class-string<\Warrant\Schema\Types\Interfaces\IAbilitySchema> $schema
      * @param array<string, mixed> $context The effective check-time context.
      * @param array<int, string> $ungrantedAbilities Gate abilities with no grant.
      */

@@ -91,7 +91,7 @@ Marks a public method as a condition built from other conditions. The key works 
 for the other two.
 
 ```php
-use Warrant\Schema\Conditions\DerivedCondition;
+use Warrant\Schema\Conditions\Derived\DerivedCondition;
 
 #[DerivedCondition]
 public function canEdit(): string
@@ -116,7 +116,7 @@ Marks a class constant's **value** as a context key required on **every** check
 against the schema.
 
 ```php
-use Warrant\Schema\RequiredContext;
+use Warrant\Schema\Context\RequiredContext;
 
 #[RequiredContext] public const WORKSPACE = 'workspace_id';
 ```

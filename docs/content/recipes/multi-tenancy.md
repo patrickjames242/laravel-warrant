@@ -16,7 +16,7 @@ calls do not have to pass it, and a requirement so an unset tenant throws.
 ## The schema
 
 ```php
-use Warrant\Schema\RequiredContext;
+use Warrant\Schema\Context\RequiredContext;
 
 class DocumentSchema extends WarrantSchema
 {
