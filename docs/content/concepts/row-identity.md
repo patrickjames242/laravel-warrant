@@ -91,16 +91,16 @@ grants it" into "some row grants it", which is a quiet and serious difference.
 
 ## Rows that are not a model's table
 
-A schema may draw its rows from a query rather than a table. Such rows have no
-primary key of their own, so the schema says how one is named: either `const key`
-for the identifying column, or a `matchKey()`.
+A [query schema](/schemas/row-source/) draws its rows from a query rather than a
+table. Such rows have no primary key of their own, so the schema says how one is
+named: `key()` for the identifying column or columns, or a `matchKey()`.
 
 ```php
-class ShiftDaySchema extends WarrantSchema
+class ShiftDaySchema extends QuerySchema
 {
-    public const key = 'team_id';   // a view over one spine table
+    protected function key(): array { return ['team_id', 'day']; }
 
-    public static function virtualTable(): ?Builder
+    public function rows(): Builder
     {
         return DB::table('teams')->crossJoin('calendar_days')->select([
             'teams.id as team_id',
@@ -110,33 +110,21 @@ class ShiftDaySchema extends WarrantSchema
 }
 ```
 
-Declaring `const key` on a model-backed schema is rejected, because the model
-already answers for it.
+A row is then named by one argument per key column, in order:
+`can('assign', [$teamId, $day])` from PHP, or `shift_days(@column team_id,
+@context day)` in a rule. A query schema with neither `key()` nor `matchKey()` is
+refused when it is first constructed, so every row of one can be named.
 
-## Rows you cannot name, and no rows at all
+## No rows at all
 
-Two capabilities are separate, and Warrant reads them separately:
-
-```php
-DocumentSchema::hasRows();     // are there rows at all?
-DocumentSchema::hasRowKey();   // can one of them be named?
-```
-
-A schema with `const model = ''` and no virtual table has no rows. It is a
-capability schema, good for gating a section such as `settings`, and it answers
-only [no-row checks](/checking/no-row/).
-
-A virtual table with neither `const key` nor `matchKey()` has rows but cannot name
-one. That is legitimate: such a schema can still be filtered and can still carry a
-per-row ability column, because both correlate against rows the surrounding query
-already produced. What it cannot do is answer about one row, and it says so up
+A [`RowlessSchema`](/schemas/row-source/#no-rows-at-all) has no rows. It is good for
+gating a section such as `settings`, and it answers only
+[no-row checks](/checking/no-row/). A targeted check against it is refused up
 front:
 
 ```text
-Schema [reports] has rows but no way to name one, so it does not support targeted
-checks; declare `const key` for the column its rows are identified by, or a
-matchKey() of its own. Filtering a query and selecting per-row abilities need
-neither.
+Schema [SettingsSchema] has no rows and does not support targeted checks; use a
+no-target check instead.
 ```
 
 ## Every form a target may take

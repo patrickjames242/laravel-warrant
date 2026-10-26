@@ -43,7 +43,7 @@ public function rules(RuleProviderContext $context): string
 Better still, put it on a base schema so every resource inherits it:
 
 ```php
-abstract class AppSchema extends WarrantSchema
+abstract class AppSchema extends RowlessSchema
 {
     #[GlobalCondition]
     public function isSuperAdmin(GlobalConditionContext $c): bool

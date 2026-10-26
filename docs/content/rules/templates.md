@@ -52,7 +52,7 @@ The name is the method name snake-cased, `requiresApproval` to
 public function requiresApproval(): string { /* ... */ }
 ```
 
-Read what a schema declares with `ruleTemplateKeys()`.
+Read what a schema declares with `ruleTemplates()`.
 
 A method cannot be both a condition and a template. A condition answers about a
 row; a template answers with rule text about none. Both attributes on one method is

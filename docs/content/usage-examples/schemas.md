@@ -21,9 +21,9 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 
@@ -209,7 +209,7 @@ public function inCurrentWorkspace(RowConditionContext $c): Builder
     return $c->query->where($c->column('workspace_id'), $c->context['workspace_id']);
 }
 
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['tenant_id' => app(Tenancy::class)->currentId()];
 }
@@ -254,14 +254,11 @@ public function rules(RuleProviderContext $context): string
 
 ## A schema with no rows
 
-A schema whose `model` is empty has only no-target abilities, answered by global
-conditions:
+A `RowlessSchema` has only no-target abilities, answered by global conditions:
 
 ```php
-class SettingsSchema extends WarrantSchema
+class SettingsSchema extends RowlessSchema
 {
-    public const model = '';
-
     #[Ability] public const MANAGE = 'manage';
 
     #[GlobalCondition]

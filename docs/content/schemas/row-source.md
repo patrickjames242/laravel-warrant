@@ -2,38 +2,53 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Where rows come from
-description: Model tables, virtual tables, and schemas with no rows at all.
+description: Model schemas, query schemas, and schemas with no rows at all.
 sidebar:
   order: 5
 ---
 
-A schema draws its rows from one source or the other, never both: a model's table,
-or a query. It may also have no rows at all.
+Which class a schema extends says where its rows come from: a model's table, a
+query's output, or nowhere at all.
+
+| Extend | Rows |
+| --- | --- |
+| `ModelSchema` | A model's table |
+| `QuerySchema` | A query's output |
+| `RowlessSchema` | None |
 
 ## A model's table
 
-The default, and what most schemas want:
+What most schemas want:
 
 ```php
-public const model = Document::class;
+use Warrant\Schema\Types\Classes\ModelSchema;
+
+class DocumentSchema extends ModelSchema
+{
+    public const model = Document::class;
+}
 ```
+
+The model answers for the rows' table, key and connection, and a row condition
+gets an Eloquent builder so it can use the model's scopes.
 
 ## A query
 
-Return a query from `virtualTable()` and it becomes the schema's rows. This is a
-database view defined in the schema instead of in DDL, which is what you want when
-the query cannot be frozen into a migration:
+Extend `QuerySchema` and return a query from `rows()`, and its output becomes the
+schema's rows. This is a database view defined in the schema instead of in a
+migration, which is what you want when the query cannot be frozen into one:
 
 ```php
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Warrant\Schema\Types\Classes\QuerySchema;
 
-class ShiftDaySchema extends WarrantSchema
+class ShiftDaySchema extends QuerySchema
 {
     #[Ability] public const VIEW   = 'view';
     #[Ability] public const ASSIGN = 'assign';
 
-    public static function virtualTable(): ?Builder
+    public function rows(): Builder
     {
         return DB::table('teams')
             ->crossJoin('calendar_days')
@@ -48,13 +63,10 @@ class ShiftDaySchema extends WarrantSchema
             ]);
     }
 
-    // A product-shaped view has no single identifying column, so the schema
-    // says how a row is addressed.
-    public function matchKey(RowConditionContext $c, mixed $teamId, mixed $day): ?Builder
+    // The columns one row is identified by.
+    protected function key(): array
     {
-        return $c->query
-            ->where($c->column('team_id'), '=', $teamId)
-            ->where($c->column('day'), '=', $day);
+        return ['team_id', 'day'];
     }
 
     // A column the query computes, read as if it were stored.
@@ -66,79 +78,75 @@ class ShiftDaySchema extends WarrantSchema
 }
 ```
 
-Rules over it read exactly as they do over a table, and so do hops into it:
+Rules over it read exactly as they do over a table, and so do hops into it. A
+handle passes one argument per key column, in order:
 
 ```warrant
 if is_understaffed they can assign
 if can(assign for shift_days(@column team_id, @column starts_on)) they can create
 ```
 
-The compiler selects from the query as a subquery aliased to the schema's key:
+The compiler selects from the query as a subquery named `warrant_rows`, or under
+the name a hop gives it:
 
 ```sql
-exists (select * from ( … virtualTable … ) as shift_days where …)
+exists (select * from ( … rows() … ) as "warrant_rows" where …)
 ```
 
-### What a virtual table gives up
+### Naming one row
 
-Everything the model was buying beyond the rows themselves:
+Every row of a query schema can be named, so a targeted check and a row-bound
+reference always work against one. Declare one of these:
+
+- **`key()`**, the column or columns one row is identified by. A row is found by
+  each column equal to the argument in the same position.
+- **[`matchKey()`](/reference/warrant-schema/#matchkey)**, for a lookup that isn't
+  plain equality.
+
+A query schema with neither is refused when it is first constructed.
+
+### What a query schema gives up
+
+Everything a model was buying beyond the rows themselves:
 
 - No Eloquent scopes to spend from a condition. `$c->query` is a plain query
   builder.
 - No hydrated `$c->model`, so no [answering in PHP](/schemas/conditions/), and
   `WarrantDenialContext::$target` is null.
-- No key of its own. Declare `const key = '<column>'` for the column its rows are
-  identified by, or a `matchKey()`. Declare neither and it can be filtered but not
-  asked about one row.
 - No model to reach it from, so `Model::userHasAbility()` and route-model binding do
   not apply.
 
-So you start from the guard:
+So you start from the guard, and name a row by its key columns, in order:
 
 ```php
 $guard = Warrant::forSchema(ShiftDaySchema::class);
 
-$rows = $guard->filterQuery($guard->query(), 'view')->get();
+$rows = $guard->filterQuery($guard->query(), 'view')->orderBy('warrant_rows.day')->get();
 $guard->can('assign', [$team->id, '2026-09-14']);
 ```
 
 ### It takes no user and no context
 
-Deliberately. A virtual table says what its rows *are*; who may touch them is what
-the rules are for. Filtering by the current user here would move an access decision
+Deliberately. `rows()` says what the rows *are*; who may touch them is what the
+rules are for. Filtering by the current user here would move an access decision
 out of the rule language, where neither the rule text nor reachability analysis can
 see it.
 
 The method is called afresh wherever the query is needed rather than memoized, so
 nothing downstream can mutate a shared builder.
 
-### Declaring both is an error
-
-```text
-Schema [X] names model [Y] and also defines a virtualTable(); a schema draws its
-rows from one or the other. Drop the model to make it a virtual table, or drop
-virtualTable() to keep the model's own table.
-```
-
-```text
-Schema [X] names model [Y] and also declares a key [z]; a model answers for its own
-key, so drop the constant. It is for a virtual table, whose rows have no key of
-their own.
-```
-
 ## No rows at all
 
-A schema may govern a section with no model, for gating things like `settings` that
-only ever answer no-row checks:
+Extend `RowlessSchema` to govern a section with no rows, for gating things like
+`settings` that only ever answer no-row checks:
 
 ```php
-class SettingsSchema extends WarrantSchema
-{
-    public const model = '';
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
+class SettingsSchema extends RowlessSchema
+{
     #[Ability] public const MANAGE = 'manage';
 
-    // Only global conditions make sense here: a row condition has no row.
     #[GlobalCondition]
     public function isAdmin(GlobalConditionContext $c): bool
     {
@@ -152,11 +160,15 @@ Warrant::can('manage', 'settings');
 Warrant::abilities(SettingsSchema::class);
 ```
 
-A targeted check against it is refused up front:
+Only global and derived conditions belong here. A `#[RowCondition]` on a rowless
+schema is refused when it is first constructed, since there is no row for it to be
+about.
+
+A targeted check against it is refused too:
 
 ```text
-Schema [settings] has no rows and does not support targeted checks; use a no-target
-check instead.
+Schema [SettingsSchema] has no rows and does not support targeted checks; use a
+no-target check instead.
 ```
 
 In a rule, such a schema takes the unbound handle form, with no row selector:
@@ -167,10 +179,9 @@ if can(manage for settings) they can view
 
 ## Reading which is which
 
-```php
-DocumentSchema::hasRows();     // true for a model or a virtual table
-DocumentSchema::hasRowKey();   // true when one row can be named
-```
+The engine asks the schema's interfaces:
 
-`hasRows()` is read by reflection rather than by calling `virtualTable()`, so
-asking whether a schema has rows never builds a query.
+```php
+$schema instanceof IRowSchema;     // a model or query schema: it has rows
+$schema instanceof IModelSchema;   // a model schema
+```

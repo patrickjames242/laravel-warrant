@@ -21,7 +21,7 @@ its name is ignored:
 ```php
 use Warrant\Schema\Context\RequiredContext;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends RowlessSchema
 {
     #[RequiredContext] public const WORKSPACE = 'workspace_id';
 }
@@ -38,7 +38,7 @@ Schema [App\Warrant\DocumentSchema] requires context key(s) [workspace_id];
 supply them at the check or via defaultContext().
 ```
 
-Read them back with `DocumentSchema::requiredContextKeys()`.
+Read them back with `(new DocumentSchema)->requiredContextKeys()`.
 
 ## Per ability
 

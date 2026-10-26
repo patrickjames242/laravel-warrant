@@ -158,7 +158,7 @@ once in a schema, which teaches Warrant how it becomes SQL:
 
 ```php
 // app/Warrant/DocumentSchema.php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

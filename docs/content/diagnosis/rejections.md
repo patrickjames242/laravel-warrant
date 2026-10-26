@@ -108,9 +108,11 @@ Condition [in_team] requires at least 1 argument(s), but the rule supplied 0.
 Find the vocabulary:
 
 ```php
-DocumentSchema::abilityNames();
-DocumentSchema::conditionKeys();
-DocumentSchema::ruleTemplateKeys();
+$schema = new DocumentSchema;
+
+$schema->abilityNames();
+$schema->conditions();
+$schema->ruleTemplates();
 ```
 
 :::note[Two different "unknown ability" messages]
@@ -129,7 +131,7 @@ your call.
 
 ```text
 A can(...) reference targets a specific row of schema [settings], but [settings] has
-no way to name one; declare `const key` … or drop the row selector.
+no rows and cannot be row-targeted; drop the row selector.
 
 A can(...) reference to schema [shift_days] supplies 1 row-key argument(s), but that
 schema's row key requires at least 2.

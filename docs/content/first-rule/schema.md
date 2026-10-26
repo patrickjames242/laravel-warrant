@@ -23,9 +23,9 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

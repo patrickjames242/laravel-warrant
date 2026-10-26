@@ -53,19 +53,19 @@ or wrong access rather than as an error. Which is the worst way to learn about i
 Write a bad handle as text and validation catches it:
 
 ```warrant
-if can(view for folders) they can view
+if can(manage for settings(1)) they can view
 ```
 
 ```text
-A can(...) reference targets a specific row of schema [folders], but [folders] has
-no way to name one; declare `const key` … or drop the row selector.
+A can(...) reference targets a specific row of schema [settings], but [settings] has
+no rows and cannot be row-targeted; drop the row selector.
 ```
 
 Produce the same mistake from PHP and the compiler catches it, with its own message
 for the same thing:
 
 ```php
-Build::condition()->ifCan(Build::can('view')->for('folders', $someKey));
+Build::condition()->ifCan(Build::can('manage')->for('settings', $someKey));
 ```
 
 The two need not word it identically. Both have to report.

@@ -42,7 +42,7 @@ a lockout.
 On a base schema, every resource inherits it:
 
 ```php
-abstract class AppSchema extends WarrantSchema
+abstract class AppSchema extends RowlessSchema
 {
     #[GlobalCondition]
     public function isSuspended(GlobalConditionContext $c): bool
@@ -131,7 +131,7 @@ public function isSuspended(GlobalConditionContext $c): bool
     return $until !== null && $until->isAfter($c->context['now'] ?? now());
 }
 
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['now' => now()];
 }

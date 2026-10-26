@@ -90,12 +90,13 @@ Warrant::registry()->resolveModelOrFail('documents');
 And what a schema's vocabulary is:
 
 ```php
-DocumentSchema::abilityNames();
-DocumentSchema::rowConditionKeys();
-DocumentSchema::globalConditionKeys();
-DocumentSchema::requiredContextKeys();
-DocumentSchema::hasRows();
-DocumentSchema::hasRowKey();
+$schema = new DocumentSchema;
+
+$schema->abilityNames();
+$schema->rowConditions();
+$schema->globalConditions();
+$schema->requiredContextKeys();
+$schema instanceof IRowSchema;   // has rows
 ```
 
 The row and global split answers "why does this grant nothing in a no-row check".
@@ -118,7 +119,7 @@ class WarrantExplain extends Command
 
         $this->newLine();
         $this->info('Reachability');
-        $this->table(['Ability', 'State'], collect($class::abilityNames())
+        $this->table(['Ability', 'State'], collect($guard->schema()->abilityNames())
             ->map(fn ($a) => [$a, $guard->reachabilityOf($a)->name]));
 
         if ($ability = $this->argument('ability')) {

@@ -195,7 +195,7 @@ parameter.`
 | `$c->column()` | `string` method | row only |
 | `$c->model` | `?Model` | row only |
 | `$c->table` | `string` | row only |
-| `$c->keyColumn` | `string` | row only |
+| `$c->keyColumns` | `array` | row only |
 
 ## Always bind values
 

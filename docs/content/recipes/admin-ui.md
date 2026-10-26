@@ -101,14 +101,14 @@ The schema knows its own vocabulary, so the form can show it:
 ```php
 public function edit(RoleRule $roleRule)
 {
-    $schema = Warrant::registry()->resolveSchemaClassOrFail($roleRule->schema_key);
+    $schema = Warrant::registry()->resolveOrFail($roleRule->schema_key)->schema;
 
     return view('admin.rules.edit', [
         'roleRule'   => $roleRule,
-        'abilities'  => $schema::abilityNames(),
-        'conditions' => $schema::conditionKeys(),
-        'templates'  => $schema::ruleTemplateKeys(),
-        'required'   => $schema::requiredContextKeys(),
+        'abilities'  => $schema->abilityNames(),
+        'conditions' => array_map(fn ($condition) => $condition->key, $schema->conditions()),
+        'templates'  => array_map(fn ($template) => $template->key, $schema->ruleTemplates()),
+        'required'   => $schema->requiredContextKeys(),
     ]);
 }
 ```
@@ -194,10 +194,8 @@ between requests and jobs already. See
 The permissions screen is itself a resource:
 
 ```php
-class SettingsSchema extends WarrantSchema
+class SettingsSchema extends RowlessSchema
 {
-    public const model = '';
-
     #[Ability] public const MANAGE_PERMISSIONS = 'manage_permissions';
 
     #[GlobalCondition]

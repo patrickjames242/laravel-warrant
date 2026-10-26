@@ -156,7 +156,7 @@ merely wrong.
 - A hop chain several levels deep, where each level is a nested correlated
   subquery. Flatten it with a [closure table](/recipes/hierarchies/).
 - An `@sql` body doing real work per row.
-- A [virtual table](/schemas/row-source/) that aggregates, since it is a subquery in
+- A [query schema](/schemas/row-source/) that aggregates, since it is a subquery in
   the `FROM` and the planner often cannot push predicates into it.
 
 ## Measure before you restructure

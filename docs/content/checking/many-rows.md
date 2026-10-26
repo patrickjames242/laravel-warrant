@@ -99,7 +99,7 @@ $guard->filterQuery(
 );
 ```
 
-That is also how you filter a [virtual table](/schemas/row-source/), which has no
+That is also how you filter a [query schema](/schemas/row-source/), which has no
 model:
 
 ```php

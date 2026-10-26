@@ -13,7 +13,7 @@ Reached with `Warrant::guard($user)` or `$user->warrant()`. Same target forms as
 facade; the user is fixed.
 
 ```php
-public function forSchema(Model|WarrantSchema|string $schema): WarrantGuardForSchema;
+public function forSchema(Model|ISchema|string $schema): WarrantGuardForSchema;
 
 public function can(string|array $abilities, Model|string|array $target, array $context = []): bool;
 public function canAny(string|array $abilities, Model|string|array $target, array $context = []): bool;
@@ -44,7 +44,8 @@ public function authorize(string|array $abilities, Model|string|int|null $target
 public function authorizeAny(string|array $abilities, Model|string|int|null $target = null, array $context = []): void;
 public function abilities(Model|string|int|null $target = null, array $context = []): array;
 
-public function schema(): WarrantSchema;
+public function schema(): IAbilitySchema;
+public function schemaKey(): string;
 public function user(): Authenticatable;
 public function query(): Builder;
 public function expandedRuleSet(): ExpandedSyntax;   // the schema's rules and the provider's, validated and expanded

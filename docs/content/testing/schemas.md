@@ -140,12 +140,12 @@ it('gates settings on the admin flag', function () {
 });
 ```
 
-## Virtual tables
+## Query schemas
 
 Also from the guard, and the filter is the thing to assert:
 
 ```php
-it('filters a virtual table', function () {
+it('filters a query schema', function () {
     bindRules('if is_understaffed they can assign', schemaKey: 'shift_days');
 
     $guard = Warrant::forSchema(ShiftDaySchema::class, $this->user);

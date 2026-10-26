@@ -120,10 +120,10 @@ use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\Schema\Conditions\Row\RowCondition;
 
-class TimesheetSchema extends WarrantSchema
+class TimesheetSchema extends ModelSchema
 {
     public const model = Timesheet::class;
 

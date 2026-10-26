@@ -124,7 +124,7 @@ The same two conditions belong on every team-owned schema, which is a good use f
 a base class:
 
 ```php
-abstract class TeamOwnedSchema extends WarrantSchema
+abstract class TeamOwnedSchema extends ModelSchema
 {
     #[RowCondition]
     public function inMyTeam(RowConditionContext $c): Builder

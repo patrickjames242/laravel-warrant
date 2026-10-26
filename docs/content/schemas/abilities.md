@@ -51,7 +51,9 @@ Ability [destroy] is not defined on schema [App\Warrant\DocumentSchema].
 that is also the order they appear in the per-row ability column:
 
 ```php
-DocumentSchema::abilityNames();   // ['view', 'approve', 'unlock']
+$schema = new DocumentSchema;
+
+$schema->abilityNames();   // ['view', 'approve', 'unlock']
 ```
 
 ```php

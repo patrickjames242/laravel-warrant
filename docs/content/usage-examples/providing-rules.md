@@ -163,7 +163,7 @@ A schema's own `rules()` is merged with whatever the provider returns, which mak
 it the home for policy that holds for everyone:
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends RowlessSchema
 {
     public function rules(RuleProviderContext $context): string
     {

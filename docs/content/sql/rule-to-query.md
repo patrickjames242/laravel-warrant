@@ -35,7 +35,7 @@ schema, which are expanded the same way when it is first compiled.
 A `documents` schema with three abilities and four conditions:
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

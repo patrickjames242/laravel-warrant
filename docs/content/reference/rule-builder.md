@@ -81,7 +81,7 @@ reference by passing it to `ifNot`, `andIfNot` or `orIfNot`.
 Both name their target the same way:
 
 ```php
-->for(Model|WarrantSchema|string $schema, mixed $key = new NoRow): static
+->for(Model|ISchema|string $schema, mixed $key = new NoRow): static
 ->as(string $alias): static
 ->with(array $with): static
 ->toNode(SyntaxSource $source): CrossSchemaCanNode|CrossSchemaConditionNode

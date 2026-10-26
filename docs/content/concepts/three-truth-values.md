@@ -111,7 +111,7 @@ Give it a default, so param-less paths such as route middleware and query scopes
 still get a frame:
 
 ```php
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['workspace_id' => app('tenant')->id];
 }

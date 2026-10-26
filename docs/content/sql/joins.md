@@ -173,15 +173,15 @@ constant and nothing is built.
 A key alone cannot do this, because whether the row exists is exactly what a key
 has not established.
 
-## A virtual table
+## A query schema
 
-A schema whose rows come from a query is selected from as a subquery aliased to the
-schema's key:
+A [query schema](/schemas/row-source/)'s rows are selected from as a subquery named
+`warrant_rows`, or under the name a hop gives it:
 
 ```sql
 exists (
-    select * from ( … the virtualTable query … ) as "shift_days"
-    where "shift_days"."team_id" = "teams"."id" and …
+    select * from ( … the rows() query … ) as "warrant_rows"
+    where "warrant_rows"."team_id" = "teams"."id" and …
 )
 ```
 

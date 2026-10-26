@@ -76,7 +76,9 @@ a column against `null`. That is unknown, which grants nothing.
 Check:
 
 ```php
-DocumentSchema::requiredContextKeys();   // what is mandatory
+$schema = new DocumentSchema;
+
+$schema->requiredContextKeys();   // what is mandatory
 Warrant::can('view', $document, ['workspace_id' => $id]);   // does it work with it?
 ```
 
@@ -125,8 +127,10 @@ it is unanswerable.
 Check which is which:
 
 ```php
-DocumentSchema::rowConditionKeys();
-DocumentSchema::globalConditionKeys();
+$schema = new DocumentSchema;
+
+$schema->rowConditions();
+$schema->globalConditions();
 ```
 
 If the granting rule's condition is a row condition, it can never grant a no-row

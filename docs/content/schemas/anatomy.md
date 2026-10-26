@@ -7,8 +7,10 @@ sidebar:
   order: 1
 ---
 
-A schema is a `Warrant\Schema\WarrantSchema` subclass, one per resource. Here is a
-realistic one with every part in it, as a map for the rest of this section.
+A schema is a class, one per resource, extending `ModelSchema`, `QuerySchema` or
+`RowlessSchema` by [where its rows come from](/schemas/row-source/). Here is a
+realistic model schema with every part in it, as a map for the rest of this
+section.
 
 ```php
 namespace App\Warrant;
@@ -24,9 +26,9 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Context\RequiredContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     // 1. What model these rows are.
     public const model = Document::class;
@@ -81,7 +83,7 @@ class DocumentSchema extends WarrantSchema
     }
 
     // 9. Context values callers may omit.
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['tenant_id' => app(Tenancy::class)->currentId()];
     }
@@ -109,8 +111,8 @@ extends Document` inherits `warrantSchema()`, which names `DocumentSchema`, whos
 model is `Document`. Warrant throws. A subclass needing its own authorization needs
 its own schema.
 
-`const model = ''` means no model at all, which is a
-[capability schema](/schemas/row-source/).
+A schema with no model extends `QuerySchema` or `RowlessSchema` instead; see
+[where rows come from](/schemas/row-source/).
 
 ## The schema key
 
@@ -119,11 +121,11 @@ declared on the schema. It is the key the schema is registered under in
 `config/warrant.php`, which is its single source of truth:
 
 ```php
-DocumentSchema::schemaKey();   // 'documents'
+Warrant::registry()->resolveSchemaKeyOrFail(DocumentSchema::class);   // 'documents'
 ```
 
-Because the key lives in the config index, that method is a lookup and needs a
-booted application.
+A schema does not know its own key. Whatever resolves a schema through the
+registry is handed its key along with it.
 
 :::tip[Why the key is not derived from the table]
 Deriving it would mean building the schema index instantiated every registered
@@ -135,19 +137,20 @@ so nothing is loaded until a schema is actually used.
 ## Reading a schema back
 
 ```php
-DocumentSchema::abilityNames();          // declaration order, not sorted
-DocumentSchema::abilityDefinitions();    // AbilityDefinition[] { name, requiredContext }
-DocumentSchema::conditionKeys();         // sorted
-DocumentSchema::rowConditionKeys();      // sorted
-DocumentSchema::globalConditionKeys();   // sorted
-DocumentSchema::requiredContextKeys();   // schema-wide required keys
-DocumentSchema::ruleTemplateKeys();
-DocumentSchema::hasRows();
-DocumentSchema::hasRowKey();
+$schema = new DocumentSchema;
+
+$schema->abilityNames();          // declaration order, not sorted
+$schema->abilities();             // AbilityDefinition[] { name, requiredContext }
+$schema->conditions();            // ConditionDefinition[], every kind
+$schema->rowConditions();         // ConditionDefinition[]
+$schema->globalConditions();      // ConditionDefinition[]
+$schema->derivedConditions();     // ConditionDefinition[]
+$schema->ruleTemplates();         // RuleTemplateDefinition[]
+$schema->requiredContextKeys();   // schema-wide required keys
 ```
 
-Ability order is preserved because it is also the order abilities appear in the
-per-row [ability column](/checking/abilities/). Condition keys come back sorted.
+Each list is in declaration order. Ability order matters because it is also the
+order abilities appear in the per-row [ability column](/checking/abilities/).
 
 ## The static guard
 

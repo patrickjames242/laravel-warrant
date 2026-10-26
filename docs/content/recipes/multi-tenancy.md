@@ -18,7 +18,7 @@ calls do not have to pass it, and a requirement so an unset tenant throws.
 ```php
 use Warrant\Schema\Context\RequiredContext;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 
@@ -39,7 +39,7 @@ class DocumentSchema extends WarrantSchema
         return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
     }
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['tenant_id' => app(Tenancy::class)->currentId()];
     }

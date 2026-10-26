@@ -103,11 +103,11 @@ class DatabaseRuleProvider implements IRuleProvider
 }
 ```
 
-'Translate' the conditions in your ruleset via a `WarrantSchema`. Each condition in your Warrant ruleset should correspond to one camel case function in your schema.
+'Translate' the conditions in your ruleset via a schema. Each condition in your Warrant ruleset should correspond to one camel case function in your schema.
 
 ```php
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

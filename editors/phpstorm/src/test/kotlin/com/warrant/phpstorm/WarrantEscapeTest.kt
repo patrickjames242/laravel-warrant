@@ -35,11 +35,15 @@ class WarrantEscapeTest : BasePlatformTestCase() {
     }
 
     fun testColoursAnEscapeInADoubleQuotedStringRulesReturns() {
-        // The schema base class, which rules() must be on to hold rule text.
-        myFixture.addFileToProject("WarrantSchema.php", "<?php\nnamespace Warrant\\Schema;\n\nabstract class WarrantSchema {}\n")
+        // A schema class, whose rules() holds rule text because it implements IProvidesRules.
+        myFixture.addFileToProject("IProvidesRules.php", "<?php\nnamespace Warrant\\Schema\\Rules;\n\ninterface IProvidesRules {}\n")
+        myFixture.addFileToProject(
+            "ModelSchema.php",
+            "<?php\nnamespace Warrant\\Schema\\Types\\Classes;\n\nabstract class ModelSchema implements \\Warrant\\Schema\\Rules\\IProvidesRules {}\n",
+        )
         myFixture.configureByText(
             "a.php",
-            "<?php\nclass S extends \\Warrant\\Schema\\WarrantSchema\n{\n    public function rules(): string\n    {\n        return \"\n            they cannot view because 'don\\'t'\n        \";\n    }\n}\n",
+            "<?php\nclass S extends \\Warrant\\Schema\\Types\\Classes\\ModelSchema\n{\n    public function rules(): string\n    {\n        return \"\n            they cannot view because 'don\\'t'\n        \";\n    }\n}\n",
         )
 
         assertEquals(listOf("\\'"), escapes(WarrantSyntaxHighlighter.VALID_ESCAPE))

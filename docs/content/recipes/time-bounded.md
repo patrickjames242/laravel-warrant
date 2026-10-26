@@ -16,9 +16,9 @@ inside a condition.
 ## The clock
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends RowlessSchema
 {
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['now' => now()];
     }
@@ -140,7 +140,7 @@ for timesheets {
 ```
 
 ```php
-class PayPeriodSchema extends WarrantSchema
+class PayPeriodSchema extends RowlessSchema
 {
     #[RowCondition]
     public function isOpen(RowConditionContext $c): Builder

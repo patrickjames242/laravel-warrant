@@ -40,7 +40,7 @@ $user->can('create', [Document::class, ['region' => 'us']]);
 `defaultContext()` on the schema supplies values so callers may omit them:
 
 ```php
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['workspace_id' => app('tenant')->id];
 }
@@ -79,7 +79,7 @@ tenant-scoped application, `defaultContext()` is the fix, and it belongs on ever
 tenant-scoped schema:
 
 ```php
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['tenant_id' => app(Tenancy::class)->currentId()];
 }

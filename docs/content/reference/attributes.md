@@ -176,4 +176,4 @@ class User extends Authenticatable
 ## `Reachability`
 
 An enum rather than an attribute. See
-[WarrantSchema](/reference/warrant-schema/#reachability).
+[Schema classes](/reference/warrant-schema/#reachability).

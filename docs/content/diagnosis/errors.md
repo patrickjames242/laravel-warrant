@@ -125,18 +125,33 @@ Thrown the first time a schema's conditions are reflected:
 - `Method [%s::%s] cannot be both a condition and a rule template.`
 - `Condition method [%s::%s] must resolve to a non-empty condition key.`
 - `Condition method [%s::%s] must accept a [%s] as its first parameter.`
+- `Schema [%s] declares condition [%s] more than once; conditions of every kind share one set of names.`
+
+Thrown the first time a schema is constructed, for a construct its type does not
+provide or a way of naming rows it lacks:
+
+- `Method [%s::%s] is a #[RowCondition], but schema [%s] has no rows. Extend ModelSchema or QuerySchema for a schema that does.`
+- `Constant [%s::%s] declares an ability, but schema [%s] has no abilities. …`
+- `Constant [%s::%s] declares required context, but schema [%s] has no context policy. …`
+- `Schema [%s] has no way to find one of its rows; declare key() for the column or columns its rows are identified by, or a matchKey() of its own.`
+- `LogicException`: `Schema [%s] names no model; declare `public const model = YourModel::class;`, or override model().`
+
+From a check:
+
 - `Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.`
-- `Schema [%s] has rows but no way to name one, so it does not support targeted checks; declare `const key` …`
+- `Schema [%s] declares no abilities, so no check can be made against it; …`
 
 ## Applying a condition
 
-From the provider:
+From the compiler, before a condition is called:
 
-- `BadMethodCallException`: `Condition [%s] is not defined on schema [%s].`
-- `Condition [%s] on schema [%s] requires a target row.`
+- `Condition [%s] is not defined on schema [%s].`
 - `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.`
-- `Condition [%s] on schema [%s] returned an expression; a row or global condition answers with the query it constrained, a bool or null. Declare a condition built from other conditions #[DerivedCondition] instead, ...`
-- `Condition [%s] on schema [%s] is a derived condition, which has no SQL of its own; ...`: applying a derived condition to a query directly.
+- `Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; …`: a rule set that skipped expansion.
+
+From the schema, on what the condition answered:
+
+- `Condition [%s] on schema [%s] returned a [%s]; a row or global condition answers with the query it constrained, a bool or null. Declare a condition built from other conditions #[DerivedCondition] instead, ...`
 
 From the compiler, on what a condition emitted:
 
@@ -151,24 +166,23 @@ That last one is nearly always a missing `return`.
 From validation, and from the compiler, which makes the same checks for handles
 that never passed through the parser:
 
-- `A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name one; …`
+- `A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and cannot be row-targeted; drop the row selector.`
 - `A %s(...) reference to schema [%s] supplies %d row-key argument(s), but that schema's row key requires at least %d.`
 
-From the key's own dispatch:
+From the row matcher, wherever a row is named:
 
 - `The row key for schema [%s] requires at least %d argument(s), but %d were supplied.`
-- `The row key for schema [%s] must return the query it constrained, or null to answer unknown; it returned a [%s].`
+- `The row matcher for schema [%s] must return the query it constrained, or null to answer unknown; it returned a [%s].`
 
 From the schema's declaration:
 
-- `Schema [%s] declares a condition attribute on matchKey(), which is the schema's row key and not part of its rule vocabulary; …`
+- `Schema [%s] declares a vocabulary attribute on matchKey(), which finds the schema's rows and is not part of its rule vocabulary; …`
 - `Schema [%s] must accept a [%s] as the first parameter of matchKey().`
-- `Schema [%s] names model [%s] and also defines a virtualTable(); a schema draws its rows from one or the other. …`
-- `Schema [%s] names model [%s] and also declares a key [%s]; a model answers for its own key, so drop the constant. …`
 
-From a condition over rows with no key column:
+From `column()` with no argument, over rows whose key is not one column:
 
-- `BadMethodCallException`: `These rows have no key column of their own, so column() must be given a column name; …`
+- `BadMethodCallException`: `These rows are identified by no key column, so column() must be given a column name.`
+- `BadMethodCallException`: `These rows are identified by several key columns, so column() must be given a column name.`
 
 An empty argument list is not an error in itself: it addresses a row by a key
 requiring no arguments. Only `null` means a no-row check.
@@ -241,12 +255,12 @@ The compiler rejects a derived condition that never went through expansion:
 
 Deferred to first resolution, since each requires loading a class:
 
-- `LogicException`: `Schema key [...] is registered to [...], which is not a Warrant\Schema\WarrantSchema.`
+- `LogicException`: `Schema key [...] is registered to [...], which does not implement Warrant\Schema\Types\Interfaces\ISchema.`
 - `LogicException`: `Schema [...] names model [...], which is not an Eloquent model.`
 - `LogicException`: `Schema [...] names model [...], but that model does not use the Warrant\HasWarrantSchema trait, ...`
 - `LogicException`: `Model [...] must declare warrantSchema() as \`public static\`.`
 - `LogicException`: `Schema [...] names model [...], but that model names schema [...]; a schema and its model must name each other.`
-- `LogicException`: `Model [...] must name a Warrant\Schema\WarrantSchema, but names [...].`
+- `LogicException`: `Model [...] must name a Warrant\Schema\Types\Interfaces\IModelSchema, but names [...].`
 
 The model-end pair is what catches a subclass inheriting `warrantSchema()` from its
 parent.

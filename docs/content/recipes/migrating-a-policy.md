@@ -80,7 +80,7 @@ their teams, do they manage that team, is it locked, is the user read-only.
 ```php
 namespace App\Warrant;
 
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

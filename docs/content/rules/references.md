@@ -78,7 +78,7 @@ can(access for billing)                     # the schema as a whole, no row
 
 A row-bound handle compiles the other schema against that row, so its row
 conditions have something to run against. It requires the target to have rows: a
-capability schema with no table rejects a row selector.
+rowless schema rejects a row selector.
 
 An unbound handle asks with no row at all, exactly like a
 [no-row check](/checking/no-row/). The target's row conditions have nothing to run

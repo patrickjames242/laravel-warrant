@@ -73,7 +73,7 @@ above rather than written into the class.
 `defaultContext()` supplies context values so callers may omit them:
 
 ```php
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['tenant_id' => app(Tenancy::class)->currentId()];
 }
@@ -98,7 +98,7 @@ A default can satisfy a required key, so the combination you usually want is bot
 ```php
 #[RequiredContext] public const TENANT = 'tenant_id';
 
-protected function defaultContext(): array
+public function defaultContext(): array
 {
     return ['tenant_id' => app(Tenancy::class)->currentId()];
 }

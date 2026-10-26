@@ -58,14 +58,12 @@ claimed. An unknown deny is not a deny that failed to fire. See
 
 ## Schemas with no rows at all
 
-A section with no model is the natural home for this. Declare `const model = ''`
-and only global conditions:
+A section with no rows is the natural home for this. Extend `RowlessSchema` and
+declare only global conditions:
 
 ```php
-class SettingsSchema extends WarrantSchema
+class SettingsSchema extends RowlessSchema
 {
-    public const model = '';
-
     #[Ability] public const MANAGE = 'manage';
     #[Ability] public const VIEW_BILLING = 'view_billing';
 

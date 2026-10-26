@@ -32,7 +32,7 @@ import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
  *     raw methods, `->ifRaw()` to `->orIfNotRaw()`, passed by position or by its parameter name;
  *   - returned, alone or inside a returned array, from a method marked
  *     `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a
- *     `WarrantSchema` or an `IRuleProvider`.
+ *     schema (anything implementing `IProvidesRules`) or an `IRuleProvider`.
  *
  * The injected range is the string's *content* (the platform gets it from the
  * PHP host's ElementManipulator), so the quotes and heredoc labels stay PHP.
@@ -83,7 +83,7 @@ class WarrantInjector : MultiHostInjector {
 
         /** Types whose `rules()` returns rule text. */
         private val RULE_PROVIDERS = setOf(
-            "\\Warrant\\Schema\\WarrantSchema",
+            "\\Warrant\\Schema\\Rules\\IProvidesRules",
             "\\Warrant\\Rules\\IRuleProvider",
         )
 

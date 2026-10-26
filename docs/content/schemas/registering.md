@@ -36,7 +36,7 @@ one requires loading a class, which is exactly what the index avoids. They fire 
 first time a schema is resolved:
 
 ```text
-Schema key [documents] is registered to [App\Foo], which is not a Warrant\Schema\WarrantSchema.
+Schema key [documents] is registered to [App\Foo], which does not implement Warrant\Schema\Types\Interfaces\ISchema.
 Schema [X] names model [Y], which is not an Eloquent model.
 Schema [X] names model [Y], but that model does not use the Warrant\HasWarrantSchema trait.
 Model [Y] must declare warrantSchema() as `public static`.

@@ -15,8 +15,9 @@ notes before upgrading.
 The things this documentation covers as API:
 
 - the `Warrant` facade and the two guards;
-- `WarrantSchema` and its hooks, including `matchKey()`, `virtualTable()`,
-  `rules()`, `defaultContext()`, and the denial-message hooks;
+- the schema classes `ModelSchema`, `QuerySchema` and `RowlessSchema`, and their
+  hooks, including `matchKey()`, `rows()`, `key()`, `rules()`,
+  `defaultContext()`, and the denial-message hooks;
 - the attributes: `#[Ability]`, `IDeclaresAbility`, `#[RowCondition]`,
   `#[GlobalCondition]`, `#[RequiredContext]`, `#[RuleTemplate]`;
 - the condition context objects and their properties;

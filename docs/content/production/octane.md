@@ -57,7 +57,7 @@ is rare. It stops being rare if you add a static property:
 
 ```php
 // Dangerous: leaks between requests.
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends RowlessSchema
 {
     private static array $teamIds = [];
 }

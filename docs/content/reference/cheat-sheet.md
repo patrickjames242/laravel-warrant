@@ -10,7 +10,7 @@ sidebar:
 ## A schema
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 
@@ -47,7 +47,7 @@ class DocumentSchema extends WarrantSchema
         return 'if is_suspended they cannot *';
     }
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['tenant_id' => app(Tenancy::class)->currentId()];
     }
@@ -199,13 +199,14 @@ new NoRow;
 Warrant::registry()->registeredSchemas();
 Warrant::registry()->resolveSchemaKeyOrFail(Document::class);
 
-DocumentSchema::abilityNames();
-DocumentSchema::rowConditionKeys();
-DocumentSchema::globalConditionKeys();
-DocumentSchema::derivedConditionKeys();
-DocumentSchema::requiredContextKeys();
-DocumentSchema::hasRows();
-DocumentSchema::hasRowKey();
+$schema = new DocumentSchema;
+
+$schema->abilityNames();
+$schema->rowConditions();
+$schema->globalConditions();
+$schema->derivedConditions();
+$schema->requiredContextKeys();
+$schema instanceof IRowSchema;   // has rows
 ```
 
 ## Flushing

@@ -14,7 +14,7 @@ target names the schema and, optionally, the row.
 
 ```php
 Warrant::guard(?Authenticatable $user = null): WarrantGuard;
-Warrant::forSchema(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): WarrantGuardForSchema;
+Warrant::forSchema(Model|ISchema|string $schema, ?Authenticatable $user = null): WarrantGuardForSchema;
 Warrant::registry(): SchemaRegistry;
 ```
 
@@ -53,7 +53,7 @@ A bare scalar names the schema, never a row.
 Schema first, no match mode, no context. A user is still required.
 
 ```php
-Warrant::reachabilityOf(Model|WarrantSchema|string $schema, string $ability, ?Authenticatable $user = null): Reachability;
+Warrant::reachabilityOf(Model|ISchema|string $schema, string $ability, ?Authenticatable $user = null): Reachability;
 
 Warrant::couldEverHave($schema, string|array $abilities, ?Authenticatable $user = null): bool;
 Warrant::couldEverHaveAny($schema, string|array $abilities, ?Authenticatable $user = null): bool;
@@ -119,7 +119,7 @@ Its `$user` does **not** default to the current user. Omitting it flushes everyo
 ```php
 Warrant::registry()->registeredSchemas(): array;
 
-Warrant::registry()->resolveSchemaClassOrNull(Model|WarrantSchema|string|null $ref): ?string;
+Warrant::registry()->resolveSchemaClassOrNull(Model|ISchema|string|null $ref): ?string;
 Warrant::registry()->resolveSchemaClassOrFail($ref, bool $passThroughNull = false): ?string;
 Warrant::registry()->resolveModelOrNull($ref): ?string;
 Warrant::registry()->resolveModelOrFail($ref, bool $passThroughNull = false): ?string;

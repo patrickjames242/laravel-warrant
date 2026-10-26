@@ -6,21 +6,65 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ## Unreleased
 
+### Added
+
+- `Warrant\Schema\Context\ContextPolicy` merges a schema's default context and
+  enforces its required context keys, from what the schema declares.
+- `Warrant\Schema\Vocabulary` holds what rule text may say about one schema, as
+  data: its abilities, conditions and templates by name, and how a row is found.
+  `Vocabulary::of($schema)` builds one.
+- `SchemaRegistry::resolveOrFail()` and `resolveOrNull()` answer with a
+  `ResolvedSchema`: the schema instance, built once and kept, and the key it is
+  registered under. `WarrantGuardForSchema::schemaKey()` returns a guard's key.
+- A query schema's key may span several columns without a `matchKey()`:
+  `key()` returns the columns, and a row is named by one argument per column.
+- Hover in the language server says where a schema's rows come from.
+
 ### Removed
 
 - `!` is no longer a synonym for `not`. A rule writing it is rejected as an
   unexpected character; write `not` instead.
+- `WarrantSchema`, replaced by the schema classes below.
+- `SchemaVocabulary` and `ConditionResolver`. Validation reads a `Vocabulary`
+  through `ISchemaCatalog`, and the compiler reads a schema through its
+  interfaces.
+- A query schema that cannot name a row. One with neither `key()` nor
+  `matchKey()` is refused when it is first constructed, and the `unnameable-row`
+  diagnostic is gone.
+- `schemaKey()` on a schema, and the static `abilityNames()`,
+  `abilityDefinitions()`, `conditionKeys()`, `rowConditionKeys()`,
+  `globalConditionKeys()`, `derivedConditionKeys()`, `ruleTemplateKeys()`,
+  `hasRows()`, `hasRowKey()`, `keyDefinition()`, `requiredContextKeys()` and
+  `partitionAbilitiesByContext()`. Ask the registry for a schema's key, and a
+  schema instance for the rest.
 
 ### Changed
 
-- The schema classes are grouped by feature under `Warrant\Schema`:
-  `Abilities\` holds `Ability`, `IDeclaresAbility`, `AbilityDefinition` and
-  `StandardAbilities`; `Conditions\` holds the `#[RowCondition]`,
-  `#[GlobalCondition]` and `#[DerivedCondition]` attributes beside their
-  contexts, `ConditionDefinition` and `ConditionKind`; `RuleTemplates\` holds
-  `RuleTemplate`, `RuleTemplateContext` and `RuleTemplateDefinition`; and
-  `Denials\` holds `WarrantDenialContext` and `WarrantUngrantedContext`.
-  `WarrantSchema` and `RequiredContext` stay in `Warrant\Schema`.
+- A schema extends one of three classes, by where its rows come from, all in
+  `Warrant\Schema\Types\Classes`:
+  - `ModelSchema`, rows from a model's table, named by `const model` as before;
+  - `QuerySchema`, rows from a query: `virtualTable()` is now an instance
+    `rows()`, and `const key` is now `key()`;
+  - `RowlessSchema`, no rows, in place of a schema with `const model = ''`.
+- The engine reads a schema through interfaces in
+  `Warrant\Schema\Types\Interfaces`: `ISchema`, `IAbilitySchema`, `IRowSchema`
+  and `IModelSchema`, each combining one `IProvides…` interface per construct. A
+  schema in `config/warrant.php` must implement `ISchema`, and a check is made
+  only against an `IAbilitySchema`.
+- A schema is read through instance methods: `abilities()`, `abilityNames()`,
+  `ability()`, `conditions()`, `condition()`, `rowConditions()`,
+  `globalConditions()`, `derivedConditions()`, `ruleTemplates()`,
+  `ruleTemplate()`, `requiredContextKeys()` and `rowMatcher()`.
+- `defaultContext()` is public.
+- A query schema's rows are named `warrant_rows` in SQL, in place of the schema
+  key, unless a hop names them.
+- `RowConditionContext::$keyColumn` is now `$keyColumns`, a list. `column()` with
+  no argument needs a key of exactly one column.
+- The schema classes are grouped by feature under `Warrant\Schema`, each beside
+  its `IProvides…` interface and the trait that reads it: `Abilities\`;
+  `Conditions\`, with `Row\`, `Global\` and `Derived\` holding each kind's
+  attribute and context; `Context\`, holding `RequiredContext`;
+  `Denials\`; `Rows\`; `Rules\`; and `RuleTemplates\`.
 - Messages, docs and names say "can/cannot clause" where they said only
   "clause". The `missing-clause` diagnostic is now
   `missing-can-or-cannot-clause` (`DiagnosticCode::MissingCanOrCannotClause`),
@@ -28,10 +72,9 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   `hasGenericCanOrCannotClause()`.
 - `WarrantRuleNode` is now `RuleNode`.
 - Every interface's name starts with `I`, so it can't be mistaken for a class:
-  `DeclaresAbility`, `RuleProvider`, `SchemaCatalog`, `SchemaVocabulary`,
-  `ConditionResolver` and `CompilationUnit` are now `IDeclaresAbility`,
-  `IRuleProvider`, `ISchemaCatalog`, `ISchemaVocabulary`, `IConditionResolver`
-  and `ICompilationUnit`. The syntax node interfaces keep theirs: `INode`,
+  `DeclaresAbility`, `RuleProvider`, `SchemaCatalog` and `CompilationUnit` are
+  now `IDeclaresAbility`, `IRuleProvider`, `ISchemaCatalog` and
+  `ICompilationUnit`. The syntax node interfaces keep theirs: `INode`,
   `IBooleanExpressionNode`, `IRuleEntryNode` and `ISchemaScopedNode`.
 
 ## 4.4.0 — 2026-10-21

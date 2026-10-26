@@ -14,7 +14,7 @@ keep.
 ## One condition per state
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 

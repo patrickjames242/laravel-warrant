@@ -101,7 +101,7 @@ Not in Warrant. In the predicate you wrote:
 - an unindexed column in a condition;
 - a correlated subquery over a large table with no supporting index;
 - a hop chain nesting several subqueries;
-- a virtual table that aggregates, which the planner often cannot push predicates
+- a query schema that aggregates, which the planner often cannot push predicates
   into;
 - an ability column over many abilities on a long page.
 

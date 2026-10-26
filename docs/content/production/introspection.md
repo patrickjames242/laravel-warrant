@@ -74,14 +74,15 @@ an unresolvable reference rather than as anything about permissions.
 ## What vocabulary does a schema have?
 
 ```php
-DocumentSchema::abilityNames();
-DocumentSchema::conditionKeys();
-DocumentSchema::rowConditionKeys();
-DocumentSchema::globalConditionKeys();
-DocumentSchema::requiredContextKeys();
-DocumentSchema::ruleTemplateKeys();
-DocumentSchema::hasRows();
-DocumentSchema::hasRowKey();
+$schema = new DocumentSchema;
+
+$schema->abilityNames();
+$schema->conditions();
+$schema->rowConditions();
+$schema->globalConditions();
+$schema->requiredContextKeys();
+$schema->ruleTemplates();
+$schema instanceof IRowSchema;   // has rows
 ```
 
 The row and global split is the useful one when diagnosing a no-row check, since
@@ -111,7 +112,7 @@ class WarrantExplain extends Command
         $this->newLine();
 
         $this->table(['Ability', 'Reachability'], collect(
-            Warrant::registry()->resolveSchemaClassOrFail($schema)::abilityNames()
+            $guard->schema()->abilityNames()
         )->map(fn ($a) => [$a, $guard->reachabilityOf($a)->name]));
 
         if ($ability = $this->argument('ability')) {

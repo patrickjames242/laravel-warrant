@@ -1,63 +1,91 @@
 ---
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
-title: WarrantSchema
-description: Constants, reflection, overridable hooks, and the condition context objects.
+title: Schema classes
+description: The schema classes, what each provides, their hooks, and the condition context objects.
 sidebar:
   order: 3
 ---
 
-`Warrant\Schema\WarrantSchema`, abstract. A schema is pure definition: it declares
-vocabulary and configuration and holds no user. Every user-scoped operation lives
-on a [guard](/reference/warrant-guard/).
+A schema is pure definition: it declares vocabulary and configuration and holds no
+user. Every user-scoped operation lives on a [guard](/reference/warrant-guard/).
 
-## Constants
+## The classes
+
+Extend one of three, by where the schema's rows come from. All live in
+`Warrant\Schema\Types\Classes`.
+
+| Class | Rows | Declare |
+| --- | --- | --- |
+| `ModelSchema` | A model's table | `public const model = Document::class;` |
+| `QuerySchema` | A query's output | `rows()`, and `key()` or `matchKey()` |
+| `RowlessSchema` | None | Nothing; its abilities are about no row |
+
+`ModelSchema` and `QuerySchema` share `RowSchema`, and every schema extends
+`Schema` through `AbilitySchema`. Those three hold what their children share, and
+nothing extends them directly.
+
+Constructing a schema checks what its class declares, once per class. A construct
+its type does not provide fails there: a `#[RowCondition]` on a `RowlessSchema`,
+say. A schema that declares a constructor of its own calls `parent::__construct()`.
+
+## Every schema
 
 ```php
-public const model = '';  // class-string of the managed Model; '' means no model
-public const key = '';    // a virtualTable's identifying column; '' means none
+public function conditions(): array;                     // ConditionDefinition[], every kind
+public function condition(string $key): ?ConditionDefinition;
+public function globalConditions(): array;               // ConditionDefinition[]
+public function derivedConditions(): array;              // ConditionDefinition[]
+public function ruleTemplates(): array;                  // RuleTemplateDefinition[]
+public function ruleTemplate(string $key): ?RuleTemplateDefinition;
 ```
 
-`key` names the column a [`virtualTable()`](#virtualtable)'s rows are identified
-by. A model answers this through `getKeyName()`, so declaring both is rejected.
+Each list is read once per class, and a lookup by key is an array lookup.
+Conditions of every kind share one set of names.
 
-## Static guard shortcut
+## Abilities, rules, context and denials
 
 ```php
+public function abilities(): array;                      // AbilityDefinition[] { name, requiredContext }
+public function abilityNames(): array;                   // declaration order, NOT sorted
+public function ability(string $name): ?AbilityDefinition;
+public function requiredContextKeys(): array;            // schema-wide #[RequiredContext] values
+
 public static function guard(?Authenticatable $user = null): WarrantGuardForSchema;
 // === Warrant::forSchema(static::class, $user)
 ```
 
-## Reflection
+### Overridable hooks
 
 ```php
-public static function schemaKey(): string;           // the config key; needs a booted app
-public static function abilityNames(): array;         // declaration order, NOT sorted
-public static function abilityDefinitions(): array;   // AbilityDefinition[] { name, requiredContext }
-public static function getAbilityDefinition(string $abilityKey): ?AbilityDefinition;
-public static function conditionKeys(): array;        // sorted
-public static function rowConditionKeys(): array;     // sorted
-public static function globalConditionKeys(): array;  // sorted
-public static function derivedConditionKeys(): array; // sorted
-public static function ruleTemplateKeys(): array;
-public static function requiredContextKeys(): array;  // schema-wide #[RequiredContext] values
-public static function hasRows(): bool;
-public static function hasRowKey(): bool;
+public function rules(RuleProviderContext $context): mixed;   // default []; merged ahead of the provider's rules
+public function defaultContext(): array;                      // default []
 ```
 
-`hasRows()` is true for a model or a virtual table. `hasRowKey()` is true when one
-row can be named: a model, or a virtual table with `const key` or `matchKey()`.
-Both are read by reflection, so asking never builds a query.
+`rules()` answers with a rule set, a rule entry, a builder, rule text with or
+without bindings, or an iterable of those.
 
-## Overridable hooks
+### Denial-message hooks
 
 ```php
-public static function virtualTable(): ?Builder;         // default null
-public function rules(RuleProviderContext $context): RuleSetNode|IRuleEntryNode|WarrantSyntax|string|iterable; // default []; merged ahead of the provider's rules
-protected function defaultContext(): array;              // default []
+public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null;
+public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null;
+```
 
-// Declared on your schema when needed; deliberately not inherited.
-public function matchKey(RowConditionContext $c, ...): ?Builder;
+Precedence, first non-null wins: the matching `cannot` rule's own message, then
+`forbiddenDenialMessage()`, then `ungrantedDenialMessage()`, then a generic 403.
+
+## Rows
+
+Every `ModelSchema` and `QuerySchema` has these:
+
+```php
+public function rowsQuery(bool $withoutScopes = false): Builder;  // a fresh query over the rows
+public function rowName(): string;                                // what the rows are called in SQL
+public function keyColumns(): array;                              // the column or columns one row is identified by
+public function connection(): ConnectionInterface;
+public function rowConditions(): array;                           // ConditionDefinition[]
+public function rowMatcher(): ConditionDefinition;                // matchKey(), or the default over keyColumns()
 ```
 
 ### `matchKey`
@@ -66,7 +94,8 @@ How this schema's rows are addressed. Every row-bound reference goes through it:
 `can(... for <schema>(<args>))` or `check(...)` hop, and a targeted check from PHP,
 with the caller's arguments bound positionally after the context.
 
-Declare it only when rows are addressed by something other than their key.
+Declare it only when rows are addressed by something other than equality on their
+key columns.
 
 ```php
 public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?Builder
@@ -78,50 +107,92 @@ public function matchKey(RowConditionContext $c, mixed $tenant, mixed $slug): ?B
 ```
 
 - **Arity comes from the parameters.** Those without a default are required; a
-  handle supplying too few is rejected at validation. A variadic tail is never
-  required, so a variadic key accepts any count, including none.
+  handle supplying too few is rejected at validation and again when the row is
+  named. A variadic tail is never required.
 - **Type the parameters `mixed`.** A `@column` or `@sql` argument arrives as an
   `Illuminate\Database\Query\Expression`.
 - **Returning `null` answers unknown**, which neither grants nor lifts a denial.
 - **A key must identify at most one row.** Nothing enforces it.
-- It is dispatched like a row condition, with the same context object and alias
-  handling, and it is **not** part of the vocabulary. No rule can name it, and
-  declaring `#[RowCondition]` on it is an error.
+- It is called with the same context object a row condition is, and it is
+  **not** part of the vocabulary. No rule can name it, and declaring
+  `#[RowCondition]` on it is an error.
 
 It is not declared on the base class because PHP forbids an override from adding
 required parameters, which would make a multi-part key impossible to write.
 
-### `virtualTable`
+Without a `matchKey()`, a row is found by its key columns, each equal to the
+argument in the same position. A `null` argument names no row and answers unknown.
 
-The query this schema's rows come from, when they are not a model's table.
-
-```php
-public static function virtualTable(): ?Builder
-{
-    return DB::table('teams')
-        ->crossJoin('calendar_days')
-        ->select(['teams.id as team_id', 'calendar_days.day']);
-}
-```
-
-A schema draws its rows from one source or the other. Naming a `model` and
-defining a `virtualTable()` is an error on first resolution.
-
-A virtual-table schema gives up: Eloquent scopes, a hydrated `$c->model`, a key of
-its own, and any model to reach it from. It takes no user and no context,
-deliberately.
-
-The compiler selects from it as a subquery aliased to the schema's key.
-
-### Denial-message hooks
+## `ModelSchema`
 
 ```php
-public function forbiddenDenialMessage(WarrantDenialContext $c): string|Throwable|null;
-public function ungrantedDenialMessage(WarrantUngrantedContext $c): string|Throwable|null;
+public const model = Document::class;
+
+public static function model(): string;   // reads the constant; override instead to work it out
 ```
 
-Precedence, first non-null wins: the matching `cannot` rule's own message, then
-`forbiddenDenialMessage()`, then `ungrantedDenialMessage()`, then a generic 403.
+The model answers for the rows' table, key and connection. A model schema with no
+`model` constant and no `model()` of its own fails when it is first constructed.
+Row conditions get an Eloquent builder over the model, so they can use its scopes.
+
+## `QuerySchema`
+
+```php
+public function rows(): Builder;                  // the query whose output is the rows
+protected function key(): string|array|null;      // default null
+```
+
+`rows()` takes no user and no context, deliberately: it says what the rows are,
+and the rules say who may touch them. It is called afresh wherever the rows are
+needed.
+
+`key()` names the column or columns one row is identified by. A query schema
+declares `key()`, a `matchKey()`, or both, so every row can be found; one with
+neither fails when it is first constructed.
+
+A query schema gives up Eloquent scopes, a hydrated `$c->model`, and any model to
+reach it from. The compiler selects from `rows()` as a subquery named
+`warrant_rows`, or under the name a hop gives it.
+
+## `RowlessSchema`
+
+Abilities granted to the user as a whole, about no row: `can('export')`. It
+answers only checks without a target, and its rules use global and derived
+conditions.
+
+## Interfaces
+
+The engine reads schemas through interfaces, never the classes:
+
+| Interface | Provided by |
+| --- | --- |
+| `ISchema` | every schema |
+| `IAbilitySchema` | every schema a check is made against |
+| `IRowSchema` | `ModelSchema` and `QuerySchema` |
+| `IModelSchema` | `ModelSchema` |
+
+Each combines interfaces for the constructs it provides: `IProvidesAbilities`,
+`IProvidesConditions` and one per kind of condition, `IProvidesRuleTemplates`,
+`IProvidesRules`, `IProvidesContext`, `IProvidesDenialMessages` and
+`IProvidesRows`.
+
+A schema in `config/warrant.php` must implement `ISchema`, and a check is made
+only against an `IAbilitySchema`.
+
+## `Vocabulary`
+
+What rule text may say about one schema, as data. Validation and the language
+server read this rather than a live schema.
+
+```php
+Vocabulary::of(ISchema $schema): Vocabulary;
+
+public function ability(string $name): ?AbilityDefinition;
+public function condition(string $key): ?ConditionDefinition;
+public function ruleTemplate(string $key): ?RuleTemplateDefinition;
+public function rowMatcher(): ?ConditionDefinition;   // null exactly when the schema has no rows
+public function hasRows(): bool;
+```
 
 ## Condition context objects
 
@@ -142,8 +213,8 @@ public function __construct(
 public function __construct(
     public Authenticatable $user,
     public Builder $query,
-    public string $table,        // e.g. "documents"
-    public string $keyColumn,    // e.g. "id"
+    public string $table,          // e.g. "documents"
+    public array $keyColumns,      // e.g. ["id"]
     public array $arguments = [],
     public array $context = [],
     public ?Model $model = null,
@@ -152,6 +223,8 @@ public function __construct(
 public function column(?string $column = null): string;
 // column() => "documents.id"; column('user_id') => "documents.user_id"
 ```
+
+`column()` with no argument names the key, and needs a key of exactly one column.
 
 `model` is set only when the check named one specific hydrated row. It is `null`
 when filtering, listing per-row abilities, or when the row was named by key or is

@@ -11,7 +11,7 @@ It is tempting to read a schema as the policy for a model. It is not. A schema i
 the set of words a rule may use, and it makes no access decision on its own.
 
 ```php
-class DocumentSchema extends WarrantSchema
+class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 
