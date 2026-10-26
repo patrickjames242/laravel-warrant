@@ -5,10 +5,10 @@ namespace Warrant;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\IModelSchema;
 
 /**
- * Attaches a model to its {@see WarrantSchema} and exposes the query-time
+ * Attaches a model to its {@see IModelSchema} and exposes the query-time
  * conveniences that belong on the model: two access-control scopes and an
  * attribute loader. Every user-scoped check now lives on the Warrant guard —
  * reach it with `Warrant::forSchema($model, $user)` (or via the facade's
@@ -17,7 +17,7 @@ use Warrant\Schema\WarrantSchema;
 trait HasWarrantSchema
 {
     /**
-     * The {@see WarrantSchema} class that governs this model.
+     * The {@see IModelSchema} class that governs this model.
      *
      * Static because this is the authoritative model->schema direction: Warrant
      * resolves it from a bare model class-string (a no-target check, a Gate call
@@ -25,7 +25,7 @@ trait HasWarrantSchema
      * and an instance method would force a model to be constructed — and booted —
      * just to answer it.
      *
-     * @return class-string<WarrantSchema>
+     * @return class-string<IModelSchema>
      */
     abstract public static function warrantSchema(): string;
 

@@ -6,13 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use LogicException;
 use ReflectionMethod;
 use Warrant\HasWarrantSchema;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\IModelSchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * Reading and cross-checking the model<->schema pair.
  *
- * The relationship is declared twice: a schema names its model with
- * {@see WarrantSchema::model}, and a model names its schema with
+ * The relationship is declared twice: a model schema names its model with
+ * {@see IModelSchema::model()}, and a model names its schema with
  * {@see HasWarrantSchema::warrantSchema()}. Both declarations are load-bearing,
  * because the registry indexes only schema keys and derives everything else from
  * the reference in hand — so each direction has to be answerable on its own.
@@ -32,7 +33,7 @@ trait VerifiesSchemaModelPairs
      * References {@see assertSchemaAndModelNameEachOther()} has already checked,
      * keyed by the class handed in — a schema class or a model class.
      *
-     * @var array<class-string<WarrantSchema>|class-string<Model>, true>
+     * @var array<class-string<ISchema>|class-string<Model>, true>
      */
     private array $verified = [];
 
@@ -52,7 +53,7 @@ trait VerifiesSchemaModelPairs
      * non-Warrant models to Laravel's own policies.
      *
      * @param  class-string<Model>  $modelClass
-     * @return class-string<WarrantSchema>|null
+     * @return class-string<IModelSchema>|null
      */
     private function schemaDeclaredBy(string $modelClass): ?string
     {
@@ -83,7 +84,7 @@ trait VerifiesSchemaModelPairs
      * `Post` — consistent read from the schema end, wrong from the model end. Only
      * the model direction catches it, which is why the reference decides.
      *
-     * @param  class-string<WarrantSchema>|class-string<Model>  $reference  The end
+     * @param  class-string<ISchema>|class-string<Model>  $reference  The end
      *   of the pair the caller was handed.
      * @param  string|null  $registeredAs  The schema key $reference is registered
      *   under, when it came from the index, so this can report a config entry that
@@ -96,16 +97,16 @@ trait VerifiesSchemaModelPairs
             return;
         }
 
-        $isSchema = is_a($reference, WarrantSchema::class, true);
+        $isSchema = is_a($reference, ISchema::class, true);
 
         /* Anything in the index claims to be a schema. The claim could not be
            checked when the index was built, because checking it loads the class. */
         if ($registeredAs !== null && !$isSchema) {
             throw new LogicException(sprintf(
-                'Schema key [%s] is registered to [%s], which is not a %s.',
+                'Schema key [%s] is registered to [%s], which does not implement %s.',
                 $registeredAs,
                 $reference,
-                WarrantSchema::class,
+                ISchema::class,
             ));
         }
 
@@ -117,46 +118,19 @@ trait VerifiesSchemaModelPairs
     }
 
     /**
-     * The schema direction: the model named by `$schemaClass::model` must name
-     * `$schemaClass` back. A capability schema names no model, so there is no pair
-     * to check.
+     * The schema direction: the model a model schema names must name the schema
+     * back. A schema that is not a model schema names no model, so there is no
+     * pair to check.
      *
-     * @param  class-string<WarrantSchema>  $schemaClass
+     * @param  class-string<ISchema>  $schemaClass
      */
     private function assertSchemasModelNamesItBack(string $schemaClass): void
     {
-        $modelClass = $schemaClass::model;
-
-        /* A schema's rows come from a model's table or from a virtual table, and
-           never from both: the two would disagree about what the rows are, and
-           every seam that names them — the hop's `from`, the row's qualifier, a
-           row condition's Eloquent wrapper — would have to pick one. */
-        if ($modelClass !== '' && $schemaClass::virtualTable() !== null) {
-            throw new LogicException(sprintf(
-                'Schema [%s] names model [%s] and also defines a virtualTable(); a schema draws its rows '
-                    .'from one or the other. Drop the model to make it a virtual table, or drop '
-                    .'virtualTable() to keep the model\'s own table.',
-                $schemaClass,
-                $modelClass,
-            ));
-        }
-
-        /* A model names its own key, so a second declaration of it could only
-           disagree. `key` is for a virtual table, whose rows have none. */
-        if ($modelClass !== '' && $schemaClass::key !== '') {
-            throw new LogicException(sprintf(
-                'Schema [%s] names model [%s] and also declares a key [%s]; a model answers for its own '
-                    .'key, so drop the constant. It is for a virtual table, whose rows have no key of '
-                    .'their own.',
-                $schemaClass,
-                $modelClass,
-                $schemaClass::key,
-            ));
-        }
-
-        if ($modelClass === '') {
+        if (!is_a($schemaClass, IModelSchema::class, true)) {
             return;
         }
+
+        $modelClass = $schemaClass::model();
 
         if (!is_a($modelClass, Model::class, true)) {
             throw new LogicException(sprintf(
@@ -204,22 +178,22 @@ trait VerifiesSchemaModelPairs
            method exists and is static. */
         $schemaClass = $modelClass::warrantSchema();
 
-        if (!is_a($schemaClass, WarrantSchema::class, true)) {
+        if (!is_a($schemaClass, IModelSchema::class, true)) {
             throw new LogicException(sprintf(
                 'Model [%s] must name a %s, but names [%s].',
                 $modelClass,
-                WarrantSchema::class,
+                IModelSchema::class,
                 $schemaClass,
             ));
         }
 
-        if ($schemaClass::model !== $modelClass) {
+        if ($schemaClass::model() !== $modelClass) {
             throw new LogicException(sprintf(
                 'Model [%s] names schema [%s], but that schema names model [%s]; '
                     .'a schema and its model must name each other.',
                 $modelClass,
                 $schemaClass,
-                $schemaClass::model === '' ? 'none' : $schemaClass::model,
+                $schemaClass::model(),
             ));
         }
     }
