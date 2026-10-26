@@ -35,7 +35,7 @@ use Warrant\Facades\Warrant;
 final readonly class Call
 {
     /**
-     * @param class-string $schemaClass The schema (its {@see \Warrant\DSL\IConditionResolver}) this call was made against.
+     * @param class-string $schemaClass The class of the schema this call was made against.
      * @param string $name The ability, condition key, or '' for a cross-schema check.
      * @param list<string> $arguments Rendered DSL arguments, display-only.
      */

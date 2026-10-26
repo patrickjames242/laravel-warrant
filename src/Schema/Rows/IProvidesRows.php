@@ -23,6 +23,13 @@ interface IProvidesRows
     public function rowsQuery(bool $withoutScopes = false): QueryBuilder;
 
     /**
+     * Points $query's `from` at the rows, under the name $alias, and returns it.
+     * This is how a query that reaches these rows from elsewhere, such as a hop
+     * from another schema's rule, selects them under a name of its own.
+     */
+    public function fromRows(QueryBuilder $query, string $alias): QueryBuilder;
+
+    /**
      * The connection the rows live on.
      */
     public function connection(): ConnectionInterface;

@@ -58,9 +58,12 @@ abstract class QuerySchema extends RowSchema
 
     public function rowsQuery(bool $withoutScopes = false): QueryBuilder
     {
-        $rows = $this->rows();
+        return $this->fromRows($this->rows()->newQuery(), $this->rowName());
+    }
 
-        return $rows->newQuery()->fromSub($rows, $this->rowName());
+    public function fromRows(QueryBuilder $query, string $alias): QueryBuilder
+    {
+        return $query->fromSub($this->rows(), $alias);
     }
 
     public function connection(): ConnectionInterface

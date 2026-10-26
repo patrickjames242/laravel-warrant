@@ -61,6 +61,13 @@ abstract class ModelSchema extends RowSchema implements IModelSchema
         return ($withoutScopes ? $model->newQueryWithoutScopes() : $model->newQuery())->getQuery();
     }
 
+    public function fromRows(QueryBuilder $query, string $alias): QueryBuilder
+    {
+        $table = $this->rowName();
+
+        return $query->from($alias === $table ? $table : $table.' as '.$alias);
+    }
+
     public function connection(): ConnectionInterface
     {
         return $this->newModel()->getConnection();

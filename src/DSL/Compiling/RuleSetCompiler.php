@@ -4,6 +4,7 @@ namespace Warrant\DSL\Compiling;
 
 use BackedEnum;
 use DateTimeInterface;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
@@ -13,7 +14,6 @@ use Warrant\DSL\Compiling\Units\AbilityUnit;
 use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
-use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\UnknownNode;
@@ -35,6 +35,13 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Context\ContextPolicy;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
+use Warrant\Schema\Types\Interfaces\IModelSchema;
+use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\WarrantManager;
 
 /**
@@ -80,7 +87,7 @@ use Warrant\WarrantManager;
  * {@see CompilationContext::forTargetRow()} — it is the half they genuinely know and
  * the compiler cannot, since a predicate is detached and where it is eventually
  * spliced is the caller's business. {@see compile()} narrows that answer against
- * {@see IConditionResolver::modelClass()} on the way in, so the walk reads a single
+ * whether the schema has rows at all on the way in, so the walk reads a single
  * already-correct flag. What the row is *called* in SQL is settled here too, and
  * unlike the flag it is nobody else's to know: {@see compile()} seeds an
  * {@see AliasScope} from the schema and the host query, and each cross-schema hop
@@ -112,13 +119,18 @@ use Warrant\WarrantManager;
 final class RuleSetCompiler
 {
     /**
+     * @param IAbilitySchema $schema The schema whose rules are compiled, and
+     *   whose conditions and row matcher are invoked.
+     * @param string $schemaKey The key $schema is registered under: the name its
+     *   rules use for its own rows, and the one its messages give it.
      * @param WarrantManager|null $manager Provides the schema registry (via
      *   {@see WarrantManager::registry()}), required only to compile a
      *   {@see CrossSchemaCanNode} (resolving the referenced schema); null is fine
      *   for rule sets with no cross-schema references.
      */
     public function __construct(
-        private readonly IConditionResolver $conditions,
+        private readonly IAbilitySchema $schema,
+        private readonly string $schemaKey,
         private readonly ?WarrantManager $manager = null,
     ) {
     }
@@ -131,18 +143,18 @@ final class RuleSetCompiler
      * built from, the user, whether a row is in scope, the check-time context —
      * is the same in all three cases and is read off the context unchanged.
      *
-     * The one thing not taken at face value is the target: a capability schema
-     * has no model and therefore no row, so a compile against one is never
-     * targeted however the caller asked for it. That is the same conclusion
+     * The one thing not taken at face value is the target: a schema with no rows
+     * has no row to target, so a compile against one is never targeted however
+     * the caller asked for it. That is the same conclusion
      * validation reaches, settled here, on the way in, so that everything below
      * reads one already-correct flag — and so a row condition answers unknown
      * rather than emitting a reference to a table that does not exist. Each
      * cross-schema descent re-enters through a compiler bound to that schema, so
-     * the referenced schema is narrowed against its own model too.
+     * the referenced schema is narrowed against its own rows too.
      */
     public function compile(CompilationContext $ctx): CompilationResult
     {
-        if ($ctx->targeted && ! $this->conditions::hasRows()) {
+        if ($ctx->targeted && ! $this->schema instanceof IRowSchema) {
             $ctx = $ctx->withoutTarget();
         }
 
@@ -215,7 +227,7 @@ final class RuleSetCompiler
 
         /* Entering the ability is where a cycle back to one already in progress is
            caught, and it puts the ability on the stack every leaf below reads. */
-        $ctx = $ctx->entering(Call::ability($this->conditions::class, $ability));
+        $ctx = $ctx->entering(Call::ability($this->schema::class, $ability));
 
         $abilityNode = new CompiledWhereClauseNode;
 
@@ -334,7 +346,7 @@ final class RuleSetCompiler
     private function assertRuleAbilitiesDeclared(RuleNode $rule): void
     {
         foreach ([...$rule->canAbilities(), ...$rule->cannotAbilities()] as $ability) {
-            if ($ability !== '*' && $this->conditions->getAbilityDefinition($ability) === null) {
+            if ($ability !== '*' && $this->schema->ability($ability) === null) {
                 throw new InvalidArgumentException(
                     sprintf('Ability [%s] is not declared by the schema.', $ability)
                 );
@@ -344,14 +356,14 @@ final class RuleSetCompiler
 
     private function assertAbilityDeclared(string $ability): void
     {
-        if ($this->conditions->getAbilityDefinition($ability) !== null) {
+        if ($this->schema->ability($ability) !== null) {
             return;
         }
 
         throw new InvalidArgumentException(sprintf(
             'Ability [%s] is not declared by schema [%s].',
             $ability,
-            $this->conditions::schemaKey(),
+            $this->schemaKey,
         ));
     }
 
@@ -435,50 +447,18 @@ final class RuleSetCompiler
      * With no row in scope the key is still bound, to nothing: a compile with no
      * target has rows to talk *about* but no `from` to talk about them *in*, and a
      * reference to them folds away rather than erroring like an unknown name would.
-     * A schema with no model at all binds nothing — see {@see AliasScope::none()}.
+     * A schema with no rows binds nothing — see {@see AliasScope::none()}.
      */
     private function rootAliases(CompilationContext $ctx): AliasScope
     {
-        if (! $this->conditions::hasRows()) {
+        if (! $this->schema instanceof IRowSchema) {
             return AliasScope::none();
         }
 
         return AliasScope::root(
-            $this->conditions::schemaKey(),
-            $ctx->targeted ? $this->rowQualifierFor($this->conditions::class, $ctx->queries) : null,
+            $this->schemaKey,
+            $ctx->targeted ? ($ctx->queries->rowQualifier() ?? $this->schema->rowName()) : null,
         );
-    }
-
-    /**
-     * The SQL name a schema's rows answer to, or null for a schema with no model
-     * and therefore no table at all.
-     *
-     * $queries is consulted only for the frame the host query itself selects; a
-     * cross-schema hop builds its own `from` and passes none.
-     */
-    private function rowQualifierFor(string $schemaClass, ?QueryFactory $queries = null): ?string
-    {
-        if (! $schemaClass::hasRows()) {
-            return null;
-        }
-
-        return $queries?->rowQualifier() ?? $this->defaultRowName($schemaClass);
-    }
-
-    /**
-     * The SQL name a schema's rows go by when nothing closer to the query says
-     * otherwise: a model's table, or — for a virtual table, whose rows have no
-     * table of their own — the schema's key, which is also what its rules name.
-     *
-     * @param class-string<IConditionResolver> $schemaClass
-     */
-    private function defaultRowName(string $schemaClass): string
-    {
-        $modelClass = $schemaClass::modelClass();
-
-        return $modelClass === ''
-            ? $schemaClass::schemaKey()
-            : (new $modelClass)->getTable();
     }
 
     /**
@@ -523,13 +503,13 @@ final class RuleSetCompiler
      * arguments is passed through as written and is that key's business.
      *
      * @param array<int, mixed> $values The handle's resolved arguments.
-     * @param class-string<Model>|string $bModelClass B's model class ('' for a
-     *   capability schema, which validation already forbids from being row-bound).
+     * @param class-string<Model>|null $bModelClass B's model class, or null when B
+     *   is not a model schema.
      * @return array{0: array<int, mixed>, 1: ?Model} The arguments to hand the
      *   key, and the model to thread into B's compile (null unless a hydrated one
      *   was supplied as the sole argument).
      */
-    private function resolveKeyArguments(array $values, string $bSchemaKey, string $bModelClass): array
+    private function resolveKeyArguments(array $values, string $bSchemaKey, ?string $bModelClass): array
     {
         if (count($values) !== 1) {
             foreach ($values as $value) {
@@ -542,13 +522,13 @@ final class RuleSetCompiler
         [$value] = $values;
 
         if ($value instanceof Model) {
-            if ($bModelClass === '' || ! $value instanceof $bModelClass) {
+            if ($bModelClass === null || ! $value instanceof $bModelClass) {
                 throw new InvalidArgumentException(sprintf(
                     'The row selector for schema [%s] is a [%s], which is not that schema\'s model [%s]; '
                         .'pass that schema\'s own model or a row key.',
                     $bSchemaKey,
                     $value::class,
-                    $bModelClass === '' ? 'none' : $bModelClass,
+                    $bModelClass ?? 'none',
                 ));
             }
 
@@ -620,11 +600,11 @@ final class RuleSetCompiler
 
         /* A check naming this ability directly would throw for a key it requires;
            a reference is not a check entry point, so it answers unknown instead. */
-        if ($this->conditions->contextForReference($ctx->checkContext, $node->ability->name) === null) {
+        if ((new ContextPolicy($this->schema))->contextForReference($ctx->checkContext, $node->ability->name) === null) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $ruleSet = $this->manager->forSchema($this->conditions::class, $ctx->user)->expandedRuleSet();
+        $ruleSet = $this->manager->forSchema($this->schema::class, $ctx->user)->expandedRuleSet();
 
         /* A unit is always entered unnegated — {@see abilityNode} sets the deny
            side's polarity itself — so the reference's own negation rides on the
@@ -656,14 +636,12 @@ final class RuleSetCompiler
             ));
         }
 
-        /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey->name);
-        $bSchema = new $bClass;
+        $bSchema = $this->hopTarget($node);
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bClass);
+        $this->assertHandleIsWellFormed($node, $bSchema);
         $bKeys = $this->contextMapKeys($node->contextMap);
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
@@ -679,16 +657,16 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = $bSchema->resolveBoundaryContext(
+        $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
             $node->schemaKey->name,
             $node->ability->name,
         );
 
-        $bRuleSet = $this->manager->forSchema($bClass, $ctx->user)->expandedRuleSet();
-        $bCompiler = new self($bSchema, $this->manager);
+        $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->user)->expandedRuleSet();
+        $bCompiler = new self($bSchema, $node->schemaKey->name, $this->manager);
 
-        $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));
+        $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
         /* B compiles off the same factory as A: it is the same connection and the
            same grammar, and the `from` that distinguishes B's subquery is not
@@ -710,13 +688,13 @@ final class RuleSetCompiler
             /* B's rules name their own key, so that is the name this frame's
                identifier binds to — B's author cannot know what this caller chose
                to call it. A B with no table has no frame for its key to name. */
-            aliases: ! $bClass::hasRows()
+            aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessRuleSet()
                 : $this->aliases($ctx)->enteringRuleSet($node->schemaKey->name, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey->name);
+            $this->assertSameConnection($ctx->queries, $bSchema, $node->schemaKey->name);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -729,10 +707,10 @@ final class RuleSetCompiler
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
                 $node->schemaKey->name,
-                $bClass::model,
+                $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 
-            $bSubquery = $this->hopFrom($ctx->queries->newQuery(), $bClass, $bQualifier);
+            $bSubquery = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
 
             /* B says how its own rows are addressed, and the handle's arguments
                are that key's arguments. A key given nothing that names a row
@@ -743,14 +721,7 @@ final class RuleSetCompiler
                nobody named. Validation rejects a *literal* null selector; a
                `@context` one is filled per check, so this is the point at which
                it is known. */
-            $keyed = $bSchema->applyKey(
-                $ctx->user,
-                $bSubquery,
-                $keyArguments,
-                $bContext,
-                $bTargetModel,
-                $bQualifier,
-            );
+            $keyed = $this->narrowToRow($bSchema, $ctx->user, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
             if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
@@ -818,14 +789,12 @@ final class RuleSetCompiler
             ));
         }
 
-        /** @var class-string<\Warrant\Schema\WarrantSchema> $bClass */
-        $bClass = $this->manager->registry()->resolveSchemaClassOrFail($node->schemaKey->name);
-        $bSchema = new $bClass;
+        $bSchema = $this->hopTarget($node);
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bClass);
+        $this->assertHandleIsWellFormed($node, $bSchema);
         $this->assertPredicateAsksTarget($node->predicate, $node);
         $bKeys = $this->contextMapKeys($node->contextMap);
 
@@ -842,16 +811,16 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $bContext = $bSchema->resolveBoundaryContext(
+        $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
             $node->schemaKey->name,
         );
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
-        $bCompiler = new self($bSchema, $this->manager);
+        $bCompiler = new self($bSchema, $node->schemaKey->name, $this->manager);
 
-        $bQualifier = $this->hopQualifier($node, $bClass, $this->aliases($ctx));
+        $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
         /* As in a can(...): B starts untargeted and unnegated. Unlike a can(...),
            the check is entered here, because nothing below will — this compiles B's
@@ -863,14 +832,14 @@ final class RuleSetCompiler
             queries: $ctx->queries,
             user: $ctx->user,
             checkContext: $bContext,
-            callStack: $ctx->callStack->enter(Call::check($bClass)),
-            aliases: ! $bClass::hasRows()
+            callStack: $ctx->callStack->enter(Call::check($bSchema::class)),
+            aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
                 : $this->aliases($ctx)->enteringPredicate($node->schemaKey->name, $node->alias?->name, $bQualifier),
         );
 
         if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bClass, $node->schemaKey->name);
+            $this->assertSameConnection($ctx->queries, $bSchema, $node->schemaKey->name);
 
             $selector = $this->resolveArgValues($node->boundKey, $ctx);
 
@@ -883,10 +852,10 @@ final class RuleSetCompiler
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
                 $node->schemaKey->name,
-                $bClass::model,
+                $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 
-            $bSubquery = $this->hopFrom($ctx->queries->newQuery(), $bClass, $bQualifier);
+            $bSubquery = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
 
             /* B says how its own rows are addressed, and the handle's arguments
                are that key's arguments. A key given nothing that names a row
@@ -897,14 +866,7 @@ final class RuleSetCompiler
                nobody named. Validation rejects a *literal* null selector; a
                `@context` one is filled per check, so this is the point at which
                it is known. */
-            $keyed = $bSchema->applyKey(
-                $ctx->user,
-                $bSubquery,
-                $keyArguments,
-                $bContext,
-                $bTargetModel,
-                $bQualifier,
-            );
+            $keyed = $this->narrowToRow($bSchema, $ctx->user, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
             if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
@@ -941,26 +903,66 @@ final class RuleSetCompiler
     }
 
     /**
-     * Point a hop's subquery at the target's rows: a model's table, or the query a
-     * virtual table defines, selected from as a subquery. Either way the rows are
-     * aliased when they carry a different identifier than their source's own name.
-     *
-     * The counterpart of {@see hopQualifier()} — the two must agree, or the
-     * predicate would name rows the subquery never selected.
-     *
-     * @param class-string<IConditionResolver> $schemaClass
+     * The schema a hop names, from the registry. A hop reaches its target's
+     * abilities or conditions, so the target must be a schema checks are made
+     * against.
      */
-    private function hopFrom(Builder $subquery, string $schemaClass, string $qualifier): Builder
+    private function hopTarget(CrossSchemaCanNode|CrossSchemaConditionNode $node): IAbilitySchema
     {
-        $virtualTable = $schemaClass::virtualTable();
+        $schema = $this->manager->registry()->resolveOrFail($node->schemaKey->name)->schema;
 
-        if ($virtualTable !== null) {
-            return $subquery->fromSub($virtualTable, $qualifier);
+        if (! $schema instanceof IAbilitySchema) {
+            throw new InvalidArgumentException(sprintf(
+                'A reference to schema [%s] needs a schema checks are made against, but [%s] is not an %s.',
+                $node->schemaKey->name,
+                $schema::class,
+                IAbilitySchema::class,
+            ));
         }
 
-        $table = $this->defaultRowName($schemaClass);
+        return $schema;
+    }
 
-        return $subquery->from($qualifier === $table ? $table : $table . ' as ' . $qualifier);
+    /**
+     * Narrow a hop's subquery to the row $arguments name, through the target's
+     * row matcher. Null when the arguments name no row, which answers unknown.
+     *
+     * The matcher is handed the context a row condition would be, built over the
+     * subquery, so it may use a model scope or follow the row's name through
+     * {@see RowConditionContext::column()}.
+     *
+     * @param array<int, mixed> $arguments
+     * @param array<string, mixed> $context
+     */
+    private function narrowToRow(
+        IRowSchema $schema,
+        Authenticatable $user,
+        Builder $subquery,
+        array $arguments,
+        array $context,
+        ?Model $targetModel,
+        string $rowName,
+    ): ?Builder {
+        $required = $schema->rowMatcher()->requiredArgumentCount;
+
+        if (count($arguments) < $required) {
+            throw new InvalidArgumentException(sprintf(
+                'The row key for schema [%s] requires at least %d argument(s), but %d were supplied.',
+                $schema::class,
+                $required,
+                count($arguments),
+            ));
+        }
+
+        return $schema->invokeRowMatcher(new RowConditionContext(
+            $user,
+            $schema->conditionQuery($subquery, $rowName),
+            $rowName,
+            $schema->keyColumns(),
+            $arguments,
+            $context,
+            $targetModel,
+        ));
     }
 
     /**
@@ -975,10 +977,10 @@ final class RuleSetCompiler
      */
     private function hopQualifier(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
-        string $schemaClass,
+        IAbilitySchema $schema,
         AliasScope $scope,
     ): ?string {
-        $table = $this->rowQualifierFor($schemaClass);
+        $table = $schema instanceof IRowSchema ? $schema->rowName() : null;
 
         if (! $node->isRowBound || $table === null) {
             return null;
@@ -997,8 +999,6 @@ final class RuleSetCompiler
      *
      *  - a row-bound hop into a schema with no rows, which has nothing to select
      *    and no source to select it from;
-     *  - a row-bound hop into a schema whose rows cannot be named, which has
-     *    nothing to correlate the subquery against;
      *  - a row-bound hop whose selector is a literal `null`, which names no row
      *    (a `@context` selector is a symbol until compile time, so a null *value*
      *    from one is a different thing, and folds);
@@ -1010,25 +1010,14 @@ final class RuleSetCompiler
      */
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
-        string $schemaClass,
+        IAbilitySchema $schema,
     ): void {
         $builtin = $node instanceof CrossSchemaCanNode ? 'can' : 'check';
 
-        if ($node->isRowBound && ! $schemaClass::hasRows()) {
+        if ($node->isRowBound && ! $schema instanceof IRowSchema) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
-                $builtin,
-                $node->schemaKey->name,
-                $node->schemaKey->name,
-            ));
-        }
-
-        if ($node->isRowBound && ! $schemaClass::hasRowKey()) {
-            throw new InvalidArgumentException(sprintf(
-                'A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name '
-                    .'one; declare `const key` for the column its rows are identified by, or a matchKey() '
-                    .'of its own, or drop the row selector.',
                 $builtin,
                 $node->schemaKey->name,
                 $node->schemaKey->name,
@@ -1113,10 +1102,10 @@ final class RuleSetCompiler
      * the emitted SQL would silently reference a table that isn't there, so reject
      * it with a clear message instead.
      */
-    private function assertSameConnection(QueryFactory $queries, string $bSchemaClass, string $bSchemaKey): void
+    private function assertSameConnection(QueryFactory $queries, IAbilitySchema $bSchema, string $bSchemaKey): void
     {
         $parentConnection = $queries->connectionName();
-        $bConnection = $this->connectionNameFor($bSchemaClass);
+        $bConnection = $bSchema instanceof IRowSchema ? $bSchema->connection()->getName() : null;
 
         if ($bConnection !== null && $parentConnection !== $bConnection) {
             throw new InvalidArgumentException(sprintf(
@@ -1127,24 +1116,6 @@ final class RuleSetCompiler
                 $parentConnection,
             ));
         }
-    }
-
-    /**
-     * The connection a schema's rows live on — its model's, or the one the query
-     * behind a virtual table was built for. Null when the schema names neither,
-     * which is a capability schema with no rows to be anywhere.
-     *
-     * @param class-string<IConditionResolver> $schemaClass
-     */
-    private function connectionNameFor(string $schemaClass): ?string
-    {
-        $modelClass = $schemaClass::modelClass();
-
-        if ($modelClass !== '') {
-            return (new $modelClass)->getConnection()->getName();
-        }
-
-        return $schemaClass::virtualTable()?->getConnection()->getName();
     }
 
     /**
@@ -1243,17 +1214,25 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        $definition = $this->conditions->getConditionDefinition($node->conditionKey->name);
+        $definition = $this->schema->condition($node->conditionKey->name);
+
+        if ($definition === null) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] is not defined on schema [%s].',
+                $node->conditionKey->name,
+                $this->schema::class,
+            ));
+        }
 
         /* A derived condition has no SQL of its own; the expansion phase replaces
            it with the expression it answers with. Meeting one here means the tree
            never went through that phase. */
-        if ($definition?->isDerived()) {
+        if ($definition->isDerived()) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; '
                     .'compile a rule set expanded by %s.',
                 $node->conditionKey->name,
-                $this->conditions::class,
+                $this->schema::class,
                 Expander::class,
             ));
         }
@@ -1262,7 +1241,7 @@ final class RuleSetCompiler
            compile answers it with the third truth value: an unknown negates to
            itself, so it neither grants nor lifts a deny. The negation flag is
            deliberately not passed on — it would mean nothing to an unknown. */
-        if (! $ctx->targeted && ($definition?->isRow() ?? false)) {
+        if (! $ctx->targeted && $definition->isRow()) {
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
@@ -1283,20 +1262,23 @@ final class RuleSetCompiler
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
+        /* The parameters after a condition's context object are its DSL
+           arguments, and those without a default are required. Supplying more is
+           fine: the extras stay reachable on $c->arguments. Validation reports too
+           few against the rule text; this guards every other way a rule arrives. */
+        if (count($parameters) < $definition->requiredArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.',
+                $node->conditionKey->name,
+                $this->schema::class,
+                $definition->requiredArgumentCount,
+                count($parameters),
+            ));
+        }
+
         $conditionQuery = $ctx->queries->newQuery();
 
-        $result = $this->conditions->applyCondition(
-            $node->conditionKey->name,
-            $ctx->user,
-            $conditionQuery,
-            $ctx->targeted,
-            $parameters,
-            $ctx->checkContext,
-            $ctx->targetModel,
-            /* What this frame's row is called where the predicate lands; the
-               resolver falls back to its model's table when it is null. */
-            $this->aliases($ctx)->current,
-        );
+        $result = $this->invokeCondition($definition, $conditionQuery, $parameters, $ctx);
 
         /* Or it may answer that the question has no answer here, which is the
            third truth value: an unknown negates to itself, so it neither grants
@@ -1331,6 +1313,46 @@ final class RuleSetCompiler
     }
 
     /**
+     * Invoke a row or global condition over $conditionQuery, with the context
+     * object its kind is handed.
+     *
+     * A row condition is told what its row is called where the predicate lands:
+     * this frame's name for it, or the schema's own row name when nothing closer
+     * names it. Its schema decides what builder it constrains, which for a model
+     * is a wrapper the model's scopes can be used on. Either way its constraints
+     * land in $conditionQuery.
+     *
+     * @param array<int, mixed> $parameters
+     */
+    private function invokeCondition(
+        ConditionDefinition $definition,
+        Builder $conditionQuery,
+        array $parameters,
+        CompilationContext $ctx,
+    ): Builder|bool|null {
+        if (! $definition->isRow()) {
+            return $this->schema->invokeGlobalCondition(
+                $definition,
+                new GlobalConditionContext($ctx->user, $conditionQuery, $parameters, $ctx->checkContext),
+            );
+        }
+
+        /** @var IRowSchema $schema A row condition is only ever declared by a schema with rows. */
+        $schema = $this->schema;
+        $rowName = $this->aliases($ctx)->current ?? $schema->rowName();
+
+        return $schema->invokeRowCondition($definition, new RowConditionContext(
+            $ctx->user,
+            $schema->conditionQuery($conditionQuery, $rowName),
+            $rowName,
+            $schema->keyColumns(),
+            $parameters,
+            $ctx->checkContext,
+            $ctx->targetModel,
+        ));
+    }
+
+    /**
      * Compile a derived condition's expanded body as if it had been written inline
      * in the rule, negation included: that rides on the context and lands on the
      * leaves, so `not <derived condition>` is De Morgan'd like anything else.
@@ -1352,7 +1374,7 @@ final class RuleSetCompiler
 
         return $this->expression(
             $node->body,
-            $ctx->entering(Call::condition($this->conditions::class, $node->conditionKey->name, $node->parameters))
+            $ctx->entering(Call::condition($this->schema::class, $node->conditionKey->name, $node->parameters))
                 ->withAliases($this->expansionAliases($ctx)),
         );
     }
@@ -1371,7 +1393,7 @@ final class RuleSetCompiler
      * *from*. The expansion asks about the frame it was handed, so that is the
      * only frame it can name.
      *
-     * A schema with no model has no frame to bind its key to, and a `@column`
+     * A schema with no rows has no frame to bind its key to, and a `@column`
      * naming it is a mistake rather than a row out of scope, so that case binds
      * nothing at all.
      */
@@ -1379,9 +1401,9 @@ final class RuleSetCompiler
     {
         $scope = $this->aliases($ctx);
 
-        return $this->conditions::modelClass() === ''
-            ? $scope->enteringRowlessRuleSet()
-            : $scope->enteringRuleSet($this->conditions::schemaKey(), $scope->current);
+        return $this->schema instanceof IRowSchema
+            ? $scope->enteringRuleSet($this->schemaKey, $scope->current)
+            : $scope->enteringRowlessRuleSet();
     }
 
     /**
@@ -1402,7 +1424,7 @@ final class RuleSetCompiler
                 .'where clause, return true/false to decide the outcome outright, or return null to '
                 .'answer unknown.',
             $conditionKey,
-            $this->conditions::class,
+            $this->schema::class,
         ));
     }
 
@@ -1425,7 +1447,7 @@ final class RuleSetCompiler
             'Condition [%s] on schema [%s] returned null, answering unknown, but also added a where '
                 .'clause; return the builder it constrained, or answer unknown without constraining it.',
             $conditionKey,
-            $this->conditions::class,
+            $this->schema::class,
         ));
     }
 
@@ -1456,7 +1478,7 @@ final class RuleSetCompiler
             'Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; '
                 .'use whereExists()/whereNotExists() with a correlated subquery instead of join()/groupBy()/having().',
             $conditionKey,
-            $this->conditions::class,
+            $this->schema::class,
             $offending,
         ));
     }

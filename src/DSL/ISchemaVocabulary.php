@@ -9,8 +9,7 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 /**
  * A schema's declared vocabulary: the abilities, conditions and rule templates a
  * rule string may reference. This is the minimal contract needed to *validate* a rule set —
- * nothing here emits SQL. The compile-time seam {@see IConditionResolver} extends
- * it with the emission methods.
+ * nothing here emits SQL.
  *
  * Existence and metadata are answered together: {@see getAbilityDefinition},
  * {@see getConditionDefinition} and {@see getRuleTemplateDefinition} return the
