@@ -4,7 +4,9 @@ namespace Warrant\Guard\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Interfaces\IRowSchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * Turning the caller's `$target` argument into the forms the engine works with.
@@ -49,7 +51,7 @@ trait ResolvesCheckTargets
      *
      * A **class-string** is not a row: naming this schema's own model class — or the
      * schema class itself — is how a no-target check is expressed positionally; it
-     * resolves to `null`. A class-string for a *different* `Model`/`WarrantSchema`
+     * resolves to `null`. A class-string for a *different* `Model` or schema
      * is a mistake — the ability belongs to another schema — and throws. Any other
      * string is a target key and is left untouched for the row path.
      *
@@ -75,18 +77,18 @@ trait ResolvesCheckTargets
             return $target;
         }
 
-        $model = $this->schema::model;
+        $model = $this->modelClass();
 
-        if (($model !== '' && is_a($target, $model, true)) || is_a($target, $this->schema::class, true)) {
+        if (($model !== null && is_a($target, $model, true)) || is_a($target, $this->schema::class, true)) {
             return null;
         }
 
-        if (is_a($target, Model::class, true) || is_a($target, WarrantSchema::class, true)) {
+        if (is_a($target, Model::class, true) || is_a($target, ISchema::class, true)) {
             throw new InvalidArgumentException(sprintf(
                 'Target [%s] does not belong to schema [%s]%s; pass this schema\'s model or schema class for a no-target check, or an instance/key for a row check.',
                 $target,
                 $this->schema::class,
-                $model !== '' ? sprintf(' (model [%s])', $model) : '',
+                $model !== null ? sprintf(' (model [%s])', $model) : '',
             ));
         }
 
@@ -94,25 +96,22 @@ trait ResolvesCheckTargets
     }
 
     /**
-     * A fresh query over this schema's rows: its model's table, or the query a
-     * virtual table defines, selected from under the schema's key so its columns
-     * are reachable by that name.
+     * A fresh query over this schema's rows, selected under the name the schema
+     * gives them. Only a schema with rows has one, which
+     * {@see assertSupportsTargetedChecks()} confirms before any targeted path
+     * reaches here.
      *
-     * $withoutScopes concerns a model only. A virtual table has no model and so
-     * volunteers nothing either way.
+     * $withoutScopes concerns a model only: a query schema's rows volunteer
+     * nothing either way.
      */
     protected function rowsQuery(bool $withoutScopes = false): \Illuminate\Database\Query\Builder
     {
-        $virtualTable = $this->schema::virtualTable();
+        $this->assertSupportsTargetedChecks();
 
-        if ($virtualTable !== null) {
-            return $virtualTable->newQuery()->fromSub($virtualTable, $this->schema::schemaKey());
-        }
+        /** @var IRowSchema $schema */
+        $schema = $this->schema;
 
-        /** @var Model $model */
-        $model = new ($this->schema::model);
-
-        return ($withoutScopes ? $model->newQueryWithoutScopes() : $model->newQuery())->getQuery();
+        return $schema->rowsQuery($withoutScopes);
     }
 
     /**
@@ -124,13 +123,7 @@ trait ResolvesCheckTargets
      */
     protected function rowsConnection(): \Illuminate\Database\ConnectionInterface
     {
-        $modelClass = $this->schema::model;
-
-        if ($modelClass !== '') {
-            return (new $modelClass)->getConnection();
-        }
-
-        return $this->schema::virtualTable()?->getConnection() ?? app('db')->connection();
+        return $this->schema instanceof IRowSchema ? $this->schema->connection() : app('db')->connection();
     }
 
     /**
@@ -168,12 +161,18 @@ trait ResolvesCheckTargets
         Model|string|int|array $target,
         array $context = [],
     ): bool {
-        return $this->schema->applyKey(
+        /** @var IRowSchema $schema */
+        $schema = $this->schema;
+        $rowName = $schema->rowName();
+
+        return $schema->invokeRowMatcher(new RowConditionContext(
             $this->user,
-            $query,
+            $schema->conditionQuery($query, $rowName),
+            $rowName,
+            $schema->keyColumns(),
             $this->keyArgumentsForTarget($target),
             $context,
             $this->trustedTargetModel($target),
-        ) !== null;
+        )) !== null;
     }
 }

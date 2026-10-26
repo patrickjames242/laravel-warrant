@@ -45,13 +45,13 @@ trait ResolvesRuleSets
             return $this->expandedRuleSet;
         }
 
-        $schemaKey = $this->schema::schemaKey();
+        $schemaKey = $this->schemaKey;
 
         $context = new RuleProviderContext(
             schemaKey: $schemaKey,
             schema: $this->schema::class,
             user: $this->user,
-            model: $this->schema::model !== '' ? $this->schema::model : null,
+            model: $this->modelClass(),
         );
 
         $answers = $this->validated($this->schema->rules($context), SyntaxProducer::schemaRules($schemaKey, $this->schema::class));

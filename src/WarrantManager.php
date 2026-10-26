@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use Warrant\Guard\WarrantGuard;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\Registry\SchemaRegistry;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * Entry point for Warrant. Holds the {@see SchemaRegistry} (reached through
@@ -104,10 +104,10 @@ class WarrantManager
 
     /**
      * The schema-bound engine for a schema and a user (defaults to the current user).
-     * The schema may be named any way the registry understands: a {@see WarrantSchema}
-     * instance or class-string, a `Model` instance or class-string, or a schema key.
+     * The schema may be named any way the registry understands: a schema instance or
+     * class-string, a `Model` instance or class-string, or a schema key.
      */
-    public function forSchema(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): WarrantGuardForSchema
+    public function forSchema(Model|ISchema|string $schema, ?Authenticatable $user = null): WarrantGuardForSchema
     {
         return $this->guard($user)->forSchema($schema);
     }
@@ -162,7 +162,7 @@ class WarrantManager
         return $this->guard($user)->abilities($target, $context);
     }
 
-    public function reachabilityOf(Model|WarrantSchema|string $schema, string $ability, ?Authenticatable $user = null): Reachability
+    public function reachabilityOf(Model|ISchema|string $schema, string $ability, ?Authenticatable $user = null): Reachability
     {
         return $this->guard($user)->reachabilityOf($schema, $ability);
     }
@@ -170,7 +170,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function couldEverHave(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function couldEverHave(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->couldEverHave($schema, $abilities);
     }
@@ -178,7 +178,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function couldEverHaveAny(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function couldEverHaveAny(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->couldEverHaveAny($schema, $abilities);
     }
@@ -186,7 +186,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function alwaysHas(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function alwaysHas(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->alwaysHas($schema, $abilities);
     }
@@ -194,7 +194,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function alwaysHasAny(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function alwaysHasAny(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->alwaysHasAny($schema, $abilities);
     }
@@ -202,7 +202,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function neverHas(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function neverHas(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->neverHas($schema, $abilities);
     }
@@ -210,7 +210,7 @@ class WarrantManager
     /**
      * @param string|array<int, string> $abilities
      */
-    public function neverHasAny(Model|WarrantSchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
+    public function neverHasAny(Model|ISchema|string $schema, string|array $abilities, ?Authenticatable $user = null): bool
     {
         return $this->guard($user)->neverHasAny($schema, $abilities);
     }
@@ -218,7 +218,7 @@ class WarrantManager
     /**
      * @return array<int, string>
      */
-    public function possibleAbilities(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): array
+    public function possibleAbilities(Model|ISchema|string $schema, ?Authenticatable $user = null): array
     {
         return $this->guard($user)->possibleAbilities($schema);
     }
@@ -226,7 +226,7 @@ class WarrantManager
     /**
      * @return array<int, string>
      */
-    public function guaranteedAbilities(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): array
+    public function guaranteedAbilities(Model|ISchema|string $schema, ?Authenticatable $user = null): array
     {
         return $this->guard($user)->guaranteedAbilities($schema);
     }
@@ -234,7 +234,7 @@ class WarrantManager
     /**
      * @return array<int, string>
      */
-    public function impossibleAbilities(Model|WarrantSchema|string $schema, ?Authenticatable $user = null): array
+    public function impossibleAbilities(Model|ISchema|string $schema, ?Authenticatable $user = null): array
     {
         return $this->guard($user)->impossibleAbilities($schema);
     }

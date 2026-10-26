@@ -9,7 +9,8 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 use Warrant\WarrantManager;
 
 /**
@@ -65,7 +66,7 @@ final class WarrantGateBridge
      * null when the call is not one a registered Warrant schema answers.
      *
      * @param  array<int|string, mixed>  $args
-     * @return array{0: class-string<WarrantSchema>, 1: string, 2: Model|null, 3: array<string, mixed>}|null
+     * @return array{0: class-string<ISchema>, 1: string, 2: Model|null, 3: array<string, mixed>}|null
      */
     private function resolve(string $ability, array $args): ?array
     {
@@ -96,8 +97,10 @@ final class WarrantGateBridge
         }
 
         /* Only claim abilities the schema actually declares; everything else
-           belongs to a policy. */
-        if (!in_array($ability, $schemaClass::abilityNames(), true)) {
+           belongs to a policy. A schema that declares none answers no Gate call. */
+        $schema = $this->manager->registry()->resolveOrFail($schemaClass)->schema;
+
+        if (! $schema instanceof IAbilitySchema || $schema->ability($ability) === null) {
             return null;
         }
 
@@ -105,13 +108,13 @@ final class WarrantGateBridge
     }
 
     /**
-     * A Model or WarrantSchema class-string resolves to its schema class.
+     * A Model or schema class-string resolves to its schema class.
      *
-     * @return class-string<WarrantSchema>|null
+     * @return class-string<ISchema>|null
      */
     private function schemaFromClassString(string $class): ?string
     {
-        if (is_a($class, WarrantSchema::class, true)) {
+        if (is_a($class, ISchema::class, true)) {
             return $class;
         }
 

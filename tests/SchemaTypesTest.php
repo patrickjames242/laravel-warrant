@@ -221,7 +221,9 @@ it('reads a rule template and invokes it with its context first', function () {
 it('reads abilities and required context', function () {
     $billing = new SchemaTypesBillingSchema;
 
-    expect($billing->ability('export')?->requiredContext)->toBe(['tenant'])
+    expect($billing->abilityNames())->toBe(['export'])
+        ->and((new SchemaTypesDocumentSchema)->abilityNames())->toBe(['view'])
+        ->and($billing->ability('export')?->requiredContext)->toBe(['tenant'])
         ->and($billing->ability('nope'))->toBeNull()
         ->and($billing->requiredContextKeys())->toBe(['tenant'])
         ->and($billing->defaultContext())->toBe([]);

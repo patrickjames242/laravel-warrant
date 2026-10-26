@@ -83,13 +83,13 @@ trait ChecksAbilities
             return $this->getAbilitiesWithoutTarget(context: $context);
         }
 
-        $this->schema::assertSupportsTargetedChecks();
+        $this->assertSupportsTargetedChecks();
 
         $query = $this->rowsQuery();
 
         /* The row is named by the schema's own key, which may answer unknown —
            arguments that name no row. Nothing to enumerate abilities for then. */
-        if (! $this->narrowQueryToTarget($query, $target, $this->schema->resolveEffectiveContext($context))) {
+        if (! $this->narrowQueryToTarget($query, $target, $this->contextPolicy()->resolveEffectiveContext($context))) {
             return [];
         }
 
@@ -128,17 +128,17 @@ trait ChecksAbilities
         array $context
     ): bool {
         $target = $this->resolveCheckTarget($target);
-        $abilities = $this->schema->normalizeAbilities($abilities);
+        $abilities = $this->normalizeAbilities($abilities);
 
         if ($target !== null) {
-            $this->schema::assertSupportsTargetedChecks();
+            $this->assertSupportsTargetedChecks();
 
             $query = $this->rowsQuery();
 
             /* An unknown key names no row, and a check about a row nobody named
                has no answer — which grants nothing, the same as a rule that could
                not be evaluated. */
-            if (! $this->narrowQueryToTarget($query, $target, $this->schema->resolveEffectiveContext($context))) {
+            if (! $this->narrowQueryToTarget($query, $target, $this->contextPolicy()->resolveEffectiveContext($context))) {
                 return false;
             }
 

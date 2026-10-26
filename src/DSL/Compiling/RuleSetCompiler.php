@@ -943,17 +943,6 @@ final class RuleSetCompiler
         ?Model $targetModel,
         string $rowName,
     ): ?Builder {
-        $required = $schema->rowMatcher()->requiredArgumentCount;
-
-        if (count($arguments) < $required) {
-            throw new InvalidArgumentException(sprintf(
-                'The row key for schema [%s] requires at least %d argument(s), but %d were supplied.',
-                $schema::class,
-                $required,
-                count($arguments),
-            ));
-        }
-
         return $schema->invokeRowMatcher(new RowConditionContext(
             $user,
             $schema->conditionQuery($subquery, $rowName),

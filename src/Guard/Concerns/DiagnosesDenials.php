@@ -24,7 +24,7 @@ use Warrant\WarrantGate;
  * *forbidden* by a `cannot` (surfacing that cannot clause's
  * {@see RuleNode::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
- * {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook).
+ * {@see \Warrant\Schema\Denials\IProvidesDenialMessages::ungrantedDenialMessage()} hook).
  */
 trait DiagnosesDenials
 {
@@ -40,7 +40,7 @@ trait DiagnosesDenials
      *     is *not* treated as "ungranted".
      *  2. **Ungranted** — an ability that no `cannot` forbade and no `can`
      *     granted. With no rule to name, the schema's
-     *     {@see \Warrant\Schema\WarrantSchema::ungrantedDenialMessage()} hook is
+     *     {@see \Warrant\Schema\Denials\IProvidesDenialMessages::ungrantedDenialMessage()} hook is
      *     consulted with the whole gate and the ungranted subset.
      *
      * With a singular target the query is rebuilt with global scopes removed —
@@ -64,14 +64,14 @@ trait DiagnosesDenials
         array $context = []
     ): ?Throwable
     {
-        $abilities = $this->schema->normalizeAbilities($abilities);
+        $abilities = $this->normalizeAbilities($abilities);
 
         if ($abilities === []) {
             return null;
         }
 
         $gate = new WarrantGate($abilities, $matchMode);
-        $context = $this->schema->resolveEffectiveContext($context);
+        $context = $this->contextPolicy()->resolveEffectiveContext($context);
         /* A denial may be the doing of a rule a template supplied, and naming the
            rule that caused it means holding that rule, so this reads the rule set
            the check itself compiled: the expanded one. */
@@ -80,7 +80,7 @@ trait DiagnosesDenials
 
         if ($target !== null) {
             $targeted = true;
-            $effectiveContext = $this->schema->resolveEffectiveContext($context);
+            $effectiveContext = $this->contextPolicy()->resolveEffectiveContext($context);
 
             /* A closure, not a QueryFactory: each iteration below needs a fresh
                *seeded* query — one carrying the table and the row key's filter —
@@ -111,14 +111,14 @@ trait DiagnosesDenials
                 return null;
             }
 
-            $modelClass = $this->schema::model;
+            $modelClass = $this->modelClass();
 
             $targetModel = match (true) {
                 $target instanceof Model => $target,
-                /* A virtual table has nothing to hydrate: its rows are a query's
+                /* A query schema has nothing to hydrate: its rows are a query's
                    output, so the message hooks see the arguments that named the
                    row rather than an instance of it. */
-                $modelClass === '' => null,
+                $modelClass === null => null,
                 default => (new $modelClass)->newQueryWithoutScopes()->setQuery($baseQuery())->first(),
             };
 

@@ -18,8 +18,8 @@ use Warrant\WarrantGate;
  * The SQL runtime: turns this guard's resolved {@see RuleSetNode} into
  * access-control predicates and attaches them to entity queries (row filtering
  * and per-row ability selection). All condition SQL is produced by the
- * {@see RuleSetCompiler}, which dispatches condition emission back into the
- * schema (the {@see \Warrant\DSL\IConditionResolver}).
+ * {@see RuleSetCompiler}, which invokes the schema's conditions through its
+ * interfaces.
  *
  * Producing a predicate and attaching one are separate steps here:
  * {@see compileGate} returns the compiled gate, whose decision() is a constant
@@ -37,18 +37,17 @@ trait BuildsAccessQueries
     /**
      * A fresh query over this schema's rows, to filter or select abilities on.
      *
-     * A model-backed schema is usually reached through the model instead —
-     * `Timesheet::userHasAbility('view')` — but a schema whose rows come from a
-     * {@see \Warrant\Schema\WarrantSchema::virtualTable()} has no model to hang
-     * that on, so this is how a caller gets a query to start from:
+     * A model schema is usually reached through the model instead —
+     * `Timesheet::userHasAbility('view')` — but a query schema has no model to
+     * hang that on, so this is how a caller gets a query to start from:
      *
      * ```php
      * $guard = Warrant::forSchema(ShiftDaySchema::class);
      * $rows = $guard->filterQuery($guard->query(), 'view')->get();
      * ```
      *
-     * The rows are selected under the schema's key, so a caller may narrow and
-     * order by the columns the virtual table projects.
+     * The rows are selected under the schema's row name, so a caller may narrow
+     * and order by the columns its query projects.
      */
     public function query(): Builder
     {
@@ -68,7 +67,7 @@ trait BuildsAccessQueries
         array $context = []
     ): Builder
     {
-        $abilities = $this->schema->normalizeAbilities($abilities);
+        $abilities = $this->normalizeAbilities($abilities);
 
         if ($abilities === []) {
             return $query;
@@ -113,9 +112,9 @@ trait BuildsAccessQueries
         ?Model $targetModel = null
     ): CompilationResult
     {
-        $abilities = $this->schema->normalizeAbilities($abilities);
-        $context = $this->schema->resolveEffectiveContext($context);
-        $this->schema::assertAbilitiesHaveRequiredContext($abilities, $context);
+        $abilities = $this->normalizeAbilities($abilities);
+        $context = $this->contextPolicy()->resolveEffectiveContext($context);
+        $this->contextPolicy()->assertAbilitiesHaveRequiredContext($abilities, $context);
 
         return $this->compiler()->compile(
             CompilationContext::gate(
@@ -154,20 +153,20 @@ trait BuildsAccessQueries
         }
 
         if ($onlyAbilities === null) {
-            $abilities = $this->schema::abilityNames();
+            $abilities = $this->schema->abilityNames();
         } else {
-            $abilities = $this->schema->normalizeAbilities($onlyAbilities);
+            $abilities = $this->normalizeAbilities($onlyAbilities);
         }
 
         if ($abilities === []) {
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
         }
 
-        $context = $this->schema->resolveEffectiveContext($context);
+        $context = $this->contextPolicy()->resolveEffectiveContext($context);
 
         /* A per-row list enumerates abilities, so any whose per-ability required
            context wasn't supplied is skipped rather than throwing. */
-        $abilities = $this->schema::partitionAbilitiesByContext($abilities, $context)['satisfied'];
+        $abilities = $this->contextPolicy()->partitionAbilitiesByContext($abilities, $context)['satisfied'];
 
         if ($abilities === []) {
             return $query->selectRaw("'[]' as {$selectedAbilitiesKey}");
@@ -235,9 +234,9 @@ trait BuildsAccessQueries
         /* Enumeration ($abilities === null): every declared ability the user holds,
            skipping (never throwing) any whose per-ability required context is absent. */
         if ($abilities === null) {
-            $context = $this->schema->resolveEffectiveContext($context);
+            $context = $this->contextPolicy()->resolveEffectiveContext($context);
 
-            $declared = $this->schema::partitionAbilitiesByContext($this->schema::abilityNames(), $context)['satisfied'];
+            $declared = $this->contextPolicy()->partitionAbilitiesByContext($this->schema->abilityNames(), $context)['satisfied'];
 
             return $declared === []
                 ? []
@@ -245,14 +244,14 @@ trait BuildsAccessQueries
         }
 
         /* Explicit named abilities: a missing per-ability requirement throws. */
-        $requestedAbilities = $this->schema->normalizeAbilities($abilities);
+        $requestedAbilities = $this->normalizeAbilities($abilities);
 
         if ($requestedAbilities === []) {
             return [];
         }
 
-        $context = $this->schema->resolveEffectiveContext($context);
-        $this->schema::assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
+        $context = $this->contextPolicy()->resolveEffectiveContext($context);
+        $this->contextPolicy()->assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
 
         $allowedAbilities = $this->runNoTargetAbilityQuery($requestedAbilities, $context);
 
@@ -277,7 +276,7 @@ trait BuildsAccessQueries
     {
         /* A connection to evaluate the ability predicates on (rule-set lookup
            itself is the rule provider's job, on its own connection). No-target
-           conditions may reference tenant tables, so a capability schema uses
+           conditions may reference tenant tables, so a schema with no rows uses
            the default connection — the current tenant under tenancy. */
         $connection = $this->rowsConnection();
         $queries = QueryFactory::forConnection($connection);
@@ -332,7 +331,7 @@ trait BuildsAccessQueries
      */
     protected function compiler(): RuleSetCompiler
     {
-        return $this->compiler ??= new RuleSetCompiler($this->schema, $this->manager);
+        return $this->compiler ??= new RuleSetCompiler($this->schema, $this->schemaKey, $this->manager);
     }
 
     /**

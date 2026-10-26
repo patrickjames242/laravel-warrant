@@ -8,7 +8,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Warrant\Reachability;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 use Warrant\WarrantManager;
 
 /**
@@ -37,18 +38,26 @@ final class WarrantGuard
 
     /**
      * The engine for one schema and this guard's user. The schema may be named any
-     * way the registry understands: a {@see WarrantSchema} instance or class-string,
-     * a `Model` instance or class-string, or a schema key.
+     * way the registry understands: a schema instance or class-string, a `Model`
+     * instance or class-string, or a schema key. Checks are made only against a
+     * schema that declares abilities, an {@see IAbilitySchema}.
      */
-    public function forSchema(Model|WarrantSchema|string $schema): WarrantGuardForSchema
+    public function forSchema(Model|ISchema|string $schema): WarrantGuardForSchema
     {
-        /** @var class-string<WarrantSchema> $schemaClass */
-        $schemaClass = $this->manager->registry()->resolveSchemaClassOrFail($schema);
+        $resolved = $this->manager->registry()->resolveOrFail($schema);
 
-        /* Keyed by class string, not schema key: the class is already a unique
-           identifier, so this needs no reverse lookup in the schema index. */
-        return $this->schemaGuards[$schemaClass] ??= new WarrantGuardForSchema(
-            new $schemaClass,
+        if (! $resolved->schema instanceof IAbilitySchema) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares no abilities, so no check can be made against it; checks are made '
+                    .'against a %s.',
+                $resolved->key,
+                IAbilitySchema::class,
+            ));
+        }
+
+        return $this->schemaGuards[$resolved->key] ??= new WarrantGuardForSchema(
+            $resolved->schema,
+            $resolved->key,
             $this->user,
             $this->manager,
         );
@@ -116,7 +125,7 @@ final class WarrantGuard
         return $this->forSchema($schema)->abilities($rowTarget, $context);
     }
 
-    public function reachabilityOf(Model|WarrantSchema|string $schema, string $ability): Reachability
+    public function reachabilityOf(Model|ISchema|string $schema, string $ability): Reachability
     {
         return $this->forSchema($schema)->reachabilityOf($ability);
     }
@@ -124,7 +133,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function couldEverHave(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function couldEverHave(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->couldEverHave($abilities);
     }
@@ -132,7 +141,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function couldEverHaveAny(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function couldEverHaveAny(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->couldEverHaveAny($abilities);
     }
@@ -140,7 +149,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function alwaysHas(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function alwaysHas(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->alwaysHas($abilities);
     }
@@ -148,7 +157,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function alwaysHasAny(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function alwaysHasAny(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->alwaysHasAny($abilities);
     }
@@ -156,7 +165,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function neverHas(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function neverHas(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->neverHas($abilities);
     }
@@ -164,7 +173,7 @@ final class WarrantGuard
     /**
      * @param string|array<int, string> $abilities
      */
-    public function neverHasAny(Model|WarrantSchema|string $schema, string|array $abilities): bool
+    public function neverHasAny(Model|ISchema|string $schema, string|array $abilities): bool
     {
         return $this->forSchema($schema)->neverHasAny($abilities);
     }
@@ -172,7 +181,7 @@ final class WarrantGuard
     /**
      * @return array<int, string>
      */
-    public function possibleAbilities(Model|WarrantSchema|string $schema): array
+    public function possibleAbilities(Model|ISchema|string $schema): array
     {
         return $this->forSchema($schema)->possibleAbilities();
     }
@@ -180,7 +189,7 @@ final class WarrantGuard
     /**
      * @return array<int, string>
      */
-    public function guaranteedAbilities(Model|WarrantSchema|string $schema): array
+    public function guaranteedAbilities(Model|ISchema|string $schema): array
     {
         return $this->forSchema($schema)->guaranteedAbilities();
     }
@@ -188,7 +197,7 @@ final class WarrantGuard
     /**
      * @return array<int, string>
      */
-    public function impossibleAbilities(Model|WarrantSchema|string $schema): array
+    public function impossibleAbilities(Model|ISchema|string $schema): array
     {
         return $this->forSchema($schema)->impossibleAbilities();
     }
@@ -203,7 +212,7 @@ final class WarrantGuard
      *  - a model/schema class-string (or schema key) names the schema, no row.
      *
      * @param Model|string|array<int, mixed> $target
-     * @return array{0: Model|WarrantSchema|string, 1: Model|string|int|array<int, mixed>|null}
+     * @return array{0: Model|ISchema|string, 1: Model|string|int|array<int, mixed>|null}
      */
     private function splitTarget(Model|string|array $target): array
     {

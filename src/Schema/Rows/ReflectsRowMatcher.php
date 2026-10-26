@@ -47,10 +47,25 @@ trait ReflectsRowMatcher
      * A matcher narrows the query to one row or answers unknown, and nothing else:
      * its predicate lands inside an `exists` about one row, so a bool deciding the
      * outcome outright would answer a different question than the one asked.
+     *
+     * Extra arguments are ignored by the call and stay reachable on
+     * `$c->arguments`, but too few is a mistake in whatever named the row, so it
+     * is refused here, wherever the row was named from.
      */
     public function invokeRowMatcher(RowConditionContext $c): ?QueryBuilder
     {
-        $result = $this->{$this->rowMatcher()->methodName}($c, ...$c->arguments);
+        $matcher = $this->rowMatcher();
+
+        if (count($c->arguments) < $matcher->requiredArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'The row key for schema [%s] requires at least %d argument(s), but %d were supplied.',
+                static::class,
+                $matcher->requiredArgumentCount,
+                count($c->arguments),
+            ));
+        }
+
+        $result = $this->{$matcher->methodName}($c, ...$c->arguments);
 
         if ($result instanceof EloquentBuilder) {
             $result = $result->toBase();

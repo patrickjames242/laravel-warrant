@@ -6,12 +6,12 @@ namespace Warrant\Rules;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 
 final readonly class RuleProviderContext
 {
     /**
-     * @param  class-string<WarrantSchema>  $schema
+     * @param  class-string<IAbilitySchema>  $schema
      * @param  class-string<Model>|null  $model
      */
     public function __construct(

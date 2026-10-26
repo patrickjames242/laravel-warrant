@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\Facades\Warrant;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * The handle half of a cross-schema reference — `for <schema>[(<key>)] [as
@@ -35,7 +35,7 @@ trait TargetsSchema
      * The schema is resolved to its key here, through the registry, so the node
      * carries the key the parser would have lexed.
      *
-     * @param Model|WarrantSchema|string $schema A schema key, a schema instance or
+     * @param Model|ISchema|string $schema A schema key, a schema instance or
      *   class-string, or a model instance or class-string.
      * @param mixed $key The row selector: a key, the target schema's model, a
      *   {@see \Warrant\Builders\Ref}, a list of these for a key of several parts,
@@ -43,7 +43,7 @@ trait TargetsSchema
      *   stays row-bound and is rejected at validation; only omitting the argument
      *   means "no row".
      */
-    public function for(Model|WarrantSchema|string $schema, mixed $key = new NoRow): static
+    public function for(Model|ISchema|string $schema, mixed $key = new NoRow): static
     {
         $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema);
         $this->key = $key;

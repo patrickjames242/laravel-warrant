@@ -27,6 +27,14 @@ trait ReflectsAbilities
         return array_values(self::abilitiesByName());
     }
 
+    /**
+     * @return list<string>
+     */
+    public function abilityNames(): array
+    {
+        return array_map(static fn (AbilityDefinition $ability): string => $ability->name, $this->abilities());
+    }
+
     public function ability(string $name): ?AbilityDefinition
     {
         return self::abilitiesByName()[$name] ?? null;

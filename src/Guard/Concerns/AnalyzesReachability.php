@@ -23,7 +23,7 @@ trait AnalyzesReachability
      */
     public function reachabilityOf(string $ability): Reachability
     {
-        return $this->reachabilityMap($this->schema->normalizeAbilities($ability))[$ability];
+        return $this->reachabilityMap($this->normalizeAbilities($ability))[$ability];
     }
 
     /**
@@ -35,7 +35,7 @@ trait AnalyzesReachability
      */
     public function reachabilityMap(?array $abilities = null): array
     {
-        $abilities = $abilities === null ? $this->schema::abilityNames() : $this->schema->normalizeAbilities($abilities);
+        $abilities = $abilities === null ? $this->schema->abilityNames() : $this->normalizeAbilities($abilities);
 
         /* The analysis reads the expanded rule set, not the one as written: an
            ability granted only through a template, or hinging on a derived
@@ -60,15 +60,13 @@ trait AnalyzesReachability
      */
     private function reachabilityRuleSetFor(string $schemaKey): ?ExpandedSyntax
     {
-        if ($schemaKey === $this->schema::schemaKey()) {
+        if ($schemaKey === $this->schemaKey) {
             return $this->expandedRuleSet();
         }
 
-        $schemaClass = $this->manager->registry()->resolveSchemaClassOrNull($schemaKey);
-
-        return $schemaClass === null
+        return $this->manager->registry()->resolveOrNull($schemaKey) === null
             ? null
-            : $this->manager->forSchema($schemaClass, $this->user)->expandedRuleSet();
+            : $this->manager->forSchema($schemaKey, $this->user)->expandedRuleSet();
     }
 
     /**
@@ -83,7 +81,7 @@ trait AnalyzesReachability
         callable $passes,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     ): bool {
-        $map = $this->reachabilityMap($this->schema->normalizeAbilities($abilities));
+        $map = $this->reachabilityMap($this->normalizeAbilities($abilities));
 
         if ($map === []) {
             return false;
