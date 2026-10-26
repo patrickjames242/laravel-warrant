@@ -474,7 +474,7 @@ trait ValidatesExpressions
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
         if ($writtenIn !== null) {
-            $this->assertConditionDeclared($node, $writtenIn, $predicateOf);
+            $this->assertConditionDeclared($node, $writtenIn);
         }
 
         $this->assertColumnRefsInScope($node->parameters, $scope);
@@ -490,16 +490,14 @@ trait ValidatesExpressions
      * was written in or a global, and $node gives it at least the arguments it
      * requires.
      */
-    private function assertConditionDeclared(ConditionNode $node, ISchemaId $writtenIn, ?CrossSchemaConditionNode $predicateOf): void
+    private function assertConditionDeclared(ConditionNode $node, ISchemaId $writtenIn): void
     {
         $definition = $this->constructs()->condition($node->conditionKey->name, $writtenIn)?->definition;
 
         if ($definition === null) {
             $this->fail(
                 DiagnosticCode::UnknownCondition,
-                $predicateOf === null
-                    ? sprintf('Condition [%s] is not declared by the schema.', $node->conditionKey->name)
-                    : sprintf('Condition [%s] is not declared by schema [%s].', $node->conditionKey->name, $predicateOf->schemaKey->name),
+                LanguageRuleMessages::unknownCondition($writtenIn, $node->conditionKey->name),
                 $node->conditionKey->location,
             );
 

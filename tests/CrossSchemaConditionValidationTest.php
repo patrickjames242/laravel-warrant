@@ -85,12 +85,12 @@ it('rejects an unknown target schema', function () {
 
 it('rejects a condition not declared by the target schema', function () {
     expect(fn () => validateOwnerCheckSyntax('if check(is_bogus for xcv_target) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is declared by neither schema [xcv_target] nor any global schema');
 });
 
 it('rejects an unknown condition nested inside a boolean predicate', function () {
     expect(fn () => validateOwnerCheckSyntax('if check(is_open or (is_frozen and is_bogus) for xcv_target(@context id)) they can edit'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is declared by neither schema [xcv_target] nor any global schema');
 });
 
 it('accepts a can(...) leaf inside a check(...) predicate', function () {
@@ -175,7 +175,7 @@ it('accepts a builder-built row-bound reference with a row condition', function 
 
 it('rejects a builder-built predicate leaf the target does not declare', function () {
     expect(fn () => validateOwnerCheckRule(Build::rule()->ifCheck(Build::check('is_bogus')->for('xcv_target'))->theyCan('edit')))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is not declared by schema [xcv_target]');
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is declared by neither schema [xcv_target] nor any global schema');
 });
 
 it('accepts a builder-built row condition on an unbound handle', function () {

@@ -37,6 +37,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Resolution\FoundCondition;
 use Warrant\DSL\Resolution\KeyedSchemaId;
+use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\Facades\Warrant;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
@@ -1219,18 +1220,12 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        $found = Warrant::registry()->constructs()->condition(
-            $node->conditionKey->name,
-            $ctx->writtenIn ?? new KeyedSchemaId($this->schemaKey),
-        );
+        $writtenIn = $ctx->writtenIn ?? new KeyedSchemaId($this->schemaKey);
+        $found = Warrant::registry()->constructs()->condition($node->conditionKey->name, $writtenIn);
         $definition = $found?->definition;
 
         if ($found === null || $definition === null) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition [%s] is not defined on schema [%s].',
-                $node->conditionKey->name,
-                $this->schema::class,
-            ));
+            throw new InvalidArgumentException(LanguageRuleMessages::unknownCondition($writtenIn, $node->conditionKey->name));
         }
 
         /* A derived condition has no SQL of its own; the expansion phase replaces

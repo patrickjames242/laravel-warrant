@@ -1590,7 +1590,7 @@ it('validates a when block condition as a rule condition is validated', function
     expect(fn () => validateRuleSet(
         WarrantSyntax::parse('when no_such_condition { they can view }')->validateWithoutSchemas()->scopedTo('timesheets'),
         new WarrantTestSchema,
-    ))->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is not declared');
+    ))->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is declared by neither schema [timesheets] nor any global schema');
 });
 
 // -- @include -----------------------------------------------------------------

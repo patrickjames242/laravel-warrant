@@ -472,7 +472,7 @@ it('bounds a recursion that cannot terminate, naming the chain', function () {
 
 it('rejects an include naming a template the schema does not declare', function () {
     expect(fn () => expandSyntax('@include nope for view'))
-        ->toThrow(InvalidArgumentException::class, 'declares no rule template [nope]');
+        ->toThrow(InvalidArgumentException::class, 'Rule template [nope], named by an @include, is declared by neither schema [course_sections] nor any global schema');
 });
 
 it('rejects an include supplying too few arguments', function () {
@@ -783,7 +783,7 @@ it('rejects an unknown template from rule text, before anything is expanded', fu
     // The same rejection the expansion would make, reached without calling a
     // template or resolving an argument.
     expect(fn () => validateSyntax('@include nope for view'))
-        ->toThrow(InvalidArgumentException::class, 'declares no rule template [nope]');
+        ->toThrow(InvalidArgumentException::class, 'Rule template [nope], named by an @include, is declared by neither schema [course_sections] nor any global schema');
 });
 
 it('rejects too few include arguments from rule text', function () {
@@ -884,7 +884,7 @@ it('reports a mistake inside a template body, which it reads through the expansi
         ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('An ability block'));
 
     expect(fn () => validateSyntax('@include names_an_unknown_condition for view'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
+        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is declared by neither schema [course_sections] nor any global schema');
 });
 
 it('reports a mistake in a template\'s rule text as the template\'s, pointing into that text', function () {

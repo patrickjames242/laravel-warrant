@@ -14,6 +14,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
@@ -125,9 +126,9 @@ function validationDiagnostics(string $source): array
 it('reports every mistake in a text, each over the text it is about', function () {
     expect(validationDiagnostics("if is_teachr they can view, frobnicate\nif is_teacher and nope they cannot fly"))->toBe([
         ['Ability [frobnicate] is not declared by the schema.', 'frobnicate'],
-        ['Condition [is_teachr] is not declared by the schema.', 'is_teachr'],
+        ['Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.', 'is_teachr'],
         ['Ability [fly] is not declared by the schema.', 'fly'],
-        ['Condition [nope] is not declared by the schema.', 'nope'],
+        ['Condition [nope] is declared by neither schema [course_sections] nor any global schema.', 'nope'],
     ]);
 });
 
@@ -166,7 +167,7 @@ it('reports syntax errors and then the rules a text breaks, when analysed agains
     expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([
         'Ability [frobnicate] is not declared by the schema.',
         'Ability [fly] is not declared by the schema.',
-        'Condition [is_teachr] is not declared by the schema.',
+        'Condition [is_teachr] is declared by neither schema [lessons] nor any global schema.',
     ])->and(analyzedDiagnostics($source, catalogOf([]))[0]->message)->toBe("Unexpected character '~'.");
 });
 
@@ -267,7 +268,7 @@ it('makes a valid syntax of text with no mistakes, holding the input it passed u
 
 it('throws the first mistake rather than make a valid syntax', function () {
     expect(fn () => ValidSyntax::of(courseSectionsSyntax('if is_teachr they can view'), courseSectionsInput()))
-        ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is not declared by the schema.');
+        ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.');
 });
 
 it('hands back a syntax already valid under an equal input as it is, and validates it again once handed over anew', function () {
@@ -308,7 +309,7 @@ it('validates again under a different input, which may find the text invalid', f
     $valid = ValidSyntax::of(WarrantSyntax::parse('if no_such_condition they can view'), new ValidationInput(null));
 
     expect(fn () => ValidSyntax::of(producedFor($valid, 'course_sections'), courseSectionsInput()))
-        ->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is not declared by the schema.');
+        ->toThrow(RuleValidationException::class, 'Condition [no_such_condition] is declared by neither schema [course_sections] nor any global schema.');
 });
 
 it('checks a text into an invalid syntax holding every mistake and the input', function () {
@@ -318,7 +319,7 @@ it('checks a text into an invalid syntax holding every mistake and the input', f
         ->and($checked->input->producer?->schemaKey)->toBe('course_sections')
         ->and(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $checked->diagnostics))->toBe([
             'Ability [frobnicate] is not declared by the schema.',
-            'Condition [is_teachr] is not declared by the schema.',
+            'Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.',
         ]);
 });
 
@@ -350,7 +351,7 @@ it('holds rules with no header to naming their abilities, or not, as the mode sa
     'named clause, required generic' => ['if is_teacher they can view', GenericMode::RequireGeneric, [LanguageRuleMessages::namedWhereGeneric('This can/cannot clause')]],
     'named include, required generic' => ['@include anything for view', GenericMode::RequireGeneric, [
         LanguageRuleMessages::namedWhereGeneric('This @include'),
-        LanguageRuleMessages::unknownTemplate('course_sections', 'anything'),
+        LanguageRuleMessages::unknownTemplate(new KeyedSchemaId('course_sections'), 'anything'),
     ]],
     'a block, required generic' => ['can they view { if is_teacher they can }', GenericMode::RequireGeneric, [LanguageRuleMessages::namedWhereGeneric('An ability block')]],
     'generic, either' => ['if is_teacher they can', GenericMode::Either, []],
@@ -367,7 +368,7 @@ it('checks a for body against the schema its header names, whatever schema the p
     $syntax = producedFor(WarrantSyntax::parse('for course_sections { if is_teachr they can view }'), 'some_other_schema');
 
     expect(fn () => ValidSyntax::of($syntax, courseSectionsInput()))
-        ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is not declared by the schema.');
+        ->toThrow(RuleValidationException::class, 'Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.');
 });
 
 // -- validating a syntax ------------------------------------------------------

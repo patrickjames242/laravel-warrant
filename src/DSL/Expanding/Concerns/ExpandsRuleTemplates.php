@@ -207,15 +207,13 @@ trait ExpandsRuleTemplates
      */
     private function resolveTemplate(string $schemaKey, IncludeInvocationNode $include): FoundRuleTemplate
     {
-        $found = $this->catalog->constructs()->ruleTemplate(
-            $include->templateKey->name,
-            $this->catalog->constructs()->writtenIn($include->location->source->producer(), $schemaKey),
-        );
+        $writtenIn = $this->catalog->constructs()->writtenIn($include->location->source->producer(), $schemaKey);
+        $found = $this->catalog->constructs()->ruleTemplate($include->templateKey->name, $writtenIn);
 
         if ($found === null) {
             throw new RuleValidationException(
                 DiagnosticCode::UnknownTemplate,
-                LanguageRuleMessages::unknownTemplate($schemaKey, $include->templateKey->name),
+                LanguageRuleMessages::unknownTemplate($writtenIn, $include->templateKey->name),
             );
         }
 

@@ -91,7 +91,7 @@ Reserved word 'can' cannot be used as a name; expected an ability name. (line 2,
 A name error comes back naming the bad name:
 
 ```text
-Condition [is_mne] is not declared by the schema.
+Condition [is_mne] is declared by neither schema [documents] nor any global schema.
 ```
 
 ## Telling them what they may write

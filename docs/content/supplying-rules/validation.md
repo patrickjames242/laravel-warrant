@@ -20,7 +20,7 @@ It throws on the first unknown ability or condition:
 
 ```text
 Ability [aprove] is not declared by the schema.
-Condition [is_mne] is not declared by the schema.
+Condition [is_mne] is declared by neither schema [documents] nor any global schema.
 Condition [in_team] requires at least 1 argument(s), but the rule supplied 0.
 ```
 

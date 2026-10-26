@@ -289,7 +289,7 @@ rules once and use them for every check.
 
 | Written | Reported |
 |---|---|
-| `@include nope for view` | `Schema [...] declares no rule template [nope]` |
+| `@include nope for view` | `Rule template [nope], named by an @include, is declared by neither schema [...] nor any global schema.` |
 | too few arguments | `Rule template [...] requires N argument(s), but the @include supplies M` |
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
 | `for docs { @include x }` | `An @include outside an ability block must name the abilities it applies to` |
@@ -300,7 +300,7 @@ rules once and use them for every check.
 | `$context->ability()` in a template not declared `callOncePerAbility` | `RuleTemplateContext::ability() is only for a rule template declared #[RuleTemplate(callOncePerAbility: true)]` |
 | `can they view { @include x for edit }` | `An @include inside an ability block may not name abilities` |
 | a body that never stops including | `Expansion exceeded the maximum nesting depth of 64`, followed by the chain |
-| a mistake inside a body | reported as it would be in the rule, e.g. `Condition [x] is not declared by the schema` |
+| a mistake inside a body | reported as it would be in the rule, e.g. `Condition [x] is declared by neither schema [...] nor any global schema.` |
 
 The ones about an `@include` as written come from `validate()`; the ones about
 what a template answers with come when a guard expands the rules. A test that runs

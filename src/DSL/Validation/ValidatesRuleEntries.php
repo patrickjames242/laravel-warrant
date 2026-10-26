@@ -178,15 +178,13 @@ trait ValidatesRuleEntries
             return;
         }
 
-        $definition = $this->constructs()->ruleTemplate(
-            $templateKey,
-            $this->constructs()->writtenIn($include->location->source->producer(), $schemaKey),
-        )?->definition;
+        $writtenIn = $this->constructs()->writtenIn($include->location->source->producer(), $schemaKey);
+        $definition = $this->constructs()->ruleTemplate($templateKey, $writtenIn)?->definition;
 
         if ($definition === null) {
             $this->fail(
                 DiagnosticCode::UnknownTemplate,
-                LanguageRuleMessages::unknownTemplate($schemaKey, $templateKey),
+                LanguageRuleMessages::unknownTemplate($writtenIn, $templateKey),
                 $include->templateKey->location,
             );
 

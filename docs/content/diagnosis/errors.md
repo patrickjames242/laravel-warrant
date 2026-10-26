@@ -87,9 +87,10 @@ Each needs the values, so an editor, which has none, reports none of them.
 ### Names
 
 - `Ability [%s] is not declared by the schema.`
-- `Condition [%s] is not declared by the schema.`
+- `Condition [%s] is declared by neither schema [%s] nor any global schema.`
+- `Condition [%s] is declared by no global schema; the text global schema [%s] answers with looks only in the global schemas.`: a name in what a global schema's template or derived condition answered with, which is looked up in the global schemas alone.
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
-- `Schema [%s] declares no rule template [%s], named by an @include.`
+- `Rule template [%s], named by an @include, is declared by neither schema [%s] nor any global schema.` (or `is declared by no global schema; …`, for an `@include` in a global schema's answer)
 - `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
 
 A bound ability is checked against the schema too, when the values are given.
@@ -145,7 +146,7 @@ From a check:
 
 From the compiler, before a condition is called:
 
-- `Condition [%s] is not defined on schema [%s].`
+- `Condition [%s] is declared by neither schema [%s] nor any global schema.` (or `is declared by no global schema; …`, as validation says it)
 - `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.`
 - `Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; …`: a rule set that skipped expansion.
 
@@ -226,7 +227,7 @@ An *optional* key that is absent does not throw. It is passed to its condition a
 
 Thrown while a rule set is expanded, by the guard before its first check:
 
-- `InvalidArgumentException`: `Schema [%s] declares no rule template [%s], named by an @include.` Validation reports the same as written, before anything is expanded.
+- `InvalidArgumentException`: `Rule template [%s], named by an @include, is declared by neither schema [%s] nor any global schema.` Validation reports the same as written, before anything is expanded.
 - `InvalidArgumentException`: `The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list of them; got %s.` (or `stands for the one ability a can(...) reference asks about`) Validation reports the same when it checks binding values.
 - `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` Validation reports the same as written, too.
 - `RuntimeException`: `Rule template [%s::%s] must answer with rule text, a Warrant\DSL\Parsing\ASTNodes\WarrantSyntax, a rule or @include that names no abilities, or an iterable of them; got %s.`

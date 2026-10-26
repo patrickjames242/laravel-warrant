@@ -4,9 +4,11 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Resolution\GlobalSchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
+use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
 use Warrant\Registry\SchemaRegistry;
 use Warrant\Rules\RuleProviderContext;
@@ -54,6 +56,12 @@ final class GlobalAuditSchema extends GlobalSchema
     {
         return 'if is_tenant_staff they can';
     }
+
+    #[DerivedCondition]
+    public function isAuditedRow(): string
+    {
+        return 'is_audited';
+    }
 }
 
 class GlobalDoc extends Model
@@ -82,6 +90,12 @@ final class GlobalDocSchema extends ModelSchema
     public function isStaff(RowConditionContext $c): Builder
     {
         return $c->query->where($c->column('staff_id'), $c->user->getAuthIdentifier());
+    }
+
+    #[RowCondition]
+    public function isAudited(RowConditionContext $c): Builder
+    {
+        return $c->query->whereNotNull($c->column('audited_at'));
     }
 
     public function rules(RuleProviderContext $context): string
@@ -158,4 +172,19 @@ it('refuses a global schema registered under a key', function () {
 it('refuses to name a class that is not a global schema as one', function () {
     expect(fn () => new GlobalSchemaId(GlobalDocSchema::class))
         ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] does not implement');
+});
+
+it('says a name written in a schema is declared by neither it nor any global', function () {
+    $ruleSet = WarrantSyntax::parse('if is_nowhere they can view')->validateWithoutSchemas()->scopedTo('global_docs');
+
+    expect(fn () => validateRuleSet($ruleSet, new GlobalDocSchema))
+        ->toThrow(RuleValidationException::class, 'Condition [is_nowhere] is declared by neither schema [global_docs] nor any global schema.');
+});
+
+it('says a name a global answered with is declared by no global, though the schema reaching it declares one', function () {
+    // GlobalDocSchema declares is_audited, but the global's text never looks in it.
+    $ruleSet = WarrantSyntax::parse('if is_audited_row they can view')->validateWithoutSchemas()->scopedTo('global_docs');
+
+    expect(fn () => expandedFor($ruleSet, new GlobalDocSchema))
+        ->toThrow(RuleValidationException::class, 'Condition [is_audited] is declared by no global schema; the text global schema ['.GlobalAuditSchema::class.'] answers with looks only in the global schemas.');
 });

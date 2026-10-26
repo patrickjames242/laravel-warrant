@@ -2,26 +2,59 @@
 
 namespace Warrant\DSL\Validation;
 
+use Warrant\DSL\Resolution\GlobalSchemaId;
+use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\DSL\Resolution\KeyedSchemaId;
+
 /**
  * The words for a rule of the language broken by text the parser can read: an
  * entry naming its abilities where it may not, or naming none where it must; a
  * denial message where none belongs, or one that cannot be one; a binding
  * standing for abilities whose value names none; an ability written twice, or
- * `*` beside another; an `@include`
- * naming a template the schema does not declare, or giving it too few
- * arguments. The validator reports these against rule text, and the expander
+ * `*` beside another; a condition or an `@include`'s template that no schema
+ * the name is looked up in declares, or an `@include` giving its template too
+ * few arguments. The validator reports these against rule text, and the expander
  * rejects the same in any rule set that reaches it, so both say them here, in
  * one way.
  */
 final class LanguageRuleMessages
 {
     /**
-     * @param string $schemaKey The schema the `@include` is written for.
+     * @param ISchemaId $writtenIn The schema the `@include` was written in.
      * @param string $templateKey The template it names.
      */
-    public static function unknownTemplate(string $schemaKey, string $templateKey): string
+    public static function unknownTemplate(ISchemaId $writtenIn, string $templateKey): string
     {
-        return sprintf('Schema [%s] declares no rule template [%s], named by an @include.', $schemaKey, $templateKey);
+        return sprintf('Rule template [%s], named by an @include, %s', $templateKey, self::declaredByNone($writtenIn));
+    }
+
+    /**
+     * @param ISchemaId $writtenIn The schema the condition's name was written in.
+     * @param string $conditionKey The condition it names.
+     */
+    public static function unknownCondition(ISchemaId $writtenIn, string $conditionKey): string
+    {
+        return sprintf('Condition [%s] %s', $conditionKey, self::declaredByNone($writtenIn));
+    }
+
+    /**
+     * That none of the schemas a name written in $writtenIn is looked up in
+     * declares it: the schema itself and the globals, or, for text a global
+     * schema answered with, the globals alone.
+     */
+    private static function declaredByNone(ISchemaId $writtenIn): string
+    {
+        return match (true) {
+            $writtenIn instanceof KeyedSchemaId => sprintf(
+                'is declared by neither schema [%s] nor any global schema.',
+                $writtenIn->key,
+            ),
+            $writtenIn instanceof GlobalSchemaId => sprintf(
+                'is declared by no global schema; the text global schema [%s] answers with looks only in the global '
+                    .'schemas.',
+                $writtenIn->class,
+            ),
+        };
     }
 
     /**

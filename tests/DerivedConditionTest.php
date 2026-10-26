@@ -267,7 +267,7 @@ function validateDkExpanded(string $syntax): void
 
 it('validates the expression a derived condition answered with', function () {
     expect(fn () => validateDkExpanded('if misspelled they can view'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is not declared by the schema');
+        ->toThrow(InvalidArgumentException::class, 'Condition [no_such_condition] is declared by neither schema [dk_docs] nor any global schema');
 });
 
 it('reports a mistake in a derived condition\'s text as the condition\'s, pointing into that text', function () {

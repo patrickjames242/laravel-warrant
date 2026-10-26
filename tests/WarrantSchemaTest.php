@@ -140,7 +140,7 @@ it('throws when the rule set names an undeclared condition', function () {
     bindWarrantRules('if is_wizard they can view');
 
     expect(fn () => Warrant::guard(makeWarrantTestUser('teacher-role'))->forSchema((new WarrantTestSchema))->filterQuery(warrantTestQuery(), 'view'))
-        ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is not declared by the schema');
+        ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard] is declared by neither schema [course_sections] nor any global schema');
 });
 
 it('leaves out the rule sets the provider returns for a different schema', function () {

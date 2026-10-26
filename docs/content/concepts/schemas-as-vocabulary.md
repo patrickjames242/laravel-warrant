@@ -44,7 +44,7 @@ if is_mne they can view
 ```
 
 ```text
-Condition [is_mne] is not declared by the schema.
+Condition [is_mne] is declared by neither schema [documents] nor any global schema.
 ```
 
 You can run that check in CI over every rule you have stored, with no user, no
