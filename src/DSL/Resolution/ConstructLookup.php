@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Resolution;
 
+use LogicException;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\Schema\Vocabulary;
@@ -17,12 +18,26 @@ use Warrant\Schema\Vocabulary;
  * thing wherever it is reached from.
  *
  * The lookup stops at the first schema that declares the name, and a global is
- * read only when the lookup reaches it.
+ * read only when the lookup reaches it. No two global schemas may declare the
+ * same name, since the later one could never be found: the first time a lookup
+ * reaches the globals, every global is read, and a name two of them declare is
+ * refused, on that lookup and every one after, until none is.
  */
-final readonly class ConstructLookup
+final class ConstructLookup
 {
-    public function __construct(private ISchemaCatalog $catalog)
-    {
+    private bool $globalNamesChecked = false;
+
+    /**
+     * @param ISchemaCatalog $catalog The schemas names are looked up in.
+     * @param bool $refuseDuplicateGlobalNames Whether a name two global schemas
+     *   declare is refused. The language server passes false: it reports each
+     *   one where it is declared, and goes on looking names up, the global listed
+     *   first answering, so the rest of the text is still checked.
+     */
+    public function __construct(
+        private readonly ISchemaCatalog $catalog,
+        private readonly bool $refuseDuplicateGlobalNames = true,
+    ) {
     }
 
     public function condition(string $name, ISchemaId $writtenIn): ?FoundCondition
@@ -87,8 +102,59 @@ final readonly class ConstructLookup
             }
         }
 
+        $this->refuseDuplicateGlobalNames();
+
         foreach ($this->catalog->globalClasses() as $class) {
             yield [new GlobalSchemaId($class, $this->catalog), $this->catalog->findGlobal($class)];
         }
+    }
+
+    /**
+     * Throw when two global schemas declare the same name, unless this lookup
+     * reports them rather than refusing them. Once the globals have been found
+     * to share none, they are not read for it again.
+     */
+    private function refuseDuplicateGlobalNames(): void
+    {
+        if ($this->globalNamesChecked || ! $this->refuseDuplicateGlobalNames) {
+            return;
+        }
+
+        $duplicate = $this->duplicateGlobalNames()[0] ?? null;
+
+        if ($duplicate !== null) {
+            throw new LogicException($duplicate->message());
+        }
+
+        $this->globalNamesChecked = true;
+    }
+
+    /**
+     * Every condition or rule template name declared by more than one global
+     * schema, each naming the global listed first that declares it and one
+     * listed after it. Reading it reads every global's vocabulary.
+     *
+     * @return list<DuplicateGlobalName>
+     */
+    public function duplicateGlobalNames(): array
+    {
+        $declaredBy = ['condition' => [], 'rule template' => []];
+        $duplicates = [];
+
+        foreach ($this->catalog->globalClasses() as $class) {
+            $vocabulary = $this->catalog->findGlobal($class);
+
+            foreach (['condition' => $vocabulary->conditionKeys(), 'rule template' => $vocabulary->ruleTemplateKeys()] as $kind => $names) {
+                foreach ($names as $name) {
+                    if (isset($declaredBy[$kind][$name])) {
+                        $duplicates[] = new DuplicateGlobalName($kind, $name, $declaredBy[$kind][$name], $class);
+                    } else {
+                        $declaredBy[$kind][$name] = $class;
+                    }
+                }
+            }
+        }
+
+        return $duplicates;
     }
 }

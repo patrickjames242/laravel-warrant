@@ -13,5 +13,6 @@ return [
     'global' => [
         App\Schemas\TenancySchema::class,
         \App\Schemas\MisfiledSchema::class,
+        App\Schemas\AuditSchema::class,
     ],
 ];

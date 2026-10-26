@@ -24,7 +24,9 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   templates any schema's rules may use by name. A name is looked up in the
   schema its text was written in, then in each global in the order listed; text
   a global answers with is looked up in the globals alone. A global schema has
-  no key, so no rule names it.
+  no key, so no rule names it. No two globals may declare the same condition or
+  template: the first lookup that reaches the globals throws, and the language
+  server marks the later declaration (`duplicate-global-name`).
 - `Warrant\DSL\Resolution\ConstructLookup` says what a condition or template
   name means: `condition()` and `ruleTemplate()` answer with the definition and
   the schema that declares it, as an `IFoundConstruct` whose `schema()` loads

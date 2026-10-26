@@ -95,9 +95,14 @@ final readonly class VocabularyIndex implements ISchemaCatalog
             : $this->globalSchema($found->schemaClass());
     }
 
+    /**
+     * A lookup that goes on when two global schemas share a name, the global
+     * listed first answering: the editor reports each such name where it is
+     * declared, and still checks the rest of the text.
+     */
     public function constructs(): ConstructLookup
     {
-        return new ConstructLookup($this);
+        return new ConstructLookup($this, refuseDuplicateGlobalNames: false);
     }
 
     /**

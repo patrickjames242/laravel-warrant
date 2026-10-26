@@ -87,6 +87,22 @@ final readonly class Vocabulary
     }
 
     /**
+     * @return list<string> The key of every condition, of every kind.
+     */
+    public function conditionKeys(): array
+    {
+        return array_map('strval', array_keys($this->conditions));
+    }
+
+    /**
+     * @return list<string> The key of every rule template.
+     */
+    public function ruleTemplateKeys(): array
+    {
+        return array_map('strval', array_keys($this->ruleTemplates));
+    }
+
+    /**
      * How one of the schema's rows is found from a handle's arguments, or null
      * exactly when the schema has no rows.
      */

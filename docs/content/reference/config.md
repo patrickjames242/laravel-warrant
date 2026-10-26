@@ -72,11 +72,12 @@ conditions, derived conditions and rule templates may be used by name in any
 schema's rules. It is empty by default.
 
 The order is the order a name is looked up in: a schema's own constructs first,
-then each global in turn, the first to declare the name winning. A global schema
-has no key, because no rule names it.
+then each global in turn. No two globals may declare the same condition or
+template; one that does is refused the first time a lookup reaches the globals.
+A global schema has no key, because no rule names it.
 
 A class may be listed once across `schemas` and `global`. Listing a global does
-not build it; it is built the first time a name is looked up in it.
+not build it; every global is built the first time a lookup reaches them.
 
 See [global schemas](/schemas/global-schemas/).
 

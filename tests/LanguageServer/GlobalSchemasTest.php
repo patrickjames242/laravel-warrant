@@ -41,8 +41,8 @@ function diagnosticCodes(array $opened): array
 it('reads the global list from the config, in order, keeping only classes that extend GlobalSchema', function () {
     $scanner = new StaticSchemaScanner(fixtureRoot(), ClassFileLocator::forProject(fixtureRoot()));
 
-    expect($scanner->globalSchemas())->toBe(['App\Schemas\TenancySchema', 'App\Schemas\MisfiledSchema'])
-        ->and(fixtureVocabulary()->globalClasses())->toBe(['App\Schemas\TenancySchema'])
+    expect($scanner->globalSchemas())->toBe(['App\Schemas\TenancySchema', 'App\Schemas\MisfiledSchema', 'App\Schemas\AuditSchema'])
+        ->and(fixtureVocabulary()->globalClasses())->toBe(['App\Schemas\TenancySchema', 'App\Schemas\AuditSchema'])
         ->and(array_keys(fixtureVocabulary()->schemas))->toBe(['documents', 'folders', 'billing'])
         ->and(fixtureVocabulary()->globalSchema('App\Schemas\TenancySchema')->key)->toBeNull()
         ->and(array_keys(fixtureVocabulary()->globalSchema('App\Schemas\TenancySchema')->conditions))
@@ -132,4 +132,19 @@ it('holds a keyed schema\'s template body to a for header naming its own schema'
 
     expect(diagnosticCodes($opened('documents')))->not->toContain('header-names-another-schema')
         ->and(diagnosticCodes($opened('folders')))->toContain('header-names-another-schema');
+});
+
+it('marks a condition a global declares that a global listed before it declares too', function () {
+    $path = 'app/Schemas/AuditSchema.php';
+    [$workspace, $document] = openInFixture($path, (string) file_get_contents(fixtureRoot().'/'.$path));
+    $diagnostics = Diagnostics::of($workspace, $document);
+
+    expect(array_column($diagnostics, 'code'))->toBe(['duplicate-global-name'])
+        ->and($diagnostics[0]['range'])->toBe([
+            'start' => ['line' => 14, 'character' => 4],
+            'end' => ['line' => 14, 'character' => 60],
+        ])
+        ->and($diagnostics[0]['message'])->toStartWith('Global schemas [App\Schemas\TenancySchema] and [App\Schemas\AuditSchema] both declare condition [is_staff]');
+
+    expect(diagnosticCodes(openTenancyWithTemplate('if in_current_tenant they can')))->not->toContain('duplicate-global-name');
 });

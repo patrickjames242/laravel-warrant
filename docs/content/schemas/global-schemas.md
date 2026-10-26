@@ -77,7 +77,8 @@ A global schema has no key. No rule names it, so there is nothing for a key to
 do: its constructs are used by their own names, and it is known by its class. A
 `for` header, `can(... for ...)` or `check(... for ...)` has no way to name one.
 
-The order matters. It is the order a name is looked up in, top down.
+The globals are searched in the order they are listed, but no two of them may
+declare the same name, so the order never decides which one a name means.
 
 A class may be listed once across `schemas` and `global`; listing one twice is
 refused when the registry is built. A class listed under `global` must extend
@@ -85,8 +86,9 @@ refused when the registry is built. A class listed under `global` must extend
 globals, and one listed under `schemas` must not, which is checked when that
 schema is first used.
 
-Listing a global schema does not build it. A global is built the first time a
-name is looked up in it.
+Listing a global schema does not build it. The first time a lookup reaches the
+globals, every global is built, so that a name two of them declare is refused
+before either can be used.
 
 ## How a name is found
 
@@ -103,28 +105,8 @@ over the ones listed above it, and the schema whose rules reached the template o
 derived condition is never searched. So a global's text means the same thing
 wherever it is used.
 
-The first schema that declares the name is the one it means. Take two globals,
-listed in this order:
-
-```php
-'global' => [
-    App\Warrant\TenancySchema::class,
-    App\Warrant\AuditSchema::class,
-],
-```
-
-```php
-final class AuditSchema extends GlobalSchema
-{
-    #[GlobalCondition]
-    public function isStaff(GlobalConditionContext $c): bool
-    {
-        return $c->user->role === 'auditor';
-    }
-}
-```
-
-and a schema that declares an `is_staff` of its own:
+The first schema that declares the name is the one it means. Take a schema that
+declares an `is_staff` of its own, beside `TenancySchema`'s:
 
 ```php
 final class DocumentSchema extends ModelSchema
@@ -140,11 +122,8 @@ final class DocumentSchema extends ModelSchema
 | Written in | `is_staff` means |
 | --- | --- |
 | `DocumentSchema`'s rules | `DocumentSchema::isStaff`: the schema's own comes first |
-| `TenancySchema::isTenantStaff`'s answer | `TenancySchema::isStaff`: the globals alone, top down |
-| `AuditSchema`'s templates, or any other global's | `TenancySchema::isStaff`, though `AuditSchema` declares one too |
-
-`AuditSchema::isStaff` is never reached, because `TenancySchema` is listed first
-and declares the same name.
+| `TenancySchema::isTenantStaff`'s answer | `TenancySchema::isStaff`: the globals alone |
+| any other global's templates or derived conditions | `TenancySchema::isStaff`: the globals alone |
 
 A schema's own construct hides a global one by the same name, and a rule in that
 schema cannot reach the hidden one. A schema that needs the global one renames
@@ -153,6 +132,18 @@ its own.
 Names are shared across kinds within a schema, as they are for any schema: a
 schema's `is_staff` row condition hides a global `is_staff` global condition.
 Conditions and templates are separate names.
+
+### No two globals share a name
+
+Two global schemas may not declare the same condition, or the same template.
+The one listed later could never be found, so it is a mistake rather than an
+override, and every lookup that reaches the globals throws until one is renamed:
+
+```text
+Global schemas [App\Warrant\TenancySchema] and [App\Warrant\AuditSchema] both declare condition [is_staff]; a name may be declared by only one global schema, since the one listed first would always be found. Rename one of them.
+```
+
+The language server marks the later declaration with the same message.
 
 ### A `check(...)` names its own schema
 

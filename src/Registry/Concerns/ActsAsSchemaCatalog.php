@@ -18,23 +18,6 @@ use Warrant\Schema\Vocabulary;
  */
 trait ActsAsSchemaCatalog
 {
-    /**
-     * Each registered schema's vocabulary read so far, by key: null for a key no
-     * schema is registered under.
-     *
-     * @var array<string, Vocabulary|null>
-     */
-    private array $vocabularies = [];
-
-    /**
-     * Each global schema's vocabulary read so far, by class.
-     *
-     * @var array<class-string<IGlobalSchema>, Vocabulary>
-     */
-    private array $globalVocabularies = [];
-
-    private ?ConstructLookup $constructs = null;
-
     private bool $globalClassesVerified = false;
 
     /**
@@ -66,6 +49,14 @@ trait ActsAsSchemaCatalog
     }
 
     /**
+     * Each registered schema's vocabulary read so far, by key: null for a key no
+     * schema is registered under.
+     *
+     * @var array<string, Vocabulary|null>
+     */
+    private array $vocabularies = [];
+
+    /**
      * The vocabulary of the schema registered under $schemaKey, read once, or
      * null when no schema is. Reading it builds the schema.
      */
@@ -80,10 +71,22 @@ trait ActsAsSchemaCatalog
         return $this->vocabularies[$schemaKey];
     }
 
+    /**
+     * Each global schema's vocabulary read so far, by class.
+     *
+     * @var array<class-string<IGlobalSchema>, Vocabulary>
+     */
+    private array $globalVocabularies = [];
+
+    /**
+     * The vocabulary of the global schema $class, read once.
+     */
     public function findGlobal(string $class): Vocabulary
     {
         return $this->globalVocabularies[$class] ??= Vocabulary::of($this->globalSchema($class));
     }
+
+    private ?ConstructLookup $constructs = null;
 
     public function constructs(): ConstructLookup
     {

@@ -90,6 +90,7 @@ Each needs the values, so an editor, which has none, reports none of them.
 - `Condition [%s] is declared by neither schema [%s] nor any global schema.`
 - `Condition [%s] is declared by no global schema; the text global schema [%s] answers with looks only in the global schemas.`: a name in what a global schema's template or derived condition answered with, which is looked up in the global schemas alone.
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
+- `Global schemas [%s] and [%s] both declare %s [%s]; a name may be declared by only one global schema, since the one listed first would always be found. Rename one of them.`: a `LogicException` from any lookup that reaches the global schemas, and a `duplicate-global-name` diagnostic on the later declaration in the editor.
 - `Rule template [%s], named by an @include, is declared by neither schema [%s] nor any global schema.` (or `is declared by no global schema; …`, for an `@include` in a global schema's answer)
 - `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
 

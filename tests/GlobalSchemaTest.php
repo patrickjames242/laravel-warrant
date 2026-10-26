@@ -42,12 +42,6 @@ final class GlobalTenancySchema extends GlobalSchema
 
 final class GlobalAuditSchema extends GlobalSchema
 {
-    #[GlobalCondition]
-    public function isStaff(GlobalConditionContext $c): bool
-    {
-        return $c->user->role_id === 'auditor';
-    }
-
     #[DerivedCondition]
     public function isTenantStaff(): string
     {
@@ -94,6 +88,15 @@ final class GlobalAuditSchema extends GlobalSchema
     public function isLooping(): string
     {
         return 'is_looping';
+    }
+}
+
+final class GlobalDuplicateStaffSchema extends GlobalSchema
+{
+    #[GlobalCondition]
+    public function isStaff(GlobalConditionContext $c): bool
+    {
+        return $c->user->role_id === 'auditor';
     }
 }
 
@@ -189,7 +192,7 @@ it('resolves a name a schema does not declare to the first global that does', fu
         ->and($found->schemaClass())->toBe(GlobalAuditSchema::class);
 });
 
-it('resolves a name written in a global among the globals in order, its own included in no priority', function () {
+it('resolves a name written in a global among every global, not only the one it was written in', function () {
     $found = (new ConstructLookup(Warrant::registry()))->condition('is_staff', new GlobalSchemaId(GlobalAuditSchema::class, Warrant::registry()));
 
     expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalTenancySchema::class, Warrant::registry()))
@@ -206,7 +209,6 @@ it('compiles a global template\'s conditions against the globals, in order', fun
     expect(globalDocsSql('staff', 'view'))->not->toContain('staff_id')
         ->and(globalDocsSql('staff', 'view'))->toContain('1 = 1');
 
-    // AuditSchema::isStaff, listed second, never answers.
     expect(globalDocsSql('auditor', 'view'))->toContain('1 = 0');
 });
 
@@ -283,15 +285,25 @@ it('expands a global derived condition named in a check() predicate among the gl
         ->and(globalDocsSql('staff', 'audit'))->not->toBe(globalDocsSql('auditor', 'audit'));
 });
 
-it('builds a global only when a lookup reaches it', function () {
+it('builds no global until a lookup reaches the globals, and then every one, to check no two share a name', function () {
     GlobalCountedSchema::$built = 0;
-    $registry = new SchemaRegistry([], [GlobalTenancySchema::class, GlobalCountedSchema::class]);
+    $registry = new SchemaRegistry(['global_docs' => GlobalDocSchema::class], [GlobalTenancySchema::class, GlobalCountedSchema::class]);
 
-    $registry->constructs()->condition('in_current_tenant', new KeyedSchemaId('nowhere'));
+    $registry->constructs()->condition('is_audited', new KeyedSchemaId('global_docs'));
     expect(GlobalCountedSchema::$built)->toBe(0);
 
-    $registry->constructs()->condition('is_counted', new KeyedSchemaId('nowhere'));
+    $registry->constructs()->condition('in_current_tenant', new KeyedSchemaId('global_docs'));
     expect(GlobalCountedSchema::$built)->toBe(1);
+});
+
+it('refuses two global schemas declaring the same name, on every lookup that reaches them', function () {
+    $registry = new SchemaRegistry([], [GlobalTenancySchema::class, GlobalDuplicateStaffSchema::class]);
+    $lookUp = fn () => $registry->constructs()->condition('in_current_tenant', new KeyedSchemaId('nowhere'));
+    $message = 'Global schemas [GlobalTenancySchema] and [GlobalDuplicateStaffSchema] both declare condition [is_staff]; '
+        .'a name may be declared by only one global schema, since the one listed first would always be found. Rename one of them.';
+
+    expect($lookUp)->toThrow(LogicException::class, $message)
+        ->and($lookUp)->toThrow(LogicException::class, $message);
 });
 
 it('refuses a class listed under global that is not a global schema', function () {

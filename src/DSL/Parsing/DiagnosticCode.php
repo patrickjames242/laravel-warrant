@@ -161,6 +161,9 @@ enum DiagnosticCode: string
     /** A `for` header in a global schema's template or derived condition, which no header can name. */
     case HeaderInGlobalAnswer = 'header-in-global-answer';
 
+    /** A condition or rule template a global schema declares that a global listed before it declares too. */
+    case DuplicateGlobalName = 'duplicate-global-name';
+
     /** A rule the schema cannot accept for a reason none of the kinds above names, as one its own code gives. */
     case InvalidRule = 'invalid-rule';
 }
