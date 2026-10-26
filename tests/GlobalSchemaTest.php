@@ -4,6 +4,9 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Resolution\GlobalSchemaId;
@@ -74,6 +77,42 @@ final class GlobalAuditSchema extends GlobalSchema
     {
         return 'for global_docs { if is_staff they can }';
     }
+
+    #[RuleTemplate]
+    public function auditedDocsOnly(): string
+    {
+        return 'if is_staff or check(is_audited for global_docs(@context doc_id)) they can';
+    }
+
+    #[RuleTemplate]
+    public function chainedStaffOnly(): string
+    {
+        return '@include staff_only';
+    }
+
+    #[DerivedCondition]
+    public function isLooping(): string
+    {
+        return 'is_looping';
+    }
+}
+
+final class GlobalCountedSchema extends GlobalSchema
+{
+    public static int $built = 0;
+
+    public function __construct()
+    {
+        self::$built++;
+
+        parent::__construct();
+    }
+
+    #[GlobalCondition]
+    public function isCounted(GlobalConditionContext $c): bool
+    {
+        return true;
+    }
 }
 
 class GlobalDoc extends Model
@@ -97,6 +136,9 @@ final class GlobalDocSchema extends ModelSchema
 
     #[Ability]
     public const EDIT = 'edit';
+
+    #[Ability]
+    public const AUDIT = 'audit';
 
     #[RowCondition]
     public function isStaff(RowConditionContext $c): Builder
@@ -128,7 +170,7 @@ function globalDocsSql(string $role, string $ability): string
 {
     return Warrant::guard(makeWarrantTestUser($role))
         ->forSchema(GlobalDocSchema::class)
-        ->filterQuery(warrantTestQuery('global_docs'), $ability, context: ['tenant_id' => 't1'])
+        ->filterQuery(warrantTestQuery('global_docs'), $ability, context: ['tenant_id' => 't1', 'doc_id' => 7])
         ->toSql();
 }
 
@@ -213,4 +255,55 @@ it('refuses a global\'s rule template answering under a for header', function ()
 
     expect(fn () => expandedFor($ruleSet, new GlobalDocSchema))
         ->toThrow(RuleValidationException::class, 'Rule template [GlobalAuditSchema::staffOnlyUnderHeader] answered under a `for` header naming schema [global_docs]; a global schema answers with no header');
+});
+
+it('looks up a check() predicate in a global template in the schema the check names', function () {
+    // GlobalDocSchema::isAudited answers, though the template's own names are looked up in the globals alone.
+    bindWarrantRules('@include audited_docs_only for audit', schemaKey: 'global_docs');
+
+    expect(globalDocsSql('auditor', 'audit'))->toContain('"audited_at" is not null');
+});
+
+it('expands a global template that includes another, looking the inner one up among the globals', function () {
+    bindWarrantRules('@include chained_staff_only for audit', schemaKey: 'global_docs');
+
+    expect(globalDocsSql('staff', 'audit'))->toContain('1 = 1')
+        ->and(globalDocsSql('auditor', 'audit'))->toContain('1 = 0');
+});
+
+it('expands a global derived condition named in a check() predicate among the globals', function () {
+    bindWarrantRules('if check(is_tenant_staff for global_docs(@context doc_id) with tenant_id = @context tenant_id) they can audit', schemaKey: 'global_docs');
+
+    $rules = Warrant::guard(makeWarrantTestUser('staff'))->forSchema(GlobalDocSchema::class)->expandedRuleSet()->rules;
+    $audit = array_values(array_filter($rules, static fn ($rule): bool => $rule->canAbilities() === ['audit']))[0];
+
+    expect($audit->conditions)->toBeInstanceOf(CrossSchemaConditionNode::class)
+        ->and($audit->conditions->predicate)->toBeInstanceOf(DerivedConditionNode::class)
+        ->and($audit->conditions->predicate->body)->toBeInstanceOf(AndNode::class)
+        ->and(globalDocsSql('staff', 'audit'))->not->toBe(globalDocsSql('auditor', 'audit'));
+});
+
+it('builds a global only when a lookup reaches it', function () {
+    GlobalCountedSchema::$built = 0;
+    $registry = new SchemaRegistry([], [GlobalTenancySchema::class, GlobalCountedSchema::class]);
+
+    $registry->constructs()->condition('in_current_tenant', new KeyedSchemaId('nowhere'));
+    expect(GlobalCountedSchema::$built)->toBe(0);
+
+    $registry->constructs()->condition('is_counted', new KeyedSchemaId('nowhere'));
+    expect(GlobalCountedSchema::$built)->toBe(1);
+});
+
+it('refuses a class listed under global that is not a global schema', function () {
+    $registry = new SchemaRegistry([], [GlobalDocSchema::class]);
+
+    expect(fn () => $registry->constructs()->condition('anything', new KeyedSchemaId('nowhere')))
+        ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] does not implement');
+});
+
+it('names a global derived condition by its class in the expansion trail', function () {
+    bindWarrantRules('if is_looping they can audit', schemaKey: 'global_docs');
+
+    expect(fn () => Warrant::guard(makeWarrantTestUser('staff'))->forSchema(GlobalDocSchema::class)->expandedRuleSet())
+        ->toThrow(RuntimeException::class, GlobalAuditSchema::class.'.is_looping');
 });

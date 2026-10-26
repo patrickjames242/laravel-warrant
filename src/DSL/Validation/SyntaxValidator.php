@@ -145,7 +145,7 @@ final class SyntaxValidator
 
         $producer = $this->input->producer;
         $producerSchema = $producer?->schemaKey === null ? null : $this->input->catalog?->find($producer->schemaKey);
-        $producerSchemaKey = $producerSchema === null ? null : $producer->schemaKey;
+        $producerSchemaKey = $producer?->schemaKey;
 
         $headerless = [];
 

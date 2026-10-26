@@ -110,8 +110,8 @@ final class LanguageRuleMessages
             ? 'Every can/cannot clause and @include outside an ability block names the abilities it applies to; these rules '
                 .'hold one that names none.'
             : sprintf(
-                'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set '
-                    .'for [%s] holds one that names none.',
+                'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rules '
+                    .'for [%s] hold one that names none.',
                 $schemaKey,
             );
     }

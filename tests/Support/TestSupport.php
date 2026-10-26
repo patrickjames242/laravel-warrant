@@ -915,6 +915,24 @@ function producedFor(WarrantSyntax $syntax, string $schemaKey, GenericMode $mode
 }
 
 /**
+ * $text as schema $schemaKey's rules() answered with it: rules that must name
+ * their abilities.
+ */
+function asSchemaRules(string $text, string $schemaKey): WarrantSyntax
+{
+    return producedFor(WarrantSyntax::parse($text), $schemaKey, GenericMode::RequireNotGeneric);
+}
+
+/**
+ * $text as a template of schema $schemaKey answered with it: rules that leave
+ * their abilities to the @include that places them.
+ */
+function asTemplateBody(string $text, string $schemaKey): WarrantSyntax
+{
+    return producedFor(WarrantSyntax::parse($text), $schemaKey, GenericMode::RequireGeneric);
+}
+
+/**
  * Render a cross-schema handle: the schema, its row-key arguments when the
  * reference is row-bound (an unbound handle has no parens at all — the
  * distinction NoRow exists to preserve, and the reason empty parens are still

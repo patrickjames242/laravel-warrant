@@ -108,7 +108,7 @@ Both judge the list as written, not the values its bindings hold.
 Type guards:
 
 - `A rule set holds rules, ability blocks and includes, got %s.`
-- `Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [%s] holds one that names none.`
+- `Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rules for [%s] hold one that names none.` (or `these rules hold one…` when no schema is known)
 
 :::note[Two "unknown ability" messages]
 *is not declared by the schema* comes from validating a rule set. A different one

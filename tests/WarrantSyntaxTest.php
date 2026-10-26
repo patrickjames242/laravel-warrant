@@ -418,7 +418,7 @@ it('rejects a block entry built in code that names abilities of its own', functi
 it('rejects a generic can/cannot clause or include built in code outside an ability block', function (RuleNode|IncludeInvocationNode $entry) {
     expect(fn () => expandBuiltInCode([$entry]))->toThrow(
         InvalidArgumentException::class,
-        'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [docs] holds one that names none.',
+        'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rules for [docs] hold one that names none.',
     );
 })->with([
     'a can clause' => fn () => new RuleNode(null, [new CanClauseNode([], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer()),

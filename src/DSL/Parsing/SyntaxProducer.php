@@ -14,16 +14,23 @@ use Warrant\DSL\Validation\GenericMode;
  * Made only through a constructor for its {@see SyntaxProducerKind}, so each
  * kind carries exactly the details that identify it. What produced the syntax
  * also says what it is validated as: the schema its rules with no `for` header
- * belong to, and whether they name their abilities.
+ * belong to, whether they name their abilities, and where the names in it are
+ * looked up.
  */
 final readonly class SyntaxProducer
 {
     /**
      * @param string|null $schemaKey The key of the schema the syntax is for: the
-     *   one its rules or condition with no `for` header belong to. Null when no
-     *   schema is known.
-     * @param string|null $schemaClass The schema whose method answered; null for
-     *   the kinds no schema answers for.
+     *   one its rules or condition with no `for` header belong to. For a
+     *   template, that is the schema whose `@include` placed it, whose abilities
+     *   its rules take. For a derived condition, it is the schema whose rules
+     *   reached it. Null when no schema is known.
+     * @param string|null $schemaClass The schema whose method answered, which
+     *   decides where the names in the syntax are looked up: in that schema and
+     *   then the global schemas, or, when it is a global schema, in the global
+     *   schemas alone. It is the class registered under $schemaKey unless a
+     *   global schema answered, since a global has no key. Null for the kinds no
+     *   schema answers for.
      * @param string|null $key The template or derived condition key.
      * @param string|null $methodName The schema method that answered.
      * @param string|null $providerClass The rule provider that answered.

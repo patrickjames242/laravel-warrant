@@ -1446,17 +1446,23 @@ it('reads an ability block among rules that name their abilities', function () {
     expect($entries)->toHaveCount(3);
 });
 
-it('rejects a generic can/cannot clause outside an ability block in a schema\'s own rules, header or none', function (string $text, string $message) {
-    $syntax = producedFor(WarrantSyntax::parse($text), 'timesheets', GenericMode::RequireNotGeneric);
-
-    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(null)))
-        ->toThrow(InvalidArgumentException::class, $message);
+it('rejects a can/cannot clause naming no abilities in a schema\'s own rules, with a for header or without', function (string $text) {
+    expect(fn () => ValidSyntax::of(asSchemaRules($text, 'timesheets'), new ValidationInput(null)))
+        ->toThrow(InvalidArgumentException::class, 'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rules for [timesheets] hold one that names none.');
 })->with([
-    'no header' => ['if is_public they can', 'these rules hold one that names none'],
-    'a for header' => ['for timesheets { if is_public they can }', 'the rule set for [timesheets] holds one that names none'],
+    'no header' => ['if is_public they can'],
+    'a for header' => ['for timesheets { if is_public they can }'],
 ]);
 
-it('lets a for body leave its abilities off where nothing says how the text is used', function () {
+it('accepts a can/cannot clause naming no abilities in a template\'s body, with a for header or without', function (string $text) {
+    expect(ValidSyntax::of(asTemplateBody($text, 'timesheets'), new ValidationInput(null))->entriesFor('timesheets'))
+        ->toHaveCount(1);
+})->with([
+    'no header' => ['if is_public they can'],
+    'a for header' => ['for timesheets { if is_public they can }'],
+]);
+
+it('accepts a can/cannot clause naming no abilities under a for header in text that may yet be a template\'s body', function () {
     expect(languageRuleErrors('for timesheets { if is_public they can }'))->toBe([]);
 });
 
@@ -1686,17 +1692,15 @@ it('rejects a generic include after rules that name their abilities', function (
         ->toBe([LanguageRuleMessages::namingDisagrees('This @include', false)]);
 });
 
-it('rejects an include that names no abilities in a schema\'s own rules, header or none', function (string $text, string $message) {
-    $syntax = producedFor(WarrantSyntax::parse($text), 'timesheets', GenericMode::RequireNotGeneric);
-
-    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(null)))
-        ->toThrow(InvalidArgumentException::class, $message);
+it('rejects an @include naming no abilities in a schema\'s own rules, with a for header or without', function (string $text) {
+    expect(fn () => ValidSyntax::of(asSchemaRules($text, 'timesheets'), new ValidationInput(null)))
+        ->toThrow(InvalidArgumentException::class, 'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rules for [timesheets] hold one that names none.');
 })->with([
-    'no header' => ['@include x', 'these rules hold one that names none'],
-    'a for header' => ['for timesheets { @include x }', 'the rule set for [timesheets] holds one that names none'],
+    'no header' => ['@include x'],
+    'a for header' => ['for timesheets { @include x }'],
 ]);
 
-it('lets an include in a for body leave its abilities off where nothing says how the text is used', function () {
+it('accepts an @include naming no abilities under a for header in text that may yet be a template\'s body', function () {
     expect(languageRuleErrors('for timesheets { @include x }'))->toBe([]);
 });
 
