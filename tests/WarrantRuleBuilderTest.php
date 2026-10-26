@@ -1,8 +1,6 @@
 <?php
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Model as EloquentModel;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\Builders\Build;
@@ -11,25 +9,11 @@ use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
-use Warrant\DSL\IConditionResolver;
-use Warrant\DSL\Parsing\ASTNodes\AndNode;
-use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
-use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\ContextRef;
-use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
-use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
-use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
-use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\SyntaxSource;
-use Warrant\Schema\Abilities\AbilityDefinition;
-use Warrant\Schema\Conditions\ConditionDefinition;
-use Warrant\Schema\Conditions\ConditionKind;
-use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -44,41 +28,6 @@ final class BuilderTestUser implements Authenticatable
     public function getRememberToken(): ?string { return null; }
     public function setRememberToken($value): void {}
     public function getRememberTokenName(): ?string { return null; }
-}
-
-final class BuilderFakeResolver implements IConditionResolver
-{
-    public static function schemaKey(): string { return 'builder-fake'; }
-    public static function modelClass(): string { return CompilerDocModel::class; }
-    public static function hasRows(): bool { return true; }
-    public static function hasRowKey(): bool { return true; }
-    public function describesRows(): bool { return true; }
-    public function canNameARow(): bool { return true; }
-    public static function virtualTable(): ?Builder { return null; }
-    public function getAbilityDefinition(string $name): ?AbilityDefinition { return $name === 'view' ? new AbilityDefinition($name) : null; }
-    public function getConditionDefinition(string $name): ?ConditionDefinition { return $name === 'is_teacher' ? new ConditionDefinition($name, $name, ConditionKind::Row) : null; }
-
-    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition { return null; }
-
-    public function getKeyDefinition(): ConditionDefinition { return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1); }
-
-    public function contextForReference(array $context, string $ability): ?array
-    {
-        return $context;
-    }
-
-    public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
-    {
-        return ($arguments[0] ?? null) === null
-            ? null
-            : $whereClause->where(($rowQualifier ?? 'docs').'.id', '=', $arguments[0]);
-    }
-
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
-    {
-        // Whatever the compiler calls this frame's row, else CompilerDocModel's table.
-        return $whereClause->whereRaw(($rowQualifier ?? 'docs') . '.id = ?', ["teacher:{$user->role}"]);
-    }
 }
 
 // treeToString() / argToString() / handleToString() live in Support/TestSupport.php,
@@ -542,10 +491,10 @@ it('compiles a built rule to SQL that filters rows', function () {
 
     $ruleSet = expandedFor(
         Build::ruleSet('docs', fn ($rule) => $rule()->if('is_teacher')->theyCan('view')),
-        new FakeConditionResolver,
+        new CompilerDocSchema,
     );
 
-    $compiler = new RuleSetCompiler(new FakeConditionResolver);
+    $compiler = new RuleSetCompiler(new CompilerDocSchema, 'docs');
     $query = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($query), new CompilerTestUser('role-1'), 'view', $ruleSet)

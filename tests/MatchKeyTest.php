@@ -6,15 +6,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -73,7 +73,7 @@ class MkPathModel extends Model
 }
 
 /** The caller. Keeps the default key. */
-class MkShiftSchema extends WarrantSchema
+class MkShiftSchema extends ModelSchema
 {
     public const model = MkShiftModel::class;
 
@@ -85,7 +85,7 @@ class MkShiftSchema extends WarrantSchema
 }
 
 /** Addressed by (team_id, day) — no single column is unique. */
-class MkDaySchema extends WarrantSchema
+class MkDaySchema extends ModelSchema
 {
     public const model = MkDayModel::class;
 
@@ -116,10 +116,10 @@ class MkDaySchema extends WarrantSchema
 
 /**
  * Two required key parameters — the shape PHP would forbid if matchKey() were a
- * concrete method on WarrantSchema, since an override may not add required
+ * concrete method on RowSchema, since an override may not add required
  * parameters to an inherited signature.
  */
-class MkStrictSchema extends WarrantSchema
+class MkStrictSchema extends ModelSchema
 {
     public const model = MkStrictModel::class;
 
@@ -147,7 +147,7 @@ class MkStrictModel extends Model
 }
 
 /** A variadic key: any number of path segments, including none. */
-class MkPathSchema extends WarrantSchema
+class MkPathSchema extends ModelSchema
 {
     public const model = MkPathModel::class;
 
@@ -372,12 +372,12 @@ it('rejects a literal null in any argument position', function () {
 // -- the key is not vocabulary ------------------------------------------------
 
 it('rejects a vocabulary attribute on matchKey', function () {
-    expect(fn () => MkAttributedKeySchema::keyDefinition())
+    expect(fn () => (new MkAttributedKeySchema)->rowMatcher())
         ->toThrow(InvalidArgumentException::class, 'declares a vocabulary attribute on matchKey()');
 });
 
 it('does not expose the key as a condition a rule can name', function () {
-    expect(MkDaySchema::conditionKeys())->not->toContain('match_key');
+    expect(conditionKeysOf((new MkDaySchema)->conditions()))->not->toContain('match_key');
 
     expect(fn () => validateRegistered(WarrantSyntax::parse('if match_key they can view')->validateWithoutSchemas()->scopedTo('mk_days')))
         ->toThrow(InvalidArgumentException::class);
@@ -431,7 +431,7 @@ it('takes an empty target array when the key requires no arguments', function ()
 });
 
 /** Declares the key as a condition, which it is not. */
-class MkAttributedKeySchema extends WarrantSchema
+class MkAttributedKeySchema extends ModelSchema
 {
     public const model = MkPathModel::class;
 

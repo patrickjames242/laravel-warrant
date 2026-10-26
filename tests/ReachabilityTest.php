@@ -7,17 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 use Warrant\DSL\Compiling\ReachabilityAnalyzer;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Reachability;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 
 beforeEach(function () {
     useWarrantSchemas([
@@ -33,13 +34,13 @@ beforeEach(function () {
 |--------------------------------------------------------------------------
 */
 
-function analyze(string $syntax, string $ability, ?WarrantSchema $schema = null): Reachability
+function analyze(string $syntax, string $ability, ?IAbilitySchema $schema = null): Reachability
 {
     $schema ??= new WarrantScopedModelSchema;
 
     return (new ReachabilityAnalyzer)->analyze(
         expandedFor(
-            WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo($schema::schemaKey()),
+            WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo(schemaKeyOf($schema::class)),
             $schema,
         ),
         $ability,
@@ -387,7 +388,7 @@ class RchDoc extends Model
     }
 }
 
-class RchDocSchema extends WarrantSchema
+class RchDocSchema extends ModelSchema
 {
     public const model = RchDoc::class;
 
@@ -451,7 +452,7 @@ class RchFolder extends Model
     }
 }
 
-class RchFolderSchema extends WarrantSchema
+class RchFolderSchema extends ModelSchema
 {
     public const model = RchFolder::class;
 

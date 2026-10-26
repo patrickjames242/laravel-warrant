@@ -2,7 +2,8 @@
 
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Abilities\IDeclaresAbility;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Context\ContextPolicy;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -21,14 +22,14 @@ final class TenantAbility implements IDeclaresAbility
     }
 }
 
-class CustomAttributeSchema extends WarrantSchema
+class CustomAttributeSchema extends RowlessSchema
 {
     #[Ability] public const VIEW = 'view';
     #[TenantAbility] public const EDIT = 'edit';
     #[TenantAbility(scopedToBranch: true)] public const AUDIT = 'audit';
 }
 
-class DoublyDeclaredAbilitySchema extends WarrantSchema
+class DoublyDeclaredAbilitySchema extends RowlessSchema
 {
     #[Ability]
     #[TenantAbility]
@@ -36,19 +37,19 @@ class DoublyDeclaredAbilitySchema extends WarrantSchema
 }
 
 it('recognizes an author-declared ability attribute alongside #[Ability]', function () {
-    expect(CustomAttributeSchema::abilityNames())->toBe(['view', 'edit', 'audit']);
+    expect((new CustomAttributeSchema)->abilityNames())->toBe(['view', 'edit', 'audit']);
 });
 
 it('takes the required context from whatever the attribute returns', function () {
     $schema = new CustomAttributeSchema;
 
-    expect($schema->getAbilityDefinition('view')->requiredContext)->toBe([]);
-    expect($schema->getAbilityDefinition('edit')->requiredContext)->toBe(['tenant_id']);
-    expect($schema->getAbilityDefinition('audit')->requiredContext)->toBe(['tenant_id', 'branch_id']);
+    expect($schema->ability('view')->requiredContext)->toBe([]);
+    expect($schema->ability('edit')->requiredContext)->toBe(['tenant_id']);
+    expect($schema->ability('audit')->requiredContext)->toBe(['tenant_id', 'branch_id']);
 });
 
 it('enforces a custom attribute\'s required context like any other', function () {
-    expect(CustomAttributeSchema::partitionAbilitiesByContext(
+    expect((new ContextPolicy(new CustomAttributeSchema))->partitionAbilitiesByContext(
         ['view', 'edit', 'audit'],
         ['tenant_id' => 't-1'],
     ))->toBe([
@@ -58,6 +59,6 @@ it('enforces a custom attribute\'s required context like any other', function ()
 });
 
 it('rejects a constant carrying two ability attributes', function () {
-    expect(fn () => DoublyDeclaredAbilitySchema::abilityDefinitions())
+    expect(fn () => (new DoublyDeclaredAbilitySchema)->abilities())
         ->toThrow(InvalidArgumentException::class, 'declares more than one ability attribute');
 });

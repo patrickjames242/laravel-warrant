@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -137,7 +137,7 @@ class SqlItem extends Model
     }
 }
 
-class SqlItemSchema extends WarrantSchema
+class SqlItemSchema extends ModelSchema
 {
     public const model = SqlItem::class;
 

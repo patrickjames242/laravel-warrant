@@ -12,7 +12,7 @@ use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Context\RequiredContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 beforeEach(function () {
@@ -33,7 +33,7 @@ class ContextDoc extends Model
     }
 }
 
-class ContextDocSchema extends WarrantSchema
+class ContextDocSchema extends ModelSchema
 {
     public const model = ContextDoc::class;
 
@@ -79,7 +79,7 @@ class ContextDocWithDefaults extends ContextDocSchema
 {
     public const model = ContextDocWithDefaultsModel::class;
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['workspace_id' => 'w-1'];
     }
@@ -104,7 +104,7 @@ beforeEach(function () {
 // -- reflection ---------------------------------------------------------------
 
 it('reports the schema-wide required context keys via #[RequiredContext]', function () {
-    expect(ContextDocSchema::requiredContextKeys())->toBe(['workspace_id']);
+    expect((new ContextDocSchema)->requiredContextKeys())->toBe(['workspace_id']);
 });
 
 // -- filtering by context -----------------------------------------------------

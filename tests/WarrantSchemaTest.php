@@ -3,9 +3,17 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
+use Warrant\DSL\Compiling\CompilationContext;
+use Warrant\DSL\Compiling\QueryFactory;
+use Warrant\DSL\Compiling\RuleSetCompiler;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -231,80 +239,83 @@ it('hands the schema\'s rules() the provider context, so they may depend on the 
 // -- reflection helpers -------------------------------------------------------
 
 it('returns the full reflected list of abilities', function () {
-    expect(WarrantTestSchema::abilityNames())->toBe(['create', 'publish', 'archive', 'view', 'update']);
+    expect((new WarrantTestSchema)->abilityNames())->toBe(['create', 'publish', 'archive', 'view', 'update']);
 });
 
 it('returns row, global, and all condition keys', function () {
-    expect(WarrantTestSchema::rowConditionKeys())->toBe(['is_teacher', 'via_join']);
-    expect(WarrantTestSchema::globalConditionKeys())->toBe(['is_advisor']);
-    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher', 'via_join']);
+    expect(conditionKeysOf((new WarrantTestSchema)->rowConditions()))->toBe(['is_teacher', 'via_join']);
+    expect(conditionKeysOf((new WarrantTestSchema)->globalConditions()))->toBe(['is_advisor']);
+    expect(conditionKeysOf((new WarrantTestSchema)->conditions()))->toBe(['is_advisor', 'is_teacher', 'via_join']);
 });
 
 it('derives condition keys by snake-casing the method name, no prefix', function () {
     // isTeacher -> is_teacher, isAdvisor -> is_advisor, viaJoin -> via_join
     // (no `condition` prefix).
-    expect(WarrantTestSchema::conditionKeys())->toBe(['is_advisor', 'is_teacher', 'via_join']);
+    expect(conditionKeysOf((new WarrantTestSchema)->conditions()))->toBe(['is_advisor', 'is_teacher', 'via_join']);
 });
 
 it('rejects a condition method typed with the wrong context', function () {
-    expect(fn () => MistypedConditionSchema::conditionKeys())
+    expect(fn () => conditionKeysOf((new MistypedConditionSchema)->conditions()))
         ->toThrow(InvalidArgumentException::class, 'must accept a');
 });
 
 it('binds DSL arguments to declared condition parameters positionally', function () {
-    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
-    $filtered = (new ParameterizedConditionSchema)->applyConditionFilter(
-        'is_specific_user',
+    $schema = new ParameterizedConditionSchema;
+    $filtered = $schema->invokeRowCondition($schema->condition('is_specific_user'), new RowConditionContext(
         makeWarrantTestUser('teacher-role'),
-        warrantTestQuery(),
-        true,
+        $schema->conditionQuery(warrantTestQuery(), 'course_sections'),
+        'course_sections',
+        $schema->keyColumns(),
         ['some-user-id'],
-    );
+    ));
 
     expect($filtered->getBindings())->toBe(['some-user-id']);
 });
 
 it('allows more arguments than declared parameters, leaving the extras on $c->arguments', function () {
-    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     // hasExtraArgs declares one parameter ($first) but is called with two args;
     // $first binds arg[0] and the extra 'b' stays reachable via $c->arguments.
-    $result = (new ParameterizedConditionSchema)->applyConditionFilter(
-        'has_extra_args',
-        makeWarrantTestUser('teacher-role'),
-        warrantTestQuery(),
-        false,
-        ['a', 'b'],
+    $schema = new ParameterizedConditionSchema;
+    $result = $schema->invokeGlobalCondition(
+        $schema->condition('has_extra_args'),
+        new GlobalConditionContext(makeWarrantTestUser('teacher-role'), warrantTestQuery(), ['a', 'b']),
     );
 
     expect($result)->toBeTrue();
 });
 
 it('falls back to a parameter default when the argument is omitted', function () {
-    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
-    $result = (new ParameterizedConditionSchema)->applyConditionFilter(
-        'role_is',
-        makeWarrantTestUser('guest'),
-        warrantTestQuery(),
+    $schema = new ParameterizedConditionSchema;
+    $result = $schema->invokeGlobalCondition(
+        $schema->condition('role_is'),
+        new GlobalConditionContext(makeWarrantTestUser('guest'), warrantTestQuery()),
     );
 
     expect($result)->toBeTrue();
 });
 
-it('rejects a condition invoked with fewer arguments than its required parameters', function () {
-    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
-    expect(fn () => (new ParameterizedConditionSchema)->applyConditionFilter(
-        'is_specific_user',
-        makeWarrantTestUser('teacher-role'),
-        warrantTestQuery(),
-        true,
-        [],
+it('rejects a condition compiled with fewer arguments than its required parameters', function () {
+    $rule = Build::rule()->if('is_specific_user')->theyCan('view')->toRule();
+
+    /* Only the expander makes an expanded syntax, and it validates first; the
+       compiler has to count the arguments on its own all the same. */
+    $expanded = (fn () => new ExpandedSyntax('course_sections', [$rule], new ValidationInput(null)))
+        ->bindTo(null, ExpandedSyntax::class)();
+
+    expect(fn () => (new RuleSetCompiler(new ParameterizedConditionSchema, 'course_sections'))->compile(
+        CompilationContext::ability(
+            QueryFactory::for(warrantTestQuery()),
+            makeWarrantTestUser('teacher-role'),
+            'view',
+            $expanded,
+        )->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'requires at least 1 argument');
 });
 
 it('rejects a rule that supplies fewer condition arguments than required, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->validateWithoutSchemas()->scopedTo($schema::schemaKey());
+    $ruleSet = WarrantSyntax::parse('if is_specific_user they can view')->validateWithoutSchemas()->scopedTo(schemaKeyOf($schema::class));
 
     expect(fn () => validateRuleSet($ruleSet, $schema))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_specific_user] requires at least 1 argument');
@@ -313,19 +324,11 @@ it('rejects a rule that supplies fewer condition arguments than required, during
 it('accepts a rule that supplies the required condition arguments, during validation', function () {
     useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $schema = new ParameterizedConditionSchema;
-    $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->validateWithoutSchemas()->scopedTo($schema::schemaKey());
+    $ruleSet = WarrantSyntax::parse("if is_specific_user('u-1') they can view")->validateWithoutSchemas()->scopedTo(schemaKeyOf($schema::class));
 
     validateRuleSet($ruleSet, $schema);
 
     expect(true)->toBeTrue();
-});
-
-it('requires a target row for row conditions', function () {
-    expect(fn () => (new WarrantTestSchema)->applyConditionFilter(
-        'is_teacher',
-        makeWarrantTestUser('teacher-role'),
-        warrantTestQuery()
-    ))->toThrow(InvalidArgumentException::class, 'requires a target row');
 });
 
 // -- selectUserAbilitiesInQuery (behavioral) --------------------------------------

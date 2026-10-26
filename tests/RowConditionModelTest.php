@@ -10,7 +10,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -50,7 +50,7 @@ class RowModelSectionModel extends Model
     }
 }
 
-class RowModelSectionSchema extends WarrantSchema
+class RowModelSectionSchema extends ModelSchema
 {
     public const model = RowModelSectionModel::class;
 

@@ -4,18 +4,17 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Database\Eloquent\Model;
 use Warrant\Builders\Build;
+use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
@@ -25,6 +24,7 @@ use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
+use Warrant\Schema\Vocabulary;
 
 class TemplateExpansionModel extends Model
 {
@@ -794,9 +794,9 @@ it('reports an unknown template over its name, and too few arguments over the in
     $source = "for course_sections {\n  @include nope for view\n  can they view { @include needs_two('a') }\n}";
     $catalog = new class implements ISchemaCatalog
     {
-        public function find(string $schemaKey): ?ISchemaVocabulary
+        public function find(string $schemaKey): ?Vocabulary
         {
-            return $schemaKey === 'course_sections' ? new TemplateExpansionSchema : null;
+            return $schemaKey === 'course_sections' ? Vocabulary::of(new TemplateExpansionSchema) : null;
         }
     };
 

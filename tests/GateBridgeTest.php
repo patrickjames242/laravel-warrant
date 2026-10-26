@@ -16,7 +16,7 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -38,7 +38,7 @@ class GateTestModel extends Model
     }
 }
 
-class GateTestSchema extends WarrantSchema
+class GateTestSchema extends ModelSchema
 {
     public const model = GateTestModel::class;
 
@@ -233,7 +233,7 @@ it('does not resolve Warrant abilities when register_gate is false', function ()
 it('carries the Warrant denial message through inspect/authorize', function () {
     seedGateSections();
     useWarrantSchemas(['course_sections' => GateTestSchema::class]);
-    bindWarrantRuleSet(new RuleSetNode(nameNode(GateTestSchema::schemaKey()), [
+    bindWarrantRuleSet(new RuleSetNode(nameNode(schemaKeyOf(GateTestSchema::class)), [
         Build::rule()->theyCan('view')->toRule(),
         Build::rule()->if('is_teacher')
             ->theyCannotBecause('view', 'teacher blocked')->toRule(),

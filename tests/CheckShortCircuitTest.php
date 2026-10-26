@@ -283,7 +283,7 @@ it("queries a no-target ability gated on a global condition", function () {
 it("authorize() still diagnoses a folded denial", function () {
 	seedShortCircuitSections();
 	bindWarrantRuleSet(
-		new RuleSetNode(nameNode(WarrantTestSchema::schemaKey()), [
+		new RuleSetNode(nameNode(schemaKeyOf(WarrantTestSchema::class)), [
 			Build::rule()->theyCannotBecause("view", "not yours")->toRule(),
 		], SyntaxLocation::noProducer()),
 	);

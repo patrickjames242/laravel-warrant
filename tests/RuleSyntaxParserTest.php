@@ -1,6 +1,7 @@
 <?php
 
 use Warrant\Builders\Build;
+use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -8,29 +9,35 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
+use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
-use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
+use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\Types\Classes\RowlessSchema;
+use Warrant\Schema\Vocabulary;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -44,7 +51,7 @@ function languageRuleErrors(string $syntax): array
 {
     $noSchemas = new class implements ISchemaCatalog
     {
-        public function find(string $schemaKey): ?ISchemaVocabulary
+        public function find(string $schemaKey): ?Vocabulary
         {
             return null;
         }
@@ -1159,29 +1166,51 @@ it('reads a header with nothing after it as an empty rule set, not a condition',
  * The rules a rule set's ability blocks stand for. The parser keeps a block as
  * written; expansion is what applies its header.
  *
+ * The rules are validated against a vocabulary declaring every name they use, so
+ * the block tests can name whatever reads best.
+ *
  * @return list<RuleNode>
  */
 function openBlocks(RuleSetNode $set): array
 {
-    return expandedFor($set, new EveryNameSchema)->rules;
+    registerWarrantSchema($set->schemaKey(), EveryNameSchema::class);
+
+    $names = everyNameIn($set);
+    $vocabulary = new Vocabulary(
+        array_map(static fn (string $name): AbilityDefinition => new AbilityDefinition($name), $names),
+        array_map(static fn (string $name): ConditionDefinition => new ConditionDefinition($name, $name, ConditionKind::Global), $names),
+        [],
+        null,
+    );
+
+    $input = new ValidationInput(catalogOf([$set->schemaKey() => $vocabulary], new RegisteredSchemas));
+    $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
+
+    return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input))->rules;
 }
 
 /**
- * The test schema, declaring every ability and condition a rule names besides
- * its own, so the block tests can name whatever reads best.
+ * Every name written anywhere under $node.
+ *
+ * @return list<string>
  */
-final class EveryNameSchema extends WarrantTestSchema
+function everyNameIn(INode $node): array
 {
-    public function getAbilityDefinition(string $abilityKey): ?AbilityDefinition
-    {
-        return parent::getAbilityDefinition($abilityKey) ?? new AbilityDefinition($abilityKey);
+    $names = $node instanceof NameNode ? [$node->name] : [];
+
+    foreach ($node->children() as $child) {
+        array_push($names, ...everyNameIn($child));
     }
 
-    public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
-    {
-        return parent::getConditionDefinition($conditionKey)
-            ?? new ConditionDefinition($conditionKey, $conditionKey, ConditionKind::Global);
-    }
+    return array_values(array_unique($names));
+}
+
+/**
+ * The schema the block tests expand under: it declares nothing of its own, and
+ * its rules name only what the vocabulary {@see openBlocks()} builds declares.
+ */
+final class EveryNameSchema extends RowlessSchema
+{
 }
 
 it('parses an ability block into the rules its longhand would produce', function () {

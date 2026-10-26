@@ -8,32 +8,34 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\QuerySchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
 |------------------------------------------------------------------------------
-| virtualTable — a schema whose rows come from a query
+| QuerySchema — a schema whose rows come from a query
 |------------------------------------------------------------------------------
 |
-| A schema draws its rows from a model's table or from a virtualTable(), never
-| both. A virtual table is a database view defined in the schema instead of in
-| DDL: the compiler selects from it as a subquery, aliased to the schema's key,
-| so conditions and rules read exactly as they do over a table.
+| A query schema's rows are the output of its rows() query: a database view
+| defined in the schema instead of in a migration. The compiler selects from it
+| as a subquery, under the rows' name, so conditions and rules read exactly as
+| they do over a table.
 |
 | What such a schema gives up is everything a model was buying beyond the rows
 | themselves: there are no Eloquent scopes to spend, no hydrated $c->model, and
-| no primary key — so it must address its rows with a matchKey() of its own, and
-| a condition names its columns through column('<column>').
+| no primary key. It names its rows by key() or a matchKey() of its own, and a
+| condition names its columns through column('<column>').
 |
 */
 
@@ -49,7 +51,7 @@ class VtTeamModel extends Model
     }
 }
 
-class VtTeamSchema extends WarrantSchema
+class VtTeamSchema extends ModelSchema
 {
     public const model = VtTeamModel::class;
 
@@ -64,7 +66,7 @@ class VtTeamSchema extends WarrantSchema
  * One row per team per calendar day, carrying that day's shift count — the
  * product-shaped case, where no stored row corresponds to a view row.
  */
-class VtDaySchema extends WarrantSchema
+class VtDaySchema extends QuerySchema
 {
     #[Ability]
     public const VIEW = 'view';
@@ -72,7 +74,7 @@ class VtDaySchema extends WarrantSchema
     #[Ability]
     public const ASSIGN = 'assign';
 
-    public static function virtualTable(): ?QueryBuilder
+    public function rows(): QueryBuilder
     {
         return DB::table('vt_teams')
             ->crossJoin('vt_calendar')
@@ -115,14 +117,14 @@ class VtDaySchema extends WarrantSchema
  * identified by. That is all the built-in key needs, so it declares no
  * matchKey() of its own — and its conditions may write column() bare.
  */
-class VtSpineSchema extends WarrantSchema
+class VtSpineSchema extends QuerySchema
 {
-    public const key = 'team_id';
+    protected function key(): string { return 'team_id'; }
 
     #[Ability]
     public const VIEW = 'view';
 
-    public static function virtualTable(): ?QueryBuilder
+    public function rows(): QueryBuilder
     {
         return DB::table('vt_teams')
             ->select(['vt_teams.id as team_id', 'vt_teams.region']);
@@ -142,18 +144,6 @@ class VtSpineSchema extends WarrantSchema
     }
 }
 
-/** A virtual table declaring no key, so column() has no column to use. */
-class VtKeylessSchema extends WarrantSchema
-{
-    #[Ability]
-    public const VIEW = 'view';
-
-    public static function virtualTable(): ?QueryBuilder
-    {
-        return DB::table('vt_teams')->select(['vt_teams.id as team_id']);
-    }
-}
-
 beforeEach(function () {
     Schema::create('vt_teams', function ($table) {
         $table->string('id');
@@ -169,7 +159,6 @@ beforeEach(function () {
     useWarrantSchemas([
         'vt_teams' => VtTeamSchema::class,
         'vt_days' => VtDaySchema::class,
-        'vt_keyless' => VtKeylessSchema::class,
         'vt_spine' => VtSpineSchema::class,
     ]);
 });
@@ -216,12 +205,12 @@ function seedVtRows(): void
 
 // -- the rows themselves ------------------------------------------------------
 
-it('selects from the virtual table under the schema key', function () {
+it('selects from the query under the rows\' name', function () {
     seedVtRows();
     bindVtRules(['vt_days' => 'if in_my_region they can view']);
 
     $guard = vtDayGuard();
-    $rows = $guard->filterQuery($guard->query(), 'view')->orderBy('vt_days.day')->get();
+    $rows = $guard->filterQuery($guard->query(), 'view')->orderBy('warrant_rows.day')->get();
 
     // Both of the north team's days, and neither of the south team's.
     expect($rows)->toHaveCount(2);
@@ -230,27 +219,27 @@ it('selects from the virtual table under the schema key', function () {
     expect($rows[1]->shift_count)->toBe(0);
 });
 
-it('filters on a column the virtual table computes', function () {
+it('filters on a column the query computes', function () {
     seedVtRows();
     bindVtRules(['vt_days' => 'if is_understaffed they can assign']);
 
     $guard = vtDayGuard();
-    $rows = $guard->filterQuery($guard->query(), 'assign')->orderBy('vt_days.day')->get();
+    $rows = $guard->filterQuery($guard->query(), 'assign')->orderBy('warrant_rows.day')->get();
 
     // Only the days with fewer than two shifts: everything but north-1's 14th.
     expect($rows)->toHaveCount(3);
     expect(collect($rows)->every(fn ($row) => $row->shift_count < 2))->toBeTrue();
 });
 
-it('wraps the virtual table as an aliased subquery in the emitted SQL', function () {
+it('wraps the query as an aliased subquery in the emitted SQL', function () {
     bindVtRules(['vt_days' => 'if in_my_region they can view']);
 
     $guard = vtDayGuard();
     $sql = normalizeWarrantSql($guard->filterQuery($guard->query(), 'view')->toRawSql());
 
     expect($sql)->toContain('from (select');
-    expect($sql)->toContain(') as "vt_days"');
-    expect($sql)->toContain('"vt_days"."region" = \'north\'');
+    expect($sql)->toContain(') as "warrant_rows"');
+    expect($sql)->toContain('"warrant_rows"."region" = \'north\'');
 });
 
 // -- addressing one of its rows -----------------------------------------------
@@ -271,7 +260,7 @@ it('carries a per-row abilities column with no key involved', function () {
     bindVtRules(['vt_days' => 'if is_understaffed they can assign']);
 
     $guard = vtDayGuard();
-    $rows = $guard->selectAbilitiesInQuery($guard->query()->orderBy('vt_days.day'))->get();
+    $rows = $guard->selectAbilitiesInQuery($guard->query()->orderBy('warrant_rows.day'))->get();
 
     expect($rows)->toHaveCount(4);
     expect(json_decode($rows[0]->abilities, true))->toBe([]);          // north-1, 14th
@@ -280,7 +269,7 @@ it('carries a per-row abilities column with no key involved', function () {
 
 // -- what a hop into one looks like -------------------------------------------
 
-it('selects a hop into a virtual table as a subquery', function () {
+it('selects a hop into a query schema as a subquery', function () {
     bindVtRules([
         'vt_teams' => 'if can(assign for vt_days(@column id, @context day)) they can plan',
         'vt_days' => 'if is_understaffed they can assign',
@@ -294,8 +283,8 @@ it('selects a hop into a virtual table as a subquery', function () {
     );
 
     expect($sql)->toContain('exists (select * from (select');
-    expect($sql)->toContain(') as "vt_days" where "vt_days"."team_id" = "vt_teams"."id"');
-    expect($sql)->toContain('"vt_days"."day" = \'2026-09-15\'');
+    expect($sql)->toContain(') as "warrant_rows" where "warrant_rows"."team_id" = "vt_teams"."id"');
+    expect($sql)->toContain('"warrant_rows"."day" = \'2026-09-15\'');
 });
 
 it('answers a hop against real rows', function () {
@@ -337,8 +326,8 @@ it('compares the declared key column in the emitted SQL', function () {
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema);
     $sql = normalizeWarrantSql($guard->filterQuery($guard->query(), 'view')->toRawSql());
 
-    // column() with no argument resolved to the declared key, under the schema key.
-    expect($sql)->toContain('"vt_spine"."team_id" = \'north-1\'');
+    // column() with no argument resolved to the declared key, under the rows' name.
+    expect($sql)->toContain('"warrant_rows"."team_id" = \'north-1\'');
 });
 
 it('folds a targeted check whose declared key is given nothing', function () {
@@ -350,54 +339,6 @@ it('folds a targeted check whose declared key is given nothing', function () {
         ->toBeFalse();
 });
 
-it('rejects a schema that names a model and also declares a key', function () {
-    useWarrantSchemas(['vt_keyed_model' => VtKeyedModelSchema::class]);
-
-    expect(fn () => Warrant::registry()->resolveSchemaClassOrFail('vt_keyed_model'))
-        ->toThrow(LogicException::class, 'answers for its own key');
-});
-
-it('refuses a targeted check against rows it cannot name', function () {
-    bindVtRules(['vt_keyless' => 'they can view']);
-
-    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtKeylessSchema);
-
-    // Refused up front, rather than failing later on a key that was never there.
-    expect(fn () => $guard->can('view', 'anything'))
-        ->toThrow(InvalidArgumentException::class, 'has rows but no way to name one');
-});
-
-it('refuses a row-bound reference to rows it cannot name', function () {
-    expect(fn () => validateRegistered(WarrantSyntax::parse(
-        'if can(view for vt_keyless(@column id)) they can plan',
-    )->validateWithoutSchemas()->scopedTo('vt_teams')))->toThrow(InvalidArgumentException::class, 'has no way to name one');
-});
-
-it('still filters and lists abilities for rows it cannot name', function () {
-    /* Why a keyless virtual table is allowed at all: neither of these needs to
-       name a row, because both correlate against rows the surrounding query
-       already produced. */
-    seedVtRows();
-    bindVtRules(['vt_keyless' => 'they can view']);
-
-    $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtKeylessSchema);
-
-    expect($guard->filterQuery($guard->query(), 'view')->get())->toHaveCount(2);
-
-    $rows = $guard->selectAbilitiesInQuery($guard->query())->get();
-    expect(json_decode($rows[0]->abilities, true))->toBe(['view']);
-
-    // And a no-target check is unaffected.
-    expect($guard->can('view'))->toBeTrue();
-});
-
-it('rejects a schema that names both a model and a virtual table', function () {
-    useWarrantSchemas(['vt_both' => VtBothSchema::class]);
-
-    expect(fn () => Warrant::registry()->resolveSchemaClassOrFail('vt_both'))
-        ->toThrow(LogicException::class, 'draws its rows from one or the other');
-});
-
 it('still refuses a targeted check against a schema with no rows at all', function () {
     useWarrantSchemas(['vt_cap' => VtCapabilitySchema::class]);
     bindVtRules(['vt_cap' => 'they can view']);
@@ -406,33 +347,8 @@ it('still refuses a targeted check against a schema with no rows at all', functi
         ->toThrow(InvalidArgumentException::class, 'has no rows and does not support targeted checks');
 });
 
-/** Names both sources, which is the one thing a schema may not do. */
-class VtBothSchema extends WarrantSchema
-{
-    public const model = VtTeamModel::class;
-
-    #[Ability]
-    public const VIEW = 'view';
-
-    public static function virtualTable(): ?QueryBuilder
-    {
-        return DB::table('vt_teams');
-    }
-}
-
-/** A model and a key both: the model's own key already answers. */
-class VtKeyedModelSchema extends WarrantSchema
-{
-    public const model = VtTeamModel::class;
-
-    public const key = 'id';
-
-    #[Ability]
-    public const VIEW = 'view';
-}
-
-/** Neither source: a capability schema, unchanged by any of this. */
-class VtCapabilitySchema extends WarrantSchema
+/** No rows at all: a rowless schema. */
+class VtCapabilitySchema extends RowlessSchema
 {
     #[Ability]
     public const VIEW = 'view';

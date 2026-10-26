@@ -15,7 +15,7 @@ use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -516,7 +516,7 @@ class SrDoc extends Model
     }
 }
 
-class SrDocSchema extends WarrantSchema
+class SrDocSchema extends ModelSchema
 {
     public const model = SrDoc::class;
 

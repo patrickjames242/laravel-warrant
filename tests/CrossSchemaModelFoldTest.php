@@ -6,15 +6,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -56,7 +56,7 @@ class FoldDoc extends Model
     }
 }
 
-class FoldDocSchema extends WarrantSchema
+class FoldDocSchema extends ModelSchema
 {
     public const model = FoldDoc::class;
 
@@ -82,7 +82,7 @@ class FoldFolder extends Model
     }
 }
 
-class FoldFolderSchema extends WarrantSchema
+class FoldFolderSchema extends ModelSchema
 {
     public const model = FoldFolder::class;
 

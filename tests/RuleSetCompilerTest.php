@@ -3,29 +3,31 @@
 require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
-use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\Schema\Abilities\AbilityDefinition;
-use Warrant\Schema\Conditions\ConditionDefinition;
-use Warrant\Schema\Conditions\ConditionKind;
-use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
-use Warrant\WarrantGate;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\HasWarrantSchema;
+use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
+use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\WarrantGate;
 
 /**
  * A tiny user carrying just a role, enough for the fake conditions below.
@@ -50,6 +52,8 @@ final class CompilerTestUser implements Authenticatable
  */
 final class CompilerDocModel extends EloquentModel
 {
+    use HasWarrantSchema;
+
     protected $table = 'docs';
 
     protected $primaryKey = 'id';
@@ -57,138 +61,85 @@ final class CompilerDocModel extends EloquentModel
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    public static function warrantSchema(): string
+    {
+        return CompilerDocSchema::class;
+    }
 }
 
 /**
- * Fake schema seam:
+ * The schema the compiler tests compile against:
  *  - abilities: view, edit, delete, publish
- *  - is_teacher   (targeted)        : id = "teacher:{role}"
- *  - is_owner(id) (targeted, param) : id = param[0]
- *  - is_admin     (no-target bool)  : role === 'admin'
+ *  - is_teacher   (row)            : id = "teacher:{role}"
+ *  - is_owner(id) (row, argument)  : id = argument
+ *  - is_admin     (global, bool)   : role === 'admin'
  */
-final class FakeConditionResolver implements IConditionResolver
+final class CompilerDocSchema extends ModelSchema
 {
-    private const TARGETED = ['is_teacher' => true, 'is_owner' => true, 'is_admin' => false, 'id_is' => true, 'ctx_id_is' => true, 'id_is_optional' => true, 'adds_nothing' => true];
+    public const model = CompilerDocModel::class;
 
-    public static function schemaKey(): string
+    #[Ability] public const VIEW = 'view';
+    #[Ability] public const EDIT = 'edit';
+    #[Ability] public const DELETE = 'delete';
+    #[Ability] public const PUBLISH = 'publish';
+
+    #[RowCondition]
+    public function isTeacher(RowConditionContext $c): Builder
     {
-        return 'docs';
+        return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role}"]);
     }
 
-    public static function modelClass(): string
+    #[RowCondition]
+    public function isOwner(RowConditionContext $c, mixed $id): Builder
     {
-        return CompilerDocModel::class;
+        return $c->query->whereRaw("{$c->column()} = ?", [$id]);
     }
 
-    public static function hasRows(): bool
+    /** Matches a row whose id equals the (context- or literal-supplied) argument. */
+    #[RowCondition]
+    public function idIs(RowConditionContext $c, mixed $id): Builder
     {
-        return true;
+        return $c->query->whereRaw("{$c->column()} = ?", [$id]);
     }
 
-    public static function hasRowKey(): bool
+    /**
+     * Like id_is, but a null argument means "match every row": the condition, not
+     * the compiler, decides what an absent @context key means. It has to say so
+     * with a literal true, since returning the query untouched is an error (see
+     * adds_nothing).
+     */
+    #[RowCondition]
+    public function idIsOptional(RowConditionContext $c, mixed $id = null): Builder|bool
     {
-        return true;
+        return $id === null ? true : $c->query->whereRaw("{$c->column()} = ?", [$id]);
     }
 
-    public function describesRows(): bool
+    /** Returns its query without adding anything, which is always an error. */
+    #[RowCondition]
+    public function addsNothing(RowConditionContext $c): Builder
     {
-        return static::hasRows();
+        return $c->query;
     }
 
-    public function canNameARow(): bool
+    /** Reads the ambient context bag directly, with no @context argument in the rule. */
+    #[RowCondition]
+    public function ctxIdIs(RowConditionContext $c): Builder
     {
-        return static::hasRowKey();
+        return $c->query->whereRaw("{$c->column()} = ?", [$c->context['doc_id'] ?? '__missing__']);
     }
 
-    public static function virtualTable(): ?Builder
+    #[GlobalCondition]
+    public function isAdmin(GlobalConditionContext $c): bool
     {
-        return null;
-    }
-
-    public static function abilityNames(): array
-    {
-        return ['view', 'edit', 'delete', 'publish'];
-    }
-
-    public function getAbilityDefinition(string $name): ?AbilityDefinition
-    {
-        return in_array($name, self::abilityNames(), true) ? new AbilityDefinition($name) : null;
-    }
-
-    // This double declares no rule templates; an @include against it is unknown.
-    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition
-    {
-        return null;
-    }
-
-    public function getConditionDefinition(string $name): ?ConditionDefinition
-    {
-        if (! array_key_exists($name, self::TARGETED)) {
-            return null;
-        }
-
-        // is_owner and id_is read $parameters[0]; the rest take no required args.
-        $required = in_array($name, ['is_owner', 'id_is'], true) ? 1 : 0;
-
-        return new ConditionDefinition(
-            $name,
-            $name,
-            self::TARGETED[$name] ? ConditionKind::Row : ConditionKind::Global,
-            $required,
-        );
-    }
-
-    public function getKeyDefinition(): ConditionDefinition
-    {
-        return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, 1);
-    }
-
-    public function contextForReference(array $context, string $ability): ?array
-    {
-        return $context;
-    }
-
-    /** The default key: primary-key equality, unknown when nothing was named. */
-    public function applyKey(Authenticatable $user, Builder $whereClause, array $arguments, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): ?Builder
-    {
-        return ($arguments[0] ?? null) === null
-            ? null
-            : $whereClause->where(($rowQualifier ?? 'docs').'.id', '=', $arguments[0]);
-    }
-
-    public function applyCondition(string $name, Authenticatable $user, Builder $whereClause, bool $targeted, array $parameters, array $context = [], ?EloquentModel $targetModel = null, ?string $rowQualifier = null): Builder|bool
-    {
-        /* Qualified the way a real schema does it (see ResolvesConditions): with
-           whatever the compiler says this frame's row is called, falling back to
-           CompilerDocModel's own table. */
-        $row = ($rowQualifier ?? 'docs') . '.id';
-
-        return match ($name) {
-            'is_teacher' => $whereClause->whereRaw("{$row} = ?", ["teacher:{$user->role}"]),
-            'is_owner' => $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
-            // Matches a row whose id equals the (context- or literal-supplied) argument.
-            'id_is' => $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
-            // Like id_is, but a null argument means "match every row" — proves the
-            // condition (not the compiler) decides what an absent @context key
-            // means. It has to say so with a literal true: returning the query
-            // untouched is an error (see adds_nothing).
-            'id_is_optional' => $parameters[0] === null
-                ? true
-                : $whereClause->whereRaw("{$row} = ?", [$parameters[0]]),
-            // Returns its query without adding anything — always an error.
-            'adds_nothing' => $whereClause,
-            // Reads the ambient context bag directly (no @context arg in the rule).
-            'ctx_id_is' => $whereClause->whereRaw("{$row} = ?", [$context['doc_id'] ?? '__missing__']),
-            'is_admin' => $user->role === 'admin',
-            default => throw new RuntimeException("unknown condition {$name}"),
-        };
+        return $c->user->role === 'admin';
     }
 }
 
 function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1', array $bindings = [], array $context = []): array
 {
-    $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    $compiler = new RuleSetCompiler(new CompilerDocSchema, 'docs');
+    $ruleSet = expandedFor(WarrantSyntax::parse(new BoundSyntax($syntax, $bindings))->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
 
     $query = DB::table('docs');
 
@@ -209,8 +160,8 @@ function compileDocIds(string $syntax, string $ability, ?string $role = 'role-1'
  */
 function compileGateDocIds(string $syntax, array $abilities, AbilityMatchMode $matchMode, ?string $role = 'role-1'): array
 {
-    $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    $compiler = new RuleSetCompiler(new CompilerDocSchema, 'docs');
+    $ruleSet = expandedFor(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
 
     $query = DB::table('docs');
 
@@ -320,11 +271,11 @@ it('resolves a global boolean condition', function () {
 });
 
 it('leaves a row condition unanswered with no target, negated or not', function () {
-    $compiler = new RuleSetCompiler(new FakeConditionResolver);
+    $compiler = new RuleSetCompiler(new CompilerDocSchema, 'docs');
     $user = new CompilerTestUser('role-1');
 
     // No target row in scope, so is_teacher cannot be evaluated at all.
-    $granted = expandedFor(WarrantSyntax::parse('if is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    $granted = expandedFor(WarrantSyntax::parse('if is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
     $q = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q), $user, 'view', $granted)->withoutTarget(),
@@ -334,7 +285,7 @@ it('leaves a row condition unanswered with no target, negated or not', function 
     /* And `not is_teacher` selects nothing either: negating an unanswered
        question leaves it unanswered, and a `where` keeps a row only on a
        definite yes. */
-    $negated = expandedFor(WarrantSyntax::parse('if not is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    $negated = expandedFor(WarrantSyntax::parse('if not is_teacher they can view')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
     $q2 = DB::table('docs');
     $compiler->compile(
         CompilationContext::ability(QueryFactory::for($q2), $user, 'view', $negated)->withoutTarget(),
@@ -474,27 +425,27 @@ it('rejects a condition that adds no where clause', function () {
 it('accepts a rule referencing any context key without declaration', function () {
     // Context keys need no declaration; an absent one just makes its condition
     // false at compile time. Required-ness is enforced at check time, not here.
-    validateRuleSet(WarrantSyntax::parse('if id_is(@context nope) they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    validateRuleSet(WarrantSyntax::parse('if id_is(@context nope) they can view')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
     expect(true)->toBeTrue();
 });
 
 it('validates unknown ability and condition names', function () {
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('they can fly')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('they can fly')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema))
         ->toThrow(InvalidArgumentException::class, 'Ability [fly]');
 
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_wizard they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver))
+    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_wizard they can view')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema))
         ->toThrow(InvalidArgumentException::class, 'Condition [is_wizard]');
 
     // A valid set passes silently.
-    validateRuleSet(WarrantSyntax::parse('if is_teacher they can view, edit')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    validateRuleSet(WarrantSyntax::parse('if is_teacher they can view, edit')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
     expect(true)->toBeTrue();
 });
 
 it('names the rule set, not the registry, when a schema-less can has nowhere to get one', function () {
     /* A can(...) naming no schema crosses to nothing and looks nothing up, so the
        message points at the rule set rather than blaming the registry. */
-    $compiler = new RuleSetCompiler(new FakeConditionResolver);
-    $ruleSet = expandedFor(WarrantSyntax::parse('if can(edit) they can view')->validateWithoutSchemas()->scopedTo('docs'), new FakeConditionResolver);
+    $compiler = new RuleSetCompiler(new CompilerDocSchema, 'docs');
+    $ruleSet = expandedFor(WarrantSyntax::parse('if can(edit) they can view')->validateWithoutSchemas()->scopedTo('docs'), new CompilerDocSchema);
 
     expect(fn () => $compiler->compile(
         CompilationContext::ability(
@@ -568,10 +519,10 @@ it('passes over the wildcard, which names no ability in particular', function ()
 it('refuses to compile the placeholder an analysis reads in place of a missing condition', function () {
     $ruleSet = expandedFor(
         new RuleSetNode(nameNode('docs'), [new RuleNode(new MissingExpressionNode(SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
-        new FakeConditionResolver,
+        new CompilerDocSchema,
     );
 
-    expect(fn () => (new RuleSetCompiler(new FakeConditionResolver))->compile(
+    expect(fn () => (new RuleSetCompiler(new CompilerDocSchema, 'docs'))->compile(
         CompilationContext::ability(QueryFactory::for(DB::table('docs')), new CompilerTestUser('role-1'), 'view', $ruleSet)
             ->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'A rule with a missing condition cannot be compiled');
@@ -580,10 +531,10 @@ it('refuses to compile the placeholder an analysis reads in place of a missing c
 it('refuses to compile the placeholder an analysis reads in place of a missing argument', function () {
     $ruleSet = expandedFor(
         new RuleSetNode(nameNode('docs'), [new RuleNode(new ConditionNode(nameNode('is_owner'), [argumentNode(new MissingArgumentNode(SyntaxLocation::noProducer()))], SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer()),
-        new FakeConditionResolver,
+        new CompilerDocSchema,
     );
 
-    expect(fn () => (new RuleSetCompiler(new FakeConditionResolver))->compile(
+    expect(fn () => (new RuleSetCompiler(new CompilerDocSchema, 'docs'))->compile(
         CompilationContext::ability(QueryFactory::for(DB::table('docs')), new CompilerTestUser('role-1'), 'view', $ruleSet)
             ->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'A rule with a missing argument cannot be compiled');

@@ -19,7 +19,8 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -473,7 +474,7 @@ class ChkDoc extends Model
     }
 }
 
-class ChkDocSchema extends WarrantSchema
+class ChkDocSchema extends ModelSchema
 {
     public const model = ChkDoc::class;
 
@@ -495,11 +496,11 @@ class ChkTarget extends Model
     }
 }
 
-class ChkTargetSchema extends WarrantSchema
+class ChkTargetSchema extends ModelSchema
 {
     public const model = ChkTarget::class;
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['fallback' => 'role-default'];
     }
@@ -537,7 +538,7 @@ class ChkTargetSchema extends WarrantSchema
     }
 }
 
-class ChkCapabilitySchema extends WarrantSchema
+class ChkCapabilitySchema extends RowlessSchema
 {
 
     #[GlobalCondition]

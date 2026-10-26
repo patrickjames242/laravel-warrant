@@ -5,16 +5,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Context\RequiredContext;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -178,7 +179,7 @@ class RcDoc extends Model
     }
 }
 
-class RcDocSchema extends WarrantSchema
+class RcDocSchema extends ModelSchema
 {
     public const model = RcDoc::class;
 
@@ -189,7 +190,7 @@ class RcDocSchema extends WarrantSchema
     public const PUBLISH = 'publish';
 }
 
-class RcRegionSchema extends WarrantSchema
+class RcRegionSchema extends RowlessSchema
 {
     #[RequiredContext]
     public const REGION = 'region';
@@ -207,7 +208,7 @@ class RcRegionSchema extends WarrantSchema
     }
 }
 
-class RcDefaultedRegionSchema extends WarrantSchema
+class RcDefaultedRegionSchema extends RowlessSchema
 {
     #[RequiredContext]
     public const REGION = 'region';
@@ -215,7 +216,7 @@ class RcDefaultedRegionSchema extends WarrantSchema
     #[Ability]
     public const VIEW = 'view';
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['region' => 'north'];
     }

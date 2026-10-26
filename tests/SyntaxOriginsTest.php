@@ -16,8 +16,8 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Diagnostic;
@@ -34,7 +34,7 @@ use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantManager;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -51,7 +51,7 @@ class OriginDoc extends Model
     }
 }
 
-class OriginDocSchema extends WarrantSchema
+class OriginDocSchema extends ModelSchema
 {
     public const model = OriginDoc::class;
 
@@ -358,7 +358,7 @@ it('rejects a with key written twice in the compiler too', function () {
     );
     $rule = new RuleNode($handle, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
 
-    expect(fn () => (new RuleSetCompiler(new OriginDocSchema, app(WarrantManager::class)))->compile(
+    expect(fn () => (new RuleSetCompiler(new OriginDocSchema, 'origin_docs', app(WarrantManager::class)))->compile(
         CompilationContext::ability(
             QueryFactory::for(DB::table('origin_docs')),
             makeWarrantTestUser('origin'),

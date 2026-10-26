@@ -18,7 +18,7 @@ use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -325,7 +325,7 @@ class DcFolder extends Model
     }
 }
 
-class DcFolderSchema extends WarrantSchema
+class DcFolderSchema extends ModelSchema
 {
     public const model = DcFolder::class;
 
@@ -449,7 +449,7 @@ class DcFile extends Model
     }
 }
 
-class DcFileSchema extends WarrantSchema
+class DcFileSchema extends ModelSchema
 {
     public const model = DcFile::class;
 

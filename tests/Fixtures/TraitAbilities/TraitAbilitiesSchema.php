@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Warrant\Tests\Fixtures\TraitAbilities;
 
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 /**
  * A schema with abilities of its own and abilities from traits, for reading
  * where each one is declared.
  */
-class TraitAbilitiesSchema extends WarrantSchema
+class TraitAbilitiesSchema extends RowlessSchema
 {
     use DeclaresPublishing;
 

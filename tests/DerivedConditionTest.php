@@ -14,17 +14,18 @@ use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
-use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Validation\ValidationInput;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -242,7 +243,7 @@ it('leaves the call in the expanded tree, around the expression it answered with
 it('refuses to compile a derived condition nobody expanded', function () {
     $rule = WarrantSyntax::parse('if as_text they can view')->validateWithoutSchemas()->scopedTo('dk_docs')->entries[0];
 
-    expect(fn () => (new RuleSetCompiler(new DkDocSchema))->compile(
+    expect(fn () => (new RuleSetCompiler(new DkDocSchema, 'dk_docs'))->compile(
         CompilationContext::ability(
             QueryFactory::for(DB::table('dk_docs')),
             makeWarrantTestUser('role-1'),
@@ -313,7 +314,7 @@ it('accepts a derived condition answering with a constant inside a check(...) pr
 
 it('rejects an expression from a row condition, pointing at #[DerivedCondition]', function () {
     expect(fn () => dkFilterSql('if returns_expression they can view'))
-        ->toThrow(InvalidArgumentException::class, 'returned an expression; a row or global condition answers');
+        ->toThrow(InvalidArgumentException::class, 'a row or global condition answers with the query it constrained');
 
     expect(fn () => dkFilterSql('if returns_expression they can view'))
         ->toThrow(InvalidArgumentException::class, '#[DerivedCondition]');
@@ -322,30 +323,30 @@ it('rejects an expression from a row condition, pointing at #[DerivedCondition]'
 // -- declaring one ------------------------------------------------------------
 
 it('lists derived conditions among the schema\'s conditions', function () {
-    expect(DkDocSchema::derivedConditionKeys())->toContain('owned_or_tenant', 'as_text', 'needs_two');
-    expect(DkDocSchema::conditionKeys())->toContain('owned_or_tenant', 'is_owned');
-    expect(DkDocSchema::rowConditionKeys())->not->toContain('owned_or_tenant');
+    expect(conditionKeysOf((new DkDocSchema)->derivedConditions()))->toContain('owned_or_tenant', 'as_text', 'needs_two');
+    expect(conditionKeysOf((new DkDocSchema)->conditions()))->toContain('owned_or_tenant', 'is_owned');
+    expect(conditionKeysOf((new DkDocSchema)->rowConditions()))->not->toContain('owned_or_tenant');
 });
 
 it('counts every parameter as an argument, there being no context object', function () {
-    $definition = (new DkDocSchema)->getConditionDefinition('needs_two');
+    $definition = (new DkDocSchema)->condition('needs_two');
 
     expect($definition->isDerived())->toBeTrue();
     expect($definition->requiredArgumentCount)->toBe(2);
 });
 
 it('rejects a derived condition that takes a context object', function () {
-    expect(fn () => DkTakesContextSchema::conditionKeys())
+    expect(fn () => conditionKeysOf((new DkTakesContextSchema)->conditions()))
         ->toThrow(InvalidArgumentException::class, 'takes no context object');
 });
 
 it('rejects a method that is both a derived and a row condition', function () {
-    expect(fn () => DkTwoKindsSchema::conditionKeys())
+    expect(fn () => conditionKeysOf((new DkTwoKindsSchema)->conditions()))
         ->toThrow(InvalidArgumentException::class, 'must declare exactly one of');
 });
 
 it('rejects a method that is both a derived condition and a rule template', function () {
-    expect(fn () => DkTemplateTooSchema::ruleTemplateKeys())
+    expect(fn () => templateKeysOf(new DkTemplateTooSchema))
         ->toThrow(InvalidArgumentException::class, 'cannot be both a condition and a rule template');
 });
 
@@ -365,7 +366,7 @@ class DkDoc extends Model
     }
 }
 
-class DkDocSchema extends WarrantSchema
+class DkDocSchema extends ModelSchema
 {
     public const model = DkDoc::class;
 
@@ -546,7 +547,7 @@ class DkDocSchema extends WarrantSchema
     }
 }
 
-class DkTakesContextSchema extends WarrantSchema
+class DkTakesContextSchema extends RowlessSchema
 {
     #[DerivedCondition]
     public function readsTheRow(RowConditionContext $c): string
@@ -555,8 +556,10 @@ class DkTakesContextSchema extends WarrantSchema
     }
 }
 
-class DkTwoKindsSchema extends WarrantSchema
+class DkTwoKindsSchema extends ModelSchema
 {
+    public const model = DkDoc::class;
+
     #[DerivedCondition]
     #[RowCondition]
     public function both(RowConditionContext $c): string
@@ -565,7 +568,7 @@ class DkTwoKindsSchema extends WarrantSchema
     }
 }
 
-class DkTemplateTooSchema extends WarrantSchema
+class DkTemplateTooSchema extends RowlessSchema
 {
     #[DerivedCondition]
     #[RuleTemplate]

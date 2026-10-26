@@ -16,7 +16,8 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -220,7 +221,7 @@ class DvDoc extends Model
     }
 }
 
-class DvDocSchema extends WarrantSchema
+class DvDocSchema extends ModelSchema
 {
     public const model = DvDoc::class;
 
@@ -300,7 +301,7 @@ class DvDocSchema extends WarrantSchema
 }
 
 /** No model, so no table and no rows to target. */
-class DvCapSchema extends WarrantSchema
+class DvCapSchema extends RowlessSchema
 {
     #[Ability]
     public const USE_IT = 'use_it';

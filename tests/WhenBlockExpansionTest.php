@@ -17,7 +17,7 @@ use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -49,7 +49,7 @@ class WhenBlockModel extends Model
     }
 }
 
-class WhenBlockSchema extends WarrantSchema
+class WhenBlockSchema extends ModelSchema
 {
     public const model = WhenBlockModel::class;
 

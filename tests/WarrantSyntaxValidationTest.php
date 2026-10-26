@@ -14,7 +14,6 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;

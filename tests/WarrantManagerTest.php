@@ -52,7 +52,7 @@ it('throws when a registered class is not a schema, on first resolution only', f
     $registry = new SchemaRegistry(['not_a_schema' => WarrantTestModel::class]);
 
     expect(fn () => $registry->resolveSchemaClassOrFail('not_a_schema'))
-        ->toThrow(LogicException::class, 'is not a Warrant\\Schema\\WarrantSchema');
+        ->toThrow(LogicException::class, 'which does not implement Warrant\\Schema\\Types\\Interfaces\\ISchema');
 });
 
 it('throws when a schema names a model that does not name it back', function () {

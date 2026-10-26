@@ -12,7 +12,8 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 /**
  * Validation for the cross-schema `can(<ability> for <schema>[(<row>)])` builtin.
@@ -182,7 +183,7 @@ class XsOwnerModel extends Model
     }
 }
 
-class XsOwnerSchema extends WarrantSchema
+class XsOwnerSchema extends ModelSchema
 {
 
     public const model = XsOwnerModel::class;
@@ -210,7 +211,7 @@ class XsTargetModel extends Model
     }
 }
 
-class XsTargetSchema extends WarrantSchema
+class XsTargetSchema extends ModelSchema
 {
 
     public const model = XsTargetModel::class;
@@ -222,7 +223,7 @@ class XsTargetSchema extends WarrantSchema
     public const A_VIEW = 'view';
 }
 
-class XsCapabilitySchema extends WarrantSchema
+class XsCapabilitySchema extends RowlessSchema
 {
 
     #[Ability]

@@ -9,7 +9,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -113,7 +113,7 @@ class ConditionScopeModel extends Model
     }
 }
 
-class ConditionScopeSchema extends WarrantSchema
+class ConditionScopeSchema extends ModelSchema
 {
     public const model = ConditionScopeModel::class;
 
@@ -250,13 +250,13 @@ it('still hands the condition something the compiler can read back', function ()
 
     /* The condition returns the Eloquent wrapper, since that is what its own
        calls gave back. Callers are promised the query builder. */
-    $returned = (new ConditionScopeSchema)->applyCondition(
-        'is_published',
+    $schema = new ConditionScopeSchema;
+    $returned = $schema->invokeRowCondition($schema->condition('is_published'), new RowConditionContext(
         makeWarrantTestUser(),
-        warrantTestQuery(),
-        targeted: true,
-        parameters: [],
-    );
+        $schema->conditionQuery(warrantTestQuery(), 'course_sections'),
+        'course_sections',
+        $schema->keyColumns(),
+    ));
 
     expect($returned)->toBeInstanceOf(Illuminate\Database\Query\Builder::class);
 });

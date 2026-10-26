@@ -17,8 +17,8 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -31,7 +31,7 @@ use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantManager;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -59,7 +59,7 @@ class BuildDoc extends Model
     }
 }
 
-class BuildDocSchema extends WarrantSchema
+class BuildDocSchema extends ModelSchema
 {
     public const model = BuildDoc::class;
 
@@ -430,7 +430,7 @@ it('rejects a constant in a check(...) predicate in the compiler, unvalidated', 
     $expanded = (fn () => new ExpandedSyntax('build_docs', [$rule], new ValidationInput(null)))
         ->bindTo(null, ExpandedSyntax::class)();
 
-    (new RuleSetCompiler(new BuildDocSchema, app(WarrantManager::class)))->compile(CompilationContext::ability(
+    (new RuleSetCompiler(new BuildDocSchema, 'build_docs', app(WarrantManager::class)))->compile(CompilationContext::ability(
         QueryFactory::for(DB::table('build_docs')),
         makeWarrantTestUser('build'),
         'view',

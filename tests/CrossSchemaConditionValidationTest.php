@@ -10,8 +10,8 @@ use Warrant\Builders\WarrantRuleBuilder;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -21,7 +21,8 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 
 /**
  * Reference validation for the cross-schema `check(<predicate> for <schema>[(<row>)])`
@@ -215,7 +216,7 @@ class XcvOwnerModel extends Model
     }
 }
 
-class XcvOwnerSchema extends WarrantSchema
+class XcvOwnerSchema extends ModelSchema
 {
 
     public const model = XcvOwnerModel::class;
@@ -246,7 +247,7 @@ class XcvTargetModel extends Model
     }
 }
 
-class XcvTargetSchema extends WarrantSchema
+class XcvTargetSchema extends ModelSchema
 {
 
     public const model = XcvTargetModel::class;
@@ -273,7 +274,7 @@ class XcvTargetSchema extends WarrantSchema
     }
 }
 
-class XcvCapabilitySchema extends WarrantSchema
+class XcvCapabilitySchema extends RowlessSchema
 {
 
     #[Ability]

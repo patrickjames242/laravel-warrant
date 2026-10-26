@@ -4,6 +4,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
@@ -13,11 +14,11 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
-use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -34,19 +35,21 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
+use Warrant\Schema\Types\Interfaces\ISchema;
+use Warrant\Schema\Vocabulary;
 use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Global\GlobalConditionContext;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantManager;
 
 class WarrantTestUser implements Authenticatable
@@ -102,7 +105,7 @@ class WarrantTestModel extends Model
     }
 }
 
-class WarrantTestSchema extends WarrantSchema
+class WarrantTestSchema extends ModelSchema
 {
     public const model = WarrantTestModel::class;
 
@@ -164,7 +167,7 @@ class WarrantJoinConditionModel extends Model
     }
 }
 
-class WarrantJoinConditionSchema extends WarrantSchema
+class WarrantJoinConditionSchema extends ModelSchema
 {
     public const model = WarrantJoinConditionModel::class;
 
@@ -198,7 +201,7 @@ class WarrantBooleanConditionModel extends Model
     }
 }
 
-class WarrantBooleanConditionSchema extends WarrantSchema
+class WarrantBooleanConditionSchema extends ModelSchema
 {
     public const model = WarrantBooleanConditionModel::class;
 
@@ -228,7 +231,7 @@ class MistypedConditionModel extends Model
     }
 }
 
-class MistypedConditionSchema extends WarrantSchema
+class MistypedConditionSchema extends ModelSchema
 {
     public const model = MistypedConditionModel::class;
 
@@ -259,7 +262,7 @@ class ParameterizedConditionModel extends Model
     }
 }
 
-class ParameterizedConditionSchema extends WarrantSchema
+class ParameterizedConditionSchema extends ModelSchema
 {
     public const model = ParameterizedConditionModel::class;
 
@@ -390,7 +393,7 @@ class WarrantSchemaRuleSetSchema extends WarrantTestSchema
         // Same rules as WarrantSchemaRulesSchema, but returned as a rule set.
         return WarrantSyntax::parse(
             "they can publish\nthey cannot archive",
-        )->validateWithoutSchemas()->scopedTo(self::schemaKey());
+        )->validateWithoutSchemas()->scopedTo(schemaKeyOf(self::class));
     }
 }
 
@@ -432,7 +435,7 @@ class FakeWarrantRuleProvider implements IRuleProvider
 }
 
 /**
- * @param  array<string, class-string<WarrantSchema>>  $schemas  Schema classes
+ * @param  array<string, class-string<ISchema>>  $schemas  Schema classes
  *   keyed by schema key, exactly as `warrant.schemas` is configured.
  */
 function useWarrantSchemas(array $schemas): void
@@ -440,6 +443,60 @@ function useWarrantSchemas(array $schemas): void
     config()->set('warrant.schemas', $schemas);
     app()->forgetInstance(WarrantManager::class);
     Warrant::clearResolvedInstances();
+}
+
+/**
+ * The key $schemaClass is registered under.
+ *
+ * @param  class-string<ISchema>  $schemaClass
+ */
+function schemaKeyOf(string $schemaClass): string
+{
+    return Warrant::registry()->resolveSchemaKeyOrFail($schemaClass);
+}
+
+/**
+ * The keys of $conditions, sorted.
+ *
+ * @param  list<ConditionDefinition>  $conditions
+ * @return list<string>
+ */
+function conditionKeysOf(array $conditions): array
+{
+    $keys = array_map(static fn (ConditionDefinition $condition): string => $condition->key, $conditions);
+    sort($keys);
+
+    return $keys;
+}
+
+/**
+ * The keys of $schema's rule templates, sorted.
+ *
+ * @return list<string>
+ */
+function templateKeysOf(ISchema $schema): array
+{
+    $keys = array_map(static fn (RuleTemplateDefinition $template): string => $template->key, $schema->ruleTemplates());
+    sort($keys);
+
+    return $keys;
+}
+
+/**
+ * Register $schemaClass under $schemaKey alongside the schemas already
+ * registered, unless that key already names it.
+ *
+ * @param  class-string<ISchema>  $schemaClass
+ */
+function registerWarrantSchema(string $schemaKey, string $schemaClass): void
+{
+    $schemas = config('warrant.schemas', []);
+
+    if (($schemas[$schemaKey] ?? null) === $schemaClass) {
+        return;
+    }
+
+    useWarrantSchemas([...array_filter($schemas, static fn (string $class): bool => $class !== $schemaClass), $schemaKey => $schemaClass]);
 }
 
 /**
@@ -611,7 +668,7 @@ function normalizeWarrantSql(string $sql): string
  * A schema whose model names a different schema — the back-reference the registry
  * rejects on first resolution.
  */
-class MismatchedBackReferenceSchema extends WarrantSchema
+class MismatchedBackReferenceSchema extends ModelSchema
 {
     public const model = WarrantMismatchedScopedModel::class;
 
@@ -632,7 +689,7 @@ class TraitlessModel extends Model
     protected $keyType = 'string';
 }
 
-class TraitlessModelSchema extends WarrantSchema
+class TraitlessModelSchema extends ModelSchema
 {
     public const model = TraitlessModel::class;
 
@@ -844,10 +901,10 @@ function producedFor(WarrantSyntax $syntax, string $schemaKey, GenericMode $mode
 {
     $syntax->source->setProducer(match ($mode) {
         GenericMode::Either => SyntaxProducer::editor('test.warrant', $schemaKey),
-        GenericMode::RequireNotGeneric => SyntaxProducer::schemaRules($schemaKey, WarrantSchema::class),
+        GenericMode::RequireNotGeneric => SyntaxProducer::schemaRules($schemaKey, ISchema::class),
         GenericMode::RequireGeneric => SyntaxProducer::ruleTemplate(
             $schemaKey,
-            WarrantSchema::class,
+            ISchema::class,
             'template',
             'template',
             new IncludeInvocationNode(nameNode('template'), [], [], SyntaxLocation::noProducer()),
@@ -893,18 +950,23 @@ function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): stri
 
 /**
  * A catalog holding $schemas, by key, and finding any other in $behind; with
- * nothing behind, only $schemas.
+ * nothing behind, only $schemas. A schema is held as its vocabulary.
  *
- * @param array<string, ISchemaVocabulary> $schemas
+ * @param array<string, ISchema|Vocabulary> $schemas
  */
 function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatalog
 {
-    return new class($schemas, $behind) implements ISchemaCatalog
+    $vocabularies = array_map(
+        static fn (ISchema|Vocabulary $schema): Vocabulary => $schema instanceof Vocabulary ? $schema : Vocabulary::of($schema),
+        $schemas,
+    );
+
+    return new class($vocabularies, $behind) implements ISchemaCatalog
     {
-        /** @param array<string, ISchemaVocabulary> $schemas */
+        /** @param array<string, Vocabulary> $schemas */
         public function __construct(private array $schemas, private ?ISchemaCatalog $behind) {}
 
-        public function find(string $schemaKey): ?ISchemaVocabulary
+        public function find(string $schemaKey): ?Vocabulary
         {
             return $this->schemas[$schemaKey] ?? $this->behind?->find($schemaKey);
         }
@@ -916,9 +978,15 @@ function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatal
  * rules, validated as written against $schema, and expanded, its bindings'
  * values put in place. Any other schema the rules name is found as the
  * application registers it.
+ *
+ * Expansion calls a schema's derived conditions and templates on the instance
+ * the registry keeps, so $schema is registered under the set's key first when
+ * it is not already.
  */
-function expandedFor(RuleSetNode $set, ISchemaVocabulary $schema): ExpandedSyntax
+function expandedFor(RuleSetNode $set, ISchema $schema): ExpandedSyntax
 {
+    registerWarrantSchema($set->schemaKey(), $schema::class);
+
     $input = new ValidationInput(catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas));
     $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
 
@@ -929,7 +997,7 @@ function expandedFor(RuleSetNode $set, ISchemaVocabulary $schema): ExpandedSynta
  * $set validated as written against $schema, or with no schema against the
  * rules of the language alone. Throws the first mistake.
  */
-function validateRuleSet(RuleSetNode $set, ?ISchemaVocabulary $schema = null): ValidSyntax
+function validateRuleSet(RuleSetNode $set, ?ISchema $schema = null): ValidSyntax
 {
     return ValidSyntax::of(new WarrantSyntax([$set]), new ValidationInput(
         $schema === null ? null : catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas),

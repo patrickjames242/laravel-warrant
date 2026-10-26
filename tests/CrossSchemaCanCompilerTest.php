@@ -20,7 +20,8 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -680,7 +681,7 @@ class XcDoc extends Model
     }
 }
 
-class XcDocSchema extends WarrantSchema
+class XcDocSchema extends ModelSchema
 {
     public const model = XcDoc::class;
 
@@ -702,11 +703,11 @@ class XcFolder extends Model
     }
 }
 
-class XcFolderSchema extends WarrantSchema
+class XcFolderSchema extends ModelSchema
 {
     public const model = XcFolder::class;
 
-    protected function defaultContext(): array
+    public function defaultContext(): array
     {
         return ['fallback' => 'role-default'];
     }
@@ -739,7 +740,7 @@ class XcFolderSchema extends WarrantSchema
     }
 }
 
-class XcCapabilitySchema extends WarrantSchema
+class XcCapabilitySchema extends RowlessSchema
 {
 
     #[Ability]

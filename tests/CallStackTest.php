@@ -23,7 +23,8 @@ use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -78,7 +79,7 @@ function bindCstRules(array $syntaxByKey): void
     });
 }
 
-function compileCst(string $table, WarrantSchema $schema, string|array $abilities = 'view', array $context = []): string
+function compileCst(string $table, IAbilitySchema $schema, string|array $abilities = 'view', array $context = []): string
 {
     return Warrant::guard(makeWarrantTestUser('role-1'))
         ->forSchema($schema)
@@ -270,7 +271,7 @@ class CstDoc extends Model
     }
 }
 
-class CstDocSchema extends WarrantSchema
+class CstDocSchema extends ModelSchema
 {
     public const model = CstDoc::class;
 
@@ -302,7 +303,7 @@ class CstFolder extends Model
     }
 }
 
-class CstFolderSchema extends WarrantSchema
+class CstFolderSchema extends ModelSchema
 {
     public const model = CstFolder::class;
 
@@ -355,7 +356,7 @@ class CstPing extends Model
     }
 }
 
-class CstPingSchema extends WarrantSchema
+class CstPingSchema extends ModelSchema
 {
     public const model = CstPing::class;
 

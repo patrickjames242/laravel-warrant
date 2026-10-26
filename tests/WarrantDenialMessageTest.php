@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Build;
-use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
@@ -22,7 +22,7 @@ use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Denials\WarrantDenialContext;
 use Warrant\Schema\Denials\WarrantUngrantedContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantAuthorizationException;
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -119,7 +119,7 @@ class DenialContextModel extends Model
     }
 }
 
-class DenialContextSchema extends WarrantSchema
+class DenialContextSchema extends ModelSchema
 {
     public const model = DenialContextModel::class;
 
@@ -963,7 +963,7 @@ it('surfaces a rule message through the middleware', function () {
     DB::table('course_sections')->insert([['id' => 'teacher:teacher-role']]);
 
     bindWarrantRuleSet(new RuleSetNode(
-        nameNode(WarrantScopedModelSchema::schemaKey()),
+        nameNode(schemaKeyOf(WarrantScopedModelSchema::class)),
         [
             Build::rule()->theyCan('view')->toRule(),
             Build::rule()->if('is_teacher')->theyCannotBecause('view', 'teacher blocked')->toRule(),

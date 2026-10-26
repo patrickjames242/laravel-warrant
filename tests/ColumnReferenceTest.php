@@ -7,17 +7,18 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
-use Warrant\Schema\Conditions\Global\GlobalConditionContext;
-use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
+use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
-use Warrant\Schema\WarrantSchema;
-use Warrant\DSL\Parsing\Positions\SyntaxLocation;
+use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Types\Classes\ModelSchema;
+use Warrant\Schema\Types\Classes\RowlessSchema;
 require_once __DIR__.'/Support/TestSupport.php';
 
 /*
@@ -371,7 +372,7 @@ class ColTs extends Model
     }
 }
 
-class ColTsSchema extends WarrantSchema
+class ColTsSchema extends ModelSchema
 {
     // Key deliberately differs from the table name, to prove key → table resolution.
     public const model = ColTs::class;
@@ -413,7 +414,7 @@ class ColDoc extends Model
     }
 }
 
-class ColDocSchema extends WarrantSchema
+class ColDocSchema extends ModelSchema
 {
     public const model = ColDoc::class;
 
@@ -435,7 +436,7 @@ class ColTarget extends Model
     }
 }
 
-class ColTargetSchema extends WarrantSchema
+class ColTargetSchema extends ModelSchema
 {
     public const model = ColTarget::class;
 
@@ -457,7 +458,7 @@ class ColTargetSchema extends WarrantSchema
     }
 }
 
-class ColCapSchema extends WarrantSchema
+class ColCapSchema extends RowlessSchema
 {
     // A modelless capability schema — no table, so @column cannot reference it.
 
