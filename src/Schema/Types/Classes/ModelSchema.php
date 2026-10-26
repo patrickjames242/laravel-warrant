@@ -6,6 +6,7 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use LogicException;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 
 /**
@@ -15,7 +16,7 @@ use Warrant\Schema\Types\Interfaces\IModelSchema;
  * ```php
  * final class DocumentSchema extends ModelSchema
  * {
- *     public static function model(): string { return Document::class; }
+ *     public const model = Document::class;
  *
  *     #[Ability] public const VIEW = 'view';
  *
@@ -30,9 +31,28 @@ use Warrant\Schema\Types\Interfaces\IModelSchema;
 abstract class ModelSchema extends RowSchema implements IModelSchema
 {
     /**
+     * The model whose table holds the rows: the schema's `model` constant.
+     *
+     * ```php
+     * public const model = Document::class;
+     * ```
+     *
+     * A schema that works its model out some other way overrides this instead.
+     *
      * @return class-string<Model>
      */
-    abstract public static function model(): string;
+    public static function model(): string
+    {
+        if (! defined(static::class.'::model')) {
+            throw new LogicException(sprintf(
+                'Schema [%s] names no model; declare `public const model = YourModel::class;`, or override '
+                    .'model().',
+                static::class,
+            ));
+        }
+
+        return static::model;
+    }
 
     public function rowsQuery(bool $withoutScopes = false): QueryBuilder
     {
