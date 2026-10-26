@@ -2,10 +2,9 @@
 
 namespace Warrant\Registry;
 
-use OutOfBoundsException;
 use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\Vocabulary;
 
 /**
  * The schemas the application registers, as an {@see ISchemaCatalog}: each found
@@ -13,18 +12,23 @@ use Warrant\Facades\Warrant;
  *
  * Finding a schema loads its class, and with it the model it names, so this is
  * for use inside a running application. The registry is reached only when a
- * schema is first asked for.
+ * schema is first asked for, and each schema's vocabulary is read once.
  */
 final class RegisteredSchemas implements ISchemaCatalog
 {
-    public function find(string $schemaKey): ?ISchemaVocabulary
+    /**
+     * @var array<string, Vocabulary|null>
+     */
+    private array $vocabularies = [];
+
+    public function find(string $schemaKey): ?Vocabulary
     {
-        try {
-            $schemaClass = Warrant::registry()->resolveSchemaClassOrFail($schemaKey);
-        } catch (OutOfBoundsException) {
-            return null;
+        if (! array_key_exists($schemaKey, $this->vocabularies)) {
+            $resolved = Warrant::registry()->resolveOrNull($schemaKey);
+
+            $this->vocabularies[$schemaKey] = $resolved === null ? null : Vocabulary::of($resolved->schema);
         }
 
-        return new $schemaClass;
+        return $this->vocabularies[$schemaKey];
     }
 }

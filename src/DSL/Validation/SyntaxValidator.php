@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Vocabulary;
 
 /**
  * Finds every mistake in one text as its author wrote it, against the schema
@@ -160,7 +160,7 @@ final class SyntaxValidator
      * The schema $body's `for` header names, as the catalog has it. A header
      * naming no schema the catalog holds is a mistake.
      */
-    private function schemaNamedBy(ISchemaScopedNode $body): ?ISchemaVocabulary
+    private function schemaNamedBy(ISchemaScopedNode $body): ?Vocabulary
     {
         // A header with no name was reported where it was read; there is no schema to look up.
         if ($body->schemaKey() === INode::MISSING_NAME || $this->input->catalog === null) {

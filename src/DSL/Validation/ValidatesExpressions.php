@@ -4,7 +4,6 @@ namespace Warrant\DSL\Validation;
 
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\AliasScope;
-use Warrant\DSL\IConditionResolver;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
@@ -20,7 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Vocabulary;
 
 /**
  * The checks a {@see SyntaxValidator} makes of a boolean expression: every
@@ -28,7 +27,7 @@ use Warrant\DSL\ISchemaVocabulary;
  * called with at least the arguments it requires, and every cross-schema
  * `can(...)` and `check(...)` names a schema, row and alias that can work.
  *
- * Own-schema checks depend only on the schema's {@see ISchemaVocabulary} — name
+ * Own-schema checks depend only on the schema's {@see Vocabulary} — name
  * existence, no SQL. A cross-schema reference is additionally resolved against
  * the catalog (by schema key) to confirm the target schema and ability exist;
  * the referenced schema's *rules* are never consulted here (they are per-user
@@ -52,7 +51,7 @@ trait ValidatesExpressions
      * names up in and no scope to place its `@column` references in, and it is
      * held to every other rule of the language.
      */
-    private function validateCondition(IBooleanExpressionNode $expression, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateCondition(IBooleanExpressionNode $expression, ?Vocabulary $schema, ?string $schemaKey): void
     {
         $this->validateExpression($expression, $schema, $schema === null ? null : $this->rootScope($schema, $schemaKey));
     }
@@ -62,14 +61,12 @@ trait ValidatesExpressions
      * for the row being checked, bound to no qualifier because no query is in
      * hand here.
      *
-     * A capability schema is the exception — it has no model and so no table, so
-     * its own key names nothing and a `@column` in its rules has nothing in scope
-     * at all. The vocabulary contract does not expose a model, so this asks the
-     * richer {@see IConditionResolver} when it has one and otherwise assumes rows.
+     * A schema with no rows is the exception: its own key names nothing, so a
+     * `@column` in its rules has nothing in scope at all.
      */
-    private function rootScope(ISchemaVocabulary $schema, ?string $schemaKey): AliasScope
+    private function rootScope(Vocabulary $schema, ?string $schemaKey): AliasScope
     {
-        $rowless = ! $schema->describesRows();
+        $rowless = ! $schema->hasRows();
 
         return $rowless ? AliasScope::none() : AliasScope::root($schemaKey, null);
     }
@@ -87,7 +84,7 @@ trait ValidatesExpressions
      * a reference written where the scope is not known has nothing to be checked
      * against. Everything else about it is checked all the same.
      *
-     * @param ISchemaVocabulary|null $vocabulary Whose conditions and abilities the
+     * @param Vocabulary|null $vocabulary Whose conditions and abilities the
      *   leaves of $node name; null when that schema is not known.
      * @param AliasScope|null $scope The frames in scope where $node is written; see
      *   {@see assertColumnRefsInScope}. Every qualifier in it is null — nothing is
@@ -98,7 +95,7 @@ trait ValidatesExpressions
      */
     private function validateExpression(
         IBooleanExpressionNode $node,
-        ?ISchemaVocabulary $vocabulary,
+        ?Vocabulary $vocabulary,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf = null,
     ): void {
@@ -132,9 +129,8 @@ trait ValidatesExpressions
     /**
      * Validate a cross-schema `can(<ability> for <schema>[(<row>)] [as <alias>])`
      * reference: the target schema must be registered, the ability must be
-     * declared by it, a row-bound reference requires a model-backed target (a
-     * capability schema has no row to target), and an alias requires a row to
-     * name.
+     * declared by it, a row-bound reference requires a target with rows, and an
+     * alias requires a row to name.
      *
      * The target may be this schema itself. Two frames over one table are told
      * apart by naming the hop's rows (`as d2`), and recursion is bounded by
@@ -144,7 +140,7 @@ trait ValidatesExpressions
      */
     private function assertCrossSchemaCanValid(
         CrossSchemaCanNode $node,
-        ?ISchemaVocabulary $vocabulary,
+        ?Vocabulary $vocabulary,
         ?AliasScope $scope,
     ): void {
         if ($node->schemaKey === null) {
@@ -169,7 +165,7 @@ trait ValidatesExpressions
             return;
         }
 
-        if ($target !== null && $ability !== null && $target->getAbilityDefinition($ability) === null) {
+        if ($target !== null && $ability !== null && $target->ability($ability) === null) {
             $this->fail(
                 DiagnosticCode::UnknownAbility,
                 sprintf('Ability [%s] is not declared by schema [%s].', $ability, $schemaKey),
@@ -191,9 +187,8 @@ trait ValidatesExpressions
     /**
      * Validate a cross-schema
      * `check(<predicate> for <schema>[(<row>)] [as <alias>])` reference: the
-     * target schema must be registered, a row-bound reference requires a
-     * model-backed target with a non-null row, and an alias requires a row to
-     * name. The predicate is a boolean expression read against the *target*
+     * target schema must be registered, a row-bound reference requires a target
+     * with rows and a non-null row, and an alias requires a row to name. The predicate is a boolean expression read against the *target*
      * schema's vocabulary — so a `can(...)` in it names one of that schema's
      * abilities, and a nested `check(...)` starts from that schema's frame. An
      * unbound handle constrains the predicate's leaves not at all: a row condition
@@ -241,7 +236,7 @@ trait ValidatesExpressions
             $target,
             match (true) {
                 $scope === null || $target === null => null,
-                ! $target->describesRows() => $scope->enteringRowlessPredicate(),
+                ! $target->hasRows() => $scope->enteringRowlessPredicate(),
                 default => $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
             },
             $node,
@@ -276,11 +271,11 @@ trait ValidatesExpressions
      * vocabulary arrives as $vocabulary. Inside a `check(...)` predicate that is
      * the schema the handle named, not the one the rule is written on.
      */
-    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?ISchemaVocabulary $vocabulary): void
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?Vocabulary $vocabulary): void
     {
         $lookedUp = self::abilityToLookUp($node, $this->input);
 
-        if ($vocabulary !== null && $lookedUp !== null && $vocabulary->getAbilityDefinition($lookedUp) === null) {
+        if ($vocabulary !== null && $lookedUp !== null && $vocabulary->ability($lookedUp) === null) {
             $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $lookedUp), $node->ability->location);
         }
 
@@ -343,30 +338,28 @@ trait ValidatesExpressions
     }
 
     /**
-     * A row-bound handle's row target can work: when the target is known, it
-     * has rows and its rows can be named, and if so, the handle supplies every argument the target's row key
-     * requires, and none of them is the literal `null`. An unbound handle has
-     * no row target, so nothing here applies to it.
+     * A row-bound handle's row target can work: when the target is known, it has
+     * rows, and the handle supplies every argument the target's row matcher
+     * requires, none of them the literal `null`. An unbound handle has no row
+     * target, so nothing here applies to it.
      *
-     * A virtual table may declare neither a key column nor a `matchKey()`, which
-     * leaves its rows filterable but not addressable. The arguments the row key
-     * requires are the parameters of its
-     * {@see \Warrant\Schema\WarrantSchema::matchKey()} that have no default.
-     * Extra arguments are allowed, exactly as they are for a condition: they are
+     * The arguments a row matcher requires are its key's columns, or the
+     * parameters of the schema's own `matchKey()` that have no default. Extra
+     * arguments are allowed, exactly as they are for a condition: they are
      * ignored by the call and stay reachable on `$c->arguments`. A literal
      * `null` can never match a row, in any position. A `@context` reference is a
      * symbolic ContextRef, not null — its value is filled per check — so its
      * nullability stays a compile-time concern, not a static one.
      *
      * Reported here so a handle written as rule text names its mistake before
-     * anything is compiled. The compiler and the key's own dispatch make the same
-     * checks, for the handles that never pass through the parser.
+     * anything is compiled. The compiler and the row matcher make the same checks,
+     * for the handles that never pass through the parser.
      */
     private function assertRowTargetValid(
         string $builtin,
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         string $schemaKey,
-        ?ISchemaVocabulary $target,
+        ?Vocabulary $target,
     ): void {
         if (! $node->isRowBound) {
             return;
@@ -401,16 +394,16 @@ trait ValidatesExpressions
     }
 
     /**
-     * $target has rows, they can be named, and $node supplies every argument
-     * its row key requires.
+     * $target has rows, and $node supplies every argument its row matcher
+     * requires.
      */
     private function assertTargetRowsCanBeNamed(
         string $builtin,
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         string $schemaKey,
-        ISchemaVocabulary $target,
+        Vocabulary $target,
     ): void {
-        if (! $target->describesRows()) {
+        if (! $target->hasRows()) {
             $this->fail(
                 DiagnosticCode::RowTargetOnRowlessSchema,
                 sprintf(
@@ -426,24 +419,7 @@ trait ValidatesExpressions
             return;
         }
 
-        if (! $target->canNameARow()) {
-            $this->fail(
-                DiagnosticCode::UnnameableRow,
-                sprintf(
-                    'A %s(...) reference targets a specific row of schema [%s], but [%s] has no way to name one; '
-                        .'declare `const key` for the column its rows are identified by, or a matchKey() of its '
-                        .'own, or drop the row selector.',
-                    $builtin,
-                    $schemaKey,
-                    $schemaKey,
-                ),
-                $node->location,
-            );
-
-            return;
-        }
-
-        $required = $target->getKeyDefinition()->requiredArgumentCount;
+        $required = $target->rowMatcher()->requiredArgumentCount;
 
         if (count($node->boundKey) < $required) {
             $this->fail(
@@ -480,7 +456,7 @@ trait ValidatesExpressions
      */
     private function assertConditionValid(
         ConditionNode $node,
-        ?ISchemaVocabulary $vocabulary,
+        ?Vocabulary $vocabulary,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
@@ -500,9 +476,9 @@ trait ValidatesExpressions
      * $vocabulary declares the condition $node names, and $node gives it at least
      * the arguments it requires.
      */
-    private function assertConditionDeclared(ConditionNode $node, ISchemaVocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
+    private function assertConditionDeclared(ConditionNode $node, Vocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
     {
-        $definition = $vocabulary->getConditionDefinition($node->conditionKey->name);
+        $definition = $vocabulary->condition($node->conditionKey->name);
 
         if ($definition === null) {
             $this->fail(

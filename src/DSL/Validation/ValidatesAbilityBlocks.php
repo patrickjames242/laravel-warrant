@@ -3,12 +3,12 @@
 namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Vocabulary;
 
 /**
  * How a {@see SyntaxValidator} checks an ability block: its header names
@@ -25,7 +25,7 @@ trait ValidatesAbilityBlocks
      * inside it is reported and not read further, having no header of its own
      * to stand under.
      */
-    private function validateAbilityBlock(AbilityBlockNode $block, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateAbilityBlock(AbilityBlockNode $block, ?Vocabulary $schema, ?string $schemaKey): void
     {
         if ($block->abilities === []) {
             $this->fail(DiagnosticCode::AbilityBlockNamesNone, LanguageRuleMessages::blockNamesNone(), $block->location);
@@ -42,7 +42,7 @@ trait ValidatesAbilityBlocks
      *
      * @param list<IRuleEntryNode> $entries
      */
-    private function validateAbilityBlockEntries(array $entries, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateAbilityBlockEntries(array $entries, ?Vocabulary $schema, ?string $schemaKey): void
     {
         foreach ($entries as $entry) {
             if ($entry instanceof WhenBlockNode) {

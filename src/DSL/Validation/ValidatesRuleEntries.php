@@ -7,15 +7,15 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Vocabulary;
 
 /**
  * The checks a {@see SyntaxValidator} makes of rule entries as written: that
@@ -45,13 +45,13 @@ trait ValidatesRuleEntries
      * their abilities.
      *
      * @param list<IRuleEntryNode> $entries
-     * @param ISchemaVocabulary|null $schema The schema the entries belong to;
+     * @param Vocabulary|null $schema The schema the entries belong to;
      *   null when it is not known, and their names are not looked up.
      * @param string|null $schemaKey The key of the schema the entries are for:
      *   the name its own rows go by in a `@column` reference, and the schema an
      *   error about an entry that names no abilities names.
      */
-    private function validateEntries(array $entries, GenericMode $mode, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateEntries(array $entries, GenericMode $mode, ?Vocabulary $schema, ?string $schemaKey): void
     {
         if ($mode === GenericMode::Either) {
             $this->assertNamingAgrees($entries);
@@ -66,7 +66,7 @@ trait ValidatesRuleEntries
      *
      * @param list<IRuleEntryNode> $entries
      */
-    private function validateEachEntry(array $entries, GenericMode $mode, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateEachEntry(array $entries, GenericMode $mode, ?Vocabulary $schema, ?string $schemaKey): void
     {
         foreach ($entries as $entry) {
             if ($entry instanceof WhenBlockNode) {
@@ -169,7 +169,7 @@ trait ValidatesRuleEntries
      *
      * @param IncludeInvocationNode $include The include.
      */
-    private function assertTemplateDeclared(IncludeInvocationNode $include, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function assertTemplateDeclared(IncludeInvocationNode $include, ?Vocabulary $schema, ?string $schemaKey): void
     {
         $templateKey = $include->templateKey->name;
 
@@ -177,7 +177,7 @@ trait ValidatesRuleEntries
             return;
         }
 
-        $definition = $schema->getRuleTemplateDefinition($templateKey);
+        $definition = $schema->ruleTemplate($templateKey);
 
         if ($definition === null) {
             $this->fail(
@@ -202,7 +202,7 @@ trait ValidatesRuleEntries
         }
     }
 
-    private function validateRule(RuleNode $rule, ?ISchemaVocabulary $schema, ?string $schemaKey): void
+    private function validateRule(RuleNode $rule, ?Vocabulary $schema, ?string $schemaKey): void
     {
         foreach ([...$rule->canClauses, ...$rule->cannotClauses] as $clause) {
             $this->assertAbilitiesDeclared($clause->abilities, $schema);
@@ -225,7 +225,7 @@ trait ValidatesRuleEntries
      *
      * @param list<NameNode|BindingNode> $abilities
      */
-    private function assertAbilitiesDeclared(array $abilities, ?ISchemaVocabulary $schema): void
+    private function assertAbilitiesDeclared(array $abilities, ?Vocabulary $schema): void
     {
         if ($schema === null) {
             return;
@@ -240,7 +240,7 @@ trait ValidatesRuleEntries
             };
 
             foreach ($names as $name) {
-                if ($name !== '*' && $schema->getAbilityDefinition($name) === null) {
+                if ($name !== '*' && $schema->ability($name) === null) {
                     $this->fail(
                         DiagnosticCode::UnknownAbility,
                         sprintf('Ability [%s] is not declared by the schema.', $name),

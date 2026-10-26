@@ -149,9 +149,6 @@ enum DiagnosticCode: string
     /** A row selector whose value is null. */
     case NullRowTarget = 'null-row-target';
 
-    /** A row selector on a reference to a schema that has no way to name a row. */
-    case UnnameableRow = 'unnameable-row';
-
     /** A `with` map on a `can(...)` that crosses to no other schema. */
     case ContextMapWithoutSchema = 'context-map-without-schema';
 
