@@ -2,8 +2,8 @@
 
 namespace Warrant\DSL\Expanding\Concerns;
 
-use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
+use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 
 /**
@@ -20,10 +20,10 @@ trait ExpandsCheckPredicates
      */
     private function expandCheckPredicate(CrossSchemaConditionNode $node, ExpansionTrail $trail): CrossSchemaConditionNode
     {
-        /* A schema nobody registered has no vocabulary to expand against. Leaving
-           the reference as it is lets the validator and the compiler reject it with
+        /* A schema nobody registered has no conditions to expand. Leaving the
+           reference as it is lets the validator and the compiler reject it with
            the message they give for any unknown schema. */
-        $target = $this->catalog->find($node->schemaKey->name);
+        $target = $this->schemaNamed($node->schemaKey->name);
 
         if ($target === null) {
             return $node;

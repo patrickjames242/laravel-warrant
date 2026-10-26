@@ -4,26 +4,26 @@ namespace Warrant\DSL\Expanding\Concerns;
 
 use RuntimeException;
 use Warrant\Builders\WarrantRuleBuilder;
-use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
+use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} expands an `@include`: it calls the template the
@@ -40,7 +40,7 @@ trait ExpandsRuleTemplates
      */
     private function expandInclude(
         IncludeInvocationNode $include,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {
@@ -61,22 +61,26 @@ trait ExpandsRuleTemplates
         $expanded = [];
 
         foreach ($calls as $abilities) {
-            $values = $definition->takesContext
-                ? [new RuleTemplateContext(
+            $context = $definition->takesContext
+                ? new RuleTemplateContext(
                     array_map(static fn (NameNode $ability): string => $ability->name, $abilities),
                     $definition->callOncePerAbility,
-                ), ...$arguments]
-                : $arguments;
+                )
+                : null;
 
             /* The context is told to the method, not to its rule text: a binding
                names a DSL argument, and the context is none. */
             $bindings = array_filter(
-                self::parametersUsableAsBindings($schema, $definition->methodName, $values),
+                self::parametersUsableAsBindings(
+                    $schema,
+                    $definition->methodName,
+                    $context === null ? $arguments : [$context, ...$arguments],
+                ),
                 static fn (mixed $value): bool => ! $value instanceof RuleTemplateContext,
             );
 
             $generic = $this->templateEntries(
-                $schema->{$definition->methodName}(...$values),
+                $schema->invokeRuleTemplate($definition, $context, $arguments),
                 $producer,
                 $bindings,
             );
@@ -199,11 +203,11 @@ trait ExpandsRuleTemplates
      * one the include gives too few arguments.
      */
     private static function resolveTemplate(
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         IncludeInvocationNode $include,
     ): RuleTemplateDefinition {
-        $definition = $schema->getRuleTemplateDefinition($include->templateKey->name);
+        $definition = $schema->ruleTemplate($include->templateKey->name);
 
         if ($definition === null) {
             throw new RuleValidationException(

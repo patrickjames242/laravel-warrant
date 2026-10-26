@@ -9,8 +9,8 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} expands an ability block: its header's abilities are
@@ -31,7 +31,7 @@ trait ExpandsAbilityBlocks
      */
     private function expandAbilityBlock(
         AbilityBlockNode $block,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {

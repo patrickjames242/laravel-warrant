@@ -2,15 +2,15 @@
 
 namespace Warrant\DSL\Expanding\Concerns;
 
-use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
+use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} walks a boolean expression to the derived
@@ -26,7 +26,7 @@ trait ExpandsExpressions
      */
     private function expandExpression(
         IBooleanExpressionNode $node,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): IBooleanExpressionNode {
@@ -50,7 +50,7 @@ trait ExpandsExpressions
         }
 
         if ($node instanceof ConditionNode) {
-            $definition = $schema->getConditionDefinition($node->conditionKey->name);
+            $definition = $schema->condition($node->conditionKey->name);
 
             /* A name the schema does not declare is left for validation and the
                compiler to report, in the words they use for any other. */

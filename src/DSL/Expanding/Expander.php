@@ -9,25 +9,26 @@ use Warrant\DSL\Expanding\Concerns\ExpandsAbilityBlocks;
 use Warrant\DSL\Expanding\Concerns\ExpandsCheckPredicates;
 use Warrant\DSL\Expanding\Concerns\ExpandsDerivedConditions;
 use Warrant\DSL\Expanding\Concerns\ExpandsExpressions;
-use Warrant\DSL\Expanding\Concerns\ExpandsRules;
 use Warrant\DSL\Expanding\Concerns\ExpandsRuleTemplates;
+use Warrant\DSL\Expanding\Concerns\ExpandsRules;
 use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
 use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
+use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
+use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
-use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\ISchemaCatalog;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
+use Warrant\Facades\Warrant;
 use Warrant\Registry\RegisteredSchemas;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * The expansion phase, between parsing and compiling: turns the rules an author
@@ -62,7 +63,7 @@ use Warrant\Registry\RegisteredSchemas;
  * question asked of it.
  *
  * Names inside a `check(<predicate> for <schema>)` belong to that schema, so the
- * predicate is expanded against its vocabulary. A `can(<ability> for <schema>)`
+ * predicate is expanded against that schema. A `can(<ability> for <schema>)`
  * is left as it is: the rules it reaches are resolved per user, and are expanded
  * when that schema's own guard is asked for them.
  *
@@ -83,9 +84,10 @@ final class Expander
     use ReplacesBindings;
 
     /**
-     * @param ISchemaCatalog $catalog Where the schema the rules are for is found,
-     *   whose templates and derived conditions are called, and the schema a
-     *   `check(... for <schema>)` names, to expand its predicate against.
+     * @param ISchemaCatalog $catalog What the rules a template or derived
+     *   condition answers with are validated against. The schemas whose
+     *   templates and derived conditions are called come from the registry, by
+     *   key, since calling one needs the schema itself and not its vocabulary.
      */
     public function __construct(private readonly ISchemaCatalog $catalog = new RegisteredSchemas)
     {
@@ -102,7 +104,7 @@ final class Expander
      */
     public function expand(string $schemaKey, ValidSyntax ...$syntaxes): array
     {
-        $schema = $this->catalog->find($schemaKey) ?? throw new InvalidArgumentException(sprintf(
+        $schema = $this->schemaNamed($schemaKey) ?? throw new InvalidArgumentException(sprintf(
             'There is no schema [%s] to expand the rules against.',
             $schemaKey,
         ));
@@ -124,7 +126,7 @@ final class Expander
      * @param list<IRuleEntryNode> $entries
      * @return list<RuleNode>
      */
-    private function expandTopLevelEntries(array $entries, ISchemaVocabulary $schema, string $schemaKey): array
+    private function expandTopLevelEntries(array $entries, ISchema $schema, string $schemaKey): array
     {
         /* Outside an ability block nothing names abilities on an entry's behalf.
            The validator reports a generic one against the text; this rejects it
@@ -155,7 +157,7 @@ final class Expander
      */
     private function expandEntries(
         array $entries,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array
@@ -201,6 +203,14 @@ final class Expander
                 $e instanceof RuleValidationException ? $e->span : null,
             );
         }
+    }
+
+    /**
+     * The schema registered under $schemaKey, or null when none is.
+     */
+    private function schemaNamed(string $schemaKey): ?ISchema
+    {
+        return Warrant::registry()->resolveOrNull($schemaKey)?->schema;
     }
 
     /**

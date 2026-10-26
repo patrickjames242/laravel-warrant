@@ -8,8 +8,8 @@ use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\LanguageRuleMessages;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} expands a rule: its denial messages are checked, and the
@@ -25,7 +25,7 @@ trait ExpandsRules
      */
     private function expandRule(
         RuleNode $rule,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): RuleNode {

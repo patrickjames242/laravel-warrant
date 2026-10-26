@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\DSL\ISchemaVocabulary;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} expands a when block: its bodies are expanded into
@@ -41,7 +41,7 @@ trait ExpandsWhenBlocks
      */
     private function expandWhenBlock(
         WhenBlockNode $block,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): array {

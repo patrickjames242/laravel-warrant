@@ -9,8 +9,8 @@ use Warrant\Builders\CrossSchemaCanBuilder;
 use Warrant\Builders\CrossSchemaCheckBuilder;
 use Warrant\Builders\WarrantConditionBuilder;
 use Warrant\DSL\Expanding\DerivedConditionNode;
-use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\Expander;
+use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
@@ -23,9 +23,9 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * How {@see Expander} expands a derived condition a rule names: it calls
@@ -44,7 +44,7 @@ trait ExpandsDerivedConditions
     private function expandDerivedCondition(
         ConditionNode $node,
         ConditionDefinition $definition,
-        ISchemaVocabulary $schema,
+        ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): DerivedConditionNode {
@@ -62,7 +62,7 @@ trait ExpandsDerivedConditions
 
         $producer = SyntaxProducer::derivedCondition($schemaKey, $schema::class, $definition->key, $definition->methodName, $node);
         $values = self::argumentValues($node->parameters);
-        $answer = $schema->{$definition->methodName}(...$values);
+        $answer = $schema->invokeDerivedCondition($definition, $values);
         $parametersUsableAsBindings = self::parametersUsableAsBindings($schema, $definition->methodName, $values);
 
         return new DerivedConditionNode(
