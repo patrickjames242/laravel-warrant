@@ -72,7 +72,7 @@ it('reads the rule text passed to the calls that take it, by position or by name
 it('reads a string returned from rules(), a template or a derived condition, alone or in an array', function () {
     $code = <<<'PHP'
         <?php
-        class S extends WarrantSchema {
+        class S extends ModelSchema {
             public function rules(): array { return ['they can view', 'they can edit']; }
             #[RuleTemplate] public function t(): string { return 'they can share'; }
             #[DerivedCondition] public function d(): string { return 'a or b'; }

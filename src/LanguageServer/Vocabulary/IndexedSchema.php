@@ -2,31 +2,37 @@
 
 namespace Warrant\LanguageServer\Vocabulary;
 
-use Warrant\DSL\ISchemaVocabulary;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
+use Warrant\Schema\Vocabulary;
 
 /**
  * What the language server knows of one schema, read from its source or from the
  * running application, without the schema class itself being loaded.
  *
- * It answers validation as the schema class would, so rule text is checked
- * against it exactly as against the schema, and it keeps where each name is
- * declared for hover and go-to-definition.
+ * Its {@see $vocabulary} answers validation as the schema itself would, so rule
+ * text is checked against it exactly as against the schema. Beside it, it keeps
+ * where each name is declared, for hover and go-to-definition.
  */
-final readonly class IndexedSchema implements ISchemaVocabulary
+final readonly class IndexedSchema
 {
+    /**
+     * What rule text may say about the schema, built from the declarations.
+     */
+    public Vocabulary $vocabulary;
+
     /**
      * @param string $key The key the schema is registered under.
      * @param string $className The schema's class.
      * @param string|null $file Absolute path of the file the class is declared in.
      * @param int|null $line 1-based line of the class declaration.
      * @param string|null $description The summary of the class docblock.
-     * @param bool $hasRows Whether the schema has rows, from a model or a virtual
-     *   table.
-     * @param bool $hasRowKey Whether one of its rows can be named.
+     * @param bool $hasRows Whether the schema has rows: a model schema's or a
+     *   query schema's.
+     * @param string|null $model The model a model schema names, or null for any
+     *   other schema.
      * @param int $keyArgumentCount How many arguments a row-bound handle on the
      *   schema must pass.
      * @param array<string, Declaration> $abilities By name.
@@ -42,76 +48,24 @@ final readonly class IndexedSchema implements ISchemaVocabulary
         public ?int $line = null,
         public ?string $description = null,
         public bool $hasRows = true,
-        public bool $hasRowKey = true,
+        public ?string $model = null,
         public int $keyArgumentCount = 1,
         public array $abilities = [],
         public array $conditions = [],
         public array $templates = [],
         public array $requiredContextKeys = [],
     ) {
-    }
+        $definitions = static fn (array $declarations, string $type): array => array_values(array_filter(
+            array_map(static fn (Declaration $declaration): mixed => $declaration->definition, $declarations),
+            static fn (mixed $definition): bool => $definition instanceof $type,
+        ));
 
-    /**
-     * The interface asks the schema class; an index has no class to ask, and
-     * answers through {@see describesRows()} instead, which is what validation reads.
-     */
-    public static function hasRows(): bool
-    {
-        return true;
-    }
-
-    /**
-     * The interface asks the schema class; an index has no class to ask, and
-     * answers through {@see canNameARow()} instead, which is what validation reads.
-     */
-    public static function hasRowKey(): bool
-    {
-        return true;
-    }
-
-    public function describesRows(): bool
-    {
-        return $this->hasRows;
-    }
-
-    public function canNameARow(): bool
-    {
-        return $this->hasRows && $this->hasRowKey;
-    }
-
-    /**
-     * @param string $abilityKey An ability's name.
-     */
-    public function getAbilityDefinition(string $abilityKey): ?AbilityDefinition
-    {
-        $definition = ($this->abilities[$abilityKey] ?? null)?->definition;
-
-        return $definition instanceof AbilityDefinition ? $definition : null;
-    }
-
-    /**
-     * @param string $conditionKey A condition's key.
-     */
-    public function getConditionDefinition(string $conditionKey): ?ConditionDefinition
-    {
-        $definition = ($this->conditions[$conditionKey] ?? null)?->definition;
-
-        return $definition instanceof ConditionDefinition ? $definition : null;
-    }
-
-    /**
-     * @param string $templateKey A template's key.
-     */
-    public function getRuleTemplateDefinition(string $templateKey): ?RuleTemplateDefinition
-    {
-        $definition = ($this->templates[$templateKey] ?? null)?->definition;
-
-        return $definition instanceof RuleTemplateDefinition ? $definition : null;
-    }
-
-    public function getKeyDefinition(): ConditionDefinition
-    {
-        return new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, $this->keyArgumentCount);
+        $this->vocabulary = new Vocabulary(
+            $definitions($abilities, AbilityDefinition::class),
+            $definitions($conditions, ConditionDefinition::class),
+            $definitions($templates, RuleTemplateDefinition::class),
+            $hasRows ? new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, $keyArgumentCount) : null,
+        );
     }
 
     /**
@@ -158,7 +112,7 @@ final readonly class IndexedSchema implements ISchemaVocabulary
             $this->line ?? $other->line,
             $this->description ?? $other->description,
             $this->hasRows,
-            $this->hasRowKey,
+            $this->model,
             $this->keyArgumentCount,
             $fill($this->abilities, $other->abilities),
             $fill($this->conditions, $other->conditions),

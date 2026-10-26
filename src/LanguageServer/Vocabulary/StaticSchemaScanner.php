@@ -19,7 +19,6 @@ use Warrant\Schema\Context\RequiredContext;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
-use Warrant\Schema\WarrantSchema;
 
 /**
  * Reads a project's schemas from its source, without running any of it.
@@ -33,10 +32,23 @@ use Warrant\Schema\WarrantSchema;
  *
  * What only running the code can tell is left out: an ability whose name is a
  * computed constant, the required context of an ability attribute of the
- * project's own, and a schema whose class cannot be found.
+ * project's own, how many columns a query schema's `key()` returns, and a schema
+ * whose class cannot be found.
  */
 final class StaticSchemaScanner
 {
+    /**
+     * The library's schema classes, the ones a project's schema extends: which one
+     * it reaches says whether, and how, it has rows. They declare no vocabulary of
+     * their own, so their members are never read.
+     */
+    private const SCHEMA_TYPES = [
+        'warrant\\schema\\types\\classes\\modelschema' => 'model',
+        'warrant\\schema\\types\\classes\\queryschema' => 'query',
+        'warrant\\schema\\types\\classes\\rowlessschema' => 'rowless',
+        'warrant\\schema\\types\\classes\\globalschema' => 'global',
+    ];
+
     /** @var array<string, ?PhpClass> Classes read so far, by lower-cased name. */
     private array $classes = [];
 
@@ -254,11 +266,19 @@ final class StaticSchemaScanner
             );
         }
 
-        $model = $this->constantValueNamed($class, 'model');
-        $hasVirtualTable = isset($methods['virtualtable']);
-        $hasRows = (is_string($model) && $model !== '') || $hasVirtualTable;
-        $rowKey = $this->constantValueNamed($class, 'key');
+        $type = $this->schemaTypeOf($class);
+        $model = $type === 'model' ? $this->constantValueNamed($class, 'model') : null;
         $matchKey = $methods['matchkey'][1] ?? null;
+
+        /* A row is found by matchKey() when the schema declares one, and otherwise
+           by its key: a model's is one column, and a query schema's is however many
+           its key() returns, which only running it can tell, so none is required
+           here rather than a guess. */
+        $keyArgumentCount = match (true) {
+            $matchKey !== null => max(0, $matchKey->requiredParameterCount() - 1),
+            $type === 'model' => 1,
+            default => 0,
+        };
 
         return new IndexedSchema(
             $key,
@@ -266,9 +286,9 @@ final class StaticSchemaScanner
             $class->file,
             $class->line,
             self::summary($class->docComment),
-            $hasRows,
-            (is_string($model) && $model !== '') || (is_string($rowKey) && $rowKey !== '') || $matchKey !== null,
-            $matchKey === null ? 1 : max(0, $matchKey->requiredParameterCount() - 1),
+            $type === 'model' || $type === 'query',
+            is_string($model) && $model !== '' ? $model : null,
+            $keyArgumentCount,
             $abilities,
             $conditions,
             $templates,
@@ -280,7 +300,7 @@ final class StaticSchemaScanner
      * Every constant or method $class has, its own and those of the classes it
      * extends and the traits it uses, each with the class that declares it. A
      * class's own member hides one of the same name further up, and nothing is
-     * read from {@see WarrantSchema} itself, which declares no vocabulary.
+     * read from the library's schema classes, which declare no vocabulary.
      *
      * @param PhpClass $class The class to read.
      * @param 'constants'|'methods' $kind Which members.
@@ -301,7 +321,7 @@ final class StaticSchemaScanner
         $ancestors = [...($class->parent === null ? [] : [$class->parent]), ...$class->traits];
 
         foreach ($ancestors as $ancestorName) {
-            if (strcasecmp($ancestorName, WarrantSchema::class) === 0) {
+            if (str_starts_with(strtolower(ltrim($ancestorName, '\\')), 'warrant\\schema\\')) {
                 continue;
             }
 
@@ -317,6 +337,31 @@ final class StaticSchemaScanner
         }
 
         return $members;
+    }
+
+    /**
+     * Which of the library's schema classes $class extends, following its parents
+     * through the project's source: 'model', 'query', 'rowless' or 'global'. Null
+     * when the chain leaves the project's source before reaching one.
+     *
+     * @param PhpClass $class The schema class.
+     * @param int $depth How many parents have been followed, so a cycle ends.
+     */
+    private function schemaTypeOf(PhpClass $class, int $depth = 0): ?string
+    {
+        if ($class->parent === null || $depth > 16) {
+            return null;
+        }
+
+        $type = self::SCHEMA_TYPES[strtolower(ltrim($class->parent, '\\'))] ?? null;
+
+        if ($type !== null) {
+            return $type;
+        }
+
+        $parent = $this->classNamed($class->parent);
+
+        return $parent === null ? null : $this->schemaTypeOf($parent, $depth + 1);
     }
 
     /**

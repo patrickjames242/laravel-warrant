@@ -34,7 +34,7 @@ final class Definition
         }
 
         $vocabulary = $workspace->vocabulary();
-        $schema = $context->nameSchemaKey === null ? null : $vocabulary->find($context->nameSchemaKey);
+        $schema = $context->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
 
         if ($context->slot === SlotKind::Alias) {
             /* A frame name written in a `@column` is declared by the `as` of the
@@ -50,13 +50,13 @@ final class Definition
                 }
             }
 
-            $schema = $vocabulary->find($context->name) ?? $schema;
+            $schema = $vocabulary->schema($context->name) ?? $schema;
 
             return $schema === null ? null : self::location($schema->file, $schema->line);
         }
 
         if ($context->slot === SlotKind::Schema) {
-            $named = $vocabulary->find($context->name);
+            $named = $vocabulary->schema($context->name);
 
             return $named === null ? null : self::location($named->file, $named->line);
         }

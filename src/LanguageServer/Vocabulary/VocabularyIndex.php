@@ -3,6 +3,7 @@
 namespace Warrant\LanguageServer\Vocabulary;
 
 use Warrant\DSL\ISchemaCatalog;
+use Warrant\Schema\Vocabulary;
 
 /**
  * Every schema the language server knows of, by key: the catalog rule text is
@@ -18,9 +19,23 @@ final readonly class VocabularyIndex implements ISchemaCatalog
     }
 
     /**
+     * What rule text may say about the schema registered under $schemaKey, or null
+     * when the index has no such schema.
+     *
      * @param string $schemaKey A schema key.
      */
-    public function find(string $schemaKey): ?IndexedSchema
+    public function find(string $schemaKey): ?Vocabulary
+    {
+        return $this->schema($schemaKey)?->vocabulary;
+    }
+
+    /**
+     * Everything the index knows of the schema registered under $schemaKey, where
+     * its names are declared included, or null when it has no such schema.
+     *
+     * @param string $schemaKey A schema key.
+     */
+    public function schema(string $schemaKey): ?IndexedSchema
     {
         return $this->schemas[$schemaKey] ?? null;
     }

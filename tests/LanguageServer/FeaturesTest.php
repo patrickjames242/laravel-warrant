@@ -63,7 +63,7 @@ it('describes a condition, an ability and a schema on hover', function () {
     [$workspace, $document] = openInFixture('rules.warrant', $text);
 
     expect(Hover::at($workspace, $document, $position)['contents']['value'])
-        ->toBe("**schema `documents`** · `App\\Schemas\\DocumentSchema`\n\nRows.\n\nThe documents users write and share.");
+        ->toBe("**schema `documents`** · `App\\Schemas\\DocumentSchema`\n\nRows from `App\\Models\\Document`.\n\nThe documents users write and share.");
 });
 
 it('jumps to where a condition, ability or schema is declared, and to the as that names a frame', function () {

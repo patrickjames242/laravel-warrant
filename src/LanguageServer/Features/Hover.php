@@ -34,7 +34,7 @@ final class Hover
         }
 
         $context = $located->context;
-        $schema = $context->nameSchemaKey === null ? null : $workspace->vocabulary()->find($context->nameSchemaKey);
+        $schema = $context->nameSchemaKey === null ? null : $workspace->vocabulary()->schema($context->nameSchemaKey);
         $markdown = self::describe($context->slot, $context->name, $context->nameSchemaKey, $schema, $workspace);
 
         return [
@@ -72,7 +72,7 @@ final class Hover
                 "rule template `{$name}`{$on}",
                 fn (Declaration $declaration): string => sprintf('`@include %s(%s)`', $name, implode(', ', $declaration->parameters)),
             ),
-            SlotKind::Schema => self::schemaDetail($name, $workspace->vocabulary()->find($name)),
+            SlotKind::Schema => self::schemaDetail($name, $workspace->vocabulary()->schema($name)),
             SlotKind::ContextKey => self::contextKeyDetail($name, $schemaKey, $schema),
             SlotKind::Alias => $schemaKey === null
                 ? "frame `{$name}`"
@@ -139,9 +139,9 @@ final class Hover
         }
 
         $rows = match (true) {
-            ! $schema->hasRows => 'no rows: a capability schema',
-            ! $schema->hasRowKey => 'rows with no key',
-            default => 'rows',
+            $schema->model !== null => "rows from `{$schema->model}`",
+            $schema->hasRows => 'rows from a query',
+            default => 'no rows',
         };
 
         return implode("\n\n", array_filter([

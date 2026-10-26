@@ -4,9 +4,9 @@ namespace App\Schemas;
 
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Abilities\StandardAbilities;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Types\Classes\ModelSchema;
 
-abstract class BaseSchema extends WarrantSchema
+abstract class BaseSchema extends ModelSchema
 {
     #[Ability]
     public const VIEW = StandardAbilities::VIEW;

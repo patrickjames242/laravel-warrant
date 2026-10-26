@@ -81,7 +81,7 @@ final class CodeActions
            name, and clear of whatever ends just before it. */
         $located = Located::at($workspace, $document, ['line' => $position['line'] ?? 0, 'character' => ($position['character'] ?? 0) + 1]);
         $context = $located?->context;
-        $schema = $context?->nameSchemaKey === null ? null : $vocabulary->find($context->nameSchemaKey);
+        $schema = $context?->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
 
         return match (true) {
             $schema === null => [],

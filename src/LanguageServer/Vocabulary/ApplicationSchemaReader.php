@@ -12,7 +12,11 @@ use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
-use Warrant\Schema\WarrantSchema;
+use Warrant\Schema\Abilities\IProvidesAbilities;
+use Warrant\Schema\Context\IProvidesContext;
+use Warrant\Schema\Types\Interfaces\IModelSchema;
+use Warrant\Schema\Types\Interfaces\IRowSchema;
+use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * Reads a project's schemas from the running application, by reflection, as the
@@ -45,7 +49,7 @@ final class ApplicationSchemaReader
             $schemas = [];
 
             foreach ((array) $app['config']->get('warrant.schemas', []) as $key => $className) {
-                if (is_string($key) && is_string($className) && is_subclass_of($className, WarrantSchema::class)) {
+                if (is_string($key) && is_string($className) && is_subclass_of($className, ISchema::class)) {
                     try {
                         $schemas[$key] = self::describe($key, $className);
                     } catch (Throwable) {
@@ -104,7 +108,7 @@ final class ApplicationSchemaReader
                 $schema['line'] ?? null,
                 $schema['description'] ?? null,
                 (bool) $schema['hasRows'],
-                (bool) $schema['hasRowKey'],
+                isset($schema['model']) ? (string) $schema['model'] : null,
                 (int) $schema['keyArgumentCount'],
                 $declarations('abilities', static fn (array $item): AbilityDefinition => new AbilityDefinition($item['name'], array_values((array) $item['requiredContext']))),
                 $declarations('conditions', static fn (array $item): ConditionDefinition => new ConditionDefinition(
@@ -131,34 +135,29 @@ final class ApplicationSchemaReader
      * What {@see dump()} writes for one schema.
      *
      * @param string $key The key it is registered under.
-     * @param class-string<WarrantSchema> $className Its class.
+     * @param class-string<ISchema> $className Its class.
      * @return array<string, mixed>
      */
     private static function describe(string $key, string $className): array
     {
         $class = new ReflectionClass($className);
-
-        /* The definition lists are the schema's own reflection, which validation
-           reads through its lookups; listing them reaches the protected methods
-           that build them. */
-        $conditionDefinitions = Closure::bind(static fn (): array => $className::conditionDefinitions(), null, $className)();
-        $templateDefinitions = Closure::bind(static fn (): array => $className::ruleTemplateDefinitions(), null, $className)();
+        $schema = new $className;
 
         return [
             'class' => $className,
             'file' => $class->getFileName() ?: null,
             'line' => $class->getStartLine() ?: null,
             'description' => StaticSchemaScanner::summary($class->getDocComment() ?: null),
-            'hasRows' => $className::hasRows(),
-            'hasRowKey' => $className::hasRowKey(),
-            'keyArgumentCount' => $className::keyDefinition()->requiredArgumentCount,
+            'hasRows' => $schema instanceof IRowSchema,
+            'model' => $schema instanceof IModelSchema ? $schema::model() : null,
+            'keyArgumentCount' => $schema instanceof IRowSchema ? $schema->rowMatcher()->requiredArgumentCount : 0,
             'abilities' => array_map(
                 static fn (AbilityDefinition $ability): array => [
                     'name' => $ability->name,
                     'requiredContext' => $ability->requiredContext,
                     ...self::constantLocation($class, $ability->name),
                 ],
-                $className::abilityDefinitions(),
+                $schema instanceof IProvidesAbilities ? $schema->abilities() : [],
             ),
             'conditions' => array_map(
                 static fn (ConditionDefinition $condition): array => [
@@ -168,7 +167,7 @@ final class ApplicationSchemaReader
                     'requiredArgumentCount' => $condition->requiredArgumentCount,
                     ...self::methodLocation($class, $condition->methodName, $condition->kind === ConditionKind::Derived ? 0 : 1),
                 ],
-                $conditionDefinitions,
+                $schema->conditions(),
             ),
             'templates' => array_map(
                 static fn (RuleTemplateDefinition $template): array => [
@@ -179,9 +178,9 @@ final class ApplicationSchemaReader
                     'callOncePerAbility' => $template->callOncePerAbility,
                     ...self::methodLocation($class, $template->methodName, $template->takesContext ? 1 : 0),
                 ],
-                $templateDefinitions,
+                $schema->ruleTemplates(),
             ),
-            'requiredContextKeys' => $className::requiredContextKeys(),
+            'requiredContextKeys' => $schema instanceof IProvidesContext ? $schema->requiredContextKeys() : [],
         ];
     }
 

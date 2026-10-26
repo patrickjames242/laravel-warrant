@@ -86,7 +86,7 @@ final readonly class CursorContext
 
         $innermost = $nodes === [] ? null : $nodes[array_key_last($nodes)];
 
-        $hasRows = static fn (string $key): bool => $catalog?->find($key)?->describesRows() ?? true;
+        $hasRows = static fn (string $key): bool => $catalog?->find($key)?->hasRows() ?? true;
         $headerless = CursorScope::root($schemaKey, $schemaKey !== null && $hasRows($schemaKey));
 
         $scope = null;

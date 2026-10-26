@@ -458,7 +458,7 @@ final class Completion
      */
     private function schema(?string $key): ?IndexedSchema
     {
-        return $key === null ? null : $this->workspace->catalog()?->find($key);
+        return $key === null ? null : $this->workspace->catalog()?->schema($key);
     }
 
     /**

@@ -24,26 +24,26 @@ it('leaves out a registered schema whose class cannot be found', function () {
 });
 
 it('reads abilities from constants, following references and inheritance, with their required context', function () {
-    $documents = fixtureVocabulary()->find('documents');
+    $documents = fixtureVocabulary()->schema('documents');
 
     expect(array_keys($documents->abilities))->toBe(['view', 'edit', 'archive'])
-        ->and($documents->getAbilityDefinition('edit')->requiredContext)->toBe(['org'])
+        ->and($documents->vocabulary->ability('edit')->requiredContext)->toBe(['org'])
         ->and($documents->abilities['view']->file)->toEndWith('BaseSchema.php');
 });
 
 it('takes a constant carrying an ability attribute of the project\'s own for an ability', function () {
-    expect(fixtureVocabulary()->find('documents')->getAbilityDefinition('archive'))->not->toBeNull();
+    expect(fixtureVocabulary()->schema('documents')->vocabulary->ability('archive'))->not->toBeNull();
 });
 
 it('reads conditions from methods, their own and their traits\', with their keys, kinds and arguments', function () {
-    $documents = fixtureVocabulary()->find('documents');
+    $documents = fixtureVocabulary()->schema('documents');
 
     expect(array_keys($documents->conditions))->toEqualCanonicalizing(['in_team', 'is_owner', 'in_folder', 'owner_or_team'])
-        ->and($documents->getConditionDefinition('in_folder')->methodName)->toBe('insideFolder')
-        ->and($documents->getConditionDefinition('in_team')->kind)->toBe(ConditionKind::Global)
-        ->and($documents->getConditionDefinition('in_team')->requiredArgumentCount)->toBe(1)
+        ->and($documents->vocabulary->condition('in_folder')->methodName)->toBe('insideFolder')
+        ->and($documents->vocabulary->condition('in_team')->kind)->toBe(ConditionKind::Global)
+        ->and($documents->vocabulary->condition('in_team')->requiredArgumentCount)->toBe(1)
         ->and($documents->conditions['in_team']->parameters)->toBe(['team', 'role'])
-        ->and($documents->getConditionDefinition('owner_or_team')->requiredArgumentCount)->toBe(1)
+        ->and($documents->vocabulary->condition('owner_or_team')->requiredArgumentCount)->toBe(1)
         ->and($documents->conditions['is_owner']->description)->toBe('Whether the user wrote the document.')
         ->and($documents->conditions['is_owner']->line)->toBe(38);
 });
@@ -51,17 +51,20 @@ it('reads conditions from methods, their own and their traits\', with their keys
 it('reads templates, required context, and whether and how rows are named', function () {
     $vocabulary = fixtureVocabulary();
 
-    expect(array_keys($vocabulary->find('documents')->templates))->toBe(['owner_edits', 'shared_with'])
-        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->requiredArgumentCount)->toBe(1)
-        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->takesContext)->toBeTrue()
-        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('shared_with')->callOncePerAbility)->toBeTrue()
-        ->and($vocabulary->find('documents')->templates['shared_with']->parameters)->toBe(['team'])
-        ->and($vocabulary->find('documents')->getRuleTemplateDefinition('owner_edits')->takesContext)->toBeFalse()
-        ->and($vocabulary->find('documents')->requiredContextKeys)->toBe(['org'])
-        ->and($vocabulary->find('documents')->contextKeys())->toBe(['org'])
-        ->and($vocabulary->find('folders')->keyArgumentCount)->toBe(2)
-        ->and($vocabulary->find('billing')->describesRows())->toBeFalse()
-        ->and($vocabulary->find('documents')->canNameARow())->toBeTrue();
+    expect(array_keys($vocabulary->schema('documents')->templates))->toBe(['owner_edits', 'shared_with'])
+        ->and($vocabulary->schema('documents')->vocabulary->ruleTemplate('shared_with')->requiredArgumentCount)->toBe(1)
+        ->and($vocabulary->schema('documents')->vocabulary->ruleTemplate('shared_with')->takesContext)->toBeTrue()
+        ->and($vocabulary->schema('documents')->vocabulary->ruleTemplate('shared_with')->callOncePerAbility)->toBeTrue()
+        ->and($vocabulary->schema('documents')->templates['shared_with']->parameters)->toBe(['team'])
+        ->and($vocabulary->schema('documents')->vocabulary->ruleTemplate('owner_edits')->takesContext)->toBeFalse()
+        ->and($vocabulary->schema('documents')->requiredContextKeys)->toBe(['org'])
+        ->and($vocabulary->schema('documents')->contextKeys())->toBe(['org'])
+        ->and($vocabulary->schema('folders')->keyArgumentCount)->toBe(2)
+        ->and($vocabulary->schema('billing')->hasRows)->toBeFalse()
+        ->and($vocabulary->schema('documents')->hasRows)->toBeTrue()
+        ->and($vocabulary->schema('documents')->model)->toBe('App\\Models\\Document')
+        ->and($vocabulary->find('documents')->rowMatcher()?->requiredArgumentCount)->toBe(1)
+        ->and($vocabulary->find('billing')->rowMatcher())->toBeNull();
 });
 
 it('finds a schema\'s key by its class', function () {
@@ -75,7 +78,7 @@ it('merges the application\'s reading over the reading from source, keeping loca
         'documents' => [
             'class' => 'App\Schemas\DocumentSchema',
             'hasRows' => true,
-            'hasRowKey' => true,
+            'model' => 'App\\Models\\Document',
             'keyArgumentCount' => 1,
             'abilities' => [['name' => 'view', 'requiredContext' => []], ['name' => 'publish', 'requiredContext' => ['org']]],
             'conditions' => [['name' => 'is_owner', 'method' => 'isOwner', 'kind' => 'Row', 'requiredArgumentCount' => 0]],
@@ -86,7 +89,7 @@ it('merges the application\'s reading over the reading from source, keeping loca
 
     $merged = VocabularyIndex::merge($fromApplication, $fromSource);
 
-    expect(array_keys($merged->find('documents')->abilities))->toBe(['view', 'publish'])
-        ->and($merged->find('documents')->conditions['is_owner']->line)->toBe(38)
-        ->and($merged->find('folders'))->not->toBeNull();
+    expect(array_keys($merged->schema('documents')->abilities))->toBe(['view', 'publish'])
+        ->and($merged->schema('documents')->conditions['is_owner']->line)->toBe(38)
+        ->and($merged->schema('folders'))->not->toBeNull();
 });
