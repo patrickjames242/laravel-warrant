@@ -26,6 +26,12 @@ return [
         'settings'  => App\Warrant\SettingsSchema::class,
     ],
 
+    // Global schemas, whose conditions and templates any rule may use by name.
+    // Searched in this order. A global schema has no key.
+    'global' => [
+        App\Warrant\TenancySchema::class,
+    ],
+
     // Resolve Warrant abilities through Laravel's Gate: $user->can(), @can,
     // can: middleware. Set false to opt out. Defaults to true.
     'register_gate' => true,
@@ -58,6 +64,21 @@ Treat a key like a database identifier. Renaming one changes the meaning of ever
 stored rule that references it.
 
 See [registering schemas](/schemas/registering/).
+
+## `global`
+
+A list of global schema classes: each extends `GlobalSchema`, and its global
+conditions, derived conditions and rule templates may be used by name in any
+schema's rules. It is empty by default.
+
+The order is the order a name is looked up in: a schema's own constructs first,
+then each global in turn, the first to declare the name winning. A global schema
+has no key, because no rule names it.
+
+A class may be listed once across `schemas` and `global`. Listing a global does
+not build it; it is built the first time a name is looked up in it.
+
+See [global schemas](/schemas/global-schemas/).
 
 ## `register_gate`
 

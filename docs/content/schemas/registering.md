@@ -7,8 +7,9 @@ sidebar:
   order: 7
 ---
 
-Every schema is listed in `config/warrant.php`, keyed by its schema key. Unlisted
-schemas are unknown to checks, lookups, and middleware.
+Every schema is listed in `config/warrant.php`. A schema checks are made against
+is listed under `schemas`, keyed by its schema key. Unlisted schemas are unknown
+to checks, lookups, and middleware.
 
 ```php
 'schemas' => [
@@ -17,6 +18,15 @@ schemas are unknown to checks, lookups, and middleware.
     'timesheets'  => App\Warrant\TimesheetSchema::class,
     'pay_periods' => App\Warrant\PayPeriodSchema::class,
     'settings'    => App\Warrant\SettingsSchema::class,
+],
+```
+
+[Global schemas](/schemas/global-schemas/) are listed apart, under `global`,
+with no key:
+
+```php
+'global' => [
+    App\Warrant\TenancySchema::class,
 ],
 ```
 

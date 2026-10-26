@@ -19,12 +19,38 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 - A query schema's key may span several columns without a `matchKey()`:
   `key()` returns the columns, and a row is named by one argument per column.
 - Hover in the language server says where a schema's rows come from.
+- Global schemas. A class extending `GlobalSchema` and listed under `global` in
+  `config/warrant.php` declares global conditions, derived conditions and rule
+  templates any schema's rules may use by name. A name is looked up in the
+  schema its text was written in, then in each global in the order listed; text
+  a global answers with is looked up in the globals alone. A global schema has
+  no key, so no rule names it.
+- `Warrant\DSL\Resolution\ConstructLookup` says what a condition or template
+  name means: `condition()` and `ruleTemplate()` answer with the definition and
+  the schema that declares it, as an `IFoundConstruct` whose `schema()` loads
+  that schema. `ISchemaId` names a schema: `KeyedSchemaId` by its key,
+  `GlobalSchemaId` by its class.
+- `ISchemaCatalog::globalClasses()`, `findGlobal()` and `constructs()`. The
+  `SchemaRegistry` is the application's catalog: it reads each schema's
+  vocabulary once and keeps one `ConstructLookup`.
+- A rule template's body may sit under a `for` header naming its own schema, so
+  an editor knows whose names it uses when the body lives in a file of its own.
+- The diagnostics `header-names-another-schema`, for a template's or derived
+  condition's answer under a header naming another schema, and
+  `header-in-global-answer`, for a global's answer under any header.
+- The language server reads the global schemas, from source and from the
+  running application. It checks text returned from a `#[RuleTemplate]` or
+  `#[DerivedCondition]` method as that method's answer, and hover,
+  go-to-definition, completion and quick fixes find a global's conditions and
+  templates where they are declared.
 
 ### Removed
 
 - `!` is no longer a synonym for `not`. A rule writing it is rejected as an
   unexpected character; write `not` instead.
 - `WarrantSchema`, replaced by the schema classes below.
+- `RegisteredSchemas`. The `SchemaRegistry` is the catalog;
+  `Warrant::registry()` stands where `new RegisteredSchemas` did.
 - `SchemaVocabulary` and `ConditionResolver`. Validation reads a `Vocabulary`
   through `ISchemaCatalog`, and the compiler reads a schema through its
   interfaces.
@@ -71,6 +97,18 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   and `RuleNode::hasGenericClause()` is now
   `hasGenericCanOrCannotClause()`.
 - `WarrantRuleNode` is now `RuleNode`.
+- A `for` header only says whose names a text uses. Whether its rules name their
+  abilities comes from what produced the text, header or none: a schema's rules
+  and a rule provider's name them, a template's leave them off, and text nothing
+  has placed may do either, so long as all its rules agree.
+- An unknown condition or template is reported as declared by neither the
+  schema nor any global schema, or, in a global's answer, by no global schema.
+  The compiler says the same as validation, in place of `Condition [x] is not
+  defined on schema [Class]`.
+- A can/cannot clause or `@include` naming no abilities where it must is
+  reported as `the rules for [x] hold one that names none`, header or none.
+- `Vocabulary` takes the class of the schema it was read from as its first
+  argument, `$schemaClass`.
 - Every interface's name starts with `I`, so it can't be mistaken for a class:
   `DeclaresAbility`, `RuleProvider`, `SchemaCatalog` and `CompilationUnit` are
   now `IDeclaresAbility`, `IRuleProvider`, `ISchemaCatalog` and

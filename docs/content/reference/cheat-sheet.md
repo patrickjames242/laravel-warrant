@@ -54,6 +54,30 @@ class DocumentSchema extends ModelSchema
 }
 ```
 
+## A global schema
+
+```php
+class TenancySchema extends GlobalSchema
+{
+    #[GlobalCondition]
+    public function inCurrentTenant(GlobalConditionContext $c): bool
+    {
+        return $c->user->tenant_id === $c->context['tenant_id'];
+    }
+
+    #[RuleTemplate]
+    public function tenantOnly(): string
+    {
+        return 'if in_current_tenant they can';   // names looked up in the globals alone, no `for` header
+    }
+}
+```
+
+```warrant
+if is_mine and in_current_tenant they can view   # own schema first, then each global in order
+@include tenant_only for edit
+```
+
 ## Rules
 
 ```warrant
@@ -221,5 +245,6 @@ Warrant::flush();        // everyone
 ```php
 'rule_provider' => App\Warrant\DatabaseRuleProvider::class,
 'schemas'       => ['documents' => App\Warrant\DocumentSchema::class],
+'global'        => [App\Warrant\TenancySchema::class],   // searched in this order, no keys
 'register_gate' => true,
 ```
