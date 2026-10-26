@@ -4,6 +4,7 @@ namespace Warrant\LanguageServer\Vocabulary;
 
 use OutOfBoundsException;
 use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -41,6 +42,11 @@ final readonly class VocabularyIndex implements ISchemaCatalog
     public function findGlobal(string $class): Vocabulary
     {
         throw new OutOfBoundsException(sprintf('The index holds no global schema [%s].', $class));
+    }
+
+    public function constructs(): ConstructLookup
+    {
+        return new ConstructLookup($this);
     }
 
     /**

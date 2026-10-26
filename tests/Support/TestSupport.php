@@ -33,6 +33,7 @@ use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
@@ -41,7 +42,6 @@ use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Types\Interfaces\ISchema;
 use Warrant\Schema\Vocabulary;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
@@ -980,6 +980,11 @@ function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatal
         {
             return $this->behind?->findGlobal($class) ?? throw new OutOfBoundsException($class);
         }
+
+        public function constructs(): ConstructLookup
+        {
+            return new ConstructLookup($this);
+        }
     };
 }
 
@@ -997,7 +1002,7 @@ function expandedFor(RuleSetNode $set, ISchema $schema): ExpandedSyntax
 {
     registerWarrantSchema($set->schemaKey(), $schema::class);
 
-    $input = new ValidationInput(catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas));
+    $input = new ValidationInput(catalogOf([$set->schemaKey() => $schema], Warrant::registry()));
     $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
 
     return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input));
@@ -1010,7 +1015,7 @@ function expandedFor(RuleSetNode $set, ISchema $schema): ExpandedSyntax
 function validateRuleSet(RuleSetNode $set, ?ISchema $schema = null): ValidSyntax
 {
     return ValidSyntax::of(new WarrantSyntax([$set]), new ValidationInput(
-        $schema === null ? null : catalogOf([$set->schemaKey() => $schema], new RegisteredSchemas),
+        $schema === null ? null : catalogOf([$set->schemaKey() => $schema], Warrant::registry()),
     ));
 }
 

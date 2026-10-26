@@ -54,7 +54,7 @@ trait ExpandsExpressions
         }
 
         if ($node instanceof ConditionNode) {
-            $found = $this->constructs->condition($node->conditionKey->name, $writtenIn);
+            $found = $this->catalog->constructs()->condition($node->conditionKey->name, $writtenIn);
 
             /* A name no schema declares is left for validation and the compiler
                to report, in the words they use for any other. */

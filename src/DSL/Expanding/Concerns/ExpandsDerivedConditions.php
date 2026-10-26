@@ -79,7 +79,7 @@ trait ExpandsDerivedConditions
                 $this->derivedExpression($answer, $producer, $schemaKey, $parametersUsableAsBindings),
                 $schema,
                 $schemaKey,
-                $this->constructs->writtenIn($producer, $schemaKey),
+                $this->catalog->constructs()->writtenIn($producer, $schemaKey),
                 $deeper,
             ),
             $node->location,

@@ -10,7 +10,7 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\Registry\RegisteredSchemas;
+use Warrant\Facades\Warrant;
 
 require_once __DIR__.'/Support/TestSupport.php';
 
@@ -26,7 +26,7 @@ function registeredValid(string|BoundSyntax $source): ValidSyntax
 {
     return ValidSyntax::of(
         producedFor(WarrantSyntax::parse($source), 'course_sections', GenericMode::RequireNotGeneric),
-        new ValidationInput(new RegisteredSchemas),
+        new ValidationInput(Warrant::registry()),
     );
 }
 
@@ -35,7 +35,7 @@ function registeredValid(string|BoundSyntax $source): ValidSyntax
  */
 function expandedSyntax(ValidSyntax ...$syntaxes): ExpandedSyntax
 {
-    return ExpandedSyntax::expand('course_sections', new ValidationInput(new RegisteredSchemas), ...$syntaxes);
+    return ExpandedSyntax::expand('course_sections', new ValidationInput(Warrant::registry()), ...$syntaxes);
 }
 
 // -- each stage is made only from the one before it --------------------------
@@ -75,7 +75,7 @@ it('validates a syntax with no schemas only against the rules of the language', 
 it('checks an invalid syntax into every mistake it makes', function () {
     $checked = ValidSyntax::check(
         producedFor(WarrantSyntax::parse('if is_teachr they can view'), 'course_sections'),
-        new ValidationInput(new RegisteredSchemas),
+        new ValidationInput(Warrant::registry()),
     );
 
     expect($checked)->toBeInstanceOf(InvalidSyntax::class)

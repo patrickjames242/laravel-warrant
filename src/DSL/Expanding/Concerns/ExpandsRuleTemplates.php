@@ -207,9 +207,9 @@ trait ExpandsRuleTemplates
      */
     private function resolveTemplate(string $schemaKey, IncludeInvocationNode $include): FoundRuleTemplate
     {
-        $found = $this->constructs->ruleTemplate(
+        $found = $this->catalog->constructs()->ruleTemplate(
             $include->templateKey->name,
-            $this->constructs->writtenIn($include->location->source->producer(), $schemaKey),
+            $this->catalog->constructs()->writtenIn($include->location->source->producer(), $schemaKey),
         );
 
         if ($found === null) {

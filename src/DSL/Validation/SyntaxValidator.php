@@ -84,8 +84,6 @@ final class SyntaxValidator
     /** @var list<RuleValidationException> The mistakes found so far, in the order found, when validating tolerantly. */
     private array $found = [];
 
-    private ?ConstructLookup $constructs = null;
-
     /**
      * @param WarrantSyntax $syntax The text being validated.
      * @param ValidationInput $input What the text is validated against.
@@ -105,9 +103,7 @@ final class SyntaxValidator
      */
     private function constructs(): ConstructLookup
     {
-        return $this->constructs ??= new ConstructLookup(
-            $this->input->catalog ?? throw new LogicException('No catalog to resolve names in.'),
-        );
+        return ($this->input->catalog ?? throw new LogicException('No catalog to look names up in.'))->constructs();
     }
 
     /**

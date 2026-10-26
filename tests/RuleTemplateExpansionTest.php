@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
@@ -806,6 +807,11 @@ it('reports an unknown template over its name, and too few arguments over the in
         public function findGlobal(string $class): Vocabulary
         {
             throw new OutOfBoundsException($class);
+        }
+
+        public function constructs(): ConstructLookup
+        {
+            return new ConstructLookup($this);
         }
     };
 

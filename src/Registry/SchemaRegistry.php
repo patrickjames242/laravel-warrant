@@ -5,7 +5,9 @@ namespace Warrant\Registry;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use OutOfBoundsException;
+use Warrant\DSL\ISchemaCatalog;
 use Warrant\HasWarrantSchema;
+use Warrant\Registry\Concerns\ActsAsSchemaCatalog;
 use Warrant\Registry\Concerns\VerifiesSchemaModelPairs;
 use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
@@ -61,11 +63,20 @@ use Warrant\WarrantManager;
  * found by its class, through {@see globalSchema()}, and never resolves as a
  * reference.
  *
- * Built from the `warrant.schemas` and `warrant.global` config and reached through
- * {@see WarrantManager::registry()}.
+ * ## The application's catalog
+ *
+ * The registry is the {@see ISchemaCatalog} rule text is validated, expanded and
+ * compiled against in a running application, through
+ * {@see ActsAsSchemaCatalog}: each schema's vocabulary is read once, when it is
+ * first asked for, and one lookup serves every caller.
+ *
+ * Built once, by {@see WarrantManager}, from the `warrant.schemas` and
+ * `warrant.global` config, and reached through {@see WarrantManager::registry()}.
+ * A test may build one from any lists it likes.
  */
-final class SchemaRegistry
+final class SchemaRegistry implements ISchemaCatalog
 {
+    use ActsAsSchemaCatalog;
     use VerifiesSchemaModelPairs;
 
     /**
@@ -144,17 +155,6 @@ final class SchemaRegistry
 
         $this->schemasByKey = $schemasByKey;
         $this->globalClasses = array_values($globalClasses);
-    }
-
-    /**
-     * The global schemas' classes, in the order a name is looked up in them.
-     * Reading them loads no class.
-     *
-     * @return list<class-string<IGlobalSchema>>
-     */
-    public function globalClasses(): array
-    {
-        return $this->globalClasses;
     }
 
     /**

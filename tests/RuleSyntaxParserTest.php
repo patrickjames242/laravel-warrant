@@ -27,12 +27,12 @@ use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
@@ -63,6 +63,11 @@ function languageRuleErrors(string $syntax): array
         public function findGlobal(string $class): Vocabulary
         {
             throw new OutOfBoundsException($class);
+        }
+
+        public function constructs(): ConstructLookup
+        {
+            return new ConstructLookup($this);
         }
     };
 
@@ -1193,7 +1198,7 @@ function openBlocks(RuleSetNode $set): array
         null,
     );
 
-    $input = new ValidationInput(catalogOf([$set->schemaKey() => $vocabulary], new RegisteredSchemas));
+    $input = new ValidationInput(catalogOf([$set->schemaKey() => $vocabulary], Warrant::registry()));
     $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
 
     return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input))->rules;

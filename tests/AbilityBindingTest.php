@@ -15,7 +15,6 @@ use Warrant\DSL\Validation\GenericMode;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 require_once __DIR__.'/Support/TestSupport.php';
@@ -69,7 +68,7 @@ function abilityBindingSyntax(string $syntax, array $bindings = []): WarrantSynt
  */
 function abilityBindingValid(string $syntax, array $bindings = [], bool $checkValues = true): ValidSyntax
 {
-    return ValidSyntax::of(abilityBindingSyntax($syntax, $bindings), new ValidationInput(new RegisteredSchemas, $checkValues));
+    return ValidSyntax::of(abilityBindingSyntax($syntax, $bindings), new ValidationInput(Warrant::registry(), $checkValues));
 }
 
 /**
@@ -84,7 +83,7 @@ function abilityBindingMistakes(string $syntax, array $bindings = [], bool $chec
 {
     return array_map(
         static fn ($diagnostic): string => $diagnostic->message,
-        mistakesOf(abilityBindingSyntax($syntax, $bindings), new ValidationInput(new RegisteredSchemas, $checkValues)),
+        mistakesOf(abilityBindingSyntax($syntax, $bindings), new ValidationInput(Warrant::registry(), $checkValues)),
     );
 }
 
@@ -96,7 +95,7 @@ function abilityBindingMistakes(string $syntax, array $bindings = [], bool $chec
  */
 function abilityBindingExpanded(string $syntax, array $bindings = [], bool $checkValues = true): ExpandedSyntax
 {
-    return ExpandedSyntax::expand('course_sections', new ValidationInput(new RegisteredSchemas), abilityBindingValid($syntax, $bindings, $checkValues));
+    return ExpandedSyntax::expand('course_sections', new ValidationInput(Warrant::registry()), abilityBindingValid($syntax, $bindings, $checkValues));
 }
 
 // -- parsing ------------------------------------------------------------------
@@ -136,7 +135,7 @@ it('asks a bound ability for its value when binding values are checked', functio
 it('accepts a bound ability without its value when binding values are not checked', function () {
     $checked = ValidSyntax::check(
         producedFor(WarrantSyntax::parse('they can :abilities if can :other they can update'), 'course_sections'),
-        new ValidationInput(new RegisteredSchemas, checkBindingValues: false),
+        new ValidationInput(Warrant::registry(), checkBindingValues: false),
     );
 
     expect($checked)->toBeInstanceOf(ValidSyntax::class);
@@ -145,12 +144,12 @@ it('accepts a bound ability without its value when binding values are not checke
 it('counts a can/cannot clause naming only a binding as naming its abilities', function () {
     expect(fn () => ValidSyntax::of(
         producedFor(WarrantSyntax::parse('they can :abilities'), 'course_sections', GenericMode::RequireGeneric),
-        new ValidationInput(new RegisteredSchemas, checkBindingValues: false),
+        new ValidationInput(Warrant::registry(), checkBindingValues: false),
     ))->toThrow(InvalidArgumentException::class, 'This can/cannot clause names abilities');
 });
 
 it('reports an ability list binding whose value names no abilities, at the binding', function (mixed $value, string $got) {
-    $diagnostics = mistakesOf(abilityBindingSyntax('they can view, :abilities', ['abilities' => $value]), new ValidationInput(new RegisteredSchemas));
+    $diagnostics = mistakesOf(abilityBindingSyntax('they can view, :abilities', ['abilities' => $value]), new ValidationInput(Warrant::registry()));
 
     expect(array_map(fn ($diagnostic) => [$diagnostic->code, $diagnostic->message, $diagnostic->offset], $diagnostics))->toBe([[
         DiagnosticCode::InvalidBindingValue,

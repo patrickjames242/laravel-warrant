@@ -8,7 +8,6 @@ use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Resolution\GlobalSchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\Facades\Warrant;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Registry\SchemaRegistry;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
@@ -108,7 +107,7 @@ function globalDocsSql(string $role, string $ability): string
 }
 
 it('resolves a name written in a schema to the schema\'s own construct first', function () {
-    $found = (new ConstructLookup(new RegisteredSchemas))->condition('is_staff', new KeyedSchemaId('global_docs'));
+    $found = (new ConstructLookup(Warrant::registry()))->condition('is_staff', new KeyedSchemaId('global_docs'));
 
     expect($found->declaredIn())->toEqual(new KeyedSchemaId('global_docs'))
         ->and($found->schemaClass())->toBe(GlobalDocSchema::class)
@@ -116,14 +115,14 @@ it('resolves a name written in a schema to the schema\'s own construct first', f
 });
 
 it('resolves a name a schema does not declare to the first global that does', function () {
-    $found = (new ConstructLookup(new RegisteredSchemas))->ruleTemplate('staff_only', new KeyedSchemaId('global_docs'));
+    $found = (new ConstructLookup(Warrant::registry()))->ruleTemplate('staff_only', new KeyedSchemaId('global_docs'));
 
     expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalAuditSchema::class))
         ->and($found->schemaClass())->toBe(GlobalAuditSchema::class);
 });
 
 it('resolves a name written in a global among the globals in order, its own included in no priority', function () {
-    $found = (new ConstructLookup(new RegisteredSchemas))->condition('is_staff', new GlobalSchemaId(GlobalAuditSchema::class));
+    $found = (new ConstructLookup(Warrant::registry()))->condition('is_staff', new GlobalSchemaId(GlobalAuditSchema::class));
 
     expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalTenancySchema::class))
         ->and($found->schemaClass())->toBe(GlobalTenancySchema::class)

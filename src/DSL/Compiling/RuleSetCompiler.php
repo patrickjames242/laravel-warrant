@@ -35,10 +35,9 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
-use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Resolution\FoundCondition;
 use Warrant\DSL\Resolution\KeyedSchemaId;
-use Warrant\Registry\RegisteredSchemas;
+use Warrant\Facades\Warrant;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Context\ContextPolicy;
@@ -131,8 +130,6 @@ final class RuleSetCompiler
      *   {@see CrossSchemaCanNode} (resolving the referenced schema); null is fine
      *   for rule sets with no cross-schema references.
      */
-    private ?ConstructLookup $constructs = null;
-
     public function __construct(
         private readonly IAbilitySchema $schema,
         private readonly string $schemaKey,
@@ -141,21 +138,12 @@ final class RuleSetCompiler
     }
 
     /**
-     * What the names in the rules mean, read from the schemas the application
-     * registers.
-     */
-    private function constructs(): ConstructLookup
-    {
-        return $this->constructs ??= new ConstructLookup(new RegisteredSchemas);
-    }
-
-    /**
      * $ctx with its names resolved from the schema $expression's text was written
      * in: the global whose method answered with the text, or this schema.
      */
     private function writtenIn(CompilationContext $ctx, IBooleanExpressionNode $expression): CompilationContext
     {
-        return $ctx->withWrittenIn($this->constructs()->writtenIn($expression->location->source->producer(), $this->schemaKey));
+        return $ctx->withWrittenIn(Warrant::registry()->constructs()->writtenIn($expression->location->source->producer(), $this->schemaKey));
     }
 
     /**
@@ -1231,7 +1219,7 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        $found = $this->constructs()->condition(
+        $found = Warrant::registry()->constructs()->condition(
             $node->conditionKey->name,
             $ctx->writtenIn ?? new KeyedSchemaId($this->schemaKey),
         );

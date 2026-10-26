@@ -19,7 +19,6 @@ use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Facades\Warrant;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\WarrantManager;
@@ -101,8 +100,8 @@ it('reports a for header that names no schema, at the name', function () {
 it('checks rules with no header only against a schema it is given', function () {
     $syntax = WarrantSyntax::parse('if no_such_condition they can view');
 
-    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(new RegisteredSchemas)))->not->toThrow(InvalidArgumentException::class)
-        ->and(fn () => ValidSyntax::of(producedFor($syntax, 'course_sections'), new ValidationInput(new RegisteredSchemas)))
+    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(Warrant::registry())))->not->toThrow(InvalidArgumentException::class)
+        ->and(fn () => ValidSyntax::of(producedFor($syntax, 'course_sections'), new ValidationInput(Warrant::registry())))
         ->toThrow(RuleValidationException::class, 'no_such_condition');
 });
 
@@ -119,7 +118,7 @@ function validationDiagnostics(string $source): array
             $diagnostic->message,
             substr($source, $diagnostic->offset, $diagnostic->endOffset - $diagnostic->offset),
         ],
-        mistakesOf(producedFor(WarrantParser::analyze($source)->syntax, 'course_sections'), new ValidationInput(new RegisteredSchemas)),
+        mistakesOf(producedFor(WarrantParser::analyze($source)->syntax, 'course_sections'), new ValidationInput(Warrant::registry())),
     );
 }
 
@@ -146,7 +145,7 @@ it('reports nothing for a text with no mistakes', function () {
 it('throws the first of the mistakes it would report', function () {
     $source = "if is_teachr they can view, frobnicate\nif nope they can view";
 
-    expect(fn () => ValidSyntax::of(producedFor(WarrantSyntax::parse($source), 'course_sections'), new ValidationInput(new RegisteredSchemas)))
+    expect(fn () => ValidSyntax::of(producedFor(WarrantSyntax::parse($source), 'course_sections'), new ValidationInput(Warrant::registry())))
         ->toThrow(RuleValidationException::class, validationDiagnostics($source)[0][0]);
 });
 

@@ -14,7 +14,7 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\Registry\RegisteredSchemas;
+use Warrant\Facades\Warrant;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 
@@ -62,7 +62,7 @@ trait ResolvesRuleSets
             array_push($answers, ...$this->validated($provider->rules($context), SyntaxProducer::ruleProvider($schemaKey, $provider::class)));
         }
 
-        return $this->expandedRuleSet = ExpandedSyntax::expand($schemaKey, new ValidationInput(new RegisteredSchemas), ...$answers);
+        return $this->expandedRuleSet = ExpandedSyntax::expand($schemaKey, new ValidationInput(Warrant::registry()), ...$answers);
     }
 
     /**
@@ -128,6 +128,6 @@ trait ResolvesRuleSets
             }
         }
 
-        return [ValidSyntax::of($syntax, new ValidationInput(new RegisteredSchemas))];
+        return [ValidSyntax::of($syntax, new ValidationInput(Warrant::registry()))];
     }
 }

@@ -9,7 +9,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Parsing\WarrantParser;
-use Warrant\Registry\RegisteredSchemas;
+use Warrant\Facades\Warrant;
 
 /**
  * The root of every parse. Its children are exactly what the source held, in one
@@ -92,7 +92,7 @@ readonly class WarrantSyntax
      */
     public function validate(): ValidSyntax
     {
-        return ValidSyntax::of($this, new ValidationInput(new RegisteredSchemas));
+        return ValidSyntax::of($this, new ValidationInput(Warrant::registry()));
     }
 
     /**

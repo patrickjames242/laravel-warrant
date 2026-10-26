@@ -24,11 +24,9 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
-use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
-use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
@@ -84,17 +82,18 @@ final class Expander
     use ExpandsWhenBlocks;
     use ReplacesBindings;
 
-    /**
-     * @param ISchemaCatalog $catalog What the rules a template or derived
-     *   condition answers with are validated against. The schemas whose
-     *   templates and derived conditions are called come from the registry, by
-     *   key, since calling one needs the schema itself and not its vocabulary.
-     */
-    private readonly ConstructLookup $constructs;
+    private readonly ISchemaCatalog $catalog;
 
-    public function __construct(private readonly ISchemaCatalog $catalog = new RegisteredSchemas)
+    /**
+     * @param ISchemaCatalog|null $catalog What names are looked up in, and what
+     *   the rules a template or derived condition answers with are validated
+     *   against; the application's registry when null. The schemas whose
+     *   templates and derived conditions are called come from the registry,
+     *   since calling one needs the schema itself and not its vocabulary.
+     */
+    public function __construct(?ISchemaCatalog $catalog = null)
     {
-        $this->constructs = new ConstructLookup($catalog);
+        $this->catalog = $catalog ?? Warrant::registry();
     }
 
     /**
