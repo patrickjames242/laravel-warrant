@@ -174,11 +174,12 @@ trait ValidatesRuleEntries
     {
         $templateKey = $include->templateKey->name;
 
-        if ($schema === null || $schemaKey === null || $templateKey === INode::MISSING_NAME) {
+        $writtenIn = $this->writtenIn($include, $schema, $schemaKey);
+
+        if ($writtenIn === null || $templateKey === INode::MISSING_NAME) {
             return;
         }
 
-        $writtenIn = $this->constructs()->writtenIn($include->location->source->producer(), $schemaKey);
         $definition = $this->constructs()->ruleTemplate($templateKey, $writtenIn)?->definition;
 
         if ($definition === null) {

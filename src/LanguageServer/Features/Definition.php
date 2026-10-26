@@ -62,9 +62,8 @@ final class Definition
         }
 
         $declaration = match ($context->slot) {
-            SlotKind::Condition => $schema?->conditions[$context->name] ?? null,
+            SlotKind::Condition, SlotKind::Template => $located->declared($vocabulary)[1] ?? null,
             SlotKind::Ability => $schema?->abilities[$context->name] ?? null,
-            SlotKind::Template => $schema?->templates[$context->name] ?? null,
             default => null,
         };
 

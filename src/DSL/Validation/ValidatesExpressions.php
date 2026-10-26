@@ -59,7 +59,7 @@ trait ValidatesExpressions
             $expression,
             $schema,
             $schema === null ? null : $this->rootScope($schema, $schemaKey),
-            $schema === null || $schemaKey === null ? null : $this->constructs()->writtenIn($expression->location->source->producer(), $schemaKey),
+            $this->writtenIn($expression, $schema, $schemaKey),
         );
     }
 

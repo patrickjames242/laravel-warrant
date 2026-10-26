@@ -54,15 +54,21 @@ final readonly class ConstructLookup
     /**
      * The schema the text $producer answered with was written in: the global
      * schema whose method answered, when one did, and otherwise $schemaKey, the
-     * keyed schema the text's rules are for.
+     * keyed schema the text's rules are for. Null when neither is known.
+     *
+     * @return ($schemaKey is string ? ISchemaId : ISchemaId|null)
      */
-    public function writtenIn(?SyntaxProducer $producer, string $schemaKey): ISchemaId
+    public function writtenIn(?SyntaxProducer $producer, ?string $schemaKey): ?ISchemaId
     {
         $class = $producer?->schemaClass;
 
-        return $class !== null && in_array($class, $this->catalog->globalClasses(), true)
-            ? new GlobalSchemaId($class)
-            : new KeyedSchemaId($schemaKey);
+        foreach ($class === null ? [] : $this->catalog->globalClasses() as $global) {
+            if (strcasecmp($global, ltrim($class, '\\')) === 0) {
+                return new GlobalSchemaId($global, $this->catalog);
+            }
+        }
+
+        return $schemaKey === null ? null : new KeyedSchemaId($schemaKey);
     }
 
     /**
@@ -82,7 +88,7 @@ final readonly class ConstructLookup
         }
 
         foreach ($this->catalog->globalClasses() as $class) {
-            yield [new GlobalSchemaId($class), $this->catalog->findGlobal($class)];
+            yield [new GlobalSchemaId($class, $this->catalog), $this->catalog->findGlobal($class)];
         }
     }
 }

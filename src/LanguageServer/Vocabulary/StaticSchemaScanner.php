@@ -23,8 +23,9 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 /**
  * Reads a project's schemas from its source, without running any of it.
  *
- * The schemas are the ones `config/warrant.php` registers, which is the only
- * place a schema key is declared. Each schema class is read from the file
+ * The schemas are the ones `config/warrant.php` registers: those keyed under
+ * `schemas`, which is the only place a schema key is declared, and the global
+ * schemas listed under `global`, in order. Each schema class is read from the file
  * Composer's autoload maps place it in, along with the classes it extends and the
  * traits it uses, and its vocabulary is read from its attributes as the schema
  * class reads it by reflection: abilities from constants carrying an ability
@@ -63,7 +64,9 @@ final class StaticSchemaScanner
     }
 
     /**
-     * Every schema the project registers that can be read.
+     * Every schema the project registers that can be read. A class listed under
+     * `global` is indexed only when its source shows it extends GlobalSchema, so
+     * every global the index holds is one.
      */
     public function scan(): VocabularyIndex
     {
@@ -77,7 +80,17 @@ final class StaticSchemaScanner
             }
         }
 
-        return new VocabularyIndex($schemas);
+        $globals = [];
+
+        foreach ($this->globalSchemas() as $className) {
+            $class = $this->classNamed($className);
+
+            if ($class !== null && $this->schemaTypeOf($class) === 'global') {
+                $globals[] = $this->schemaOf(null, $class);
+            }
+        }
+
+        return new VocabularyIndex($schemas, $globals);
     }
 
     /**
@@ -87,6 +100,38 @@ final class StaticSchemaScanner
      * @return array<string, string>
      */
     public function registeredSchemas(): array
+    {
+        $schemas = [];
+
+        foreach ($this->configEntries('schemas') as [$key, $className]) {
+            if ($key !== null) {
+                $schemas[$key] = $className;
+            }
+        }
+
+        return $schemas;
+    }
+
+    /**
+     * The `global` list of the project's `config/warrant.php`: each class, in the
+     * order it is listed.
+     *
+     * @return list<string>
+     */
+    public function globalSchemas(): array
+    {
+        return array_map(static fn (array $entry): string => $entry[1], $this->configEntries('global'));
+    }
+
+    /**
+     * The `Class::class` entries of the array the project's `config/warrant.php`
+     * gives under $name, in order: each with the key it is written under, or null
+     * for an entry written with none.
+     *
+     * @param string $name The config key, `schemas` or `global`.
+     * @return list<array{0: ?string, 1: string}>
+     */
+    private function configEntries(string $name): array
     {
         $path = $this->root.'/config/warrant.php';
 
@@ -103,9 +148,9 @@ final class StaticSchemaScanner
 
         foreach ($tokens as $index => $token) {
             if ($token->is(T_USE) && isset($tokens[$index + 1]) && $tokens[$index + 1]->is([T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_STRING])) {
-                $name = ltrim($tokens[$index + 1]->text, '\\');
-                $alias = ($tokens[$index + 2]->text ?? null) === 'as' ? $tokens[$index + 3]->text : substr((string) strrchr('\\'.$name, '\\'), 1);
-                $imports[strtolower($alias)] = $name;
+                $imported = ltrim($tokens[$index + 1]->text, '\\');
+                $alias = ($tokens[$index + 2]->text ?? null) === 'as' ? $tokens[$index + 3]->text : substr((string) strrchr('\\'.$imported, '\\'), 1);
+                $imports[strtolower($alias)] = $imported;
             }
         }
 
@@ -113,7 +158,7 @@ final class StaticSchemaScanner
 
         foreach ($tokens as $index => $token) {
             if ($token->is(T_CONSTANT_ENCAPSED_STRING)
-                && PhpSourceReader::unquote($token->text) === 'schemas'
+                && PhpSourceReader::unquote($token->text) === $name
                 && ($tokens[$index + 1]->text ?? null) === '=>'
             ) {
                 $start = $index + 2;
@@ -125,7 +170,7 @@ final class StaticSchemaScanner
             return [];
         }
 
-        $schemas = [];
+        $entries = [];
         $depth = 0;
 
         for ($i = $start; $i < count($tokens); $i++) {
@@ -138,31 +183,33 @@ final class StaticSchemaScanner
                     break;
                 }
             } elseif ($depth === 1
-                && $tokens[$i]->is(T_CONSTANT_ENCAPSED_STRING)
-                && ($tokens[$i + 1]->text ?? null) === '=>'
-                && ($tokens[$i + 3]->text ?? null) === '::'
-                && strtolower($tokens[$i + 4]->text ?? '') === 'class'
+                && ($tokens[$i + 1]->text ?? null) === '::'
+                && strtolower($tokens[$i + 2]->text ?? '') === 'class'
+                && $tokens[$i]->is([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED])
             ) {
-                $written = $tokens[$i + 2]->text;
+                $keyed = ($tokens[$i - 1]->text ?? null) === '=>' && ($tokens[$i - 2] ?? null)?->is(T_CONSTANT_ENCAPSED_STRING);
+                $written = $tokens[$i]->text;
                 $segments = explode('\\', ltrim($written, '\\'), 2);
                 $imported = str_starts_with($written, '\\') ? null : ($imports[strtolower($segments[0])] ?? null);
 
-                $schemas[PhpSourceReader::unquote($tokens[$i]->text)] = $imported === null
-                    ? ltrim($written, '\\')
-                    : $imported.(isset($segments[1]) ? '\\'.$segments[1] : '');
+                $entries[] = [
+                    $keyed ? PhpSourceReader::unquote($tokens[$i - 2]->text) : null,
+                    $imported === null ? ltrim($written, '\\') : $imported.(isset($segments[1]) ? '\\'.$segments[1] : ''),
+                ];
             }
         }
 
-        return $schemas;
+        return $entries;
     }
 
     /**
      * The schema $class declares, registered under $key.
      *
-     * @param string $key The key it is registered under.
+     * @param string|null $key The key it is registered under; null for a global
+     *   schema, which has none.
      * @param PhpClass $class The schema class.
      */
-    private function schemaOf(string $key, PhpClass $class): IndexedSchema
+    private function schemaOf(?string $key, PhpClass $class): IndexedSchema
     {
         $constants = $this->members($class, 'constants');
         $methods = $this->members($class, 'methods');

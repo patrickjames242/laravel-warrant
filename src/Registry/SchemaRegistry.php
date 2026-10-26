@@ -168,16 +168,8 @@ final class SchemaRegistry implements ISchemaCatalog
             return $this->globals[$class];
         }
 
-        if (! in_array($class, $this->globalClasses, true)) {
+        if (! in_array($class, $this->globalClasses(), true)) {
             throw new OutOfBoundsException(sprintf('Schema [%s] is not listed under `global`.', $class));
-        }
-
-        if (! is_a($class, IGlobalSchema::class, true)) {
-            throw new InvalidArgumentException(sprintf(
-                'Schema [%s] is listed under `global`, but does not implement %s.',
-                $class,
-                IGlobalSchema::class,
-            ));
         }
 
         return $this->globals[$class] = new $class;

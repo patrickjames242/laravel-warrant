@@ -405,7 +405,7 @@ final class Server
         $fromSource = (new StaticSchemaScanner($root, ClassFileLocator::forProject($root)))->scan();
         $this->latestFromSource = $fromSource;
         $this->useVocabulary($this->applicationVocabulary === null ? $fromSource : VocabularyIndex::merge($this->applicationVocabulary, $fromSource));
-        $this->log(sprintf('Read %d schema(s) from source.', count($fromSource->schemas)));
+        $this->log(sprintf('Read %d schema(s) and %d global schema(s) from source.', count($fromSource->schemas), count($fromSource->globals)));
 
         if ($this->workspace->mode !== VocabularyMode::Auto) {
             return;
@@ -443,7 +443,7 @@ final class Server
 
         $this->applicationVocabulary = $read;
         $this->useVocabulary(VocabularyIndex::merge($read, $this->latestFromSource ?? new VocabularyIndex));
-        $this->log(sprintf('Read %d schema(s) from the running application.', count($read->schemas)));
+        $this->log(sprintf('Read %d schema(s) and %d global schema(s) from the running application.', count($read->schemas), count($read->globals)));
     }
 
     /**

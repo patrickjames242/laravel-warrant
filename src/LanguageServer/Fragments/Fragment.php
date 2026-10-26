@@ -2,6 +2,9 @@
 
 namespace Warrant\LanguageServer\Fragments;
 
+use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\SyntaxProducerKind;
+
 /**
  * One piece of Warrant rule text inside a file, and where each of its bytes came
  * from in that file.
@@ -23,6 +26,12 @@ final readonly class Fragment
      *   text are about, or null when that is not known.
      * @param int $fileStart Byte offset in the file where the text's contents start.
      * @param int $fileEnd Byte offset in the file just past where they end.
+     * @param SyntaxProducerKind|null $answers What the text is the answer of, when
+     *   it is written in a `#[RuleTemplate]` or `#[DerivedCondition]` method:
+     *   {@see SyntaxProducerKind::RuleTemplate} or
+     *   {@see SyntaxProducerKind::DerivedCondition}. Null for any other text.
+     * @param string|null $className The class of that method.
+     * @param string|null $methodName That method.
      */
     public function __construct(
         public string $text,
@@ -30,6 +39,9 @@ final readonly class Fragment
         public ?string $schemaKey,
         public int $fileStart,
         public int $fileEnd,
+        public ?SyntaxProducerKind $answers = null,
+        public ?string $className = null,
+        public ?string $methodName = null,
     ) {
     }
 
@@ -51,7 +63,34 @@ final readonly class Fragment
      */
     public function about(?string $schemaKey): self
     {
-        return new self($this->text, $this->runs, $schemaKey, $this->fileStart, $this->fileEnd);
+        return new self($this->text, $this->runs, $schemaKey, $this->fileStart, $this->fileEnd, $this->answers, $this->className, $this->methodName);
+    }
+
+    /**
+     * This fragment, as the answer of the `#[RuleTemplate]` or
+     * `#[DerivedCondition]` method $methodName of $className.
+     *
+     * @param SyntaxProducerKind $kind What it answers as.
+     * @param string $className The method's class.
+     * @param string $methodName The method.
+     */
+    public function answering(SyntaxProducerKind $kind, string $className, string $methodName): self
+    {
+        return new self($this->text, $this->runs, $this->schemaKey, $this->fileStart, $this->fileEnd, $kind, $className, $methodName);
+    }
+
+    /**
+     * What produced the text, as the editor reads it from $path: the template or
+     * derived condition that answers with it, when it is written in one, and
+     * otherwise the editor itself.
+     *
+     * @param string $path The file the fragment is in.
+     */
+    public function producer(string $path): SyntaxProducer
+    {
+        return $this->answers === null || $this->className === null || $this->methodName === null
+            ? SyntaxProducer::editor($path, $this->schemaKey)
+            : SyntaxProducer::editorAnswer($this->answers, $path, $this->schemaKey, $this->className, $this->methodName);
     }
 
     /**

@@ -18,6 +18,8 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Resolution\GlobalSchemaId;
+use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -188,7 +190,6 @@ final class SyntaxValidator
 
         if (
             $producer === null
-            || $producer->schemaKey === null
             || ! in_array($producer->kind, [SyntaxProducerKind::RuleTemplate, SyntaxProducerKind::DerivedCondition], true)
             || $body->schemaKey() === INode::MISSING_NAME
         ) {
@@ -196,7 +197,7 @@ final class SyntaxValidator
         }
 
         $answeredByGlobal = $this->input->catalog !== null
-            && $this->constructs()->writtenIn($producer, $producer->schemaKey) instanceof GlobalSchemaId;
+            && $this->constructs()->writtenIn($producer, null) instanceof GlobalSchemaId;
 
         if ($answeredByGlobal) {
             $this->fail(
@@ -213,7 +214,7 @@ final class SyntaxValidator
             return;
         }
 
-        if ($body->schemaKey() !== $producer->schemaKey) {
+        if ($producer->schemaKey !== null && $body->schemaKey() !== $producer->schemaKey) {
             $this->fail(
                 DiagnosticCode::HeaderNamesAnotherSchema,
                 sprintf(
@@ -225,6 +226,29 @@ final class SyntaxValidator
                 $body->schemaKey->location,
             );
         }
+    }
+
+    /**
+     * The schema $node's text was written in, which its names are looked up
+     * from: the global schema that answered with it, or else $schemaKey, the
+     * schema it is about. Null when there is nothing to look names up in: no
+     * catalog, or a keyed schema the catalog does not hold, whose header is
+     * reported unknown instead.
+     *
+     * @param INode $node A node of the text.
+     * @param Vocabulary|null $schema The schema the text is about, as the
+     *   catalog has it.
+     * @param string|null $schemaKey Its key.
+     */
+    private function writtenIn(INode $node, ?Vocabulary $schema, ?string $schemaKey): ?ISchemaId
+    {
+        if ($this->input->catalog === null) {
+            return null;
+        }
+
+        $writtenIn = $this->constructs()->writtenIn($node->location->source->producer(), $schemaKey);
+
+        return $writtenIn instanceof KeyedSchemaId && $schema === null ? null : $writtenIn;
     }
 
     /**

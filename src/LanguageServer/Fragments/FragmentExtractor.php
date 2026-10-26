@@ -3,6 +3,7 @@
 namespace Warrant\LanguageServer\Fragments;
 
 use PhpToken;
+use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 
 /**
@@ -134,9 +135,23 @@ final class FragmentExtractor
                 $fragment = $token->is(T_START_HEREDOC) ? $this->heredoc($i, $end) : $this->literal($token);
                 $class = $this->scopes[$i]['class'] ?? null;
 
-                $fragments[] = $fragment->about(
+                $fragment = $fragment->about(
                     self::markedSchema($fragment->text) ?? ($class === null ? null : $this->index->keyOfClass($class)),
                 );
+
+                /* Text written in a template or derived condition is that
+                   method's answer, and is checked as one. */
+                $method = $this->scopes[$i]['method'] ?? null;
+                $attributes = $this->scopes[$i]['attributes'] ?? [];
+                $answers = match (true) {
+                    in_array('ruletemplate', $attributes, true) => SyntaxProducerKind::RuleTemplate,
+                    in_array('derivedcondition', $attributes, true) => SyntaxProducerKind::DerivedCondition,
+                    default => null,
+                };
+
+                $fragments[] = $answers === null || $class === null || $method === null
+                    ? $fragment
+                    : $fragment->answering($answers, $class, $method);
             }
 
             $i = $end;

@@ -4,6 +4,8 @@ namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
@@ -37,11 +39,15 @@ final class Completion
      * @param string|null $scopeSchemaKey The schema the text at the cursor is
      *   about, when known.
      * @param list<string> $frames The frame names a `@column` at the cursor may give.
+     * @param ISchemaId|null $writtenIn The schema the text at the cursor was
+     *   written in, which its conditions and templates are looked up from; null
+     *   when it is not known.
      */
     private function __construct(
         private readonly Workspace $workspace,
         private readonly ?string $scopeSchemaKey,
         private readonly array $frames,
+        private readonly ?ISchemaId $writtenIn,
     ) {
     }
 
@@ -89,10 +95,12 @@ final class Completion
         }
 
         $scope = $located->context->scope;
+        $scopeSchemaKey = $scope->schemaKey ?? $located->fragment->fragment->schemaKey;
         $completion = new self(
             $workspace,
-            $scope->schemaKey ?? $located->fragment->fragment->schemaKey,
+            $scopeSchemaKey,
             array_keys($scope->frames),
+            $located->writtenIn($workspace->vocabulary(), $scopeSchemaKey),
         );
         $completion->before = array_values(array_filter($significant, static fn (Token $token): bool => $token->endOffset() <= $prefixStart));
         $completion->after = array_values(array_filter($significant, static fn (Token $token): bool => $token->offset >= $offset));
@@ -387,12 +395,10 @@ final class Completion
     private function expressionStart(): array
     {
         $open = $this->openParenthesis();
-        $schemaKey = $open !== null && ($this->before[$open - 1]->type ?? null) === TokenType::CHECK
-            ? $this->namedSchema()
-            : $this->scopeSchemaKey;
+        $checked = $open !== null && ($this->before[$open - 1]->type ?? null) === TokenType::CHECK ? $this->namedSchema() : null;
 
         return [
-            ...$this->conditions($schemaKey),
+            ...$this->conditions($checked === null ? $this->writtenIn : new KeyedSchemaId($checked)),
             ['can(', self::KIND_KEYWORD, 'whether the user holds an ability'],
             ['check(', self::KIND_KEYWORD, 'a condition of another schema'],
             ['not', self::KIND_KEYWORD, 'the opposite', 'not '],
@@ -492,32 +498,67 @@ final class Completion
     }
 
     /**
-     * @param string|null $schemaKey The schema whose conditions to offer.
+     * The conditions a name written in $writtenIn may mean: those of every schema
+     * it is looked up in, each name once, as the first schema declaring it has
+     * it.
+     *
+     * @param ISchemaId|null $writtenIn Where the name is written.
      * @return list<array{0: string, 1: int, 2: string, 3?: string}>
      */
-    private function conditions(?string $schemaKey): array
+    private function conditions(?ISchemaId $writtenIn): array
     {
         $items = [];
 
-        foreach ($this->schema($schemaKey)?->conditions ?? [] as $name => $declaration) {
-            $items[] = [(string) $name, self::KIND_FUNCTION, sprintf('%s(%s)', $name, implode(', ', $declaration->parameters))];
+        foreach ($this->searched($writtenIn) as $schema) {
+            foreach ($schema->conditions as $name => $declaration) {
+                $items[(string) $name] ??= [(string) $name, self::KIND_FUNCTION, self::detail(sprintf('%s(%s)', $name, implode(', ', $declaration->parameters)), $schema)];
+            }
         }
 
-        return $items;
+        return array_values($items);
     }
 
     /**
+     * The templates an `@include` at the cursor may name, as {@see conditions()}
+     * finds conditions.
+     *
      * @return list<array{0: string, 1: int, 2: string, 3?: string}>
      */
     private function templates(): array
     {
         $items = [];
 
-        foreach ($this->schema($this->scopeSchemaKey)?->templates ?? [] as $name => $declaration) {
-            $items[] = [(string) $name, self::KIND_MODULE, sprintf('@include %s(%s)', $name, implode(', ', $declaration->parameters))];
+        foreach ($this->searched($this->writtenIn) as $schema) {
+            foreach ($schema->templates as $name => $declaration) {
+                $items[(string) $name] ??= [(string) $name, self::KIND_MODULE, self::detail(sprintf('@include %s(%s)', $name, implode(', ', $declaration->parameters)), $schema)];
+            }
         }
 
-        return $items;
+        return array_values($items);
+    }
+
+    /**
+     * The schemas a name written in $writtenIn is looked up in, in order.
+     *
+     * @param ISchemaId|null $writtenIn Where the name is written.
+     * @return list<IndexedSchema>
+     */
+    private function searched(?ISchemaId $writtenIn): array
+    {
+        $catalog = $this->workspace->catalog();
+
+        return $catalog === null || $writtenIn === null ? [] : $catalog->searchedFrom($writtenIn);
+    }
+
+    /**
+     * $signature, followed by the global schema that declares it, when one does.
+     *
+     * @param string $signature How the name is used.
+     * @param IndexedSchema $schema The schema that declares it.
+     */
+    private static function detail(string $signature, IndexedSchema $schema): string
+    {
+        return $schema->key === null ? "{$signature} from global {$schema->className}" : $signature;
     }
 
     /**

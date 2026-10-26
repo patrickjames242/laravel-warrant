@@ -81,15 +81,29 @@ final class CodeActions
            name, and clear of whatever ends just before it. */
         $located = Located::at($workspace, $document, ['line' => $position['line'] ?? 0, 'character' => ($position['character'] ?? 0) + 1]);
         $context = $located?->context;
-        $schema = $context?->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
 
-        return match (true) {
-            $schema === null => [],
-            $context->slot === SlotKind::Ability => array_map('strval', array_keys($schema->abilities)),
-            $context->slot === SlotKind::Condition => array_map('strval', array_keys($schema->conditions)),
-            $context->slot === SlotKind::Template => array_map('strval', array_keys($schema->templates)),
-            default => [],
-        };
+        if ($located === null || $context === null) {
+            return [];
+        }
+
+        /* A condition or template may be any the text's names are looked up in:
+           its own schema's, and the global schemas'. */
+        if ($context->slot === SlotKind::Condition || $context->slot === SlotKind::Template) {
+            $writtenIn = $located->writtenIn($vocabulary, $context->nameSchemaKey);
+            $names = [];
+
+            foreach ($writtenIn === null ? [] : $vocabulary->searchedFrom($writtenIn) as $schema) {
+                array_push($names, ...array_keys($context->slot === SlotKind::Condition ? $schema->conditions : $schema->templates));
+            }
+
+            return array_values(array_unique(array_map('strval', $names)));
+        }
+
+        $schema = $context->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
+
+        return $schema !== null && $context->slot === SlotKind::Ability
+            ? array_map('strval', array_keys($schema->abilities))
+            : [];
     }
 
     /**

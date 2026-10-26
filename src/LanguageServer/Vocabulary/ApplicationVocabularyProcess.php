@@ -133,7 +133,7 @@ final class ApplicationVocabularyProcess
             return null;
         }
 
-        return ApplicationSchemaReader::indexFrom($data['schemas']);
+        return ApplicationSchemaReader::indexFrom($data['schemas'], is_array($data['global'] ?? null) ? array_values($data['global']) : []);
     }
 
     /**

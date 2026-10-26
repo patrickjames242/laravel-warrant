@@ -74,16 +74,28 @@ Rule text with neither is still checked for syntax, and for the rules of the
 language that need no schema. Names are not looked up, so nothing is reported
 as unknown when the server cannot know which schema to ask.
 
+A name is looked up as Warrant looks it up at run time: in the schema the text is
+about, then in each global schema in the order `config/warrant.php` lists them.
+Hover, go-to-definition and completion follow the same order, so a condition a
+global schema declares is described and found where it is declared.
+
+Text returned from a `#[RuleTemplate]` or `#[DerivedCondition]` method is checked
+as that method's answer. A template's rules must leave their abilities to the
+`@include`, and a `for` header in either may name only the method's own schema.
+Text in a global schema's methods takes no header at all, and its names are
+looked up in the global schemas alone.
+
 ## How it learns your schemas
 
 There are two readings, and the server uses both.
 
-**From source.** The server reads `config/warrant.php` for the registered schemas,
-finds each class through Composer's autoload maps, and reads its attributes from
+**From source.** The server reads `config/warrant.php` for the registered schemas
+and the global schemas, finds each class through Composer's autoload maps, and reads its attributes from
 the file: `#[Ability]` constants, condition and template methods,
 `#[RequiredContext]` constants, and what it inherits from parent classes and
 traits. It runs none of your code, so it keeps working while your application is
-broken mid-edit.
+broken mid-edit. A class listed under `global` is used as a global schema only
+when its `extends` chain reaches `GlobalSchema`.
 
 **From the running application.** The server also starts a short-lived child
 process that boots your application and asks each schema for its vocabulary by

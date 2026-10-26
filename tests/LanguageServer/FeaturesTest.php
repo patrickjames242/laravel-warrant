@@ -92,7 +92,7 @@ it('offers what belongs at the cursor, from the schema in scope', function () {
         ->and(completionLabels('for documents { if can(|) they can view }'))->toBe(['view', 'edit', 'archive'])
         ->and(completionLabels('for documents { if can | they can view }'))->toBe(['view', 'edit', 'archive'])
         ->and(completionLabels('for documents { if is_owner and not can | they can view }'))->toBe(['view', 'edit', 'archive'])
-        ->and(completionLabels('for documents { @include | }'))->toBe(['owner_edits', 'shared_with'])
+        ->and(completionLabels('for documents { @include | }'))->toBe(['owner_edits', 'shared_with', 'tenant_only'])
         ->and(completionLabels('for documents { if a(@context |) they can view }'))->toBe(['org'])
         ->and(completionLabels('for documents { if check(| for folders(1, 2)) they can view }'))->toContain('is_shared')
         ->and(completionLabels('for documents { if a | }'))->toBe(['and', 'or', 'they'])

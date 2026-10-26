@@ -9,4 +9,9 @@ return [
         'billing' => App\Schemas\BillingSchema::class,
         'missing' => App\Schemas\MissingSchema::class,
     ],
+
+    'global' => [
+        App\Schemas\TenancySchema::class,
+        \App\Schemas\MisfiledSchema::class,
+    ],
 ];

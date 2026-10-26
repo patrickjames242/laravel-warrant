@@ -2,6 +2,7 @@
 
 namespace Warrant\Registry\Concerns;
 
+use InvalidArgumentException;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\Registry\SchemaRegistry;
@@ -34,14 +35,33 @@ trait ActsAsSchemaCatalog
 
     private ?ConstructLookup $constructs = null;
 
+    private bool $globalClassesVerified = false;
+
     /**
      * The global schemas' classes, in the order a name is looked up in them.
-     * Reading them loads no class.
+     *
+     * The first reading checks that each implements {@see IGlobalSchema}, which
+     * loads every global class but builds none, so the list holds only global
+     * schemas, as the catalog promises.
      *
      * @return list<class-string<IGlobalSchema>>
      */
     public function globalClasses(): array
     {
+        if (! $this->globalClassesVerified) {
+            foreach ($this->globalClasses as $class) {
+                if (! is_a($class, IGlobalSchema::class, true)) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Schema [%s] is listed under `global`, but does not implement %s.',
+                        $class,
+                        IGlobalSchema::class,
+                    ));
+                }
+            }
+
+            $this->globalClassesVerified = true;
+        }
+
         return $this->globalClasses;
     }
 

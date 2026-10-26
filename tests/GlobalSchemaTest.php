@@ -185,14 +185,14 @@ it('resolves a name written in a schema to the schema\'s own construct first', f
 it('resolves a name a schema does not declare to the first global that does', function () {
     $found = (new ConstructLookup(Warrant::registry()))->ruleTemplate('staff_only', new KeyedSchemaId('global_docs'));
 
-    expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalAuditSchema::class))
+    expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalAuditSchema::class, Warrant::registry()))
         ->and($found->schemaClass())->toBe(GlobalAuditSchema::class);
 });
 
 it('resolves a name written in a global among the globals in order, its own included in no priority', function () {
-    $found = (new ConstructLookup(Warrant::registry()))->condition('is_staff', new GlobalSchemaId(GlobalAuditSchema::class));
+    $found = (new ConstructLookup(Warrant::registry()))->condition('is_staff', new GlobalSchemaId(GlobalAuditSchema::class, Warrant::registry()));
 
-    expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalTenancySchema::class))
+    expect($found->declaredIn())->toEqual(new GlobalSchemaId(GlobalTenancySchema::class, Warrant::registry()))
         ->and($found->schemaClass())->toBe(GlobalTenancySchema::class)
         ->and($found->definition->isGlobal())->toBeTrue();
 });
@@ -224,8 +224,8 @@ it('refuses a global schema registered under a key', function () {
 });
 
 it('refuses to name a class that is not a global schema as one', function () {
-    expect(fn () => new GlobalSchemaId(GlobalDocSchema::class))
-        ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] does not implement');
+    expect(fn () => new GlobalSchemaId(GlobalDocSchema::class, Warrant::registry()))
+        ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] is not a global schema; the catalog lists no global schema by that class.');
 });
 
 it('says a name written in a schema is declared by neither it nor any global', function () {
@@ -298,7 +298,7 @@ it('refuses a class listed under global that is not a global schema', function (
     $registry = new SchemaRegistry([], [GlobalDocSchema::class]);
 
     expect(fn () => $registry->constructs()->condition('anything', new KeyedSchemaId('nowhere')))
-        ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] does not implement');
+        ->toThrow(InvalidArgumentException::class, 'Schema [GlobalDocSchema] is listed under `global`, but does not implement');
 });
 
 it('names a global derived condition by its class in the expansion trail', function () {

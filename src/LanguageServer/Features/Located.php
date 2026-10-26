@@ -3,9 +3,15 @@
 namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Parsing\Positions\Span;
+use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\LanguageServer\Documents\AnalyzedFragment;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Positions\CursorContext;
+use Warrant\LanguageServer\Positions\SlotKind;
+use Warrant\LanguageServer\Vocabulary\Declaration;
+use Warrant\LanguageServer\Vocabulary\IndexedSchema;
+use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 use Warrant\LanguageServer\Workspace;
 
 /**
@@ -50,6 +56,55 @@ final readonly class Located
             $workspace->catalog(),
             $fragment->fragment->schemaKey,
         ));
+    }
+
+    /**
+     * The schema the text naming $schemaKey's names at the position was written
+     * in, which its conditions and templates are looked up from. A `for` header
+     * or `check(...)` naming a schema other than the text's own says the names
+     * are that schema's; otherwise it is the global schema that answered with
+     * the text, when one did, or the schema the text is about. Null when neither
+     * is known.
+     *
+     * @param VocabularyIndex $vocabulary The schemas known.
+     * @param string|null $schemaKey The schema the names at the position belong
+     *   to, as the cursor's scope says.
+     */
+    public function writtenIn(VocabularyIndex $vocabulary, ?string $schemaKey): ?ISchemaId
+    {
+        if ($schemaKey !== null && $schemaKey !== $this->fragment->fragment->schemaKey) {
+            return new KeyedSchemaId($schemaKey);
+        }
+
+        return $vocabulary->constructs()->writtenIn($this->fragment->analysis->syntax->source->producer(), $schemaKey);
+    }
+
+    /**
+     * The condition or template named at the position, and the schema that
+     * declares it, looked up as validation looks it up: null when the position
+     * is on neither, or no schema it is looked up in declares it.
+     *
+     * @param VocabularyIndex $vocabulary The schemas known.
+     * @return array{0: IndexedSchema, 1: Declaration}|null
+     */
+    public function declared(VocabularyIndex $vocabulary): ?array
+    {
+        $name = $this->context->name;
+        $writtenIn = $this->writtenIn($vocabulary, $this->context->nameSchemaKey);
+
+        if ($name === null || $writtenIn === null) {
+            return null;
+        }
+
+        $found = match ($this->context->slot) {
+            SlotKind::Condition => $vocabulary->constructs()->condition($name, $writtenIn),
+            SlotKind::Template => $vocabulary->constructs()->ruleTemplate($name, $writtenIn),
+            default => null,
+        };
+        $schema = $found === null ? null : $vocabulary->declaring($found);
+        $declaration = $this->context->slot === SlotKind::Condition ? $schema?->conditions[$name] ?? null : $schema?->templates[$name] ?? null;
+
+        return $schema === null || $declaration === null ? null : [$schema, $declaration];
     }
 
     /**

@@ -14,6 +14,7 @@ use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Context\IProvidesContext;
+use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\Schema\Types\Interfaces\ISchema;
@@ -51,14 +52,28 @@ final class ApplicationSchemaReader
             foreach ((array) $app['config']->get('warrant.schemas', []) as $key => $className) {
                 if (is_string($key) && is_string($className) && is_subclass_of($className, ISchema::class)) {
                     try {
-                        $schemas[$key] = self::describe($key, $className);
+                        $schemas[$key] = self::describe($className);
                     } catch (Throwable) {
                         // A schema that cannot describe itself is left to the reading from source.
                     }
                 }
             }
 
-            $output = ['schemas' => $schemas];
+            /* Only a class that is a global schema is written as one, so every
+               global the index holds is one. */
+            $globals = [];
+
+            foreach ((array) $app['config']->get('warrant.global', []) as $className) {
+                if (is_string($className) && is_subclass_of($className, IGlobalSchema::class)) {
+                    try {
+                        $globals[] = self::describe($className);
+                    } catch (Throwable) {
+                        // A global that cannot describe itself is left to the reading from source.
+                    }
+                }
+            }
+
+            $output = ['schemas' => $schemas, 'global' => $globals];
             $status = 0;
         } catch (Throwable $error) {
             $output = ['error' => $error->getMessage()];
@@ -74,71 +89,83 @@ final class ApplicationSchemaReader
      * The index the JSON {@see dump()} wrote describes.
      *
      * @param array<string, mixed> $data The decoded JSON's `schemas`.
+     * @param list<mixed> $globals The decoded JSON's `global`.
      */
-    public static function indexFrom(array $data): VocabularyIndex
+    public static function indexFrom(array $data, array $globals = []): VocabularyIndex
     {
         $schemas = [];
 
         foreach ($data as $key => $schema) {
-            if (! is_array($schema)) {
-                continue;
+            if (is_array($schema)) {
+                $schemas[(string) $key] = self::indexedSchema((string) $key, $schema);
             }
-
-            $declarations = static function (string $kind, Closure $definition) use ($schema): array {
-                $read = [];
-
-                foreach ((array) ($schema[$kind] ?? []) as $item) {
-                    $read[(string) $item['name']] = new Declaration(
-                        (string) $item['name'],
-                        $definition($item),
-                        $item['file'] ?? null,
-                        $item['line'] ?? null,
-                        $item['description'] ?? null,
-                        array_values((array) ($item['parameters'] ?? [])),
-                    );
-                }
-
-                return $read;
-            };
-
-            $schemas[(string) $key] = new IndexedSchema(
-                (string) $key,
-                (string) $schema['class'],
-                $schema['file'] ?? null,
-                $schema['line'] ?? null,
-                $schema['description'] ?? null,
-                (bool) $schema['hasRows'],
-                isset($schema['model']) ? (string) $schema['model'] : null,
-                (int) $schema['keyArgumentCount'],
-                $declarations('abilities', static fn (array $item): AbilityDefinition => new AbilityDefinition($item['name'], array_values((array) $item['requiredContext']))),
-                $declarations('conditions', static fn (array $item): ConditionDefinition => new ConditionDefinition(
-                    $item['name'],
-                    $item['method'],
-                    constant(ConditionKind::class.'::'.$item['kind']),
-                    (int) $item['requiredArgumentCount'],
-                )),
-                $declarations('templates', static fn (array $item): RuleTemplateDefinition => new RuleTemplateDefinition(
-                    $item['name'],
-                    $item['method'],
-                    (int) $item['requiredArgumentCount'],
-                    (bool) ($item['takesContext'] ?? false),
-                    (bool) ($item['callOncePerAbility'] ?? false),
-                )),
-                array_values((array) ($schema['requiredContextKeys'] ?? [])),
-            );
         }
 
-        return new VocabularyIndex($schemas);
+        return new VocabularyIndex($schemas, array_values(array_map(
+            static fn (array $schema): IndexedSchema => self::indexedSchema(null, $schema),
+            array_filter($globals, 'is_array'),
+        )));
+    }
+
+    /**
+     * The schema one entry of the JSON describes.
+     *
+     * @param string|null $key The key it is registered under; null for a global.
+     * @param array<string, mixed> $schema The entry.
+     */
+    private static function indexedSchema(?string $key, array $schema): IndexedSchema
+    {
+        $declarations = static function (string $kind, Closure $definition) use ($schema): array {
+            $read = [];
+
+            foreach ((array) ($schema[$kind] ?? []) as $item) {
+                $read[(string) $item['name']] = new Declaration(
+                    (string) $item['name'],
+                    $definition($item),
+                    $item['file'] ?? null,
+                    $item['line'] ?? null,
+                    $item['description'] ?? null,
+                    array_values((array) ($item['parameters'] ?? [])),
+                );
+            }
+
+            return $read;
+        };
+
+        return new IndexedSchema(
+            $key,
+            (string) $schema['class'],
+            $schema['file'] ?? null,
+            $schema['line'] ?? null,
+            $schema['description'] ?? null,
+            (bool) $schema['hasRows'],
+            isset($schema['model']) ? (string) $schema['model'] : null,
+            (int) $schema['keyArgumentCount'],
+            $declarations('abilities', static fn (array $item): AbilityDefinition => new AbilityDefinition($item['name'], array_values((array) $item['requiredContext']))),
+            $declarations('conditions', static fn (array $item): ConditionDefinition => new ConditionDefinition(
+                $item['name'],
+                $item['method'],
+                constant(ConditionKind::class.'::'.$item['kind']),
+                (int) $item['requiredArgumentCount'],
+            )),
+            $declarations('templates', static fn (array $item): RuleTemplateDefinition => new RuleTemplateDefinition(
+                $item['name'],
+                $item['method'],
+                (int) $item['requiredArgumentCount'],
+                (bool) ($item['takesContext'] ?? false),
+                (bool) ($item['callOncePerAbility'] ?? false),
+            )),
+            array_values((array) ($schema['requiredContextKeys'] ?? [])),
+        );
     }
 
     /**
      * What {@see dump()} writes for one schema.
      *
-     * @param string $key The key it is registered under.
      * @param class-string<ISchema> $className Its class.
      * @return array<string, mixed>
      */
-    private static function describe(string $key, string $className): array
+    private static function describe(string $className): array
     {
         $class = new ReflectionClass($className);
         $schema = new $className;

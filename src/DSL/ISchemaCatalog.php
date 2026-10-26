@@ -26,6 +26,9 @@ interface ISchemaCatalog
 
     /**
      * The global schemas' classes, in the order a name is looked up in them.
+     * Every class listed is a global schema: a catalog lists none it does not
+     * know implements {@see IGlobalSchema}, which is what lets a
+     * {@see \Warrant\DSL\Resolution\GlobalSchemaId} trust the list.
      *
      * @return list<class-string<IGlobalSchema>>
      */

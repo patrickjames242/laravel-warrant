@@ -4,7 +4,6 @@ namespace Warrant\LanguageServer\Documents;
 
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
-use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\LanguageServer\Fragments\FragmentExtractor;
@@ -112,7 +111,7 @@ final class Document
 
         $this->analyzed = array_map(
             function ($fragment) use ($index): AnalyzedFragment {
-                $analysis = WarrantParser::analyze($fragment->text, SyntaxProducer::editor($this->path, $fragment->schemaKey));
+                $analysis = WarrantParser::analyze($fragment->text, $fragment->producer($this->path));
                 $checked = ValidSyntax::check($analysis->syntax, new ValidationInput($index, checkBindingValues: false));
 
                 return new AnalyzedFragment(

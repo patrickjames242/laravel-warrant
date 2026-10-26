@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Parsing;
 
+use InvalidArgumentException;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Validation\GenericMode;
@@ -95,6 +96,32 @@ final readonly class SyntaxProducer
             $methodName,
             invokedBy: $invokedBy,
         );
+    }
+
+    /**
+     * Text a template or derived condition answers with, read by the language
+     * server from the method that answers with it, where nothing has invoked it.
+     *
+     * @param SyntaxProducerKind $kind {@see SyntaxProducerKind::RuleTemplate} or
+     *   {@see SyntaxProducerKind::DerivedCondition}.
+     * @param string $path The document the language server read.
+     * @param string|null $schemaKey The key of the schema the method is on; null
+     *   for a global schema, which has none, or a schema not known.
+     * @param string $schemaClass The method's class.
+     * @param string $methodName The method.
+     */
+    public static function editorAnswer(
+        SyntaxProducerKind $kind,
+        string $path,
+        ?string $schemaKey,
+        string $schemaClass,
+        string $methodName,
+    ): self {
+        if (! in_array($kind, [SyntaxProducerKind::RuleTemplate, SyntaxProducerKind::DerivedCondition], true)) {
+            throw new InvalidArgumentException(sprintf('Only a template or derived condition answers with text; got %s.', $kind->name));
+        }
+
+        return new self($kind, $schemaKey, $schemaClass, methodName: $methodName, path: $path);
     }
 
     public static function rawCondition(): self

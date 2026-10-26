@@ -34,7 +34,11 @@ final class Hover
         }
 
         $context = $located->context;
-        $schema = $context->nameSchemaKey === null ? null : $workspace->vocabulary()->schema($context->nameSchemaKey);
+
+        /* A condition or template is described where it is declared, which may
+           be a global schema rather than the schema the text is about. */
+        $declared = $located->declared($workspace->vocabulary());
+        $schema = $declared[0] ?? ($context->nameSchemaKey === null ? null : $workspace->vocabulary()->schema($context->nameSchemaKey));
         $markdown = self::describe($context->slot, $context->name, $context->nameSchemaKey, $schema, $workspace);
 
         return [
@@ -54,7 +58,12 @@ final class Hover
      */
     private static function describe(SlotKind $slot, string $name, ?string $schemaKey, ?IndexedSchema $schema, Workspace $workspace): string
     {
-        $on = $schemaKey === null ? '' : " on `{$schemaKey}`";
+        $on = match (true) {
+            $schema !== null && $schema->key === null => " on global schema `{$schema->className}`",
+            $schema !== null => " on `{$schema->key}`",
+            $schemaKey !== null => " on `{$schemaKey}`",
+            default => '',
+        };
 
         return match ($slot) {
             SlotKind::Condition => self::declared(

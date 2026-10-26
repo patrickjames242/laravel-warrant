@@ -24,7 +24,8 @@ final readonly class IndexedSchema
     public Vocabulary $vocabulary;
 
     /**
-     * @param string $key The key the schema is registered under.
+     * @param string|null $key The key the schema is registered under; null for a
+     *   global schema, which has none.
      * @param string $className The schema's class.
      * @param string|null $file Absolute path of the file the class is declared in.
      * @param int|null $line 1-based line of the class declaration.
@@ -42,7 +43,7 @@ final readonly class IndexedSchema
      *   against the schema must carry.
      */
     public function __construct(
-        public string $key,
+        public ?string $key,
         public string $className,
         public ?string $file = null,
         public ?int $line = null,
