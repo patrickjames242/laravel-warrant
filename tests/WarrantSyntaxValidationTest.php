@@ -176,8 +176,8 @@ it('holds text to the rules that need no schema when analysed with no catalog', 
         static fn (Diagnostic $diagnostic): string => $diagnostic->message,
         analyzedDiagnostics("for nowhere { can they view { they can edit } they can because 'no' }", null),
     ))->toBe([
+        LanguageRuleMessages::namingDisagrees('This can/cannot clause', false),
         'A can/cannot clause inside an ability block may not name abilities; the block header already names them.',
-        'Every can/cannot clause and @include outside an ability block names the abilities it applies to; the rule set for [nowhere] holds one that names none.',
         "'because' may only follow a 'they cannot ...' clause, not 'they can ...'.",
     ]);
 });
@@ -359,9 +359,12 @@ it('holds rules with no header to naming their abilities, or not, as the mode sa
     'mixed, either' => ['if is_teacher they can view if is_advisor they can', GenericMode::Either, [LanguageRuleMessages::namingDisagrees('This can/cannot clause', false)]],
 ]);
 
-it('holds a for body to naming its abilities whatever the mode', function () {
-    expect(genericModeErrors('for course_sections { if is_teacher they can }', GenericMode::RequireGeneric))
-        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('course_sections')]);
+it('holds a for body to the mode, as it holds rules with no header', function () {
+    expect(genericModeErrors('for course_sections { if is_teacher they can }', GenericMode::RequireGeneric))->toBe([])
+        ->and(genericModeErrors('for course_sections { if is_teacher they can }', GenericMode::RequireNotGeneric))
+        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('course_sections')])
+        ->and(genericModeErrors('for course_sections { if is_teacher they can view }', GenericMode::RequireGeneric))
+        ->toBe([LanguageRuleMessages::namedWhereGeneric('This can/cannot clause')]);
 });
 
 it('checks a for body against the schema its header names, whatever schema the producer gives', function () {

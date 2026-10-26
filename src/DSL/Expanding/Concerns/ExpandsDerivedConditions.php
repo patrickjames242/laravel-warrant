@@ -114,7 +114,7 @@ trait ExpandsDerivedConditions
         }
 
         if ($answer instanceof BoundSyntax || $answer instanceof WarrantSyntax) {
-            return $this->derivedSyntaxExpression($answer, $producer, $schemaKey);
+            return $this->derivedSyntaxExpression($answer, $producer);
         }
 
         /* A constant built here is held in a source of its own, so it keeps
@@ -180,11 +180,10 @@ trait ExpandsDerivedConditions
      * is the condition's mistake, but the parser can only point at a position in
      * the text. Naming the method that answered with it is what makes it findable.
      *
-     * A `for` header scopes the names to the schema it names, and the expression
-     * is expanded and compiled against this one, so a header naming another is
-     * rejected rather than read against the wrong vocabulary.
+     * A `for` header in it may name only the schema the condition belongs to,
+     * and none at all in a global schema's; validation holds it to that.
      */
-    private function derivedSyntaxExpression(BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer, string $schemaKey): IBooleanExpressionNode
+    private function derivedSyntaxExpression(BoundSyntax|WarrantSyntax $text, SyntaxProducer $producer): IBooleanExpressionNode
     {
         try {
             if (! $text instanceof WarrantSyntax) {
@@ -205,15 +204,6 @@ trait ExpandsDerivedConditions
                 $producer->describe(),
                 $e->getMessage(),
             ), previous: $e);
-        }
-
-        if ($syntax->isSchemaCondition() && $syntax->schemaKeys() !== [$schemaKey]) {
-            throw new RuntimeException(sprintf(
-                '%s answered with a condition for schema [%s]; it is a condition of schema [%s].',
-                $producer->describe(),
-                $syntax->schemaKeys()[0],
-                $schemaKey,
-            ));
         }
 
         $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($syntax, new ValidationInput($this->catalog)));

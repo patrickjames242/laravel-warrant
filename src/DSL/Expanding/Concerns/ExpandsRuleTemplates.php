@@ -114,9 +114,12 @@ trait ExpandsRuleTemplates
      * $parametersUsableAsBindings, the template's parameters by name.
      *
      * Every entry must be generic. The `@include` expanding the template names the
-     * abilities its can/cannot clauses take, so an entry naming its own has two answers to the
-     * one question, and a rule set or ability block, which always name theirs, has
-     * no place in a template at all.
+     * abilities its can/cannot clauses take, so an entry naming its own has two
+     * answers to the one question, and an ability block, which always names
+     * them, has no place in a template at all. Rule text may put its entries
+     * under a `for` header, which says whose names they use and nothing about
+     * their abilities; validation holds the header to the template's own
+     * schema.
      *
      * $producer, the template answering the `@include`, is set on the source
      * every answer was made in: its text's, or a built node's own, which every
@@ -145,10 +148,10 @@ trait ExpandsRuleTemplates
         }
 
         if ($body instanceof WarrantSyntax) {
-            if (! $body->isEmpty() && ! $body->isRuleEntries()) {
+            if (! $body->isEmpty() && ! $body->isRuleEntries() && ! $body->isRuleSets()) {
                 throw new RuntimeException(sprintf(
-                    '%s answered with rule text that is not unscoped rules and includes; a template answers '
-                        .'with rules and includes that name no abilities.',
+                    '%s answered with rule text that is not rules and includes; a template answers with rules and '
+                        .'includes that name no abilities.',
                     $producer->describe(),
                 ));
             }
@@ -156,7 +159,7 @@ trait ExpandsRuleTemplates
             $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($body, new ValidationInput($this->catalog)));
 
             /** @var list<RuleNode|IncludeInvocationNode|WhenBlockNode> */
-            return self::eachWithBindingsReplaced($valid->ruleEntries());
+            return self::eachWithBindingsReplaced($valid->entriesFor((string) $producer->schemaKey));
         }
 
         if ($body instanceof RuleNode || $body instanceof IncludeInvocationNode) {
@@ -172,12 +175,15 @@ trait ExpandsRuleTemplates
             return $this->templateEntries(new WarrantSyntax([$body], $body->location->source), $producer, $parametersUsableAsBindings);
         }
 
-        if ($body instanceof AbilityBlockNode || $body instanceof RuleSetNode) {
+        if ($body instanceof RuleSetNode) {
+            return $this->templateEntries(new WarrantSyntax([$body], $body->location->source), $producer, $parametersUsableAsBindings);
+        }
+
+        if ($body instanceof AbilityBlockNode) {
             throw new RuntimeException(sprintf(
-                '%s answered with %s, which names abilities; the @include that expands a template names the '
-                    .'abilities its rules and includes take.',
+                '%s answered with an ability block, which names abilities; the @include that expands a template '
+                    .'names the abilities its rules and includes take.',
                 $producer->describe(),
-                $body instanceof AbilityBlockNode ? 'an ability block' : 'a rule set',
             ));
         }
 

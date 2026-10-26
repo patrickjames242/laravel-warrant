@@ -219,6 +219,18 @@ class TemplateExpansionSchema extends WarrantTestSchema
     }
 
     #[RuleTemplate]
+    public function answersUnderItsOwnHeader(): string
+    {
+        return 'for course_sections { they can }';
+    }
+
+    #[RuleTemplate]
+    public function answersUnderAnotherHeader(): string
+    {
+        return 'for timesheets { they can }';
+    }
+
+    #[RuleTemplate]
     public function opensABlock(): string
     {
         return 'can they view { if is_teacher they can }';
@@ -563,9 +575,8 @@ it('rejects a template answering with an include that names abilities', function
         ->toThrow(RuntimeException::class, 'answered with an @include that names abilities');
 });
 
-it('rejects a template answering with a rule set', function () {
-    expect(fn () => expandSyntax('@include answers_with_a_rule_set for view'))
-        ->toThrow(RuntimeException::class, 'answered with a rule set, which names abilities');
+it('accepts a template answering with a rule set for its own schema', function () {
+    expect(expandSyntax('@include answers_with_a_rule_set for view')->rules)->toBe([]);
 });
 
 it('rejects a template answering with parsed rules that name abilities', function () {
@@ -578,9 +589,21 @@ it('rejects a template answering with a parsed ability block', function () {
         ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('An ability block'));
 });
 
-it('rejects a template answering with a for block', function () {
+it('rejects a template answering with a for block whose rules name abilities, as it would with no header', function () {
     expect(fn () => expandSyntax('@include answers_with_a_for_block for view'))
-        ->toThrow(RuntimeException::class, 'answered with rule text that is not unscoped rules and includes');
+        ->toThrow(RuleValidationException::class, LanguageRuleMessages::namedWhereGeneric('This can/cannot clause'));
+});
+
+it('applies the include\'s abilities to a template\'s generic rules under a for header naming its own schema', function () {
+    $expanded = expandSyntax('@include answers_under_its_own_header for view');
+
+    expect($expanded->rules)->toHaveCount(1)
+        ->and($expanded->rules[0]->canAbilities())->toBe(['view']);
+});
+
+it('rejects a template answering under a for header naming another schema', function () {
+    expect(fn () => expandSyntax('@include answers_under_another_header for view'))
+        ->toThrow(RuleValidationException::class, 'answered under a `for` header naming schema [timesheets]; it belongs to schema [course_sections]');
 });
 
 it('rejects a template answering with something that is not rules', function () {

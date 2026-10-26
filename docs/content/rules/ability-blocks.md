@@ -79,13 +79,13 @@ Three things, each because the header is the one place the ability is said:
 ```warrant
 can they view { if x they can edit }   # a can/cannot clause naming its own abilities
 can they view { can they edit { … } }  # a block inside a block, even with a when block between
-for docs { if is_public they can }     # a generic can/cannot clause in a rule set
+for docs { if is_public they can }     # a generic can/cannot clause in a schema's own rules
 ```
 
-Rules with no `for` header may all leave their abilities off, so the same text can
-be a [template's](/rules/templates/) body. Such text is rejected when it is placed
-in a rule set, and text mixing the two, `if a they can view  if b they cannot`, is
-a syntax error.
+Rules may all leave their abilities off, under a `for` header or not, so the same
+text can be a [template's](/rules/templates/) body. Such text is rejected in a
+schema's own rules or its rule provider's, and text mixing the two,
+`if a they can view  if b they cannot`, is a syntax error.
 
 ## Where templates fit
 

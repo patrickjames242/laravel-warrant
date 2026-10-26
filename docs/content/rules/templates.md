@@ -86,9 +86,11 @@ Anywhere else, the include names them:
 @include requires_approval for view, edit
 ```
 
-The `for` list is required in a rule set and rejected inside a block. Rules with
-no `for` header may leave it off, as a template's body does, but only if every
-other can/cannot clause and include in the text leaves its abilities off too.
+The `for` list is required in a schema's own rules and its rule provider's, and
+rejected inside a block. A template's body leaves it off. Text that nothing has
+placed yet, such as a `.warrant` file, may leave it off, under a `for` header or
+not, but only if every other can/cannot clause and include in the text leaves its
+abilities off too.
 
 Either way the result is the rules the longhand would have produced, in the place
 the `@include` was written:
@@ -238,11 +240,24 @@ A template answers in whichever form it has its body, much as a
 
 Every rule and include in the answer must name no abilities, because the `@include`
 that expands the template names them. A template answering with one that names its
-own, with an ability block, or with a rule set is rejected when it is expanded,
-naming the template. An empty answer, `''` or `[]`, expands to no rules.
+own, or with an ability block, is rejected when it is expanded, naming the
+template. An empty answer, `''` or `[]`, expands to no rules.
 
-`Warrant::parse()` reads a body like any other rule text. Rules with no `for`
-header either all name their abilities or all leave them off: the first can/cannot clause,
+Rule text may put the body under a `for` header naming the template's own schema.
+The header says whose conditions and templates the body names, which helps an
+editor when the body lives in a file of its own; it says nothing about abilities,
+so the rules under it still leave theirs off. A header naming another schema is
+rejected. A global schema's template takes no header: its names are looked up in
+the global schemas, and a global has no key for a header to name.
+
+```warrant
+for documents {
+    if is_owner they can
+}
+```
+
+`Warrant::parse()` reads a body like any other rule text. Its rules either all
+name their abilities or all leave them off: the first can/cannot clause,
 `@include` or ability block decides, and one that disagrees is a syntax error at
 its position.
 
@@ -292,8 +307,9 @@ rules once and use them for every check.
 | `@include nope for view` | `Rule template [nope], named by an @include, is declared by neither schema [...] nor any global schema.` |
 | too few arguments | `Rule template [...] requires N argument(s), but the @include supplies M` |
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
-| `for docs { @include x }` | `An @include outside an ability block must name the abilities it applies to` |
-| `@include x` in a provider's rules with no `for` header | `... the rule set for [docs] holds one that names none`, when it is placed in a rule set |
+| `for docs { @include x }` in a schema's or provider's rules | `... the rule set for [docs] holds one that names none` |
+| `@include x` in a schema's or provider's rules | `... these rules hold one that names none` |
+| a template's body under a `for` header naming another schema | `` Rule template [...] answered under a `for` header naming schema [...]; it belongs to schema [...] `` |
 | `if a they can view  @include x` | `This @include names none, but the rules before it name theirs` |
 | a template answering with a rule that names abilities | `Rule template [...] answered with a rule that names abilities` |
 | `#[RuleTemplate(callOncePerAbility: true)]` on a method taking no `RuleTemplateContext` | `Rule template [...] is declared callOncePerAbility, so it must accept a [...RuleTemplateContext] as its first parameter`, when the schema is read |

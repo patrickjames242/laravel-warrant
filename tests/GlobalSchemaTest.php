@@ -62,6 +62,18 @@ final class GlobalAuditSchema extends GlobalSchema
     {
         return 'is_audited';
     }
+
+    #[DerivedCondition]
+    public function isStaffUnderHeader(): string
+    {
+        return 'for global_docs { is_staff }';
+    }
+
+    #[RuleTemplate]
+    public function staffOnlyUnderHeader(): string
+    {
+        return 'for global_docs { if is_staff they can }';
+    }
 }
 
 class GlobalDoc extends Model
@@ -187,4 +199,18 @@ it('says a name a global answered with is declared by no global, though the sche
 
     expect(fn () => expandedFor($ruleSet, new GlobalDocSchema))
         ->toThrow(RuleValidationException::class, 'Condition [is_audited] is declared by no global schema; the text global schema ['.GlobalAuditSchema::class.'] answers with looks only in the global schemas.');
+});
+
+it('refuses a global\'s derived condition answering under a for header, even one naming the schema that reached it', function () {
+    $ruleSet = WarrantSyntax::parse('if is_staff_under_header they can view')->validateWithoutSchemas()->scopedTo('global_docs');
+
+    expect(fn () => expandedFor($ruleSet, new GlobalDocSchema))
+        ->toThrow(RuleValidationException::class, 'answered under a `for` header naming schema [global_docs]; a global schema answers with no header');
+});
+
+it('refuses a global\'s rule template answering under a for header', function () {
+    $ruleSet = WarrantSyntax::parse('@include staff_only_under_header for view')->validateWithoutSchemas()->scopedTo('global_docs');
+
+    expect(fn () => expandedFor($ruleSet, new GlobalDocSchema))
+        ->toThrow(RuleValidationException::class, 'Rule template [GlobalAuditSchema::staffOnlyUnderHeader] answered under a `for` header naming schema [global_docs]; a global schema answers with no header');
 });

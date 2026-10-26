@@ -1418,7 +1418,7 @@ it('reads a generic can/cannot clause in rules with no for header', function () 
 
 it('rejects a generic can/cannot clause after rules that name their abilities', function () {
     expect(languageRuleErrors('if is_public they can view  if is_locked they cannot'))->toBe([
-        'This can/cannot clause names none, but the rules before it name theirs; rules with no `for` header either all '
+        'This can/cannot clause names none, but the rules before it name theirs; rules either all '
             .'name their abilities or all leave them to be named where the rules are placed.',
     ]);
 });
@@ -1446,14 +1446,18 @@ it('reads an ability block among rules that name their abilities', function () {
     expect($entries)->toHaveCount(3);
 });
 
-it('rejects a generic can/cannot clause outside an ability block once it is placed in a rule set', function () {
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('if is_public they can')->validateWithoutSchemas()->scopedTo('timesheets')))
-        ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
-});
+it('rejects a generic can/cannot clause outside an ability block in a schema\'s own rules, header or none', function (string $text, string $message) {
+    $syntax = producedFor(WarrantSyntax::parse($text), 'timesheets', GenericMode::RequireNotGeneric);
 
-it('rejects a generic can/cannot clause in a for body', function () {
-    expect(languageRuleErrors('for timesheets { if is_public they can }'))
-        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
+    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(null)))
+        ->toThrow(InvalidArgumentException::class, $message);
+})->with([
+    'no header' => ['if is_public they can', 'these rules hold one that names none'],
+    'a for header' => ['for timesheets { if is_public they can }', 'the rule set for [timesheets] holds one that names none'],
+]);
+
+it('lets a for body leave its abilities off where nothing says how the text is used', function () {
+    expect(languageRuleErrors('for timesheets { if is_public they can }'))->toBe([]);
 });
 
 // -- When blocks --------------------------------------------------------------
@@ -1550,11 +1554,10 @@ it('accepts a when block whose rules name their abilities in a rule set', functi
         WARRANT))->toBe([]);
 });
 
-it('holds the rules in a when block to what a rule set asks of the rules around it', function () {
-    expect(languageRuleErrors('for docs { when a { if b they can } }'))
-        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('docs')])
+it('holds the rules in a when block to what the rules around it are held to', function () {
+    expect(languageRuleErrors('for docs { when a { if b they can } }'))->toBe([])
         ->and(languageRuleErrors('for docs { when a { if b they can view } otherwise { @include shared } }'))
-        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('docs')]);
+        ->toBe([LanguageRuleMessages::namingDisagrees('This @include', false)]);
 });
 
 it('accepts a when block inside an ability block, its rules taking the header', function () {
@@ -1683,14 +1686,18 @@ it('rejects a generic include after rules that name their abilities', function (
         ->toBe([LanguageRuleMessages::namingDisagrees('This @include', false)]);
 });
 
-it('rejects an include that names no abilities once it is placed in a rule set', function () {
-    expect(fn () => validateRuleSet(WarrantSyntax::parse('@include x')->validateWithoutSchemas()->scopedTo('timesheets')))
-        ->toThrow(InvalidArgumentException::class, 'the rule set for [timesheets] holds one that names none');
-});
+it('rejects an include that names no abilities in a schema\'s own rules, header or none', function (string $text, string $message) {
+    $syntax = producedFor(WarrantSyntax::parse($text), 'timesheets', GenericMode::RequireNotGeneric);
 
-it('rejects an include that names no abilities in a for body', function () {
-    expect(languageRuleErrors('for timesheets { @include x }'))
-        ->toBe([LanguageRuleMessages::unnamedOutsideBlock('timesheets')]);
+    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(null)))
+        ->toThrow(InvalidArgumentException::class, $message);
+})->with([
+    'no header' => ['@include x', 'these rules hold one that names none'],
+    'a for header' => ['for timesheets { @include x }', 'the rule set for [timesheets] holds one that names none'],
+]);
+
+it('lets an include in a for body leave its abilities off where nothing says how the text is used', function () {
+    expect(languageRuleErrors('for timesheets { @include x }'))->toBe([]);
 });
 
 it('rejects an include with no template name', function () {

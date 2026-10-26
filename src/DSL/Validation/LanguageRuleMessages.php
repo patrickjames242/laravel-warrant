@@ -146,8 +146,8 @@ final class LanguageRuleMessages
     public static function namingDisagrees(string $entry, bool $names): string
     {
         return sprintf(
-            '%s %s, but the rules before it %s; rules with no `for` header either all name their abilities '
-                .'or all leave them to be named where the rules are placed.',
+            '%s %s, but the rules before it %s; rules either all name their abilities or all leave them to be '
+                .'named where the rules are placed.',
             $entry,
             $names ? 'names abilities' : 'names none',
             $names ? 'name none' : 'name theirs',

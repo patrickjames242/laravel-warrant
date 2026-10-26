@@ -149,9 +149,9 @@ it('answers with a condition under a for header naming its own schema', function
 
 it('rejects a condition under a for header naming another schema', function () {
     expect(fn () => dkFilterSql('if as_foreign_syntax they can view'))->toThrow(
-        RuntimeException::class,
-        'Derived condition [DkDocSchema::asForeignSyntax] answered with a condition for schema [other_docs]; '
-            .'it is a condition of schema [dk_docs].',
+        RuleValidationException::class,
+        'Derived condition [DkDocSchema::asForeignSyntax] answered under a `for` header naming schema [other_docs]; '
+            .'it belongs to schema [dk_docs].',
     );
 });
 

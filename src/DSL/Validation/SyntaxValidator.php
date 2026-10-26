@@ -15,7 +15,9 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Resolution\ConstructLookup;
+use Warrant\DSL\Resolution\GlobalSchemaId;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -148,10 +150,16 @@ final class SyntaxValidator
         $headerless = [];
 
         foreach ($this->syntax->children as $child) {
+            if ($child instanceof ISchemaScopedNode) {
+                $this->assertHeaderFitsProducer($child);
+            }
+
+            /* A header says whose names the entries use, not who names their
+               abilities: what produced the text says that, header or none. */
             match (true) {
                 $child instanceof RuleSetNode => $this->validateEntries(
                     $child->entries,
-                    GenericMode::RequireNotGeneric,
+                    $producer?->genericMode() ?? GenericMode::Either,
                     $this->schemaNamedBy($child),
                     $child->schemaKey(),
                 ),
@@ -164,6 +172,58 @@ final class SyntaxValidator
 
         if ($headerless !== []) {
             $this->validateEntries($headerless, $producer?->genericMode() ?? GenericMode::Either, $producerSchema, $producerSchemaKey);
+        }
+    }
+
+    /**
+     * A template's or derived condition's answer is about the schema the method
+     * belongs to, so a `for` header in it may name that schema and no other. A
+     * global schema's answer is about no schema: its names are looked up in the
+     * global schemas, and it has no key for a header to name, so it takes no
+     * header at all.
+     */
+    private function assertHeaderFitsProducer(ISchemaScopedNode $body): void
+    {
+        $producer = $this->input->producer;
+
+        if (
+            $producer === null
+            || $producer->schemaKey === null
+            || ! in_array($producer->kind, [SyntaxProducerKind::RuleTemplate, SyntaxProducerKind::DerivedCondition], true)
+            || $body->schemaKey() === INode::MISSING_NAME
+        ) {
+            return;
+        }
+
+        $answeredByGlobal = $this->input->catalog !== null
+            && $this->constructs()->writtenIn($producer, $producer->schemaKey) instanceof GlobalSchemaId;
+
+        if ($answeredByGlobal) {
+            $this->fail(
+                DiagnosticCode::HeaderInGlobalAnswer,
+                sprintf(
+                    '%s answered under a `for` header naming schema [%s]; a global schema answers with no header, '
+                        .'since its names are looked up in the global schemas.',
+                    $producer->describe(),
+                    $body->schemaKey(),
+                ),
+                $body->schemaKey->location,
+            );
+
+            return;
+        }
+
+        if ($body->schemaKey() !== $producer->schemaKey) {
+            $this->fail(
+                DiagnosticCode::HeaderNamesAnotherSchema,
+                sprintf(
+                    '%s answered under a `for` header naming schema [%s]; it belongs to schema [%s].',
+                    $producer->describe(),
+                    $body->schemaKey(),
+                    $producer->schemaKey,
+                ),
+                $body->schemaKey->location,
+            );
         }
     }
 

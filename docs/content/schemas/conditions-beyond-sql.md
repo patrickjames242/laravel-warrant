@@ -57,7 +57,9 @@ parameters are its DSL arguments alone. Anything that needs the user or the row
 belongs in a row or global condition, which the derived one then names.
 
 It may answer with the following. Rule text of either kind may put the expression
-under a `for` header naming this schema; a header naming another is rejected.
+under a `for` header naming this schema; a header naming another is rejected. A
+global schema's derived condition takes no header, since a global has no key for
+one to name.
 
 | Answer | Meaning |
 | --- | --- |

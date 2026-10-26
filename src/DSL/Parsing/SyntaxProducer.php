@@ -136,8 +136,8 @@ final readonly class SyntaxProducer
     }
 
     /**
-     * Whether rules with no `for` header that this answered with name their
-     * abilities: a template's leave them to the `@include` that places them, a
+     * Whether the rules this answered with name their abilities, under a `for`
+     * header or not: a template's leave them to the `@include` that places them, a
      * schema's rules and a rule provider's name them, and anything else may do
      * either, so long as all of them do the same.
      */

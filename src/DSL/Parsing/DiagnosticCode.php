@@ -155,6 +155,12 @@ enum DiagnosticCode: string
     /** A constant inside a check(...) predicate, which asks the target nothing. */
     case ConstantInCheckPredicate = 'constant-in-check-predicate';
 
+    /** A `for` header in a template's or derived condition's answer naming a schema other than its own. */
+    case HeaderNamesAnotherSchema = 'header-names-another-schema';
+
+    /** A `for` header in a global schema's template or derived condition, which no header can name. */
+    case HeaderInGlobalAnswer = 'header-in-global-answer';
+
     /** A rule the schema cannot accept for a reason none of the kinds above names, as one its own code gives. */
     case InvalidRule = 'invalid-rule';
 }
