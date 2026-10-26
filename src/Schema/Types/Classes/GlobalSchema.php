@@ -2,11 +2,6 @@
 
 namespace Warrant\Schema\Types\Classes;
 
-use InvalidArgumentException;
-use ReflectionAttribute;
-use ReflectionClass;
-use Warrant\Schema\Abilities\IDeclaresAbility;
-use Warrant\Schema\Context\RequiredContext;
 use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 
 /**
@@ -28,22 +23,4 @@ use Warrant\Schema\Types\Interfaces\IGlobalSchema;
  */
 abstract class GlobalSchema extends Schema implements IGlobalSchema
 {
-    protected function verifyDeclarations(): void
-    {
-        parent::verifyDeclarations();
-
-        foreach ((new ReflectionClass(static::class))->getReflectionConstants() as $constant) {
-            $declaresAbility = $constant->getAttributes(IDeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF) !== [];
-
-            if ($declaresAbility || $constant->getAttributes(RequiredContext::class) !== []) {
-                throw new InvalidArgumentException(sprintf(
-                    'Constant [%s::%s] declares %s, but a global schema is never checked. Extend '
-                        .'RowlessSchema, ModelSchema or QuerySchema for a schema with abilities.',
-                    static::class,
-                    $constant->getName(),
-                    $declaresAbility ? 'an ability' : 'required context',
-                ));
-            }
-        }
-    }
 }

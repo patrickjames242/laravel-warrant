@@ -17,7 +17,6 @@ use Warrant\Schema\Conditions\Global\ReflectsGlobalConditions;
 use Warrant\Schema\Conditions\Row\ReflectsRowConditions;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
-use Warrant\Schema\Types\Interfaces\IRowSchema;
 
 /**
  * Reads a schema's condition methods, of every kind, in one pass.
@@ -134,17 +133,6 @@ trait ReflectsConditionMethods
         }
 
         $kind = constant(ConditionKind::class.'::'.array_key_first($attributesByKind));
-
-        if ($kind === ConditionKind::Row && ! is_a(static::class, IRowSchema::class, true)) {
-            throw new InvalidArgumentException(sprintf(
-                'Condition method [%s::%s] is a #[RowCondition], but schema [%s] has no rows. Extend '
-                    .'ModelSchema or QuerySchema for a schema whose abilities are about rows, or make it a '
-                    .'#[GlobalCondition].',
-                static::class,
-                $method->getName(),
-                static::class,
-            ));
-        }
 
         $key = reset($attributesByKind)[0]->newInstance()->key ?? Str::snake($method->getName());
         $firstType = ($method->getParameters()[0] ?? null)?->getType();
