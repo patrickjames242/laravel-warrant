@@ -798,6 +798,15 @@ it('reports an unknown template over its name, and too few arguments over the in
         {
             return $schemaKey === 'course_sections' ? Vocabulary::of(new TemplateExpansionSchema) : null;
         }
+        public function globalClasses(): array
+        {
+            return [];
+        }
+
+        public function findGlobal(string $class): Vocabulary
+        {
+            throw new OutOfBoundsException($class);
+        }
     };
 
     $diagnostics = analyzedDiagnostics($source, $catalog);

@@ -7,6 +7,7 @@ use LogicException;
 use ReflectionMethod;
 use Warrant\HasWarrantSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
+use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
@@ -107,6 +108,15 @@ trait VerifiesSchemaModelPairs
                 $registeredAs,
                 $reference,
                 ISchema::class,
+            ));
+        }
+
+        if ($registeredAs !== null && is_a($reference, IGlobalSchema::class, true)) {
+            throw new LogicException(sprintf(
+                'Schema key [%s] is registered to [%s], which is a global schema; list it under `global`, which '
+                    .'takes no key.',
+                $registeredAs,
+                $reference,
             ));
         }
 

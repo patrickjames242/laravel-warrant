@@ -10,6 +10,7 @@ use Warrant\DSL\Compiling\Units\ConditionUnit;
 use Warrant\DSL\Compiling\Units\GateUnit;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\WarrantGate;
 
 /**
@@ -100,6 +101,10 @@ final readonly class CompilationContext
      *   {@see RuleSetCompiler::compile()} settles on the way in; the compiler's own
      *   cross-schema descent passes the derived scope, since only it knows the
      *   frame it is building.
+     * @param ISchemaId|null $writtenIn The schema the text being compiled was
+     *   written in, which its names are resolved from. Null means "not decided
+     *   yet": the compiler settles it from the text's producer where a rule's
+     *   condition starts, and a `check(...)` sets it to the schema it names.
      */
     public function __construct(
         public ICompilationUnit $unit,
@@ -111,6 +116,7 @@ final readonly class CompilationContext
         public bool $negate = false,
         ?CallStack $callStack = null,
         public ?AliasScope $aliases = null,
+        public ?ISchemaId $writtenIn = null,
     ) {
         $this->callStack = $callStack ?? CallStack::root();
     }
@@ -190,6 +196,15 @@ final readonly class CompilationContext
     }
 
     /**
+     * Resolve the names below here from $writtenIn, the schema their text was
+     * written in.
+     */
+    public function withWrittenIn(ISchemaId $writtenIn): self
+    {
+        return $this->with(writtenIn: $writtenIn);
+    }
+
+    /**
      * Derive a copy with the negation flag toggled (crossing a `not`).
      */
     public function negated(): self
@@ -223,6 +238,7 @@ final readonly class CompilationContext
         ?bool $negate = null,
         ?CallStack $callStack = null,
         ?AliasScope $aliases = null,
+        ?ISchemaId $writtenIn = null,
     ): self {
         return new self(
             unit: $unit ?? $this->unit,
@@ -236,6 +252,7 @@ final readonly class CompilationContext
             negate: $negate ?? $this->negate,
             callStack: $callStack ?? $this->callStack,
             aliases: $aliases ?? $this->aliases,
+            writtenIn: $writtenIn ?? $this->writtenIn,
         );
     }
 }

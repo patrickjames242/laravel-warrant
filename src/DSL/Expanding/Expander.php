@@ -24,6 +24,7 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\Facades\Warrant;
@@ -89,8 +90,11 @@ final class Expander
      *   templates and derived conditions are called come from the registry, by
      *   key, since calling one needs the schema itself and not its vocabulary.
      */
+    private readonly ConstructLookup $constructs;
+
     public function __construct(private readonly ISchemaCatalog $catalog = new RegisteredSchemas)
     {
+        $this->constructs = new ConstructLookup($catalog);
     }
 
     /**

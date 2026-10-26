@@ -55,11 +55,12 @@ final readonly class ExpansionTrail
 
     /**
      * The trail one level deeper for expanding the derived condition $conditionKey
-     * of the schema keyed $schemaKey.
+     * of $schema: a keyed schema's key, or a global schema's class, since a
+     * global has no key.
      */
-    public function enteringDerivedCondition(string $schemaKey, string $conditionKey): self
+    public function enteringDerivedCondition(string $schema, string $conditionKey): self
     {
-        return $this->entering("{$schemaKey}.{$conditionKey}");
+        return $this->entering("{$schema}.{$conditionKey}");
     }
 
     private function entering(string $step): self

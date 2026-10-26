@@ -5,6 +5,7 @@ namespace Warrant\DSL\Expanding\Concerns;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 
 /**
  * How {@see Expander} expands a `check(...)`: its predicate is read
@@ -29,7 +30,15 @@ trait ExpandsCheckPredicates
             return $node;
         }
 
-        $predicate = $this->expandExpression($node->predicate, $target, $node->schemaKey->name, $trail);
+        /* The `for` names the schema the predicate's names are written for,
+           whatever text the check sits in. */
+        $predicate = $this->expandExpression(
+            $node->predicate,
+            $target,
+            $node->schemaKey->name,
+            new KeyedSchemaId($node->schemaKey->name),
+            $trail,
+        );
 
         return $predicate === $node->predicate ? $node : new CrossSchemaConditionNode(
             $node->schemaKey,

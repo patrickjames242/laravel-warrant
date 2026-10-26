@@ -32,6 +32,22 @@ return [
     ],
 
     /*
+     * The global schemas: classes extending Warrant\Schema\Types\Classes\GlobalSchema,
+     * whose global conditions, derived conditions and rule templates any rule may
+     * use without naming them.
+     *
+     * The order is the order they are searched in, top down: where two declare
+     * the same name, the one listed first is used. A schema's own constructs come
+     * before all of these. A global schema's own constructs do not: the names in
+     * its templates and derived conditions are looked up in this list alone.
+     *
+     * A global schema has no key, because no rule names it.
+     */
+    'global' => [
+        // App\Schemas\TenancySchema::class,
+    ],
+
+    /*
      * When true, Warrant registers a Gate::before hook so its abilities resolve
      * through Laravel's Gate — $user->can(), @can, Gate::authorize, and the
      * `can:` route middleware. Abilities that no registered schema declares fall

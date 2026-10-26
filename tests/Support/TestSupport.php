@@ -970,6 +970,16 @@ function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatal
         {
             return $this->schemas[$schemaKey] ?? $this->behind?->find($schemaKey);
         }
+
+        public function globalClasses(): array
+        {
+            return $this->behind?->globalClasses() ?? [];
+        }
+
+        public function findGlobal(string $class): Vocabulary
+        {
+            return $this->behind?->findGlobal($class) ?? throw new OutOfBoundsException($class);
+        }
     };
 }
 

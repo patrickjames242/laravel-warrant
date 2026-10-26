@@ -51,7 +51,8 @@ trait ExpandsRules
             return $rule;
         }
 
-        $conditions = $this->expandExpression($rule->conditions, $schema, $schemaKey, $trail);
+        $writtenIn = $this->constructs->writtenIn($rule->conditions->location->source->producer(), $schemaKey);
+        $conditions = $this->expandExpression($rule->conditions, $schema, $schemaKey, $writtenIn, $trail);
 
         return $conditions === $rule->conditions
             ? $rule

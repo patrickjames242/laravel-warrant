@@ -19,6 +19,8 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -53,7 +55,12 @@ trait ValidatesExpressions
      */
     private function validateCondition(IBooleanExpressionNode $expression, ?Vocabulary $schema, ?string $schemaKey): void
     {
-        $this->validateExpression($expression, $schema, $schema === null ? null : $this->rootScope($schema, $schemaKey));
+        $this->validateExpression(
+            $expression,
+            $schema,
+            $schema === null ? null : $this->rootScope($schema, $schemaKey),
+            $schema === null || $schemaKey === null ? null : $this->constructs()->writtenIn($expression->location->source->producer(), $schemaKey),
+        );
     }
 
     /**
@@ -90,6 +97,8 @@ trait ValidatesExpressions
      *   {@see assertColumnRefsInScope}. Every qualifier in it is null — nothing is
      *   selected until a compile, and only the names matter here. Null when the
      *   frames are not known.
+     * @param ISchemaId|null $writtenIn The schema the text was written in, which
+     *   its names are resolved from; null when no schema is known.
      * @param CrossSchemaConditionNode|null $predicateOf The `check(...)` whose
      *   predicate this is, or null for a rule's own expression.
      */
@@ -97,16 +106,17 @@ trait ValidatesExpressions
         IBooleanExpressionNode $node,
         ?Vocabulary $vocabulary,
         ?AliasScope $scope,
+        ?ISchemaId $writtenIn,
         ?CrossSchemaConditionNode $predicateOf = null,
     ): void {
         match (true) {
-            $node instanceof ConditionNode => $this->assertConditionValid($node, $vocabulary, $scope, $predicateOf),
+            $node instanceof ConditionNode => $this->assertConditionValid($node, $writtenIn, $scope, $predicateOf),
             $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $scope),
-            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $predicateOf),
-            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $predicateOf): void {
-                $this->validateExpression($node->leftSide, $vocabulary, $scope, $predicateOf);
-                $this->validateExpression($node->rightSide, $vocabulary, $scope, $predicateOf);
+            $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $writtenIn, $predicateOf),
+            $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $writtenIn, $predicateOf): void {
+                $this->validateExpression($node->leftSide, $vocabulary, $scope, $writtenIn, $predicateOf);
+                $this->validateExpression($node->rightSide, $vocabulary, $scope, $writtenIn, $predicateOf);
             })(),
             // The analysis that read it in place of a missing expression reported it.
             $node instanceof MissingExpressionNode => null,
@@ -239,6 +249,9 @@ trait ValidatesExpressions
                 ! $target->hasRows() => $scope->enteringRowlessPredicate(),
                 default => $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
             },
+            /* The `for` names the schema the predicate's names are written for,
+               whatever text the check sits in. */
+            $target === null ? null : new KeyedSchemaId($schemaKey),
             $node,
         );
     }
@@ -456,12 +469,12 @@ trait ValidatesExpressions
      */
     private function assertConditionValid(
         ConditionNode $node,
-        ?Vocabulary $vocabulary,
+        ?ISchemaId $writtenIn,
         ?AliasScope $scope,
         ?CrossSchemaConditionNode $predicateOf,
     ): void {
-        if ($vocabulary !== null) {
-            $this->assertConditionDeclared($node, $vocabulary, $predicateOf);
+        if ($writtenIn !== null) {
+            $this->assertConditionDeclared($node, $writtenIn, $predicateOf);
         }
 
         $this->assertColumnRefsInScope($node->parameters, $scope);
@@ -473,12 +486,13 @@ trait ValidatesExpressions
     }
 
     /**
-     * $vocabulary declares the condition $node names, and $node gives it at least
-     * the arguments it requires.
+     * The condition $node names resolves from $writtenIn, to the schema the text
+     * was written in or a global, and $node gives it at least the arguments it
+     * requires.
      */
-    private function assertConditionDeclared(ConditionNode $node, Vocabulary $vocabulary, ?CrossSchemaConditionNode $predicateOf): void
+    private function assertConditionDeclared(ConditionNode $node, ISchemaId $writtenIn, ?CrossSchemaConditionNode $predicateOf): void
     {
-        $definition = $vocabulary->condition($node->conditionKey->name);
+        $definition = $this->constructs()->condition($node->conditionKey->name, $writtenIn)?->definition;
 
         if ($definition === null) {
             $this->fail(

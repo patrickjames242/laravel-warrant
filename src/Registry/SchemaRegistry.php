@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use OutOfBoundsException;
 use Warrant\HasWarrantSchema;
 use Warrant\Registry\Concerns\VerifiesSchemaModelPairs;
+use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 use Warrant\Schema\Types\Interfaces\ISchema;
 use Warrant\WarrantManager;
@@ -53,7 +54,15 @@ use Warrant\WarrantManager;
  * builds it on first resolution, which is also when constructing it checks what
  * the class declares, and hands it back with its key every time after.
  *
- * Built from the `warrant.schemas` config and reached through {@see WarrantManager::registry()}.
+ * ## Global schemas
+ *
+ * The `warrant.global` config lists the global schemas, in the order a name is
+ * looked up in them. A global has no key, because no rule names it: it is
+ * found by its class, through {@see globalSchema()}, and never resolves as a
+ * reference.
+ *
+ * Built from the `warrant.schemas` and `warrant.global` config and reached through
+ * {@see WarrantManager::registry()}.
  */
 final class SchemaRegistry
 {
@@ -80,13 +89,28 @@ final class SchemaRegistry
     private ?array $keysBySchema = null;
 
     /**
+     * @var list<class-string<IGlobalSchema>>
+     */
+    private array $globalClasses;
+
+    /**
+     * Each global schema built so far, by class.
+     *
+     * @var array<class-string<IGlobalSchema>, IGlobalSchema>
+     */
+    private array $globals = [];
+
+    /**
      * @param  array<string, class-string<ISchema>>  $schemasByKey  Schema
      *   classes keyed by schema key. Values are not validated here: confirming a
      *   value is an ISchema would autoload it, defeating the point of the
      *   index. That check happens in {@see VerifiesSchemaModelPairs} on first
      *   resolution.
+     * @param  list<class-string<IGlobalSchema>>  $globalClasses  The global
+     *   schemas, in the order a name is looked up in them. Each is checked when
+     *   it is first built, for the same reason.
      */
-    public function __construct(array $schemasByKey)
+    public function __construct(array $schemasByKey, array $globalClasses = [])
     {
         /* Duplicate keys cannot be detected — a PHP array literal silently keeps
            the last of them. Duplicate *classes* can be, and are rejected: a schema
@@ -104,7 +128,59 @@ final class SchemaRegistry
             ));
         }
 
+        /* A global is found by its class, so a class listed twice, or as both a
+           global and a keyed schema, would be two answers to one lookup. */
+        $repeated = [
+            ...array_diff_assoc($globalClasses, array_unique($globalClasses)),
+            ...array_intersect($globalClasses, $schemasByKey),
+        ];
+
+        if ($repeated !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] is listed more than once across `schemas` and `global`; a schema is listed once.',
+                reset($repeated),
+            ));
+        }
+
         $this->schemasByKey = $schemasByKey;
+        $this->globalClasses = array_values($globalClasses);
+    }
+
+    /**
+     * The global schemas' classes, in the order a name is looked up in them.
+     * Reading them loads no class.
+     *
+     * @return list<class-string<IGlobalSchema>>
+     */
+    public function globalClasses(): array
+    {
+        return $this->globalClasses;
+    }
+
+    /**
+     * The global schema $class, built on first use and the same instance after.
+     *
+     * @param  class-string<IGlobalSchema>  $class  One of {@see globalClasses()}.
+     */
+    public function globalSchema(string $class): IGlobalSchema
+    {
+        if (isset($this->globals[$class])) {
+            return $this->globals[$class];
+        }
+
+        if (! in_array($class, $this->globalClasses, true)) {
+            throw new OutOfBoundsException(sprintf('Schema [%s] is not listed under `global`.', $class));
+        }
+
+        if (! is_a($class, IGlobalSchema::class, true)) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] is listed under `global`, but does not implement %s.',
+                $class,
+                IGlobalSchema::class,
+            ));
+        }
+
+        return $this->globals[$class] = new $class;
     }
 
     /**

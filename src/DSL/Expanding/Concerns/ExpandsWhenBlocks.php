@@ -46,7 +46,8 @@ trait ExpandsWhenBlocks
         ExpansionTrail $trail,
     ): array {
         $implied = SyntaxLocation::builtIn($block->location->source);
-        $condition = $this->expandExpression($block->condition, $schema, $schemaKey, $trail);
+        $writtenIn = $this->constructs->writtenIn($block->condition->location->source->producer(), $schemaKey);
+        $condition = $this->expandExpression($block->condition, $schema, $schemaKey, $writtenIn, $trail);
 
         $rules = self::guarded(
             $this->expandEntries($block->entries, $schema, $schemaKey, $trail),

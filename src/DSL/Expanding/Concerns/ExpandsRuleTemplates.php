@@ -18,11 +18,11 @@ use Warrant\DSL\Parsing\BoundSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\WarrantParser;
+use Warrant\DSL\Resolution\FoundRuleTemplate;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
-use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
@@ -46,8 +46,10 @@ trait ExpandsRuleTemplates
     ): array {
         $deeper = $trail->enteringInclude($include);
 
-        $definition = self::resolveTemplate($schema, $schemaKey, $include);
-        $producer = SyntaxProducer::ruleTemplate($schemaKey, $schema::class, $definition->key, $definition->methodName, $include);
+        $found = $this->resolveTemplate($schemaKey, $include);
+        $definition = $found->definition;
+        $owner = $found->schema();
+        $producer = SyntaxProducer::ruleTemplate($schemaKey, $owner::class, $definition->key, $definition->methodName, $include);
 
         $arguments = self::argumentValues($include->arguments);
 
@@ -72,7 +74,7 @@ trait ExpandsRuleTemplates
                names a DSL argument, and the context is none. */
             $bindings = array_filter(
                 self::parametersUsableAsBindings(
-                    $schema,
+                    $owner,
                     $definition->methodName,
                     $context === null ? $arguments : [$context, ...$arguments],
                 ),
@@ -80,7 +82,7 @@ trait ExpandsRuleTemplates
             );
 
             $generic = $this->templateEntries(
-                $schema->invokeRuleTemplate($definition, $context, $arguments),
+                $owner->invokeRuleTemplate($definition, $context, $arguments),
                 $producer,
                 $bindings,
             );
@@ -199,34 +201,35 @@ trait ExpandsRuleTemplates
     }
 
     /**
-     * The template an include names, rejecting one the schema does not declare and
-     * one the include gives too few arguments.
+     * The template an include names, resolved from the schema the include was
+     * written in, rejecting one no schema declares and one the include gives too
+     * few arguments.
      */
-    private static function resolveTemplate(
-        ISchema $schema,
-        string $schemaKey,
-        IncludeInvocationNode $include,
-    ): RuleTemplateDefinition {
-        $definition = $schema->ruleTemplate($include->templateKey->name);
+    private function resolveTemplate(string $schemaKey, IncludeInvocationNode $include): FoundRuleTemplate
+    {
+        $found = $this->constructs->ruleTemplate(
+            $include->templateKey->name,
+            $this->constructs->writtenIn($include->location->source->producer(), $schemaKey),
+        );
 
-        if ($definition === null) {
+        if ($found === null) {
             throw new RuleValidationException(
                 DiagnosticCode::UnknownTemplate,
                 LanguageRuleMessages::unknownTemplate($schemaKey, $include->templateKey->name),
             );
         }
 
-        if (count($include->arguments) < $definition->requiredArgumentCount) {
+        if (count($include->arguments) < $found->definition->requiredArgumentCount) {
             throw new RuleValidationException(
                 DiagnosticCode::TooFewArguments,
                 LanguageRuleMessages::tooFewTemplateArguments(
                     $include->templateKey->name,
-                    $definition->requiredArgumentCount,
+                    $found->definition->requiredArgumentCount,
                     count($include->arguments),
                 ),
             );
         }
 
-        return $definition;
+        return $found;
     }
 }

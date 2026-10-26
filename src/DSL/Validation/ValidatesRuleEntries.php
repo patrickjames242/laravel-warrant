@@ -162,7 +162,8 @@ trait ValidatesRuleEntries
     }
 
     /**
-     * An include names a template the schema declares, and gives it at least the
+     * An include names a template the schema it was written in or a global
+     * declares, and gives it at least the
      * arguments the template requires. With no schema there is nothing to look
      * the template up in, and a name the text is missing was reported where it
      * was read.
@@ -177,7 +178,10 @@ trait ValidatesRuleEntries
             return;
         }
 
-        $definition = $schema->ruleTemplate($templateKey);
+        $definition = $this->constructs()->ruleTemplate(
+            $templateKey,
+            $this->constructs()->writtenIn($include->location->source->producer(), $schemaKey),
+        )?->definition;
 
         if ($definition === null) {
             $this->fail(

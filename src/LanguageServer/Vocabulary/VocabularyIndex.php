@@ -2,6 +2,7 @@
 
 namespace Warrant\LanguageServer\Vocabulary;
 
+use OutOfBoundsException;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\Schema\Vocabulary;
 
@@ -27,6 +28,19 @@ final readonly class VocabularyIndex implements ISchemaCatalog
     public function find(string $schemaKey): ?Vocabulary
     {
         return $this->schema($schemaKey)?->vocabulary;
+    }
+
+    /**
+     * The language server does not index global schemas, so it knows of none.
+     */
+    public function globalClasses(): array
+    {
+        return [];
+    }
+
+    public function findGlobal(string $class): Vocabulary
+    {
+        throw new OutOfBoundsException(sprintf('The index holds no global schema [%s].', $class));
     }
 
     /**

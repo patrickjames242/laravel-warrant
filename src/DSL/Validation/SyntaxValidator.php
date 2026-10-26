@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Validation;
 
+use LogicException;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -14,6 +15,7 @@ use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Parsing\Positions\SourcePosition;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\DSL\Resolution\ConstructLookup;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -82,6 +84,8 @@ final class SyntaxValidator
     /** @var list<RuleValidationException> The mistakes found so far, in the order found, when validating tolerantly. */
     private array $found = [];
 
+    private ?ConstructLookup $constructs = null;
+
     /**
      * @param WarrantSyntax $syntax The text being validated.
      * @param ValidationInput $input What the text is validated against.
@@ -93,6 +97,17 @@ final class SyntaxValidator
         private readonly ValidationInput $input,
         private readonly bool $tolerant,
     ) {
+    }
+
+    /**
+     * What the names in the text mean, resolved against the catalog. Only
+     * reached with a catalog in hand: with none, no name is looked up.
+     */
+    private function constructs(): ConstructLookup
+    {
+        return $this->constructs ??= new ConstructLookup(
+            $this->input->catalog ?? throw new LogicException('No catalog to resolve names in.'),
+        );
     }
 
     /**

@@ -23,8 +23,9 @@ use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Parsing\WarrantSyntaxException;
+use Warrant\DSL\Resolution\FoundCondition;
+use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
@@ -43,32 +44,44 @@ trait ExpandsDerivedConditions
      */
     private function expandDerivedCondition(
         ConditionNode $node,
-        ConditionDefinition $definition,
+        FoundCondition $found,
         ISchema $schema,
         string $schemaKey,
         ExpansionTrail $trail,
     ): DerivedConditionNode {
-        $deeper = $trail->enteringDerivedCondition($schemaKey, $node->conditionKey->name);
+        $definition = $found->definition;
+        $owner = $found->schema();
+        $declaredIn = $found->declaredIn();
+        $deeper = $trail->enteringDerivedCondition(
+            $declaredIn instanceof KeyedSchemaId ? $declaredIn->key : $found->schemaClass(),
+            $node->conditionKey->name,
+        );
 
         if (count($node->parameters) < $definition->requiredArgumentCount) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.',
                 $node->conditionKey->name,
-                $schema::class,
+                $owner::class,
                 $definition->requiredArgumentCount,
                 count($node->parameters),
             ));
         }
 
-        $producer = SyntaxProducer::derivedCondition($schemaKey, $schema::class, $definition->key, $definition->methodName, $node);
+        $producer = SyntaxProducer::derivedCondition($schemaKey, $owner::class, $definition->key, $definition->methodName, $node);
         $values = self::argumentValues($node->parameters);
-        $answer = $schema->invokeDerivedCondition($definition, $values);
-        $parametersUsableAsBindings = self::parametersUsableAsBindings($schema, $definition->methodName, $values);
+        $answer = $owner->invokeDerivedCondition($definition, $values);
+        $parametersUsableAsBindings = self::parametersUsableAsBindings($owner, $definition->methodName, $values);
 
         return new DerivedConditionNode(
             $node->conditionKey,
             $node->parameters,
-            $this->expandExpression($this->derivedExpression($answer, $producer, $schemaKey, $parametersUsableAsBindings), $schema, $schemaKey, $deeper),
+            $this->expandExpression(
+                $this->derivedExpression($answer, $producer, $schemaKey, $parametersUsableAsBindings),
+                $schema,
+                $schemaKey,
+                $this->constructs->writtenIn($producer, $schemaKey),
+                $deeper,
+            ),
             $node->location,
         );
     }

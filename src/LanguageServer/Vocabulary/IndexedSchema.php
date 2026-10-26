@@ -61,6 +61,7 @@ final readonly class IndexedSchema
         ));
 
         $this->vocabulary = new Vocabulary(
+            $className,
             $definitions($abilities, AbilityDefinition::class),
             $definitions($conditions, ConditionDefinition::class),
             $definitions($templates, RuleTemplateDefinition::class),

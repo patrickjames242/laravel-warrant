@@ -4,6 +4,7 @@ namespace Warrant\Registry;
 
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -21,6 +22,11 @@ final class RegisteredSchemas implements ISchemaCatalog
      */
     private array $vocabularies = [];
 
+    /**
+     * @var array<class-string<IGlobalSchema>, Vocabulary>
+     */
+    private array $globalVocabularies = [];
+
     public function find(string $schemaKey): ?Vocabulary
     {
         if (! array_key_exists($schemaKey, $this->vocabularies)) {
@@ -30,5 +36,15 @@ final class RegisteredSchemas implements ISchemaCatalog
         }
 
         return $this->vocabularies[$schemaKey];
+    }
+
+    public function globalClasses(): array
+    {
+        return Warrant::registry()->globalClasses();
+    }
+
+    public function findGlobal(string $class): Vocabulary
+    {
+        return $this->globalVocabularies[$class] ??= Vocabulary::of(Warrant::registry()->globalSchema($class));
     }
 }

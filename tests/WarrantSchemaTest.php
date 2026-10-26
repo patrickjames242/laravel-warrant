@@ -295,6 +295,7 @@ it('falls back to a parameter default when the argument is omitted', function ()
 });
 
 it('rejects a condition compiled with fewer arguments than its required parameters', function () {
+    useWarrantSchemas(['course_sections' => ParameterizedConditionSchema::class]);
     $rule = Build::rule()->if('is_specific_user')->theyCan('view')->toRule();
 
     /* Only the expander makes an expanded syntax, and it validates first; the

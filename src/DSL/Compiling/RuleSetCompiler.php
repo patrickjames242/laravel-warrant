@@ -35,7 +35,10 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
-use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\DSL\Resolution\ConstructLookup;
+use Warrant\DSL\Resolution\FoundCondition;
+use Warrant\DSL\Resolution\KeyedSchemaId;
+use Warrant\Registry\RegisteredSchemas;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Context\ContextPolicy;
@@ -128,11 +131,31 @@ final class RuleSetCompiler
      *   {@see CrossSchemaCanNode} (resolving the referenced schema); null is fine
      *   for rule sets with no cross-schema references.
      */
+    private ?ConstructLookup $constructs = null;
+
     public function __construct(
         private readonly IAbilitySchema $schema,
         private readonly string $schemaKey,
         private readonly ?WarrantManager $manager = null,
     ) {
+    }
+
+    /**
+     * What the names in the rules mean, read from the schemas the application
+     * registers.
+     */
+    private function constructs(): ConstructLookup
+    {
+        return $this->constructs ??= new ConstructLookup(new RegisteredSchemas);
+    }
+
+    /**
+     * $ctx with its names resolved from the schema $expression's text was written
+     * in: the global whose method answered with the text, or this schema.
+     */
+    private function writtenIn(CompilationContext $ctx, IBooleanExpressionNode $expression): CompilationContext
+    {
+        return $ctx->withWrittenIn($this->constructs()->writtenIn($expression->location->source->producer(), $this->schemaKey));
     }
 
     /**
@@ -267,7 +290,7 @@ final class RuleSetCompiler
 
         foreach ($grants as $grantExpression) {
             $grantGroup->addOr(
-                $grantExpression === null ? true : $this->expression($grantExpression, $grantCtx),
+                $grantExpression === null ? true : $this->expression($grantExpression, $this->writtenIn($grantCtx, $grantExpression)),
             );
         }
 
@@ -278,7 +301,7 @@ final class RuleSetCompiler
         $denyCtx = $ctx->negated();
 
         foreach ($denies as $denyExpression) {
-            $abilityNode->addAnd($this->expression($denyExpression, $denyCtx));
+            $abilityNode->addAnd($this->expression($denyExpression, $this->writtenIn($denyCtx, $denyExpression)));
         }
 
         return $abilityNode;
@@ -303,8 +326,10 @@ final class RuleSetCompiler
             return $conditionNode->addAnd(true);
         }
 
+        /* A check(...) predicate arrives already told which schema its names
+           are written for; any other condition is settled from its text. */
         return $conditionNode->addAnd(
-            $this->expression($unit->condition, $ctx),
+            $this->expression($unit->condition, $ctx->writtenIn === null ? $this->writtenIn($ctx, $unit->condition) : $ctx),
         );
     }
 
@@ -836,6 +861,9 @@ final class RuleSetCompiler
             aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
                 : $this->aliases($ctx)->enteringPredicate($node->schemaKey->name, $node->alias?->name, $bQualifier),
+            /* The `for` names the schema the predicate's names are written for,
+               whatever text the check sits in. */
+            writtenIn: new KeyedSchemaId($node->schemaKey->name),
         );
 
         if ($node->isRowBound) {
@@ -1203,9 +1231,13 @@ final class RuleSetCompiler
 
     private function conditionLeaf(ConditionNode $node, CompilationContext $ctx): CompiledWhereClauseNode
     {
-        $definition = $this->schema->condition($node->conditionKey->name);
+        $found = $this->constructs()->condition(
+            $node->conditionKey->name,
+            $ctx->writtenIn ?? new KeyedSchemaId($this->schemaKey),
+        );
+        $definition = $found?->definition;
 
-        if ($definition === null) {
+        if ($found === null || $definition === null) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] is not defined on schema [%s].',
                 $node->conditionKey->name,
@@ -1267,7 +1299,7 @@ final class RuleSetCompiler
 
         $conditionQuery = $ctx->queries->newQuery();
 
-        $result = $this->invokeCondition($definition, $conditionQuery, $parameters, $ctx);
+        $result = $this->invokeCondition($found, $conditionQuery, $parameters, $ctx);
 
         /* Or it may answer that the question has no answer here, which is the
            third truth value: an unknown negates to itself, so it neither grants
@@ -1303,7 +1335,8 @@ final class RuleSetCompiler
 
     /**
      * Invoke a row or global condition over $conditionQuery, with the context
-     * object its kind is handed.
+     * object its kind is handed, on the schema that declares it: this schema, or
+     * the global the name resolved to.
      *
      * A row condition is told what its row is called where the predicate lands:
      * this frame's name for it, or the schema's own row name when nothing closer
@@ -1314,13 +1347,15 @@ final class RuleSetCompiler
      * @param array<int, mixed> $parameters
      */
     private function invokeCondition(
-        ConditionDefinition $definition,
+        FoundCondition $found,
         Builder $conditionQuery,
         array $parameters,
         CompilationContext $ctx,
     ): Builder|bool|null {
+        $definition = $found->definition;
+
         if (! $definition->isRow()) {
-            return $this->schema->invokeGlobalCondition(
+            return $found->schema()->invokeGlobalCondition(
                 $definition,
                 new GlobalConditionContext($ctx->user, $conditionQuery, $parameters, $ctx->checkContext),
             );
@@ -1361,9 +1396,12 @@ final class RuleSetCompiler
     {
         $ctx = $ctx->withAliases($this->aliases($ctx)->forwardingColumns($node->parameters));
 
+        $declaredBy = $node->body->location->source->producer()?->schemaClass ?? $this->schema::class;
+
         return $this->expression(
             $node->body,
-            $ctx->entering(Call::condition($this->schema::class, $node->conditionKey->name, $node->parameters))
+            $this->writtenIn($ctx, $node->body)
+                ->entering(Call::condition($declaredBy, $node->conditionKey->name, $node->parameters))
                 ->withAliases($this->expansionAliases($ctx)),
         );
     }

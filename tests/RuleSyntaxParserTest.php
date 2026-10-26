@@ -55,6 +55,15 @@ function languageRuleErrors(string $syntax): array
         {
             return null;
         }
+        public function globalClasses(): array
+        {
+            return [];
+        }
+
+        public function findGlobal(string $class): Vocabulary
+        {
+            throw new OutOfBoundsException($class);
+        }
     };
 
     return array_values(array_filter(
@@ -1177,6 +1186,7 @@ function openBlocks(RuleSetNode $set): array
 
     $names = everyNameIn($set);
     $vocabulary = new Vocabulary(
+        EveryNameSchema::class,
         array_map(static fn (string $name): AbilityDefinition => new AbilityDefinition($name), $names),
         array_map(static fn (string $name): ConditionDefinition => new ConditionDefinition($name, $name, ConditionKind::Global), $names),
         [],

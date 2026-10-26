@@ -35,6 +35,8 @@ final readonly class Vocabulary
     private array $ruleTemplates;
 
     /**
+     * @param class-string<ISchema> $schemaClass The schema the vocabulary was
+     *   read from.
      * @param list<AbilityDefinition> $abilities
      * @param list<ConditionDefinition> $conditions Every condition, of every kind.
      * @param list<RuleTemplateDefinition> $ruleTemplates
@@ -42,6 +44,7 @@ final readonly class Vocabulary
      *   a schema with no rows.
      */
     public function __construct(
+        public string $schemaClass,
         array $abilities,
         array $conditions,
         array $ruleTemplates,
@@ -60,6 +63,7 @@ final readonly class Vocabulary
     public static function of(ISchema $schema): self
     {
         return new self(
+            $schema::class,
             $schema instanceof IProvidesAbilities ? $schema->abilities() : [],
             $schema->conditions(),
             $schema->ruleTemplates(),

@@ -10,6 +10,7 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
@@ -21,18 +22,21 @@ use Warrant\Schema\Types\Interfaces\ISchema;
 trait ExpandsExpressions
 {
     /**
-     * $node with every derived condition in it expanded, the names read against
-     * $schema. A subtree with nothing to expand comes back as the same instance.
+     * $node with every derived condition in it expanded, its names resolved from
+     * $writtenIn, the schema its text was written in. $schema is the schema
+     * whose rules the expression is in. A subtree with nothing to expand comes back as the
+     * same instance.
      */
     private function expandExpression(
         IBooleanExpressionNode $node,
         ISchema $schema,
         string $schemaKey,
+        ISchemaId $writtenIn,
         ExpansionTrail $trail,
     ): IBooleanExpressionNode {
         if ($node instanceof AndNode || $node instanceof OrNode) {
-            $left = $this->expandExpression($node->leftSide, $schema, $schemaKey, $trail);
-            $right = $this->expandExpression($node->rightSide, $schema, $schemaKey, $trail);
+            $left = $this->expandExpression($node->leftSide, $schema, $schemaKey, $writtenIn, $trail);
+            $right = $this->expandExpression($node->rightSide, $schema, $schemaKey, $writtenIn, $trail);
 
             return $left === $node->leftSide && $right === $node->rightSide
                 ? $node
@@ -40,7 +44,7 @@ trait ExpandsExpressions
         }
 
         if ($node instanceof NotNode) {
-            $operand = $this->expandExpression($node->operand, $schema, $schemaKey, $trail);
+            $operand = $this->expandExpression($node->operand, $schema, $schemaKey, $writtenIn, $trail);
 
             return $operand === $node->operand ? $node : new NotNode($operand, $node->location);
         }
@@ -50,12 +54,12 @@ trait ExpandsExpressions
         }
 
         if ($node instanceof ConditionNode) {
-            $definition = $schema->condition($node->conditionKey->name);
+            $found = $this->constructs->condition($node->conditionKey->name, $writtenIn);
 
-            /* A name the schema does not declare is left for validation and the
-               compiler to report, in the words they use for any other. */
-            return $definition !== null && $definition->isDerived()
-                ? $this->expandDerivedCondition($node, $definition, $schema, $schemaKey, $trail)
+            /* A name no schema declares is left for validation and the compiler
+               to report, in the words they use for any other. */
+            return $found !== null && $found->definition->isDerived()
+                ? $this->expandDerivedCondition($node, $found, $schema, $schemaKey, $trail)
                 : $node;
         }
 

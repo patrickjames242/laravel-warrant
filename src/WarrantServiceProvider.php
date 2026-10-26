@@ -22,7 +22,10 @@ final class WarrantServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/warrant.php', 'warrant');
 
         $this->app->singleton(WarrantManager::class, fn (Application $app): WarrantManager => new WarrantManager(
-            new SchemaRegistry((array) $app['config']->get('warrant.schemas', []))
+            new SchemaRegistry(
+                (array) $app['config']->get('warrant.schemas', []),
+                array_values((array) $app['config']->get('warrant.global', [])),
+            )
         ));
 
         /* The global rule provider is optional: left unset, a guard's rules are
