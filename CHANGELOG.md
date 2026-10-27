@@ -4,6 +4,22 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Changed
+
+- The formatter puts a rule's clause on the line after its condition whenever
+  the condition is more than one plain condition: a chain of `and` or `or`, a
+  `can(...)` with a `for`, or a `check(...)`, however short the rule. A rule
+  with one plain condition still stays on one line when it fits. `toSyntax()`
+  and `toBoundSyntax()` write rules the same way.
+
+### Fixed
+
+- The formatter breaks an `@include`'s `for` list one ability to a line when it
+  does not fit, as it does a clause's, instead of leaving it to overflow. The
+  `for` stays on the `@include` line.
+
 ## 4.7.0 — 2026-10-27
 
 ### Added

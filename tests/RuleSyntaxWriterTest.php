@@ -48,7 +48,7 @@ it('renders wildcard abilities verbatim', function () {
 // -- parentheses, as the formatter writes them --------------------------------
 
 it('writes the parentheses the precedence needs, and around an and inside an or', function (string $in, string $expectedIf) {
-    expect(WarrantSyntax::parse("if $in they can x")->validateWithoutSchemas()->toSyntax())->toBe("if $expectedIf they can x");
+    expect(WarrantSyntax::parse("if $in they can x")->validateWithoutSchemas()->toSyntax())->toBe("if $expectedIf\nthey can x");
 })->with([
     'and inside or is grouped'  => ['a and b or c', '(a and b) or c'],
     'or under and needs parens'  => ['(a or b) and c', '(a or b) and c'],
@@ -248,19 +248,19 @@ it('renders an as <alias> tail between the row selector and the with-map', funct
     )->validateWithoutSchemas()->rule();
 
     expect(writeSyntax($rule))
-        ->toBe("if can(view for docs(@context id) as d2 with tenant = 7) they can update");
+        ->toBe("if can(view for docs(@context id) as d2 with tenant = 7)\nthey can update");
 });
 
 it('round-trips an aliased check(...) handle', function () {
     $rule = WarrantSyntax::parse('if check(is_open for docs(@context id) as d2) they can update')->validateWithoutSchemas()->rule();
 
-    expect(writeSyntax($rule))->toBe("if check(is_open for docs(@context id) as d2) they can update");
+    expect(writeSyntax($rule))->toBe("if check(is_open for docs(@context id) as d2)\nthey can update");
 });
 
 it('renders no as tail for an unaliased handle', function () {
     $rule = WarrantSyntax::parse('if can(view for docs(@context id)) they can update')->validateWithoutSchemas()->rule();
 
-    expect(writeSyntax($rule))->toBe("if can(view for docs(@context id)) they can update");
+    expect(writeSyntax($rule))->toBe("if can(view for docs(@context id))\nthey can update");
 });
 
 // -- column references (@column) ----------------------------------------------
@@ -364,7 +364,8 @@ it('round-trips an unbound can(...) handle', function () {
     $rule = WarrantSyntax::parse('if can(access_payroll for payroll_admin) they can view')->validateWithoutSchemas()->rule();
 
     expect(writeSyntax($rule))->toBe(<<<'TXT'
-        if can(access_payroll for payroll_admin) they can view
+        if can(access_payroll for payroll_admin)
+        they can view
         TXT);
 });
 
@@ -372,7 +373,8 @@ it('round-trips a row-bound can(...) handle with @context', function () {
     $rule = WarrantSyntax::parse('if can(manage for departments(@context department_id)) they can update')->validateWithoutSchemas()->rule();
 
     expect(writeSyntax($rule))->toBe(<<<'TXT'
-        if can(manage for departments(@context department_id)) they can update
+        if can(manage for departments(@context department_id))
+        they can update
         TXT);
 });
 
@@ -417,7 +419,8 @@ it('round-trips an unbound check(...) handle with a global condition', function 
     $rule = WarrantSyntax::parse("if check(is_open('maintenance') for tenant_settings) they cannot update")->validateWithoutSchemas()->rule();
 
     expect(writeSyntax($rule))->toBe(<<<'TXT'
-        if check(is_open('maintenance') for tenant_settings) they cannot update
+        if check(is_open('maintenance') for tenant_settings)
+        they cannot update
         TXT);
 });
 

@@ -84,11 +84,16 @@ Lines are at most 80 characters wide, counted from where the rule text starts,
 so a rule lays out the same in a `.warrant` file and in a heredoc at any depth.
 Indentation is four spaces.
 
-A rule that fits stays on one line. Two rules never share a line, and a rule
-with more than one clause puts each on a line of its own:
+A rule that fits stays on one line when its condition is one plain condition.
+Once the condition has an `and` or an `or`, or crosses to another schema with
+`can(... for ...)` or `check(...)`, the clause goes on the next line however
+short the rule is. Two rules never share a line, and a rule with more than one
+clause puts each on a line of its own:
 
 ```warrant
 if is_owner they can view, edit
+if is_owner or is_editor
+they can comment
 if is_manager
 they can approve
 they cannot delete

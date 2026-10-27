@@ -20,6 +20,7 @@ them in sync.
 | `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A flat parse tree — the minimum injection requires |
 | `WarrantInjector` | Injects Warrant into PHP strings that hold rule text: `<<<WARRANT` heredocs, `warrant('...')`, `Warrant::parse('...')`, returns from `rules()`, … |
 | `lsp/WarrantLspServerSupportProvider` / `lsp/WarrantLspServerDescriptor` | Starts the language server and tells the IDE which files it serves |
+| `lsp/StartWarrantLanguageServerActivity` | Starts the server once a project has opened, for the `.warrant` and PHP tabs it reopens with, which load lazily and never report opening |
 | `lsp/WarrantServerLaunch` | Finds the server script and the PHP binary to run it with |
 | `lsp/WarrantSettings` / `lsp/WarrantSettingsConfigurable` | The project settings and their page |
 | `lsp/RestartWarrantLanguageServerAction` | **Tools → Restart Warrant Language Server** |

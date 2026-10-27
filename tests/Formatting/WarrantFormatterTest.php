@@ -40,6 +40,23 @@ dataset('formatting', [
         "if is_confidential and not has_clearance(@context clearance_level)\nthey cannot view because 'You need clearance.'",
     ],
 
+    'a rule with one plain condition stays on one line' => [
+        "if not   is_locked they can view\nif is_thing('a') they can view\nif can edit they can comment",
+        "if not is_locked they can view\nif is_thing('a') they can view\nif can edit they can comment",
+    ],
+    'a rule whose condition has and or or puts its clause on the next line' => [
+        'if is_owner or is_editor they can view',
+        "if is_owner or is_editor\nthey can view",
+    ],
+    'a rule whose condition crosses to another schema puts its clause on the next line' => [
+        'if can(view for folders) they can view if check(is_open for pay_periods) they can submit',
+        "if can(view for folders)\nthey can view\nif check(is_open for pay_periods)\nthey can submit",
+    ],
+    'a one-line block holding such a rule is expanded' => [
+        'for some_schema { if a or b they can * }',
+        "for some_schema {\n    if a or b\n    they can *\n}",
+    ],
+
     // F. Conditions
     'a chain that does not fit breaks before each operator' => [
         'if is_author and check(is_open for pay_periods(@column pay_period_id)) and not is_locked_for_audit they can submit',
@@ -52,15 +69,15 @@ dataset('formatting', [
     ],
     'an and inside an or is parenthesised' => [
         'if a or b and c they can view',
-        'if a or (b and c) they can view',
+        "if a or (b and c)\nthey can view",
     ],
     'parentheses that change nothing are removed' => [
         'if ((is_self)) and (not is_locked) or (is_admin) they can view',
-        'if (is_self and not is_locked) or is_admin they can view',
+        "if (is_self and not is_locked) or is_admin\nthey can view",
     ],
     'a group of the same operator on the right keeps its parentheses' => [
         'if a or (b or c) they can view',
-        'if a or (b or c) they can view',
+        "if a or (b or c)\nthey can view",
     ],
     'a broken group opens like a block' => [
         'if is_admin or (is_reviewer and check(is_open for pay_periods(@column pay_period_id)) and not is_conflicted(@context user_id)) they can edit',
@@ -102,7 +119,7 @@ dataset('formatting', [
     // D. Written forms
     'can(x) is written can x' => [
         'if can(edit) and can(view for folders) they can comment',
-        'if can edit and can(view for folders) they can comment',
+        "if can edit and can(view for folders)\nthey can comment",
     ],
     'strings take single quotes unless double need fewer escapes' => [
         "if is_thing(\"a\", 'it\\'s') they can view",
@@ -175,7 +192,7 @@ dataset('formatting', [
     ],
     'handles and aliases are written tight' => [
         'if can( view for folders( @column parent_id )as parent ) they can view',
-        'if can(view for folders(@column parent_id) as parent) they can view',
+        "if can(view for folders(@column parent_id) as parent)\nthey can view",
     ],
 
     // I. Clauses and ability lists
@@ -281,9 +298,22 @@ dataset('formatting', [
     ],
 
     // L. Includes
-    'an include that does not fit moves its for list down' => [
+    'an include that does not fit keeps for on its line, the abilities below' => [
         '@include requires_department_approval(@context department_id) for view, edit, approve',
-        "@include requires_department_approval(@context department_id)\n    for view, edit, approve",
+        "@include requires_department_approval(@context department_id) for\n    view,\n    edit,\n    approve",
+    ],
+    'an include whose for list does not fit lists its abilities one per line' => [
+        '@include require_payroll_module for something, something_else, something_more, blah, somasdflkj, asdlfkadf, asdflijk',
+        <<<'WARRANT'
+            @include require_payroll_module for
+                something,
+                something_else,
+                something_more,
+                blah,
+                somasdflkj,
+                asdlfkadf,
+                asdflijk
+            WARRANT,
     ],
     'an include whose arguments break has its for list follow the parenthesis' => [
         "@include requires_department_approval(@context department_id, @column submitted_by, @sql 'now()') for view, edit, approve",

@@ -6,6 +6,11 @@
         <platform.lsp.serverSupportProvider
             implementation="com.warrant.phpstorm.lsp.WarrantLspServerSupportProvider"/>
 
+        <!-- Starts the server for the files a project reopens with, whose tabs
+             load lazily and so never report opening to the provider. -->
+        <postStartupActivity
+            implementation="com.warrant.phpstorm.lsp.StartWarrantLanguageServerActivity"/>
+
         <!-- Underlines names on Cmd/Ctrl-hover and navigates on click, by asking
              the server for their definitions. -->
         <psi.implicitReferenceProvider

@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.11.0</version>
+    <version>0.11.1</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,9 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.11.1</b> &mdash; Start the language server when a project reopens with
+                <code>.warrant</code> or PHP files in its tabs, so Reformat Code formats
+                them without opening one again first.</li>
             <li><b>0.11.0</b> &mdash; <b>File | New | Warrant File</b>, also in the project
                 view's New menu, creates an empty <code>.warrant</code> file.</li>
             <li><b>0.10.2</b> &mdash; Enter, and a <code>}</code> or <code>)</code> typed at

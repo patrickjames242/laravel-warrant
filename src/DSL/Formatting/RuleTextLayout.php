@@ -574,17 +574,39 @@ final class RuleTextLayout
         return $lines;
     }
 
+    /**
+     * $rule on one line, or null when it cannot be. A rule takes several lines
+     * when it has more than one clause, or when its condition is more than one
+     * plain condition, unless the whole text is laid out on one line.
+     */
     private function flatRule(RuleNode $rule): ?string
     {
         $clauses = $this->clausesOf($rule);
+        $takesLines = count($clauses) > 1 || ($rule->conditions !== null && ! self::isPlainCondition($rule->conditions));
 
-        if ($this->comments->hasCommentsInside($rule) || (! $this->onOneLine && count($clauses) > 1)) {
+        if ($this->comments->hasCommentsInside($rule) || (! $this->onOneLine && $takesLines)) {
             return null;
         }
 
         $flat = array_map(fn (CanClauseNode|CannotClauseNode $clause): string => $this->flatClause($clause), $clauses);
 
         return ($rule->conditions === null ? '' : 'if '.$this->flatExpression($rule->conditions).' ').implode(' ', $flat);
+    }
+
+    /**
+     * Whether $condition is one plain condition, which a rule may share a line
+     * with: a condition of this schema, with or without arguments, `can` on an
+     * ability of this schema, or `not` before either. A chain of `and` or `or`,
+     * a `can(...)` that crosses to another schema, and a `check(...)` are not.
+     */
+    private static function isPlainCondition(IBooleanExpressionNode $condition): bool
+    {
+        return match (true) {
+            $condition instanceof NotNode => self::isPlainCondition($condition->operand),
+            $condition instanceof CrossSchemaCanNode => $condition->schemaKey === null && $condition->contextMap === [],
+            $condition instanceof OrNode, $condition instanceof AndNode, $condition instanceof CrossSchemaConditionNode => false,
+            default => true,
+        };
     }
 
     /**
@@ -662,12 +684,18 @@ final class RuleTextLayout
             return LaidOutLines::of(rtrim($head.' '.$for));
         }
 
-        $forLines = $abilitiesCommented ? $this->brokenList('for', $include->abilities, '') : LaidOutLines::of($for);
+        // The `for` list breaks one ability to a line when it does not fit, as a clause's does.
+        $listBreaks = static fn (bool $fits): bool => $abilitiesCommented || (count($include->abilities) > 1 && ! $fits);
 
-        if (! $argumentsCommented && ($include->arguments === [] || $this->fits($column, $head, 0))) {
-            $lines = LaidOutLines::of($head);
+        // `for` stays on the `@include` line when it fits there, its abilities below it.
+        if (! $argumentsCommented && ($include->arguments === [] || $this->fits($column, $head.($for === '' ? '' : ' for'), 0))) {
+            if ($for === '') {
+                return LaidOutLines::of($head);
+            }
 
-            return $for === '' ? $lines : $lines->addLine($forLines, self::INDENT);
+            return $listBreaks(false)
+                ? LaidOutLines::of($head.' ')->appendLines($this->brokenList('for', $include->abilities, ''))
+                : LaidOutLines::of($head.' '.$for);
         }
 
         $lines = $this->brokenCall($name, $include->arguments);
@@ -676,7 +704,9 @@ final class RuleTextLayout
             return $lines;
         }
 
-        return $abilitiesCommented ? $lines->addLine($forLines, 0) : $lines->append(' '.$for);
+        return $listBreaks($this->fits($column, ') '.$for, 0))
+            ? $lines->append(' ')->appendLines($this->brokenList('for', $include->abilities, ''))
+            : $lines->append(' '.$for);
     }
 
     private function flatInclude(IncludeInvocationNode $include): ?string
