@@ -11,6 +11,7 @@
     { "include": "#context-ref" },
     { "include": "#sql-ref" },
     { "include": "#named-binding" },
+    { "include": "#ability-block-header-except" },
     { "include": "#ability-block-header" },
     { "include": "#schema-target" },
     { "include": "#keywords" },
@@ -104,6 +105,17 @@
       "match": ":[A-Za-z_][A-Za-z0-9_-]*",
       "name": "variable.parameter.binding.warrant"
     },
+    "ability-block-header-except": {
+      "comment": "`can they * except <ability>[, <ability>]... {` \u2014 an ability block header whose `*` leaves some abilities out. Tried before the plain header, which would stop at `except`; `except` scopes as a keyword and the abilities it leaves out as the block's. Same-line only, as the plain header is.",
+      "match": "\\b(can)\\s+(they)\\b\\s*(\\*)\\s*(except)\\b\\s*([A-Za-z_][A-Za-z0-9_-]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_-]*)*)(?=\\s*\\{)",
+      "captures": {
+        "1": { "name": "keyword.control.warrant" },
+        "2": { "name": "keyword.control.warrant" },
+        "3": { "name": "entity.name.type.ability-block.warrant" },
+        "4": { "name": "keyword.control.warrant" },
+        "5": { "name": "entity.name.type.ability-block.warrant" }
+      }
+    },
     "ability-block-header": {
       "comment": "`can they <ability>[, <ability>]... {` \u2014 the header of an ability block, whose clauses take these abilities instead of naming their own. The leading `can they` settles it: a clause reads `they can`, the other way round, and the cross-schema builtin is `can(` or `can <ability>`. The whole ability list is one scope, so the separating commas carry it too. Same-line only (a match cannot span lines), so a header split across lines falls back to the keyword and identifier rules below.",
       "match": "\\b(can)\\s+(they)\\b\\s*((?:[A-Za-z_][A-Za-z0-9_-]*|\\*)(?:\\s*,\\s*(?:[A-Za-z_][A-Za-z0-9_-]*|\\*))*)(?=\\s*\\{)",
@@ -123,7 +135,7 @@
     },
     "keywords": {
       "comment": "The DSL's reserved words (Lexer::KEYWORDS). `can`/`check` also act as expression-position builtins for cross-schema references; they still scope as keywords here.",
-      "match": "\\b(if|when|otherwise|they|can|cannot|because|and|or|not|check|for|with|as)\\b",
+      "match": "\\b(if|when|otherwise|except|they|can|cannot|because|and|or|not|check|for|with|as)\\b",
       "name": "keyword.control.warrant"
     },
     "constants": {

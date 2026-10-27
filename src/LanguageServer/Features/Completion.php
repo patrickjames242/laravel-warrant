@@ -172,6 +172,8 @@ final class Completion
             in_array($p1, [TokenType::CAN, TokenType::CANNOT], true) && $p2 === TokenType::THEY,
             $p1 === TokenType::THEY && $p2 === TokenType::CAN => $this->abilities($this->scopeSchemaKey, withWildcard: true),
             $p1 === TokenType::THEY => [['can', self::KIND_KEYWORD, 'grant abilities'], ['cannot', self::KIND_KEYWORD, 'deny abilities']],
+            $p1 === TokenType::STAR => [['except', self::KIND_KEYWORD, 'every ability but the ones that follow', 'except '], ...$this->afterOperand()],
+            $p1 === TokenType::EXCEPT => $this->abilities($this->scopeSchemaKey),
             $p1 === TokenType::COMMA => $this->afterComma(),
             in_array($p1, [TokenType::IF, TokenType::WHEN, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->expressionStart(),
             $p1 === TokenType::RBRACE => [
@@ -291,8 +293,9 @@ final class Completion
     }
 
     /**
-     * After a comma: another ability when it is in an ability list, another
-     * argument when it is in an argument list.
+     * After a comma: another ability when it is in an ability list, or among
+     * those a `* except` leaves out, another argument when it is in an argument
+     * list.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
@@ -306,6 +309,10 @@ final class Completion
 
         $head = $this->before[$i]->type ?? null;
         $beforeHead = $this->before[$i - 1]->type ?? null;
+
+        if ($head === TokenType::EXCEPT) {
+            return $this->abilities($this->scopeSchemaKey);
+        }
 
         $inAbilityList = (in_array($head, [TokenType::CAN, TokenType::CANNOT], true) && $beforeHead === TokenType::THEY)
             || ($head === TokenType::THEY && $beforeHead === TokenType::CAN)

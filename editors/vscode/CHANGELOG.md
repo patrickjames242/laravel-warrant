@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Highlight `except` as a keyword, for `* except` in an ability list, and
+  highlight what a `can they * except` block header leaves out as its
+  abilities.
+
 ## 0.13.0
 
 - Indent the line Enter opens one level past a line ending in `{` or `(`, and

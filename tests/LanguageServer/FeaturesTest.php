@@ -113,6 +113,34 @@ it('offers a condition after when, and otherwise after the body it closes', func
         ->and(completionLabels('for documents { they can view } |'))->not->toContain('otherwise');
 });
 
+it('offers except after *, and after except only the abilities it may leave out', function () {
+    expect(completionLabels('for documents { they can * | }')[0])->toBe('except')
+        ->and(completionLabels('for documents { they cannot * | }'))->toContain('except', 'because')
+        ->and(completionLabels('for documents { they can * except | }'))->toBe(['view', 'edit', 'archive'])
+        ->and(completionLabels('for documents { they can * except view, | }'))->toBe(['view', 'edit', 'archive'])
+        ->and(completionLabels('for documents { can they * except | { they can } }'))->toBe(['view', 'edit', 'archive'])
+        ->and(completionLabels('for documents { @include owner_edits for * except | }'))->toBe(['view', 'edit', 'archive']);
+});
+
+it('describes an ability * except leaves out on hover, and jumps to where it is declared', function () {
+    [$text, $position] = positionOfBar('for documents { they can * except ed|it }');
+    [$workspace, $document] = openInFixture('rules.warrant', $text);
+
+    expect(Hover::at($workspace, $document, $position)['contents']['value'])
+        ->toBe("**ability `edit` on `documents`**\n\nRequires context: `org`")
+        ->and(Definition::at($workspace, $document, $position))->not->toBeNull();
+});
+
+it('reports an ability * except leaves out that the schema does not declare, and offers the closest', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', 'for documents { they can * except veiw }');
+
+    $diagnostics = Diagnostics::of($workspace, $document);
+
+    expect(array_column($diagnostics, 'code'))->toBe(['unknown-ability'])
+        ->and(array_column(CodeActions::for($workspace, $document, ['diagnostics' => $diagnostics]), 'title'))
+        ->toBe(["Change to 'view'"]);
+});
+
 it('offers nothing inside a comment or a string', function () {
     expect(completionLabels("# they can |\n"))->toBe([])
         ->and(completionLabels('for documents { they cannot view because "no |" }'))->toBe([]);
@@ -174,6 +202,13 @@ it('outlines blocks, rules and includes as they nest', function () {
         ->and($symbols[0]['children'][1]['children'][0]['name'])->toBe('@include owner_edits');
 });
 
+it('outlines * except as it is written', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n  they cannot * except view\n  can they * except edit, archive { they can }\n}");
+
+    expect(array_column(DocumentSymbols::of($workspace, $document)[0]['children'], 'name'))
+        ->toBe(['cannot * except view', 'can they * except edit, archive']);
+});
+
 it('outlines a when block by its condition, holding the entries of both its bodies', function () {
     [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n  when is_owner and in_team {\n    they can edit\n  } otherwise {\n    @include owner_edits\n  }\n}");
 
@@ -189,6 +224,7 @@ it('answers at every position of half-typed and broken text without throwing', f
         ['rules.warrant', 'for documents { if check( for ) they can'],
         ['rules.warrant', "for documents {\n  when is_owner { they can view } otherwise when { otherwise { when\n  when can( { } otherwise"],
         ['rules.warrant', 'for { if ( and or not they can , , @column . @context @include for'],
+        ['rules.warrant', 'for documents { they can * except , :x, except * except { can they * except'],
         ['rules.warrant', "é😀 for documents { if is_owner they can view } ~ \$ 'unterminated"],
         ['app/X.php', "<?php\n\$a = <<<WARRANT\n    if {\$x} a they can\n    WARRANT;\nwarrant('a or');\n\$b = <<<'WARRANT'\n"],
     ];
