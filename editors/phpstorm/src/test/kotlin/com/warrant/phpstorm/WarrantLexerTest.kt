@@ -36,6 +36,10 @@ class WarrantLexerTest : BasePlatformTestCase() {
         assertEquals(listOf("when", "otherwise"), keywords("when whenever { } otherwise else"))
     }
 
+    fun testReadsExceptAsAKeyword() {
+        assertEquals(listOf("they", "can", "except"), keywords("they can * except view, excepting"))
+    }
+
     /** The text of each keyword the lexer finds in $text. */
     private fun keywords(text: String): List<String> {
         val lexer = WarrantLexer()

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.0
 
 - Highlight `except` as a keyword, for `* except` in an ability list, and
   highlight what a `can they * except` block header leaves out as its

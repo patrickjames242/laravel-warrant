@@ -23,6 +23,8 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.11.0</b> &mdash; Colour <code>except</code> as a keyword, for
+                <code>* except</code> in an ability list.</li>
             <li><b>0.10.2</b> &mdash; Run the Warrant formatter on save without PhpStorm reporting
                 an internal error for it.</li>
             <li><b>0.10.1</b> &mdash; Format a <code>.warrant</code> file while Reformat Code
