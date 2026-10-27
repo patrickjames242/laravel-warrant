@@ -4,6 +4,33 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- `php artisan warrant:format` formats rule text, taking the same arguments and
+  options as `vendor/bin/warrant-format`.
+- Both take glob patterns, with `**` for any number of directories and `{a,b}`
+  for alternatives, beside files and directories, and `--diff` to show what
+  would change. `--ignore-unparsable` reports rule text that does not parse
+  without failing.
+- The formatter formats rule text in a quoted PHP string written over several
+  lines, keeping the string's own indentation. A quoted string on one line is
+  still formatted on one line.
+
+### Changed
+
+- Rule text that does not parse, or a path that matches nothing, makes the exit
+  code 2, apart from the 1 that `--check` gives for a file that would change.
+
+### Fixed
+
+- Rule text returned from `rules()` is only a string returned alone or as an
+  item of a returned list. A string under an array key, at any depth, is no
+  longer read as rule text, so the validation rules a Laravel form request
+  returns from its `rules()` are neither checked by the language server nor
+  formatted.
+
 ## 4.7.1 — 2026-10-27
 
 ### Changed

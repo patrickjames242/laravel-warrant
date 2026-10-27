@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Fragments;
+namespace Warrant\DSL\Fragments;
 
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxProducerKind;

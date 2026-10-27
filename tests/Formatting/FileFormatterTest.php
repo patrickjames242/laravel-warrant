@@ -1,6 +1,6 @@
 <?php
 
-use Warrant\LanguageServer\Fragments\FragmentFormatter;
+use Warrant\DSL\Formatting\FileFormatter;
 
 it('formats heredocs in full, quoted strings on one line, and leaves the PHP around them alone', function () {
     $file = <<<'PHP'
@@ -57,7 +57,7 @@ it('formats heredocs in full, quoted strings on one line, and leaves the PHP aro
         }
         PHP;
 
-    $formatter = new FragmentFormatter;
+    $formatter = new FileFormatter;
 
     expect($formatter->formatted('DocumentSchema.php', $file))->toBe($expected)
         ->and($formatter->formatted('DocumentSchema.php', $expected))->toBe($expected);
@@ -65,7 +65,7 @@ it('formats heredocs in full, quoted strings on one line, and leaves the PHP aro
 
 it('escapes a heredoc so PHP reads the formatted text back', function () {
     $file = "<?php\n\nreturn warrant(<<<WARRANT\n    if is_after(@sql \"a\\\\\\\\b \\\$x\") they can view\n    WARRANT);\n";
-    $formatted = (new FragmentFormatter)->formatted('rules.php', $file);
+    $formatted = (new FileFormatter)->formatted('rules.php', $file);
     $heredoc = substr($formatted, strpos($formatted, '<<<'), strrpos($formatted, ')') - strpos($formatted, '<<<'));
 
     expect(ltrim(eval('return '.$heredoc.';')))->toBe("if is_after(@sql 'a\\\\b \$x') they can view");
@@ -83,7 +83,7 @@ it('leaves text that does not parse, a quoted string with a comment, and an inte
             WARRANT);
         PHP;
 
-    $formatter = new FragmentFormatter;
+    $formatter = new FileFormatter;
 
     expect($formatter->formatted('rules.php', $file))->toBe($file)
         ->and($formatter->problems())->toHaveCount(1)
@@ -91,6 +91,59 @@ it('leaves text that does not parse, a quoted string with a comment, and an inte
 });
 
 it('formats a whole .warrant file', function () {
-    expect((new FragmentFormatter)->formatted('rules.warrant', "for documents{\n  if is_mine they can   view }"))
+    expect((new FileFormatter)->formatted('rules.warrant', "for documents{\n  if is_mine they can   view }"))
         ->toBe("for documents {\n    if is_mine they can view\n}\n");
+});
+
+it('formats a quoted string written over several lines, keeping its own indentation', function () {
+    $file = <<<'PHP'
+        <?php
+
+        class PayrollGroupSchema extends Schema
+        {
+            public function rules(): string
+            {
+                return "
+                    for payroll_groups
+
+                    if can_view
+
+                                    they can view_payroll
+                    # the rest
+                    if is_owner or is_admin they cannot   edit because 'It costs \$5.'
+                ";
+            }
+        }
+        PHP;
+
+    $expected = <<<'PHP'
+        <?php
+
+        class PayrollGroupSchema extends Schema
+        {
+            public function rules(): string
+            {
+                return "
+                    for payroll_groups
+
+                    if can_view they can view_payroll
+                    # the rest
+                    if is_owner or is_admin
+                    they cannot edit because 'It costs \$5.'
+                ";
+            }
+        }
+        PHP;
+
+    $formatter = new FileFormatter;
+
+    expect($formatter->formatted('PayrollGroupSchema.php', $file))->toBe($expected)
+        ->and($formatter->formatted('PayrollGroupSchema.php', $expected))->toBe($expected);
+});
+
+it('indents a quoted string that starts its rule text on the quote line one level past that line', function () {
+    $file = "<?php\n\nclass S extends Schema\n{\n    public function rules(): string\n    {\n        return 'for documents\n    if a or b they can view';\n    }\n}\n";
+
+    expect((new FileFormatter)->formatted('S.php', $file))
+        ->toBe("<?php\n\nclass S extends Schema\n{\n    public function rules(): string\n    {\n        return 'for documents\n            if a or b\n            they can view';\n    }\n}\n");
 });

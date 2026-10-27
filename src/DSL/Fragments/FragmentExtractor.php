@@ -1,10 +1,10 @@
 <?php
 
-namespace Warrant\LanguageServer\Fragments;
+namespace Warrant\DSL\Fragments;
 
+use Closure;
 use PhpToken;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
-use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 
 /**
  * Finds the Warrant rule text in a file: all of a `.warrant` file, and each PHP
@@ -17,9 +17,11 @@ use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
  *    `WarrantSyntax::parse()` or `WarrantParser::parse()`, of
  *    `new BoundSyntax()`, or of a builder's raw methods, `->ifRaw()` to
  *    `->orIfNotRaw()`, passed by position or by its parameter name;
- *  - returned, alone or inside a returned array, from a method marked
+ *  - returned, alone or as an item of a returned list, from a method marked
  *    `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a class
- *    that extends or implements another,
+ *    that extends or implements another; a value under a key, such as the
+ *    validation rules a Laravel form request returns from its `rules()`, is
+ *    not,
  *
  * which are the places the editor plugins highlight as Warrant. A double-quoted
  * string that interpolates is not read, and neither is a string built up from
@@ -63,10 +65,11 @@ final class FragmentExtractor
     private array $scopes = [];
 
     /**
-     * @param VocabularyIndex $index The schemas known, to name the schema of a
-     *   string written in a schema class.
+     * @param (Closure(string): ?string)|null $schemaKeyOfClass The key of the
+     *   schema a class is, to name the schema of a string written in a schema
+     *   class; null when no schemas are known.
      */
-    public function __construct(private readonly VocabularyIndex $index)
+    public function __construct(private readonly ?Closure $schemaKeyOfClass = null)
     {
     }
 
@@ -136,7 +139,7 @@ final class FragmentExtractor
                 $class = $this->scopes[$i]['class'] ?? null;
 
                 $fragment = $fragment->about(
-                    self::markedSchema($fragment->text) ?? ($class === null ? null : $this->index->keyOfClass($class)),
+                    self::markedSchema($fragment->text) ?? ($class === null || $this->schemaKeyOfClass === null ? null : ($this->schemaKeyOfClass)($class)),
                 );
 
                 /* Text written in a template or derived condition is that
@@ -325,6 +328,16 @@ final class FragmentExtractor
      */
     private function isReturnedRuleText(int $start): bool
     {
+        /* Rule text is returned alone or as an item of a list. Anything under a
+           key, however deep, is something else: the validation rules a Laravel
+           form request returns from its own rules(), for one. */
+        $isUnderAKey = fn (int $at): bool => ($before = $this->previousSignificant($at)) !== null
+            && $this->tokens[$before]->is(T_DOUBLE_ARROW);
+
+        if ($isUnderAKey($start)) {
+            return false;
+        }
+
         $at = $start;
 
         while (($open = $this->enclosing[$at] ?? -1) >= 0) {
@@ -336,6 +349,10 @@ final class FragmentExtractor
             }
 
             $at = $this->tokens[$open]->text === '(' ? (int) $this->previousSignificant($open) : $open;
+
+            if ($isUnderAKey($at)) {
+                return false;
+            }
         }
 
         $before = $this->previousSignificant($at);

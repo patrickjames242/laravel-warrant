@@ -6,7 +6,7 @@ use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\LanguageServer\Fragments\FragmentExtractor;
+use Warrant\DSL\Fragments\FragmentExtractor;
 use Warrant\LanguageServer\Positions\LineIndex;
 use Warrant\LanguageServer\Positions\LinePosition;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
@@ -107,7 +107,7 @@ final class Document
             return $this->analyzed;
         }
 
-        $fragments = (new FragmentExtractor($index ?? new VocabularyIndex))->extract($this->path, $this->text);
+        $fragments = (new FragmentExtractor(($index ?? new VocabularyIndex)->keyOfClass(...)))->extract($this->path, $this->text);
 
         $this->analyzed = array_map(
             function ($fragment) use ($index): AnalyzedFragment {

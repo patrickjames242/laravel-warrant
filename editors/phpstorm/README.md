@@ -25,6 +25,7 @@ them in sync.
 | `lsp/WarrantSettings` / `lsp/WarrantSettingsConfigurable` | The project settings and their page |
 | `lsp/RestartWarrantLanguageServerAction` | **Tools → Restart Warrant Language Server** |
 | `lsp/ReformatWarrantRulesAction` | **Code → Reformat Warrant Rules**: formats only the Warrant in a file |
+| `lsp/WarrantFormattingService` | Formats a `.warrant` file on Reformat Code, before a save writes it, by running `warrant-format` |
 | `lsp/WarrantPostFormatProcessor` / `lsp/WarrantRuleTextFormatter` | Formats the Warrant in a PHP file as part of Reformat Code, by running `warrant-format` |
 | `WarrantBraceMatcher` / `WarrantQuoteHandler` / `WarrantCommenter` | Close brackets and quotes as they are typed, and comment lines out with `#`, in `.warrant` files and injected Warrant |
 | `WarrantEscapeAnnotator` | Colours the escapes in a string literal, valid and invalid, over the string's colour |
@@ -70,16 +71,20 @@ re-read schemas when they change.
 
 ### Formatting
 
-The server is the one formatter of Warrant text (`bin/warrant-format` and
-`src/DSL/Formatting` in the repository). It registers `textDocument/formatting`
-for `**/*.warrant` only, and `lspFormattingSupport` in the descriptor sends
-Reformat Code on a `.warrant` file to it.
-In a PHP file, PhpStorm formats the PHP, then `WarrantPostFormatProcessor`
-formats the rule text, so Reformat Code and Actions on Save cover both.
-It runs the `warrant-format` script beside the server's script with the
-document's text on standard input (`--stdin-filepath`), rather than asking the
-server, so the text formatted is always the text on screen. **Code → Reformat
-Warrant Rules** runs the same, on the Warrant alone.
+The Warrant formatter (`bin/warrant-format` and `src/DSL/Formatting` in the
+repository) is the one formatter of Warrant text, and the plugin runs it as
+the `warrant-format` script beside the server's script, with the document's
+text on standard input (`--stdin-filepath`), so the text formatted is always
+the text on screen.
+
+- `WarrantFormattingService` formats a `.warrant` file on Reformat Code. It runs
+  while the reformat does, before a save writes the file, so a save that
+  formats leaves the file saved. The platform's LSP formatting would apply the
+  server's edits after the save, so `lspFormattingSupport` turns it off.
+- In a PHP file, PhpStorm formats the PHP, then `WarrantPostFormatProcessor`
+  formats the rule text, so Reformat Code and Actions on Save cover both.
+- **Code → Reformat Warrant Rules** formats the Warrant in a file and nothing
+  else.
 
 ### Settings
 

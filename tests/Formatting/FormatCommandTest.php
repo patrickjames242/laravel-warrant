@@ -49,12 +49,12 @@ it('formats files in place, and then finds nothing to change', function () {
         ->and(runFormatCommand(['--check', $this->directory])[0])->toBe(0);
 });
 
-it('reports rule text that does not parse and leaves it as it is', function () {
+it('reports rule text that does not parse, leaves it as it is, and fails', function () {
     file_put_contents($this->directory.'/broken.warrant', "for x { they can v, }\n");
 
     [$exitCode, $output] = runFormatCommand([$this->directory.'/broken.warrant']);
 
-    expect($exitCode)->toBe(1)
+    expect($exitCode)->toBe(2)
         ->and($output)->toContain('broken.warrant:1: Line 1, column 21')
         ->and(file_get_contents($this->directory.'/broken.warrant'))->toBe("for x { they can v, }\n");
 });
@@ -68,4 +68,32 @@ it('formats standard input as the file at --stdin-filepath would be', function (
 
     expect(proc_close($process))->toBe(0)
         ->and($output)->toBe("for documents { if is_mine they can view }\n");
+});
+
+it('still reports rule text that does not parse under --ignore-unparsable, but does not fail', function () {
+    file_put_contents($this->directory.'/broken.warrant', "for x { they can v, }\n");
+
+    [$exitCode, $output] = runFormatCommand(['--ignore-unparsable', $this->directory.'/broken.warrant']);
+
+    expect($exitCode)->toBe(0)
+        ->and($output)->toContain('broken.warrant:1: Line 1, column 21');
+});
+
+it('shows what would change under --diff, and writes nothing', function () {
+    [$exitCode, $output] = runFormatCommand(['--diff', $this->directory.'/rules.warrant']);
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain("-for documents{ if is_mine they can   view }\n+for documents { if is_mine they can view }")
+        ->and(file_get_contents($this->directory.'/rules.warrant'))->toBe("for documents{ if is_mine they can   view }\n");
+});
+
+it('formats the files a quoted glob pattern matches, and fails for a pattern that matches nothing', function () {
+    [$exitCode] = runFormatCommand([$this->directory.'/**/*.warrant']);
+    [$unmatched, $output] = runFormatCommand([$this->directory.'/**/*.nothing']);
+
+    expect($exitCode)->toBe(0)
+        ->and(file_get_contents($this->directory.'/rules.warrant'))->toBe("for documents { if is_mine they can view }\n")
+        ->and(file_get_contents($this->directory.'/vendor/package.warrant'))->toBe("for documents{ if is_mine they can   view }\n")
+        ->and($unmatched)->toBe(2)
+        ->and($output)->toContain('No file, directory or pattern matches');
 });

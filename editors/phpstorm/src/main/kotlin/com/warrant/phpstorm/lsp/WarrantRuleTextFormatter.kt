@@ -1,17 +1,20 @@
 package com.warrant.phpstorm.lsp
 
 import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 /**
  * Formats the Warrant in a file's text by running the project's
  * `warrant-format` with that text on standard input, the way an editor runs an
- * external formatter: `<php> warrant-format --stdin-filepath=<path>`.
+ * external formatter: `<php> warrant-format --stdin-filepath=<path>
+ * --ignore-unparsable`, so rule text that does not parse is left as it is while
+ * the rest of the file is formatted.
  *
  * The text is handed over as the editor has it, so what is formatted is
  * always what is on screen. The script is the one beside the language server's,
@@ -20,7 +23,7 @@ import java.nio.file.Files
 object WarrantRuleTextFormatter {
     private val LOG = logger<WarrantRuleTextFormatter>()
 
-    private const val TIMEOUT_MS = 10_000
+    private const val TIMEOUT_MS = 10_000L
 
     /**
      * Rule text can stand in a PHP file only where one of these is written, so a
@@ -45,22 +48,34 @@ object WarrantRuleTextFormatter {
             return null
         }
 
-        val commandLine = GeneralCommandLine(launch.phpExecutable, script.toString(), "--stdin-filepath=$path")
+        val commandLine = GeneralCommandLine(launch.phpExecutable, script.toString(), "--stdin-filepath=$path", "--ignore-unparsable")
             .withWorkDirectory(launch.workDirectory.toFile())
             .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
             .withCharset(StandardCharsets.UTF_8)
 
+        /* Reformat Code runs on the UI thread and must finish before a save
+           writes the file, so this waits for the script there. It is run with
+           Java's own process API, its output read on other threads, because the
+           platform's process handlers report any wait on the UI thread as an
+           error. */
         return try {
-            val process = commandLine.createProcess()
+            val process = commandLine.toProcessBuilder().start()
+            val stdout = CompletableFuture.supplyAsync { process.inputStream.readAllBytes().toString(StandardCharsets.UTF_8) }
+            val stderr = CompletableFuture.supplyAsync { process.errorStream.readAllBytes().toString(StandardCharsets.UTF_8) }
             // The script reads all of its input before it writes any output.
             process.outputStream.use { it.write(text.toByteArray(StandardCharsets.UTF_8)) }
-            val output = CapturingProcessHandler(process, StandardCharsets.UTF_8, commandLine.commandLineString).runProcess(TIMEOUT_MS)
 
-            when {
-                output.isTimeout -> null.also { LOG.warn("warrant-format took too long on $path") }
-                // 1 means some rule text did not parse; the rest is formatted.
-                output.exitCode != 0 && output.exitCode != 1 -> null.also { LOG.warn("warrant-format failed on $path: ${output.stderr}") }
-                else -> output.stdout
+            if (!process.waitFor(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly()
+                LOG.warn("warrant-format took too long on $path")
+
+                return null
+            }
+
+            when (process.exitValue()) {
+                // Warrant 4.7.1 and earlier answer 1 for rule text that did not parse, and format the rest.
+                0, 1 -> stdout.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                else -> null.also { LOG.warn("warrant-format failed on $path: ${stderr.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)}") }
             }
         } catch (e: Exception) {
             LOG.warn("Could not run warrant-format on $path", e)

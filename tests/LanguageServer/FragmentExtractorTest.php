@@ -2,8 +2,8 @@
 
 require_once __DIR__.'/Support.php';
 
-use Warrant\LanguageServer\Fragments\Fragment;
-use Warrant\LanguageServer\Fragments\FragmentExtractor;
+use Warrant\DSL\Fragments\Fragment;
+use Warrant\DSL\Fragments\FragmentExtractor;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 
 /**
@@ -15,12 +15,12 @@ function fragmentTexts(string $code, ?VocabularyIndex $index = null): array
 {
     return array_map(
         static fn (Fragment $fragment): string => $fragment->text,
-        (new FragmentExtractor($index ?? new VocabularyIndex))->extract('/app/Example.php', $code),
+        (new FragmentExtractor(($index ?? new VocabularyIndex)->keyOfClass(...)))->extract('/app/Example.php', $code),
     );
 }
 
 it('reads a .warrant file as one fragment, about the schema its marker names', function () {
-    $fragments = (new FragmentExtractor(new VocabularyIndex))->extract('/x/rules.warrant', "# warrant-schema: docs\nthey can view");
+    $fragments = (new FragmentExtractor((new VocabularyIndex)->keyOfClass(...)))->extract('/x/rules.warrant', "# warrant-schema: docs\nthey can view");
 
     expect($fragments)->toHaveCount(1)
         ->and($fragments[0]->text)->toBe("# warrant-schema: docs\nthey can view")
@@ -28,7 +28,7 @@ it('reads a .warrant file as one fragment, about the schema its marker names', f
 });
 
 it('reads nothing from a file that is neither Warrant nor PHP', function () {
-    expect((new FragmentExtractor(new VocabularyIndex))->extract('/x/readme.md', 'they can view'))->toBe([]);
+    expect((new FragmentExtractor((new VocabularyIndex)->keyOfClass(...)))->extract('/x/readme.md', 'they can view'))->toBe([]);
 });
 
 it('reads a WARRANT heredoc or nowdoc wherever it stands, as PHP reads it', function () {
@@ -87,6 +87,23 @@ it('reads a string returned from rules(), a template or a derived condition, alo
     expect(fragmentTexts($code))->toBe(['they can view', 'they can edit', 'they can share', 'a or b']);
 });
 
+it('leaves the validation rules a form request returns from rules(), which sit under keys at any depth', function () {
+    $code = <<<'PHP'
+        <?php
+        class StoreSlotRequest extends FormRequest {
+            public function rules(): array
+            {
+                return [
+                    'name' => 'string|required',
+                    'start_time' => ['string', 'required'],
+                ];
+            }
+        }
+        PHP;
+
+    expect(fragmentTexts($code))->toBe([]);
+});
+
 it('reads a string written in a schema class as about that schema', function () {
     $code = <<<'PHP'
         <?php
@@ -96,14 +113,14 @@ it('reads a string written in a schema class as about that schema', function () 
         }
         PHP;
 
-    $fragments = (new FragmentExtractor(fixtureVocabulary()))->extract('/app/FolderSchema.php', $code);
+    $fragments = (new FragmentExtractor((fixtureVocabulary())->keyOfClass(...)))->extract('/app/FolderSchema.php', $code);
 
     expect($fragments[0]->schemaKey)->toBe('folders');
 });
 
 it('maps every byte of a fragment back to the byte of the file it came from', function () {
     $code = "<?php\n\$a = <<<'WARRANT'\n    if a they\n      can view\n    WARRANT;\n\$b = 'it\\'s';\n";
-    $fragments = (new FragmentExtractor(new VocabularyIndex))->extract('/app/x.php', $code);
+    $fragments = (new FragmentExtractor((new VocabularyIndex)->keyOfClass(...)))->extract('/app/x.php', $code);
 
     $heredoc = $fragments[0];
     expect($heredoc->text)->toBe("if a they\n  can view");
@@ -116,7 +133,7 @@ it('maps every byte of a fragment back to the byte of the file it came from', fu
 
 it('places the start of a range at the next run and its end at the run before', function () {
     $code = "<?php\n\$a = <<<'WARRANT'\n    ab\n    cd\n    WARRANT;\n";
-    $fragment = (new FragmentExtractor(new VocabularyIndex))->extract('/app/x.php', $code)[0];
+    $fragment = (new FragmentExtractor((new VocabularyIndex)->keyOfClass(...)))->extract('/app/x.php', $code)[0];
     $lineTwo = strpos($fragment->text, 'cd');
 
     expect(substr($code, $fragment->fileOffsetOf($lineTwo), 2))->toBe('cd')

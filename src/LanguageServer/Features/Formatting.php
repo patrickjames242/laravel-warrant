@@ -3,7 +3,7 @@
 namespace Warrant\LanguageServer\Features;
 
 use Warrant\LanguageServer\Documents\Document;
-use Warrant\LanguageServer\Fragments\FragmentFormatter;
+use Warrant\DSL\Formatting\FileFormatter;
 
 /**
  * Formats the rule text in a document: a whole `.warrant` file, or each piece
@@ -28,7 +28,7 @@ final class Formatting
     {
         return array_map(
             static fn (array $edit): array => ['range' => $document->rangeOf($edit[0], $edit[1]), 'newText' => $edit[2]],
-            (new FragmentFormatter)->edits($document->path, $document->text),
+            (new FileFormatter)->edits($document->path, $document->text),
         );
     }
 

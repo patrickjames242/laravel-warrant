@@ -1,22 +1,24 @@
 <?php
 
-namespace Warrant\LanguageServer\Fragments;
+namespace Warrant\DSL\Formatting;
 
-use Warrant\DSL\Formatting\RuleTextFormattingException;
-use Warrant\DSL\Formatting\WarrantFormatter;
-use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
+use Warrant\DSL\Fragments\Fragment;
+use Warrant\DSL\Fragments\FragmentExtractor;
 
 /**
  * Formats the rule text in a file: all of a `.warrant` file, and each PHP string
  * {@see FragmentExtractor} reads as rule text.
  *
  * A heredoc or nowdoc is formatted in full, its lines indented four spaces past
- * its closing marker. A quoted string is formatted on one line, and only when it
- * holds no line break and no comment, then escaped again for its quotes. A
- * heredoc that interpolates is left as it is, and so is text that does not
- * parse or that could not be formatted without changing it.
+ * its closing marker. A quoted string written over several lines is formatted
+ * in full too: it keeps the space before its first line of rule text and after
+ * its last, and every line takes the indentation its first line of rule text
+ * has. A quoted string on one line is formatted on one line, and only when it
+ * holds no comment. Either is escaped again for its quotes. A heredoc that
+ * interpolates is left as it is, and so is text that does not parse or that
+ * could not be formatted without changing it.
  */
-final class FragmentFormatter
+final class FileFormatter
 {
     private readonly FragmentExtractor $extractor;
 
@@ -26,7 +28,7 @@ final class FragmentFormatter
     public function __construct(private readonly WarrantFormatter $formatter = new WarrantFormatter)
     {
         // Formatting reads no schemas, so the extractor is given none.
-        $this->extractor = new FragmentExtractor(new VocabularyIndex);
+        $this->extractor = new FragmentExtractor;
     }
 
     /**
@@ -99,19 +101,67 @@ final class FragmentFormatter
         $quote = $file[$fragment->fileStart - 1] ?? '';
 
         if (($quote === "'" || $quote === '"') && ($file[$fragment->fileEnd] ?? '') === $quote) {
-            if (str_contains($fragment->text, "\n") || str_contains($fragment->text, '#')) {
+            if (str_contains($fragment->text, "\n")) {
+                return [$fragment->fileStart, $fragment->fileEnd, self::escapedFor($quote, $this->overLines($file, $fragment))];
+            }
+
+            if (str_contains($fragment->text, '#')) {
                 return null;
             }
 
-            $formatted = $this->formatter->formatOnOneLine($fragment->text);
-            $escaped = $quote === "'"
-                ? str_replace(['\\', "'"], ['\\\\', "\\'"], $formatted)
-                : str_replace(['\\', '"', '$'], ['\\\\', '\\"', '\\$'], $formatted);
-
-            return [$fragment->fileStart, $fragment->fileEnd, $escaped];
+            return [$fragment->fileStart, $fragment->fileEnd, self::escapedFor($quote, $this->formatter->formatOnOneLine($fragment->text))];
         }
 
         return $this->heredocEdit($file, $fragment);
+    }
+
+    /**
+     * The text of a quoted string written over several lines, formatted: the
+     * space before its first line of rule text and after its last kept, and
+     * every line indented as its first line of rule text is. When the rule
+     * text starts on the quote's line, the lines after it go one level past
+     * the line the quote is on.
+     */
+    private function overLines(string $file, Fragment $fragment): string
+    {
+        $text = $fragment->text;
+        $start = strlen($text) - strlen(ltrim($text, " \t\r\n"));
+        $end = strlen(rtrim($text, " \t\r\n"));
+
+        if ($start >= $end) {
+            return $text;
+        }
+
+        $leading = substr($text, 0, $start);
+        $lineBreak = strrpos($leading, "\n");
+
+        if ($lineBreak === false) {
+            $quoteLine = substr($file, (int) strrpos("\n".substr($file, 0, $fragment->fileStart), "\n"));
+            $indent = substr($quoteLine, 0, strspn($quoteLine, " \t")).'    ';
+            $leading = '';
+        } else {
+            $indent = substr($leading, $lineBreak + 1);
+            $leading = substr($leading, 0, $lineBreak + 1);
+        }
+
+        $lines = explode("\n", rtrim($this->formatter->format($text), "\n"));
+
+        foreach ($lines as $index => $line) {
+            $lines[$index] = $line === '' || ($index === 0 && $lineBreak === false) ? $line : $indent.$line;
+        }
+
+        return $leading.implode("\n", $lines).substr($text, $end);
+    }
+
+    /**
+     * $text written inside a PHP string that $quote opens, escaped so PHP reads
+     * it back as it is.
+     */
+    private static function escapedFor(string $quote, string $text): string
+    {
+        return $quote === "'"
+            ? str_replace(['\\', "'"], ['\\\\', "\\'"], $text)
+            : str_replace(['\\', '"', '$'], ['\\\\', '\\"', '\\$'], $text);
     }
 
     /**

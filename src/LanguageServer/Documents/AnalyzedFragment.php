@@ -4,7 +4,7 @@ namespace Warrant\LanguageServer\Documents;
 
 use Warrant\DSL\Parsing\AnalysisResult;
 use Warrant\DSL\Parsing\Diagnostic;
-use Warrant\LanguageServer\Fragments\Fragment;
+use Warrant\DSL\Fragments\Fragment;
 
 /**
  * One fragment of a document, and what analysing its rule text found.

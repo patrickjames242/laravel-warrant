@@ -66,6 +66,8 @@ final class WarrantServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/warrant.php' => $this->app->configPath('warrant.php'),
             ], 'warrant-config');
+
+            $this->commands([Console\FormatRuleTextCommand::class]);
         }
     }
 

@@ -34,6 +34,12 @@
              Actions on Save, after the PHP is formatted. -->
         <postFormatProcessor
             implementation="com.warrant.phpstorm.lsp.WarrantPostFormatProcessor"/>
+
+        <!-- Formats a .warrant file while Reformat Code runs, ahead of the
+             platform's LSP formatting, which would apply after a save. -->
+        <formattingService
+            implementation="com.warrant.phpstorm.lsp.WarrantFormattingService"
+            order="first"/>
     </extensions>
 
     <actions>

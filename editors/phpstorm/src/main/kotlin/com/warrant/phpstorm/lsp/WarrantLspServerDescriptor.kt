@@ -23,9 +23,9 @@ import java.nio.charset.StandardCharsets
  * answers in the PHP file's own coordinates, so PHP files are sent to it as
  * they are and no position is mapped on this side. Diagnostics, hover,
  * completion and quick fixes use the platform's defaults, go-to-definition
- * is answered by [WarrantDefinitionReferenceProvider], Reformat Code formats a
- * `.warrant` file through the server, and [ReformatWarrantRulesAction] formats
- * the Warrant in a PHP file;
+ * is answered by [WarrantDefinitionReferenceProvider], and formatting is
+ * [WarrantFormattingService]'s, [WarrantPostFormatProcessor]'s and
+ * [ReformatWarrantRulesAction]'s;
  * the server answers nothing for a position outside Warrant text, which leaves
  * PhpStorm's own PHP features untouched.
  */
@@ -73,8 +73,10 @@ class WarrantLspServerDescriptor(project: Project) : ProjectWideLspServerDescrip
     }
 
     /**
-     * Reformat Code formats a `.warrant` file through the server, which is the
-     * one formatter of Warrant text. A PHP file stays PhpStorm's to format, and
+     * Never formats through the server. The platform applies the server's edits
+     * after a save has written the file, which leaves it unsaved, so a `.warrant`
+     * file is formatted by [WarrantFormattingService] instead, while the reformat
+     * runs. A PHP file stays PhpStorm's to format, and
      * [WarrantPostFormatProcessor] formats the Warrant in it after.
      */
     override val lspFormattingSupport: LspFormattingSupport = object : LspFormattingSupport() {
@@ -82,7 +84,7 @@ class WarrantLspServerDescriptor(project: Project) : ProjectWideLspServerDescrip
             file: VirtualFile,
             ideCanFormatThisFileItself: Boolean,
             serverExplicitlyWantsToFormatThisFile: Boolean,
-        ): Boolean = file.fileType == WarrantFileType.INSTANCE
+        ): Boolean = false
     }
 
     companion object {

@@ -19,28 +19,64 @@ is.
 
 ## From the command line
 
-The package ships `vendor/bin/warrant-format`. It boots no application, so it
-runs anywhere, CI included:
+Two commands take the same arguments and options:
 
 ```bash
-vendor/bin/warrant-format app resources/rules
+php artisan warrant:format app/Schemas 'resources/rules/**/*.warrant'
 ```
 
 ```bash
-vendor/bin/warrant-format --check .
+vendor/bin/warrant-format --check
 ```
 
-Each path is a file or a directory, searched for `.warrant` and `.php` files
-outside `vendor`, `node_modules` and hidden directories. With no path, it
-formats the current directory.
+`php artisan warrant:format` reads paths from the application's root.
+`vendor/bin/warrant-format` reads them from the current directory and boots no
+application, so it runs anywhere, CI and commit hooks included, and starts
+faster.
 
-`--check` writes nothing. It lists the files that would change and exits with
-1 when there are any, which is what a CI step wants. Rule text that does not
-parse is reported as `file:line: message`, and also makes the exit code 1.
+Each path is one of these, read in this order:
 
-`--stdin-filepath=<path>` formats the text on standard input as the file at
-`<path>` would be, and writes it to standard output. That is the form editors
-run as an external formatter.
+| You pass | It formats |
+|---|---|
+| a file, such as `resources/rules/documents.warrant` | that file, `.warrant` or `.php` |
+| a directory, such as `resources/rules` | its `.warrant` and `.php` files, at any depth |
+| a glob pattern, such as `'app/**/*Schema.php'` | the files it matches |
+| nothing | the whole project |
+
+A path that exists is taken as written, so a quoted path with spaces, or a file
+named `rules[1].warrant`, needs no escaping. Otherwise a path holding `*`, `?`,
+`[...]` or `{a,b}` is a pattern: `*` and `?` match within a name, `**` any
+number of directories, and `{a,b}` either alternative. Quote a pattern so the
+command expands it, the same in every shell. Directories and patterns are never
+searched in `vendor`, `node_modules`, `storage` or hidden directories.
+
+| Option | What it does |
+|---|---|
+| `--check` | Writes nothing, and lists the files that would change. |
+| `--diff` | Writes nothing, and shows what would change in each file. |
+| `--ignore-unparsable` | Reports rule text that does not parse, but does not fail. |
+| `--stdin-filepath=<path>` | Formats standard input as the file at `<path>` would be, and prints it. |
+
+Rule text that does not parse is reported as `file:line: message` and left as
+it is. The exit code is 0 when everything is formatted, 1 when `--check` or
+`--diff` found a file to change, and 2 when rule text did not parse, unless
+`--ignore-unparsable` is given, or a path matched nothing.
+
+`--stdin-filepath` is the form editors run as an external formatter. The path
+need not exist: its extension says whether the input is a `.warrant` file or a
+PHP file.
+
+### In a commit hook
+
+With [lint-staged](https://github.com/lint-staged/lint-staged), the staged files
+are formatted on every commit, and a commit holding rule text that does not
+parse is stopped:
+
+```json
+"lint-staged": {
+    "*.{warrant,php}": ["php vendor/bin/warrant-format"]
+}
+```
 
 ## In your editor
 
@@ -148,5 +184,7 @@ touched. Blank lines between rules are kept, a run of them squeezed to one.
 Comments are kept where they are, re-indented.
 
 In PHP, a `WARRANT` heredoc is formatted in full and indented one level past its
-closing marker. A quoted string is formatted on one line, and only when it holds
-no line break and no comment. A heredoc that interpolates is left as it is.
+closing marker. A quoted string written over several lines is formatted in full
+too, every line indented as its first line of rule text is. A quoted string on
+one line is formatted on one line, and only when it holds no comment. A heredoc
+that interpolates is left as it is.

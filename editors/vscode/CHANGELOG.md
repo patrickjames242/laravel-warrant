@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.14.0
+## 0.13.0
 
 - Indent the line Enter opens one level past a line ending in `{` or `(`, and
   move a typed `}` or `)` back to the line it closes, as the Warrant formatter
@@ -10,9 +10,6 @@
 - Format with the language server, for a Warrant release whose server formats:
   Format Document in a `.warrant` file, and the **Format Warrant rule text**
   source action in a PHP file.
-
-## 0.13.0
-
 - Highlight `when` and `otherwise` as keywords, for when blocks.
 - Stop highlighting `?` as a binding, now that every binding is named (`:name`).
 
