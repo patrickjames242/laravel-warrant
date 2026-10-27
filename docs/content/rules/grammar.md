@@ -42,9 +42,12 @@ can_or_cannot_clause = "they" ( "can" ability ( "," ability )*
                               | "cannot" ability ( "," ability )* ( "because" message )? ) ;
                 (* inside an ability block the ability list is omitted *)
 
-ability       = IDENTIFIER | "*" | NAMED_BINDING ;
+ability       = IDENTIFIER | "*" [ "except" excepted { "," excepted } ] | NAMED_BINDING ;
                 (* a binding's value is an ability name, "*", or a list of
-                   them, spliced in where the binding stands *)
+                   them, spliced in where the binding stands. What follows
+                   `except` runs to the end of the list *)
+excepted      = IDENTIFIER | NAMED_BINDING ;
+                (* a binding's value is an ability name or a list of them *)
 message       = STRING | NAMED_BINDING ;
 
 expr          = or ;
@@ -112,8 +115,8 @@ such as `Expected a single rule, but the source holds a rule set for [documents]
 
 ## Keywords
 
-`if`, `when`, `otherwise`, `they`, `can`, `cannot`, `because`, `check`, `and`,
-`or`, `not`, `for`, `with`, `as`, plus the literals `true`, `false`, `null`.
+`if`, `when`, `otherwise`, `except`, `they`, `can`, `cannot`, `because`, `check`,
+`and`, `or`, `not`, `for`, `with`, `as`, plus the literals `true`, `false`, `null`.
 
 None may be used as an exact condition or ability name. A name may contain or start
 with one: `canonical`, `cannot_publish`, `is_and_something`.
@@ -127,6 +130,7 @@ with one: `canonical`, `cannot_publish`, `is_and_something`.
 | `not` | negation |
 | `( )` | grouping |
 | `*` | every declared ability |
+| `* except a, b` | every declared ability but `a` and `b` |
 
 Precedence, tightest first: `not`, `and`, `or`.
 

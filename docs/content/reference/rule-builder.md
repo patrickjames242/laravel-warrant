@@ -19,6 +19,7 @@ Build::ruleSet(string $schemaKey, Closure(RuleSetBuilder): mixed $callback): Rul
 Build::ruleSet(Closure(RuleSetBuilder): mixed $callback): list<IRuleEntryNode>   // headless
 Build::can(string $ability): CrossSchemaCanBuilder
 Build::check(?string $condition = null, array $parameters = []): CrossSchemaCheckBuilder
+Build::everyAbilityExcept(string ...$abilities): EveryAbilityExceptNode   // `* except` in a builder
 ```
 
 `rules()`, an `IRuleProvider`, a `#[RuleTemplate]` and a `#[DerivedCondition]`
@@ -97,9 +98,9 @@ are the predicate. It adds:
 ## Can/cannot clause methods, from `WarrantRuleBuilder`
 
 ```php
-->theyCan(string ...$abilities): static
-->theyCannot(string ...$abilities): static
-->theyCannotBecause(string|list<string> $abilities = [], string|Closure|null $message = null): static
+->theyCan(string|EveryAbilityExceptNode ...$abilities): static
+->theyCannot(string|EveryAbilityExceptNode ...$abilities): static
+->theyCannotBecause(string|EveryAbilityExceptNode|list<string|EveryAbilityExceptNode> $abilities = [], string|Closure|null $message = null): static
 ->toRule(SyntaxSource $source = new SyntaxSource(null)): RuleNode
 ```
 
@@ -122,7 +123,7 @@ $rule->include(string $template, array $arguments = []): IncludeInvocationBuilde
 $rule->entries(SyntaxSource $source): list<IRuleEntryNode>
 
 // IncludeInvocationBuilder
-->for(string ...$abilities): static     // leave it out for a generic include
+->for(string|EveryAbilityExceptNode ...$abilities): static     // leave it out for a generic include
 ->toNode(SyntaxSource $source): IncludeInvocationNode
 ```
 

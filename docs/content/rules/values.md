@@ -105,6 +105,13 @@ freely in one list.
 A `can` reference asks about one ability, so its binding's value is one ability
 name. A list there is an error.
 
+After [`* except`](/rules/basics/#wildcards) a binding names abilities to leave
+out: an ability name or a list of them, but not `'*'`:
+
+```php
+warrant('if is_read_only they cannot * except :reading', ['reading' => ['view', 'list']]);
+```
+
 In a list the value must name at least one ability, and nothing else:
 
 ```text

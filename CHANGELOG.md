@@ -6,8 +6,24 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ## Unreleased
 
+### Added
+
+- `* except <abilities>` stands wherever `*` may, in a `they can` or
+  `they cannot` clause, a `can they` header and an `@include`'s `for` list: every
+  ability the schema declares but the ones it lists, which may be names or
+  bindings. A binding there names an ability or a list of them, never `*`. It is
+  reported, while validating and again while expanding, when it leaves out an
+  ability the schema does not declare, names one twice, or leaves out every
+  ability; the last carries the new diagnostic code `excepts-every-ability`.
+- `Build::everyAbilityExcept(...)` builds `* except` in PHP, and `theyCan()`,
+  `theyCannot()`, `theyCannotBecause()` and an include's `for()` accept it.
+- The formatter keeps `* except` on its line and breaks what it leaves out one
+  to a line when it does not fit. The language server offers `except` after `*`,
+  and the abilities it may leave out after it.
+
 ### Changed
 
+- `except` is a reserved word, so no ability or condition may be named it.
 - Expansion replaces `*` with every ability the schema declares, so an expanded
   rule set never holds a wildcard. A rule template's `RuleTemplateContext`
   lists those abilities too, and a template declared `callOncePerAbility` is

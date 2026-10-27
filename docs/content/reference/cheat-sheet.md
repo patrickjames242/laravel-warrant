@@ -84,6 +84,7 @@ if is_mine and in_current_tenant they can view   # own schema first, then each g
 if is_mine they can view, update
 if is_locked they cannot update because 'This document is locked.'
 if is_admin they can *
+if is_read_only they cannot * except view
 
 can they view {
     if is_public they can
