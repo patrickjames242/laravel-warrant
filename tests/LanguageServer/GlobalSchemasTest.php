@@ -112,6 +112,23 @@ it('offers the globals\' conditions after a schema\'s own, marking where each co
         ->and($items['in_team'])->not->toContain('global');
 });
 
+it('offers what may continue a condition in a derived condition\'s answer, and no rule entries', function () {
+    $path = 'app/Schemas/TenancySchema.php';
+    $text = (string) file_get_contents(fixtureRoot().'/'.$path);
+
+    $labels = static function (string $answer) use ($path, $text): array {
+        [$source, $position] = positionOfBar(str_replace("'is_staff and in_current_tenant'", "'{$answer}'", $text));
+        [$workspace, $document] = openInFixture($path, $source);
+
+        return array_column(Completion::at($workspace, $document, $position), 'label');
+    };
+
+    expect($labels('|'))->toBe(['in_current_tenant', 'is_staff', 'is_tenant_staff', 'can(', 'check(', 'not'])
+        ->and($labels('in_|'))->toContain('in_current_tenant')
+        ->and($labels('is_staff and |'))->toContain('in_current_tenant', 'not')
+        ->and($labels('is_staff |'))->toBe(['and', 'or']);
+});
+
 it('suggests a global\'s condition for a misspelt name', function () {
     [$workspace, $document] = openInFixture('rules.warrant', 'for documents { if in_curent_tenant they can view }');
 

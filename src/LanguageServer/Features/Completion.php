@@ -4,6 +4,7 @@ namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
+use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\LanguageServer\Documents\Document;
@@ -17,6 +18,10 @@ use Warrant\LanguageServer\Workspace;
  * what belongs there is read from the tokens just before it: after `they can`
  * an ability, after `if` a condition, after `@include` a template. The tree
  * says which schema is in scope, and so whose names to offer.
+ *
+ * A derived condition's answer is one condition rather than rule entries, so
+ * its text starts as an `if` would leave off, and nothing follows a whole
+ * operand there but `and` and `or`.
  */
 final class Completion
 {
@@ -42,12 +47,15 @@ final class Completion
      * @param ISchemaId|null $writtenIn The schema the text at the cursor was
      *   written in, which its conditions and templates are looked up from; null
      *   when it is not known.
+     * @param bool $isCondition Whether the text at the cursor is a derived
+     *   condition's answer, which is one condition.
      */
     private function __construct(
         private readonly Workspace $workspace,
         private readonly ?string $scopeSchemaKey,
         private readonly array $frames,
         private readonly ?ISchemaId $writtenIn,
+        private readonly bool $isCondition,
     ) {
     }
 
@@ -101,6 +109,7 @@ final class Completion
             $scopeSchemaKey,
             array_keys($scope->frames),
             $located->writtenIn($workspace->vocabulary(), $scopeSchemaKey),
+            $located->fragment->fragment->answers === SyntaxProducerKind::DerivedCondition,
         );
         $completion->before = array_values(array_filter($significant, static fn (Token $token): bool => $token->endOffset() <= $prefixStart));
         $completion->after = array_values(array_filter($significant, static fn (Token $token): bool => $token->offset >= $offset));
@@ -153,6 +162,7 @@ final class Completion
                 ...($this->closesWhenBody() ? [['otherwise', self::KIND_KEYWORD, 'the rules for when the condition is false', 'otherwise ']] : []),
                 ...$this->entryStart(topLevel: $this->depth(TokenType::LBRACE, TokenType::RBRACE) === 0),
             ],
+            $p1 === null && $this->isCondition => $this->expressionStart(),
             $p1 === null, $p1 === TokenType::LBRACE => $this->entryStart(topLevel: $p1 === null),
             default => $this->afterOperand(),
         };
@@ -301,8 +311,8 @@ final class Completion
     {
         $open = $this->openParenthesis();
 
-        if ($open !== null) {
-            $inCheck = ($this->before[$open - 1]->type ?? null) === TokenType::CHECK;
+        if ($open !== null || $this->isCondition) {
+            $inCheck = $open !== null && ($this->before[$open - 1]->type ?? null) === TokenType::CHECK;
 
             return [
                 ['and', self::KIND_KEYWORD, 'both'],
