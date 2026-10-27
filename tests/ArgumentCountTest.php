@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Validation\RuleValidationException;
 use Warrant\DSL\Validation\ValidationInput;
-use Warrant\LanguageServer\Php\PhpSourceReader;
+use Warrant\PhpSource\PhpSourceReader;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Global\GlobalCondition;

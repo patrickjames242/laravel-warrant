@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Php;
+namespace Warrant\PhpSource;
 
 /**
  * A constant or method of a class, read from source.

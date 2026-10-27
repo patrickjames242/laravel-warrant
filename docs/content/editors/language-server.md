@@ -49,8 +49,15 @@ In a PHP file, the same strings the editors highlight:
 - a heredoc or nowdoc labelled `WARRANT`, wherever it stands;
 - the first argument of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
   `WarrantParser::parse()`, and a builder's raw methods, `ifRaw()` to `orIfNotRaw()`;
-- a string returned from `rules()`, or from a `#[DerivedCondition]` or
-  `#[RuleTemplate]` method, alone or inside a returned array.
+- a string returned from `rules()` on a schema or a
+  [rule provider](/supplying-rules/provider/), or from a `#[DerivedCondition]`
+  or `#[RuleTemplate]` method, alone or inside a returned array.
+
+A class is a schema or a rule provider when it implements `IProvidesRules` or
+`IRuleProvider`, directly or through the classes and interfaces it extends. The
+server follows those through your project's Composer autoload maps, reading
+source without running it, so a `rules()` anywhere else, such as on a Laravel
+form request, is left alone.
 
 Positions are given in the PHP file itself, so an error in a heredoc is
 underlined where it is written. A double-quoted string that interpolates is not

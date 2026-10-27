@@ -5,17 +5,21 @@ require_once __DIR__.'/Support.php';
 use Warrant\DSL\Fragments\Fragment;
 use Warrant\DSL\Fragments\FragmentExtractor;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
+use Warrant\PhpSource\RuleProviderClasses;
 
 /**
- * The texts of the fragments of PHP $code.
+ * The texts of the fragments of PHP $code, with the classes it declares, and
+ * this library's, known.
  *
  * @return list<string>
  */
 function fragmentTexts(string $code, ?VocabularyIndex $index = null): array
 {
+    $classes = (new RuleProviderClasses)->knowing('/app/Example.php', $code);
+
     return array_map(
         static fn (Fragment $fragment): string => $fragment->text,
-        (new FragmentExtractor(($index ?? new VocabularyIndex)->keyOfClass(...)))->extract('/app/Example.php', $code),
+        (new FragmentExtractor(($index ?? new VocabularyIndex)->keyOfClass(...), $classes->providesRules(...)))->extract('/app/Example.php', $code),
     );
 }
 
@@ -72,6 +76,7 @@ it('reads the rule text passed to the calls that take it, by position or by name
 it('reads a string returned from rules(), a template or a derived condition, alone or in an array', function () {
     $code = <<<'PHP'
         <?php
+        use Warrant\Schema\Types\Classes\ModelSchema;
         class S extends ModelSchema {
             public function rules(): array { return ['they can view', 'they can edit']; }
             #[RuleTemplate] public function t(): string { return 'they can share'; }
@@ -87,7 +92,7 @@ it('reads a string returned from rules(), a template or a derived condition, alo
     expect(fragmentTexts($code))->toBe(['they can view', 'they can edit', 'they can share', 'a or b']);
 });
 
-it('leaves the validation rules a form request returns from rules(), which sit under keys at any depth', function () {
+it('reads nothing from rules() on a class that provides no rules, such as a form request', function () {
     $code = <<<'PHP'
         <?php
         class StoreSlotRequest extends FormRequest {
@@ -96,6 +101,10 @@ it('leaves the validation rules a form request returns from rules(), which sit u
                 return [
                     'name' => 'string|required',
                     'start_time' => ['string', 'required'],
+                    'account_number' => 'required', 'max:50',
+                    'loan_total_amount' => $isExternal
+                        ? 'required|numeric|min:0.01'
+                        : 'nullable|numeric|min:0',
                 ];
             }
         }
@@ -113,7 +122,8 @@ it('reads a string written in a schema class as about that schema', function () 
         }
         PHP;
 
-    $fragments = (new FragmentExtractor((fixtureVocabulary())->keyOfClass(...)))->extract('/app/FolderSchema.php', $code);
+    $classes = RuleProviderClasses::ofProject(fixtureRoot())->knowing('/app/FolderSchema.php', $code);
+    $fragments = (new FragmentExtractor((fixtureVocabulary())->keyOfClass(...), $classes->providesRules(...)))->extract('/app/FolderSchema.php', $code);
 
     expect($fragments[0]->schemaKey)->toBe('folders');
 });
@@ -138,4 +148,23 @@ it('places the start of a range at the next run and its end at the run before', 
 
     expect(substr($code, $fragment->fileOffsetOf($lineTwo), 2))->toBe('cd')
         ->and($code[$fragment->fileOffsetOf(2, isEnd: true)])->toBe("\n");
+});
+
+it('knows a class provides rules through the project classes and interfaces it extends', function () {
+    $code = <<<'PHP'
+        <?php
+        namespace App\Rules;
+        use Warrant\Rules\IRuleProvider;
+        interface IPolicy extends \Countable, IRuleProvider {}
+        class TeamRules implements IPolicy {}
+        class FormRequestLike extends \Illuminate\Foundation\Http\FormRequest {}
+        PHP;
+
+    $classes = RuleProviderClasses::ofProject(fixtureRoot())->knowing('/app/Rules.php', $code);
+
+    expect($classes->providesRules('App\\Schemas\\FolderSchema'))->toBeTrue()
+        ->and($classes->providesRules('App\\Rules\\TeamRules'))->toBeTrue()
+        ->and($classes->providesRules('App\\Rules\\FormRequestLike'))->toBeFalse()
+        ->and($classes->providesRules('App\\Nowhere'))->toBeFalse()
+        ->and($classes->providesRules('Warrant\\Schema\\Types\\Classes\\GlobalSchema'))->toBeFalse();
 });

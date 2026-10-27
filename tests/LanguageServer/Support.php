@@ -7,7 +7,7 @@
 
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Documents\Uri;
-use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
+use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 use Warrant\LanguageServer\VocabularyMode;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Php;
+namespace Warrant\PhpSource;
 
 /**
  * A class, trait or interface, read from source without being loaded.

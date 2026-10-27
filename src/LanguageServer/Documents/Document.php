@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Fragments\FragmentExtractor;
+use Warrant\PhpSource\RuleProviderClasses;
 use Warrant\LanguageServer\Positions\LineIndex;
 use Warrant\LanguageServer\Positions\LinePosition;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
@@ -99,15 +100,23 @@ final class Document
      *   to check syntax and the rules of the language that need no schema only.
      * @param int $generation Which reading of the vocabulary $index is; a new
      *   one is analysed afresh.
+     * @param string|null $projectRoot The project the document is in, whose
+     *   classes say which `rules()` methods return rule text.
      * @return list<AnalyzedFragment>
      */
-    public function analyzed(?VocabularyIndex $index, int $generation): array
+    public function analyzed(?VocabularyIndex $index, int $generation, ?string $projectRoot = null): array
     {
         if ($this->analyzed !== null && $this->analyzedWith === $generation) {
             return $this->analyzed;
         }
 
-        $fragments = (new FragmentExtractor(($index ?? new VocabularyIndex)->keyOfClass(...)))->extract($this->path, $this->text);
+        $known = $index ?? new VocabularyIndex;
+        $classes = RuleProviderClasses::ofProject($projectRoot)->knowing($this->path, $this->text);
+        $fragments = (new FragmentExtractor(
+            $known->keyOfClass(...),
+            // A class the index knows as a schema provides rules, even where its source cannot be followed.
+            static fn (string $class): bool => $known->keyOfClass($class) !== null || $classes->providesRules($class),
+        ))->extract($this->path, $this->text);
 
         $this->analyzed = array_map(
             function ($fragment) use ($index): AnalyzedFragment {

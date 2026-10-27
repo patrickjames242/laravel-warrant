@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Vocabulary;
+namespace Warrant\PhpSource;
 
 /**
  * Finds the file a class is declared in from a project's Composer autoload maps,

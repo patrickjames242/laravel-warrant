@@ -22,13 +22,15 @@ final class Formatting
     /**
      * The LSP `TextEdit`s that format $document's rule text.
      *
+     * @param string|null $projectRoot The project the document is in, whose
+     *   classes say which `rules()` methods return rule text.
      * @return list<array{range: array<string, mixed>, newText: string}>
      */
-    public static function edits(Document $document): array
+    public static function edits(Document $document, ?string $projectRoot): array
     {
         return array_map(
             static fn (array $edit): array => ['range' => $document->rangeOf($edit[0], $edit[1]), 'newText' => $edit[2]],
-            (new FileFormatter)->edits($document->path, $document->text),
+            (new FileFormatter($projectRoot))->edits($document->path, $document->text),
         );
     }
 
@@ -37,9 +39,10 @@ final class Formatting
      * for that kind of action and there is anything to change.
      *
      * @param array{only?: list<string>} $context The LSP `CodeActionContext`.
+     * @param string|null $projectRoot The project the document is in.
      * @return list<array<string, mixed>> LSP `CodeAction` objects.
      */
-    public static function codeActions(Document $document, array $context): array
+    public static function codeActions(Document $document, array $context, ?string $projectRoot): array
     {
         $asked = array_filter(
             $context['only'] ?? [],
@@ -50,7 +53,7 @@ final class Formatting
             return [];
         }
 
-        $edits = self::edits($document);
+        $edits = self::edits($document, $projectRoot);
 
         return $edits === [] ? [] : [[
             'title' => 'Format Warrant rule text',

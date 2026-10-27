@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Php;
+namespace Warrant\PhpSource;
 
 /**
  * One parameter of a method, read from source.

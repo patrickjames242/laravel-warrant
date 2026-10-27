@@ -30,7 +30,7 @@ final class FormatRuleTextCommand extends Command
 
     public function handle(): int
     {
-        $formatter = new FileFormatter;
+        $formatter = new FileFormatter($this->laravel->basePath());
         $ignoreUnparsable = (bool) $this->option('ignore-unparsable');
         $stdinPath = $this->option('stdin-filepath');
 

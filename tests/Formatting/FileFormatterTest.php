@@ -6,7 +6,9 @@ it('formats heredocs in full, quoted strings on one line, and leaves the PHP aro
     $file = <<<'PHP'
         <?php
 
-        class DocumentSchema extends Schema
+        use Warrant\Schema\Types\Classes\ModelSchema;
+
+        class DocumentSchema extends ModelSchema
         {
             public function rules(): array
             {
@@ -31,7 +33,9 @@ it('formats heredocs in full, quoted strings on one line, and leaves the PHP aro
     $expected = <<<'PHP'
         <?php
 
-        class DocumentSchema extends Schema
+        use Warrant\Schema\Types\Classes\ModelSchema;
+
+        class DocumentSchema extends ModelSchema
         {
             public function rules(): array
             {
@@ -99,7 +103,9 @@ it('formats a quoted string written over several lines, keeping its own indentat
     $file = <<<'PHP'
         <?php
 
-        class PayrollGroupSchema extends Schema
+        use Warrant\Schema\Types\Classes\ModelSchema;
+
+        class PayrollGroupSchema extends ModelSchema
         {
             public function rules(): string
             {
@@ -119,7 +125,9 @@ it('formats a quoted string written over several lines, keeping its own indentat
     $expected = <<<'PHP'
         <?php
 
-        class PayrollGroupSchema extends Schema
+        use Warrant\Schema\Types\Classes\ModelSchema;
+
+        class PayrollGroupSchema extends ModelSchema
         {
             public function rules(): string
             {
@@ -142,8 +150,8 @@ it('formats a quoted string written over several lines, keeping its own indentat
 });
 
 it('indents a quoted string that starts its rule text on the quote line one level past that line', function () {
-    $file = "<?php\n\nclass S extends Schema\n{\n    public function rules(): string\n    {\n        return 'for documents\n    if a or b they can view';\n    }\n}\n";
+    $file = "<?php\n\nclass S extends \\Warrant\\Schema\\Types\\Classes\\ModelSchema\n{\n    public function rules(): string\n    {\n        return 'for documents\n    if a or b they can view';\n    }\n}\n";
 
     expect((new FileFormatter)->formatted('S.php', $file))
-        ->toBe("<?php\n\nclass S extends Schema\n{\n    public function rules(): string\n    {\n        return 'for documents\n            if a or b\n            they can view';\n    }\n}\n");
+        ->toBe("<?php\n\nclass S extends \\Warrant\\Schema\\Types\\Classes\\ModelSchema\n{\n    public function rules(): string\n    {\n        return 'for documents\n            if a or b\n            they can view';\n    }\n}\n");
 });

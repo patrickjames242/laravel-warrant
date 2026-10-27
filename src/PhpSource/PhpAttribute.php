@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Php;
+namespace Warrant\PhpSource;
 
 /**
  * One attribute as written on a class member, read from source: its class, and

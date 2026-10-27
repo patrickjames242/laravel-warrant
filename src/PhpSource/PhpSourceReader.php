@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\LanguageServer\Php;
+namespace Warrant\PhpSource;
 
 use PhpToken;
 
@@ -219,6 +219,12 @@ final class PhpSourceReader
         for (; $i < $this->count && $this->tokens[$i]->text !== '{'; $i++) {
             if ($this->tokens[$i]->is(T_EXTENDS) && isset($this->tokens[$i + 1])) {
                 $parent = $this->resolve($this->tokens[++$i]->text);
+
+                // An interface extends a list; the names after the first are read as interfaces.
+                while (($this->tokens[$i + 1]->text ?? null) === ',' && isset($this->tokens[$i + 2]) && self::isName($this->tokens[$i + 2])) {
+                    $i += 2;
+                    $interfaces[] = $this->resolve($this->tokens[$i]->text);
+                }
             } elseif ($this->tokens[$i]->is(T_IMPLEMENTS)) {
                 while (isset($this->tokens[$i + 1]) && self::isName($this->tokens[$i + 1])) {
                     $interfaces[] = $this->resolve($this->tokens[++$i]->text);

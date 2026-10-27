@@ -8,7 +8,7 @@ use Warrant\LanguageServer\Features\Definition;
 use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\Hover;
 use Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader;
-use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
+use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 

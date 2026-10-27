@@ -17,11 +17,11 @@ use Warrant\DSL\Parsing\SyntaxProducerKind;
  *    `WarrantSyntax::parse()` or `WarrantParser::parse()`, of
  *    `new BoundSyntax()`, or of a builder's raw methods, `->ifRaw()` to
  *    `->orIfNotRaw()`, passed by position or by its parameter name;
- *  - returned, alone or as an item of a returned list, from a method marked
+ *  - returned, alone or inside a returned array, from a method marked
  *    `#[DerivedCondition]` or `#[RuleTemplate]`, or from `rules()` on a class
- *    that extends or implements another; a value under a key, such as the
- *    validation rules a Laravel form request returns from its `rules()`, is
- *    not,
+ *    that provides rules: a schema or a rule provider, as the caller tells. A
+ *    `rules()` on any other class, such as the one a Laravel form request
+ *    returns its validation rules from, is not read,
  *
  * which are the places the editor plugins highlight as Warrant. A double-quoted
  * string that interpolates is not read, and neither is a string built up from
@@ -61,16 +61,22 @@ final class FragmentExtractor
     /** @var array<int, int> Each token's index, to the index of the bracket it is directly inside. */
     private array $enclosing = [];
 
-    /** @var array<int, array{class: ?string, classExtends: bool, method: ?string, attributes: list<string>}> */
+
+    /** @var array<int, array{class: ?string, method: ?string, attributes: list<string>}> */
     private array $scopes = [];
 
     /**
      * @param (Closure(string): ?string)|null $schemaKeyOfClass The key of the
      *   schema a class is, to name the schema of a string written in a schema
      *   class; null when no schemas are known.
+     * @param (Closure(string): bool)|null $providesRules Whether a class
+     *   provides rules, so the strings its `rules()` returns are rule text; null
+     *   when no class is known to, and no `rules()` is read.
      */
-    public function __construct(private readonly ?Closure $schemaKeyOfClass = null)
-    {
+    public function __construct(
+        private readonly ?Closure $schemaKeyOfClass = null,
+        private readonly ?Closure $providesRules = null,
+    ) {
     }
 
     /**
@@ -174,7 +180,7 @@ final class FragmentExtractor
 
         $namespace = '';
         $brackets = [];
-        $scopeStack = [['class' => null, 'classExtends' => false, 'method' => null, 'attributes' => []]];
+        $scopeStack = [['class' => null, 'method' => null, 'attributes' => []]];
         $pending = null;
         $attributes = [];
 
@@ -195,10 +201,8 @@ final class FragmentExtractor
                 $name = $this->nextSignificant($i);
 
                 if (($previous === null || ! $this->tokens[$previous]->is([T_DOUBLE_COLON, T_NEW])) && $name !== null && $this->tokens[$name]->is(T_STRING)) {
-                    $pending = ['kind' => 'class', 'name' => ltrim($namespace.'\\'.$this->tokens[$name]->text, '\\'), 'extends' => false];
+                    $pending = ['kind' => 'class', 'name' => ltrim($namespace.'\\'.$this->tokens[$name]->text, '\\')];
                 }
-            } elseif ($token->is([T_EXTENDS, T_IMPLEMENTS]) && $pending !== null && $pending['kind'] === 'class') {
-                $pending['extends'] = true;
             } elseif ($token->is([T_FUNCTION, T_FN])) {
                 $name = $this->nextSignificant($i);
                 $pending = [
@@ -219,10 +223,9 @@ final class FragmentExtractor
                 if ($opensScope) {
                     $outer = $scopeStack[array_key_last($scopeStack)];
                     $scopeStack[] = $pending['kind'] === 'class'
-                        ? ['class' => $pending['name'], 'classExtends' => $pending['extends'], 'method' => null, 'attributes' => []]
+                        ? ['class' => $pending['name'], 'method' => null, 'attributes' => []]
                         : [
                             'class' => $outer['class'],
-                            'classExtends' => $outer['classExtends'],
                             /* Only a method written directly in a class body answers
                                for the class; a closure answers for itself. */
                             'method' => $outer['method'] === null && $outer['class'] !== null ? $pending['name'] : null,
@@ -328,16 +331,6 @@ final class FragmentExtractor
      */
     private function isReturnedRuleText(int $start): bool
     {
-        /* Rule text is returned alone or as an item of a list. Anything under a
-           key, however deep, is something else: the validation rules a Laravel
-           form request returns from its own rules(), for one. */
-        $isUnderAKey = fn (int $at): bool => ($before = $this->previousSignificant($at)) !== null
-            && $this->tokens[$before]->is(T_DOUBLE_ARROW);
-
-        if ($isUnderAKey($start)) {
-            return false;
-        }
-
         $at = $start;
 
         while (($open = $this->enclosing[$at] ?? -1) >= 0) {
@@ -349,10 +342,6 @@ final class FragmentExtractor
             }
 
             $at = $this->tokens[$open]->text === '(' ? (int) $this->previousSignificant($open) : $open;
-
-            if ($isUnderAKey($at)) {
-                return false;
-            }
         }
 
         $before = $this->previousSignificant($at);
@@ -371,7 +360,10 @@ final class FragmentExtractor
             return true;
         }
 
-        return strtolower($scope['method']) === 'rules' && $scope['classExtends'];
+        return strtolower($scope['method']) === 'rules'
+            && $scope['class'] !== null
+            && $this->providesRules !== null
+            && ($this->providesRules)($scope['class']);
     }
 
     /**

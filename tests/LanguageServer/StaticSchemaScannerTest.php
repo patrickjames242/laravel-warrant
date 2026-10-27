@@ -3,7 +3,7 @@
 require_once __DIR__.'/Support.php';
 
 use Warrant\LanguageServer\Vocabulary\ApplicationSchemaReader;
-use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
+use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 use Warrant\Schema\Conditions\ConditionKind;

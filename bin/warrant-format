@@ -25,7 +25,9 @@
  *
  * Like the language server, it loads this package's classes from its own
  * `src/` directory and boots no application, so it runs in CI before anything
- * is configured.
+ * is configured. The project's classes are read from source, through the
+ * Composer maps of the nearest directory above holding `vendor/composer`, to
+ * tell a schema's `rules()` from any other.
  */
 
 spl_autoload_register(static function (string $class): void {
@@ -53,11 +55,26 @@ if (array_intersect($arguments, ['-h', '--help']) !== []) {
 $check = in_array('--check', $options, true);
 $diff = in_array('--diff', $options, true);
 $ignoreUnparsable = in_array('--ignore-unparsable', $options, true);
-$formatter = new Warrant\DSL\Formatting\FileFormatter;
+
+/**
+ * The nearest directory at or above $directory that holds Composer's maps, or
+ * null when none does.
+ */
+$projectRootFrom = static function (string $directory): ?string {
+    for ($at = $directory; $at !== '' && $at !== '/' && $at !== '.'; $at = dirname($at)) {
+        if (is_file($at.'/vendor/composer/autoload_psr4.php')) {
+            return $at;
+        }
+    }
+
+    return null;
+};
 
 foreach ($options as $option) {
     if (str_starts_with($option, '--stdin-filepath=')) {
         $path = substr($option, strlen('--stdin-filepath='));
+        $absolute = str_starts_with($path, '/') ? $path : getcwd().'/'.$path;
+        $formatter = new Warrant\DSL\Formatting\FileFormatter($projectRootFrom(dirname($absolute)));
         fwrite(STDOUT, $formatter->formatted($path, (string) stream_get_contents(STDIN)));
 
         foreach ($formatter->problems() as $problem) {
@@ -69,6 +86,7 @@ foreach ($options as $option) {
 }
 
 $base = (string) getcwd();
+$formatter = new Warrant\DSL\Formatting\FileFormatter($projectRootFrom($base));
 $found = Warrant\DSL\Formatting\RuleTextFiles::matching($paths, $base);
 $failed = false;
 

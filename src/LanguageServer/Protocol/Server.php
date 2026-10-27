@@ -13,7 +13,7 @@ use Warrant\LanguageServer\Features\DocumentSymbols;
 use Warrant\LanguageServer\Features\Formatting;
 use Warrant\LanguageServer\Features\Hover;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
-use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
+use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 use Warrant\LanguageServer\VocabularyMode;
@@ -225,9 +225,9 @@ final class Server
             'textDocument/documentSymbol' => $document === null ? [] : DocumentSymbols::of($this->workspace, $document),
             'textDocument/codeAction' => $document === null ? [] : [
                 ...CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
-                ...Formatting::codeActions($document, is_array($params['context'] ?? null) ? $params['context'] : []),
+                ...Formatting::codeActions($document, is_array($params['context'] ?? null) ? $params['context'] : [], $this->workspace->root),
             ],
-            'textDocument/formatting' => $document === null ? null : Formatting::edits($document),
+            'textDocument/formatting' => $document === null ? null : Formatting::edits($document, $this->workspace->root),
             default => $isRequest ? throw new MethodNotFound : null,
         };
     }

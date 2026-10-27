@@ -102,6 +102,6 @@ final class Workspace
      */
     public function analyze(Document $document): array
     {
-        return $document->analyzed($this->catalog(), $this->generation);
+        return $document->analyzed($this->catalog(), $this->generation, $this->root);
     }
 }

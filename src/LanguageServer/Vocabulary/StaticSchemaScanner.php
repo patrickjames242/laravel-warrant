@@ -3,10 +3,11 @@
 namespace Warrant\LanguageServer\Vocabulary;
 
 use PhpToken;
-use Warrant\LanguageServer\Php\PhpAttribute;
-use Warrant\LanguageServer\Php\PhpClass;
-use Warrant\LanguageServer\Php\PhpMember;
-use Warrant\LanguageServer\Php\PhpSourceReader;
+use Warrant\PhpSource\ClassFileLocator;
+use Warrant\PhpSource\PhpAttribute;
+use Warrant\PhpSource\PhpClass;
+use Warrant\PhpSource\PhpMember;
+use Warrant\PhpSource\PhpSourceReader;
 use Warrant\Schema\Abilities\Ability;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Abilities\IDeclaresAbility;

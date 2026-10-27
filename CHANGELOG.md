@@ -4,6 +4,17 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Fixed
+
+- Rule text is read from `rules()` only on a class that provides rules: one
+  that implements `IProvidesRules` or `IRuleProvider`, directly or through the
+  classes and interfaces it extends, followed through the project's Composer
+  autoload maps without running any of its code. A `rules()` on any other
+  class, such as a Laravel form request's, is never read, whatever its array
+  holds, so the formatter and the language server leave it alone.
+
 ## 4.8.0 — 2026-10-27
 
 ### Added

@@ -4,6 +4,7 @@ namespace Warrant\DSL\Formatting;
 
 use Warrant\DSL\Fragments\Fragment;
 use Warrant\DSL\Fragments\FragmentExtractor;
+use Warrant\PhpSource\RuleProviderClasses;
 
 /**
  * Formats the rule text in a file: all of a `.warrant` file, and each PHP string
@@ -20,15 +21,19 @@ use Warrant\DSL\Fragments\FragmentExtractor;
  */
 final class FileFormatter
 {
-    private readonly FragmentExtractor $extractor;
+    private readonly RuleProviderClasses $classes;
 
     /** @var list<array{line: int, message: string}> Why text was left as it is, from the last call. */
     private array $problems = [];
 
-    public function __construct(private readonly WarrantFormatter $formatter = new WarrantFormatter)
+    /**
+     * @param string|null $projectRoot The project the files are in, whose
+     *   classes say which `rules()` methods return rule text; with none, only a
+     *   class of this library's is known to.
+     */
+    public function __construct(?string $projectRoot = null, private readonly WarrantFormatter $formatter = new WarrantFormatter)
     {
-        // Formatting reads no schemas, so the extractor is given none.
-        $this->extractor = new FragmentExtractor;
+        $this->classes = RuleProviderClasses::ofProject($projectRoot);
     }
 
     /**
@@ -45,7 +50,11 @@ final class FileFormatter
         $edits = [];
         $isWarrantFile = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'warrant';
 
-        foreach ($this->extractor->extract($path, $text) as $fragment) {
+        // Formatting reads no schemas, so the extractor is told only which classes provide rules.
+        $classes = $isWarrantFile ? $this->classes : $this->classes->knowing($path, $text);
+        $extractor = new FragmentExtractor(providesRules: $classes->providesRules(...));
+
+        foreach ($extractor->extract($path, $text) as $fragment) {
             try {
                 $edit = $isWarrantFile
                     ? [0, strlen($text), $this->formatter->format($text)]
