@@ -224,3 +224,29 @@ it('registers formatting for .warrant files only when the editor can take a regi
         ->and($registration[0]['params']['registrations'][0]['method'])->toBe('textDocument/formatting')
         ->and($registration[0]['params']['registrations'][0]['registerOptions']['documentSelector'])->toContain(['pattern' => '**/*.warrant']);
 });
+
+it('completes a condition into its parentheses for an editor that takes snippets', function () {
+    $uri = Uri::fromPath(fixtureRoot().'/rules.warrant');
+    $initialize = static fn (bool $snippets): array => ['id' => 1, 'method' => 'initialize', 'params' => [
+        'rootUri' => Uri::fromPath(fixtureRoot()),
+        'capabilities' => ['textDocument' => ['completion' => ['completionItem' => ['snippetSupport' => $snippets]]]],
+        'initializationOptions' => ['vocabulary' => 'static'],
+    ]];
+    $insertOf = static function (array $sent): array {
+        foreach (responseTo($sent, 2)['result']['items'] as $item) {
+            if ($item['label'] === 'in_folder') {
+                return [$item['textEdit']['newText'], $item['insertTextFormat'] ?? null];
+            }
+        }
+
+        return [];
+    };
+    $messages = [
+        ['method' => 'initialized', 'params' => []],
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $uri, 'languageId' => 'warrant', 'version' => 1, 'text' => 'for documents { if  }']]],
+        ['id' => 2, 'method' => 'textDocument/completion', 'params' => ['textDocument' => ['uri' => $uri], 'position' => ['line' => 0, 'character' => 19]]],
+    ];
+
+    expect($insertOf(serve([$initialize(true), ...$messages])[0]))->toBe(['in_folder($0)', 2])
+        ->and($insertOf(serve([$initialize(false), ...$messages])[0]))->toBe(['in_folder', null]);
+});

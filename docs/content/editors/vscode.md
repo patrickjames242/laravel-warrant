@@ -25,6 +25,9 @@ code --install-extension warrant-*.vsix
 See `editors/vscode/README.md` in the repository for the current instructions,
 including publishing to the Marketplace.
 
+File, then New File, offers Warrant File, a new untitled file in the Warrant
+language.
+
 ## What it covers
 
 **`.warrant` files**, by extension:

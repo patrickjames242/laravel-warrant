@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.10.2</version>
+    <version>0.11.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,8 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.11.0</b> &mdash; <b>File | New | Warrant File</b>, also in the project
+                view's New menu, creates an empty <code>.warrant</code> file.</li>
             <li><b>0.10.2</b> &mdash; Enter, and a <code>}</code> or <code>)</code> typed at
                 the start of a line, place the line as the Warrant formatter would: one
                 level past the line of the open bracket, back to it for the closing one, and
@@ -136,5 +138,16 @@
         <!-- 6. Inject Warrant into PHP strings that hold rule text. -->
         <multiHostInjector
             implementationClass="com.warrant.phpstorm.WarrantInjector"/>
+
+        <!-- 7. The template File, then New, then Warrant File, fills in. -->
+        <internalFileTemplate name="Warrant File"/>
     </extensions>
+
+    <actions>
+        <action
+            id="Warrant.NewFile"
+            class="com.warrant.phpstorm.CreateWarrantFileAction">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
+        </action>
+    </actions>
 </idea-plugin>

@@ -28,7 +28,9 @@ its other packages and its extensions do not matter to it.
   what it is, its arguments, the context it requires, and its docblock.
 - **Completion** of whatever fits where the cursor is: abilities after
   `they can`, conditions after `if`, schemas after `for`, templates after
-  `@include`, context keys after `@context`.
+  `@include`, context keys after `@context`. A condition or template that takes
+  arguments completes with its parentheses open and the cursor inside, and so
+  does a schema with rows in a `can(...)` or `check(...)` handle.
 - **Go to definition** from a name to the constant or method that declares it,
   and from a frame name in `@column d2.id` to the `as d2` that names it.
 - **Quick fixes** for a name that is not declared, offering the closest declared

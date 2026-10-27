@@ -43,6 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     output,
     vscode.commands.registerCommand('warrant.restartLanguageServer', () => restart()),
+    vscode.commands.registerCommand('warrant.newFile', () => newWarrantFile()),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('warrant')) {
         void restart()
@@ -53,6 +54,15 @@ export function activate(context: vscode.ExtensionContext): void {
   )
 
   void enqueue(start)
+}
+
+/**
+ * File, then New File, then Warrant File: a new untitled file in the Warrant
+ * language, which is named when it is first saved.
+ */
+async function newWarrantFile(): Promise<void> {
+  const document = await vscode.workspace.openTextDocument({ language: 'warrant', content: '' })
+  await vscode.window.showTextDocument(document)
 }
 
 export function deactivate(): Promise<void> {

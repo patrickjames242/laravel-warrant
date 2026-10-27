@@ -26,6 +26,9 @@ That produces `build/distributions/warrant-phpstorm-<version>.zip`. In PhpStorm,
 open Settings, then Plugins, then the gear menu, then Install Plugin from Disk,
 pick the zip, and restart the IDE.
 
+File, then New, then Warrant File, also in the project view's New menu,
+creates an empty `.warrant` file.
+
 ## What it covers
 
 **`.warrant` files**, by extension:

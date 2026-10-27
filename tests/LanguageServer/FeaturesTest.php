@@ -209,3 +209,53 @@ it('answers at every position of half-typed and broken text without throwing', f
         }
     }
 })->throwsNoExceptions();
+
+/**
+ * The text each completion at the `|` in the `.warrant` text $source inserts,
+ * by label, for an editor that does or does not take snippets, with `$0`
+ * marking where a snippet leaves the cursor.
+ *
+ * @return array<string, string>
+ */
+function completionInserts(string $source, bool $snippets = true): array
+{
+    [$text, $position] = positionOfBar($source);
+    [$workspace, $document] = openInFixture('rules.warrant', $text);
+    $inserts = [];
+
+    foreach (Completion::at($workspace, $document, $position, $snippets) as $item) {
+        expect(isset($item['insertTextFormat']))->toBe(str_contains($item['textEdit']['newText'], '$0'));
+        $inserts[$item['label']] = $item['textEdit']['newText'];
+    }
+
+    return $inserts;
+}
+
+it('opens the parentheses of a condition that takes arguments, with the cursor inside', function () {
+    $inserts = completionInserts("# warrant-schema: documents\nif |");
+
+    expect($inserts['in_folder'])->toBe('in_folder($0)')
+        ->and($inserts['in_team'])->toBe('in_team($0)')
+        ->and($inserts['is_owner'])->toBe('is_owner');
+});
+
+it('opens the parentheses of a template that takes arguments', function () {
+    $inserts = completionInserts("# warrant-schema: documents\n@include |");
+
+    expect($inserts['shared_with'])->toBe('shared_with($0)')
+        ->and($inserts['owner_edits'])->toBe('owner_edits');
+});
+
+it('opens the row of a handle on a schema with rows, and never of a for header', function () {
+    $handle = completionInserts("# warrant-schema: documents\nif can(edit for |) they can view");
+    $header = completionInserts('for |');
+
+    expect($handle['folders'])->toBe('folders($0)')
+        ->and($handle['billing'] ?? null)->not->toBe('billing($0)')
+        ->and($header['folders'])->toBe('folders');
+});
+
+it('leaves the parentheses alone when one follows the cursor, or the editor takes no snippets', function () {
+    expect(completionInserts("# warrant-schema: documents\nif in_f|(1) they can view")['in_folder'])->toBe('in_folder')
+        ->and(completionInserts("# warrant-schema: documents\nif |", snippets: false)['in_folder'])->toBe('in_folder');
+});

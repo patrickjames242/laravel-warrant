@@ -17,6 +17,9 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   `--stdin-filepath`, it formats standard input for an editor.
 - The language server formats a `.warrant` file, and the rule text in a PHP file
   as the `source.format.warrant` code action.
+- The language server completes a condition or template that takes arguments,
+  and a schema with rows in a `can(...)` or `check(...)` handle, with its
+  parentheses open and the cursor inside, in an editor that takes snippets.
 
 ## 4.6.1 — 2026-10-26
 

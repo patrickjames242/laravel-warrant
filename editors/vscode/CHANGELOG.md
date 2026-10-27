@@ -5,6 +5,8 @@
 - Indent the line Enter opens one level past a line ending in `{` or `(`, and
   move a typed `}` or `)` back to the line it closes, as the Warrant formatter
   writes them. Indent `.warrant` files with four spaces, as the formatter does.
+- Offer **Warrant File** under File, then New File, for a new untitled file in
+  the Warrant language.
 - Format with the language server, for a Warrant release whose server formats:
   Format Document in a `.warrant` file, and the **Format Warrant rule text**
   source action in a PHP file.

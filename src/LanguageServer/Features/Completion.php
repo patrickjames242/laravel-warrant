@@ -22,6 +22,12 @@ use Warrant\LanguageServer\Workspace;
  * A derived condition's answer is one condition rather than rule entries, so
  * its text starts as an `if` would leave off, and nothing follows a whole
  * operand there but `and` and `or`.
+ *
+ * A condition or template that takes at least one argument is inserted with
+ * its parentheses and the cursor between them, and so is a schema with rows
+ * in a `can(...)` or `check(...)` handle, where a row is nearly always meant:
+ * as a snippet, for an editor that takes snippets, and when no `(` already
+ * follows the cursor.
  */
 final class Completion
 {
@@ -32,6 +38,9 @@ final class Completion
     private const KIND_PROPERTY = 10;
     private const KIND_KEYWORD = 14;
     private const KIND_CONSTANT = 21;
+
+    /** The LSP `InsertTextFormat` of a snippet. */
+    private const SNIPPET = 2;
 
     /** @var list<Token> The tokens before the cursor, or before the name it is in. */
     private array $before = [];
@@ -66,9 +75,11 @@ final class Completion
      * @param Workspace $workspace What the server knows.
      * @param Document $document An open document.
      * @param array{line?: int, character?: int} $position An LSP position.
+     * @param bool $snippets Whether the editor takes snippets, which open a
+     *   name's parentheses with the cursor between them.
      * @return list<array<string, mixed>> LSP `CompletionItem` objects.
      */
-    public static function at(Workspace $workspace, Document $document, array $position): array
+    public static function at(Workspace $workspace, Document $document, array $position, bool $snippets = false): array
     {
         $located = Located::at($workspace, $document, $position);
 
@@ -120,21 +131,26 @@ final class Completion
         );
 
         return array_map(
-            static fn (array $item): array => [
-                'label' => $item[0],
-                'kind' => $item[1],
-                'detail' => $item[2],
-                'textEdit' => ['range' => $range, 'newText' => $item[3] ?? $item[0]],
-            ],
+            static function (array $item) use ($range, $snippets): array {
+                $isSnippet = $item[4] ?? false;
+
+                return [
+                    'label' => $item[0],
+                    'kind' => $item[1],
+                    'detail' => $item[2],
+                    'textEdit' => ['range' => $range, 'newText' => $isSnippet && ! $snippets ? $item[0] : $item[3] ?? $item[0]],
+                    ...($isSnippet && $snippets ? ['insertTextFormat' => self::SNIPPET] : []),
+                ];
+            },
             $completion->items(),
         );
     }
 
     /**
-     * What belongs at the cursor, each as its label, kind, detail and the text
-     * it inserts when that is not the label.
+     * What belongs at the cursor, each as its label, kind, detail, the text it
+     * inserts when that is not the label, and whether that text is a snippet.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function items(): array
     {
@@ -263,7 +279,7 @@ final class Completion
      * After `for`: a schema in a `for` header or a handle, an ability in an
      * `@include`'s list.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function afterFor(): array
     {
@@ -278,7 +294,7 @@ final class Completion
      * After a comma: another ability when it is in an ability list, another
      * argument when it is in an argument list.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function afterComma(): array
     {
@@ -305,7 +321,7 @@ final class Completion
     /**
      * After a whole operand, or a whole can/cannot clause.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function afterOperand(): array
     {
@@ -381,7 +397,7 @@ final class Completion
      *
      * @param bool $topLevel Whether the cursor is outside every block, where a
      *   `for` header may start one.
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function entryStart(bool $topLevel): array
     {
@@ -400,7 +416,7 @@ final class Completion
      * `check(` and `not`. Inside a `check(...)` predicate the schema is the one
      * the check names.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function expressionStart(): array
     {
@@ -418,7 +434,7 @@ final class Completion
     /**
      * What may start an argument, beyond a literal or a binding.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function argumentStarts(): array
     {
@@ -478,22 +494,45 @@ final class Completion
     }
 
     /**
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function schemas(): array
     {
         $catalog = $this->workspace->catalog();
+        $isHandle = $this->openParenthesis() !== null;
 
         return $catalog === null ? [] : array_values(array_map(
-            static fn (IndexedSchema $schema): array => [$schema->key, self::KIND_CLASS, $schema->className],
+            fn (IndexedSchema $schema): array => [
+                $schema->key,
+                self::KIND_CLASS,
+                $schema->className,
+                ...$this->opened((string) $schema->key, $isHandle && $schema->hasRows),
+            ],
             $catalog->schemas,
         ));
     }
 
     /**
+     * The insert text and snippet flag that write $name with its parentheses
+     * open and the cursor between them, when $takesArguments and no `(`
+     * already follows the cursor; otherwise nothing, so $name is inserted as
+     * it is.
+     *
+     * @return array{}|array{0: string, 1: true}
+     */
+    private function opened(string $name, bool $takesArguments): array
+    {
+        if (! $takesArguments || ($this->after[0]->type ?? null) === TokenType::LPAREN) {
+            return [];
+        }
+
+        return [$name.'($0)', true];
+    }
+
+    /**
      * @param string|null $schemaKey The schema whose abilities to offer.
      * @param bool $withWildcard Whether `*` may stand for every ability here.
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function abilities(?string $schemaKey, bool $withWildcard = false): array
     {
@@ -513,7 +552,7 @@ final class Completion
      * it.
      *
      * @param ISchemaId|null $writtenIn Where the name is written.
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function conditions(?ISchemaId $writtenIn): array
     {
@@ -521,7 +560,12 @@ final class Completion
 
         foreach ($this->searched($writtenIn) as $schema) {
             foreach ($schema->conditions as $name => $declaration) {
-                $items[(string) $name] ??= [(string) $name, self::KIND_FUNCTION, self::detail(sprintf('%s(%s)', $name, implode(', ', $declaration->parameters)), $schema)];
+                $items[(string) $name] ??= [
+                    (string) $name,
+                    self::KIND_FUNCTION,
+                    self::detail(sprintf('%s(%s)', $name, implode(', ', $declaration->parameters)), $schema),
+                    ...$this->opened((string) $name, $declaration->definition->requiredArgumentCount > 0),
+                ];
             }
         }
 
@@ -532,7 +576,7 @@ final class Completion
      * The templates an `@include` at the cursor may name, as {@see conditions()}
      * finds conditions.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function templates(): array
     {
@@ -540,7 +584,12 @@ final class Completion
 
         foreach ($this->searched($this->writtenIn) as $schema) {
             foreach ($schema->templates as $name => $declaration) {
-                $items[(string) $name] ??= [(string) $name, self::KIND_MODULE, self::detail(sprintf('@include %s(%s)', $name, implode(', ', $declaration->parameters)), $schema)];
+                $items[(string) $name] ??= [
+                    (string) $name,
+                    self::KIND_MODULE,
+                    self::detail(sprintf('@include %s(%s)', $name, implode(', ', $declaration->parameters)), $schema),
+                    ...$this->opened((string) $name, $declaration->definition->requiredArgumentCount > 0),
+                ];
             }
         }
 
@@ -573,7 +622,7 @@ final class Completion
 
     /**
      * @param string|null $schemaKey The schema whose context keys to offer.
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function contextKeys(?string $schemaKey): array
     {
@@ -587,7 +636,7 @@ final class Completion
      * The frame names a `@column` may give at the cursor, each inserted with the
      * `.` that follows it.
      *
-     * @return list<array{0: string, 1: int, 2: string, 3?: string}>
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function frames(): array
     {

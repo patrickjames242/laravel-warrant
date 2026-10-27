@@ -64,6 +64,9 @@ final class Server
     /** Whether the editor takes formatting registered for `.warrant` files only. */
     private bool $canRegisterFormatting = false;
 
+    /** Whether the editor takes completions written as snippets. */
+    private bool $takesSnippets = false;
+
     private int $nextRequestId = 1;
 
     /**
@@ -218,7 +221,7 @@ final class Server
             'workspace/didChangeWatchedFiles' => $this->filesChanged(),
             'textDocument/hover' => $document === null ? null : Hover::at($this->workspace, $document, $position),
             'textDocument/definition' => $document === null ? null : Definition::at($this->workspace, $document, $position),
-            'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position)],
+            'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position, $this->takesSnippets)],
             'textDocument/documentSymbol' => $document === null ? [] : DocumentSymbols::of($this->workspace, $document),
             'textDocument/codeAction' => $document === null ? [] : [
                 ...CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
@@ -277,6 +280,7 @@ final class Server
         $this->workspace = new Workspace($root === null ? null : rtrim($root, '/\\'), $mode);
         $this->canWatchFiles = (bool) ($params['capabilities']['workspace']['didChangeWatchedFiles']['dynamicRegistration'] ?? false);
         $this->canRegisterFormatting = (bool) ($params['capabilities']['textDocument']['formatting']['dynamicRegistration'] ?? false);
+        $this->takesSnippets = (bool) ($params['capabilities']['textDocument']['completion']['completionItem']['snippetSupport'] ?? false);
         $this->initialized = true;
 
         return [
