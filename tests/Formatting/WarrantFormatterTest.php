@@ -207,6 +207,51 @@ dataset('formatting', [
                 edit_after_close because 'Closed pay periods are read-only.'
             WARRANT,
     ],
+    'a long * except breaks what it leaves out, keeping * except on the clause line' => [
+        "they cannot * except view_the_document, list_the_documents, export_to_accounting because 'Archived.'",
+        <<<'WARRANT'
+            they cannot * except
+                view_the_document,
+                list_the_documents,
+                export_to_accounting because 'Archived.'
+            WARRANT,
+    ],
+    'a * except that fits stays on one line' => [
+        "they can *   except view,:more",
+        'they can * except view, :more',
+    ],
+    'a long * except in a can they header breaks what it leaves out' => [
+        "can they * except view_the_document, list_the_documents, export_to_accounting_system {
+if is_admin they can
+}",
+        <<<'WARRANT'
+            can they * except
+                view_the_document,
+                list_the_documents,
+                export_to_accounting_system
+            {
+                if is_admin they can
+            }
+            WARRANT,
+    ],
+    'a long * except in an include breaks what it leaves out' => [
+        '@include requires_approval(1, 2) for * except view_the_document, list_the_documents, export_to_accounting',
+        <<<'WARRANT'
+            @include requires_approval(1, 2) for * except
+                view_the_document,
+                list_the_documents,
+                export_to_accounting
+            WARRANT,
+    ],
+    'a comment inside * except breaks what it leaves out, and stays beside its ability' => [
+        "they can * except view, # read-only
+ update",
+        <<<'WARRANT'
+            they can * except
+                view, # read-only
+                update
+            WARRANT,
+    ],
     'a single ability never breaks, even past the width' => [
         "they cannot edit because 'Timesheets in a closed pay period are read-only, always.'",
         "they cannot edit because 'Timesheets in a closed pay period are read-only, always.'",

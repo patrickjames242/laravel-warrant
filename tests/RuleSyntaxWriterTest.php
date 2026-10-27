@@ -45,6 +45,13 @@ it('renders wildcard abilities verbatim', function () {
     expect(writeSyntax($rule))->toBe("if is_admin they can *");
 });
 
+it('renders * except and what it leaves out, a binding as the abilities its value names', function () {
+    $rule = WarrantSyntax::parse(new BoundSyntax('if is_suspended they cannot * except view, :more', ['more' => ['list', 'export']]))
+        ->validateWithoutSchemas()->rule();
+
+    expect(writeSyntax($rule))->toBe('if is_suspended they cannot * except view, list, export');
+});
+
 // -- parentheses, as the formatter writes them --------------------------------
 
 it('writes the parentheses the precedence needs, and around an and inside an or', function (string $in, string $expectedIf) {
@@ -343,6 +350,7 @@ it('round-trips the inline form back through the parser', function (string $synt
     'grouping'    => ['if (a or b) and c they can view they cannot delete'],
     'literals'    => ["if seen_recently(30, true) they can view"],
     'multi-rule'  => ['they can list if is_admin they can * if is_suspended they cannot *'],
+    '* except'    => ["if is_archived they cannot * except view, list because 'Archived.' can they * except delete { they can }"],
 ]);
 
 it('round-trips the bound form back through the parser', function () {

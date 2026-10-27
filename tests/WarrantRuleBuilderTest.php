@@ -88,6 +88,28 @@ it('mixes message-less theyCannot and message-bearing theyCannotBecause', functi
     expect(denialMessageOf($rule, 'delete'))->toBe('locked');
 });
 
+it('takes * except wherever it takes abilities', function () {
+    $rule = Build::rule()
+        ->if('is_suspended')
+        ->theyCan(Build::everyAbilityExcept('view'))
+        ->theyCannotBecause(Build::everyAbilityExcept('view', 'list'), 'Suspended.')
+        ->toRule();
+
+    expect(writeSyntax($rule))->toBe(<<<'TXT'
+        if is_suspended
+        they can * except view
+        they cannot * except view, list because 'Suspended.'
+        TXT);
+});
+
+it('takes * except in an include for list', function () {
+    $set = Build::ruleSet('docs', function ($rule) {
+        $rule->include('audit_trail')->for(Build::everyAbilityExcept('view', 'list'));
+    });
+
+    expect(writeSyntax($set))->toBe('for docs { @include audit_trail for * except view, list }');
+});
+
 it('carries condition parameters onto the node', function () {
     $rule = Build::rule()->if('in_department', ['sales', 'eng'])->theyCan('view')->toRule();
 

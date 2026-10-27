@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -165,6 +166,7 @@ final class CommentPlacement
             $node instanceof AbilityBlockNode => $this->registerAll([...$node->abilities, ...$node->entries], $depth + 1),
             $node instanceof WhenBlockNode => $this->registerWhen($node, $depth + 1),
             $node instanceof IncludeInvocationNode => $this->registerAll([...$node->arguments, ...$node->abilities], $depth + 1),
+            $node instanceof EveryAbilityExceptNode => $this->registerAll($node->exceptions, $depth + 1),
             $node instanceof IBooleanExpressionNode => $this->registerExpression($node, $depth, false),
             default => null,
         };

@@ -3,6 +3,7 @@
 namespace Warrant\Builders;
 
 use Closure;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -75,6 +76,26 @@ final class Build
             new NameNode($schemaOrCallback, SyntaxLocation::builtIn($source)),
             $rule->entries($source),
             SyntaxLocation::builtIn($source),
+        );
+    }
+
+    /**
+     * `* except` $abilities — every ability the schema declares but these — for
+     * anywhere the builder takes abilities: `theyCan()`, `theyCannot()`,
+     * `theyCannotBecause()` and an include's `for()`. Like `*`, it stands alone.
+     *
+     * ```php
+     * Build::rule()->if('is_suspended')->theyCannot(Build::everyAbilityExcept('view'));
+     * ```
+     *
+     * It is the same node the parser makes, at {@see SyntaxLocation::noProducer()}.
+     */
+    public static function everyAbilityExcept(string ...$abilities): EveryAbilityExceptNode
+    {
+        return new EveryAbilityExceptNode(
+            new NameNode('*', SyntaxLocation::noProducer()),
+            array_map(static fn (string $ability): NameNode => new NameNode($ability, SyntaxLocation::noProducer()), array_values($abilities)),
+            SyntaxLocation::noProducer(),
         );
     }
 

@@ -16,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -239,7 +240,7 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<NameNode|BindingNode> $names
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $names
      */
     private function names(array $names): string
     {
@@ -247,12 +248,16 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * An ability as it is written: a name, or a binding as the abilities its
-     * value names.
+     * An ability as it is written: a name, a binding as the abilities its value
+     * names, or `* except` and the abilities it leaves out.
      */
-    private function ability(NameNode|BindingNode $ability): string
+    private function ability(NameNode|BindingNode|EveryAbilityExceptNode $ability): string
     {
-        return $ability instanceof BindingNode ? implode(', ', (array) $ability->value()) : $ability->name;
+        return match (true) {
+            $ability instanceof EveryAbilityExceptNode => '* except ' . $this->names($ability->exceptions),
+            $ability instanceof BindingNode => implode(', ', (array) $ability->value()),
+            default => $ability->name,
+        };
     }
 
     private function writeExpression(IBooleanExpressionNode $node): string

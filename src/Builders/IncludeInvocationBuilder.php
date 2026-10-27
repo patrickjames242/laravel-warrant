@@ -3,7 +3,9 @@
 namespace Warrant\Builders;
 
 use Warrant\Builders\Concerns\PlacesNodes;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
@@ -22,7 +24,7 @@ final class IncludeInvocationBuilder
 {
     use PlacesNodes;
 
-    /** @var list<string> */
+    /** @var list<string|EveryAbilityExceptNode> */
     private array $abilities = [];
 
     /**
@@ -34,7 +36,11 @@ final class IncludeInvocationBuilder
         private readonly array $arguments = [],
     ) {}
 
-    public function for(string ...$abilities): static
+    /**
+     * The abilities the template's rules take: names, `'*'`, or
+     * {@see Build::everyAbilityExcept()}.
+     */
+    public function for(string|EveryAbilityExceptNode ...$abilities): static
     {
         $this->abilities = array_values($abilities);
 
@@ -46,7 +52,10 @@ final class IncludeInvocationBuilder
         return new IncludeInvocationNode(
             self::nameNode($this->template, $source),
             array_map(fn (mixed $argument) => self::argumentNode($argument, $source), array_values($this->arguments)),
-            array_map(fn (string $ability) => self::nameNode($ability, $source), $this->abilities),
+            array_map(
+                fn (string|EveryAbilityExceptNode $ability): NameNode|EveryAbilityExceptNode => is_string($ability) ? self::nameNode($ability, $source) : $ability,
+                $this->abilities,
+            ),
             self::location($source),
         );
     }

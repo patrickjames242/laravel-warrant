@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Warrant\Builders\Build;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -197,6 +198,23 @@ it('applies the * except an @include writes to the rules its template expands to
     $rules = exceptExpanded('@include grants_it for * except :more', ['more' => ['create', 'publish']])->rules;
 
     expect($rules[0]->grantedAbilities())->toBe(['archive', 'view', 'update']);
+});
+
+it('expands * except built in code', function () {
+    $rule = Build::rule()->if('is_teacher')->theyCannot(Build::everyAbilityExcept('view', 'update'))->toRule();
+    $input = new ValidationInput(Warrant::registry());
+    $syntax = producedFor(new WarrantSyntax([$rule], $rule->location->source), 'course_sections', GenericMode::RequireNotGeneric);
+
+    expect(ExpandedSyntax::expand('course_sections', $input, ValidSyntax::of($syntax, $input))->rules[0]->deniedAbilities())
+        ->toBe(['create', 'publish', 'archive']);
+});
+
+it('rejects * except built in code that leaves out an ability the schema does not declare', function () {
+    $rule = Build::rule()->theyCan(Build::everyAbilityExcept('veiw'))->toRule();
+    $syntax = producedFor(new WarrantSyntax([$rule], $rule->location->source), 'course_sections', GenericMode::RequireNotGeneric);
+
+    expect(fn () => ValidSyntax::of($syntax, new ValidationInput(Warrant::registry())))
+        ->toThrow(InvalidArgumentException::class, 'Ability [veiw] is not declared by the schema.');
 });
 
 it('rejects while expanding what the validator reports, when binding values were not checked', function (array $bindings, string $message) {
