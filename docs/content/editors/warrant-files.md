@@ -166,7 +166,7 @@ message. `toBoundSyntax()` handles those, at the cost of a separate bindings arr
 ```php
 $bound = $file->toBoundSyntax();
 
-$bound->syntax;     // parameterized with ?
+$bound->syntax;     // every value a binding: :b0, :b1, ...
 $bound->bindings;   // one flat, left-to-right list across every block
 ```
 

@@ -258,8 +258,9 @@ A binding is written as its value: inline as a literal, and bound as a named
 binding of the writer's own, `:b0`, `:b1` and so on, with the value collected
 under that name.
 
-A `for <schema>` body is written as a `for <schema> { ... }` block, one blank line
-from the next.
+The text is laid out by the [formatter](/editors/formatting/), so it is in the
+house style. A `for <schema>` body is written as a braced `for <schema> { ... }`
+block, which stays on one line when it holds one rule and fits.
 
 `toSyntax()` can only render parameters expressible as inline literals. An array,
 an object, `NAN`, `INF`, or a float needing exponent notation throws a

@@ -283,7 +283,7 @@ it('rejects a can expression binding whose value is not one ability name while e
 
 it('writes a bound ability as the abilities its value names', function () {
     expect(abilityBindingValid('they can create, :more if can :one they can update', ['more' => ['view', 'publish'], 'one' => 'view'])->toSyntax())
-        ->toBe("they can create, view, publish\n\nif can(view)\nthey can update");
+        ->toBe("they can create, view, publish\nif can view they can update");
 });
 
 // -- checking -----------------------------------------------------------------

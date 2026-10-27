@@ -21,6 +21,11 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   and a schema with rows in a `can(...)` or `check(...)` handle, with its
   parentheses open and the cursor inside, in an editor that takes snippets.
 
+### Changed
+
+- `toSyntax()` and `toBoundSyntax()` write rule text in the formatter's house
+  style: the tree is written on one line and laid out by `WarrantFormatter`.
+
 ## 4.6.1 — 2026-10-26
 
 ### Fixed

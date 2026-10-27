@@ -1733,10 +1733,7 @@ it('renders an include back out rather than what it expands to', function () {
 
     expect(writeSyntax($set))->toBe(<<<'TXT'
         for timesheets {
-            can they view, edit {
-                @include requires_approval
-            }
-
+            can they view, edit { @include requires_approval }
             @include inherited('folder', 2) for view
         }
         TXT);

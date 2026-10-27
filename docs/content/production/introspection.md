@@ -28,9 +28,7 @@ what actually applies rather than what your provider returned:
 
 ```warrant
 if is_suspended they cannot *
-
 if is_mine or in_my_team they can view
-
 if is_locked they cannot update because 'This document is locked.'
 ```
 

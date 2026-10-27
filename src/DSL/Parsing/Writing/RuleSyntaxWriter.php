@@ -5,6 +5,7 @@ namespace Warrant\DSL\Parsing\Writing;
 use Closure;
 use LogicException;
 use Warrant\DSL\Expanding\DerivedConditionNode;
+use Warrant\DSL\Formatting\WarrantFormatter;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
@@ -50,11 +51,11 @@ use Warrant\DSL\Parsing\BoundSyntax;
  * A binding is written as the value its own source gives it, so a placeholder
  * reads back the same in either form.
  *
- * The `if` expression is printed with minimal parentheses honouring the DSL's
- * `not` > `and` > `or` precedence, so `(a and b) or c` renders as `a and b or c`
- * while `a and (b or c)` keeps its parentheses. Output is semantically equal to
- * the source (not necessarily textually identical) and idempotent under
- * re-parsing.
+ * The tree is written on one line, with only the parentheses the DSL's
+ * `not` > `and` > `or` precedence needs, and the {@see WarrantFormatter} then
+ * lays that text out, so the answer is in the house style every formatted
+ * text is in. It says what the tree says (not necessarily as the source wrote
+ * it), and reads back to the same tree.
  */
 final class RuleSyntaxWriter
 {
@@ -72,13 +73,13 @@ final class RuleSyntaxWriter
 
     /**
      * Render a whole tree to a self-contained string with inline literals.
-     * `for <schema>` bodies are written as `for <schema> { ... }` blocks one blank
-     * line apart, which reads back the same whether there is one or several;
-     * unscoped entries and a bare expression are written as they are.
+     * `for <schema>` bodies are written as braced `for <schema> { ... }` blocks,
+     * which read back the same whether there is one or several; unscoped
+     * entries and a bare expression are written as they are.
      */
     public static function toSyntax(ValidSyntax $syntax): string
     {
-        return (new self(bound: false))->writeSyntax($syntax);
+        return self::formatted((new self(bound: false))->writeSyntax($syntax));
     }
 
     /**
@@ -89,12 +90,21 @@ final class RuleSyntaxWriter
     {
         $writer = new self(bound: true);
 
-        return new BoundSyntax($writer->writeSyntax($syntax), $writer->bindings);
+        return new BoundSyntax(self::formatted($writer->writeSyntax($syntax)), $writer->bindings);
+    }
+
+    /**
+     * $text, written on one line, laid out by the formatter, without the line
+     * break that ends a formatted text.
+     */
+    private static function formatted(string $text): string
+    {
+        return rtrim((new WarrantFormatter)->format($text), "\n");
     }
 
     private function writeSyntax(ValidSyntax $syntax): string
     {
-        return implode("\n\n", array_map(
+        return implode(' ', array_map(
             fn (INode $child): string => match (true) {
                 $child instanceof ISchemaScopedNode => $this->writeScoped($child),
                 $child instanceof IRuleEntryNode => $this->writeEntry($child),
@@ -110,7 +120,7 @@ final class RuleSyntaxWriter
      */
     private function writeEntries(array $entries): string
     {
-        return implode("\n\n", array_map($this->writeEntry(...), $entries));
+        return implode(' ', array_map($this->writeEntry(...), $entries));
     }
 
     private function writeEntry(IRuleEntryNode $entry): string
@@ -162,15 +172,21 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * Render $header and its body of $entries in braces, the body indented.
+     * Render $header and its body of $entries in braces.
      *
      * @param list<IRuleEntryNode> $entries
      */
     private function writeBraced(string $header, array $entries): string
     {
-        $body = $this->writeEntries($entries);
+        return self::braced($header, $this->writeEntries($entries));
+    }
 
-        return $body === '' ? "{$header} {\n}" : "{$header} {\n" . $this->indent($body) . "\n}";
+    /**
+     * $header and $body in braces; an empty body is `{}`.
+     */
+    private static function braced(string $header, string $body): string
+    {
+        return $body === '' ? "{$header} {}" : "{$header} { {$body} }";
     }
 
     private function writeScoped(ISchemaScopedNode $node): string
@@ -181,27 +197,12 @@ final class RuleSyntaxWriter
             default => throw new LogicException('Cannot render unknown node ' . $node::class . '.'),
         };
 
-        if ($body === '') {
-            return "for {$node->schemaKey()} {\n}";
-        }
-
-        return "for {$node->schemaKey()} {\n" . $this->indent($body) . "\n}";
+        return self::braced("for {$node->schemaKey()}", $body);
     }
 
     /**
-     * Indent every non-empty line of $text by four spaces (blank lines stay blank).
-     */
-    private function indent(string $text): string
-    {
-        return implode("\n", array_map(
-            static fn (string $line): string => $line === '' ? '' : '    ' . $line,
-            explode("\n", $text),
-        ));
-    }
-
-    /**
-     * Render a rule's `if` line and can/cannot clauses, one line per clause. A generic
-     * can/cannot clause names no abilities, so it says only `they can` or `they cannot`.
+     * Render a rule's `if` and can/cannot clauses. A generic can/cannot clause
+     * names no abilities, so it says only `they can` or `they cannot`.
      */
     private function writeRule(RuleNode $rule): string
     {
@@ -226,7 +227,7 @@ final class RuleSyntaxWriter
             $lines[] = $line;
         }
 
-        return implode("\n", $lines);
+        return implode(' ', $lines);
     }
 
     /**

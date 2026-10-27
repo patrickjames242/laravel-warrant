@@ -494,10 +494,7 @@ it('round-trips every block losslessly through bound syntax', function () {
 
 it('renders a lone rule set as one braced block', function () {
     expect(WarrantSyntax::parse('for timesheets if is_self they can view, edit')->validateWithoutSchemas()->toSyntax())->toBe(<<<'TXT'
-        for timesheets {
-            if is_self
-            they can view, edit
-        }
+        for timesheets { if is_self they can view, edit }
         TXT);
 });
 

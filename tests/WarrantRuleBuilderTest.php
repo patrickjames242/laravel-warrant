@@ -389,7 +389,8 @@ it('renders a built can/check back to DSL text that re-parses identically', func
     $syntax = writeSyntax($rule);
 
     expect($syntax)->toContain('can(manage for xs_target(@context id) with tenant = @context t)');
-    expect($syntax)->toContain('check(is_published and not is_locked for xs_other(@column xs_owner.other_id))');
+    expect($syntax)->toContain('is_published and not is_locked')
+        ->and($syntax)->toContain('for xs_other(@column xs_owner.other_id)');
     expect(treeToString(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->rule()->conditions))->toBe(treeToString($rule->conditions));
 });
 

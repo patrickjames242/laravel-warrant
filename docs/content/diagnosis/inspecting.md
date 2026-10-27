@@ -21,11 +21,8 @@ $rules = Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
 
 ```warrant
 if is_suspended they cannot *
-
 if is_super_admin they can *
-
 if is_mine or in_my_team they can view, update
-
 if is_locked they cannot update because 'This document is locked.'
 ```
 
