@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.8.0</version>
+    <version>0.9.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -23,6 +23,12 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.9.0</b> &mdash; Find rule text by Warrant 4.5's class names: the string a
+                <code>#[DerivedCondition]</code> or <code>#[RuleTemplate]</code> method returns,
+                and the one <code>rules()</code> returns on a schema (anything implementing
+                <code>IProvidesRules</code>) or an <code>IRuleProvider</code>. Stop colouring
+                <code>!</code> as an operator, since Warrant no longer reads it as
+                <code>not</code>.</li>
             <li><b>0.8.0</b> &mdash; Colour <code>when</code> and <code>otherwise</code> as
                 keywords, for when blocks. Stop colouring <code>?</code> as a binding, now
                 that every binding is named (<code>:name</code>).</li>
