@@ -12,17 +12,18 @@ const PIECES = [
     body: "The vocabulary for one resource: its abilities and the conditions a rule may test. Each condition knows how to become SQL. It decides nothing.",
     label: 'DocumentSchema.php',
     language: 'php',
-    source: `class DocumentSchema extends WarrantSchema
+    source: `class DocumentSchema extends ModelSchema
 {
     public const model = Document::class;
 
     #[Ability] public const VIEW = 'view';
+    #[Ability] public const UPDATE = 'update';
     #[Ability] public const APPROVE = 'approve';
 
     #[RowCondition]
     public function isOwner(RowConditionContext $c): Builder
     {
-        return $c->query->where('user_id', $c->user->id);
+        return $c->query->where($c->column('user_id'), $c->user->id);
     }
 }`,
   },
@@ -42,9 +43,9 @@ if is_manager and same_department
     title: 'Provider',
     tagline: 'Which rules apply.',
     body: 'An optional class you write. At request time it hands Warrant the rules for this user and this resource, from wherever your app keeps them.',
-    label: 'RuleProvider.php',
+    label: 'RoleRuleProvider.php',
     language: 'php',
-    source: `class RoleRuleProvider implements RuleProvider
+    source: `class RoleRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): string
     {
