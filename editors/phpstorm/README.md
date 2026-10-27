@@ -3,8 +3,8 @@
 Syntax highlighting for the Warrant rule DSL, both in standalone `.warrant`
 files and inside PHP: heredocs/nowdocs labelled `WARRANT`, and strings wherever
 rule text is expected (see `WarrantInjector`). It also starts the Warrant
-language server for errors, hover, completion, go-to-definition and quick fixes
-in `.warrant` files and in the Warrant inside PHP files.
+language server for errors, hover, completion, go-to-definition, quick fixes
+and formatting in `.warrant` files and in the Warrant inside PHP files.
 
 This is the PhpStorm counterpart of the VSCode extension in `../vscode`. The
 lexer here mirrors the token rules of `../../src/DSL/Lexing/Lexer.php` — keep
@@ -17,19 +17,24 @@ them in sync.
 | `WarrantLanguage` / `WarrantFileType` | Registers Warrant as a language + the `.warrant` extension, with the icon in `resources/icons/` (`warrant.svg`, and `warrant_dark.svg` for dark themes) |
 | `WarrantLexer` | Tokenizes Warrant source (mirror of `Lexer.php`, but tolerant) |
 | `WarrantSyntaxHighlighter(Factory)` | Maps tokens → theme colors (produces the highlighting) |
-| `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A deliberately flat parse tree — the minimum injection requires |
+| `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A flat parse tree — the minimum injection requires |
 | `WarrantInjector` | Injects Warrant into PHP strings that hold rule text: `<<<WARRANT` heredocs, `warrant('...')`, `Warrant::parse('...')`, returns from `rules()`, … |
 | `lsp/WarrantLspServerSupportProvider` / `lsp/WarrantLspServerDescriptor` | Starts the language server and tells the IDE which files it serves |
 | `lsp/WarrantServerLaunch` | Finds the server script and the PHP binary to run it with |
 | `lsp/WarrantSettings` / `lsp/WarrantSettingsConfigurable` | The project settings and their page |
 | `lsp/RestartWarrantLanguageServerAction` | **Tools → Restart Warrant Language Server** |
+| `lsp/ReformatWarrantRulesAction` | **Code → Reformat Warrant Rules**: formats only the Warrant in a file |
+| `lsp/WarrantPostFormatProcessor` / `lsp/WarrantRuleTextFormatter` | Formats the Warrant in a PHP file as part of Reformat Code, by running `warrant-format` |
 | `WarrantBraceMatcher` / `WarrantQuoteHandler` / `WarrantCommenter` | Close brackets and quotes as they are typed, and comment lines out with `#`, in `.warrant` files and injected Warrant |
-| `WarrantFormattingModelBuilder` | Indents a `{ }` block's contents, which Enter follows in a `.warrant` file |
 | `WarrantEscapeAnnotator` | Colours the escapes in a string literal, valid and invalid, over the string's colour |
-| `WarrantEnterHandler` | Indents the line Enter opens in Warrant inside PHP, where the IDE asks PHP rather than the formatter |
+| `WarrantIndentation` | Where a line of Warrant goes, by the formatter's rules: one level past the line of the innermost open `{` or `(`, a closing bracket back to that line, and a line after an `and`/`or` continuation kept at its indent |
+| `WarrantEnterHandler` / `WarrantTypedHandler` | Indent the line Enter opens, and move a `}` or `)` typed at a line's start, by `WarrantIndentation`, in `.warrant` files and Warrant inside PHP |
 
-The parser is intentionally trivial: the only structure it builds is a node for
-each `{ }` block, which the formatter needs. Error-checking and autocomplete come
+The parser is flat: highlighting and injection need no structure. The plugin
+has no formatting model, so nothing but the Warrant formatter lays Warrant
+out: Reformat Code sends a `.warrant` file to the language server, and formats
+the Warrant in a PHP file through `warrant-format`, while PhpStorm's own PHP
+formatter leaves injected Warrant alone. Error-checking and autocomplete come
 from the Warrant language server (which reuses the PHP parser/validator), not
 from a native IntelliJ grammar.
 
@@ -61,6 +66,19 @@ answers nothing, leaving PhpStorm's own PHP features as they are. Completion
 asks the server only inside `.warrant` files, injected Warrant and PHP strings.
 The server watches `**/*.php` (through `workspace/didChangeWatchedFiles`) to
 re-read schemas when they change.
+
+### Formatting
+
+The server is the one formatter of Warrant text (`bin/warrant-format` and
+`src/DSL/Formatting` in the repository). It registers `textDocument/formatting`
+for `**/*.warrant` only, and `lspFormattingSupport` in the descriptor sends
+Reformat Code on a `.warrant` file to it.
+In a PHP file, PhpStorm formats the PHP, then `WarrantPostFormatProcessor`
+formats the rule text, so Reformat Code and Actions on Save cover both.
+It runs the `warrant-format` script beside the server's script with the
+document's text on standard input (`--stdin-filepath`), rather than asking the
+server, so the text formatted is always the text on screen. **Code → Reformat
+Warrant Rules** runs the same, on the Warrant alone.
 
 ### Settings
 

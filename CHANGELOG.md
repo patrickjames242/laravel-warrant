@@ -4,6 +4,20 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- A formatter for rule text, as strict as Prettier, with nothing to configure.
+  `Warrant\DSL\Formatting\WarrantFormatter` formats text, refusing text with a
+  syntax error and checking every result says what the original said and keeps
+  its comments.
+- `vendor/bin/warrant-format` formats `.warrant` files and the rule text in PHP
+  files, in place or, with `--check`, listing what would change. With
+  `--stdin-filepath`, it formats standard input for an editor.
+- The language server formats a `.warrant` file, and the rule text in a PHP file
+  as the `source.format.warrant` code action.
+
 ## 4.6.1 — 2026-10-26
 
 ### Fixed

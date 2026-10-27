@@ -105,6 +105,11 @@ over it. A quote typed inside a string or a comment is left as it is. Toggle
 Line Comment comments lines out with `#`. All of this applies in `.warrant`
 files and in the Warrant inside PHP.
 
+In a `.warrant` file, Enter after a line ending in `{` or `(` indents the new
+line one level, and a `}` or `)` typed at the start of a line moves back a
+level, as the [formatter](/editors/formatting/) writes them. A level is four
+spaces.
+
 ## The language server
 
 The extension starts the [language server](/editors/language-server/) when it finds
@@ -126,6 +131,19 @@ application to read your schemas. Its settings:
 
 **Warrant: Restart Language Server**, in the command palette, restarts it. Its
 output is under **Warrant Language Server** in the Output panel.
+
+## Formatting
+
+With the language server running, Format Document formats a `.warrant` file in
+the [house style](/editors/formatting/). In a PHP file, Source Action, then
+Format Warrant rule text, formats the rule text and leaves the PHP as it is. To
+do that on every save:
+
+```json
+"[php]": {
+    "editor.codeActionsOnSave": { "source.format.warrant": "explicit" }
+}
+```
 
 ## A snippet worth adding
 

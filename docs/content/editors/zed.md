@@ -56,6 +56,33 @@ Small, and genuinely useful, because `@sql` is the one place in the language whe
 you are writing something the parser does not check. Anything that makes a mistake
 in that string visible is worth having.
 
+## Typing
+
+Enter inside a `{ }` block, a parenthesised group, or the brackets of a call,
+`can(...)` or `check(...)` indents the new line one level past the line the
+bracket opened on, and the closing bracket goes back to that line, as the
+[formatter](/editors/formatting/) writes them. A level is four spaces.
+
+## Formatting
+
+Zed has no Warrant language server yet, so run the package's command line
+formatter as an external one. In `settings.json`:
+
+```json
+"languages": {
+    "Warrant": {
+        "formatter": {
+            "external": {
+                "command": "vendor/bin/warrant-format",
+                "arguments": ["--stdin-filepath={buffer_path}"]
+            }
+        }
+    }
+}
+```
+
+See [formatting](/editors/formatting/) for the style it writes.
+
 ## Why there are two grammars
 
 The language is written down twice, and a change to it means updating both. That is

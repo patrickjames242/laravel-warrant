@@ -21,3 +21,6 @@ AGENTS.md
 /docs/dist/
 /docs/.tanstack/
 /docs/*.tsbuildinfo
+
+# Formatter playground (local only)
+/playground/

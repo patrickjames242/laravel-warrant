@@ -2,6 +2,9 @@ name = "Warrant"
 grammar = "warrant"
 path_suffixes = ["warrant"]
 line_comments = ["# "]
+# Four spaces, as the Warrant formatter writes.
+tab_size = 4
+hard_tabs = false
 autoclose_before = ",)}"
 # Identifiers may contain dashes, so treat `-` as a word character; otherwise a
 # double-click on `is-self` selects only part of the name.

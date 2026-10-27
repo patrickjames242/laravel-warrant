@@ -85,10 +85,15 @@ placeholders, string literals, comments, and names.
 `(`, `{`, `'` and `"` close as you type them, and typing the closing one steps
 over it. A quote typed inside a string or a comment is left as it is. Comment
 with Line Comment comments lines out with `#`, and the bracket matching the one
-at the caret is highlighted. Enter inside a `{ }` block indents the line it
-opens one level deeper than the block's braces, and Enter between `{` and `}`
-puts the `}` on the line below. All of this applies in `.warrant` files and in
-the Warrant inside PHP.
+at the caret is highlighted.
+
+Enter places the new line where the [formatter](/editors/formatting/) would:
+one level past the line holding the innermost open `{` or `(`, and at a
+condition's continuation indent after a line starting with `and` or `or`.
+Enter between `{` and `}` puts the `}` on the line below, and a `}` or `)`
+typed at the start of a line goes back to the line its bracket opened on. A
+level is four spaces. All of this applies in `.warrant` files and in the
+Warrant inside PHP.
 
 ## The language server
 
@@ -111,3 +116,16 @@ The settings are under Settings, then Languages & Frameworks, then Warrant:
 | Vocabulary | `auto` | How the server learns your schemas: `auto`, `static` or `off`. See [how it learns your schemas](/editors/language-server/#how-it-learns-your-schemas). |
 
 Tools, then Restart Warrant Language Server, restarts it.
+
+## Formatting
+
+Code, then Reformat Code, formats Warrant in the [house style](/editors/formatting/):
+all of a `.warrant` file, and the rule text in a PHP file, after PhpStorm has
+formatted the PHP around it. Turn on Settings, then Tools, then Actions on Save,
+then Reformat code, to have that happen on every save.
+
+Code, then Reformat Warrant Rules, formats the Warrant in a file and nothing
+else. It is also in the editor's right-click menu.
+
+Formatting a PHP file runs the `warrant-format` script beside the language
+server's, so it needs the language server to be found and enabled.

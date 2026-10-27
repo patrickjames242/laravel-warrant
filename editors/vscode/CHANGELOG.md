@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.0
+
+- Indent the line Enter opens one level past a line ending in `{` or `(`, and
+  move a typed `}` or `)` back to the line it closes, as the Warrant formatter
+  writes them. Indent `.warrant` files with four spaces, as the formatter does.
+- Format with the language server, for a Warrant release whose server formats:
+  Format Document in a `.warrant` file, and the **Format Warrant rule text**
+  source action in a PHP file.
+
 ## 0.13.0
 
 - Highlight `when` and `otherwise` as keywords, for when blocks.

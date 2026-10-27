@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.9.0</version>
+    <version>0.10.2</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -13,8 +13,8 @@
         <br/><br/>
         Starts the <b>Warrant language server</b> that ships with the
         <code>patrickhanna/laravel-warrant</code> Composer package, for errors, hover,
-        completion, go-to-definition and quick fixes in <code>.warrant</code> files and
-        in the Warrant inside PHP files. The server is found at
+        completion, go-to-definition, quick fixes and formatting in <code>.warrant</code>
+        files and in the Warrant inside PHP files. The server is found at
         <code>vendor/bin/warrant-language-server</code> and run with PHP; configure it
         under <b>Settings | Languages &amp; Frameworks | Warrant</b>. Language-server
         support needs a PhpStorm version that ships the IntelliJ Platform LSP API
@@ -23,6 +23,18 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.10.2</b> &mdash; Enter, and a <code>}</code> or <code>)</code> typed at
+                the start of a line, place the line as the Warrant formatter would: one
+                level past the line of the open bracket, back to it for the closing one, and
+                at a condition's continuation indent after an <code>and</code> or
+                <code>or</code> line. Drop the plugin's own formatting of Warrant, so Reformat
+                Code no longer re-indents Warrant that the formatter leaves as it is.</li>
+            <li><b>0.10.1</b> &mdash; <b>Code | Reformat Code</b>, and so Actions on Save, formats
+                the Warrant in a PHP file along with the PHP.</li>
+            <li><b>0.10.0</b> &mdash; Format Warrant through the language server, for a Warrant
+                release whose server formats: <b>Code | Reformat Code</b> formats a <code>.warrant</code>
+                file, and <b>Code | Reformat Warrant Rules</b> formats the rule text in a PHP
+                file, leaving the PHP around it as it is.</li>
             <li><b>0.9.0</b> &mdash; Find rule text by Warrant 4.5's class names: the string a
                 <code>#[DerivedCondition]</code> or <code>#[RuleTemplate]</code> method returns,
                 and the one <code>rules()</code> returns on a schema (anything implementing
@@ -98,9 +110,10 @@
             implementationClass="com.warrant.phpstorm.WarrantSyntaxHighlighterFactory"/>
 
         <!-- 4. Bracket and quote pairs, closed as they are typed, # comments for
-                Comment Line, and the indentation of a block's contents, which
-                Enter follows. These apply inside PHP too, where Warrant is
-                injected. -->
+                Comment Line, and where Enter and a typed closing bracket put a
+                line, by the formatter's rules. These apply inside PHP too,
+                where Warrant is injected. There is no formatting model:
+                Warrant is formatted only by the Warrant formatter. -->
         <lang.braceMatcher
             language="Warrant"
             implementationClass="com.warrant.phpstorm.WarrantBraceMatcher"/>
@@ -110,11 +123,10 @@
         <lang.commenter
             language="Warrant"
             implementationClass="com.warrant.phpstorm.WarrantCommenter"/>
-        <lang.formatter
-            language="Warrant"
-            implementationClass="com.warrant.phpstorm.WarrantFormattingModelBuilder"/>
         <enterHandlerDelegate
             implementation="com.warrant.phpstorm.WarrantEnterHandler"/>
+        <typedHandler
+            implementation="com.warrant.phpstorm.WarrantTypedHandler"/>
 
         <!-- 5. Colour the escapes in a string literal over the string's colour. -->
         <annotator

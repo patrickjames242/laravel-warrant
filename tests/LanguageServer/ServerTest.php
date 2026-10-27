@@ -181,3 +181,46 @@ it('starts without loading the project\'s Composer autoloader, so the project\'s
         ->and($output)->toContain('"serverInfo":{"name":"warrant-language-server"}')
         ->and($exitCode)->toBe(0);
 });
+
+it('formats a whole .warrant file, and the rule text in a PHP file only as a code action', function () {
+    $warrant = Uri::fromPath(fixtureRoot().'/rules.warrant');
+    $php = Uri::fromPath(fixtureRoot().'/app/Unsaved.php');
+    $phpText = "<?php\n\nwarrant('if is_self   they can edit,view');\n";
+
+    [$sent] = serve([
+        ...handshake(),
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $warrant, 'languageId' => 'warrant', 'version' => 1, 'text' => "for documents{ they can   edit }\n"]]],
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $php, 'languageId' => 'php', 'version' => 1, 'text' => $phpText]]],
+        ['id' => 2, 'method' => 'textDocument/formatting', 'params' => ['textDocument' => ['uri' => $warrant], 'options' => ['tabSize' => 4, 'insertSpaces' => true]]],
+        ['id' => 3, 'method' => 'textDocument/codeAction', 'params' => ['textDocument' => ['uri' => $php], 'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 0, 'character' => 0]], 'context' => ['diagnostics' => [], 'only' => ['source']]]],
+        ['id' => 4, 'method' => 'textDocument/codeAction', 'params' => ['textDocument' => ['uri' => $php], 'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 0, 'character' => 0]], 'context' => ['diagnostics' => []]]],
+    ]);
+
+    expect(responseTo($sent, 2)['result'])->toBe([[
+        'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 1, 'character' => 0]],
+        'newText' => "for documents { they can edit }\n",
+    ]])
+        ->and(responseTo($sent, 3)['result'][0]['kind'])->toBe('source.format.warrant')
+        ->and(responseTo($sent, 3)['result'][0]['edit']['changes'][$php])->toBe([[
+            'range' => ['start' => ['line' => 2, 'character' => 9], 'end' => ['line' => 2, 'character' => 40]],
+            'newText' => 'if is_self they can edit, view',
+        ]])
+        ->and(responseTo($sent, 4)['result'])->toBe([]);
+});
+
+it('registers formatting for .warrant files only when the editor can take a registration', function () {
+    [$sent] = serve([
+        ['id' => 1, 'method' => 'initialize', 'params' => [
+            'rootUri' => Uri::fromPath(fixtureRoot()),
+            'capabilities' => ['textDocument' => ['formatting' => ['dynamicRegistration' => true]]],
+            'initializationOptions' => ['vocabulary' => 'static'],
+        ]],
+        ['method' => 'initialized', 'params' => []],
+    ]);
+
+    $registration = array_values(array_filter($sent, static fn (array $message): bool => ($message['method'] ?? null) === 'client/registerCapability'));
+
+    expect(responseTo($sent, 1)['result']['capabilities']['documentFormattingProvider'])->toBeFalse()
+        ->and($registration[0]['params']['registrations'][0]['method'])->toBe('textDocument/formatting')
+        ->and($registration[0]['params']['registrations'][0]['registerOptions']['documentSelector'])->toContain(['pattern' => '**/*.warrant']);
+});

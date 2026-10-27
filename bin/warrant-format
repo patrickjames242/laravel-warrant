@@ -1,0 +1,132 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * Formats Warrant rule text: `.warrant` files, and the rule text in PHP files,
+ * in the one style specs/formatter.md sets out.
+ *
+ *     warrant-format [--check] [<path> ...]
+ *     warrant-format --stdin-filepath=<path>
+ *
+ * Each path is a file or a directory, searched for `.warrant` and `.php` files
+ * outside `vendor`, `node_modules` and hidden directories; with none, the
+ * current directory. Files are rewritten in place. With `--check`, nothing is
+ * written: the files that would change are listed, and the exit code is 1 when
+ * there are any. Rule text that does not parse is reported and left as it is,
+ * and also makes the exit code 1.
+ *
+ * With `--stdin-filepath`, the text on standard input is formatted as the file
+ * at <path> would be, whose extension says what it holds, and written to
+ * standard output: the form an editor runs as an external formatter.
+ *
+ * Like the language server, it loads this package's classes from its own
+ * `src/` directory and boots no application, so it runs in CI before anything
+ * is configured.
+ */
+
+spl_autoload_register(static function (string $class): void {
+    if (str_starts_with($class, 'Warrant\\')) {
+        $file = __DIR__.'/../src/'.str_replace('\\', '/', substr($class, strlen('Warrant\\'))).'.php';
+
+        if (is_file($file)) {
+            require $file;
+        }
+    }
+});
+
+ini_set('display_errors', 'stderr');
+error_reporting(E_ALL & ~E_DEPRECATED);
+
+$arguments = array_slice($argv, 1);
+
+if (array_intersect($arguments, ['-h', '--help']) !== []) {
+    fwrite(STDOUT, "Usage: warrant-format [--check] [<path> ...]\n       warrant-format --stdin-filepath=<path>\n");
+    exit(0);
+}
+
+$formatter = new Warrant\LanguageServer\Fragments\FragmentFormatter;
+
+foreach ($arguments as $argument) {
+    if (str_starts_with($argument, '--stdin-filepath=')) {
+        $path = substr($argument, strlen('--stdin-filepath='));
+        fwrite(STDOUT, $formatter->formatted($path, (string) stream_get_contents(STDIN)));
+
+        foreach ($formatter->problems() as $problem) {
+            fwrite(STDERR, "{$path}:{$problem['line']}: {$problem['message']}\n");
+        }
+
+        exit($formatter->problems() === [] ? 0 : 1);
+    }
+}
+
+$check = in_array('--check', $arguments, true);
+$paths = array_values(array_filter($arguments, static fn (string $argument): bool => ! str_starts_with($argument, '--')));
+$paths = $paths === [] ? ['.'] : $paths;
+
+/**
+ * Every `.warrant` and `.php` file at or under $path.
+ *
+ * @return list<string>
+ */
+$filesUnder = static function (string $path): array {
+    if (is_file($path)) {
+        return [$path];
+    }
+
+    if (! is_dir($path)) {
+        fwrite(STDERR, "No such file or directory: {$path}\n");
+
+        return [];
+    }
+
+    $directories = new RecursiveCallbackFilterIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        static fn (SplFileInfo $file): bool => ! $file->isDir()
+            || ! (str_starts_with($file->getFilename(), '.') || in_array($file->getFilename(), ['vendor', 'node_modules'], true)),
+    );
+    $files = [];
+
+    foreach (new RecursiveIteratorIterator($directories) as $file) {
+        if (in_array(strtolower($file->getExtension()), ['warrant', 'php'], true)) {
+            $files[] = $file->getPathname();
+        }
+    }
+
+    sort($files);
+
+    return $files;
+};
+
+$changed = 0;
+$problems = 0;
+
+foreach ($paths as $path) {
+    foreach ($filesUnder($path) as $file) {
+        $text = (string) file_get_contents($file);
+        $formatted = $formatter->formatted($file, $text);
+
+        foreach ($formatter->problems() as $problem) {
+            fwrite(STDERR, "{$file}:{$problem['line']}: {$problem['message']}\n");
+            $problems++;
+        }
+
+        if ($formatted === $text) {
+            continue;
+        }
+
+        $changed++;
+
+        if ($check) {
+            fwrite(STDOUT, "{$file}\n");
+        } else {
+            file_put_contents($file, $formatted);
+            fwrite(STDOUT, "Formatted {$file}\n");
+        }
+    }
+}
+
+if ($check && $changed > 0) {
+    fwrite(STDOUT, sprintf("%d file%s would be formatted.\n", $changed, $changed === 1 ? '' : 's'));
+}
+
+exit(($check && $changed > 0) || $problems > 0 ? 1 : 0);

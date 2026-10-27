@@ -122,6 +122,59 @@ class WarrantTypingTest : BasePlatformTestCase() {
         )
     }
 
+    fun testIndentsTheLineEnterOpensInsideParenthesesPastTheLineTheyOpenOn() {
+        typeIn(
+            "a.warrant",
+            "for documents {\n    if can(<caret>)\n}",
+            "\n",
+            "for documents {\n    if can(\n        <caret>\n    )\n}",
+        )
+    }
+
+    fun testKeepsAConditionsContinuationIndent() {
+        typeIn(
+            "a.warrant",
+            "if is_owner\n    or is_editor<caret>",
+            "\n",
+            "if is_owner\n    or is_editor\n    <caret>",
+        )
+    }
+
+    fun testPutsTheLineAfterAConditionAtTheRulesLevel() {
+        typeIn("a.warrant", "for documents {\n    if is_owner<caret>\n}", "\n", "for documents {\n    if is_owner\n    <caret>\n}")
+    }
+
+    fun testMovesATypedClosingParenthesisBackToItsOpeningLine() {
+        typeIn(
+            "a.warrant",
+            "if can(\n    edit\n    <caret>",
+            ")",
+            "if can(\n    edit\n)<caret>",
+        )
+    }
+
+    fun testMovesATypedClosingBraceBackToItsOpeningLine() {
+        typeIn(
+            "a.warrant",
+            "for documents {\n    if a they can view\n    <caret>",
+            "}",
+            "for documents {\n    if a they can view\n}<caret>",
+        )
+    }
+
+    fun testIndentsTheLineEnterOpensInsideParenthesesInPhp() {
+        typeIn("a.php", heredoc("if can(<caret>)"), "\n", heredoc("if can(\n        <caret>\n    )"))
+    }
+
+    fun testLeavesTheWarrantInAPhpFileToTheWarrantFormatterOnReformat() {
+        val text = heredoc("if   is_owner they can   view")
+        myFixture.configureByText("a.php", text)
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            com.intellij.psi.codeStyle.CodeStyleManager.getInstance(project).reformat(myFixture.file)
+        }
+        myFixture.checkResult(text)
+    }
+
     fun testCommentsALineOutWithAHash() {
         myFixture.configureByText("a.warrant", "if a they <caret>can view")
         myFixture.performEditorAction("CommentByLineComment")

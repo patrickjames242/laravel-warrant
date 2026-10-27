@@ -24,6 +24,11 @@
         <notificationGroup
             id="Warrant"
             displayType="BALLOON"/>
+
+        <!-- Formats the Warrant in a PHP file as part of Reformat Code, and so of
+             Actions on Save, after the PHP is formatted. -->
+        <postFormatProcessor
+            implementation="com.warrant.phpstorm.lsp.WarrantPostFormatProcessor"/>
     </extensions>
 
     <actions>
@@ -33,6 +38,15 @@
             text="Restart Warrant Language Server"
             description="Stop the Warrant language server and start it again">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+
+        <action
+            id="Warrant.ReformatRules"
+            class="com.warrant.phpstorm.lsp.ReformatWarrantRulesAction"
+            text="Reformat Warrant Rules"
+            description="Format the Warrant rule text in this file through the Warrant language server">
+            <add-to-group group-id="CodeFormatGroup" anchor="after" relative-to-action="ReformatCode"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

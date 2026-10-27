@@ -24,7 +24,8 @@
         "pestphp/pest": "^3.0|^4.0"
     },
     "bin": [
-        "bin/warrant-language-server"
+        "bin/warrant-language-server",
+        "bin/warrant-format"
     ],
     "autoload": {
         "psr-4": {

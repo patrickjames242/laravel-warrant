@@ -2,7 +2,7 @@
   "name": "warrant-dsl",
   "displayName": "Warrant for Laravel",
   "description": "Language support for the Warrant authorization rule language: syntax highlighting, plus diagnostics, hover, completion, go to definition, outline and quick fixes from the Warrant language server, in .warrant files and inside PHP wherever rule text is expected.",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "publisher": "patrickhanna",
   "icon": "icons/icon.png",
   "license": "MIT",
@@ -79,6 +79,13 @@
         "embeddedLanguages": { "meta.embedded.block.warrant": "warrant" }
       }
     ],
+    "configurationDefaults": {
+      "[warrant]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false
+      }
+    },
     "commands": [
       {
         "command": "warrant.restartLanguageServer",

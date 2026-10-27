@@ -16,7 +16,7 @@ plugins {
 }
 
 group = "com.warrant"
-version = "0.9.0"
+version = "0.10.2"
 
 repositories {
     mavenCentral()

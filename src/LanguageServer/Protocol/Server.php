@@ -10,6 +10,7 @@ use Warrant\LanguageServer\Features\Completion;
 use Warrant\LanguageServer\Features\Definition;
 use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\DocumentSymbols;
+use Warrant\LanguageServer\Features\Formatting;
 use Warrant\LanguageServer\Features\Hover;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
 use Warrant\LanguageServer\Vocabulary\ClassFileLocator;
@@ -59,6 +60,9 @@ final class Server
     private ?int $exitCode = null;
 
     private bool $canWatchFiles = false;
+
+    /** Whether the editor takes formatting registered for `.warrant` files only. */
+    private bool $canRegisterFormatting = false;
 
     private int $nextRequestId = 1;
 
@@ -216,7 +220,11 @@ final class Server
             'textDocument/definition' => $document === null ? null : Definition::at($this->workspace, $document, $position),
             'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position)],
             'textDocument/documentSymbol' => $document === null ? [] : DocumentSymbols::of($this->workspace, $document),
-            'textDocument/codeAction' => $document === null ? [] : CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
+            'textDocument/codeAction' => $document === null ? [] : [
+                ...CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
+                ...Formatting::codeActions($document, is_array($params['context'] ?? null) ? $params['context'] : []),
+            ],
+            'textDocument/formatting' => $document === null ? null : Formatting::edits($document),
             default => $isRequest ? throw new MethodNotFound : null,
         };
     }
@@ -268,6 +276,7 @@ final class Server
 
         $this->workspace = new Workspace($root === null ? null : rtrim($root, '/\\'), $mode);
         $this->canWatchFiles = (bool) ($params['capabilities']['workspace']['didChangeWatchedFiles']['dynamicRegistration'] ?? false);
+        $this->canRegisterFormatting = (bool) ($params['capabilities']['textDocument']['formatting']['dynamicRegistration'] ?? false);
         $this->initialized = true;
 
         return [
@@ -278,29 +287,46 @@ final class Server
                 'definitionProvider' => true,
                 'documentSymbolProvider' => true,
                 'completionProvider' => ['triggerCharacters' => [' ', '(', '@', '.', ',']],
-                'codeActionProvider' => ['codeActionKinds' => ['quickfix']],
+                'codeActionProvider' => ['codeActionKinds' => ['quickfix', Formatting::KIND]],
+                /* Registered later for `.warrant` files only when the editor can
+                   take that, so it is never offered as a PHP formatter. */
+                'documentFormattingProvider' => ! $this->canRegisterFormatting,
             ],
             'serverInfo' => ['name' => 'warrant-language-server'],
         ];
     }
 
     /**
-     * Once the editor is ready: read the schemas, and ask to hear when PHP files
-     * change, since a schema is a PHP file.
+     * Once the editor is ready: read the schemas, ask to hear when PHP files
+     * change, since a schema is a PHP file, and offer formatting for `.warrant`
+     * files.
      */
     private function afterInitialized(): null
     {
         $this->readVocabulary();
+        $registrations = [];
 
         if ($this->canWatchFiles) {
+            $registrations[] = [
+                'id' => 'warrant-php-files',
+                'method' => 'workspace/didChangeWatchedFiles',
+                'registerOptions' => ['watchers' => [['globPattern' => '**/*.php'], ['globPattern' => '**/composer.lock']]],
+            ];
+        }
+
+        if ($this->canRegisterFormatting) {
+            $registrations[] = [
+                'id' => 'warrant-formatting',
+                'method' => 'textDocument/formatting',
+                'registerOptions' => ['documentSelector' => [['language' => 'warrant'], ['pattern' => '**/*.warrant']]],
+            ];
+        }
+
+        if ($registrations !== []) {
             $this->transport->send([
                 'id' => 'warrant-'.$this->nextRequestId++,
                 'method' => 'client/registerCapability',
-                'params' => ['registrations' => [[
-                    'id' => 'warrant-php-files',
-                    'method' => 'workspace/didChangeWatchedFiles',
-                    'registerOptions' => ['watchers' => [['globPattern' => '**/*.php'], ['globPattern' => '**/composer.lock']]],
-                ]]],
+                'params' => ['registrations' => $registrations],
             ]);
         }
 

@@ -35,6 +35,8 @@ its other packages and its extensions do not matter to it.
   names.
 - **An outline** of the `for` blocks, ability blocks, rules and `@include`s in a
   file.
+- **Formatting** of a `.warrant` file, and of the rule text in a PHP file as the
+  `source.format.warrant` code action. See [formatting](/editors/formatting/).
 
 ## Where it looks for rule text
 
