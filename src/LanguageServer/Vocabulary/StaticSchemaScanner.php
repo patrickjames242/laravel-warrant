@@ -269,6 +269,7 @@ final class StaticSchemaScanner
                         max(0, $method->requiredParameterCount() - ($takesContext ? 1 : 0)),
                         $takesContext,
                         $template->argument('callOncePerAbility', 1) === true,
+                        self::dslArgumentLimit($method->maxParameterCount(), $takesContext ? 1 : 0),
                     ),
                     $owner->file,
                     $method->line,
@@ -305,6 +306,7 @@ final class StaticSchemaScanner
                     $method->name,
                     $kind,
                     $kind === ConditionKind::Derived ? $method->requiredParameterCount() : max(0, $method->requiredParameterCount() - 1),
+                    self::dslArgumentLimit($method->maxParameterCount(), $kind === ConditionKind::Derived ? 0 : 1),
                 ),
                 $owner->file,
                 $method->line,
@@ -520,6 +522,20 @@ final class StaticSchemaScanner
         }
 
         return $this->classes[$lower];
+    }
+
+    /**
+     * The most DSL arguments a method takes, given the most parameters it does
+     * and how many of those come before rule text's arguments; null when it
+     * takes any number.
+     *
+     * @param int|null $maxParameters The method's parameters, or null when the
+     *   last is variadic.
+     * @param int $leading How many parameters rule text does not pass.
+     */
+    private static function dslArgumentLimit(?int $maxParameters, int $leading): ?int
+    {
+        return $maxParameters === null ? null : max(0, $maxParameters - $leading);
     }
 
     /**

@@ -13,11 +13,14 @@ final readonly class PhpParameter
      *   against the file's namespace and imports; null when it declares none.
      * @param bool $isOptional Whether a call may leave it out: it has a default,
      *   or is variadic.
+     * @param bool $isVariadic Whether it takes every argument from its position
+     *   on: `...$name`.
      */
     public function __construct(
         public string $name,
         public ?string $type = null,
         public bool $isOptional = false,
+        public bool $isVariadic = false,
     ) {
     }
 }

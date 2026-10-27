@@ -20,12 +20,17 @@ final readonly class ConditionDefinition
      *   object for a row or global condition (a derived one has none). Supplying
      *   fewer is rejected wherever the condition is reached, and by validation
      *   ahead of that for a rule written as text.
+     * @param int|null $maxArgumentCount The most DSL arguments the condition takes:
+     *   all of its parameters, after the leading context object for a row or
+     *   global condition. Null when its last parameter is variadic, so it takes
+     *   any number. Supplying more is rejected where fewer is.
      */
     public function __construct(
         public string $key,
         public string $methodName,
         public ConditionKind $kind,
         public int $requiredArgumentCount = 0,
+        public ?int $maxArgumentCount = null,
     ) {}
 
     public function isRow(): bool

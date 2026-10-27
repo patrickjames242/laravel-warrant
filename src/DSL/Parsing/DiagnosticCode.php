@@ -137,6 +137,9 @@ enum DiagnosticCode: string
     /** Fewer arguments than a condition, a rule template, or a schema's row key, needs. */
     case TooFewArguments = 'too-few-arguments';
 
+    /** A condition or template given more arguments than it has parameters for. */
+    case TooManyArguments = 'too-many-arguments';
+
     /** A `@column` reference naming a frame that is not in scope where it is written. */
     case ColumnNotInScope = 'column-not-in-scope';
 

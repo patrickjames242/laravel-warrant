@@ -29,6 +29,10 @@ final readonly class RuleTemplateDefinition
      *   {@see RuleTemplateContext}, handed before the DSL arguments.
      * @param bool $callOncePerAbility Whether the method is called once for each
      *   ability the include names rather than once for all of them.
+     * @param int|null $maxArgumentCount The most DSL arguments the template takes:
+     *   all of its parameters, not counting a leading {@see RuleTemplateContext}.
+     *   Null when its last parameter is variadic, so it takes any number.
+     *   Supplying more is rejected where fewer is.
      */
     public function __construct(
         public string $key,
@@ -36,5 +40,6 @@ final readonly class RuleTemplateDefinition
         public int $requiredArgumentCount = 0,
         public bool $takesContext = false,
         public bool $callOncePerAbility = false,
+        public ?int $maxArgumentCount = null,
     ) {}
 }

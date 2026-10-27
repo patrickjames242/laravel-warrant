@@ -152,7 +152,13 @@ trait ReflectsConditionMethods
                 ));
             }
 
-            return new ConditionDefinition($key, $method->getName(), $kind, $method->getNumberOfRequiredParameters());
+            return new ConditionDefinition(
+                $key,
+                $method->getName(),
+                $kind,
+                $method->getNumberOfRequiredParameters(),
+                $method->isVariadic() ? null : $method->getNumberOfParameters(),
+            );
         }
 
         /* A row or global condition is handed its context object first, so a
@@ -169,6 +175,12 @@ trait ReflectsConditionMethods
             ));
         }
 
-        return new ConditionDefinition($key, $method->getName(), $kind, max(0, $method->getNumberOfRequiredParameters() - 1));
+        return new ConditionDefinition(
+            $key,
+            $method->getName(),
+            $kind,
+            max(0, $method->getNumberOfRequiredParameters() - 1),
+            $method->isVariadic() ? null : $method->getNumberOfParameters() - 1,
+        );
     }
 }

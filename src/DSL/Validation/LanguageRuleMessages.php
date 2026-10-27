@@ -12,10 +12,10 @@ use Warrant\DSL\Resolution\KeyedSchemaId;
  * denial message where none belongs, or one that cannot be one; a binding
  * standing for abilities whose value names none; an ability written twice, or
  * `*` beside another; a condition or an `@include`'s template that no schema
- * the name is looked up in declares, or an `@include` giving its template too
- * few arguments. The validator reports these against rule text, and the expander
- * rejects the same in any rule set that reaches it, so both say them here, in
- * one way.
+ * the name is looked up in declares, or a condition or template given too few
+ * arguments or too many. The validator reports these against rule text, and the
+ * expander rejects the same in any rule set that reaches it, so both say them
+ * here, in one way.
  */
 final class LanguageRuleMessages
 {
@@ -68,6 +68,36 @@ final class LanguageRuleMessages
             'Rule template [%s] requires %d argument(s), but the @include supplies %d.',
             $templateKey,
             $required,
+            $supplied,
+        );
+    }
+
+    /**
+     * @param string $templateKey The template the `@include` names.
+     * @param int $max How many arguments the template takes at most.
+     * @param int $supplied How many the `@include` gives it.
+     */
+    public static function tooManyTemplateArguments(string $templateKey, int $max, int $supplied): string
+    {
+        return sprintf(
+            'Rule template [%s] takes at most %d argument(s), but the @include supplies %d.',
+            $templateKey,
+            $max,
+            $supplied,
+        );
+    }
+
+    /**
+     * @param string $conditionKey The condition the rule names.
+     * @param int $max How many arguments the condition takes at most.
+     * @param int $supplied How many the rule gives it.
+     */
+    public static function tooManyConditionArguments(string $conditionKey, int $max, int $supplied): string
+    {
+        return sprintf(
+            'Condition [%s] takes at most %d argument(s), but the rule supplied %d.',
+            $conditionKey,
+            $max,
             $supplied,
         );
     }

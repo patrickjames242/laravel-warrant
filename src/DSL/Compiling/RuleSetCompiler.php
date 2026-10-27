@@ -1267,15 +1267,25 @@ final class RuleSetCompiler
         }
 
         /* The parameters after a condition's context object are its DSL
-           arguments, and those without a default are required. Supplying more is
-           fine: the extras stay reachable on $c->arguments. Validation reports too
-           few against the rule text; this guards every other way a rule arrives. */
+           arguments: those without a default are required, and a call may pass no
+           more than there are, unless the last is variadic. Validation reports
+           both against the rule text; this guards every other way a rule arrives. */
         if (count($parameters) < $definition->requiredArgumentCount) {
             throw new InvalidArgumentException(sprintf(
                 'Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.',
                 $node->conditionKey->name,
-                $this->schema::class,
+                $found->schemaClass(),
                 $definition->requiredArgumentCount,
+                count($parameters),
+            ));
+        }
+
+        if ($definition->maxArgumentCount !== null && count($parameters) > $definition->maxArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] takes at most %d argument(s), but the rule supplied %d.',
+                $node->conditionKey->name,
+                $found->schemaClass(),
+                $definition->maxArgumentCount,
                 count($parameters),
             ));
         }

@@ -504,7 +504,7 @@ trait ValidatesExpressions
             return;
         }
 
-        $this->assertEnoughArguments($node, $definition->requiredArgumentCount);
+        $this->assertArgumentCount($node, $definition->requiredArgumentCount, $definition->maxArgumentCount);
     }
 
     /**
@@ -514,7 +514,7 @@ trait ValidatesExpressions
      * compilation. (More arguments than parameters is allowed — the extras remain
      * reachable via the condition's `$c->arguments`.)
      */
-    private function assertEnoughArguments(ConditionNode $node, int $required): void
+    private function assertArgumentCount(ConditionNode $node, int $required, ?int $max): void
     {
         $supplied = count($node->parameters);
 
@@ -522,6 +522,14 @@ trait ValidatesExpressions
             $this->fail(
                 DiagnosticCode::TooFewArguments,
                 sprintf('Condition [%s] requires at least %d argument(s), but the rule supplied %d.', $node->conditionKey->name, $required, $supplied),
+                $node->location,
+            );
+        }
+
+        if ($max !== null && $supplied > $max) {
+            $this->fail(
+                DiagnosticCode::TooManyArguments,
+                LanguageRuleMessages::tooManyConditionArguments($node->conditionKey->name, $max, $supplied),
                 $node->location,
             );
         }

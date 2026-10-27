@@ -150,9 +150,11 @@ public function inAnyTeam(RowConditionContext $c, string ...$teams): Builder
 ```
 
 A parameter with a default is optional, so the rule may omit that argument.
-Supplying fewer than the required parameters is rejected during validation.
-Supplying more is fine: the extras are ignored by the call and stay reachable on
-`$c->arguments`, which holds every argument in the order written.
+Supplying fewer than the required parameters is rejected during validation, and
+so is supplying more than the method has parameters for, unless its last
+parameter is variadic, as `inAnyTeam()`'s is. `$c->arguments` holds every argument
+in the order written. The same holds for a rule template's parameters and an
+`@include`'s arguments.
 
 Type a parameter only as loosely as its values allow. An argument that may be an
 absent `@context` key has to be `mixed` or nullable.

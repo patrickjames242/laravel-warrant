@@ -19,10 +19,11 @@ use Illuminate\Contracts\Database\Query\Builder;
  * available whether or not the rule passed a value via `@context`. Read it
  * directly for an ambient frame: `$c->context['tenant_id']`.
  *
- * The DSL arguments are exposed as `arguments`, but a condition may also declare
- * them as method parameters after this context object — parameter #2 receives
+ * The DSL arguments are exposed as `arguments`, and a condition declares them
+ * as method parameters after this context object — parameter #2 receives
  * `arguments[0]`, #3 receives `arguments[1]`, and so on — with the full list still
- * available here.
+ * available here. A rule may pass no more arguments than there are parameters,
+ * so a condition taking any number declares its last one variadic.
  */
 final readonly class GlobalConditionContext
 {

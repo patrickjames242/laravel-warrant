@@ -4,6 +4,20 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Changed
+
+- A condition or rule template given more arguments than its method has
+  parameters for is refused, as one given too few is: by validation, with the
+  new `too-many-arguments` diagnostic, and by expansion and the compiler for a
+  rule that skipped validation. A method whose last parameter is variadic takes
+  any number. Extra arguments no longer pass through to `$c->arguments`; a
+  condition that reads its arguments from there declares a variadic parameter.
+- `ConditionDefinition` and `RuleTemplateDefinition` carry `maxArgumentCount`,
+  null for a variadic method, and the language server reads it from source and
+  from the running application.
+
 ## 4.5.0 — 2026-10-26
 
 ### Added

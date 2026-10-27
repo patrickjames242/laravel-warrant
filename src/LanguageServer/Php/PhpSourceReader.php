@@ -392,6 +392,7 @@ final class PhpSourceReader
         $type = null;
         $name = null;
         $optional = false;
+        $variadic = false;
 
         for ($i = 0, $n = count($tokens); $i < $n; $i++) {
             $token = $tokens[$i];
@@ -414,6 +415,7 @@ final class PhpSourceReader
                 $name = substr($token->text, 1);
             } elseif ($token->is(T_ELLIPSIS) || $token->text === '=') {
                 $optional = true;
+                $variadic = $variadic || $token->is(T_ELLIPSIS);
 
                 if ($token->text === '=') {
                     break;
@@ -423,7 +425,7 @@ final class PhpSourceReader
             }
         }
 
-        return $name === null ? null : new PhpParameter($name, $type, $optional);
+        return $name === null ? null : new PhpParameter($name, $type, $optional, $variadic);
     }
 
     /**

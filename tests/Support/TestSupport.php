@@ -124,14 +124,21 @@ class WarrantTestSchema extends ModelSchema
     #[Ability]
     public const ABILITY_UPDATE = 'update';
 
+    /**
+     * Takes an optional argument it ignores, so tests can pass a value through a
+     * binding or a reference without a condition of their own.
+     */
     #[RowCondition]
-    public function isTeacher(RowConditionContext $c): BuilderContract
+    public function isTeacher(RowConditionContext $c, mixed $argument = null): BuilderContract
     {
         return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
+    /**
+     * Takes an optional argument it ignores, as {@see isTeacher()} does.
+     */
     #[GlobalCondition]
-    public function isAdvisor(GlobalConditionContext $c): BuilderContract
+    public function isAdvisor(GlobalConditionContext $c, mixed $argument = null): BuilderContract
     {
         return $c->query->whereRaw('? = ?', ['advisor', $c->user->role_id]);
     }

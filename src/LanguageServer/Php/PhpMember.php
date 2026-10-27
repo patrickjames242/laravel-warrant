@@ -65,4 +65,15 @@ final readonly class PhpMember
 
         return $count;
     }
+
+    /**
+     * How many parameters a call may pass at most: all of them, or null when the
+     * last is variadic and takes any number.
+     */
+    public function maxParameterCount(): ?int
+    {
+        $last = $this->parameters[array_key_last($this->parameters) ?? 0] ?? null;
+
+        return $last?->isVariadic === true ? null : count($this->parameters);
+    }
 }

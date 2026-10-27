@@ -203,6 +203,18 @@ trait ValidatesRuleEntries
                 $include->location,
             );
         }
+
+        if ($definition->maxArgumentCount !== null && count($include->arguments) > $definition->maxArgumentCount) {
+            $this->fail(
+                DiagnosticCode::TooManyArguments,
+                LanguageRuleMessages::tooManyTemplateArguments(
+                    $templateKey,
+                    $definition->maxArgumentCount,
+                    count($include->arguments),
+                ),
+                $include->location,
+            );
+        }
     }
 
     private function validateRule(RuleNode $rule, ?Vocabulary $schema, ?string $schemaKey): void

@@ -67,6 +67,16 @@ trait ExpandsDerivedConditions
             ));
         }
 
+        if ($definition->maxArgumentCount !== null && count($node->parameters) > $definition->maxArgumentCount) {
+            throw new InvalidArgumentException(sprintf(
+                'Condition [%s] on schema [%s] takes at most %d argument(s), but the rule supplied %d.',
+                $node->conditionKey->name,
+                $owner::class,
+                $definition->maxArgumentCount,
+                count($node->parameters),
+            ));
+        }
+
         $producer = SyntaxProducer::derivedCondition($schemaKey, $owner::class, $definition->key, $definition->methodName, $node);
         $values = self::argumentValues($node->parameters);
         $answer = $owner->invokeDerivedCondition($definition, $values);

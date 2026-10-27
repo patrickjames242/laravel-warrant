@@ -90,9 +90,11 @@ Each needs the values, so an editor, which has none, reports none of them.
 - `Condition [%s] is declared by neither schema [%s] nor any global schema.`
 - `Condition [%s] is declared by no global schema; the text global schema [%s] answers with looks only in the global schemas.`: a name in what a global schema's template or derived condition answered with, which is looked up in the global schemas alone.
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
+- `Condition [%s] takes at most %d argument(s), but the rule supplied %d.`: more arguments than the method has parameters for, when its last is not variadic.
 - `Global schemas [%s] and [%s] both declare %s [%s]; a name may be declared by only one global schema, since the one listed first would always be found. Rename one of them.`: a `LogicException` from any lookup that reaches the global schemas, and a `duplicate-global-name` diagnostic on the later declaration in the editor.
 - `Rule template [%s], named by an @include, is declared by neither schema [%s] nor any global schema.` (or `is declared by no global schema; …`, for an `@include` in a global schema's answer)
 - `Rule template [%s] requires %d argument(s), but the @include supplies %d.`
+- `Rule template [%s] takes at most %d argument(s), but the @include supplies %d.`
 
 A bound ability is checked against the schema too, when the values are given.
 
@@ -149,6 +151,7 @@ From the compiler, before a condition is called:
 
 - `Condition [%s] is declared by neither schema [%s] nor any global schema.` (or `is declared by no global schema; …`, as validation says it)
 - `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.`
+- `Condition [%s] on schema [%s] takes at most %d argument(s), but the rule supplied %d.`
 - `Condition [%s] on schema [%s] is a derived condition and reached the compiler unexpanded; …`: a rule set that skipped expansion.
 
 From the schema, on what the condition answered:
@@ -230,12 +233,12 @@ Thrown while a rule set is expanded, by the guard before its first check:
 
 - `InvalidArgumentException`: `Rule template [%s], named by an @include, is declared by neither schema [%s] nor any global schema.` Validation reports the same as written, before anything is expanded.
 - `InvalidArgumentException`: `The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list of them; got %s.` (or `stands for the one ability a can(...) reference asks about`) Validation reports the same when it checks binding values.
-- `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` Validation reports the same as written, too.
+- `InvalidArgumentException`: `Rule template [%s] requires %d argument(s), but the @include supplies %d.` (or `takes at most %d argument(s)`) Validation reports the same as written, too.
 - `RuntimeException`: `Rule template [%s::%s] must answer with rule text, a Warrant\DSL\Parsing\ASTNodes\WarrantSyntax, a rule or @include that names no abilities, or an iterable of them; got %s.`
 - `RuntimeException`: `Rule template [%s::%s] answered with a rule that names abilities; the @include that expands a template names the abilities its rules and includes take.` (or `an @include that names abilities`)
 - `RuntimeException`: `Rule template [%s::%s] answered with an ability block, which names abilities; ...`
 - `RuntimeException`: `Rule template [%s::%s] answered with rule text that is not rules and includes; a template answers with rules and includes that name no abilities.`
-- `InvalidArgumentException`: `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (a derived condition given too few arguments)
+- `InvalidArgumentException`: `Condition [%s] on schema [%s] requires at least %d argument(s), but the rule supplied %d.` (or `takes at most %d argument(s)`: a derived condition given too few arguments or too many)
 - `RuntimeException`: `Derived condition [%s::%s] must answer with an expression, a WarrantConditionBuilder, rule text, a WarrantSyntax, a bool or null; got %s.`
 - `RuleValidationException`: `` %s answered under a `for` header naming schema [%s]; it belongs to schema [%s]. ``: a template's or derived condition's answer under a header naming a schema other than its own. Validation reports it.
 - `RuleValidationException`: `` %s answered under a `for` header naming schema [%s]; a global schema answers with no header, since its names are looked up in the global schemas. ``: a global schema's template or derived condition answering under any header.

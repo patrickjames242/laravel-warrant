@@ -138,6 +138,7 @@ trait ReflectsRuleTemplates
             max(0, $method->getNumberOfRequiredParameters() - ($takesContext ? 1 : 0)),
             $takesContext,
             $attribute->callOncePerAbility,
+            $method->isVariadic() ? null : $method->getNumberOfParameters() - ($takesContext ? 1 : 0),
         );
     }
 }

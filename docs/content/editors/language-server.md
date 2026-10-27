@@ -21,7 +21,7 @@ its other packages and its extensions do not matter to it.
 
 - **Diagnostics.** Every syntax error in rule text, and every rule of the language
   it breaks: an ability, condition, template or schema that is not declared, a
-  condition given too few arguments, a `@column` naming a table that is not in
+  condition or template given too few arguments or too many, a `@column` naming a table that is not in
   scope. It reports them all at once, not just the first, each with a code such as
   `unknown-ability`.
 - **Hover** over a condition, ability, template, schema or context key, to see

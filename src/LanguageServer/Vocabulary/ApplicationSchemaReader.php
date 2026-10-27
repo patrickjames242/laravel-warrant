@@ -147,6 +147,7 @@ final class ApplicationSchemaReader
                 $item['method'],
                 constant(ConditionKind::class.'::'.$item['kind']),
                 (int) $item['requiredArgumentCount'],
+                isset($item['maxArgumentCount']) ? (int) $item['maxArgumentCount'] : null,
             )),
             $declarations('templates', static fn (array $item): RuleTemplateDefinition => new RuleTemplateDefinition(
                 $item['name'],
@@ -154,6 +155,7 @@ final class ApplicationSchemaReader
                 (int) $item['requiredArgumentCount'],
                 (bool) ($item['takesContext'] ?? false),
                 (bool) ($item['callOncePerAbility'] ?? false),
+                isset($item['maxArgumentCount']) ? (int) $item['maxArgumentCount'] : null,
             )),
             array_values((array) ($schema['requiredContextKeys'] ?? [])),
         );
@@ -192,6 +194,7 @@ final class ApplicationSchemaReader
                     'method' => $condition->methodName,
                     'kind' => $condition->kind->name,
                     'requiredArgumentCount' => $condition->requiredArgumentCount,
+                    'maxArgumentCount' => $condition->maxArgumentCount,
                     ...self::methodLocation($class, $condition->methodName, $condition->kind === ConditionKind::Derived ? 0 : 1),
                 ],
                 $schema->conditions(),
@@ -201,6 +204,7 @@ final class ApplicationSchemaReader
                     'name' => $template->key,
                     'method' => $template->methodName,
                     'requiredArgumentCount' => $template->requiredArgumentCount,
+                    'maxArgumentCount' => $template->maxArgumentCount,
                     'takesContext' => $template->takesContext,
                     'callOncePerAbility' => $template->callOncePerAbility,
                     ...self::methodLocation($class, $template->methodName, $template->takesContext ? 1 : 0),

@@ -306,6 +306,7 @@ rules once and use them for every check.
 |---|---|
 | `@include nope for view` | `Rule template [nope], named by an @include, is declared by neither schema [...] nor any global schema.` |
 | too few arguments | `Rule template [...] requires N argument(s), but the @include supplies M` |
+| too many arguments | `Rule template [...] takes at most N argument(s), but the @include supplies M` |
 | `@include x for not_an_ability` | `Ability [not_an_ability] is not declared by the schema` |
 | `@include x` in a schema's or provider's rules, under a `for` header or not | `... the rules for [docs] hold one that names none` |
 | a template's body under a `for` header naming another schema | `` Rule template [...] answered under a `for` header naming schema [...]; it belongs to schema [...] `` |

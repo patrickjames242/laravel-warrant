@@ -234,6 +234,17 @@ trait ExpandsRuleTemplates
             );
         }
 
+        if ($found->definition->maxArgumentCount !== null && count($include->arguments) > $found->definition->maxArgumentCount) {
+            throw new RuleValidationException(
+                DiagnosticCode::TooManyArguments,
+                LanguageRuleMessages::tooManyTemplateArguments(
+                    $include->templateKey->name,
+                    $found->definition->maxArgumentCount,
+                    count($include->arguments),
+                ),
+            );
+        }
+
         return $found;
     }
 }

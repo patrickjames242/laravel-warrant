@@ -17,11 +17,19 @@ it('reads each fragment as the editor\'s, for the schema it is about', function 
 });
 
 it('validates each fragment without binding values, which an editor never has', function () {
-    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n    if is_owner(:id) they can view\n    if is_owner they can edti\n}");
+    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n    if in_folder(:id) they can view\n    if is_owner they can edti\n}");
     [$analyzed] = $workspace->analyze($document);
 
     expect(array_map(static fn ($diagnostic): DiagnosticCode => $diagnostic->code, $analyzed->diagnostics))
         ->toBe([DiagnosticCode::UnknownAbility]);
+});
+
+it('reports a condition or template given more arguments than its method takes', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', "for documents {\n    if in_folder(1, 2) they can view\n    @include owner_edits(1) for edit\n}");
+    [$analyzed] = $workspace->analyze($document);
+
+    expect(array_map(static fn ($diagnostic): DiagnosticCode => $diagnostic->code, $analyzed->diagnostics))
+        ->toBe([DiagnosticCode::TooManyArguments, DiagnosticCode::TooManyArguments]);
 });
 
 it('reports the syntax errors of a fragment before the mistakes validating it finds', function () {
