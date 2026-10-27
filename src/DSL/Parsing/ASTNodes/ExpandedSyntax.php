@@ -33,7 +33,7 @@ final readonly class ExpandedSyntax
 {
     /**
      * @param string $schemaKey The schema the rules are for.
-     * @param list<RuleNode> $rules In source order, each include's rules
+     * @param list<ExpandedRule> $rules In source order, each include's rules
      *   where the include stood.
      * @param ValidationInput $input What the rules were expanded against, with
      *   no producer: an expanded syntax holds rules of many producers, and each
@@ -46,6 +46,17 @@ final readonly class ExpandedSyntax
     ) {}
 
     /**
+     * The syntax node each rule reads, in order: what a {@see WarrantSyntax}
+     * holds when the rules are written back out as text.
+     *
+     * @return list<RuleNode>
+     */
+    public function ruleNodes(): array
+    {
+        return array_map(static fn (ExpandedRule $rule): RuleNode => $rule->node, $this->rules);
+    }
+
+    /**
      * The rules in $syntaxes about $schemaKey, expanded against the schemas
      * $input names, joined in the order given. Rules about any other schema are
      * left out.
@@ -56,6 +67,13 @@ final readonly class ExpandedSyntax
             'Rules validated with no schema catalog have no schemas to be expanded against.',
         );
 
-        return new self($schemaKey, (new Expander($catalog))->expand($schemaKey, ...$syntaxes), $input);
+        return new self(
+            $schemaKey,
+            array_map(
+                static fn (RuleNode $rule): ExpandedRule => new ExpandedRule($rule),
+                (new Expander($catalog))->expand($schemaKey, ...$syntaxes),
+            ),
+            $input,
+        );
     }
 }

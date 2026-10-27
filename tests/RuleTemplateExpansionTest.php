@@ -354,10 +354,10 @@ it('expands an include into the rules its longhand would produce', function () {
     $expanded = expandSyntax('can they view { @include requires_approval }');
     $longhand = WarrantSyntax::parse("if is_advisor they cannot view because 'Needs approval.'")->validateWithoutSchemas()->scopedTo('course_sections');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(RuleNode::class);
-    expect($expanded->rules[0]->cannotAbilities())->toBe($longhand->entries[0]->cannotAbilities());
-    expect($expanded->rules[0]->messageFor('view'))->toBe('Needs approval.');
+    expect($expanded->ruleNodes())->toHaveCount(1);
+    expect($expanded->ruleNodes()[0])->toBeInstanceOf(RuleNode::class);
+    expect(deniedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(deniedAbilitiesOf($longhand->entries[0]));
+    expect(denialMessageOf($expanded->ruleNodes()[0], 'view'))->toBe('Needs approval.');
 });
 
 it('opens an ability block, applying its header to every rule and include in it', function () {
@@ -369,21 +369,21 @@ it('opens an ability block, applying its header to every rule and include in it'
         }
         WARRANT);
 
-    expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->canAbilities())->toBe(['view', 'publish']);
-    expect($expanded->rules[1]->cannotAbilities())->toBe(['view', 'publish']);
-    expect($expanded->rules[1]->messageFor('view'))->toBe('Locked.');
-    expect($expanded->rules[2]->canAbilities())->toBe(['view', 'publish']);
+    expect($expanded->ruleNodes())->toHaveCount(3);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view', 'publish']);
+    expect(deniedAbilitiesOf($expanded->ruleNodes()[1]))->toBe(['view', 'publish']);
+    expect(denialMessageOf($expanded->ruleNodes()[1], 'view'))->toBe('Locked.');
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[2]))->toBe(['view', 'publish']);
 });
 
 it('opens an empty ability block to no rules', function () {
-    expect(expandSyntax('can they view { }')->rules)->toBe([]);
+    expect(expandSyntax('can they view { }')->ruleNodes())->toBe([]);
 });
 
 it('gives the expanded rules the abilities the include named', function () {
     $expanded = expandSyntax('@include grants_it for view, publish');
 
-    expect($expanded->rules[0]->canAbilities())->toBe(['view', 'publish']);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view', 'publish']);
 });
 
 it('splices the expansion in where the include was written', function () {
@@ -393,48 +393,48 @@ it('splices the expansion in where the include was written', function () {
         if is_advisor they can archive
         WARRANT);
 
-    expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
-    expect($expanded->rules[1]->canAbilities())->toBe(['publish']);
-    expect($expanded->rules[1]->conditions)->toBeNull();
-    expect($expanded->rules[2]->conditions->conditionKey?->name)->toBe('is_advisor');
+    expect($expanded->ruleNodes())->toHaveCount(3);
+    expect($expanded->ruleNodes()[0]->conditions->conditionKey?->name)->toBe('is_teacher');
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[1]))->toBe(['publish']);
+    expect($expanded->ruleNodes()[1]->conditions)->toBeNull();
+    expect($expanded->ruleNodes()[2]->conditions->conditionKey?->name)->toBe('is_advisor');
 });
 
 it('hands a template its arguments through bindings', function () {
     $expanded = expandSyntax("@include with_relation('folder') for view");
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax((['folder']));
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax((['folder']));
 });
 
 it('binds a parameter by name in rule text the template answers with as a string', function () {
     $expanded = expandSyntax("@include relation_by_name('folder') for view");
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax(['folder']);
 });
 
 it('binds a parameter by its name in snake case', function () {
     $expanded = expandSyntax("@include relation_by_snake_name('folder') for view");
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax(['folder']);
 });
 
 it('binds a parameter the include left off to its default', function () {
     $expanded = expandSyntax('@include relation_by_default for view');
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['parent']);
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax(['parent']);
 });
 
 it('binds a variadic parameter to every argument from there on', function () {
     $expanded = expandSyntax("@include relations_by_variadic('folder', 'drive') for view");
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax([['folder', 'drive']]);
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax([['folder', 'drive']]);
 });
 
 it('binds parameters in each string of an iterable the template answers with', function () {
     $expanded = expandSyntax("@include relations_in_a_list('folder', 'drive') for view");
 
-    expect(argumentValues($expanded->rules[0]->conditions->parameters))->toEqualSyntax(['folder']);
-    expect(argumentValues($expanded->rules[1]->conditions->parameters))->toEqualSyntax(['drive']);
+    expect(argumentValues($expanded->ruleNodes()[0]->conditions->parameters))->toEqualSyntax(['folder']);
+    expect(argumentValues($expanded->ruleNodes()[1]->conditions->parameters))->toEqualSyntax(['drive']);
 });
 
 it('rejects a binding in a template\'s string naming no parameter', function () {
@@ -450,16 +450,16 @@ it('binds no parameter in a BoundSyntax the template answers with', function () 
 it('expands a template that includes another', function () {
     $expanded = expandSyntax('@include nests_another for view');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0])->toBeInstanceOf(RuleNode::class);
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->ruleNodes())->toHaveCount(1);
+    expect($expanded->ruleNodes()[0])->toBeInstanceOf(RuleNode::class);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
 });
 
 it('terminates a recursion whose argument decreases per level', function () {
     $expanded = expandSyntax('@include counts_down(3) for view');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->ruleNodes())->toHaveCount(1);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
 });
 
 it('leaves a set holding no includes exactly as it was', function () {
@@ -468,7 +468,7 @@ it('leaves a set holding no includes exactly as it was', function () {
     $expanded = expandedFor($set, new TemplateExpansionSchema);
 
     expect($expanded->schemaKey)->toBe($set->schemaKey());
-    expect($expanded->rules)->toBe($set->entries);
+    expect($expanded->ruleNodes())->toBe($set->entries);
 });
 
 // -- failures -----------------------------------------------------------------
@@ -497,33 +497,38 @@ it('rejects an include supplying too few arguments', function () {
 // -- the abilities a template is told -----------------------------------------
 
 it('tells a template every ability its include names, in one call', function () {
-    expect(expandSyntax('@include denies_naming_its_abilities for view, publish')->rules)
+    expect(expandSyntax('@include denies_naming_its_abilities for view, publish')->ruleNodes())
         ->toEqualSyntax(longhand("they cannot view, publish because 'view, publish'"));
 });
 
 it('tells a template the abilities of the block its include sits in', function () {
-    expect(expandSyntax('can they view, publish { @include denies_naming_its_abilities }')->rules)
+    expect(expandSyntax('can they view, publish { @include denies_naming_its_abilities }')->ruleNodes())
         ->toEqualSyntax(longhand("they cannot view, publish because 'view, publish'"));
 });
 
 it('calls a template declared callOncePerAbility once for each ability, each rule taking its own', function () {
-    expect(expandSyntax('@include denies_naming_its_ability for view, publish')->rules)
+    expect(expandSyntax('@include denies_naming_its_ability for view, publish')->ruleNodes())
         ->toEqualSyntax(longhand("they cannot view because 'view'", "they cannot publish because 'publish'"));
 });
 
 it('hands a template its arguments after its context', function () {
-    expect(expandSyntax("@include denies_naming_its_ability('No ') for view")->rules)
+    expect(expandSyntax("@include denies_naming_its_ability('No ') for view")->ruleNodes())
         ->toEqualSyntax(longhand("they cannot view because 'No view'"));
 });
 
 it('tells an include inside a per-ability template the one ability', function () {
-    expect(expandSyntax('@include nests_all_at_once for view, publish')->rules)
+    expect(expandSyntax('@include nests_all_at_once for view, publish')->ruleNodes())
         ->toEqualSyntax(longhand("they cannot view because 'view'", "they cannot publish because 'publish'"));
 });
 
-it('calls a per-ability template once for the wildcard, as written', function () {
-    expect(expandSyntax('@include denies_naming_its_ability for *')->rules)
-        ->toEqualSyntax(longhand("they cannot * because '*'"));
+it('calls a per-ability template once for each ability the wildcard stands for', function () {
+    expect(expandSyntax('@include denies_naming_its_ability for *')->ruleNodes())->toEqualSyntax(longhand(
+        "they cannot create because 'create'",
+        "they cannot publish because 'publish'",
+        "they cannot archive because 'archive'",
+        "they cannot view because 'view'",
+        "they cannot update because 'update'",
+    ));
 });
 
 it('refuses the one ability to a template not declared callOncePerAbility, even for one ability', function () {
@@ -534,31 +539,31 @@ it('refuses the one ability to a template not declared callOncePerAbility, even 
 it('expands a template answering with a rule that names no abilities', function () {
     $expanded = expandSyntax('@include answers_with_a_rule for view');
 
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
-    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
+    expect($expanded->ruleNodes()[0]->conditions->conditionKey?->name)->toBe('is_teacher');
 });
 
 it('expands a template answering with an include that names no abilities', function () {
     $expanded = expandSyntax('@include answers_with_an_include for view');
 
-    expect($expanded->rules)->toHaveCount(1);
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->ruleNodes())->toHaveCount(1);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
 });
 
 it('expands a template answering with an iterable of every form, in order', function () {
     $expanded = expandSyntax('@include answers_with_a_list for view');
 
-    expect($expanded->rules)->toHaveCount(3);
-    expect($expanded->rules[0]->conditions->conditionKey?->name)->toBe('is_teacher');
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
-    expect($expanded->rules[1]->cannotAbilities())->toBe(['view']);
-    expect($expanded->rules[1]->messageFor('view'))->toBe('No.');
-    expect($expanded->rules[2]->conditions)->toBeNull();
-    expect($expanded->rules[2]->canAbilities())->toBe(['view']);
+    expect($expanded->ruleNodes())->toHaveCount(3);
+    expect($expanded->ruleNodes()[0]->conditions->conditionKey?->name)->toBe('is_teacher');
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
+    expect(deniedAbilitiesOf($expanded->ruleNodes()[1]))->toBe(['view']);
+    expect(denialMessageOf($expanded->ruleNodes()[1], 'view'))->toBe('No.');
+    expect($expanded->ruleNodes()[2]->conditions)->toBeNull();
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[2]))->toBe(['view']);
 });
 
 it('expands a template answering with an empty iterable to no rules', function () {
-    expect(expandSyntax('@include answers_with_nothing for view')->rules)->toBe([]);
+    expect(expandSyntax('@include answers_with_nothing for view')->ruleNodes())->toBe([]);
 });
 
 it('rejects a template answering with a rule that names abilities', function () {
@@ -576,7 +581,7 @@ it('rejects a template answering with an include that names abilities', function
 });
 
 it('accepts a template answering with a rule set for its own schema', function () {
-    expect(expandSyntax('@include answers_with_a_rule_set for view')->rules)->toBe([]);
+    expect(expandSyntax('@include answers_with_a_rule_set for view')->ruleNodes())->toBe([]);
 });
 
 it('rejects a template answering with parsed rules that name abilities', function () {
@@ -597,8 +602,8 @@ it('rejects a template answering with a for block whose rules name abilities, as
 it('applies the include\'s abilities to a template\'s generic rules under a for header naming its own schema', function () {
     $expanded = expandSyntax('@include answers_under_its_own_header for view');
 
-    expect($expanded->rules)->toHaveCount(1)
-        ->and($expanded->rules[0]->canAbilities())->toBe(['view']);
+    expect($expanded->ruleNodes())->toHaveCount(1)
+        ->and(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
 });
 
 it('rejects a template answering under a for header naming another schema', function () {
@@ -697,9 +702,9 @@ it('derives a fresh trail per branch rather than sharing one', function () {
 
     $expanded = expandedFor($set, new TemplateExpansionSchema);
 
-    expect($expanded->rules)->toHaveCount(2);
-    expect($expanded->rules[0]->canAbilities())->toBe(['view']);
-    expect($expanded->rules[1]->canAbilities())->toBe(['publish']);
+    expect($expanded->ruleNodes())->toHaveCount(2);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[0]))->toBe(['view']);
+    expect(grantedAbilitiesOf($expanded->ruleNodes()[1]))->toBe(['publish']);
 });
 
 // -- compiling ----------------------------------------------------------------

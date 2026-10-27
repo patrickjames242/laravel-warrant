@@ -7,6 +7,7 @@ use Warrant\Builders\Build;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -300,7 +301,7 @@ it('rejects a condition compiled with fewer arguments than its required paramete
 
     /* Only the expander makes an expanded syntax, and it validates first; the
        compiler has to count the arguments on its own all the same. */
-    $expanded = (fn () => new ExpandedSyntax('course_sections', [$rule], new ValidationInput(null)))
+    $expanded = (fn () => new ExpandedSyntax('course_sections', [new ExpandedRule($rule)], new ValidationInput(null)))
         ->bindTo(null, ExpandedSyntax::class)();
 
     expect(fn () => (new RuleSetCompiler(new ParameterizedConditionSchema, 'course_sections'))->compile(

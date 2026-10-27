@@ -8,6 +8,7 @@ use Warrant\Builders\Build;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
@@ -140,7 +141,7 @@ it('refuses a condition compiled with more arguments than it takes, unvalidated'
 
     /* Only the expander makes an expanded syntax, and it validates first; the
        compiler has to count the arguments on its own all the same. */
-    $expanded = (fn () => new ExpandedSyntax('argument_count_docs', [$rule], new ValidationInput(null)))
+    $expanded = (fn () => new ExpandedSyntax('argument_count_docs', [new ExpandedRule($rule)], new ValidationInput(null)))
         ->bindTo(null, ExpandedSyntax::class)();
 
     expect(fn () => (new RuleSetCompiler(new ArgumentCountSchema, 'argument_count_docs'))->compile(

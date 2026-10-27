@@ -33,7 +33,7 @@ use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
-use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Resolution\FoundCondition;
 use Warrant\DSL\Resolution\KeyedSchemaId;
@@ -251,12 +251,12 @@ final class RuleSetCompiler
         foreach ($ruleSet->rules as $rule) {
             $this->assertRuleAbilitiesDeclared($rule);
 
-            if ($this->listsAbility($rule->canAbilities(), $ability)) {
-                $grants[] = $rule->conditions;
+            if (in_array($ability, $rule->grantedAbilities(), true)) {
+                $grants[] = $rule->node->conditions;
             }
 
-            if ($this->listsAbility($rule->cannotAbilities(), $ability)) {
-                $denies[] = $rule->conditions;
+            if ($rule->denies($ability)) {
+                $denies[] = $rule->node->conditions;
             }
         }
 
@@ -323,26 +323,6 @@ final class RuleSetCompiler
     }
 
     /**
-     * @param array<int, string> $abilities
-     */
-    private function listsAbility(array $abilities, string $ability): bool
-    {
-        return in_array($ability, $abilities, true) || in_array('*', $abilities, true);
-    }
-
-    /**
-     * Assert the schema being compiled declares $ability.
-     *
-     * The compiler's own guard against a name that resolves to nothing, held
-     * separately from validation because nothing makes validation run: a rule set
-     * can reach a compile without the guard that validates it. Both paths reach
-     * here.
-     *
-     * A rule may still grant an ability with `*`, which is why this asks the schema
-     * rather than the rule set — a wildcard grant would otherwise make any
-     * misspelling look granted.
-     */
-    /**
      * Every ability a rule lists must be one the schema declares.
      *
      * The mirror of {@see \Warrant\DSL\Validation\ValidatesRuleEntries}'s
@@ -353,14 +333,11 @@ final class RuleSetCompiler
      * A name nothing declares is otherwise silently inert rather than wrong. It
      * matches no ability being compiled, so the rule never fires, and a misspelt
      * `they can veiw` reads as a considered decision to grant nothing.
-     *
-     * `*` names no ability in particular but stands for all of them, so it is
-     * passed over.
      */
-    private function assertRuleAbilitiesDeclared(RuleNode $rule): void
+    private function assertRuleAbilitiesDeclared(ExpandedRule $rule): void
     {
-        foreach ([...$rule->canAbilities(), ...$rule->cannotAbilities()] as $ability) {
-            if ($ability !== '*' && $this->schema->ability($ability) === null) {
+        foreach ([...$rule->grantedAbilities(), ...$rule->deniedAbilities()] as $ability) {
+            if ($this->schema->ability($ability) === null) {
                 throw new InvalidArgumentException(
                     sprintf('Ability [%s] is not declared by the schema.', $ability)
                 );
@@ -368,6 +345,14 @@ final class RuleSetCompiler
         }
     }
 
+    /**
+     * Assert the schema being compiled declares $ability.
+     *
+     * The compiler's own guard against a name that resolves to nothing, held
+     * separately from validation because nothing makes validation run: a rule set
+     * can reach a compile without the guard that validates it. Both paths reach
+     * here.
+     */
     private function assertAbilityDeclared(string $ability): void
     {
         if ($this->schema->ability($ability) !== null) {

@@ -97,11 +97,12 @@ The context carries everything about the refusal:
 | `$c->schema` | `string` | the schema class |
 | `$c->context` | `array` | the effective check-time context |
 | `$c->gate` | `WarrantGate` | what was asked: `abilities` and `matchMode` |
-| `$c->rule` | `RuleNode` | the responsible `cannot` |
-| `$c->deniedAbilities` | `array` | the concrete abilities this message explains, with `*` resolved |
+| `$c->rule` | `ExpandedRule` | the responsible `cannot` |
+| `$c->deniedAbilities` | `array` | the concrete abilities this message explains |
 
-`deniedAbilities` has the wildcard expanded, so a per-cannot-clause message sees only the
-abilities it is about.
+A `*` in the rule is expanded to every ability the schema declares, so
+`deniedAbilities`, like `$c->rule`, never holds a wildcard, and a per-cannot-clause
+message sees only the abilities it is about.
 
 ## How the responsible rule is chosen
 

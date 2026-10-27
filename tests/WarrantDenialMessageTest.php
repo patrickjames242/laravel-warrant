@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Build;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -440,7 +441,7 @@ it('passes the resolved target model and ability into the closure context', func
     expect($captured->gate->abilities)->toBe(['update']);
     expect($captured->gate->matchMode)->toBe(AbilityMatchMode::ALL);
     expect($captured->deniedAbilities)->toBe(['update']);
-    expect($captured->rule)->toBeInstanceOf(RuleNode::class);
+    expect($captured->rule)->toBeInstanceOf(ExpandedRule::class);
     expect($captured->schema)->toBe(WarrantTestSchema::class);
 });
 

@@ -107,7 +107,7 @@ class WhenBlockSchema extends ModelSchema
  */
 function whenExpanded(string|BoundSyntax $syntax): array
 {
-    return expandedFor(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('when_docs'), new WhenBlockSchema)->rules;
+    return expandedFor(WarrantSyntax::parse($syntax)->validateWithoutSchemas()->scopedTo('when_docs'), new WhenBlockSchema)->ruleNodes();
 }
 
 /**

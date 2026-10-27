@@ -2,11 +2,8 @@
 
 namespace Warrant\DSL\Parsing\ASTNodes;
 
-use Closure;
 use InvalidArgumentException;
-use LogicException;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
-use Warrant\Schema\Denials\WarrantDenialContext;
 
 /**
  * One rule: a condition, and the abilities it grants and denies when that
@@ -21,13 +18,13 @@ readonly class RuleNode implements IRuleEntryNode
 {
     /**
      * @param list<CanClauseNode> $canClauses The granted abilities, one can clause
-     *   per `they can` written. Flatten with {@see canAbilities()}.
+     *   per `they can` written.
      * @param list<CannotClauseNode> $cannotClauses The denied abilities, grouped into
-     *   cannot clauses so each group can carry its own denial message. Flatten with
-     *   {@see cannotAbilities()}; resolve an ability's message with
-     *   {@see messageFor()}. A denial message is only ever surfaced for a matching
-     *   `cannot`, so it lives on a cannot clause — a rule that only grants has no place
-     *   for one.
+     *   cannot clauses so each group can carry its own denial message. A denial
+     *   message is only ever surfaced for a matching `cannot`, so it lives on a
+     *   cannot clause — a rule that only grants has no place for one. Which
+     *   abilities a rule grants and denies, and with what message, is read off
+     *   it once it is expanded, by {@see ExpandedRule}.
      */
     public function __construct(
         public ?IBooleanExpressionNode $conditions,
@@ -52,24 +49,6 @@ readonly class RuleNode implements IRuleEntryNode
                 ));
             }
         }
-    }
-
-    /**
-     * Every granted ability, flattened across all can clauses in order.
-     *
-     * @return list<string>
-     */
-    public function canAbilities(): array
-    {
-        $abilities = [];
-
-        foreach ($this->canClauses as $clause) {
-            foreach ($clause->abilities as $ability) {
-                $abilities[] = self::nameOf($ability);
-            }
-        }
-
-        return $abilities;
     }
 
     /**
@@ -126,112 +105,6 @@ readonly class RuleNode implements IRuleEntryNode
             ),
             $this->location,
         );
-    }
-
-    /**
-     * Every denied ability, flattened across all cannot clauses in order. Used by the
-     * compiler / reachability / validator as a plain membership list; messages
-     * are irrelevant there.
-     *
-     * @return list<string>
-     */
-    public function cannotAbilities(): array
-    {
-        $abilities = [];
-
-        foreach ($this->cannotClauses as $clause) {
-            foreach ($clause->abilities as $ability) {
-                $abilities[] = self::nameOf($ability);
-            }
-        }
-
-        return $abilities;
-    }
-
-    /**
-     * Whether this rule denies $ability — it appears in some cannot clause, or a cannot clause
-     * denies `*`.
-     */
-    public function deniesAbility(string $ability): bool
-    {
-        foreach ($this->cannotClauses as $clause) {
-            $names = self::abilityNames($clause);
-
-            if (in_array($ability, $names, true) || in_array('*', $names, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * The denial message for $ability: the first cannot clause that lists it wins; else
-     * the first cannot clause that denies `*`; else null (no message). An exact listing
-     * always beats a `*` cannot clause. The message is its value, as a literal holds it
-     * or a binding's source gives it.
-     *
-     * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null
-     */
-    public function messageFor(string $ability): string|Closure|null
-    {
-        $wildcard = null;
-        $wildcardFound = false;
-
-        foreach ($this->cannotClauses as $clause) {
-            $names = self::abilityNames($clause);
-
-            if (in_array($ability, $names, true)) {
-                return self::messageValue($clause->message);
-            }
-
-            if (! $wildcardFound && in_array('*', $names, true)) {
-                $wildcard = self::messageValue($clause->message);
-                $wildcardFound = true;
-            }
-        }
-
-        return $wildcard;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function abilityNames(CannotClauseNode $clause): array
-    {
-        return array_map(self::nameOf(...), $clause->abilities);
-    }
-
-    /**
-     * The ability $ability names. A binding names none until expansion puts its
-     * value in its place, so only an expanded rule's abilities can be read.
-     */
-    private static function nameOf(NameNode|BindingNode $ability): string
-    {
-        if ($ability instanceof BindingNode) {
-            throw new LogicException(sprintf(
-                'The ability binding [:%s] names no ability until the rule is expanded.',
-                $ability->name,
-            ));
-        }
-
-        return $ability->name;
-    }
-
-    /**
-     * @return string|Closure(WarrantDenialContext):(string|\Throwable)|null
-     */
-    private static function messageValue(?INode $message): string|Closure|null
-    {
-        return match (true) {
-            $message === null => null,
-            $message instanceof BindingNode => $message->value(),
-            $message instanceof LiteralNode => $message->value,
-            default => throw new InvalidArgumentException(sprintf(
-                'A denial message is a literal or a binding, got %s.',
-                get_debug_type($message),
-            )),
-        };
     }
 
     public function hasCannot(): bool

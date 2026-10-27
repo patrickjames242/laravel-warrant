@@ -112,8 +112,8 @@ it('parses a single rule with can and cannot clauses', function () {
     $rule = $set->entries[0];
     expect($rule->conditions)->toBeInstanceOf(ConditionNode::class);
     expect($rule->conditions->conditionKey?->name)->toBe('is_self');
-    expect($rule->canAbilities())->toBe(['edit', 'view', 'delete']);
-    expect($rule->cannotAbilities())->toBe(['approve', 'deny']);
+    expect(grantedAbilitiesOf($rule))->toBe(['edit', 'view', 'delete']);
+    expect(deniedAbilitiesOf($rule))->toBe(['approve', 'deny']);
 });
 
 it('parses multiple rules in one string', function () {
@@ -138,8 +138,8 @@ it('parses an unconditional rule (no if) with null conditions', function () {
 
     expect($set->entries)->toHaveCount(1);
     expect($set->entries[0]->conditions)->toBeNull();
-    expect($set->entries[0]->canAbilities())->toBe(['view']);
-    expect($set->entries[0]->cannotAbilities())->toBe(['delete']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['view']);
+    expect(deniedAbilitiesOf($set->entries[0]))->toBe(['delete']);
 });
 
 it('allows an empty rule set', function () {
@@ -157,10 +157,10 @@ it('treats whitespace as insignificant (whole ruleset on one line)', function ()
 
     expect($set->entries)->toHaveCount(2);
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_self');
-    expect($set->entries[0]->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['edit']);
     expect($set->entries[1]->conditions->conditionKey?->name)->toBe('is_manager');
-    expect($set->entries[1]->canAbilities())->toBe(['approve']);
-    expect($set->entries[1]->cannotAbilities())->toBe(['delete']);
+    expect(grantedAbilitiesOf($set->entries[1]))->toBe(['approve']);
+    expect(deniedAbilitiesOf($set->entries[1]))->toBe(['delete']);
 });
 
 // -- Boolean expressions ------------------------------------------------------
@@ -596,8 +596,8 @@ it('parses wildcard abilities on can and cannot', function () {
         they cannot *
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
-    expect($set->entries[0]->canAbilities())->toBe(['*']);
-    expect($set->entries[1]->cannotAbilities())->toBe(['*']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['*']);
+    expect(deniedAbilitiesOf($set->entries[1]))->toBe(['*']);
 });
 
 // -- Identifiers --------------------------------------------------------------
@@ -606,7 +606,7 @@ it('allows dashes inside condition and ability names', function () {
     $set = WarrantSyntax::parse('if is-department-manager they can soft-delete')->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is-department-manager');
-    expect($set->entries[0]->canAbilities())->toBe(['soft-delete']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['soft-delete']);
 });
 
 // -- Single-rule factory ------------------------------------------------------
@@ -615,14 +615,14 @@ it('parses a single unconditional rule', function () {
     $rule = WarrantSyntax::parse('they cannot publish')->validateWithoutSchemas()->rule();
 
     expect($rule->conditions)->toBeNull();
-    expect($rule->cannotAbilities())->toBe(['publish']);
+    expect(deniedAbilitiesOf($rule))->toBe(['publish']);
 });
 
 it('parses a single conditional rule with a binding', function () {
     $rule = WarrantSyntax::parse(new BoundSyntax('if some_condition(:p) they can edit', ['p' => 'v']))->validateWithoutSchemas()->rule();
 
     expect(argumentValues($rule->conditions->parameters))->toEqualSyntax((['v']));
-    expect($rule->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($rule))->toBe(['edit']);
 });
 
 it('refuses to answer a single rule for source holding several', function () {
@@ -638,33 +638,33 @@ it('parses a string denial message after a cannot clause', function () {
         they cannot edit because 'This row is locked.'
         WARRANT)->validateWithoutSchemas()->rule();
 
-    expect($rule->cannotAbilities())->toBe(['edit']);
-    expect($rule->messageFor('edit'))->toBe('This row is locked.');
+    expect(deniedAbilitiesOf($rule))->toBe(['edit']);
+    expect(denialMessageOf($rule, 'edit'))->toBe('This row is locked.');
 });
 
 it('unescapes quotes in a denial message', function () {
     $rule = WarrantSyntax::parse("they cannot edit because 'can\\'t touch this'")->validateWithoutSchemas()->rule();
 
-    expect($rule->messageFor('edit'))->toBe("can't touch this");
+    expect(denialMessageOf($rule, 'edit'))->toBe("can't touch this");
 });
 
 it('leaves the message null when no because clause is present', function () {
     $rule = WarrantSyntax::parse('they cannot edit')->validateWithoutSchemas()->rule();
 
-    expect($rule->messageFor('edit'))->toBeNull();
+    expect(denialMessageOf($rule, 'edit'))->toBeNull();
 });
 
 it('resolves a named binding message to a string', function () {
     $rule = WarrantSyntax::parse(new BoundSyntax('they cannot edit because :msg', ['msg' => 'locked']))->validateWithoutSchemas()->rule();
 
-    expect($rule->messageFor('edit'))->toBe('locked');
+    expect(denialMessageOf($rule, 'edit'))->toBe('locked');
 });
 
 it('accepts a closure resolved from a binding as the message', function () {
     $closure = fn () => 'dynamic';
     $rule = WarrantSyntax::parse(new BoundSyntax('they cannot edit because :msg', ['msg' => $closure]))->validateWithoutSchemas()->rule();
 
-    expect($rule->messageFor('edit'))->toBe($closure);
+    expect(denialMessageOf($rule, 'edit'))->toBe($closure);
 });
 
 it('keeps a can clause and a message-bearing cannot in one rule', function () {
@@ -673,9 +673,9 @@ it('keeps a can clause and a message-bearing cannot in one rule', function () {
         they cannot edit because 'locked'
         WARRANT)->validateWithoutSchemas()->rule();
 
-    expect($rule->canAbilities())->toBe(['view']);
-    expect($rule->cannotAbilities())->toBe(['edit']);
-    expect($rule->messageFor('edit'))->toBe('locked');
+    expect(grantedAbilitiesOf($rule))->toBe(['view']);
+    expect(deniedAbilitiesOf($rule))->toBe(['edit']);
+    expect(denialMessageOf($rule, 'edit'))->toBe('locked');
 });
 
 it('gives each cannot clause its own message on a single rule', function () {
@@ -683,18 +683,18 @@ it('gives each cannot clause its own message on a single rule', function () {
         "if is_locked they cannot update because 'no update' they cannot delete because 'no delete'",
     )->validateWithoutSchemas()->rule();
 
-    expect($rule->cannotAbilities())->toBe(['update', 'delete']);
+    expect(deniedAbilitiesOf($rule))->toBe(['update', 'delete']);
     expect($rule->cannotClauses)->toHaveCount(2);
-    expect($rule->messageFor('update'))->toBe('no update');
-    expect($rule->messageFor('delete'))->toBe('no delete');
+    expect(denialMessageOf($rule, 'update'))->toBe('no update');
+    expect(denialMessageOf($rule, 'delete'))->toBe('no delete');
 });
 
 it('mixes message-less and message-bearing cannot clauses on one rule', function () {
     $rule = WarrantSyntax::parse("they cannot archive they cannot edit because 'locked'")->validateWithoutSchemas()->rule();
 
-    expect($rule->cannotAbilities())->toBe(['archive', 'edit']);
-    expect($rule->messageFor('archive'))->toBeNull();
-    expect($rule->messageFor('edit'))->toBe('locked');
+    expect(deniedAbilitiesOf($rule))->toBe(['archive', 'edit']);
+    expect(denialMessageOf($rule, 'archive'))->toBeNull();
+    expect(denialMessageOf($rule, 'edit'))->toBe('locked');
 });
 
 it('groups multiple abilities in one cannot clause under one message', function () {
@@ -702,8 +702,8 @@ it('groups multiple abilities in one cannot clause under one message', function 
 
     expect($rule->cannotClauses)->toHaveCount(1);
     expect($rule->cannotClauses[0]->abilities)->toEqualSyntax(array_map(nameNode(...), ['update', 'delete']));
-    expect($rule->messageFor('update'))->toBe('locked');
-    expect($rule->messageFor('delete'))->toBe('locked');
+    expect(denialMessageOf($rule, 'update'))->toBe('locked');
+    expect(denialMessageOf($rule, 'delete'))->toBe('locked');
 });
 
 it('rejects because after a can clause, an empty one too', function (string $syntax) {
@@ -788,7 +788,7 @@ it('ignores a full-line comment', function () {
 
     expect($set->entries)->toHaveCount(1);
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_self');
-    expect($set->entries[0]->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['edit']);
 });
 
 it('ignores a trailing comment on a line', function () {
@@ -799,21 +799,21 @@ it('ignores a trailing comment on a line', function () {
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_self');
-    expect($set->entries[0]->canAbilities())->toBe(['edit']);
-    expect($set->entries[0]->cannotAbilities())->toBe(['approve']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['edit']);
+    expect(deniedAbilitiesOf($set->entries[0]))->toBe(['approve']);
 });
 
 it('ignores a comment with no trailing newline at end of source', function () {
     $rules = WarrantSyntax::parse('if is_self they can edit # trailing')->validateWithoutSchemas()->ruleEntries();
 
     expect($rules)->toHaveCount(1);
-    expect($rules[0]->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['edit']);
 });
 
 it('does not let a comment merge the tokens on either side of it', function () {
     $rules = WarrantSyntax::parse("if is_self they can # comment\n edit")->validateWithoutSchemas()->ruleEntries();
 
-    expect($rules[0]->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['edit']);
 });
 
 it('keeps a "#" inside a string literal as a literal character', function () {
@@ -834,7 +834,7 @@ it('parses an unbound can(...) handle (capability schema, no row)', function () 
     expect($node->isRowBound)->toBeFalse();
     expect(argumentValues($node->boundKey))->toEqualSyntax(([]));
     expect($node->contextMap)->toEqualSyntax(withEntries([]));
-    expect($rules[0]->canAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['view']);
 });
 
 it('parses a row-bound can(...) handle with a @context row selector', function () {
@@ -931,7 +931,7 @@ it('parses an unbound check(...) handle with a global condition', function () {
     expect($node->predicate)->toBeInstanceOf(ConditionNode::class);
     expect($node->predicate->conditionKey?->name)->toBe('is_open');
     expect(argumentValues($node->predicate->parameters))->toEqualSyntax((['maintenance']));
-    expect($rules[0]->cannotAbilities())->toBe(['update']);
+    expect(deniedAbilitiesOf($rules[0]))->toBe(['update']);
 });
 
 it('parses a row-bound check(...) handle with a @context row selector', function () {
@@ -1181,18 +1181,20 @@ it('reads a header with nothing after it as an empty rule set, not a condition',
  * written; expansion is what applies its header.
  *
  * The rules are validated against a vocabulary declaring every name they use, so
- * the block tests can name whatever reads best.
+ * the block tests can name whatever reads best. It declares $abilities as the
+ * schema's abilities when given, which is what a `*` expands to.
  *
+ * @param list<string>|null $abilities
  * @return list<RuleNode>
  */
-function openBlocks(RuleSetNode $set): array
+function openBlocks(RuleSetNode $set, ?array $abilities = null): array
 {
     registerWarrantSchema($set->schemaKey(), EveryNameSchema::class);
 
     $names = everyNameIn($set);
     $vocabulary = new Vocabulary(
         EveryNameSchema::class,
-        array_map(static fn (string $name): AbilityDefinition => new AbilityDefinition($name), $names),
+        array_map(static fn (string $name): AbilityDefinition => new AbilityDefinition($name), $abilities ?? $names),
         array_map(static fn (string $name): ConditionDefinition => new ConditionDefinition($name, $name, ConditionKind::Global), $names),
         [],
         null,
@@ -1201,7 +1203,7 @@ function openBlocks(RuleSetNode $set): array
     $input = new ValidationInput(catalogOf([$set->schemaKey() => $vocabulary], Warrant::registry()));
     $syntax = producedFor(new WarrantSyntax([$set], $set->location->source), $set->schemaKey(), GenericMode::RequireNotGeneric);
 
-    return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input))->rules;
+    return ExpandedSyntax::expand($set->schemaKey(), $input, ValidSyntax::of($syntax, $input))->ruleNodes();
 }
 
 /**
@@ -1244,12 +1246,12 @@ it('parses an ability block into the rules its longhand would produce', function
     expect(openBlocks($block))->toHaveCount(2);
 
     foreach (openBlocks($block) as $index => $rule) {
-        expect($rule->canAbilities())->toBe($longhand->entries[$index]->canAbilities());
-        expect($rule->cannotAbilities())->toBe($longhand->entries[$index]->cannotAbilities());
+        expect(grantedAbilitiesOf($rule))->toBe(grantedAbilitiesOf($longhand->entries[$index]));
+        expect(deniedAbilitiesOf($rule))->toBe(deniedAbilitiesOf($longhand->entries[$index]));
         expect($rule->conditions->conditionKey?->name)->toBe($longhand->entries[$index]->conditions->conditionKey->name);
     }
 
-    expect(openBlocks($block)[1]->messageFor('view'))->toBe('Locked.');
+    expect(denialMessageOf(openBlocks($block)[1], 'view'))->toBe('Locked.');
 });
 
 it('gives every can/cannot clause of a block the whole header ability list', function () {
@@ -1259,7 +1261,7 @@ it('gives every can/cannot clause of a block the whole header ability list', fun
         }
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['edit', 'delete']);
+    expect(grantedAbilitiesOf(openBlocks($set)[0]))->toBe(['edit', 'delete']);
 });
 
 it('accepts a wildcard block header', function () {
@@ -1270,8 +1272,8 @@ it('accepts a wildcard block header', function () {
         }
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['*']);
-    expect(openBlocks($set)[1]->cannotAbilities())->toBe(['*']);
+    expect(grantedAbilitiesOf(openBlocks($set, ['view', 'edit'])[0]))->toBe(['view', 'edit']);
+    expect(deniedAbilitiesOf(openBlocks($set, ['view', 'edit'])[1]))->toBe(['view', 'edit']);
 });
 
 it('carries several can/cannot clauses of one block rule onto the same rule', function () {
@@ -1284,8 +1286,8 @@ it('carries several can/cannot clauses of one block rule onto the same rule', fu
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect(openBlocks($set))->toHaveCount(1);
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['view']);
-    expect(openBlocks($set)[0]->cannotAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf(openBlocks($set)[0]))->toBe(['view']);
+    expect(deniedAbilitiesOf(openBlocks($set)[0]))->toBe(['view']);
 });
 
 it('mixes plain rules and ability blocks in one rule set', function () {
@@ -1300,9 +1302,9 @@ it('mixes plain rules and ability blocks in one rule set', function () {
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect(openBlocks($set))->toHaveCount(3);
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['*']);
-    expect(openBlocks($set)[1]->canAbilities())->toBe(['view']);
-    expect(openBlocks($set)[2]->cannotAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf(openBlocks($set, ['view', 'edit'])[0]))->toBe(['view', 'edit']);
+    expect(grantedAbilitiesOf(openBlocks($set)[1]))->toBe(['view']);
+    expect(deniedAbilitiesOf(openBlocks($set)[2]))->toBe(['edit']);
 });
 
 it('allows an unconditional rule after an ability block', function () {
@@ -1316,7 +1318,7 @@ it('allows an unconditional rule after an ability block', function () {
 
     expect(openBlocks($set))->toHaveCount(2);
     expect(openBlocks($set)[1]->conditions)->toBeNull();
-    expect(openBlocks($set)[1]->canAbilities())->toBe(['list']);
+    expect(grantedAbilitiesOf(openBlocks($set)[1]))->toBe(['list']);
 });
 
 it('parses an ability block inside a for block and in a group', function () {
@@ -1329,7 +1331,7 @@ it('parses an ability block inside a for block and in a group', function () {
         WARRANT)->validateWithoutSchemas()->ruleSet();
 
     expect($set->schemaKey?->name)->toBe('timesheets');
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf(openBlocks($set)[0]))->toBe(['view']);
 });
 
 it('accepts an empty ability block, as a for block does', function () {
@@ -1350,8 +1352,8 @@ it('allows the same ability in more than one block header', function () {
         WARRANT)->validateWithoutSchemas()->scopedTo('timesheets');
 
     expect(openBlocks($set))->toHaveCount(2);
-    expect(openBlocks($set)[0]->canAbilities())->toBe(['view', 'edit']);
-    expect(openBlocks($set)[1]->canAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf(openBlocks($set)[0]))->toBe(['view', 'edit']);
+    expect(grantedAbilitiesOf(openBlocks($set)[1]))->toBe(['view']);
 });
 
 it('rejects a can/cannot clause inside an ability block naming its own abilities', function () {

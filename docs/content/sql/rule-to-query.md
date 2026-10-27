@@ -92,8 +92,8 @@ whole branches.
 
 ## One predicate per ability
 
-For each requested ability the compiler gathers every rule mentioning it, or `*`,
-and folds them into one predicate. Grants `OR`; denials contribute their negation to
+For each requested ability the compiler gathers every rule mentioning it, a `*`
+having been expanded to every ability the schema declares, and folds them into one predicate. Grants `OR`; denials contribute their negation to
 an `AND`:
 
 ```text

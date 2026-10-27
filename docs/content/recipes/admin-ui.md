@@ -172,7 +172,7 @@ public function effective(User $user, string $schemaKey)
     );
 
     return [
-        'syntax' => (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax(),
+        'syntax' => (new WarrantSyntax($guard->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas()->toSyntax(),
         'rules'  => count($guard->expandedRuleSet()->rules),
     ];
 }

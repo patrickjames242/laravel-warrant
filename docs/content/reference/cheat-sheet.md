@@ -219,7 +219,7 @@ new NoRow;
 ## Introspection
 
 ```php
-(new WarrantSyntax(Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax();
+(new WarrantSyntax(Warrant::forSchema(Document::class, $user)->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas()->toSyntax();
 Warrant::registry()->registeredSchemas();
 Warrant::registry()->resolveSchemaKeyOrFail(Document::class);
 

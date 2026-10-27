@@ -29,7 +29,8 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  * How {@see Expander} expands an `@include`: it calls the template the
  * include names with the include's arguments, hands over what the template
  * answers with as the template's own syntax, validates it, and splices in its
- * generic rules and includes with the abilities the include names.
+ * generic rules and includes with the abilities the include names, `*` replaced
+ * by the abilities the schema declares.
  *
  * @internal
  */
@@ -52,20 +53,21 @@ trait ExpandsRuleTemplates
         $producer = SyntaxProducer::ruleTemplate($schemaKey, $owner::class, $definition->key, $definition->methodName, $include);
 
         $arguments = self::argumentValues($include->arguments);
+        $abilities = $this->abilitiesWithStarExpanded($include->abilities, $schemaKey);
 
         /* A template is called once for all the include's abilities, or, declared
            callOncePerAbility, once for each of them, each call's rules taking its
            ability alone. */
         $calls = $definition->callOncePerAbility
-            ? array_map(static fn (NameNode $ability): array => [$ability], $include->abilities)
-            : [$include->abilities];
+            ? array_map(static fn (NameNode $ability): array => [$ability], $abilities)
+            : [$abilities];
 
         $expanded = [];
 
-        foreach ($calls as $abilities) {
+        foreach ($calls as $callAbilities) {
             $context = $definition->takesContext
                 ? new RuleTemplateContext(
-                    array_map(static fn (NameNode $ability): string => $ability->name, $abilities),
+                    array_map(static fn (NameNode $ability): string => $ability->name, $callAbilities),
                     $definition->callOncePerAbility,
                 )
                 : null;
@@ -91,7 +93,7 @@ trait ExpandsRuleTemplates
                abilities its can/cannot clauses take, so they are applied here. */
             $entries = array_map(
                 static fn (RuleNode|IncludeInvocationNode|WhenBlockNode $entry): RuleNode|IncludeInvocationNode|WhenBlockNode
-                    => $entry->withAbilities($abilities),
+                    => $entry->withAbilities($callAbilities),
                 $generic,
             );
 

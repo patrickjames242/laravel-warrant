@@ -10,6 +10,7 @@ use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -229,15 +230,15 @@ it('leaves the call in the expanded tree, around the expression it answered with
         new DkDocSchema,
     );
 
-    $node = $expanded->rules[0]->conditions;
+    $node = $expanded->ruleNodes()[0]->conditions;
 
     expect($node)->toBeInstanceOf(DerivedConditionNode::class);
     expect($node->conditionKey?->name)->toBe('owned_or_tenant');
     expect($node->parameters[0])->toBeInstanceOf(ContextRef::class);
 
     // Written back out, it reads as the rule wrote it, not as what it expanded to.
-    expect(writeSyntax($expanded->rules[0]))->toContain('owned_or_tenant(@context tenant)');
-    expect(writeSyntax($expanded->rules[0]))->not->toContain('in_tenant');
+    expect(writeSyntax($expanded->ruleNodes()[0]))->toContain('owned_or_tenant(@context tenant)');
+    expect(writeSyntax($expanded->ruleNodes()[0]))->not->toContain('in_tenant');
 });
 
 it('refuses to compile a derived condition nobody expanded', function () {
@@ -250,7 +251,7 @@ it('refuses to compile a derived condition nobody expanded', function () {
             'view',
             // Made in the class's own scope, as nothing outside it may: the compiler's
             // own check is what is under test, for rules that skipped the expansion.
-            Closure::bind(static fn () => new ExpandedSyntax('dk_docs', [$rule], new ValidationInput(null)), null, ExpandedSyntax::class)(),
+            Closure::bind(static fn () => new ExpandedSyntax('dk_docs', [new ExpandedRule($rule)], new ValidationInput(null)), null, ExpandedSyntax::class)(),
         )->forTargetRow(),
     ))->toThrow(InvalidArgumentException::class, 'reached the compiler unexpanded');
 });

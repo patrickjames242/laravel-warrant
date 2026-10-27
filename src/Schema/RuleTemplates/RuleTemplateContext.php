@@ -11,7 +11,7 @@ use LogicException;
  * A template asks for it by declaring it as its first parameter; the DSL
  * arguments follow. The abilities are the ones the include names, from its own
  * `for` list, the ability block around it, or the include that expanded the
- * template it sits in, exactly as written, so the wildcard arrives as `*`.
+ * template it sits in, with a `*` replaced by every ability the schema declares.
  *
  * The template still answers with rules that name no abilities. Knowing them
  * lets it choose what those rules say, and the include applies them as it always

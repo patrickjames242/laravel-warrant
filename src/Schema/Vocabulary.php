@@ -87,6 +87,14 @@ final readonly class Vocabulary
     }
 
     /**
+     * @return list<string> The name of every ability, in declaration order.
+     */
+    public function abilityNames(): array
+    {
+        return array_map('strval', array_keys($this->abilities));
+    }
+
+    /**
      * @return list<string> The key of every condition, of every kind.
      */
     public function conditionKeys(): array

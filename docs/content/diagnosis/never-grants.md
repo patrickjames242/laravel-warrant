@@ -17,7 +17,7 @@ Before anything else:
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-(new WarrantSyntax(Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax();
+(new WarrantSyntax(Warrant::forSchema(Document::class, $user)->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas()->toSyntax();
 ```
 
 That is the merged, validated set actually in play, including the schema's own

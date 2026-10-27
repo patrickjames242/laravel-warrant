@@ -222,8 +222,9 @@ all of them, and would break the day a second is added. A template declared
 `callOncePerAbility` must take a `RuleTemplateContext`, since without one every call
 answers the same.
 
-The wildcard is passed as written: `@include frozen for *` calls a per-ability
-template once, and `ability()` returns `'*'`.
+The wildcard is expanded before the template is called: `$abilities` lists every
+ability the schema declares, and `@include frozen for *` calls a per-ability
+template once for each of them.
 
 ## What a template may answer with
 

@@ -141,7 +141,7 @@ it('quotes a written denial message so it needs no escapes', function () {
 it('round-trips a string denial message through the inline form', function () {
     $rule = WarrantSyntax::parse("if is_locked they cannot edit because 'locked'")->validateWithoutSchemas()->rule();
 
-    expect(WarrantSyntax::parse(writeSyntax($rule))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe('locked');
+    expect(denialMessageOf(WarrantSyntax::parse(writeSyntax($rule))->validateWithoutSchemas()->rule(), 'edit'))->toBe('locked');
 });
 
 it('extracts a string denial message as a named binding in bound form', function () {
@@ -153,7 +153,7 @@ it('extracts a string denial message as a named binding in bound form', function
     expect($bound->bindings)->toBe(['b0' => 'locked']);
 
     // Re-parsing the bound form restores the message.
-    expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe('locked');
+    expect(denialMessageOf(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule(), 'edit'))->toBe('locked');
 });
 
 it('orders the message binding after the condition bindings', function () {
@@ -173,7 +173,7 @@ it('carries a closure denial message losslessly through the bound form', functio
 
     expect($bound->syntax)->toBe('they cannot edit because :b0');
     expect($bound->bindings)->toBe(['b0' => $closure]);
-    expect(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule()->messageFor('edit'))->toBe($closure);
+    expect(denialMessageOf(WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule(), 'edit'))->toBe($closure);
 });
 
 it('throws when writing a closure denial message inline', function () {
@@ -196,8 +196,8 @@ it('renders one they-cannot line per cannot clause and round-trips them', functi
     // Re-parsing yields the same single rule with both cannot clause messages.
     $reparsed = WarrantSyntax::parse(writeSyntax($rule))->validateWithoutSchemas()->rule();
     expect($reparsed->cannotClauses)->toHaveCount(2);
-    expect($reparsed->messageFor('update'))->toBe('no update');
-    expect($reparsed->messageFor('delete'))->toBe('no delete');
+    expect(denialMessageOf($reparsed, 'update'))->toBe('no update');
+    expect(denialMessageOf($reparsed, 'delete'))->toBe('no delete');
 });
 
 // -- context references (@context) --------------------------------------------

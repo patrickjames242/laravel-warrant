@@ -39,24 +39,24 @@ it('builds an unconditional rule (no if) with null conditions', function () {
     $rule = Build::rule()->theyCan('view', 'update')->theyCannot('delete')->toRule();
 
     expect($rule->conditions)->toBeNull();
-    expect($rule->canAbilities())->toBe(['view', 'update']);
-    expect($rule->cannotAbilities())->toBe(['delete']);
+    expect(grantedAbilitiesOf($rule))->toBe(['view', 'update']);
+    expect(deniedAbilitiesOf($rule))->toBe(['delete']);
 });
 
 it('attaches a denial message to a single ability via theyCannotBecause', function () {
     $rule = Build::rule()->theyCannotBecause('delete', 'This record is locked.')->toRule();
 
-    expect($rule->cannotAbilities())->toBe(['delete']);
-    expect($rule->messageFor('delete'))->toBe('This record is locked.');
+    expect(deniedAbilitiesOf($rule))->toBe(['delete']);
+    expect(denialMessageOf($rule, 'delete'))->toBe('This record is locked.');
 });
 
 it('shares one message across several abilities in a theyCannotBecause array', function () {
     $rule = Build::rule()->theyCannotBecause(['update', 'delete'], 'locked')->toRule();
 
     expect($rule->cannotClauses)->toHaveCount(1);
-    expect($rule->cannotAbilities())->toBe(['update', 'delete']);
-    expect($rule->messageFor('update'))->toBe('locked');
-    expect($rule->messageFor('delete'))->toBe('locked');
+    expect(deniedAbilitiesOf($rule))->toBe(['update', 'delete']);
+    expect(denialMessageOf($rule, 'update'))->toBe('locked');
+    expect(denialMessageOf($rule, 'delete'))->toBe('locked');
 });
 
 it('gives each theyCannotBecause cannot clause its own message', function () {
@@ -66,15 +66,15 @@ it('gives each theyCannotBecause cannot clause its own message', function () {
         ->toRule();
 
     expect($rule->cannotClauses)->toHaveCount(2);
-    expect($rule->messageFor('update'))->toBe('no update');
-    expect($rule->messageFor('delete'))->toBe('no delete');
+    expect(denialMessageOf($rule, 'update'))->toBe('no update');
+    expect(denialMessageOf($rule, 'delete'))->toBe('no delete');
 });
 
 it('accepts a closure denial message via theyCannotBecause', function () {
     $closure = fn () => 'dynamic';
     $rule = Build::rule()->theyCannotBecause('delete', $closure)->toRule();
 
-    expect($rule->messageFor('delete'))->toBe($closure);
+    expect(denialMessageOf($rule, 'delete'))->toBe($closure);
 });
 
 it('mixes message-less theyCannot and message-bearing theyCannotBecause', function () {
@@ -83,9 +83,9 @@ it('mixes message-less theyCannot and message-bearing theyCannotBecause', functi
         ->theyCannotBecause('delete', 'locked')
         ->toRule();
 
-    expect($rule->cannotAbilities())->toBe(['archive', 'delete']);
-    expect($rule->messageFor('archive'))->toBeNull();
-    expect($rule->messageFor('delete'))->toBe('locked');
+    expect(deniedAbilitiesOf($rule))->toBe(['archive', 'delete']);
+    expect(denialMessageOf($rule, 'archive'))->toBeNull();
+    expect(denialMessageOf($rule, 'delete'))->toBe('locked');
 });
 
 it('carries condition parameters onto the node', function () {
@@ -467,9 +467,9 @@ it('builds a rule set with one rule per $rule() call, no toRule() needed', funct
     expect($set->schemaKey?->name)->toBe('timesheets');
     expect($set->entries)->toHaveCount(2);
     expect($set->entries[0]->conditions->conditionKey?->name)->toBe('is_self');
-    expect($set->entries[0]->canAbilities())->toBe(['edit', 'view']);
+    expect(grantedAbilitiesOf($set->entries[0]))->toBe(['edit', 'view']);
     expect($set->entries[1]->conditions)->toBeNull();
-    expect($set->entries[1]->canAbilities())->toBe(['list']);
+    expect(grantedAbilitiesOf($set->entries[1]))->toBe(['list']);
 });
 
 it('produces an empty rule set when the callback adds nothing', function () {

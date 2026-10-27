@@ -19,6 +19,7 @@ use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
@@ -42,6 +43,7 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
  *  - every ability block's header is applied to the can/cannot clauses under it;
+ *  - every `*` is replaced by the abilities the schema declares;
  *  - every when block's condition is put on the rules in its body, and its
  *    negation on the rules in its `otherwise`;
  *  - every {@see IncludeInvocationNode} is replaced by the rules its template
@@ -232,4 +234,29 @@ final class Expander
         );
     }
 
+    /**
+     * $abilities with each `*` replaced, at its location, by every ability the
+     * schema registered under $schemaKey declares in the catalog.
+     *
+     * @param list<NameNode> $abilities
+     * @return list<NameNode>
+     */
+    private function abilitiesWithStarExpanded(array $abilities, string $schemaKey): array
+    {
+        $expanded = [];
+
+        foreach ($abilities as $ability) {
+            if ($ability->name !== '*') {
+                $expanded[] = $ability;
+
+                continue;
+            }
+
+            foreach ($this->catalog->find($schemaKey)?->abilityNames() ?? [] as $name) {
+                $expanded[] = new NameNode($name, $ability->location);
+            }
+        }
+
+        return $expanded;
+    }
 }

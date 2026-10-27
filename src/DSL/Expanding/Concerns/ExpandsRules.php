@@ -6,22 +6,25 @@ use Closure;
 use InvalidArgumentException;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Validation\LanguageRuleMessages;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
- * How {@see Expander} expands a rule: its denial messages are checked, and the
- * derived conditions in its condition expanded.
+ * How {@see Expander} expands a rule: its denial messages are checked, every
+ * `*` replaced by the abilities the schema declares, and the derived conditions
+ * in its condition expanded.
  *
  * @internal
  */
 trait ExpandsRules
 {
     /**
-     * $rule with the derived conditions in its condition expanded. A rule with
-     * nothing to expand comes back as the same instance.
+     * $rule with every `*` replaced and the derived conditions in its condition
+     * expanded. A rule with nothing to expand comes back as the same instance.
      */
     private function expandRule(
         RuleNode $rule,
@@ -47,15 +50,37 @@ trait ExpandsRules
             }
         }
 
-        if ($rule->conditions === null) {
-            return $rule;
+        $canClauses = $this->clausesWithStarExpanded($rule->canClauses, $schemaKey);
+        $cannotClauses = $this->clausesWithStarExpanded($rule->cannotClauses, $schemaKey);
+        $conditions = $rule->conditions;
+
+        if ($conditions !== null) {
+            $writtenIn = $this->catalog->constructs()->writtenIn($conditions->location->source->producer(), $schemaKey);
+            $conditions = $this->expandExpression($conditions, $schema, $schemaKey, $writtenIn, $trail);
         }
 
-        $writtenIn = $this->catalog->constructs()->writtenIn($rule->conditions->location->source->producer(), $schemaKey);
-        $conditions = $this->expandExpression($rule->conditions, $schema, $schemaKey, $writtenIn, $trail);
-
-        return $conditions === $rule->conditions
+        return $conditions === $rule->conditions && $canClauses === $rule->canClauses && $cannotClauses === $rule->cannotClauses
             ? $rule
-            : new RuleNode($conditions, $rule->canClauses, $rule->cannotClauses, $rule->location);
+            : new RuleNode($conditions, $canClauses, $cannotClauses, $rule->location);
+    }
+
+    /**
+     * $clauses with every `*` replaced by the abilities the schema declares. A
+     * clause with no `*` comes back as the same instance.
+     *
+     * @template T of CanClauseNode|CannotClauseNode
+     * @param list<T> $clauses
+     * @return list<T>
+     */
+    private function clausesWithStarExpanded(array $clauses, string $schemaKey): array
+    {
+        return array_map(
+            function (CanClauseNode|CannotClauseNode $clause) use ($schemaKey): CanClauseNode|CannotClauseNode {
+                $abilities = $this->abilitiesWithStarExpanded($clause->abilities, $schemaKey);
+
+                return $abilities === $clause->abilities ? $clause : new ($clause::class)($abilities, $clause->message, $clause->location);
+            },
+            $clauses,
+        );
     }
 }

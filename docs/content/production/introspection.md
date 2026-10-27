@@ -16,7 +16,7 @@ answer it, and all three are available at runtime.
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
 $guard = Warrant::forSchema(Document::class, $user);
-$rules = $guard->expandedRuleSet()->rules; // RuleNode[]: blocks, includes and derived conditions expanded
+$rules = $guard->expandedRuleSet()->ruleNodes(); // RuleNode[]: blocks, includes and derived conditions expanded
 
 (new WarrantSyntax($rules))->validateWithoutSchemas()->toSyntax();   // rendered back to the language
 ```
@@ -107,7 +107,7 @@ class WarrantExplain extends Command
         );
 
         $this->line('Rules in effect:');
-        $this->line((new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax());
+        $this->line((new WarrantSyntax($guard->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas()->toSyntax());
         $this->newLine();
 
         $this->table(['Ability', 'Reachability'], collect(
@@ -138,7 +138,7 @@ Route::get('/debug/warrant/{user}/{schema}', function (User $user, string $schem
     $guard = Warrant::forSchema(Warrant::registry()->resolveSchemaClassOrFail($schema), $user);
 
     return [
-        'rules'      => (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas()->toSyntax(),
+        'rules'      => (new WarrantSyntax($guard->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas()->toSyntax(),
         'possible'   => $guard->possibleAbilities(),
         'guaranteed' => $guard->guaranteedAbilities(),
     ];

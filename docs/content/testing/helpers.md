@@ -156,7 +156,7 @@ Useful when a permission change is meant to be a no-op:
 
 ```php
 it('has not changed the editor policy', function () {
-    $rules = Warrant::forSchema(Document::class, $editor)->expandedRuleSet()->rules;
+    $rules = Warrant::forSchema(Document::class, $editor)->expandedRuleSet()->ruleNodes();
 
     expect((new WarrantSyntax($rules))->validateWithoutSchemas()->toSyntax())->toMatchSnapshot();
 });

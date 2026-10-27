@@ -4,6 +4,21 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Changed
+
+- Expansion replaces `*` with every ability the schema declares, so an expanded
+  rule set never holds a wildcard. A rule template's `RuleTemplateContext`
+  lists those abilities too, and a template declared `callOncePerAbility` is
+  called once for each of them where `*` is written.
+- An expanded rule set holds `ExpandedRule`s, which read which abilities a
+  rule grants and denies (`grantedAbilities()`, `deniedAbilities()`,
+  `denies()`) and with what message (`messageFor()`). `RuleNode` no longer has
+  `canAbilities()`, `cannotAbilities()`, `deniesAbility()` or `messageFor()`.
+  `ExpandedSyntax::ruleNodes()` gives the `RuleNode`s to write back out as text,
+  and a denial closure's `$c->rule` is the `ExpandedRule`.
+
 ## 4.8.1 — 2026-10-27
 
 ### Fixed

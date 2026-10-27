@@ -67,8 +67,8 @@ public readonly ?Model $target;              // null for a no-row check
 public readonly string $schema;
 public readonly array $context;              // the effective check-time context
 public readonly WarrantGate $gate;
-public readonly RuleNode $rule;       // the matching `cannot`
-public readonly array $deniedAbilities;      // with `*` already resolved
+public readonly ExpandedRule $rule;   // the matching `cannot`
+public readonly array $deniedAbilities;      // a `*` expanded to the schema's abilities
 ```
 
 ### `WarrantUngrantedContext`

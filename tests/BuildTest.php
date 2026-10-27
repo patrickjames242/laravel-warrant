@@ -15,6 +15,7 @@ use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
@@ -131,7 +132,7 @@ function buildDocRules(Closure $answer): array
     BuildDocSchema::$answer = $answer;
     app(WarrantManager::class)->flush();
 
-    return Warrant::guard(makeWarrantTestUser('build'))->forSchema(BuildDocSchema::class)->expandedRuleSet()->rules;
+    return Warrant::guard(makeWarrantTestUser('build'))->forSchema(BuildDocSchema::class)->expandedRuleSet()->ruleNodes();
 }
 
 /** @return list<INode> */
@@ -403,7 +404,7 @@ it('expands a template answering with headless entries and a bare rule builder',
     }));
 
     expect($rules)->toHaveCount(2)
-        ->and(array_map(static fn (RuleNode $rule): array => $rule->canAbilities(), $rules))->toBe([['edit'], ['edit']])
+        ->and(array_map(static fn (RuleNode $rule): array => grantedAbilitiesOf($rule), $rules))->toBe([['edit'], ['edit']])
         ->and(array_map(static fn (RuleNode $rule): SyntaxProducerKind => $rule->location->source->producer()->kind, $rules))
         ->toBe([SyntaxProducerKind::RuleTemplate, SyntaxProducerKind::RuleTemplate]);
 });
@@ -427,7 +428,7 @@ it('rejects a constant in a check(...) predicate in the compiler, unvalidated', 
 
     /* Only the expander makes an expanded syntax, and it validates first; the
        compiler has to reject the constant on its own all the same. */
-    $expanded = (fn () => new ExpandedSyntax('build_docs', [$rule], new ValidationInput(null)))
+    $expanded = (fn () => new ExpandedSyntax('build_docs', [new ExpandedRule($rule)], new ValidationInput(null)))
         ->bindTo(null, ExpandedSyntax::class)();
 
     (new RuleSetCompiler(new BuildDocSchema, 'build_docs', app(WarrantManager::class)))->compile(CompilationContext::ability(

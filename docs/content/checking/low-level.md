@@ -108,17 +108,20 @@ Memoized per guard, validated once. This is the entry point for debugging and fo
 anything that wants to introspect policy rather than evaluate it. The rules are the
 [expanded](/sql/rule-to-query/#before-compiling-expansion) set every check
 compiles: ability blocks opened, includes replaced by their templates' rules,
-derived conditions by their expressions, and binding values put in place. Each
-rule still says where it was written, through its `location`:
+derived conditions by their expressions, every `*` by the abilities the schema
+declares, and binding values put in place. Each is an `ExpandedRule`, whose
+`node` is the `RuleNode` it reads, still saying where it was written through its
+`location`:
 
 ```php
 $expanded = $guard->expandedRuleSet();   // an ExpandedSyntax
 
 foreach ($expanded->rules as $rule) {
-    $rule->canAbilities();
-    $rule->cannotAbilities();
-    $rule->conditions;            // null for an unconditional rule
+    $rule->grantedAbilities();
+    $rule->deniedAbilities();
+    $rule->denies('update');
     $rule->messageFor('update');
+    $rule->node->conditions;      // null for an unconditional rule
 }
 ```
 
@@ -130,7 +133,7 @@ parse returns. Wrap the nodes you hold in one:
 ```php
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 
-$syntax = (new WarrantSyntax($guard->expandedRuleSet()->rules))->validateWithoutSchemas();
+$syntax = (new WarrantSyntax($guard->expandedRuleSet()->ruleNodes()))->validateWithoutSchemas();
 
 $syntax->toSyntax();        // inline literals
 $syntax->toBoundSyntax();   // parameterized: ->syntax, plus ->bindings by name

@@ -116,16 +116,16 @@ final class ReachabilityAnalyzer
         $denies = [];
 
         foreach ($ruleSet->rules as $rule) {
-            $grants = $this->listsAbility($rule->canAbilities(), $ability);
-            $denied = $this->listsAbility($rule->cannotAbilities(), $ability);
+            $grants = in_array($ability, $rule->grantedAbilities(), true);
+            $denied = $rule->denies($ability);
 
             if (! $grants && ! $denied) {
                 continue;
             }
 
-            $condition = $rule->conditions === null
+            $condition = $rule->node->conditions === null
                 ? TruthSet::of(true)
-                : $this->expression($rule->conditions, $ruleSet->schemaKey);
+                : $this->expression($rule->node->conditions, $ruleSet->schemaKey);
 
             if ($grants) {
                 $grant = $grant->or($condition);
@@ -223,13 +223,5 @@ final class ReachabilityAnalyzer
     private static function callKey(string $schemaKey, string $ability): string
     {
         return $schemaKey."\0".$ability;
-    }
-
-    /**
-     * @param array<int, string> $abilities
-     */
-    private function listsAbility(array $abilities, string $ability): bool
-    {
-        return in_array($ability, $abilities, true) || in_array('*', $abilities, true);
     }
 }

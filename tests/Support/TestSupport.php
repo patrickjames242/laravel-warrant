@@ -23,6 +23,7 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
@@ -1063,4 +1064,47 @@ function mistakesOf(WarrantSyntax $syntax, ValidationInput $input): array
 function validateRegistered(WarrantSyntax|RuleSetNode $syntax): ValidSyntax
 {
     return ($syntax instanceof RuleSetNode ? new WarrantSyntax([$syntax]) : $syntax)->validate();
+}
+
+/**
+ * The abilities $rule's can clauses name, as written.
+ *
+ * @return list<string>
+ */
+function grantedAbilitiesOf(RuleNode $rule): array
+{
+    return array_merge([], ...array_map(
+        static fn ($clause): array => array_map(static fn (NameNode $ability): string => $ability->name, $clause->abilities),
+        $rule->canClauses,
+    ));
+}
+
+/**
+ * The abilities $rule's cannot clauses name, as written.
+ *
+ * @return list<string>
+ */
+function deniedAbilitiesOf(RuleNode $rule): array
+{
+    return array_merge([], ...array_map(
+        static fn ($clause): array => array_map(static fn (NameNode $ability): string => $ability->name, $clause->abilities),
+        $rule->cannotClauses,
+    ));
+}
+
+/**
+ * The value of the message on the first cannot clause of $rule that names
+ * $ability, or null when that clause has none or no clause names it.
+ */
+function denialMessageOf(RuleNode $rule, string $ability): mixed
+{
+    foreach ($rule->cannotClauses as $clause) {
+        foreach ($clause->abilities as $named) {
+            if ($named->name === $ability) {
+                return $clause->message === null ? null : valueOf($clause->message);
+            }
+        }
+    }
+
+    return null;
 }

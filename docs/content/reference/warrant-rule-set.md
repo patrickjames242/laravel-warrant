@@ -167,10 +167,12 @@ and include held directly in `$entries` must name its own abilities; a generic
 one there throws `InvalidArgumentException`.
 
 The expanded rules are on the guard, as an `ExpandedSyntax` whose `$rules` is a
-`list<RuleNode>`:
+`list<ExpandedRule>`, and whose `ruleNodes()` gives the `RuleNode` each one reads,
+to wrap in a `WarrantSyntax` and write back out:
 
 ```php
 Warrant::forSchema(Document::class, $user)->expandedRuleSet()->rules;
+Warrant::forSchema(Document::class, $user)->expandedRuleSet()->ruleNodes();
 ```
 
 ### Validating
@@ -201,10 +203,6 @@ public array $cannotClauses;                  // list<CannotClauseNode>, each wi
 
 public static function build(): WarrantRuleBuilder;
 
-public function canAbilities(): array;      // list<string>, the names every can clause lists
-public function cannotAbilities(): array;   // list<string>
-public function deniesAbility(string $ability): bool;
-public function messageFor(string $ability): string|Closure|null;
 public function hasCannot(): bool;
 public function isGeneric(): bool;                      // no can/cannot clause names an ability
 public function withAbilities(array $abilities): self;   // a generic rule with $abilities on every can/cannot clause
@@ -215,7 +213,8 @@ than exactly one rule. A rule carries no schema; the `RuleSetNode` holding it
 does.
 
 A can/cannot clause's `$abilities` is a `list<NameNode>`, and its `$message` the node it was
-written as. A denial message lives on a `cannot` **clause**, not on the rule, so one rule can
+written as. Which abilities a rule grants and denies, and with what message, is read
+off it once it is expanded, through [`ExpandedRule`](#expandedrule-readonly). A denial message lives on a `cannot` **clause**, not on the rule, so one rule can
 deny two sets of abilities for two reasons. Give a cannot clause its message with
 `because` in rule text, or with `theyCannotBecause()` on the builder.
 
@@ -223,6 +222,21 @@ Inside an ability block or a rule template's body a rule is generic: each can/ca
 has an empty `$abilities` list, because the block header or the `@include` names
 them. `withAbilities()` gives such a rule its abilities, and throws on a rule that
 already names its own.
+
+## `ExpandedRule` (readonly)
+
+One rule of an expanded rule set, as `$guard->expandedRuleSet()->rules` holds them.
+Expansion has replaced every binding and `*`, so each clause names its abilities
+one by one.
+
+```php
+public RuleNode $node;
+
+public function grantedAbilities(): array;   // list<string>, the names every can clause lists
+public function deniedAbilities(): array;    // list<string>
+public function denies(string $ability): bool;
+public function messageFor(string $ability): string|Closure|null;   // the first cannot clause listing it wins
+```
 
 ## `IRuleProvider`
 

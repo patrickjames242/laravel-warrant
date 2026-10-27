@@ -34,7 +34,7 @@ function rulesProvidedAs(mixed $rules): array
 
     app(WarrantManager::class)->flush();
 
-    return Warrant::guard(makeWarrantTestUser())->forSchema(WarrantTestSchema::class)->expandedRuleSet()->rules;
+    return Warrant::guard(makeWarrantTestUser())->forSchema(WarrantTestSchema::class)->expandedRuleSet()->ruleNodes();
 }
 
 it('reads every form a provider may return into one rule set', function (mixed $rules) {

@@ -9,7 +9,7 @@ use Throwable;
 use Warrant\AbilityMatchMode;
 use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
-use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\Schema\Denials\WarrantDenialContext;
 use Warrant\Schema\Denials\WarrantUngrantedContext;
 use Warrant\WarrantAuthorizationException;
@@ -22,7 +22,7 @@ use Warrant\WarrantGate;
  * Runs only on the denial path (after a normal check has already returned false),
  * so its extra queries never touch the grant path. It distinguishes being
  * *forbidden* by a `cannot` (surfacing that cannot clause's
- * {@see RuleNode::messageFor()}) from being *ungranted* (nothing forbade and
+ * {@see ExpandedRule::messageFor()}) from being *ungranted* (nothing forbade and
  * nothing granted — surfacing the schema's
  * {@see \Warrant\Schema\Denials\IProvidesDenialMessages::ungrantedDenialMessage()} hook).
  */
@@ -182,12 +182,12 @@ trait DiagnosesDenials
             $anyCannotFired = false;
 
             foreach ($ruleSet->rules as $rule) {
-                if (! $rule->deniesAbility($ability)) {
+                if (! $rule->denies($ability)) {
                     continue;
                 }
 
                 $result = $compiler->compile($forTarget(
-                    CompilationContext::condition($queries, $this->user, $rule->conditions)->withCheckContext($context),
+                    CompilationContext::condition($queries, $this->user, $rule->node->conditions)->withCheckContext($context),
                 ));
 
                 $decision = $result->decision();
@@ -234,22 +234,15 @@ trait DiagnosesDenials
     }
 
     /**
-     * The concrete gate abilities a `cannot` rule blocks — the gate intersected
-     * with the rule's denied abilities, with `*` resolved to the whole gate so
-     * the caller never sees a wildcard.
+     * The gate abilities a `cannot` rule blocks: the gate intersected with the
+     * rule's denied abilities.
      *
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRule(RuleNode $rule, array $gateAbilities): array
+    private function abilitiesBlockedByRule(ExpandedRule $rule, array $gateAbilities): array
     {
-        $cannotAbilities = $rule->cannotAbilities();
-
-        if (in_array('*', $cannotAbilities, true)) {
-            return $gateAbilities;
-        }
-
-        return array_values(array_intersect($gateAbilities, $cannotAbilities));
+        return array_values(array_intersect($gateAbilities, $rule->deniedAbilities()));
     }
 
     /**
@@ -262,7 +255,7 @@ trait DiagnosesDenials
      * @param array<int, string> $gateAbilities
      * @return array<int, string>
      */
-    private function abilitiesBlockedByRuleForMessage(RuleNode $rule, array $gateAbilities, string $ability): array
+    private function abilitiesBlockedByRuleForMessage(ExpandedRule $rule, array $gateAbilities, string $ability): array
     {
         $target = $rule->messageFor($ability);
 
@@ -281,7 +274,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildDenialException(
-        RuleNode $rule,
+        ExpandedRule $rule,
         string $ability,
         string|Closure $message,
         ?Model $targetModel,
@@ -325,7 +318,7 @@ trait DiagnosesDenials
      * @param array<string, mixed> $context
      */
     private function buildForbiddenException(
-        RuleNode $rule,
+        ExpandedRule $rule,
         ?Model $targetModel,
         WarrantGate $gate,
         array $context,

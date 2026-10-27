@@ -276,8 +276,8 @@ it('expands a global template that includes another, looking the inner one up am
 it('expands a global derived condition named in a check() predicate among the globals', function () {
     bindWarrantRules('if check(is_tenant_staff for global_docs(@context doc_id) with tenant_id = @context tenant_id) they can audit', schemaKey: 'global_docs');
 
-    $rules = Warrant::guard(makeWarrantTestUser('staff'))->forSchema(GlobalDocSchema::class)->expandedRuleSet()->rules;
-    $audit = array_values(array_filter($rules, static fn ($rule): bool => $rule->canAbilities() === ['audit']))[0];
+    $rules = Warrant::guard(makeWarrantTestUser('staff'))->forSchema(GlobalDocSchema::class)->expandedRuleSet()->ruleNodes();
+    $audit = array_values(array_filter($rules, static fn ($rule): bool => grantedAbilitiesOf($rule) === ['audit']))[0];
 
     expect($audit->conditions)->toBeInstanceOf(CrossSchemaConditionNode::class)
         ->and($audit->conditions->predicate)->toBeInstanceOf(DerivedConditionNode::class)

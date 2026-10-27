@@ -221,7 +221,7 @@ it('judges an ability list as written, not by the values its bindings give it', 
 
 it('puts the ability a binding names in its place, where the binding was written', function () {
     $syntax = 'they can :ability';
-    $ability = abilityBindingExpanded($syntax, ['ability' => 'view'])->rules[0]->canClauses[0]->abilities[0];
+    $ability = abilityBindingExpanded($syntax, ['ability' => 'view'])->ruleNodes()[0]->canClauses[0]->abilities[0];
 
     expect($ability)->toBeInstanceOf(NameNode::class)
         ->and($ability->name)->toBe('view')
@@ -229,29 +229,30 @@ it('puts the ability a binding names in its place, where the binding was written
 });
 
 it('splices a list of abilities into the list where its binding was written', function () {
-    $rules = abilityBindingExpanded('they can create, :more, update', ['more' => ['view', 'publish']])->rules;
+    $rules = abilityBindingExpanded('they can create, :more, update', ['more' => ['view', 'publish']])->ruleNodes();
 
-    expect($rules[0]->canAbilities())->toBe(['create', 'view', 'publish', 'update']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['create', 'view', 'publish', 'update']);
 });
 
-it('puts a bound * in its place', function () {
-    expect(abilityBindingExpanded('they cannot :all', ['all' => '*'])->rules[0]->cannotAbilities())->toBe(['*']);
+it('expands a bound * to every ability the schema declares', function () {
+    expect(deniedAbilitiesOf(abilityBindingExpanded('they cannot :all', ['all' => '*'])->ruleNodes()[0]))
+        ->toBe(['create', 'publish', 'archive', 'view', 'update']);
 });
 
 it('applies the abilities a block header binds to every can/cannot clause under it', function () {
-    $rules = abilityBindingExpanded('can they :abilities { if is_teacher they can }', ['abilities' => ['view', 'update']])->rules;
+    $rules = abilityBindingExpanded('can they :abilities { if is_teacher they can }', ['abilities' => ['view', 'update']])->ruleNodes();
 
-    expect($rules[0]->canAbilities())->toBe(['view', 'update']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['view', 'update']);
 });
 
 it('applies the abilities an @include binds to the rules its template expands to', function () {
-    $rules = abilityBindingExpanded('@include grants_it for :abilities', ['abilities' => ['view', 'archive']])->rules;
+    $rules = abilityBindingExpanded('@include grants_it for :abilities', ['abilities' => ['view', 'archive']])->ruleNodes();
 
-    expect($rules[0]->canAbilities())->toBe(['view', 'archive']);
+    expect(grantedAbilitiesOf($rules[0]))->toBe(['view', 'archive']);
 });
 
 it('puts the ability a can expression binds in its place', function () {
-    $can = abilityBindingExpanded('if can(:ability) they can update', ['ability' => 'view'])->rules[0]->conditions;
+    $can = abilityBindingExpanded('if can(:ability) they can update', ['ability' => 'view'])->ruleNodes()[0]->conditions;
 
     expect($can->ability)->toBeInstanceOf(NameNode::class)
         ->and($can->ability->name)->toBe('view');

@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\InvalidSyntax;
@@ -126,7 +127,7 @@ function originRules(Closure $answer): array
     OriginDocSchema::$answer = $answer;
     app(WarrantManager::class)->flush();
 
-    return Warrant::guard(makeWarrantTestUser('origin'))->forSchema(OriginDocSchema::class)->expandedRuleSet()->rules;
+    return Warrant::guard(makeWarrantTestUser('origin'))->forSchema(OriginDocSchema::class)->expandedRuleSet()->ruleNodes();
 }
 
 /**
@@ -363,7 +364,7 @@ it('rejects a with key written twice in the compiler too', function () {
             QueryFactory::for(DB::table('origin_docs')),
             makeWarrantTestUser('origin'),
             'view',
-            Closure::bind(static fn () => new ExpandedSyntax('origin_docs', [$rule], new ValidationInput(null)), null, ExpandedSyntax::class)(),
+            Closure::bind(static fn () => new ExpandedSyntax('origin_docs', [new ExpandedRule($rule)], new ValidationInput(null)), null, ExpandedSyntax::class)(),
         ),
     ))->toThrow(InvalidArgumentException::class, "Duplicate key 'a' in the 'with' map.");
 });

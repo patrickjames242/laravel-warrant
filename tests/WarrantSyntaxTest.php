@@ -54,7 +54,7 @@ it('parses a rule with no header to one rule child', function () {
     expect($syntax->isSingleRule())->toBeTrue();
     expect($syntax->isRuleEntries())->toBeTrue();
     expect($syntax->rule())->toBeInstanceOf(RuleNode::class);
-    expect($syntax->rule()->canAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf($syntax->rule()))->toBe(['view']);
 });
 
 it('parses several unscoped rules, blocks and includes to a list of entries', function () {
@@ -85,7 +85,7 @@ it('parses a for header and a body with no braces to one rule set', function () 
     expect($syntax->isSingleRuleSet())->toBeTrue();
     expect($syntax->ruleSet()->schemaKey?->name)->toBe('timesheets');
     expect($syntax->ruleSet()->entries)->toHaveCount(1);
-    expect($syntax->ruleSet()->entries[0]->canAbilities())->toBe(['view']);
+    expect(grantedAbilitiesOf($syntax->ruleSet()->entries[0]))->toBe(['view']);
 });
 
 it('parses one braced block to one rule set', function () {
@@ -279,8 +279,8 @@ it('folds every rule set for a schema into one, in source order', function () {
     $timesheets = $syntax->forSchema('timesheets');
 
     expect($timesheets->entries)->toHaveCount(2);
-    expect($timesheets->entries[0]->canAbilities())->toBe(['view']);
-    expect($timesheets->entries[1]->canAbilities())->toBe(['edit']);
+    expect(grantedAbilitiesOf($timesheets->entries[0]))->toBe(['view']);
+    expect(grantedAbilitiesOf($timesheets->entries[1]))->toBe(['edit']);
     expect($syntax->forSchema('nope'))->toBeNull();
 });
 
@@ -304,7 +304,7 @@ it('reads rule text from a file', function () {
         $syntax = WarrantSyntax::parseFile($path)->validateWithoutSchemas();
 
         expect($syntax->schemaKeys())->toBe(['timesheets', 'documents']);
-        expect($syntax->forSchema('timesheets')->entries[0]->canAbilities())->toBe(['view', 'edit']);
+        expect(grantedAbilitiesOf($syntax->forSchema('timesheets')->entries[0]))->toBe(['view', 'edit']);
     } finally {
         @unlink($path);
     }

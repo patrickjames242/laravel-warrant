@@ -12,9 +12,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * single clause shares that clause's {@see $message}.
  *
  * The compiler and reachability analyzer treat the abilities purely as a
- * membership list ({@see RuleNode::cannotAbilities()} flattens every clause),
- * so the message never affects the compiled predicate — it is surfaced only when
- * diagnosing a denial (see {@see RuleNode::messageFor()}).
+ * membership list ({@see ExpandedRule::deniedAbilities()} flattens every
+ * clause), so the message never affects the compiled predicate — it is surfaced
+ * only when diagnosing a denial (see {@see ExpandedRule::messageFor()}).
  */
 readonly class CannotClauseNode implements INode
 {
