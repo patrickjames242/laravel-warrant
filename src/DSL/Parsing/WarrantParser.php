@@ -57,9 +57,12 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *                 body does; the first one decides
  *   message  := STRING | NAMED_BINDING
  *              -- a string literal, or a binding resolving to a string or closure
- *   ability  := IDENTIFIER | '*' | NAMED_BINDING
+ *   ability  := IDENTIFIER | '*' ( 'except' excepted (',' excepted)* )? | NAMED_BINDING
  *              -- a binding's value is an ability name, `*`, or a list of them,
- *                 spliced into the list where the binding is written
+ *                 spliced into the list where the binding is written. The
+ *                 abilities after `except` run to the end of the list
+ *   excepted := IDENTIFIER | NAMED_BINDING
+ *              -- a binding's value is an ability name or a list of them
  *   expr     := or
  *   or       := and ('or' and)*
  *   and      := not ('and' not)*

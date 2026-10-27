@@ -26,10 +26,11 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
      * @param list<INode> $arguments The template's DSL arguments, read as a
      *   condition's are: literals, bindings, and the symbolic `@context` /
      *   `@column` references, which stay unresolved until a compile.
-     * @param list<NameNode|BindingNode> $abilities The abilities the expanded
-     *   can/cannot clauses apply to, and bindings whose values name them until expansion
-     *   puts those names in their place; empty on a generic include. `*` is
-     *   permitted, as it is in any ability list.
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities The
+     *   abilities the expanded can/cannot clauses apply to, and bindings whose
+     *   values name them until expansion puts those names in their place; empty
+     *   on a generic include. `*` and `* except` are permitted, as they are in any
+     *   ability list.
      */
     public function __construct(
         public NameNode $templateKey,

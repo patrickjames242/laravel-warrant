@@ -16,6 +16,7 @@ enum TokenType
     case AS;   // cross-schema handle alias: ... for <handle> as <alias>
     case WHEN; // when block: when <condition> { ... }
     case OTHERWISE; // the block after a when block's: } otherwise { ... }
+    case EXCEPT; // the abilities `*` leaves out: * except <abilities>
 
     // Boolean operators.
     case AND;

@@ -15,8 +15,8 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 readonly class CanClauseNode implements INode
 {
     /**
-     * @param list<NameNode|BindingNode> $abilities Granted ability names (or
-     *   `*`), and bindings whose values name them until expansion puts those
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities Granted
+     *   ability names (or `*`, or `* except` some), and bindings whose values name them until expansion puts those
      *   names in their place; empty on a generic clause.
      * @param INode|null $message A denial message written after `because`, which a
      *   `can` clause cannot have: one only ever surfaces for a matching

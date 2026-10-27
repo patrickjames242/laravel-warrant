@@ -20,8 +20,8 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 final readonly class AbilityBlockNode implements IRuleEntryNode
 {
     /**
-     * @param list<NameNode|BindingNode> $abilities The abilities every can/cannot clause in
-     *   the body takes, and bindings whose values name them until expansion puts
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities The abilities
+     *   every can/cannot clause in the body takes, and bindings whose values name them until expansion puts
      *   those names in their place.
      * @param list<IRuleEntryNode> $entries The body, in source order.
      */
