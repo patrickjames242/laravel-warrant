@@ -4,6 +4,14 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## 4.6.1 — 2026-10-26
+
+### Fixed
+
+- The language server completes a derived condition's answer as a condition:
+  it offers conditions, `can(`, `check(` and `not` at its start, and only `and`
+  and `or` after an operand, where it offered the words that start a rule.
+
 ## 4.6.0 — 2026-10-26
 
 ### Changed
