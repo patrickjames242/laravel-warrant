@@ -47,7 +47,7 @@ final readonly class WhenBlockNode implements IRuleEntryNode
      * the enclosing ability block header or `@include` has named them. Every
      * rule and include in the bodies must be generic, at any depth.
      *
-     * @param list<NameNode> $abilities
+     * @param list<NameNode|EveryAbilityExceptNode> $abilities
      */
     public function withAbilities(array $abilities): self
     {

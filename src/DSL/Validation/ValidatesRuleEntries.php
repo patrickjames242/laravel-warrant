@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
@@ -238,18 +239,33 @@ trait ValidatesRuleEntries
      * passed over. A binding with no value, or one whose value names no
      * abilities, is reported by the binding checks.
      *
-     * @param list<NameNode|BindingNode> $abilities
+     * What a `* except` leaves out is held to the same, and must not be every
+     * ability the schema declares, which leaves `*` standing for none. That is
+     * judged only when every name it leaves out is known: written, or the value
+     * of a binding whose values are checked.
+     *
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities
+     * @param bool $leftOut Whether $abilities are the ones a `* except` leaves
+     *   out, whose bindings' values may not be `*`.
      */
-    private function assertAbilitiesDeclared(array $abilities, ?Vocabulary $schema): void
+    private function assertAbilitiesDeclared(array $abilities, ?Vocabulary $schema, bool $leftOut = false): void
     {
         if ($schema === null) {
             return;
         }
 
         foreach ($abilities as $ability) {
+            if ($ability instanceof EveryAbilityExceptNode) {
+                $this->assertAbilitiesDeclared($ability->exceptions, $schema, leftOut: true);
+                $this->assertExceptLeavesSome($ability, $schema);
+
+                continue;
+            }
+
             $names = match (true) {
                 $ability instanceof NameNode => [$ability->name],
-                $this->input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundList($ability) === null
+                $this->input->checkBindingValues && $ability->hasValue()
+                    && ($leftOut ? AbilityMistakes::inBoundExceptions($ability) : AbilityMistakes::inBoundList($ability)) === null
                     => AbilityMistakes::boundNames($ability),
                 default => [],
             };
@@ -263,6 +279,29 @@ trait ValidatesRuleEntries
                     );
                 }
             }
+        }
+    }
+
+    /**
+     * `* except` leaves out some abilities the schema declares, and not every
+     * one of them, when every ability it leaves out is known.
+     */
+    private function assertExceptLeavesSome(EveryAbilityExceptNode $except, Vocabulary $schema): void
+    {
+        $leftOut = [];
+
+        foreach ($except->exceptions as $exception) {
+            if ($exception instanceof NameNode) {
+                $leftOut[] = $exception->name;
+            } elseif ($this->input->checkBindingValues && $exception->hasValue() && AbilityMistakes::inBoundExceptions($exception) === null) {
+                array_push($leftOut, ...AbilityMistakes::boundNames($exception));
+            } else {
+                return;
+            }
+        }
+
+        if (array_diff($schema->abilityNames(), $leftOut) === []) {
+            $this->fail(DiagnosticCode::ExceptsEveryAbility, LanguageRuleMessages::exceptsEveryAbility(), $except->location);
         }
     }
 

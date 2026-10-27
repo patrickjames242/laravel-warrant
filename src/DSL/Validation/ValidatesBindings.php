@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
@@ -30,6 +31,7 @@ trait ValidatesBindings
     private const BINDING_IN_SQL_BODY_SLOT = 'sql body';
     private const BINDING_IN_DENIAL_MESSAGE_SLOT = 'denial message';
     private const BINDING_IN_ABILITY_LIST_SLOT = 'ability list';
+    private const BINDING_IN_EXCEPTED_ABILITIES_SLOT = 'excepted abilities';
     private const BINDING_IN_ONE_ABILITY_SLOT = 'one ability';
 
     /**
@@ -107,6 +109,7 @@ trait ValidatesBindings
 
         $abilityMistake = match ($slot) {
             self::BINDING_IN_ABILITY_LIST_SLOT => AbilityMistakes::inBoundList($binding),
+            self::BINDING_IN_EXCEPTED_ABILITIES_SLOT => AbilityMistakes::inBoundExceptions($binding),
             self::BINDING_IN_ONE_ABILITY_SLOT => AbilityMistakes::inBoundAbility($binding),
             default => null,
         };
@@ -140,8 +143,8 @@ trait ValidatesBindings
 
     /**
      * Every binding in $node, with the slot it is written in: the body of an `@sql`
-     * reference, a denial message, an ability list, the ability a `can(...)`
-     * asks about, or else an argument.
+     * reference, a denial message, an ability list, the abilities a `* except`
+     * leaves out, the ability a `can(...)` asks about, or else an argument.
      *
      * @return list<array{0: BindingNode, 1: string}>
      */
@@ -160,6 +163,7 @@ trait ValidatesBindings
                 ($node instanceof CanClauseNode || $node instanceof CannotClauseNode
                     || $node instanceof AbilityBlockNode || $node instanceof IncludeInvocationNode)
                     && in_array($child, $node->abilities, true) => self::BINDING_IN_ABILITY_LIST_SLOT,
+                $node instanceof EveryAbilityExceptNode => self::BINDING_IN_EXCEPTED_ABILITIES_SLOT,
                 $node instanceof CrossSchemaCanNode && $child === $node->ability => self::BINDING_IN_ONE_ABILITY_SLOT,
                 default => self::BINDING_IN_ARGUMENT_SLOT,
             })];

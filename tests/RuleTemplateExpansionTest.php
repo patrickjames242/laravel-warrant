@@ -531,6 +531,13 @@ it('calls a per-ability template once for each ability the wildcard stands for',
     ));
 });
 
+it('calls a per-ability template once for each ability * except stands for', function () {
+    expect(expandSyntax('@include denies_naming_its_ability for * except create, publish, archive')->ruleNodes())->toEqualSyntax(longhand(
+        "they cannot view because 'view'",
+        "they cannot update because 'update'",
+    ));
+});
+
 it('refuses the one ability to a template not declared callOncePerAbility, even for one ability', function () {
     expect(fn () => expandSyntax('@include asks_for_one_ability for view'))
         ->toThrow(LogicException::class, 'is only for a rule template declared #[RuleTemplate(callOncePerAbility: true)]');

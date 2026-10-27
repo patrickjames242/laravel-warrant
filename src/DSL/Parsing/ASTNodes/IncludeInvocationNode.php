@@ -49,7 +49,7 @@ final readonly class IncludeInvocationNode implements IRuleEntryNode
      * A copy of this generic include taking $abilities: the include it means
      * once the enclosing block header or `@include` has named them.
      *
-     * @param list<NameNode> $abilities
+     * @param list<NameNode|EveryAbilityExceptNode> $abilities
      */
     public function withAbilities(array $abilities): self
     {

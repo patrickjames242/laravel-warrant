@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
@@ -130,23 +131,35 @@ trait ReplacesBindings
     /**
      * $abilities with each binding among them replaced by a name for every
      * ability its value names, in order, where the binding is written: one for
-     * an ability name, and one for each name in a list.
+     * an ability name, and one for each name in a list. So are the bindings
+     * among the abilities a `* except` leaves out, whose values may not be `*`.
      *
-     * @param list<NameNode|BindingNode> $abilities
-     * @return list<NameNode>
+     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities
+     * @param bool $leftOut Whether $abilities are the ones a `* except` leaves out.
+     * @return list<NameNode|EveryAbilityExceptNode>
      */
-    private static function abilitiesWithBindingsReplaced(array $abilities): array
+    private static function abilitiesWithBindingsReplaced(array $abilities, bool $leftOut = false): array
     {
         $replaced = [];
 
         foreach ($abilities as $ability) {
+            if ($ability instanceof EveryAbilityExceptNode) {
+                $replaced[] = new EveryAbilityExceptNode(
+                    $ability->star,
+                    self::abilitiesWithBindingsReplaced($ability->exceptions, leftOut: true),
+                    $ability->location,
+                );
+
+                continue;
+            }
+
             if (! $ability instanceof BindingNode) {
                 $replaced[] = $ability;
 
                 continue;
             }
 
-            $mistake = AbilityMistakes::inBoundList($ability);
+            $mistake = $leftOut ? AbilityMistakes::inBoundExceptions($ability) : AbilityMistakes::inBoundList($ability);
 
             if ($mistake !== null) {
                 throw new InvalidArgumentException($mistake);

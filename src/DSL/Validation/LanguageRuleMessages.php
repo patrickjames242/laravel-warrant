@@ -229,4 +229,23 @@ final class LanguageRuleMessages
     {
         return sprintf('`*` stands for every ability, so nothing else is written beside it among the abilities %s.', $among);
     }
+
+    /**
+     * @param string $binding The binding's name, without its colon.
+     * @param string $got What its value is instead, as words for the author.
+     */
+    public static function exceptedBindingValue(string $binding, string $got): string
+    {
+        return sprintf(
+            'The binding [:%s] names abilities `* except` leaves out, so its value is an ability name or a '
+                .'non-empty list of them; got %s.',
+            $binding,
+            $got,
+        );
+    }
+
+    public static function exceptsEveryAbility(): string
+    {
+        return '`* except` leaves out every ability the schema declares, so it stands for none.';
+    }
 }
