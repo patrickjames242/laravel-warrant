@@ -65,7 +65,7 @@ public function isMine(RowConditionContext $c): Builder
 ```
 
 **There is a third truth value.** SQL predicates answer yes, no, or unknown, and
-Warrant does not paper over the third. A comparison against `NULL` is unknown, and
+Warrant does not paper over the third. A comparison with a `NULL` column is unknown, and
 so is a question the compiler genuinely cannot settle, such as a row condition
 asked with no row. An unknown grants nothing and cannot lift a denial, which is
 the safe direction. [True, false, and unknown](/concepts/three-truth-values/).

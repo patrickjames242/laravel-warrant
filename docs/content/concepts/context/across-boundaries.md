@@ -73,8 +73,9 @@ target's own default can.
 A `with` entry whose value is an absent `@context` key still supplies the key, as
 `null`. The rule named it, and the value is the caller's to pass.
 
-A key the target does not require that you forget is simply absent, and an absent
-optional key is fail-closed: it can remove access, never restore it.
+A key the target does not require that you forget is simply absent, and reaches the
+target's conditions as `null`. That fails closed only where the condition answers
+`null` for it; see [a missing context key is not unknown](/concepts/three-truth-values/#a-missing-context-key-is-not-unknown).
 
 :::caution[`for` is what resets the context]
 These two are not the same rule.

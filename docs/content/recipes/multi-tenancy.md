@@ -41,7 +41,9 @@ class DocumentSchema extends ModelSchema
 
     public function defaultContext(): array
     {
-        return ['tenant_id' => app(Tenancy::class)->currentId()];
+        $tenant = app(Tenancy::class)->currentId();
+
+        return $tenant === null ? [] : ['tenant_id' => $tenant];
     }
 }
 ```
@@ -71,9 +73,14 @@ Schema [App\Warrant\DocumentSchema] requires context key(s) [tenant_id]; supply 
 at the check or via defaultContext().
 ```
 
-Without it, an unset tenant makes the condition compare against `null`, which is
-unknown, which grants nothing. Safe, and silent: an entire tenant's users see empty
-lists with no error anywhere.
+Without it, an unset tenant reaches `inCurrentTenant` as `null`, and Laravel's
+`where` turns that into `tenant_id IS NULL`. Every user sees the rows that belong to
+no tenant, and none of their own, with no error anywhere.
+
+The default leaves the key out when there is no tenant, rather than setting it to
+`null`. A key present with a `null` value counts as supplied, so a default of
+`['tenant_id' => null]` would satisfy the requirement and reach the condition
+anyway.
 
 With the default in place, the requirement only ever fires when tenancy genuinely
 is not initialized, such as in a queued job that forgot to set it. Which is exactly
@@ -177,8 +184,8 @@ they can view
 
 A target that requires the key, has no default for it, and gets no `with` to
 supply it throws when the rule compiles, naming the reference to fix. A target
-that does not require it sees it absent, which shows up as a condition comparing
-against `null` and grants nothing. If you are scoping by tenant, require the key
+that does not require it sees it absent, and a condition handed `null` for it
+matches the rows with no tenant. If you are scoping by tenant, require the key
 and give it a default on every tenant-scoped schema, and audit your hops for the
 `with` clause wherever a check may name a tenant other than the current one.
 

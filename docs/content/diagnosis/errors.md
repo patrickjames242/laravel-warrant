@@ -225,7 +225,8 @@ Ability [%s] requires context key(s) [%s]; pass them in the `with` map of the re
 ```
 
 An *optional* key that is absent does not throw. It is passed to its condition as
-`null`, and standard SQL logic applies, which is fail-closed.
+`null`, and the condition decides what that matches; see
+[a missing context key is not unknown](/concepts/three-truth-values/#a-missing-context-key-is-not-unknown).
 
 ## Expansion
 

@@ -16,7 +16,7 @@ mechanism behind most rules that quietly never grant.
 
 ## Where unknown comes from
 
-Four sources, and they arrive from different directions.
+Three sources, and they arrive from different directions.
 
 **A `NULL` column.** The database produces it on its own:
 
@@ -51,9 +51,6 @@ public function inBillingPeriod(GlobalConditionContext $c): ?bool
 }
 ```
 
-**A missing optional context key.** It reaches the condition as `null`, and a
-comparison against `null` is unknown.
-
 ## Why not just say false
 
 Because `false` is an answer, and negating an answer is legitimate. Under a
@@ -79,20 +76,31 @@ user. It can never show someone a row they should not see. That is provable rath
 than incidental: in three-valued logic, replacing any part of a predicate with
 `UNKNOWN` can never turn a not-`TRUE` result into `TRUE`.
 
-## What it looks like when it bites
+## A missing context key is not unknown
 
-The symptom is a rule that grants nothing and produces no error.
+An absent optional key reaches its condition as `null`, and Warrant leaves it
+there. What it means is up to the condition's SQL, and Laravel's query builder
+reads a comparison with `null` as a test for `NULL`:
+
+```php
+$c->query->where($c->column('workspace_id'), null);         // "workspace_id" is null
+$c->query->where($c->column('workspace_id'), '!=', null);   // "workspace_id" is not null
+```
+
+That is an answer, not unknown, so it does not fail safe:
 
 ```warrant
 if in_workspace(@context workspace_id) they can view
 ```
 
 ```php
-Warrant::can('view', $document);   // false, always, and silently
+Warrant::can('view', $document);   // true if the document has no workspace, false otherwise
 ```
 
 The check passed no `workspace_id`, and no `defaultContext()` supplied one, so the
-condition compared a column against `null`. Every row is unknown. Nothing grants.
+rule grants exactly the rows whose `workspace_id` is `NULL`. Under a `cannot` the
+same answer is negated: `if in_workspace(@context workspace_id) they cannot view`
+is lifted from every row that has a workspace.
 
 Three fixes, in order of preference:
 
@@ -107,35 +115,44 @@ Schema [documents] requires context key(s) [workspace_id]; supply them at the
 check or via defaultContext().
 ```
 
+A key that is present with a `null` value counts as supplied, so the requirement
+does not catch a default or a `with` entry that comes out `null`.
+
 Give it a default, so param-less paths such as route middleware and query scopes
-still get a frame:
+still get a frame. Leave the key out when there is no value, so a requirement on it
+still fires:
 
 ```php
 public function defaultContext(): array
 {
-    return ['workspace_id' => app('tenant')->id];
+    $workspace = app('tenant')?->id;
+
+    return $workspace === null ? [] : ['workspace_id' => $workspace];
 }
 ```
 
-Or handle the null deliberately in the condition, when absent genuinely means
-something:
+Or answer unknown in the condition when the value is `null`, so it neither grants
+nor lifts a denial:
 
 ```php
 #[RowCondition]
-public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
+public function inWorkspace(RowConditionContext $c, mixed $workspace): ?Builder
 {
     return $workspace === null
-        ? $c->query->whereNull($c->column('workspace_id'))
+        ? null
         : $c->query->where($c->column('workspace_id'), $workspace);
 }
 ```
 
+If absent genuinely means something, write that out with its own constraint, such
+as an explicit `whereNull`, so the condition says it on purpose.
+
 ## The rule of thumb
 
-Any context key that gates a `cannot` should be required. A missing key there
-blocks rows rather than exposing them, so nothing unsafe happens, but a whole
-class of rows going missing with no error is hard to trace. When in doubt, require
-it.
+Every context key a condition takes should be required, or the condition should
+answer `null` when it gets `null`. Passed to the query builder, a `null` matches the
+rows whose column is `NULL`, which grants those rows under a `can` and lifts a
+`cannot` from every other row. When in doubt, require it.
 
 The compiler's side of this, including what reaches the SQL as a literal `null`,
 is in [where unknown goes in SQL](/sql/unknown/).

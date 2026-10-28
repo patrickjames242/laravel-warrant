@@ -67,11 +67,14 @@ if in_workspace(@context workspace_id) they can view
 ```
 
 ```php
-Warrant::can('view', $document);   // false, always
+Warrant::can('view', $document);   // false, unless the document has no workspace
 ```
 
-No key was passed, and no `defaultContext()` supplied one, so the condition compared
-a column against `null`. That is unknown, which grants nothing.
+No key was passed, and no `defaultContext()` supplied one, so the condition was
+handed `null`, and Laravel's `where` turned the comparison into
+`workspace_id IS NULL`. Every document with a workspace is refused, and every one
+without is granted, which is worth checking for too. See
+[a missing context key is not unknown](/concepts/three-truth-values/#a-missing-context-key-is-not-unknown).
 
 Check:
 

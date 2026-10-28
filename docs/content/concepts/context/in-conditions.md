@@ -43,11 +43,12 @@ They are the same value either way.
 
 ## The one behavioural difference
 
-An absent optional key reaches a `@context` parameter as `null`, and standard SQL
-logic takes over from there, which is fail-closed.
+An absent optional key reaches a `@context` parameter as `null`. In `$c->context`
+it is not there at all, so reading it directly needs `?? null`.
 
-A condition reading `$c->context` decides for itself what absent means, and has to
-decide something:
+Either way the condition decides what absent means, and has to decide something.
+Passed to Laravel's `where`, `null` becomes an `IS NULL` test, which matches rows
+rather than answering unknown:
 
 ```php
 #[RowCondition]

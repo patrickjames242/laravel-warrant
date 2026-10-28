@@ -7,11 +7,14 @@ sidebar:
   order: 5
 ---
 
-Keys are optional by default. A check with the key absent runs, the condition gets
-`null`, and the result is fail-closed and silent.
+Keys are optional by default. A check with the key absent runs, and the condition
+gets `null`. What that matches is up to the condition: passed to Laravel's
+`where`, it becomes an `IS NULL` test, which grants rows rather than blocking them.
+See [a missing context key is not unknown](/concepts/three-truth-values/#a-missing-context-key-is-not-unknown).
 
-Silent is the problem. Marking a key required turns a whole class of rows quietly
-going missing into an error with a name.
+Marking a key required turns that into an error with a name. A key that is present
+with a `null` value counts as supplied, so a default that has no value should leave
+the key out rather than set it to `null`.
 
 ## Schema-wide
 
@@ -112,8 +115,9 @@ not an attribute by inheritance, so your implementation carries its own
 
 ## When to require
 
-Require any key that gates a `cannot`. A missing key there blocks rows rather than
-exposing them, which is safe, and invisible, which is not.
+Require any key that gates a `cannot`. Handed `null`, a condition built on `where`
+matches only the rows whose column is `NULL`, so the denial is lifted from every
+other row.
 
 Require any key your whole application is scoped by, such as a tenant. Then pair it
 with a [`defaultContext()`](/concepts/context/supplying/) so ordinary calls do not

@@ -18,15 +18,18 @@ The value is passed to the condition positionally, like any other argument:
 
 ```php
 #[RowCondition]
-public function inWorkspace(RowConditionContext $c, mixed $workspace): Builder
+public function inWorkspace(RowConditionContext $c, mixed $workspace): ?Builder
 {
-    return $c->query->where($c->column('workspace_id'), $workspace);
+    return $workspace === null
+        ? null
+        : $c->query->where($c->column('workspace_id'), $workspace);
 }
 ```
 
-Type that parameter `mixed` or a nullable type. An absent optional key arrives as
-`null`, and a `string` parameter would throw instead of producing the fail-closed
-behaviour you want.
+Type that parameter `mixed` or a nullable type, since an absent optional key
+arrives as `null` and a `string` parameter would throw. Answer `null` for it, which
+is unknown, rather than passing it to `where`, which reads it as an `IS NULL` test.
+See [a missing context key is not unknown](/concepts/three-truth-values/#a-missing-context-key-is-not-unknown).
 
 ## It mixes freely with everything else
 
