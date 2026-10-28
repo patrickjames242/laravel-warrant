@@ -16,7 +16,7 @@ class WarrantTokenType(debugName: String) : IElementType(debugName, WarrantLangu
  * Source of truth for the underlying rules: src/DSL/Lexing/Lexer.php.
  */
 object WarrantTokenTypes {
-    @JvmField val KEYWORD = WarrantTokenType("WARRANT_KEYWORD")            // if they can cannot because check and or not for with as when otherwise except @include
+    @JvmField val KEYWORD = WarrantTokenType("WARRANT_KEYWORD")            // if they can cannot because check and or not for with as when otherwise @include
     @JvmField val CONSTANT = WarrantTokenType("WARRANT_CONSTANT")         // true false null
     @JvmField val IDENTIFIER = WarrantTokenType("WARRANT_IDENTIFIER")     // ability / condition / schema names
     @JvmField val STRING = WarrantTokenType("WARRANT_STRING")            // '...'

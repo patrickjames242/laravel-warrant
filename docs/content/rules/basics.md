@@ -79,9 +79,9 @@ Each cannot clause carries its own, so one rule can deny two things for two reas
 Identifiers match `[A-Za-z_][A-Za-z0-9_-]*`. They start with a letter or
 underscore and may contain letters, digits, underscores, and dashes. No dots.
 
-These cannot be used as an exact ability or condition name: `if`, `when`,
-`otherwise`, `except`, `they`, `can`, `cannot`, `because`, `check`, `and`, `or`,
-`not`, `for`, `with`, `as`, `true`, `false`, `null`. A name may still contain or start with one, so `canonical`,
+These cannot be used as an exact ability or condition name: `if`, `they`, `can`,
+`cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`, `true`,
+`false`, `null`. A name may still contain or start with one, so `canonical`,
 `cannot_publish`, and `is_and_something` are all fine.
 
 ## Wildcards
@@ -96,47 +96,17 @@ if is_suspended they cannot *
 `they cannot *` is the kill switch. Nothing can appeal it, so a suspended account
 loses everything regardless of what any other rule grants.
 
-`* except` is every ability but the ones it lists, and it stands wherever `*` may:
-
-```warrant
-if is_read_only they cannot * except view, list
-can they * except delete {
-    if is_editor they can
-}
-@include audit_trail for * except view
-```
-
-What follows `except` runs to the end of the list, as names or
-[bindings](/rules/values/#abilities-from-a-binding). An ability the schema adds
-later is covered too, which is the reason to write `* except` rather than the
-list it stands for.
-
-`* except` says only what this rule is about. `if is_editor they can * except
-delete` grants everything but `delete`; it does not deny `delete`. Another rule
-may still grant it, and only a `they cannot` takes it away.
-
-What `* except` leaves out must be abilities the schema declares, each written
-once, and never all of them, which would leave it standing for none:
-
-```text
-Ability [veiw] is not declared by the schema.
-Ability [view] is written more than once among the abilities this `* except` leaves out; write it once.
-`* except` leaves out every ability the schema declares, so it stands for none.
-```
-
 ## Each ability once
 
 A rule names each ability once among what it grants, and once among what it
 denies, however many cannot clauses it splits them across. `*` already stands for every
-ability, so nothing is written beside it, and neither is anything beside `* except`.
-Each of these is an error:
+ability, so nothing is written beside it. Each of these is an error:
 
 ```warrant
 they can view, view
 they can view they can view
 they cannot update they cannot update
 they can *, view
-they can view, * except delete
 ```
 
 The same goes for an ability block header and an `@include`'s `for` list.

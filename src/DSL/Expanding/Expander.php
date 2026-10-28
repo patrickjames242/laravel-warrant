@@ -15,7 +15,6 @@ use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
 use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
@@ -44,8 +43,7 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
  *  - every ability block's header is applied to the can/cannot clauses under it;
- *  - every `*` is replaced by the abilities the schema declares, and every
- *    `* except` by those but the ones it leaves out;
+ *  - every `*` is replaced by the abilities the schema declares;
  *  - every when block's condition is put on the rules in its body, and its
  *    negation on the rules in its `otherwise`;
  *  - every {@see IncludeInvocationNode} is replaced by the rules its template
@@ -238,45 +236,23 @@ final class Expander
 
     /**
      * $abilities with each `*` replaced, at its location, by every ability the
-     * schema registered under $schemaKey declares in the catalog, and each
-     * `* except` by every one of them but those it leaves out.
+     * schema registered under $schemaKey declares in the catalog.
      *
-     * What a `* except` leaves out must be abilities the schema declares, and
-     * not all of them. The validator reports these against the text; this
-     * rejects them in any list, built in code or not.
-     *
-     * @param list<NameNode|EveryAbilityExceptNode> $abilities
+     * @param list<NameNode> $abilities
      * @return list<NameNode>
      */
     private function abilitiesWithStarExpanded(array $abilities, string $schemaKey): array
     {
-        $declared = $this->catalog->find($schemaKey)?->abilityNames() ?? [];
         $expanded = [];
 
         foreach ($abilities as $ability) {
-            if ($ability instanceof NameNode && $ability->name !== '*') {
+            if ($ability->name !== '*') {
                 $expanded[] = $ability;
 
                 continue;
             }
 
-            $leftOut = $ability instanceof EveryAbilityExceptNode
-                ? array_map(static fn (NameNode $exception): string => $exception->name, $ability->exceptions)
-                : [];
-
-            foreach ($leftOut as $name) {
-                if (! in_array($name, $declared, true)) {
-                    throw new InvalidArgumentException(sprintf('Ability [%s] is not declared by the schema.', $name));
-                }
-            }
-
-            $standsFor = array_values(array_diff($declared, $leftOut));
-
-            if ($ability instanceof EveryAbilityExceptNode && $standsFor === []) {
-                throw new InvalidArgumentException(LanguageRuleMessages::exceptsEveryAbility());
-            }
-
-            foreach ($standsFor as $name) {
+            foreach ($this->catalog->find($schemaKey)?->abilityNames() ?? [] as $name) {
                 $expanded[] = new NameNode($name, $ability->location);
             }
         }

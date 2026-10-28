@@ -12,7 +12,7 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  * grants and denies, and with what message, can be read off it.
  *
  * Only {@see ExpandedSyntax::expand()} makes one, from what expansion answered
- * with, so the abilities it reads are never a binding, a `*` or a `* except`.
+ * with, so the abilities it reads are never a binding or a `*`.
  *
  * @internal
  */
@@ -90,11 +90,7 @@ final readonly class ExpandedRule
                 if (! $ability instanceof NameNode || $ability->name === '*') {
                     throw new LogicException(sprintf(
                         'An expanded rule names every ability on its own, got %s.',
-                        match (true) {
-                            $ability instanceof BindingNode => "the binding [:{$ability->name}]",
-                            $ability instanceof EveryAbilityExceptNode => '`* except`',
-                            default => '`*`',
-                        },
+                        $ability instanceof BindingNode ? "the binding [:{$ability->name}]" : '`*`',
                     ));
                 }
 

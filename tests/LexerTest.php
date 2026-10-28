@@ -15,7 +15,7 @@ const EVERY_TOKEN_KIND = <<<'WARRANT'
         if is_owner(:id, @context org, @column docs.org_id, @sql "1 = 1")
             and not check(is_open for folders(@context folder) as f with k = -1.5)
             or can(view for docs) they can view, * they cannot edit because 'no'
-        can they * except share, :more { they can }
+        can they share { they can }
         when is_open { they can list } otherwise { they cannot list }
         @include admin(true, null, 3)
     }
@@ -74,15 +74,6 @@ it('reads when and otherwise as keywords, and else as a name', function () {
         [TokenType::WHEN, 'when'],
         [TokenType::OTHERWISE, 'otherwise'],
         [TokenType::IDENTIFIER, 'else'],
-        [TokenType::EOF, ''],
-    ]);
-});
-
-it('reads except as a keyword', function () {
-    expect(lexedTokens('* except view'))->toBe([
-        [TokenType::STAR, '*'],
-        [TokenType::EXCEPT, 'except'],
-        [TokenType::IDENTIFIER, 'view'],
         [TokenType::EOF, ''],
     ]);
 });

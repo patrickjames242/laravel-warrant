@@ -37,7 +37,6 @@ trait ReportsMissingSyntax
         TokenType::AS,
         TokenType::WHEN,
         TokenType::OTHERWISE,
-        TokenType::EXCEPT,
     ];
 
     /**

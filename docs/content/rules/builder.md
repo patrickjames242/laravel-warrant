@@ -288,15 +288,6 @@ With no abilities, a can/cannot clause is generic: `->theyCan()`, `->theyCannot(
 [rule template's](/rules/templates/) body writes them, since the `@include`
 expanding the template names the abilities.
 
-`*` is the string `'*'`. `* except` is `Build::everyAbilityExcept(...)`, which
-every method that takes abilities accepts, an include's `for()` too:
-
-```php
-Build::rule()
-    ->if('is_read_only')
-    ->theyCannotBecause(Build::everyAbilityExcept('view', 'list'), 'Your account is read-only.');
-```
-
 `theyCannotBecause()` always needs its message. Called with abilities and no
 message, as in `->theyCannotBecause('delete')`, it throws a `LogicException`
 rather than reading `delete` as the message.

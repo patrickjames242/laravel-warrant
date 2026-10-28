@@ -102,8 +102,6 @@ const POSITIONS_CORPUS = [
     'braced blocks' => 'for docs { they can view } for folders { is_open } for docs { }',
     'an empty scoped body' => 'for docs',
     'comments' => "for docs { # rules\n  if is_owner # why\n they can view # done\n} # end",
-    'every ability except some' => 'they can * except view, :more they cannot * except edit '
-        .'can they * except share { they can } @include shared for * except view',
     'symbolic references' => 'if in_period(@context year, @column docs.org_id, @column org_id, @sql "select 1") they can view',
 ];
 
@@ -203,23 +201,6 @@ it('records each symbolic reference as written', function () {
         ['ColumnRef', '@column org_id'],
         ['SqlRef', '@sql "select 1"'],
         ['CanClauseNode', 'can view'],
-    ]);
-});
-
-it('records * except whole, with each binding it leaves out', function () {
-    expect(recordedNodes(POSITIONS_CORPUS['every ability except some']))->toBe([
-        ['RuleNode', 'they can * except view, :more they cannot * except edit'],
-        ['CanClauseNode', 'can * except view, :more'],
-        ['EveryAbilityExceptNode', '* except view, :more'],
-        ['BindingNode', ':more'],
-        ['CannotClauseNode', 'cannot * except edit'],
-        ['EveryAbilityExceptNode', '* except edit'],
-        ['AbilityBlockNode', 'can they * except share { they can }'],
-        ['EveryAbilityExceptNode', '* except share'],
-        ['RuleNode', 'they can'],
-        ['CanClauseNode', 'can'],
-        ['IncludeInvocationNode', '@include shared for * except view'],
-        ['EveryAbilityExceptNode', '* except view'],
     ]);
 });
 

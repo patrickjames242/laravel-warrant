@@ -11,7 +11,6 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
@@ -208,8 +207,6 @@ final readonly class CursorContext
             ($holder instanceof CanClauseNode || $holder instanceof CannotClauseNode
                 || $holder instanceof AbilityBlockNode || $holder instanceof IncludeInvocationNode)
                 && in_array($name, $holder->abilities, true)
-                => [SlotKind::Ability, $written, $here],
-            $holder instanceof EveryAbilityExceptNode
                 => [SlotKind::Ability, $written, $here],
             $holder instanceof IncludeInvocationNode && $name === $holder->templateKey
                 => [SlotKind::Template, $written, $here],

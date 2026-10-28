@@ -23,7 +23,7 @@ export interface Line {
   tokens: Token[]
 }
 
-const RULE_KEYWORDS = new Set(['if', 'when', 'otherwise', 'except', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not', 'for', 'with', 'as'])
+const RULE_KEYWORDS = new Set(['if', 'when', 'otherwise', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not', 'for', 'with', 'as'])
 const RULE_CONSTANTS = new Set(['true', 'false', 'null'])
 const PHP_KEYWORDS = new Set([
   'public',

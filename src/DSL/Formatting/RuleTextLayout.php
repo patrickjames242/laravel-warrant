@@ -14,7 +14,6 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -381,11 +380,11 @@ final class RuleTextLayout
             return LaidOutLines::of($oneLine);
         }
 
-        if (! $this->anyAbilityCommented($block->abilities) && $this->fits($column, $header.' {', 0)) {
+        if (! $this->anyCommented($block->abilities) && $this->fits($column, $header.' {', 0)) {
             return $this->bracedBody($block, LaidOutLines::of($header), false, $block->entries, $column);
         }
 
-        return $this->bracedBody($block, $this->brokenAbilityList('can they', $block->abilities, ''), true, $block->entries, $column);
+        return $this->bracedBody($block, $this->brokenList('can they', $block->abilities, ''), true, $block->entries, $column);
     }
 
     private function whenBlock(WhenBlockNode $block, int $column): LaidOutLines
@@ -627,13 +626,11 @@ final class RuleTextLayout
     {
         $flat = $this->flatClause($clause);
 
-        $oneUnbreakable = count($clause->abilities) === 1 && ! $clause->abilities[0] instanceof EveryAbilityExceptNode;
-
-        if ($clause->abilities === [] || (! $this->comments->hasCommentsInside($clause) && ($oneUnbreakable || $this->fits($column, $flat, 0)))) {
+        if ($clause->abilities === [] || (! $this->comments->hasCommentsInside($clause) && (count($clause->abilities) === 1 || $this->fits($column, $flat, 0)))) {
             return LaidOutLines::of($flat);
         }
 
-        return $this->brokenAbilityList($this->clauseHead($clause), $clause->abilities, $this->because($clause));
+        return $this->brokenList($this->clauseHead($clause), $clause->abilities, $this->because($clause));
     }
 
     private function flatClause(CanClauseNode|CannotClauseNode $clause): string
@@ -674,22 +671,6 @@ final class RuleTextLayout
         return $lines;
     }
 
-    /**
-     * $abilities one to a line under $head, as {@see brokenList()} lays them
-     * out. A `* except` written alone breaks the abilities it leaves out
-     * instead, under `$head * except`.
-     *
-     * @param list<INode> $abilities
-     */
-    private function brokenAbilityList(string $head, array $abilities, string $after): LaidOutLines
-    {
-        if (count($abilities) === 1 && $abilities[0] instanceof EveryAbilityExceptNode) {
-            return $this->commented($abilities[0], $this->brokenList($head.' * except', $abilities[0]->exceptions, $after));
-        }
-
-        return $this->brokenList($head, $abilities, $after);
-    }
-
     private function include(IncludeInvocationNode $include, int $column): LaidOutLines
     {
         $name = '@include '.$include->templateKey->name;
@@ -697,15 +678,14 @@ final class RuleTextLayout
         $abilities = implode(', ', array_map($this->abilityText(...), $include->abilities));
         $for = $abilities === '' ? '' : 'for '.$abilities;
         $argumentsCommented = $this->anyCommented($include->arguments);
-        $abilitiesCommented = $this->anyAbilityCommented($include->abilities);
+        $abilitiesCommented = $this->anyCommented($include->abilities);
 
         if (! $argumentsCommented && ! $abilitiesCommented && $this->fits($column, rtrim($head.' '.$for), 0)) {
             return LaidOutLines::of(rtrim($head.' '.$for));
         }
 
         // The `for` list breaks one ability to a line when it does not fit, as a clause's does.
-        $breakable = count($include->abilities) > 1 || ($include->abilities[0] ?? null) instanceof EveryAbilityExceptNode;
-        $listBreaks = static fn (bool $fits): bool => $abilitiesCommented || ($breakable && ! $fits);
+        $listBreaks = static fn (bool $fits): bool => $abilitiesCommented || (count($include->abilities) > 1 && ! $fits);
 
         // `for` stays on the `@include` line when it fits there, its abilities below it.
         if (! $argumentsCommented && ($include->arguments === [] || $this->fits($column, $head.($for === '' ? '' : ' for'), 0))) {
@@ -714,7 +694,7 @@ final class RuleTextLayout
             }
 
             return $listBreaks(false)
-                ? LaidOutLines::of($head.' ')->appendLines($this->brokenAbilityList('for', $include->abilities, ''))
+                ? LaidOutLines::of($head.' ')->appendLines($this->brokenList('for', $include->abilities, ''))
                 : LaidOutLines::of($head.' '.$for);
         }
 
@@ -725,7 +705,7 @@ final class RuleTextLayout
         }
 
         return $listBreaks($this->fits($column, ') '.$for, 0))
-            ? $lines->append(' ')->appendLines($this->brokenAbilityList('for', $include->abilities, ''))
+            ? $lines->append(' ')->appendLines($this->brokenList('for', $include->abilities, ''))
             : $lines->append(' '.$for);
     }
 
@@ -965,11 +945,7 @@ final class RuleTextLayout
 
     private function abilityText(INode $ability): string
     {
-        return match (true) {
-            $ability instanceof EveryAbilityExceptNode => '* except '.implode(', ', array_map($this->abilityText(...), $ability->exceptions)),
-            $ability instanceof BindingNode => ':'.$ability->name,
-            default => $this->argumentText($ability),
-        };
+        return $ability instanceof BindingNode ? ':'.$ability->name : $this->argumentText($ability);
     }
 
     private function argumentText(INode $argument): string
@@ -1009,23 +985,6 @@ final class RuleTextLayout
     /**
      * @param list<INode> $nodes
      */
-    /**
-     * Whether a comment stands beside any of $abilities, or inside a
-     * `* except` among them.
-     *
-     * @param list<INode> $abilities
-     */
-    private function anyAbilityCommented(array $abilities): bool
-    {
-        foreach ($abilities as $ability) {
-            if ($this->comments->isCommented($ability) || $this->comments->hasCommentsInside($ability)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function anyCommented(array $nodes): bool
     {
         foreach ($nodes as $node) {

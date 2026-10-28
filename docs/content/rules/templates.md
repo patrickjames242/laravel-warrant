@@ -224,8 +224,7 @@ answers the same.
 
 The wildcard is expanded before the template is called: `$abilities` lists every
 ability the schema declares, and `@include frozen for *` calls a per-ability
-template once for each of them. `@include frozen for * except view` does the same
-for every ability but `view`.
+template once for each of them.
 
 ## What a template may answer with
 

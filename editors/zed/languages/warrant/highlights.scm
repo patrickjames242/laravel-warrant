@@ -13,7 +13,6 @@
   "if"
   "when"
   "otherwise"
-  "except"
   "they"
   "can"
   "cannot"
@@ -49,13 +48,6 @@
 
 (ability
   (wildcard) @operator)
-
-; `* except` and the abilities it leaves out.
-(every_ability_except
-  (wildcard) @operator)
-
-(excepted_ability
-  (identifier) @function)
 
 ; Keys: `with` map entries, `@context` keys, and `@column` column names.
 (with_entry

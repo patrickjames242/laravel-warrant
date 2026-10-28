@@ -4,6 +4,14 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Removed
+
+- `* except <abilities>` and `Build::everyAbilityExcept()`, with the
+  `excepts-every-ability` diagnostic code. `except` is not a reserved word, so an
+  ability or condition may be named it.
+
 ## 4.9.0 — 2026-10-27
 
 ### Added

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Stop highlighting `except` as a keyword, since the rule language has no
+  `* except`.
+
 ## 0.14.0
 
 - Highlight `except` as a keyword, for `* except` in an ability list, and

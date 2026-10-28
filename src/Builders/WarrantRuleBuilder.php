@@ -6,7 +6,6 @@ use Closure;
 use LogicException;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -36,20 +35,20 @@ use Warrant\Schema\Denials\WarrantDenialContext;
  */
 final class WarrantRuleBuilder extends WarrantConditionBuilder
 {
-    /** @var list<list<string|EveryAbilityExceptNode>> */
+    /** @var list<list<string>> */
     private array $canClauses = [];
 
-    /** @var list<array{abilities: list<string|EveryAbilityExceptNode>, message: string|Closure|null}> */
+    /** @var list<array{abilities: list<string>, message: string|Closure|null}> */
     private array $cannotClauses = [];
 
     // -- can/cannot clauses ---------------------------------------------------
 
     /**
-     * Grant $abilities: names, `'*'`, or {@see Build::everyAbilityExcept()}.
-     * With none the can clause is generic, as a rule template's body writes it:
-     * the `@include` that expands the template names the abilities.
+     * Grant $abilities. With none the can clause is generic, as a rule template's
+     * body writes it: the `@include` that expands the template names the
+     * abilities.
      */
-    public function theyCan(string|EveryAbilityExceptNode ...$abilities): static
+    public function theyCan(string ...$abilities): static
     {
         $this->canClauses[] = array_values($abilities);
 
@@ -59,7 +58,7 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     /**
      * Deny $abilities. With none the cannot clause is generic, as {@see theyCan()}'s is.
      */
-    public function theyCannot(string|EveryAbilityExceptNode ...$abilities): static
+    public function theyCannot(string ...$abilities): static
     {
         $this->cannotClauses[] = ['abilities' => array_values($abilities), 'message' => null];
 
@@ -78,10 +77,10 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
      * is required all the same, so a lone ability passed by position, its message
      * forgotten, is reported rather than read as a message.
      *
-     * @param string|EveryAbilityExceptNode|list<string|EveryAbilityExceptNode> $abilities
+     * @param string|list<string> $abilities
      * @param string|Closure(WarrantDenialContext):(string|\Throwable)|null $message
      */
-    public function theyCannotBecause(string|EveryAbilityExceptNode|array $abilities = [], string|Closure|null $message = null): static
+    public function theyCannotBecause(string|array $abilities = [], string|Closure|null $message = null): static
     {
         if ($message === null) {
             throw new LogicException(
@@ -128,14 +127,11 @@ final class WarrantRuleBuilder extends WarrantConditionBuilder
     }
 
     /**
-     * @param list<string|EveryAbilityExceptNode> $abilities
-     * @return list<NameNode|EveryAbilityExceptNode>
+     * @param list<string> $abilities
+     * @return list<NameNode>
      */
     private function abilityNodes(array $abilities, SyntaxSource $source): array
     {
-        return array_map(
-            fn (string|EveryAbilityExceptNode $ability): NameNode|EveryAbilityExceptNode => is_string($ability) ? self::nameNode($ability, $source) : $ability,
-            $abilities,
-        );
+        return array_map(fn (string $ability) => self::nameNode($ability, $source), $abilities);
     }
 }

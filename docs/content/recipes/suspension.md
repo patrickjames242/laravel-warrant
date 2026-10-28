@@ -87,15 +87,14 @@ public function rules(RuleProviderContext $context): array|RuleSetNode
 {
     return [
         WarrantSyntax::parse(
-            "if is_read_only they cannot * except view
+            "if is_read_only they cannot update, delete, submit, approve
              because 'Your account is limited to read-only access.'"
         )->validate()->rule(),
     ];
 }
 ```
 
-`*` would remove `view` too, so `* except view` leaves it out. An ability the
-schema adds later is denied with the rest, which is what read-only should mean.
+Writing out the abilities is deliberate here. `*` would remove `view` too.
 
 ## Revoking one record
 

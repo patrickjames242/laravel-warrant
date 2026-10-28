@@ -84,10 +84,6 @@
       "required": true,
       "types": [
         {
-          "type": "every_ability_except",
-          "named": true
-        },
-        {
           "type": "identifier",
           "named": true
         },
@@ -447,51 +443,6 @@
           }
         ]
       }
-    }
-  },
-  {
-    "type": "every_ability_except",
-    "named": true,
-    "fields": {
-      "exception": {
-        "multiple": true,
-        "required": true,
-        "types": [
-          {
-            "type": "excepted_ability",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "wildcard",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "excepted_ability",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "named_binding",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -938,10 +889,6 @@
   {
     "type": "escape_sequence",
     "named": true
-  },
-  {
-    "type": "except",
-    "named": false
   },
   {
     "type": "false",

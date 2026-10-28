@@ -7,8 +7,6 @@ use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
-use Warrant\DSL\Parsing\ASTNodes\BindingNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
@@ -601,74 +599,6 @@ it('parses wildcard abilities on can and cannot', function () {
     expect(grantedAbilitiesOf($set->entries[0]))->toBe(['*']);
     expect(deniedAbilitiesOf($set->entries[1]))->toBe(['*']);
 });
-
-/**
- * The abilities a `* except` leaves out, as written: a name, or `:` and a
- * binding's name.
- *
- * @return list<string>
- */
-function exceptedNames(EveryAbilityExceptNode $node): array
-{
-    return array_map(
-        static fn (NameNode|BindingNode $ability): string => $ability instanceof BindingNode ? ':'.$ability->name : $ability->name,
-        $node->exceptions,
-    );
-}
-
-it('parses * except wherever an ability list is written', function (string $syntax, Closure $abilities) {
-    $written = $abilities(WarrantParser::parse($syntax)->children[0]);
-
-    expect($written)->toHaveCount(1)
-        ->and($written[0])->toBeInstanceOf(EveryAbilityExceptNode::class)
-        ->and($written[0]->star->name)->toBe('*')
-        ->and(exceptedNames($written[0]))->toBe(['view', 'edit']);
-})->with([
-    'they can' => ['they can * except view, edit', fn (RuleNode $rule) => $rule->canClauses[0]->abilities],
-    'they cannot, with a message' => ["they cannot * except view, edit because 'no'", fn (RuleNode $rule) => $rule->cannotClauses[0]->abilities],
-    'an ability block header' => ['can they * except view, edit { they can }', fn (AbilityBlockNode $block) => $block->abilities],
-    'an @include' => ['@include shared for * except view, edit', fn (IncludeInvocationNode $include) => $include->abilities],
-]);
-
-it('reads a binding among the abilities * except leaves out', function () {
-    $written = WarrantParser::parse('they cannot * except :hidden, view, :more')->children[0]->cannotClauses[0]->abilities[0];
-
-    expect(exceptedNames($written))->toBe([':hidden', 'view', ':more']);
-});
-
-it('keeps * except beside the abilities written before it, for validation to judge', function () {
-    $abilities = WarrantParser::parse('they can view, * except edit')->children[0]->canClauses[0]->abilities;
-
-    expect($abilities[0])->toBeInstanceOf(NameNode::class)
-        ->and($abilities[1])->toBeInstanceOf(EveryAbilityExceptNode::class)
-        ->and(exceptedNames($abilities[1]))->toBe(['edit']);
-});
-
-it('ends what * except leaves out where the ability list ends', function () {
-    $rules = WarrantParser::parse("they cannot * except view because 'no' if is_owner they can view")->children;
-
-    expect($rules)->toHaveCount(2)
-        ->and(exceptedNames($rules[0]->cannotClauses[0]->abilities[0]))->toBe(['view'])
-        ->and(grantedAbilitiesOf($rules[1]))->toBe(['view']);
-});
-
-it('rejects * except that leaves out nothing, or anything but names and bindings', function (string $syntax, string $needle) {
-    expect(fn () => WarrantParser::parse($syntax))->toThrow(WarrantSyntaxException::class, $needle);
-})->with([
-    'nothing after except' => ['they can * except', 'Expected an ability name'],
-    'a message where the abilities go' => ["they cannot * except because 'no'", "Reserved word 'because' cannot be used"],
-    '* after except' => ['they can * except *', 'Expected an ability name'],
-    'a trailing comma' => ['they can * except view,', 'Expected an ability name'],
-    'except after a name' => ['they can view except edit', 'end of input'],
-    'except with no *' => ['they can except view', "Reserved word 'except' cannot be used"],
-]);
-
-it('reserves except, so nothing may be named it', function (string $syntax) {
-    expect(fn () => WarrantParser::parse($syntax))->toThrow(WarrantSyntaxException::class, "Reserved word 'except' cannot be used");
-})->with([
-    'an ability' => ['they can except'],
-    'a condition' => ['if except they can view'],
-]);
 
 // -- Identifiers --------------------------------------------------------------
 

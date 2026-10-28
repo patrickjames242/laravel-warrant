@@ -86,7 +86,7 @@ readonly class RuleNode implements IRuleEntryNode
      * clauses mean once the enclosing block header or `@include` has named what
      * they are about. Denial messages stay on the cannot clauses that carried them.
      *
-     * @param list<NameNode|EveryAbilityExceptNode> $abilities
+     * @param list<NameNode> $abilities
      */
     public function withAbilities(array $abilities): self
     {

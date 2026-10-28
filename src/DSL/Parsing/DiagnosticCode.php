@@ -117,7 +117,7 @@ enum DiagnosticCode: string
     /** An ability or a binding written twice in one ability list, or among one rule's `can` or `cannot` clauses. */
     case DuplicateAbility = 'duplicate-ability';
 
-    /** `*`, or `* except`, written beside another ability or a binding in one ability list. */
+    /** `*` written beside another ability or a binding in one ability list. */
     case StarBesideAbilities = 'star-beside-abilities';
 
     // -- the schema: names and shapes the schema does not have ---------------
@@ -127,9 +127,6 @@ enum DiagnosticCode: string
 
     /** An ability the schema does not declare. */
     case UnknownAbility = 'unknown-ability';
-
-    /** `* except` leaving out every ability the schema declares, so it stands for none. */
-    case ExceptsEveryAbility = 'excepts-every-ability';
 
     /** A condition the schema does not declare. */
     case UnknownCondition = 'unknown-condition';

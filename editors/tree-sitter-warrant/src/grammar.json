@@ -482,10 +482,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "every_ability_except"
-        },
-        {
-          "type": "SYMBOL",
           "name": "named_binding"
         }
       ]
@@ -493,64 +489,6 @@
     "wildcard": {
       "type": "STRING",
       "value": "*"
-    },
-    "every_ability_except": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "wildcard"
-          },
-          {
-            "type": "STRING",
-            "value": "except"
-          },
-          {
-            "type": "FIELD",
-            "name": "exception",
-            "content": {
-              "type": "SYMBOL",
-              "name": "excepted_ability"
-            }
-          },
-          {
-            "type": "REPEAT",
-            "content": {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": ","
-                },
-                {
-                  "type": "FIELD",
-                  "name": "exception",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "excepted_ability"
-                  }
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "excepted_ability": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "identifier"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "named_binding"
-        }
-      ]
     },
     "_expression": {
       "type": "CHOICE",

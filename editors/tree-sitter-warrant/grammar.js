@@ -143,25 +143,10 @@ module.exports = grammar({
       repeat(seq(',', $.ability)),
     ),
 
-    // An ability name, `*`, `* except` the abilities it leaves out, or a binding
-    // whose value names one or a list of them.
-    ability: $ => choice($.identifier, $.wildcard, $.every_ability_except, $.named_binding),
+    // An ability name, `*`, or a binding whose value names one or a list of them.
+    ability: $ => choice($.identifier, $.wildcard, $.named_binding),
 
     wildcard: _ => '*',
-
-    // `* except <abilities>` -- every ability but the ones it lists. What
-    // follows `except` runs to the end of the list, so a comma after it always
-    // continues the exceptions; the PHP parser reads it the same way.
-    every_ability_except: $ => prec.right(seq(
-      $.wildcard,
-      'except',
-      field('exception', $.excepted_ability),
-      repeat(seq(',', field('exception', $.excepted_ability))),
-    )),
-
-    // An ability `* except` leaves out: a name, or a binding whose value names
-    // one or a list of them.
-    excepted_ability: $ => choice($.identifier, $.named_binding),
 
     // -- expressions ---------------------------------------------------------
 

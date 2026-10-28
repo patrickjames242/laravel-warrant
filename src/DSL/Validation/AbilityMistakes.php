@@ -4,7 +4,6 @@ namespace Warrant\DSL\Validation;
 
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
-use Warrant\DSL\Parsing\ASTNodes\EveryAbilityExceptNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
@@ -16,17 +15,15 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * The mistakes abilities can be written or bound with.
  *
  * An ability list is judged two ways. As written, which the validator reports:
- * an ability or a binding written twice, or `*` or `* except` written beside
- * anything else, and an ability or a binding written twice among those a
- * `* except` leaves out. That judgement never reads a binding's value:
- * `view, :more` holds no mistake whatever `:more` names, while `:more, :more`
- * writes one binding twice. A rule's `can` clauses are one list, and so are its
- * `cannot` clauses, since all of them grant or deny for the one condition.
+ * an ability or a binding written twice, or `*` written beside anything else.
+ * That judgement never reads a binding's value: `view, :more` holds no mistake
+ * whatever `:more` names, while `:more, :more` writes one binding twice. A
+ * rule's `can` clauses are one list, and so are its `cannot` clauses, since all
+ * of them grant or deny for the one condition.
  *
  * And by each binding's value, which in a list is an ability name, `*`, or a
- * non-empty list of them, after `* except` is an ability name or a non-empty
- * list of them, and as the ability a `can(...)` reference asks about is one
- * ability name. The validator reports a value that is neither when
+ * non-empty list of them, and as the ability a `can(...)` reference asks about
+ * is one ability name. The validator reports a value that is neither when
  * binding values are checked, and the expander rejects one when it puts the
  * value in the binding's place, so both judge values here.
  */
@@ -53,7 +50,7 @@ final class AbilityMistakes
     }
 
     /**
-     * @param list<NameNode|BindingNode|EveryAbilityExceptNode> $abilities
+     * @param list<NameNode|BindingNode> $abilities
      * @param string $among The abilities the list is, as words for the author.
      * @return list<array{0: DiagnosticCode, 1: string, 2: SyntaxLocation}>
      */
@@ -64,11 +61,7 @@ final class AbilityMistakes
         $star = null;
 
         foreach ($abilities as $ability) {
-            $written = match (true) {
-                $ability instanceof BindingNode => 'Binding [:'.$ability->name.']',
-                $ability instanceof EveryAbilityExceptNode => 'Ability [*]',
-                default => 'Ability ['.$ability->name.']',
-            };
+            $written = $ability instanceof BindingNode ? 'Binding [:'.$ability->name.']' : 'Ability ['.$ability->name.']';
 
             if (isset($seen[$written])) {
                 $mistakes[] = [DiagnosticCode::DuplicateAbility, LanguageRuleMessages::abilityWrittenTwice($written, $among), $ability->location];
@@ -76,12 +69,8 @@ final class AbilityMistakes
 
             $seen[$written] = true;
 
-            if ($ability instanceof EveryAbilityExceptNode || ($ability instanceof NameNode && $ability->name === '*')) {
+            if ($ability instanceof NameNode && $ability->name === '*') {
                 $star ??= $ability;
-            }
-
-            if ($ability instanceof EveryAbilityExceptNode) {
-                array_push($mistakes, ...self::inWrittenList($ability->exceptions, 'this `* except` leaves out'));
             }
         }
 
@@ -94,7 +83,7 @@ final class AbilityMistakes
 
     /**
      * @param list<\Warrant\DSL\Parsing\ASTNodes\CanClauseNode|\Warrant\DSL\Parsing\ASTNodes\CannotClauseNode> $clauses
-     * @return list<NameNode|BindingNode|EveryAbilityExceptNode>
+     * @return list<NameNode|BindingNode>
      */
     private static function abilitiesOf(array $clauses): array
     {
@@ -103,8 +92,8 @@ final class AbilityMistakes
 
     /**
      * The abilities $binding's value names: an ability name, `*`, or each name
-     * in a list. Only a value {@see inBoundList()} or {@see inBoundExceptions()}
-     * finds nothing wrong with names any.
+     * in a list. Only a value {@see inBoundList()} finds nothing wrong with
+     * names any.
      *
      * @return list<string>
      */
@@ -134,30 +123,6 @@ final class AbilityMistakes
         };
 
         return $got === null ? null : LanguageRuleMessages::abilityListBindingValue($binding->name, $got);
-    }
-
-    /**
-     * What is wrong with $binding's value as abilities `* except` leaves out,
-     * or null when it is an ability name or a non-empty list of them. `*` is
-     * none: leaving out every ability is never what `* except` is for.
-     */
-    public static function inBoundExceptions(BindingNode $binding): ?string
-    {
-        $value = $binding->value();
-        $names = is_array($value) ? $value : [$value];
-        $notNames = array_filter($names, static fn (mixed $name): bool => ! is_string($name) || $name === '*');
-        $notName = reset($notNames);
-
-        $got = match (true) {
-            $names === [] => 'an empty list',
-            ! array_is_list($names) => 'an array with keys',
-            $notNames === [] => null,
-            $notName === '*' => is_array($value) ? 'a list holding `*`' : '`*`',
-            is_array($value) => 'a list holding '.get_debug_type($notName),
-            default => get_debug_type($value),
-        };
-
-        return $got === null ? null : LanguageRuleMessages::exceptedBindingValue($binding->name, $got);
     }
 
     /**

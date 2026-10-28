@@ -34,7 +34,7 @@ the abilities.
 
 ## Several abilities, and wildcards
 
-A header may list several, or use `*` or `* except`:
+A header may list several, or use `*`:
 
 ```warrant
 can they edit, delete {
@@ -44,10 +44,6 @@ can they edit, delete {
 
 can they * {
     if is_suspended they cannot because 'Your account is suspended.'
-}
-
-can they * except view {
-    if is_read_only they cannot because 'Your account is read-only.'
 }
 ```
 
