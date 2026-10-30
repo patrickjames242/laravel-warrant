@@ -4,7 +4,7 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
-## Unreleased
+## 4.11.0 — 2026-10-29
 
 ### Added
 
