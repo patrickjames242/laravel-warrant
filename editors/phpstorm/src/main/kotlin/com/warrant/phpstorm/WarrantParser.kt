@@ -6,8 +6,9 @@ import com.intellij.lang.PsiParser
 import com.intellij.psi.tree.IElementType
 
 /**
- * A flat parser: every token sits directly under the file root. Highlighting
- * and injection need nothing more, error-checking and completion come from the
+ * A flat parser: every token sits directly under the file root, each name
+ * wrapped in a [WarrantName] so it can carry references. Highlighting and
+ * injection need nothing more, error-checking and completion come from the
  * language server, and formatting from the Warrant formatter.
  */
 class WarrantParser : PsiParser {
@@ -15,7 +16,13 @@ class WarrantParser : PsiParser {
         val rootMarker = builder.mark()
 
         while (!builder.eof()) {
-            builder.advanceLexer()
+            if (builder.tokenType == WarrantTokenTypes.IDENTIFIER) {
+                val name = builder.mark()
+                builder.advanceLexer()
+                name.done(WARRANT_NAME)
+            } else {
+                builder.advanceLexer()
+            }
         }
 
         rootMarker.done(root)

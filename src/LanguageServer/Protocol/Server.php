@@ -12,6 +12,7 @@ use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\DocumentSymbols;
 use Warrant\LanguageServer\Features\Formatting;
 use Warrant\LanguageServer\Features\Hover;
+use Warrant\LanguageServer\Features\Usages;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
 use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
@@ -37,6 +38,9 @@ final class Server
     private const METHOD_NOT_FOUND = -32601;
     private const INTERNAL_ERROR = -32603;
     private const SERVER_NOT_INITIALIZED = -32002;
+
+    /** The `FileChangeType` of a file changed in place, not created or deleted. */
+    private const FILE_CHANGED = 2;
 
     private Workspace $workspace;
 
@@ -218,7 +222,7 @@ final class Server
             'textDocument/didOpen' => $this->open($params),
             'textDocument/didChange' => $this->change($params),
             'textDocument/didClose' => $this->close($params),
-            'workspace/didChangeWatchedFiles' => $this->filesChanged(),
+            'workspace/didChangeWatchedFiles' => $this->filesChanged($params),
             'textDocument/hover' => $document === null ? null : Hover::at($this->workspace, $document, $position),
             'textDocument/definition' => $document === null ? null : Definition::at($this->workspace, $document, $position),
             'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position, $this->takesSnippets)],
@@ -228,6 +232,8 @@ final class Server
                 ...Formatting::codeActions($document, is_array($params['context'] ?? null) ? $params['context'] : [], $this->workspace->root),
             ],
             'textDocument/formatting' => $document === null ? null : Formatting::edits($document, $this->workspace->root),
+            'warrant/declaration' => $document === null ? null : Usages::declarationAt($this->workspace, $document, $position),
+            'warrant/usages' => $this->usages($params),
             default => $isRequest ? throw new MethodNotFound : null,
         };
     }
@@ -248,11 +254,26 @@ final class Server
 
     /**
      * A schema is a PHP file, so a changed PHP file means reading the schemas
-     * again, once the editor is quiet.
+     * again, once the editor is quiet. A file created or deleted changes which
+     * files the project's rule text is searched in.
+     *
+     * @param array<string, mixed> $params The notification's parameters.
      */
-    private function filesChanged(): null
+    private function filesChanged(array $params): null
     {
-        $this->vocabularyStale = true;
+        $this->workspace->forgetProjectAnswers();
+
+        foreach (is_array($params['changes'] ?? null) ? $params['changes'] : [] as $change) {
+            $uri = is_array($change) ? (string) ($change['uri'] ?? '') : '';
+
+            if (! str_ends_with($uri, '.warrant')) {
+                $this->vocabularyStale = true;
+            }
+
+            if (is_array($change) && ($change['type'] ?? null) !== self::FILE_CHANGED) {
+                $this->workspace->forgetProjectFiles();
+            }
+        }
 
         return null;
     }
@@ -314,7 +335,7 @@ final class Server
             $registrations[] = [
                 'id' => 'warrant-php-files',
                 'method' => 'workspace/didChangeWatchedFiles',
-                'registerOptions' => ['watchers' => [['globPattern' => '**/*.php'], ['globPattern' => '**/composer.lock']]],
+                'registerOptions' => ['watchers' => [['globPattern' => '**/*.php'], ['globPattern' => '**/*.warrant'], ['globPattern' => '**/composer.lock']]],
             ];
         }
 
@@ -383,6 +404,26 @@ final class Server
         $this->transport->send(['method' => 'textDocument/publishDiagnostics', 'params' => ['uri' => $uri, 'diagnostics' => []]]);
 
         return null;
+    }
+
+    /**
+     * The uses of a declaration, for `warrant/usages`, whose parameters name it by
+     * the `uri` of its file and the `member` of it that declares it.
+     *
+     * @param array<string, mixed> $params The request's parameters.
+     * @return array<string, mixed>|null
+     */
+    private function usages(array $params): ?array
+    {
+        $path = is_string($params['uri'] ?? null) ? Uri::toPath($params['uri']) : null;
+        $member = $params['member'] ?? null;
+
+        // Without hearing of files changed, created and deleted, the project is searched afresh each time.
+        if (! $this->canWatchFiles) {
+            $this->workspace->forgetProjectFiles();
+        }
+
+        return $path === null || ! is_string($member) ? null : Usages::of($this->workspace, $path, $member);
     }
 
     /**

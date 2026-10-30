@@ -11,13 +11,52 @@
         <postStartupActivity
             implementation="com.warrant.phpstorm.lsp.StartWarrantLanguageServerActivity"/>
 
-        <!-- Underlines names on Cmd/Ctrl-hover and navigates on click, by asking
-             the server for their definitions. -->
-        <psi.implicitReferenceProvider
-            implementation="com.warrant.phpstorm.lsp.WarrantDefinitionReferenceProvider"/>
+        <!-- Makes each name in Warrant text a reference to what declares it, by
+             asking the server, so Cmd/Ctrl-hover underlines it, Cmd/Ctrl-click
+             goes there, and a rename started on it renames that. -->
+        <psi.referenceContributor
+            language="Warrant"
+            implementation="com.warrant.phpstorm.lsp.WarrantNameReferenceContributor"/>
+
+        <!-- Finds the uses in rule text of a condition, template or ability, by
+             asking the server, for Find Usages, Show Usages and Rename on the
+             PHP that declares it. -->
+        <referencesSearch
+            implementation="com.warrant.phpstorm.lsp.WarrantReferencesSearcher"/>
+
+        <!-- A key given to a condition's or template's attribute, and an ability
+             constant's value, are PHP strings: renaming one, finding its usages
+             and Cmd/Ctrl-clicking it each need taking up here. -->
+        <renamePsiElementProcessor
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringRenameProcessor"
+            order="first"/>
+        <renameHandler
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringRenameHandler"/>
+        <elementDescriptionProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringDescriptionProvider"/>
+        <findUsagesHandlerFactory
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringFindUsagesHandlerFactory"/>
+        <usageTargetProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringUsageTargetProvider"/>
+        <gotoDeclarationHandler
+            implementation="com.warrant.phpstorm.lsp.WarrantNameStringGotoUsagesHandler"/>
+
+        <!-- Shows a condition or template method, or an ability constant, as
+             used while rule text names it, since Warrant calls it by
+             reflection and no PHP does. -->
+        <phpDeadCode
+            implementation="com.warrant.phpstorm.lsp.WarrantEntryPoint"/>
+
+        <!-- Checks a new name for a condition, template or ability against rule
+             text and the schemas that have it. -->
+        <renameInputValidator
+            implementation="com.warrant.phpstorm.lsp.WarrantRenameInputValidator"/>
 
         <projectService
             serviceImplementation="com.warrant.phpstorm.lsp.WarrantSettings"/>
+
+        <projectService
+            serviceImplementation="com.warrant.phpstorm.lsp.WarrantServerQueries"/>
 
         <projectConfigurable
             parentId="language"
@@ -41,6 +80,14 @@
             implementation="com.warrant.phpstorm.lsp.WarrantFormattingService"
             order="first"/>
     </extensions>
+
+    <projectListeners>
+        <!-- Offers the builder and Laravel strings that may name a renamed
+             condition or ability. -->
+        <listener
+            class="com.warrant.phpstorm.lsp.WarrantNameStringsAfterRename"
+            topic="com.intellij.refactoring.listeners.RefactoringEventListener"/>
+    </projectListeners>
 
     <actions>
         <action

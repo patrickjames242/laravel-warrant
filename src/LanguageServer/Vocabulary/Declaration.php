@@ -25,6 +25,10 @@ final readonly class Declaration
      *   one.
      * @param list<string> $parameters The names of the arguments rule text passes
      *   it, in order; empty for an ability.
+     * @param string|null $member The method or constant that declares it, in
+     *   $file, when known. With $file it says which declaration a name is, since
+     *   one trait or parent class declares the same name for every schema that
+     *   uses it.
      */
     public function __construct(
         public string $name,
@@ -33,6 +37,7 @@ final readonly class Declaration
         public ?int $line = null,
         public ?string $description = null,
         public array $parameters = [],
+        public ?string $member = null,
     ) {
     }
 
@@ -51,6 +56,7 @@ final readonly class Declaration
             $this->line ?? $other->line,
             $this->description ?? $other->description,
             $this->parameters !== [] ? $this->parameters : $other->parameters,
+            $this->member ?? $other->member,
         );
     }
 }

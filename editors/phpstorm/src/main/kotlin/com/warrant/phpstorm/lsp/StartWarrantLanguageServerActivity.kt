@@ -6,7 +6,8 @@ import com.intellij.platform.lsp.api.LspServerManager
 
 /**
  * Starts the Warrant language server once a project has opened, when a
- * `.warrant` or PHP file is already open in it.
+ * `.warrant` or PHP file is already open in it, and has the open files counted
+ * again once it is running ([WarrantRecountOnServerStart]).
  *
  * [WarrantLspServerSupportProvider] starts the server as a file opens, but the
  * tabs a project reopens with load lazily, and a tab that has not loaded yet has
@@ -16,5 +17,6 @@ import com.intellij.platform.lsp.api.LspServerManager
 class StartWarrantLanguageServerActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         LspServerManager.getInstance(project).startServersIfNeeded(WarrantLspServerSupportProvider::class.java)
+        WarrantRecountOnServerStart.getInstance(project).recountOnceRunning()
     }
 }

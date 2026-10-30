@@ -116,6 +116,22 @@ it('answers requests about an open document', function () {
         ->and(responseTo($sent, 4)['result'])->toBeNull();
 });
 
+it('names the declaration at a position, and finds its uses in the project', function () {
+    $uri = Uri::fromPath(fixtureRoot().'/rules.warrant');
+
+    [$sent] = serve([
+        ...handshake(),
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $uri, 'languageId' => 'warrant', 'version' => 1, 'text' => 'for documents { if is_owner they can edit }']]],
+        ['id' => 2, 'method' => 'warrant/declaration', 'params' => ['textDocument' => ['uri' => $uri], 'position' => ['line' => 0, 'character' => 20]]],
+        ['id' => 3, 'method' => 'warrant/usages', 'params' => ['uri' => Uri::fromPath(fixtureRoot().'/app/Schemas/DocumentSchema.php'), 'member' => 'isOwner']],
+        ['id' => 4, 'method' => 'warrant/usages', 'params' => ['uri' => Uri::fromPath(fixtureRoot().'/app/Schemas/DocumentSchema.php'), 'member' => 'rules']],
+    ]);
+
+    expect(responseTo($sent, 2)['result'])->toMatchArray(['kind' => 'condition', 'name' => 'is_owner', 'member' => 'isOwner'])
+        ->and(array_column(responseTo($sent, 3)['result']['usages'], 'uri'))->toContain($uri)
+        ->and(responseTo($sent, 4)['result'])->toBeNull();
+});
+
 it('answers a request it does not know with an error, and ignores a notification it does not know', function () {
     [$sent] = serve([
         ...handshake(),

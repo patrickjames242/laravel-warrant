@@ -6,7 +6,6 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Documents\Uri;
 use Warrant\LanguageServer\Positions\SlotKind;
-use Warrant\LanguageServer\Vocabulary\Declaration;
 use Warrant\LanguageServer\Workspace;
 
 /**
@@ -61,13 +60,9 @@ final class Definition
             return $named === null ? null : self::location($named->file, $named->line);
         }
 
-        $declaration = match ($context->slot) {
-            SlotKind::Condition, SlotKind::Template => $located->declared($vocabulary)[1] ?? null,
-            SlotKind::Ability => $schema?->abilities[$context->name] ?? null,
-            default => null,
-        };
+        $declaration = $located->declaration($vocabulary);
 
-        return $declaration instanceof Declaration ? self::location($declaration->file, $declaration->line) : null;
+        return $declaration === null ? null : self::location($declaration->file, $declaration->line);
     }
 
     /**

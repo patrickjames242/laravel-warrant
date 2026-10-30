@@ -104,7 +104,7 @@ The plugin starts the [language server](/editors/language-server/) when it finds
 in the project: `vendor/bin/warrant-language-server` in a project with the package
 installed. That gives diagnostics, hover, completion, go-to-definition and quick
 fixes in `.warrant` files and in rule text inside PHP, checked against your
-schemas.
+schemas, and [renaming and finding usages](#renaming-and-finding-usages).
 
 It uses PhpStorm's own LSP support, which PhpStorm has from 2024.2. On an older
 version the plugin still highlights, and the language server does not start.
@@ -119,6 +119,61 @@ The settings are under Settings, then Languages & Frameworks, then Warrant:
 | Vocabulary | `auto` | How the server learns your schemas: `auto`, `static` or `off`. See [how it learns your schemas](/editors/language-server/#how-it-learns-your-schemas). |
 
 Tools, then Restart Warrant Language Server, restarts it.
+
+## Renaming and finding usages
+
+With the language server running, a condition, template or ability renames
+together with every place rule text uses it: `.warrant` files, `WARRANT`
+heredocs, and the rule text in PHP strings. Find Usages finds those places too.
+The server looks each name up as validation does, so an `is_owner` that belongs
+to another schema is left alone.
+
+Start from whichever end is to hand:
+
+| Start on | Rename does | Cmd/Ctrl-click and Find Usages |
+|---|---|---|
+| A condition or template method, `isOwner` | Renames the method, and each use to the new name in snake case, `is_author` | Lists the uses in rule text with the PHP ones |
+| A key given to the attribute, `#[RowCondition(key: 'in_folder')]` | Renames the key and each use; the method keeps its name | Lists the uses |
+| An ability constant's value, `public const EDIT = 'edit'` | Renames the value and each use; the constant keeps its name | Lists the uses |
+| A name in rule text | Renames whichever of those three the name comes from | Goes to it |
+
+A condition or template method, or an ability constant, shows as unused only
+when no rule text names it. Warrant calls these by reflection, so no PHP calls
+them; rule text naming one is what uses it. When the language server cannot
+tell, because it is not running, does not know the schema, or the ability's
+value is not a plain string, the member is shown as used.
+
+Renaming a constant, `EDIT`, is PhpStorm's own rename: rule text never writes a
+constant's name, so it is left as it is. Neither is a method whose attribute
+gives a key, since the key, not the method, is the name.
+
+The rename dialog refuses a name rule text cannot write, such as `or` or one
+with a space, and a name that another condition, template or ability of the
+same kind already has on a schema that has this one. A method's new name must
+also be a PHP name.
+
+After the rename, PhpStorm offers the strings that may name the old name but
+that nothing ties to a schema: the names given to Warrant's builders, as in
+`->if('is_owner')`, `->ifCan('edit')`, `Build::check('is_owner')` and
+`Build::can('edit')`, and to Laravel's ability checks, as in
+`$user->can('edit', $post)`, `$this->authorize('edit', $post)` and
+`Gate::allows('edit', $post)`. Each is unticked; the ones you tick change, in a
+step that undoes apart from the rename.
+
+Some uses are not found:
+
+- Rule text the server cannot read as rule text: a variable passed to
+  `warrant($rules)`, or a string built by joining or interpolating others.
+- Names in rule text that does not parse, or that is about a schema
+  `config/warrant.php` does not register.
+- Rule text under `vendor/`, `node_modules/` or `storage/`.
+- An ability whose value is not a plain string, such as
+  `public const VIEW = StandardAbilities::VIEW`. Cmd/Ctrl-click on its name in
+  rule text goes to the constant, which renames as a constant.
+- Ability names in Blade, JavaScript and configuration.
+
+When the language server is not running, PhpStorm says so once, and renames the
+PHP alone.
 
 ## Formatting
 

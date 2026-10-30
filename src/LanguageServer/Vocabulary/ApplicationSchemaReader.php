@@ -126,6 +126,7 @@ final class ApplicationSchemaReader
                     $item['line'] ?? null,
                     $item['description'] ?? null,
                     array_values((array) ($item['parameters'] ?? [])),
+                    $item['member'] ?? null,
                 );
             }
 
@@ -192,6 +193,7 @@ final class ApplicationSchemaReader
                 static fn (ConditionDefinition $condition): array => [
                     'name' => $condition->key,
                     'method' => $condition->methodName,
+                    'member' => $condition->methodName,
                     'kind' => $condition->kind->name,
                     'requiredArgumentCount' => $condition->requiredArgumentCount,
                     'maxArgumentCount' => $condition->maxArgumentCount,
@@ -203,6 +205,7 @@ final class ApplicationSchemaReader
                 static fn (RuleTemplateDefinition $template): array => [
                     'name' => $template->key,
                     'method' => $template->methodName,
+                    'member' => $template->methodName,
                     'requiredArgumentCount' => $template->requiredArgumentCount,
                     'maxArgumentCount' => $template->maxArgumentCount,
                     'takesContext' => $template->takesContext,
@@ -240,13 +243,13 @@ final class ApplicationSchemaReader
     }
 
     /**
-     * Where the ability constant whose value is $ability is declared, and what
-     * its docblock says. A constant has no line of its own in reflection, so the
+     * Which ability constant has the value $ability, where it is declared, and
+     * what its docblock says. A constant has no line of its own in reflection, so the
      * line is found in the file of the class that declares it.
      *
      * @param ReflectionClass<object> $class The schema class.
      * @param string $ability The ability's name.
-     * @return array{file?: ?string, line?: ?int, description?: ?string}
+     * @return array{member?: string, file?: ?string, line?: ?int, description?: ?string}
      */
     private static function constantLocation(ReflectionClass $class, string $ability): array
     {
@@ -269,6 +272,7 @@ final class ApplicationSchemaReader
             }
 
             return [
+                'member' => $constant->getName(),
                 'file' => $file,
                 'line' => $line,
                 'description' => StaticSchemaScanner::summary($constant->getDocComment() ?: null),

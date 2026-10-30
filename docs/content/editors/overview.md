@@ -22,7 +22,8 @@ in sync.
 
 The columns up to `@sql` are highlighting. The [language server](/editors/language-server/)
 adds diagnostics, hover, completion and go-to-definition, checked against your
-schemas, in `.warrant` files and in rule text inside PHP alike, and
+schemas, in `.warrant` files and in rule text inside PHP alike, renaming and
+finding usages in [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages), and
 [formatting](/editors/formatting/), which every editor can also run from the
 command line. With the language server, rule text returned from a method is
 checked in every editor, even where it is not highlighted.

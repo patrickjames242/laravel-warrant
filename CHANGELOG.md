@@ -4,6 +4,23 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- The language server answers `warrant/declaration`, naming the condition,
+  template or ability at a position and the method or constant that declares
+  it, and `warrant/usages`, listing the uses of one across the project's rule
+  text, `.warrant` and PHP files alike, with the names a rename of it must not
+  take. The PhpStorm plugin renames and finds usages through them.
+- The language server keeps the list of the project's files between searches,
+  listing it again once the editor says a file was created or deleted, and keeps
+  each search's answer until a document, the schemas or a project file changes.
+  It now watches `.warrant` files as well as PHP files.
+- `FragmentExtractor::mayHoldRuleText()` says from a file's text alone, without
+  tokenizing it, whether it may hold rule text, so a search skips the files that
+  cannot.
+
 ## 4.10.0 — 2026-10-27
 
 ### Removed

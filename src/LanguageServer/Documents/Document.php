@@ -20,6 +20,8 @@ final class Document
 {
     private ?LineIndex $lines = null;
 
+    private ?bool $mayHoldRuleText = null;
+
     /** @var list<AnalyzedFragment>|null */
     private ?array $analyzed = null;
 
@@ -49,6 +51,14 @@ final class Document
     public function withText(string $text, int $version): self
     {
         return new self($this->uri, $this->path, $text, $version);
+    }
+
+    /**
+     * Whether the document may hold rule text, by {@see FragmentExtractor::mayHoldRuleText()}.
+     */
+    public function mayHoldRuleText(): bool
+    {
+        return $this->mayHoldRuleText ??= FragmentExtractor::mayHoldRuleText($this->path, $this->text);
     }
 
     public function lines(): LineIndex

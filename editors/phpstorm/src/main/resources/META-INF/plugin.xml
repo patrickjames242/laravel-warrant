@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.10.2</version>
+    <version>0.12.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -14,7 +14,8 @@
         Starts the <b>Warrant language server</b> that ships with the
         <code>patrickhanna/laravel-warrant</code> Composer package, for errors, hover,
         completion, go-to-definition, quick fixes and formatting in <code>.warrant</code>
-        files and in the Warrant inside PHP files. The server is found at
+        files and in the Warrant inside PHP files, and for renaming and finding the
+        usages of conditions, templates and abilities across rule text. The server is found at
         <code>vendor/bin/warrant-language-server</code> and run with PHP; configure it
         under <b>Settings | Languages &amp; Frameworks | Warrant</b>. Language-server
         support needs a PhpStorm version that ships the IntelliJ Platform LSP API
@@ -23,6 +24,15 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.12.0</b> &mdash; Rename a condition, template or ability with every use of
+                it in rule text: from its method (uses take the new name in snake case), from a
+                <code>key</code> given to its attribute, from an ability constant's value, or from
+                a name in rule text. Find Usages and Cmd/Ctrl-click on the method, key or value
+                list the uses. The rename dialog refuses a name rule text cannot write or the
+                schema already has. After a rename, offer the builder and Laravel strings that
+                may name the old name, unticked. Show a condition or template method, or an ability
+                constant, as unused only when no rule text names it. Needs Warrant's
+                language server from 4.11.0.</li>
             <li><b>0.11.0</b> &mdash; Colour <code>except</code> as a keyword, for
                 <code>* except</code> in an ability list.</li>
             <li><b>0.10.2</b> &mdash; Run the Warrant formatter on save without PhpStorm reporting
@@ -141,7 +151,19 @@
         <multiHostInjector
             implementationClass="com.warrant.phpstorm.WarrantInjector"/>
 
-        <!-- 7. The template File, then New, then Warrant File, fills in. -->
+        <!-- 7. A name's text changes in place when what it names is renamed. -->
+        <lang.elementManipulator
+            forClass="com.warrant.phpstorm.WarrantName"
+            implementationClass="com.warrant.phpstorm.WarrantNameManipulator"/>
+
+        <!-- 8. The words of a .warrant file, with each name's camel case
+                method name, so a search for a method's usages reaches rule
+                text that names it. -->
+        <lang.findUsagesProvider
+            language="Warrant"
+            implementationClass="com.warrant.phpstorm.WarrantFindUsagesProvider"/>
+
+        <!-- 9. The template File, then New, then Warrant File, fills in. -->
         <internalFileTemplate name="Warrant File"/>
     </extensions>
 

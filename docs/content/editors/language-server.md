@@ -33,6 +33,10 @@ its other packages and its extensions do not matter to it.
   does a schema with rows in a `can(...)` or `check(...)` handle.
 - **Go to definition** from a name to the constant or method that declares it,
   and from a frame name in `@column d2.id` to the `as d2` that names it.
+- **Usages** of a condition, template or ability across the project's rule text,
+  which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) renames and
+  finds usages with. It reads every `.warrant` and PHP file in the project but
+  those under `vendor/`, `node_modules/`, `storage/` and `.git/`.
 - **Quick fixes** for a name that is not declared, offering the closest declared
   names.
 - **An outline** of the `for` blocks, ability blocks, rules and `@include`s in a
@@ -152,8 +156,19 @@ started in the project's root. Send the `vocabulary` setting as
 Send it both `.warrant` and `.php` documents. It finds the rule text in a PHP file
 itself.
 
+Beside the protocol's requests, it answers two of its own, which name a
+declaration as PHP knows it, by its file and the method or constant in it that
+declares it:
+
+| Request | Parameters | Result |
+|---|---|---|
+| `warrant/declaration` | `textDocument`, `position` | The condition, template or ability named there: `{kind, name, uri, member}`, where `kind` is `condition`, `template` or `ability`, and `member` the method or constant that declares it. Null on anything else. |
+| `warrant/usages` | `uri`, `member` | `{kind, name, usages, taken}`: each use in the project's rule text as a `Location`, and the names its kind already has in each schema that has it, which a rename must not take. Null when the member declares none. |
+
 ## What it does not do
 
+- It does not answer the protocol's rename or find-references requests. PhpStorm
+  renames through `warrant/usages`; other editors do not rename rule text yet.
 - It does not complete column names after `@column`, because a column is part of
   your database, not your schema's vocabulary.
 - It does not format rule text.

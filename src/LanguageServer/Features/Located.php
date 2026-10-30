@@ -108,6 +108,24 @@ final readonly class Located
     }
 
     /**
+     * The declaration of the condition, template or ability named at the
+     * position, or null when it is on none of those, or the name is not
+     * declared where it is looked up.
+     *
+     * @param VocabularyIndex $vocabulary The schemas known.
+     */
+    public function declaration(VocabularyIndex $vocabulary): ?Declaration
+    {
+        if ($this->context->slot === SlotKind::Ability) {
+            $schema = $this->context->nameSchemaKey === null ? null : $vocabulary->schema($this->context->nameSchemaKey);
+
+            return $schema?->abilities[(string) $this->context->name] ?? null;
+        }
+
+        return $this->declared($vocabulary)[1] ?? null;
+    }
+
+    /**
      * The range in $document of $span of the fragment's text.
      *
      * @param Document $document The document the fragment is in.

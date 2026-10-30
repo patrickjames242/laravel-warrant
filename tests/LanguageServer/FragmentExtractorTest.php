@@ -168,3 +168,35 @@ it('knows a class provides rules through the project classes and interfaces it e
         ->and($classes->providesRules('App\\Nowhere'))->toBeFalse()
         ->and($classes->providesRules('Warrant\\Schema\\Types\\Classes\\GlobalSchema'))->toBeFalse();
 });
+
+it('says a PHP file may hold rule text only when it writes a name some rule text needs', function (string $text, bool $may) {
+    expect(FragmentExtractor::mayHoldRuleText('/app/Thing.php', $text))->toBe($may);
+})->with([
+    'a WARRANT heredoc' => ["<?php \$r = <<<'WARRANT'\nif a they can view\nWARRANT;", true],
+    'warrant()' => ["<?php warrant('if a they can view');", true],
+    'Warrant::parse()' => ["<?php Warrant::parse('if a they can view');", true],
+    'new BoundSyntax()' => ["<?php new BoundSyntax('a');", true],
+    'a raw builder method' => ["<?php \$b->orIfNotRaw('a');", true],
+    'a derived condition' => ["<?php class A { #[DerivedCondition] public function a() { return 'b'; } }", true],
+    'a rule template' => ["<?php class A { #[RuleTemplate] public function a() { return 'b'; } }", true],
+    'rules()' => ["<?php class A { public function rules(): string { return 'if a they can view'; } }", true],
+    'none of those' => ["<?php class A { public function create() { return 'view'; } }", false],
+]);
+
+it('says a .warrant file always may hold rule text, and any other file never does', function () {
+    expect(FragmentExtractor::mayHoldRuleText('/rules/a.warrant', ''))->toBeTrue()
+        ->and(FragmentExtractor::mayHoldRuleText('/rules/a.txt', "warrant('a')"))->toBeFalse();
+});
+
+it('finds every fragment only in a file it says may hold rule text', function () {
+    $samples = glob(fixtureRoot().'/app/Schemas/*.php');
+
+    foreach ($samples as $path) {
+        $text = (string) file_get_contents($path);
+        $fragments = (new FragmentExtractor(static fn (): ?string => null, static fn (): bool => true))->extract($path, $text);
+
+        if ($fragments !== []) {
+            expect(FragmentExtractor::mayHoldRuleText($path, $text))->toBeTrue();
+        }
+    }
+});

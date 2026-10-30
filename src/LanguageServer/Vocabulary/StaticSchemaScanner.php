@@ -240,6 +240,7 @@ final class StaticSchemaScanner
                     $owner->file,
                     $constant->line,
                     self::summary($constant->docComment),
+                    member: $constant->name,
                 );
             }
         }
@@ -276,6 +277,7 @@ final class StaticSchemaScanner
                     $method->line,
                     self::summary($method->docComment),
                     array_map(static fn ($parameter): string => $parameter->name, $dslParameters),
+                    $method->name,
                 );
 
                 continue;
@@ -313,6 +315,7 @@ final class StaticSchemaScanner
                 $method->line,
                 self::summary($method->docComment),
                 array_map(static fn ($parameter): string => $parameter->name, $dslParameters),
+                $method->name,
             );
         }
 

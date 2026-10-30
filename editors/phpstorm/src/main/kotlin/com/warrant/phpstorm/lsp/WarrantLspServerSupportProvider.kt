@@ -11,7 +11,9 @@ import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 /**
  * Starts the Warrant language server when a `.warrant` or PHP file opens in a
  * project that has the server installed and enabled (see
- * [WarrantServerLaunch.resolve]). One server serves the whole project.
+ * [WarrantServerLaunch.resolve]), and has the open files counted again once it
+ * is running ([WarrantRecountOnServerStart]). One server serves the whole
+ * project.
  */
 class WarrantLspServerSupportProvider : LspServerSupportProvider {
 
@@ -24,6 +26,7 @@ class WarrantLspServerSupportProvider : LspServerSupportProvider {
         if (WarrantServerLaunch.resolve(project) == null) return
 
         serverStarter.ensureServerStarted(WarrantLspServerDescriptor(project))
+        WarrantRecountOnServerStart.getInstance(project).recountOnceRunning()
     }
 
     override fun createLspServerWidgetItem(lspServer: LspServer, currentFile: VirtualFile?): LspServerWidgetItem =
@@ -32,11 +35,16 @@ class WarrantLspServerSupportProvider : LspServerSupportProvider {
     companion object {
         /**
          * Stops the project's Warrant server and starts it again if the
-         * current settings and open files call for one.
+         * current settings and open files call for one, then has the open
+         * files counted again once it is running.
          */
         fun restart(project: Project) {
+            val recount = WarrantRecountOnServerStart.getInstance(project)
+            val replaced = recount.runningServer()
+
             LspServerManager.getInstance(project)
                 .stopAndRestartIfNeeded(WarrantLspServerSupportProvider::class.java)
+            recount.recountOnceRunning(replaced)
         }
     }
 }

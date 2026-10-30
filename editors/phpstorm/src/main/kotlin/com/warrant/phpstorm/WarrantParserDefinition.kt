@@ -25,9 +25,9 @@ class WarrantParserDefinition : ParserDefinition {
     override fun getCommentTokens(): TokenSet = COMMENTS
     override fun getStringLiteralElements(): TokenSet = STRINGS
 
-    // With a flat parse tree there are no composite elements, but the platform
-    // still requires an implementation.
-    override fun createElement(node: ASTNode): PsiElement = ASTWrapperPsiElement(node)
+    // The only composite elements are names.
+    override fun createElement(node: ASTNode): PsiElement =
+        if (node.elementType == WARRANT_NAME) WarrantName(node) else ASTWrapperPsiElement(node)
     override fun createFile(viewProvider: FileViewProvider): PsiFile = WarrantFile(viewProvider)
 
     companion object {

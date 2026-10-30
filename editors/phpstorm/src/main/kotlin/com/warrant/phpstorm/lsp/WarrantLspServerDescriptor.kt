@@ -13,6 +13,7 @@ import com.jetbrains.php.lang.PhpFileType
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
 import com.warrant.phpstorm.WarrantFileType
 import com.warrant.phpstorm.WarrantLanguage
+import org.eclipse.lsp4j.services.LanguageServer
 import java.nio.charset.StandardCharsets
 
 /**
@@ -23,7 +24,7 @@ import java.nio.charset.StandardCharsets
  * answers in the PHP file's own coordinates, so PHP files are sent to it as
  * they are and no position is mapped on this side. Diagnostics, hover,
  * completion and quick fixes use the platform's defaults, go-to-definition
- * is answered by [WarrantDefinitionReferenceProvider], and formatting is
+ * is answered by [WarrantNameReference], and formatting is
  * [WarrantFormattingService]'s, [WarrantPostFormatProcessor]'s and
  * [ReformatWarrantRulesAction]'s;
  * the server answers nothing for a position outside Warrant text, which leaves
@@ -49,11 +50,13 @@ class WarrantLspServerDescriptor(project: Project) : ProjectWideLspServerDescrip
     override fun getLanguageId(file: VirtualFile): String =
         if (file.fileType == WarrantFileType.INSTANCE) "warrant" else "php"
 
+    /** Lets the client send the server's own requests, `warrant/declaration` and `warrant/usages`. */
+    override val lsp4jServerClass: Class<out LanguageServer> = WarrantLanguageServer::class.java
+
     /**
-     * Off, because [WarrantDefinitionReferenceProvider] answers go-to-definition
-     * itself: it asks the server on Cmd/Ctrl-hover as well as on click, so names
-     * are underlined, and a second answer from the platform would offer each
-     * target twice.
+     * Off, because [WarrantNameReference] answers go-to-definition itself: it
+     * resolves on Cmd/Ctrl-hover as well as on click, so names are underlined,
+     * and a second answer from the platform would offer each target twice.
      */
     override val lspGoToDefinitionSupport: Boolean = false
 

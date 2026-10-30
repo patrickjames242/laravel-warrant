@@ -17,13 +17,25 @@ them in sync.
 | `WarrantLanguage` / `WarrantFileType` | Registers Warrant as a language + the `.warrant` extension, with the icon in `resources/icons/` (`warrant.svg`, and `warrant_dark.svg` for dark themes) |
 | `WarrantLexer` | Tokenizes Warrant source (mirror of `Lexer.php`, but tolerant) |
 | `WarrantSyntaxHighlighter(Factory)` | Maps tokens → theme colors (produces the highlighting) |
-| `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A flat parse tree — the minimum injection requires |
+| `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A flat parse tree — the minimum injection requires — with each name wrapped in a `WarrantName` |
+| `WarrantFindUsagesProvider` / `WarrantWordsScanner` | The words of a `.warrant` file for PhpStorm's word index, with the camel case method name each snake case name is taken from, so counting a method's usages reaches rule text |
+| `WarrantName` / `WarrantNameManipulator` | A name in Warrant text, which references hang off, and how a rename rewrites it |
 | `WarrantInjector` | Injects Warrant into PHP strings that hold rule text: `<<<WARRANT` heredocs, `warrant('...')`, `Warrant::parse('...')`, returns from `rules()`, … |
 | `lsp/WarrantLspServerSupportProvider` / `lsp/WarrantLspServerDescriptor` | Starts the language server and tells the IDE which files it serves |
 | `lsp/StartWarrantLanguageServerActivity` | Starts the server once a project has opened, for the `.warrant` and PHP tabs it reopens with, which load lazily and never report opening |
 | `lsp/WarrantServerLaunch` | Finds the server script and the PHP binary to run it with |
 | `lsp/WarrantSettings` / `lsp/WarrantSettingsConfigurable` | The project settings and their page |
 | `lsp/RestartWarrantLanguageServerAction` | **Tools → Restart Warrant Language Server** |
+| `lsp/WarrantServerQueries` | Sends the server's own requests, `warrant/declaration` and `warrant/usages` |
+| `lsp/WarrantConstructs` | Which PHP declares a condition, template or ability: a method, a key given to its attribute, or an ability constant's value |
+| `lsp/WarrantNameReference` | Makes each name in Warrant text a reference to what declares it: Cmd/Ctrl-hover, Cmd/Ctrl-click, and renaming from rule text |
+| `lsp/WarrantReferencesSearcher` | Finds a declaration's uses in rule text, by asking the server, for Find Usages and Rename |
+| `lsp/WarrantRename` | Renames a key or an ability's value, which are PHP strings, and checks every new name |
+| `lsp/WarrantNameStringUsages` | Find Usages and Cmd/Ctrl-click on a key or an ability's value |
+| `lsp/WarrantEntryPoint` | Shows a condition or template method, or an ability constant, as used while the server says rule text names it, since Warrant calls them by reflection |
+| `lsp/WarrantNamesInRuleText` | Whether rule text names each declaration, as the server last said, asked in the background so highlighting never waits |
+| `lsp/WarrantRecountOnServerStart` | Has the open files' usage counts taken again once the server is running, since a count taken before then finds nothing in rule text |
+| `lsp/WarrantNameStringsAfterRename` | After a rename, offers the builder and Laravel strings that may name the old name, unticked |
 | `lsp/ReformatWarrantRulesAction` | **Code → Reformat Warrant Rules**: formats only the Warrant in a file |
 | `lsp/WarrantFormattingService` | Formats a `.warrant` file on Reformat Code, before a save writes it, by running `warrant-format` |
 | `lsp/WarrantPostFormatProcessor` / `lsp/WarrantRuleTextFormatter` | Formats the Warrant in a PHP file as part of Reformat Code, by running `warrant-format` |
@@ -68,6 +80,25 @@ answers nothing, leaving PhpStorm's own PHP features as they are. Completion
 asks the server only inside `.warrant` files, injected Warrant and PHP strings.
 The server watches `**/*.php` (through `workspace/didChangeWatchedFiles`) to
 re-read schemas when they change.
+
+### Renaming and finding usages
+
+A rename or Find Usages on what declares a condition, template or ability asks
+the server where rule text uses it (`warrant/usages`), and each place becomes a
+`WarrantNameReference` on the name written there. The server looks each name up
+as validation does, so the same spelling meaning another schema's declaration
+is not a use. A name inside a PHP string the server reads as rule text but the
+plugin does not inject into, such as `new BoundSyntax('...')`, is referenced as
+a range of that string, so it renames too.
+
+A name in rule text resolves by asking the server what it names
+(`warrant/declaration`): a method, a key given to its attribute, or an ability
+constant's value. A key and a value are PHP strings, which PhpStorm does not
+rename or search from by itself; `WarrantRename` and `WarrantNameStringUsages`
+take that up.
+
+A reference is never matched by its text (`isReferenceTo` is false), so every use
+comes from the server.
 
 ### Formatting
 

@@ -102,6 +102,24 @@ final class FragmentExtractor
     }
 
     /**
+     * Whether the file at $path may hold rule text, read from its text without
+     * tokenizing it: a `.warrant` file always may, and a PHP file only when it
+     * writes a name every way of holding rule text needs, so a file that may not
+     * holds none for certain.
+     *
+     * @param string $path The file's path, whose extension says what it holds.
+     * @param string $text The file's contents.
+     */
+    public static function mayHoldRuleText(string $path, string $text): bool
+    {
+        return match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'warrant' => true,
+            'php' => preg_match('/warrant|boundsyntax|ifraw|ifnotraw|derivedcondition|ruletemplate|function\s+rules\b/i', $text) === 1,
+            default => false,
+        };
+    }
+
+    /**
      * The schema a `# warrant-schema: <key>` comment in $text names, or null.
      *
      * @param string $text Rule text.
