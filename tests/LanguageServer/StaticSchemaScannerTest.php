@@ -93,3 +93,14 @@ it('merges the application\'s reading over the reading from source, keeping loca
         ->and($merged->schema('documents')->conditions['is_owner']->line)->toBe(38)
         ->and($merged->schema('folders'))->not->toBeNull();
 });
+
+it('reads a file open in the editor as the editor has it, in place of what is saved', function () {
+    $path = fixtureRoot().'/app/Schemas/DocumentSchema.php';
+    $edited = str_replace('function isOwner(', 'function isAuthor(', (string) file_get_contents($path));
+
+    $index = (new StaticSchemaScanner(fixtureRoot(), ClassFileLocator::forProject(fixtureRoot()), [$path => $edited]))->scan();
+
+    expect(array_keys($index->schema('documents')->conditions))->toContain('is_author')
+        ->not->toContain('is_owner')
+        ->and(array_keys(fixtureVocabulary()->schema('documents')->conditions))->toContain('is_owner');
+});

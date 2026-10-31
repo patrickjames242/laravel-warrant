@@ -11,14 +11,14 @@ import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.PhpAttribute
 import com.jetbrains.php.lang.psi.elements.PhpClass
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
-import com.warrant.phpstorm.WarrantLexer
-import com.warrant.phpstorm.WarrantTokenTypes
+import com.warrant.phpstorm.WarrantNames
 
 /** What a name in rule text can name and the PHP declares. */
 enum class WarrantKind(val wireValue: String, val label: String) {
     CONDITION("condition", "Warrant condition"),
     TEMPLATE("template", "Warrant template"),
-    ABILITY("ability", "Warrant ability");
+    ABILITY("ability", "Warrant ability"),
+    SCHEMA("schema", "Warrant schema");
 
     companion object {
         fun of(wireValue: String?): WarrantKind? = entries.firstOrNull { it.wireValue == wireValue }
@@ -30,11 +30,12 @@ enum class WarrantKind(val wireValue: String, val label: String) {
  *
  * @property kind What it is.
  * @property file The file it is declared in.
- * @property member The method or constant that declares it, which with [file]
- *   is how the language server knows it.
+ * @property member The method or constant that declares it, or a schema's
+ *   class, which with [file] is how the language server knows it.
  * @property nameDeclaredBy What writes its name in the PHP: the method, whose
- *   name in snake case is the name rule text uses, or the string that is the
- *   name, a key given to the attribute or an ability constant's value.
+ *   name in snake case is the name rule text uses, the string that is the
+ *   name, a key given to the attribute or an ability constant's value, or a
+ *   schema's class, whose key rule text uses.
  */
 data class WarrantConstruct(
     val kind: WarrantKind,
@@ -42,9 +43,18 @@ data class WarrantConstruct(
     val member: String,
     val nameDeclaredBy: PsiElement,
 ) {
+    /**
+     * Whether a rename renames it with its uses in rule text: a condition or
+     * template does. An ability and a schema never do, so renaming an ability
+     * constant's value changes only the string, and renaming a schema's class
+     * leaves its key, which rule text names it by.
+     */
+    val isRenamable: Boolean
+        get() = kind == WarrantKind.CONDITION || kind == WarrantKind.TEMPLATE
+
     /** The name rule text uses for it once [nameDeclaredBy] is renamed to [newName]. */
     fun nameAfterRename(newName: String): String =
-        if (nameDeclaredBy is Method) WarrantConstructs.snakeCase(newName) else newName
+        if (nameDeclaredBy is Method) WarrantNames.ruleTextNameOf(newName) else newName
 }
 
 /**
@@ -61,6 +71,9 @@ object WarrantConstructs {
     )
 
     private const val TEMPLATE_ATTRIBUTE = "\\Warrant\\Schema\\RuleTemplates\\RuleTemplate"
+
+    /** What every schema class implements. */
+    private const val SCHEMA_INTERFACE = "\\Warrant\\Schema\\Types\\Interfaces\\ISchema"
 
     /** What every ability attribute implements, the library's `#[Ability]` among them. */
     private const val ABILITY_ATTRIBUTE = "\\Warrant\\Schema\\Abilities\\IDeclaresAbility"
@@ -80,6 +93,13 @@ object WarrantConstructs {
                 val kind = kindOf(element) ?: return null
                 if (keyOf(element) != null) null else WarrantConstruct(kind, file, element.name, element)
             }
+
+            is PhpClass ->
+                if (implementsInterface(element, SCHEMA_INTERFACE, mutableSetOf())) {
+                    WarrantConstruct(WarrantKind.SCHEMA, file, element.fqn.trimStart('\\'), element)
+                } else {
+                    null
+                }
 
             is StringLiteralExpression -> {
                 keyedMethodOf(element)?.let { method ->
@@ -162,28 +182,15 @@ object WarrantConstructs {
 
         return field.attributes.any { attribute ->
             val fqn = attribute.fqn ?: return@any false
-            index.getClassesByFQN(fqn).any { implementsAbility(it, mutableSetOf()) }
+            index.getClassesByFQN(fqn).any { implementsInterface(it, ABILITY_ATTRIBUTE, mutableSetOf()) }
         }
     }
 
-    private fun implementsAbility(phpClass: PhpClass, seen: MutableSet<String>): Boolean {
+    /** Whether [phpClass] is, extends or implements [interfaceFqn], at any remove. */
+    private fun implementsInterface(phpClass: PhpClass, interfaceFqn: String, seen: MutableSet<String>): Boolean {
         if (!seen.add(phpClass.fqn)) return false
-        if (phpClass.fqn == ABILITY_ATTRIBUTE) return true
+        if (phpClass.fqn == interfaceFqn) return true
 
-        return (listOfNotNull(phpClass.superClass) + phpClass.implementedInterfaces).any { implementsAbility(it, seen) }
-    }
-
-    /**
-     * [name] in snake case, as Laravel's `Str::snake()` writes a name with no
-     * spaces, which is how a method's name becomes the name rule text uses.
-     */
-    fun snakeCase(name: String): String = name.replace(Regex("(.)(?=[A-Z])"), "$1_").lowercase()
-
-    /** Whether [text] is one name as rule text reads it, and no keyword or constant. */
-    fun isName(text: String): Boolean {
-        val lexer = WarrantLexer()
-        lexer.start(text)
-
-        return text.isNotEmpty() && lexer.tokenType == WarrantTokenTypes.IDENTIFIER && lexer.tokenEnd == text.length
+        return (listOfNotNull(phpClass.superClass) + phpClass.implementedInterfaces).any { implementsInterface(it, interfaceFqn, seen) }
     }
 }

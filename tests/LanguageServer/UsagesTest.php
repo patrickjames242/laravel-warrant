@@ -2,6 +2,7 @@
 
 require_once __DIR__.'/Support.php';
 
+use Warrant\LanguageServer\Features\Occurrences;
 use Warrant\LanguageServer\Features\Usages;
 
 /**
@@ -65,7 +66,7 @@ it('finds a condition a trait declares by the trait\'s file, matching its method
         ]);
 });
 
-it('finds every use of an ability by the constant that declares it', function () {
+it('finds every use of an ability by the constant that declares it, and no names a rename must not take, since an ability is not renamed', function () {
     [$workspace] = openInFixture('open.warrant', 'for documents { if can(edit) they can edit }');
 
     $found = Usages::of($workspace, fixtureRoot().'/app/Schemas/DocumentSchema.php', 'EDIT');
@@ -76,7 +77,7 @@ it('finds every use of an ability by the constant that declares it', function ()
             'open.warrant:0:23',
             'open.warrant:0:38',
         ])
-        ->and($found['taken'])->toBe(['archive', 'view']);
+        ->and($found['taken'])->toBe([]);
 });
 
 it('finds nothing for a member that declares nothing', function () {
@@ -131,4 +132,62 @@ it('searches a file created since the last search only once told the project\'s 
     } finally {
         @unlink($created);
     }
+});
+
+it('finds every place rule text names a schema, by its class: as a schema, and as the frame of its rows', function () {
+    [$workspace] = openInFixture('open.warrant', "for folders { if is_shared they can view }\nfor documents { if can(view for folders(1)) they can view }\nfor documents { if check(in_folder(@column documents.id) for documents(1)) they can view }");
+
+    $found = Usages::of($workspace, fixtureRoot().'/app/Schemas/FolderSchema.php', 'App\Schemas\FolderSchema');
+
+    expect($found['kind'])->toBe('schema')
+        ->and($found['name'])->toBe('folders')
+        ->and($found['taken'])->toBe([])
+        ->and(usageStarts($found['usages']))->toBe([
+            'app/Schemas/DocumentSchema.php:69:28',
+            'open.warrant:0:4',
+            'open.warrant:1:32',
+        ]);
+
+    $documents = Usages::of($workspace, fixtureRoot().'/app/Schemas/DocumentSchema.php', '\App\Schemas\DocumentSchema');
+
+    expect(usageStarts(array_values(array_filter($documents['usages'], static fn (array $usage): bool => str_ends_with($usage['uri'], 'open.warrant')))))
+        ->toBe(['open.warrant:1:4', 'open.warrant:2:4', 'open.warrant:2:43', 'open.warrant:2:61']);
+});
+
+it('finds every place rule text names a context key, as a reference and in a with map', function () {
+    [$text, $position] = positionOfBar("for documents { if can(view for folders(@context fol|der)) they can view }\nfor documents { if check(is_shared for folders(1) with folder = @context folder) they can view }");
+    [$workspace, $document] = openInFixture('open.warrant', $text);
+
+    $found = Occurrences::at($workspace, $document, $position);
+
+    expect($found['kind'])->toBe('context')
+        ->and($found['name'])->toBe('folder')
+        ->and(usageStarts($found['occurrences']))->toBe([
+            'app/Schemas/DocumentSchema.php:69:45',
+            'open.warrant:0:49',
+            'open.warrant:1:55',
+            'open.warrant:1:73',
+        ]);
+});
+
+it('finds the as that names a frame and each @column that refers to it, and no other frame by the same name', function () {
+    [$text, $position] = positionOfBar('for documents { if check(in_folder(@column d.id) for documents(1) as d) and check(in_folder(@column d.id) for documents(2) as |d) they can view }');
+    [$workspace, $document] = openInFixture('open.warrant', $text);
+
+    $found = Occurrences::at($workspace, $document, $position);
+
+    expect($found['kind'])->toBe('frame')
+        ->and(usageStarts($found['occurrences']))->toBe(['open.warrant:0:100', 'open.warrant:0:126']);
+});
+
+it('finds no occurrences for a frame named by its schema, or a name that is no context key or frame', function () {
+    [$text, $position] = positionOfBar('for documents { if check(in_folder(@column docu|ments.id) for documents(1)) they can view }');
+    [$workspace, $document] = openInFixture('open.warrant', $text);
+
+    expect(Occurrences::at($workspace, $document, $position))->toBeNull();
+
+    [$text, $position] = positionOfBar('for documents { if is_ow|ner they can view }');
+    [$workspace, $document] = openInFixture('open.warrant', $text);
+
+    expect(Occurrences::at($workspace, $document, $position))->toBeNull();
 });

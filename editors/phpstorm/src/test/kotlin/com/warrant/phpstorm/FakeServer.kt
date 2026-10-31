@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.warrant.phpstorm.lsp.WarrantDeclaration
 import com.warrant.phpstorm.lsp.WarrantKind
+import com.warrant.phpstorm.lsp.WarrantOccurrences
 import com.warrant.phpstorm.lsp.WarrantServerQueries
 import com.warrant.phpstorm.lsp.WarrantUsages
 import org.eclipse.lsp4j.Location
@@ -26,6 +27,9 @@ namespace Warrant\Schema\Conditions\Row {
 namespace Warrant\Schema\RuleTemplates {
     #[\Attribute] class RuleTemplate {}
 }
+namespace Warrant\Schema\Types\Interfaces {
+    interface ISchema {}
+}
 """
 
 /**
@@ -43,6 +47,25 @@ class FakeServer(private val project: Project) : WarrantServerQueries(project) {
     var searched = listOf("resources/documents.warrant", "app/DocumentSchema.php")
 
     private val positions = mutableMapOf<Pair<VirtualFile, Int>, WarrantDeclaration>()
+
+    /** Frame names, each with every place it is written, as (file, offset) pairs. */
+    private val local = mutableListOf<Triple<String, String, List<Pair<VirtualFile, Int>>>>()
+
+    /** Says the name [name], of [kind], is written at each of [places]. */
+    fun occurs(kind: String, name: String, places: List<Pair<VirtualFile, Int>>) {
+        local += Triple(kind, name, places)
+    }
+
+    override fun occurrencesAt(hostFile: VirtualFile, hostOffset: Int): WarrantOccurrences? {
+        val (kind, name, places) = local.firstOrNull { (_, name, places) ->
+            places.any { (file, offset) -> file == hostFile && hostOffset in offset..offset + name.length }
+        } ?: return null
+
+        return WarrantOccurrences(kind, name, places.map { (file, offset) ->
+            val document = FileDocumentManager.getInstance().getDocument(file)!!
+            Location(file.url, Range(position(document, offset), position(document, offset + name.length)))
+        })
+    }
 
     fun declare(file: VirtualFile, member: String, kind: WarrantKind, name: String, taken: List<String> = emptyList()) {
         declared += Declared(file, member, kind, name, taken)

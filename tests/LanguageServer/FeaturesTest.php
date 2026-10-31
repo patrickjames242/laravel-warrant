@@ -8,6 +8,7 @@ use Warrant\LanguageServer\Features\Definition;
 use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\DocumentSymbols;
 use Warrant\LanguageServer\Features\Hover;
+use Warrant\LanguageServer\Features\InlayHints;
 use Warrant\LanguageServer\VocabularyMode;
 use Warrant\LanguageServer\Workspace;
 
@@ -162,6 +163,57 @@ it('reports an include naming a template that is not declared, or giving it too 
         ])
         ->and(array_column(CodeActions::for($workspace, $document, ['diagnostics' => [$diagnostics[0]]]), 'title'))
         ->toBe(["Change to 'owner_edits'"]);
+});
+
+/**
+ * Each hint inlay hints show in the `.warrant` text $text, as its label after
+ * the text before it.
+ *
+ * @return list<string>
+ */
+function inlayHints(string $text): array
+{
+    [$workspace, $document] = openInFixture('rules.warrant', $text);
+    $lines = explode("\n", $text);
+
+    return array_map(
+        static fn (array $hint): string => substr($lines[$hint['position']['line']], 0, $hint['position']['character']).$hint['label'],
+        InlayHints::in($workspace, $document, []),
+    );
+}
+
+it('names the parameter of each literal and @sql argument a condition is called with', function () {
+    expect(inlayHints("for documents {\n  if in_team(1, 'admin') and in_folder(@sql \"7\") they can view\n}"))->toEqualCanonicalizing([
+        '  if in_team(team:',
+        "  if in_team(1, role:",
+        "  if in_team(1, 'admin') and in_folder(folder:",
+    ]);
+});
+
+it('names the parameters of a condition by the schema a check reads it against', function () {
+    expect(inlayHints('for folders { if check(in_folder(1) for documents(1)) they can view }'))->toBe([
+        'for folders { if check(in_folder(folder:',
+    ]);
+});
+
+it('names the parameters of a derived condition and of a template', function () {
+    expect(inlayHints("for documents {\n  if owner_or_team(4) they can view\n  @include shared_with(5) for edit\n}"))->toEqualCanonicalizing([
+        '  if owner_or_team(team:',
+        '  @include shared_with(team:',
+    ]);
+});
+
+it('names no parameter of a binding, @context or @column argument, nor of a condition that is not declared', function () {
+    expect(inlayHints('for documents { if in_team(@context org, :level) or in_folder(@column owner_id) or nowhere(1) they can view }'))->toBe([]);
+});
+
+it('places the hints in the PHP file the rule text is written in', function () {
+    $code = "<?php\nnamespace App\\Schemas;\nclass DocumentSchema extends BaseSchema {\n    public function rules(): string\n    {\n        return <<<'WARRANT'\n            if in_folder(3) they can view\n            WARRANT;\n    }\n}\n";
+    [$workspace, $document] = openInFixture('app/X.php', $code);
+
+    expect(InlayHints::in($workspace, $document, []))->toBe([
+        ['position' => ['line' => 6, 'character' => 25], 'label' => 'folder:', 'kind' => 2, 'paddingRight' => true],
+    ]);
 });
 
 it('outlines blocks, rules and includes as they nest', function () {

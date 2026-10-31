@@ -2,6 +2,9 @@
 
 namespace Warrant\LanguageServer\Features;
 
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Positions\Span;
 use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
@@ -123,6 +126,29 @@ final readonly class Located
         }
 
         return $this->declared($vocabulary)[1] ?? null;
+    }
+
+    /**
+     * The `as` that names the frame a frame name at the position refers to: the
+     * name after the `as` of the innermost `check(...)` or `can(...)` around it
+     * that gives that name, the name itself when it is that one. Null when the
+     * position is on no frame name, or the frame is named by its schema's key.
+     */
+    public function frameNamedBy(): ?NameNode
+    {
+        if ($this->context->slot !== SlotKind::Alias) {
+            return null;
+        }
+
+        foreach (array_reverse($this->context->nodes) as $node) {
+            if (($node instanceof CrossSchemaConditionNode || $node instanceof CrossSchemaCanNode)
+                && $node->alias?->name === $this->context->name
+            ) {
+                return $node->alias;
+            }
+        }
+
+        return null;
     }
 
     /**

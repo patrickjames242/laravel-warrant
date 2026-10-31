@@ -27,9 +27,9 @@ class WarrantFindUsagesProvider : FindUsagesProvider {
 }
 
 /**
- * The words of Warrant text: each name it writes, and the method name in camel
- * case that a condition or template name in snake case is taken from, as
- * `isOwner` for `is_owner`.
+ * The words of Warrant text: each name it writes, and the name of the method a
+ * condition or template by that name would be declared by
+ * ([WarrantNames.methodNameFor]), as `isOwner` for `is_owner`.
  *
  * Before searching a method's usages across the project, PhpStorm looks its
  * name up in the word index, and searches only the method's own file when no
@@ -46,22 +46,13 @@ class WarrantWordsScanner : WordsScanner {
         while (lexer.tokenType != null) {
             if (lexer.tokenType == WarrantTokenTypes.IDENTIFIER) {
                 val name = lexer.tokenSequence.toString()
-                val method = camelCase(name)
+                val method = WarrantNames.methodNameFor(name)
 
                 if (!processor.process(WordOccurrence(fileText, lexer.tokenStart, lexer.tokenEnd, WordOccurrence.Kind.CODE))) return
-                if (method != name && !processor.process(WordOccurrence(method, 0, method.length, WordOccurrence.Kind.CODE))) return
+                if (method != null && method != name && !processor.process(WordOccurrence(method, 0, method.length, WordOccurrence.Kind.CODE))) return
             }
 
             lexer.advance()
         }
-    }
-
-    companion object {
-        /** [name] in camel case, as Laravel's `Str::camel()` writes it. */
-        fun camelCase(name: String): String =
-            name.split('_', '-')
-                .filter { it.isNotEmpty() }
-                .mapIndexed { i, word -> if (i == 0) word.replaceFirstChar { it.lowercaseChar() } else word.replaceFirstChar { it.uppercaseChar() } }
-                .joinToString("")
     }
 }

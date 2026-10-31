@@ -26,11 +26,11 @@ import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.ProcessingContext
 import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
+import com.warrant.phpstorm.WarrantNames
 
 /**
- * Renames a condition or template whose name is a key given to its attribute,
- * or an ability, whose name is its constant's value: the string, and every use
- * of the name in rule text.
+ * Renames a condition or template whose name is a key given to its attribute:
+ * the key, and every use of the name in rule text.
  *
  * A PHP string is no named element, so the platform renames one only through a
  * processor that takes it; the uses come from [WarrantReferencesSearcher].
@@ -38,7 +38,7 @@ import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
 class WarrantNameStringRenameProcessor : RenamePsiElementProcessor() {
 
     override fun canProcessElement(element: PsiElement): Boolean =
-        element is StringLiteralExpression && WarrantConstructs.declaredBy(element) != null
+        element is StringLiteralExpression && WarrantConstructs.declaredBy(element)?.isRenamable == true
 
     override fun isInplaceRenameSupported(): Boolean = false
 
@@ -58,16 +58,16 @@ class WarrantNameStringRenameProcessor : RenamePsiElementProcessor() {
 }
 
 /**
- * Starts a rename on a PHP string that is a condition's or template's key or an
- * ability's name, which the platform's own rename does not take, since the
- * string is no named element.
+ * Starts a rename on a PHP string that is a condition's or template's key,
+ * which the platform's own rename does not take, since the string is no named
+ * element.
  */
 class WarrantNameStringRenameHandler : RenameHandler {
 
-    override fun isAvailableOnDataContext(dataContext: DataContext): Boolean = nameStringAtCaret(dataContext) != null
+    override fun isAvailableOnDataContext(dataContext: DataContext): Boolean = keyAtCaret(dataContext) != null
 
     override fun invoke(project: Project, editor: Editor?, file: PsiFile?, dataContext: DataContext) {
-        val string = nameStringAtCaret(dataContext) ?: return
+        val string = keyAtCaret(dataContext) ?: return
 
         rename(string, project, editor, dataContext)
     }
@@ -75,8 +75,14 @@ class WarrantNameStringRenameHandler : RenameHandler {
     override fun invoke(project: Project, elements: Array<out PsiElement>, dataContext: DataContext) {
         val string = elements.singleOrNull() as? StringLiteralExpression ?: return
 
+        if (WarrantConstructs.declaredBy(string)?.isRenamable != true) return
+
         rename(string, project, CommonDataKeys.EDITOR.getData(dataContext), dataContext)
     }
+
+    /** The key at the caret of the editor [dataContext] is for. */
+    private fun keyAtCaret(dataContext: DataContext): StringLiteralExpression? =
+        nameStringAtCaret(dataContext)?.takeIf { WarrantConstructs.declaredBy(it)?.isRenamable == true }
 
     /** Opens the rename dialog on [string], or renames it straight away to a name the caller already gave. */
     private fun rename(string: StringLiteralExpression, project: Project, editor: Editor?, dataContext: DataContext) {
@@ -113,7 +119,7 @@ class WarrantNameStringDescriptionProvider : ElementDescriptionProvider {
     override fun getElementDescription(element: PsiElement, location: ElementDescriptionLocation): String? {
         if (element !is StringLiteralExpression) return null
 
-        val construct = WarrantConstructs.declaredBy(element) ?: return null
+        val construct = WarrantConstructs.declaredBy(element)?.takeIf { it.isRenamable } ?: return null
 
         return when (location) {
             is UsageViewTypeLocation -> construct.kind.label
@@ -124,10 +130,10 @@ class WarrantNameStringDescriptionProvider : ElementDescriptionProvider {
 }
 
 /**
- * Checks a new name for a condition, template or ability before a rename takes
- * it: rule text must be able to write it, and no schema that has the
- * declaration may have another of its kind by that name. A method's new name is
- * also checked as a PHP name, since this check stands in for PHP's own.
+ * Checks a new name for a condition or template before a rename takes it: rule
+ * text must be able to write it, and no schema that has the declaration may have
+ * another of its kind by that name. A method's new name is also checked as a PHP
+ * name, since this check stands in for PHP's own.
  */
 class WarrantRenameInputValidator : RenameInputValidatorEx {
 
@@ -140,7 +146,7 @@ class WarrantRenameInputValidator : RenameInputValidatorEx {
     override fun getPattern(): ElementPattern<out PsiElement> =
         PlatformPatterns.psiElement().with(object : PatternCondition<PsiElement>("declares a Warrant name") {
             override fun accepts(element: PsiElement, context: ProcessingContext?): Boolean =
-                WarrantConstructs.declaredBy(element) != null
+                WarrantConstructs.declaredBy(element)?.isRenamable == true
         })
 
     override fun isInputValid(newName: String, element: PsiElement, context: ProcessingContext): Boolean {
@@ -152,13 +158,13 @@ class WarrantRenameInputValidator : RenameInputValidatorEx {
     override fun getErrorMessage(newName: String, project: Project): String? = error
 
     private fun errorFor(newName: String, element: PsiElement): String? {
-        val construct = WarrantConstructs.declaredBy(element) ?: return null
+        val construct = WarrantConstructs.declaredBy(element)?.takeIf { it.isRenamable } ?: return null
 
         if (element is Method && !PHP_NAME.matches(newName)) return "'$newName' is not a valid PHP method name"
 
         val name = construct.nameAfterRename(newName)
 
-        if (!WarrantConstructs.isName(name)) return "Rule text cannot write '$name' as a name"
+        if (!WarrantNames.isName(name)) return "Rule text cannot write '$name' as a name"
 
         if (name in takenNames(construct)) return "A schema that has this ${construct.kind.wireValue} already has one named '$name'"
 

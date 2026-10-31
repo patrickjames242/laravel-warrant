@@ -73,11 +73,11 @@ class WarrantNameReference(
 
     /**
      * Writes the name rule text uses once what declares it is renamed to
-     * [newElementName]: a method's new name in snake case, or a key's or
-     * ability's new string as it is.
+     * [newElementName]: a method's new name in snake case, or a key's new string
+     * as it is. An ability is never renamed, so its name is left as it is.
      */
     override fun handleElementRename(newElementName: String): PsiElement {
-        val renamed = construct ?: resolve()?.let(WarrantConstructs::declaredBy) ?: return element
+        val renamed = (construct ?: resolve()?.let(WarrantConstructs::declaredBy))?.takeIf { it.isRenamable } ?: return element
 
         return ElementManipulators.handleContentChange(element, rangeInElement, renamed.nameAfterRename(newElementName))
     }

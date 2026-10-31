@@ -7,6 +7,7 @@ import {
   type LanguageClientOptions,
   type ServerOptions,
 } from 'vscode-languageclient/node'
+import { registerUsages } from './usages'
 
 /**
  * Where the language server script is looked for, relative to the workspace
@@ -37,6 +38,9 @@ let session: Session | undefined
  */
 let pending: Promise<void> = Promise.resolve()
 
+/** Has the usage counts asked again, once a server has started. */
+let recountUsages: () => void = () => undefined
+
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel('Warrant Language Server')
 
@@ -52,6 +56,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidGrantWorkspaceTrust(() => restart()),
     vscode.workspace.onDidChangeWorkspaceFolders(() => restart()),
   )
+
+  recountUsages = registerUsages(context, () => (session?.client.isRunning() ? session.client : undefined))
 
   void enqueue(start)
 }
@@ -152,6 +158,7 @@ async function start(): Promise<void> {
 
   try {
     await client.start()
+    recountUsages()
   } catch (error) {
     log(`The language server failed to start: ${describe(error)}`)
     await stop()

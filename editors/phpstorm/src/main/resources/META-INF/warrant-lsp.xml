@@ -32,6 +32,17 @@
             order="first"/>
         <renameHandler
             implementation="com.warrant.phpstorm.lsp.WarrantNameStringRenameHandler"/>
+
+        <!-- A rename started on a condition or template name in rule text asks
+             for the name as rule text writes it, in place of PhpStorm's rename
+             of the method in place, which would write the method's camel case
+             name there. -->
+        <renameHandler
+            implementation="com.warrant.phpstorm.lsp.WarrantNameRenameHandler"/>
+        <lang.refactoringSupport
+            language="PHP"
+            order="first"
+            implementationClass="com.warrant.phpstorm.lsp.WarrantMethodRefactoringSupport"/>
         <elementDescriptionProvider
             implementation="com.warrant.phpstorm.lsp.WarrantNameStringDescriptionProvider"/>
         <findUsagesHandlerFactory
@@ -46,6 +57,17 @@
              reflection and no PHP does. -->
         <phpDeadCode
             implementation="com.warrant.phpstorm.lsp.WarrantEntryPoint"/>
+
+        <!-- Frame names, which no PHP member declares: renamed and searched for
+             from where rule text writes them. -->
+        <renameHandler
+            implementation="com.warrant.phpstorm.lsp.WarrantFrameRenameHandler"/>
+        <usageTargetProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantFrameUsageTargetProvider"/>
+        <findUsagesHandlerFactory
+            implementation="com.warrant.phpstorm.lsp.WarrantFrameFindUsagesHandlerFactory"/>
+        <elementDescriptionProvider
+            implementation="com.warrant.phpstorm.lsp.WarrantFrameDescriptionProvider"/>
 
         <!-- Checks a new name for a condition, template or ability against rule
              text and the schemas that have it. -->

@@ -3,7 +3,6 @@
 namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
-use Warrant\LanguageServer\Documents\AnalyzedFragment;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Documents\Uri;
 use Warrant\LanguageServer\Positions\CursorContext;
@@ -13,13 +12,15 @@ use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
 
 /**
- * Where a condition, template or ability is used in the project's rule text, for
- * an editor finding its usages or renaming it.
+ * Where a condition, template, ability or schema is used in the project's rule
+ * text, for an editor finding its usages or renaming it.
  *
- * A declaration is named by its file and the method or constant in it that
- * declares it, which is how the editor knows it from the PHP. A name in rule
- * text is a use of it when it is looked up to that declaration as validation
- * looks it up, so the same name meaning another schema's declaration is not.
+ * A declaration is named by its file and the member in it that declares it,
+ * which is how the editor knows it from the PHP: the method or constant of a
+ * condition, template or ability, and a schema's class. A name in rule text is a
+ * use of it when it is looked up to that declaration as validation looks it up,
+ * so the same name meaning another schema's declaration is not. A schema is
+ * named in rule text by the key `config/warrant.php` registers it under.
  */
 final class Usages
 {
@@ -47,13 +48,15 @@ final class Usages
 
     /**
      * The uses in the project's rule text of what $member of $path declares, and
-     * the names a rename of it must not take: those its kind already has in each
-     * schema that has it. Null when $member of $path declares no condition,
-     * template or ability the server knows.
+     * for a condition or template the names a rename of it must not take: those
+     * its kind already has in each schema that has it. An ability is not renamed,
+     * so it has none, and neither has a schema. Null when $member of $path
+     * declares no condition, template, ability or schema the server knows.
      *
      * @param Workspace $workspace What the server knows.
      * @param string $path Absolute path of the file the declaration is in.
-     * @param string $member The method or constant that declares it.
+     * @param string $member The method or constant that declares it, or the
+     *   schema's class.
      * @return array{kind: string, name: string, usages: list<array{uri: string, range: array<string, mixed>}>, taken: list<string>}|null
      */
     public static function of(Workspace $workspace, string $path, string $member): ?array
@@ -75,8 +78,13 @@ final class Usages
         foreach ([...array_values($vocabulary->schemas), ...$vocabulary->globals] as $schema) {
             foreach (['ability', 'condition', 'template'] as $kind) {
                 foreach (self::ofKind($schema, $kind) as $declaration) {
-                    if (self::declares($declaration, $kind, $path, $member)) {
-                        $found ??= [$kind, $declaration->name];
+                    if (! self::declares($declaration, $kind, $path, $member)) {
+                        continue;
+                    }
+
+                    $found ??= [$kind, $declaration->name];
+
+                    if ($kind !== 'ability') {
                         array_push($taken, ...array_map('strval', array_keys(self::ofKind($schema, $kind))));
                     }
                 }
@@ -84,7 +92,7 @@ final class Usages
         }
 
         if ($found === null) {
-            return null;
+            return self::ofSchema($workspace, $path, $member);
         }
 
         [$kind, $name] = $found;
@@ -92,7 +100,7 @@ final class Usages
 
         foreach ($workspace->projectDocumentsHolding($name) as $document) {
             foreach ($workspace->analyze($document) as $fragment) {
-                foreach (self::namesIn($fragment, $name) as $node) {
+                foreach ($fragment->namesWriting($name) as $node) {
                     $span = $node->location->span;
 
                     if ($span === null) {
@@ -118,6 +126,47 @@ final class Usages
         sort($taken);
 
         return ['kind' => $kind, 'name' => $name, 'usages' => $usages, 'taken' => $taken];
+    }
+
+    /**
+     * The uses of the schema whose class $member is declared in $path: every
+     * place rule text names its key, as a schema or as the frame of its rows.
+     * Null when no registered schema is that class.
+     *
+     * @return array{kind: string, name: string, usages: list<array{uri: string, range: array<string, mixed>}>, taken: list<string>}|null
+     */
+    private static function ofSchema(Workspace $workspace, string $path, string $member): ?array
+    {
+        $key = null;
+
+        foreach ($workspace->vocabulary()->schemas as $schemaKey => $schema) {
+            if ($schema->file !== null && self::samePath($schema->file, $path) && strcasecmp(ltrim($schema->className, '\\'), ltrim($member, '\\')) === 0) {
+                $key = (string) $schemaKey;
+                break;
+            }
+        }
+
+        if ($key === null) {
+            return null;
+        }
+
+        $usages = [];
+
+        foreach ($workspace->projectDocumentsHolding($key) as $document) {
+            foreach ($workspace->analyze($document) as $fragment) {
+                foreach (Occurrences::located($workspace, $fragment, $key) as $located) {
+                    $span = $located->span();
+                    $slot = $located->context->slot;
+                    $namesSchema = $slot === SlotKind::Schema || ($slot === SlotKind::Alias && $located->frameNamedBy() === null);
+
+                    if ($span !== null && $namesSchema) {
+                        $usages[] = ['uri' => $document->uri, 'range' => $located->rangeOf($document, $span)];
+                    }
+                }
+            }
+        }
+
+        return ['kind' => 'schema', 'name' => $key, 'usages' => $usages, 'taken' => []];
     }
 
     /**
@@ -166,31 +215,5 @@ final class Usages
             'condition' => $schema->conditions,
             default => $schema->templates,
         };
-    }
-
-    /**
-     * Every name node in $fragment's text that writes $name, in the order they
-     * are written.
-     *
-     * @return list<NameNode>
-     */
-    private static function namesIn(AnalyzedFragment $fragment, string $name): array
-    {
-        $found = [];
-        $pending = $fragment->analysis->syntax->children;
-
-        while ($pending !== []) {
-            $node = array_pop($pending);
-
-            if ($node instanceof NameNode && $node->name === $name) {
-                $found[] = $node;
-            }
-
-            array_push($pending, ...$node->children());
-        }
-
-        usort($found, static fn (NameNode $a, NameNode $b): int => ($a->location->span->offset ?? 0) <=> ($b->location->span->offset ?? 0));
-
-        return $found;
     }
 }

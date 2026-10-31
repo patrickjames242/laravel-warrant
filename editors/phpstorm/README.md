@@ -3,8 +3,9 @@
 Syntax highlighting for the Warrant rule DSL, both in standalone `.warrant`
 files and inside PHP: heredocs/nowdocs labelled `WARRANT`, and strings wherever
 rule text is expected (see `WarrantInjector`). It also starts the Warrant
-language server for errors, hover, completion, go-to-definition, quick fixes
-and formatting in `.warrant` files and in the Warrant inside PHP files.
+language server for errors, hover, completion, go-to-definition, quick fixes,
+the parameter names of the arguments of conditions and templates, and
+formatting in `.warrant` files and in the Warrant inside PHP files.
 
 This is the PhpStorm counterpart of the VSCode extension in `../vscode`. The
 lexer here mirrors the token rules of `../../src/DSL/Lexing/Lexer.php` — keep
@@ -18,7 +19,9 @@ them in sync.
 | `WarrantLexer` | Tokenizes Warrant source (mirror of `Lexer.php`, but tolerant) |
 | `WarrantSyntaxHighlighter(Factory)` | Maps tokens → theme colors (produces the highlighting) |
 | `WarrantParser` / `WarrantParserDefinition` / `WarrantFile` | A flat parse tree — the minimum injection requires — with each name wrapped in a `WarrantName` |
-| `WarrantFindUsagesProvider` / `WarrantWordsScanner` | The words of a `.warrant` file for PhpStorm's word index, with the camel case method name each snake case name is taken from, so counting a method's usages reaches rule text |
+| `WarrantNames` | How a rule-text name and its method's name turn into each other |
+| `WarrantFindUsagesProvider` / `WarrantWordsScanner` | The words of a `.warrant` file for PhpStorm's word index, with the method name each name would be declared by, so counting a method's usages reaches rule text |
+| `WarrantPhpFindUsagesProvider` / `WarrantPhpWordsScanner` | The same for PHP files that may hold rule text: PHP's own words, with the camel case method name beside each snake case word. Stands in front of PHP's provider and hands everything else to it |
 | `WarrantName` / `WarrantNameManipulator` | A name in Warrant text, which references hang off, and how a rename rewrites it |
 | `WarrantInjector` | Injects Warrant into PHP strings that hold rule text: `<<<WARRANT` heredocs, `warrant('...')`, `Warrant::parse('...')`, returns from `rules()`, … |
 | `lsp/WarrantLspServerSupportProvider` / `lsp/WarrantLspServerDescriptor` | Starts the language server and tells the IDE which files it serves |
@@ -30,12 +33,14 @@ them in sync.
 | `lsp/WarrantConstructs` | Which PHP declares a condition, template or ability: a method, a key given to its attribute, or an ability constant's value |
 | `lsp/WarrantNameReference` | Makes each name in Warrant text a reference to what declares it: Cmd/Ctrl-hover, Cmd/Ctrl-click, and renaming from rule text |
 | `lsp/WarrantReferencesSearcher` | Finds a declaration's uses in rule text, by asking the server, for Find Usages and Rename |
-| `lsp/WarrantRename` | Renames a key or an ability's value, which are PHP strings, and checks every new name |
+| `lsp/WarrantNameRename` | Renames a condition or template from rule text by the name rule text writes, renaming its method to that name in camel case, with renaming in place turned off there |
+| `lsp/WarrantRename` | Renames a key given to a condition's or template's attribute, which is a PHP string, and checks every new name. An ability is not renamed |
 | `lsp/WarrantNameStringUsages` | Find Usages and Cmd/Ctrl-click on a key or an ability's value |
 | `lsp/WarrantEntryPoint` | Shows a condition or template method, or an ability constant, as used while the server says rule text names it, since Warrant calls them by reflection |
 | `lsp/WarrantNamesInRuleText` | Whether rule text names each declaration, as the server last said, asked in the background so highlighting never waits |
 | `lsp/WarrantRecountOnServerStart` | Has the open files' usage counts taken again once the server is running, since a count taken before then finds nothing in rule text |
-| `lsp/WarrantNameStringsAfterRename` | After a rename, offers the builder and Laravel strings that may name the old name, unticked |
+| `lsp/WarrantFrameNames` | Frame names, which no PHP member declares: their occurrences from the server, renaming them, and Find Usages on them |
+| `lsp/WarrantNameStringsAfterRename` | After a condition is renamed, offers the builder strings that may name the old name, unticked |
 | `lsp/ReformatWarrantRulesAction` | **Code → Reformat Warrant Rules**: formats only the Warrant in a file |
 | `lsp/WarrantFormattingService` | Formats a `.warrant` file on Reformat Code, before a save writes it, by running `warrant-format` |
 | `lsp/WarrantPostFormatProcessor` / `lsp/WarrantRuleTextFormatter` | Formats the Warrant in a PHP file as part of Reformat Code, by running `warrant-format` |
@@ -94,8 +99,8 @@ a range of that string, so it renames too.
 A name in rule text resolves by asking the server what it names
 (`warrant/declaration`): a method, a key given to its attribute, or an ability
 constant's value. A key and a value are PHP strings, which PhpStorm does not
-rename or search from by itself; `WarrantRename` and `WarrantNameStringUsages`
-take that up.
+rename or search from by itself; `WarrantRename` renames a key, and
+`WarrantNameStringUsages` searches from either. An ability is not renamed.
 
 A reference is never matched by its text (`isReferenceTo` is false), so every use
 comes from the server.

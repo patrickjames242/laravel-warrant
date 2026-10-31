@@ -12,6 +12,8 @@ use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\DocumentSymbols;
 use Warrant\LanguageServer\Features\Formatting;
 use Warrant\LanguageServer\Features\Hover;
+use Warrant\LanguageServer\Features\InlayHints;
+use Warrant\LanguageServer\Features\Occurrences;
 use Warrant\LanguageServer\Features\Usages;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
 use Warrant\PhpSource\ClassFileLocator;
@@ -48,6 +50,13 @@ final class Server
     private array $stale = [];
 
     private bool $vocabularyStale = false;
+
+    /**
+     * Whether a PHP file open in the editor has changed since the schemas were
+     * last read from source, so they are read from source again, as the editor
+     * has them, once it is quiet.
+     */
+    private bool $sourceStale = false;
 
     private ?ApplicationVocabularyProcess $application = null;
 
@@ -122,7 +131,7 @@ final class Server
             $read = [$this->transport->input(), ...($this->application?->streams() ?? [])];
             $write = null;
             $except = null;
-            $waiting = $this->stale !== [] || $this->vocabularyStale;
+            $waiting = $this->stale !== [] || $this->vocabularyStale || $this->sourceStale;
             $timeout = $waiting ? self::QUIET : ($this->application !== null ? 0.5 : null);
 
             $ready = @stream_select($read, $write, $except, $timeout === null ? null : 0, $timeout === null ? null : (int) ($timeout * 1_000_000));
@@ -211,6 +220,14 @@ final class Server
      */
     private function dispatch(string $method, array $params, bool $isRequest): mixed
     {
+        /* A request is answered against the editor's latest text, so a PHP file
+           changed just before it is read now rather than once the editor is
+           quiet: a rename puts a method's old name back just before it asks
+           where that name is used. */
+        if ($isRequest) {
+            $this->catchUpOnSource();
+        }
+
         $document = $this->documentOf($params);
         $position = is_array($params['position'] ?? null) ? $params['position'] : [];
 
@@ -226,6 +243,7 @@ final class Server
             'textDocument/hover' => $document === null ? null : Hover::at($this->workspace, $document, $position),
             'textDocument/definition' => $document === null ? null : Definition::at($this->workspace, $document, $position),
             'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position, $this->takesSnippets)],
+            'textDocument/inlayHint' => $document === null ? [] : InlayHints::in($this->workspace, $document, is_array($params['range'] ?? null) ? $params['range'] : []),
             'textDocument/documentSymbol' => $document === null ? [] : DocumentSymbols::of($this->workspace, $document),
             'textDocument/codeAction' => $document === null ? [] : [
                 ...CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
@@ -234,6 +252,7 @@ final class Server
             'textDocument/formatting' => $document === null ? null : Formatting::edits($document, $this->workspace->root),
             'warrant/declaration' => $document === null ? null : Usages::declarationAt($this->workspace, $document, $position),
             'warrant/usages' => $this->usages($params),
+            'warrant/occurrences' => $document === null ? null : Occurrences::at($this->workspace, $document, $position),
             default => $isRequest ? throw new MethodNotFound : null,
         };
     }
@@ -311,6 +330,7 @@ final class Server
                 'hoverProvider' => true,
                 'definitionProvider' => true,
                 'documentSymbolProvider' => true,
+                'inlayHintProvider' => true,
                 'completionProvider' => ['triggerCharacters' => [' ', '(', '@', '.', ',']],
                 'codeActionProvider' => ['codeActionKinds' => ['quickfix', Formatting::KIND]],
                 /* Registered later for `.warrant` files only when the editor can
@@ -370,6 +390,7 @@ final class Server
         if ($path !== null) {
             $this->workspace->open(new Document($uri, $path, (string) ($item['text'] ?? ''), (int) ($item['version'] ?? 0)));
             $this->stale[$uri] = true;
+            $this->sourceStale = $this->sourceStale || self::isPhp($path);
         }
 
         return null;
@@ -388,6 +409,7 @@ final class Server
         if ($document !== null && is_array($last) && is_string($last['text'] ?? null)) {
             $this->workspace->open($document->withText($last['text'], (int) ($params['textDocument']['version'] ?? $document->version + 1)));
             $this->stale[$uri] = true;
+            $this->sourceStale = $this->sourceStale || self::isPhp($document->path);
         }
 
         return null;
@@ -399,6 +421,7 @@ final class Server
     private function close(array $params): null
     {
         $uri = (string) ($params['textDocument']['uri'] ?? '');
+        $this->sourceStale = $this->sourceStale || self::isPhp($this->workspace->document($uri)?->path ?? '');
         $this->workspace->close($uri);
         unset($this->stale[$uri]);
         $this->transport->send(['method' => 'textDocument/publishDiagnostics', 'params' => ['uri' => $uri, 'diagnostics' => []]]);
@@ -438,13 +461,17 @@ final class Server
 
     /**
      * Do what waits for a quiet moment: read the schemas again if a PHP file
-     * changed, and send the diagnostics that are out of date.
+     * changed, on disk or in the editor, and send the diagnostics that are out
+     * of date.
      */
     private function catchUp(): void
     {
         if ($this->vocabularyStale) {
             $this->vocabularyStale = false;
+            $this->sourceStale = false;
             $this->readVocabulary();
+        } else {
+            $this->catchUpOnSource();
         }
 
         foreach (array_keys($this->stale) as $uri) {
@@ -473,9 +500,7 @@ final class Server
             return;
         }
 
-        $fromSource = (new StaticSchemaScanner($root, ClassFileLocator::forProject($root)))->scan();
-        $this->latestFromSource = $fromSource;
-        $this->useVocabulary($this->applicationVocabulary === null ? $fromSource : VocabularyIndex::merge($this->applicationVocabulary, $fromSource));
+        $fromSource = $this->readSource();
         $this->log(sprintf('Read %d schema(s) and %d global schema(s) from source.', count($fromSource->schemas), count($fromSource->globals)));
 
         if ($this->workspace->mode !== VocabularyMode::Auto) {
@@ -489,6 +514,81 @@ final class Server
             $this->application->wait();
             $this->readApplication();
         }
+    }
+
+    /**
+     * Read the schemas from source again if a PHP file open in the editor has
+     * changed since they were last read.
+     */
+    private function catchUpOnSource(): void
+    {
+        if (! $this->sourceStale) {
+            return;
+        }
+
+        $this->sourceStale = false;
+
+        if ($this->workspace->root !== null && $this->workspace->mode !== VocabularyMode::Off) {
+            $this->readSource();
+        }
+    }
+
+    /**
+     * Read the project's schemas from source, the files open in the editor as
+     * it has them, and use that reading.
+     */
+    private function readSource(): VocabularyIndex
+    {
+        $root = (string) $this->workspace->root;
+        $fromSource = (new StaticSchemaScanner($root, ClassFileLocator::forProject($root), $this->openPhpFiles()))->scan();
+        $this->latestFromSource = $fromSource;
+        $this->useVocabulary($this->combined($fromSource));
+
+        return $fromSource;
+    }
+
+    /**
+     * The schemas to check rule text against: the reading from the running
+     * application, with $fromSource filling in what it lacks. The application
+     * reads only what is saved, so while a PHP file open in the editor differs
+     * from what is saved, $fromSource, which reads the editor's text, is
+     * preferred instead.
+     *
+     * @param VocabularyIndex $fromSource The latest reading from source.
+     */
+    private function combined(VocabularyIndex $fromSource): VocabularyIndex
+    {
+        if ($this->applicationVocabulary === null) {
+            return $fromSource;
+        }
+
+        return $this->openPhpFiles(unsavedOnly: true) === []
+            ? VocabularyIndex::merge($this->applicationVocabulary, $fromSource)
+            : VocabularyIndex::merge($fromSource, $this->applicationVocabulary);
+    }
+
+    /**
+     * The text of each PHP file open in the editor, by path.
+     *
+     * @param bool $unsavedOnly Only those whose text differs from what is saved.
+     * @return array<string, string>
+     */
+    private function openPhpFiles(bool $unsavedOnly = false): array
+    {
+        $files = [];
+
+        foreach ($this->workspace->documents() as $document) {
+            if (self::isPhp($document->path) && (! $unsavedOnly || @file_get_contents($document->path) !== $document->text)) {
+                $files[$document->path] = $document->text;
+            }
+        }
+
+        return $files;
+    }
+
+    private static function isPhp(string $path): bool
+    {
+        return strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php';
     }
 
     /**
@@ -513,7 +613,7 @@ final class Server
         }
 
         $this->applicationVocabulary = $read;
-        $this->useVocabulary(VocabularyIndex::merge($read, $this->latestFromSource ?? new VocabularyIndex));
+        $this->useVocabulary($this->combined($this->latestFromSource ?? new VocabularyIndex));
         $this->log(sprintf('Read %d schema(s) and %d global schema(s) from the running application.', count($read->schemas), count($read->globals)));
     }
 

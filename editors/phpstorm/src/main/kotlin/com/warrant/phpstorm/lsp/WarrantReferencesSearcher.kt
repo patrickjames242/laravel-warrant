@@ -11,6 +11,7 @@ import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
+import com.warrant.phpstorm.WarrantName
 import org.eclipse.lsp4j.Location
 
 /**
@@ -25,7 +26,14 @@ import org.eclipse.lsp4j.Location
 class WarrantReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSearch.SearchParameters>(false) {
 
     override fun processQuery(parameters: ReferencesSearch.SearchParameters, consumer: Processor<in PsiReference>) {
-        val construct = runReadAction { WarrantConstructs.declaredBy(parameters.elementToSearch) } ?: return
+        val target = parameters.elementToSearch
+
+        if (target is WarrantName) {
+            processFrameName(parameters, target, consumer)
+            return
+        }
+
+        val construct = runReadAction { WarrantConstructs.declaredBy(target) } ?: return
         val project = parameters.project
         val usages = WarrantServerQueries.getInstance(project).usagesOf(construct.file, construct.member) ?: return
 
@@ -36,9 +44,21 @@ class WarrantReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSear
         }
     }
 
+    /** The places the frame name [name] is written ([WarrantFrameNames.occurrencesOf]). */
+    private fun processFrameName(parameters: ReferencesSearch.SearchParameters, name: WarrantName, consumer: Processor<in PsiReference>) {
+        val found = WarrantFrameNames.occurrencesOf(name) ?: return
+
+        for (occurrence in found.occurrences.orEmpty()) {
+            val reference = runReadAction { referenceAt(parameters, null, occurrence) } ?: continue
+
+            if (!consumer.process(reference)) return
+        }
+    }
+
     /**
      * The reference to [construct] at [usage], or null when the place is gone
-     * or outside the search's scope.
+     * or outside the search's scope. [construct] is null for a frame name,
+     * which no PHP member declares.
      *
      * A name the editor injects Warrant around is a [com.warrant.phpstorm.WarrantName];
      * one in a PHP string the server reads as rule text but the editor does not
@@ -46,7 +66,7 @@ class WarrantReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSear
      */
     private fun referenceAt(
         parameters: ReferencesSearch.SearchParameters,
-        construct: WarrantConstruct,
+        construct: WarrantConstruct?,
         usage: Location,
     ): PsiReference? {
         val project = parameters.project

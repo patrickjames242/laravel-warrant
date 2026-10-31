@@ -42,11 +42,6 @@ class WarrantCodeVisionTest : BasePlatformTestCase() {
         assertEquals("1 usage", PhpReferencesCodeVisionProvider().getVisionInfo(method, schema)?.text)
     }
 
-    fun testIndexesTheMethodNameAConditionNameIsTakenFrom() {
-        assertEquals("isAwaitingPublish", WarrantWordsScanner.camelCase("is_awaiting_publish"))
-        assertEquals("postsModify", WarrantWordsScanner.camelCase("posts-modify"))
-        assertEquals("view", WarrantWordsScanner.camelCase("view"))
-    }
 
     fun testCountsUsesOfAMethodAnotherClassDeclaresByTheSameName() {
         myFixture.addFileToProject("vendor/warrant/Attributes.php", WARRANT_ATTRIBUTES.trim())
@@ -89,5 +84,56 @@ class WarrantCodeVisionTest : BasePlatformTestCase() {
         val method = PsiTreeUtil.findChildrenOfType(schema, Method::class.java).single()
 
         assertEquals("1 usage", PhpReferencesCodeVisionProvider().getVisionInfo(method, schema)?.text)
+    }
+
+    fun testCountsUsesInRuleTextInAnotherPhpFile() {
+        myFixture.addFileToProject("vendor/warrant/Attributes.php", WARRANT_ATTRIBUTES.trim())
+        myFixture.addFileToProject("resources/documents.warrant", "")
+        myFixture.addFileToProject(
+            "tests/ModuleEnabledTest.php",
+            """
+            <?php
+            class ModuleEnabledTestSchema
+            {
+                public function rules(): string
+                {
+                    return <<<'WARRANT'
+                        if module_enabled('payroll') they can view
+                    WARRANT;
+                }
+            }
+            """.trimIndent(),
+        )
+        val schema = myFixture.addFileToProject(
+            "app/DocumentSchema.php",
+            """
+            <?php
+            namespace App;
+
+            use Warrant\Schema\Conditions\Row\RowCondition;
+
+            class DocumentSchema
+            {
+                #[RowCondition]
+                public function moduleEnabled() {}
+
+                public function rules(): string
+                {
+                    return <<<'WARRANT'
+                        if not module_enabled('x') they cannot
+                    WARRANT;
+                }
+            }
+            """.trimIndent(),
+        )
+
+        val server = FakeServer(project)
+        server.searched = listOf("app/DocumentSchema.php", "tests/ModuleEnabledTest.php")
+        server.declare(schema.virtualFile, "moduleEnabled", WarrantKind.CONDITION, "module_enabled")
+        project.replaceService(WarrantServerQueries::class.java, server, testRootDisposable)
+
+        val method = PsiTreeUtil.findChildrenOfType(schema, Method::class.java).single { it.name == "moduleEnabled" }
+
+        assertEquals("2 usages", PhpReferencesCodeVisionProvider().getVisionInfo(method, schema)?.text)
     }
 }

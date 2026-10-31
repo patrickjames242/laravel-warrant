@@ -2,7 +2,6 @@
 
 namespace Warrant\LanguageServer\Features;
 
-use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Documents\Uri;
 use Warrant\LanguageServer\Positions\SlotKind;
@@ -36,17 +35,13 @@ final class Definition
         $schema = $context->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
 
         if ($context->slot === SlotKind::Alias) {
-            /* A frame name written in a `@column` is declared by the `as` of the
-               innermost `check(...)` around it that gives that name; a frame named
-               by its schema's key is declared by the schema. */
-            foreach (array_reverse($context->nodes) as $node) {
-                if ($node instanceof CrossSchemaConditionNode && $node->alias?->name === $context->name) {
-                    $span = $node->alias->location->span;
+            /* A frame name written in a `@column` is declared by the `as` that
+               names the frame; a frame named by its schema's key is declared by
+               the schema. */
+            $span = $located->frameNamedBy()?->location->span;
 
-                    if ($span !== null) {
-                        return ['uri' => $document->uri, 'range' => $located->rangeOf($document, $span)];
-                    }
-                }
+            if ($span !== null) {
+                return ['uri' => $document->uri, 'range' => $located->rangeOf($document, $span)];
             }
 
             $schema = $vocabulary->schema($context->name) ?? $schema;

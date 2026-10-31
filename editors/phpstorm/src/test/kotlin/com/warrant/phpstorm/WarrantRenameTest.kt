@@ -5,8 +5,15 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.ide.DataManager
+import com.intellij.refactoring.rename.RenameHandlerRegistry
 import com.intellij.refactoring.rename.RenameInputValidatorRegistry
+import com.intellij.refactoring.rename.RenamePsiElementProcessor
+import com.intellij.openapi.util.TextRange
+import com.intellij.codeInsight.template.impl.TemplateManagerImpl
+import com.intellij.testFramework.fixtures.CodeInsightTestUtil
 import com.intellij.testFramework.replaceService
+import com.jetbrains.php.refactoring.rename.inplace.PhpMemberInplaceRenameHandler
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.jetbrains.php.lang.psi.elements.Field
 import com.jetbrains.php.lang.psi.elements.Method
@@ -14,12 +21,16 @@ import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
 import com.warrant.phpstorm.lsp.WarrantConstructs
 import com.warrant.phpstorm.lsp.WarrantDeclaration
 import com.warrant.phpstorm.lsp.WarrantKind
+import com.warrant.phpstorm.lsp.WarrantNameReference
+import com.warrant.phpstorm.lsp.WarrantNameRenameHandler
+import com.warrant.phpstorm.lsp.WarrantNameStringRenameHandler
+import com.warrant.phpstorm.lsp.WarrantNameStringRenameProcessor
 import com.warrant.phpstorm.lsp.WarrantNameStringGotoUsagesHandler
 import com.warrant.phpstorm.lsp.WarrantNameStringsAfterRename
 import com.warrant.phpstorm.lsp.WarrantServerQueries
 
 /**
- * Renaming a condition, template or ability renames its uses in rule text, and
+ * Renaming a condition or template renames its uses in rule text, and
  * Find Usages finds them, wherever the rename or search starts. The language
  * server is stood in for by [FakeServer], which finds a name's uses by its
  * spelling, as the server would in a project with one schema.
@@ -140,16 +151,6 @@ class WarrantRenameTest : BasePlatformTestCase() {
         assertTrue(text(schemaFile).contains("if in_folder(1) they can edit"))
     }
 
-    fun testRenamingAnAbilityRenamesItsValueAndUsesButNotTheConstant() {
-        val (schemaFile, rulesFile) = configure()
-
-        myFixture.renameElement(element<StringLiteralExpression>(schemaFile) { it.contents == "edit" }, "modify")
-
-        assertEquals("if is_owner they can modify\n@include owner_edits", text(rulesFile))
-        assertTrue(text(schemaFile).contains("public const EDIT = 'modify';"))
-        assertTrue(text(schemaFile).contains("if in_folder(1) they can modify"))
-    }
-
     fun testRenamingANameInRuleTextRenamesWhatDeclaresIt() {
         val (schemaFile, rulesFile) = configure()
         myFixture.configureFromExistingVirtualFile(rulesFile)
@@ -161,25 +162,71 @@ class WarrantRenameTest : BasePlatformTestCase() {
         assertTrue(text(schemaFile).contains("public function isAuthor("))
     }
 
-    fun testRenamingAnAbilityNameInRuleTextRenamesTheConstantsValue() {
+    fun testRenamingANameInRuleTextAsYouWouldWriteItThere() {
         val (schemaFile, rulesFile) = configure()
         myFixture.configureFromExistingVirtualFile(rulesFile)
-        myFixture.editor.caretModel.moveToOffset(text(rulesFile).indexOf("edit") + 1)
+        myFixture.editor.caretModel.moveToOffset(text(rulesFile).indexOf("is_owner") + 2)
 
-        myFixture.renameElementAtCaret("modify")
+        val handlers = RenameHandlerRegistry.getInstance()
+            .getRenameHandlers(DataManager.getInstance().getDataContext(myFixture.editor.component))
+        assertEquals(listOf(WarrantNameRenameHandler::class.java), handlers.map { it.javaClass })
 
-        assertEquals("if is_owner they can modify\n@include owner_edits", text(rulesFile))
-        assertTrue(text(schemaFile).contains("public const EDIT = 'modify';"))
+        myFixture.renameElementAtCaretUsingHandler("is_author")
+
+        assertEquals("if is_author they can edit\n@include owner_edits", text(rulesFile))
+        assertTrue(text(schemaFile).contains("public function isAuthor("))
+        assertTrue(text(schemaFile).contains("if is_author they can edit\n"))
     }
 
-    fun testRenamingFromTheStringAtTheCaret() {
+    fun testRenamingANameInRuleTextToOneWithAnUnderscoreBeforeDigits() {
+        val (schemaFile, rulesFile) = configure()
+        myFixture.configureFromExistingVirtualFile(rulesFile)
+        myFixture.editor.caretModel.moveToOffset(text(rulesFile).indexOf("is_owner") + 2)
+
+        myFixture.renameElementAtCaretUsingHandler("is_owner_2")
+
+        assertEquals("if is_owner_2 they can edit\n@include owner_edits", text(rulesFile))
+        assertTrue(text(schemaFile).contains("public function isOwner_2("))
+    }
+
+    fun testRenamingANameInRuleTextInsidePhpAsYouWouldWriteItThere() {
         val (schemaFile, rulesFile) = configure()
         myFixture.configureFromExistingVirtualFile(schemaFile)
+        myFixture.editor.caretModel.moveToOffset(text(schemaFile).indexOf("if is_owner they can edit\n") + 5)
+
+        myFixture.renameElementAtCaretUsingHandler("is_author")
+
+        assertTrue(text(schemaFile).contains("if is_author they can edit\n"))
+        assertTrue(text(schemaFile).contains("public function isAuthor("))
+        assertEquals("if is_author they can edit\n@include owner_edits", text(rulesFile))
+    }
+
+    fun testRenamingAMethodByItsNameInPhpStillRenamesItsUsesInSnakeCase() {
+        val (schemaFile, rulesFile) = configure()
+        myFixture.configureFromExistingVirtualFile(schemaFile)
+        myFixture.editor.caretModel.moveToOffset(text(schemaFile).indexOf("isOwner") + 2)
+
+        TemplateManagerImpl.setTemplateTesting(testRootDisposable)
+        CodeInsightTestUtil.doInlineRename(PhpMemberInplaceRenameHandler(), "isAuthor", myFixture)
+
+        assertEquals("if is_author they can edit\n@include owner_edits", text(rulesFile))
+        assertTrue(text(schemaFile).contains("public function isAuthor("))
+    }
+
+    fun testAnAbilityIsNotRenamedFromItsValueOrFromRuleText() {
+        val (schemaFile, rulesFile) = configure()
+        val value = element<StringLiteralExpression>(schemaFile) { it.contents == "edit" }
+
+        assertFalse(RenamePsiElementProcessor.allForElement(value).any { it is WarrantNameStringRenameProcessor })
+        assertNull(RenameInputValidatorRegistry.getInputValidator(value))
+
+        myFixture.configureFromExistingVirtualFile(schemaFile)
         myFixture.editor.caretModel.moveToOffset(text(schemaFile).indexOf("'edit'") + 2)
+        assertFalse(WarrantNameStringRenameHandler().isAvailableOnDataContext(DataManager.getInstance().getDataContext(myFixture.editor.component)))
 
-        myFixture.renameElementAtCaretUsingHandler("modify")
-
-        assertEquals("if is_owner they can modify\n@include owner_edits", text(rulesFile))
+        // Renaming the string by other means leaves the rule text's uses as they are.
+        WarrantNameReference(value, TextRange(1, 5), WarrantConstructs.declaredBy(value)).handleElementRename("modify")
+        assertEquals("if is_owner they can edit\n@include owner_edits", text(rulesFile))
     }
 
     fun testFindsTheUsesOfAMethodAndOfAString() {
@@ -228,23 +275,17 @@ class WarrantRenameTest : BasePlatformTestCase() {
     fun testANewNameMustBeWritableAndFree() {
         val (schemaFile, _) = configure()
         val method = element<Method>(schemaFile) { it.name == "isOwner" }
-        val ability = element<StringLiteralExpression>(schemaFile) { it.contents == "edit" }
 
         assertTrue(validatorFor(method, "isAuthor"))
         assertFalse(validatorFor(method, "inFolder"))
         assertFalse(validatorFor(method, "or"))
         assertFalse(validatorFor(method, "is-owner"))
-        assertFalse(validatorFor(ability, "view"))
-        assertFalse(validatorFor(ability, "can"))
-        assertFalse(validatorFor(ability, "two words"))
-        assertTrue(validatorFor(ability, "modify"))
-        assertTrue(validatorFor(ability, "posts-modify"))
     }
 
     private fun validatorFor(element: PsiElement, name: String): Boolean =
         RenameInputValidatorRegistry.getInputValidator(element)!!.value(name)
 
-    fun testOffersOnlyStringsPassedWhereANameOfItsKindGoes() {
+    fun testOffersOnlyStringsPassedWhereAConditionsNameGoes() {
         myFixture.addFileToProject(
             "app/Uses.php",
             """
@@ -263,18 +304,9 @@ class WarrantRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        val conditions = WarrantNameStringsAfterRename.stringsNaming(project, WarrantKind.CONDITION, "is_owner")
-        val abilities = WarrantNameStringsAfterRename.stringsNaming(project, WarrantKind.ABILITY, "edit")
+        val conditions = WarrantNameStringsAfterRename.stringsNaming(project, "is_owner")
 
         assertEquals(listOf("if", "check"), conditions.map { (it.parent.parent as com.jetbrains.php.lang.psi.elements.FunctionReference).name })
-        assertEquals(listOf("andIfCan", "can", "can", "allows"), abilities.map { (it.parent.parent as com.jetbrains.php.lang.psi.elements.FunctionReference).name })
-    }
-
-    fun testSnakeCaseFollowsLaravel() {
-        assertEquals("is_owner", WarrantConstructs.snakeCase("isOwner"))
-        assertEquals("owner_or_team", WarrantConstructs.snakeCase("ownerOrTeam"))
-        assertEquals("is_o_k", WarrantConstructs.snakeCase("isOK"))
-        assertEquals("already_snake", WarrantConstructs.snakeCase("already_snake"))
-        assertEquals("is2_fa", WarrantConstructs.snakeCase("is2Fa"))
+        assertEquals(emptyList<String>(), WarrantNameStringsAfterRename.stringsNaming(project, "edit").map { it.text })
     }
 }

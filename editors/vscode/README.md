@@ -2,7 +2,7 @@
 
 Language support for the [Warrant](https://github.com/patrickjames242/laravel-warrant)
 authorization rule language: syntax highlighting, and the Warrant language
-server's diagnostics, hover, completion and navigation.
+server's diagnostics, hover, completion, navigation, usages and renaming.
 
 ## Language server
 
@@ -14,9 +14,23 @@ arguments that are highlighted — and offers:
 - **Diagnostics** for mistakes in rule text, as you type.
 - **Hover** information on the names in a rule.
 - **Completion**, triggered as you type and on space, `(`, `@`, `.` and `,`.
+- **Parameter names** before the arguments of a condition or template, as
+  inlay hints.
 - **Go to definition** from a name in a rule to where it is defined.
 - **Outline** (document symbols) of the rules in a file.
 - **Quick fixes** for the mistakes the server knows how to repair.
+- **Find All References** on a condition, template, ability or schema, from its
+  PHP or from a name in rule text, listing its uses in rule text; and on a
+  context key or frame name, listing every place it is written.
+- **A code lens** counting each condition's, template's, ability's and schema's
+  uses in rule text.
+- **Rename** (F2) of a condition or template from rule text or from a key given
+  to its attribute, with every use in rule text, and of a frame name. On a
+  method's own name F2 is the PHP extension's; **Warrant: Rename Condition or
+  Template** renames from there with the uses in rule text. After a condition
+  is renamed, the Refactor Preview offers the builder strings that may name it,
+  unticked.
+- **Highlighting** of the other places a frame name or context key is written.
 
 ### Requirements
 

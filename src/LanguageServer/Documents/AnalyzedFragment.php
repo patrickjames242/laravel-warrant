@@ -3,6 +3,7 @@
 namespace Warrant\LanguageServer\Documents;
 
 use Warrant\DSL\Parsing\AnalysisResult;
+use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Diagnostic;
 use Warrant\DSL\Fragments\Fragment;
 
@@ -22,5 +23,32 @@ final readonly class AnalyzedFragment
         public AnalysisResult $analysis,
         public array $diagnostics,
     ) {
+    }
+
+    /**
+     * Every name node in the fragment's text that writes $name, in the order they
+     * are written.
+     *
+     * @param string $name The name.
+     * @return list<NameNode>
+     */
+    public function namesWriting(string $name): array
+    {
+        $found = [];
+        $pending = $this->analysis->syntax->children;
+
+        while ($pending !== []) {
+            $node = array_pop($pending);
+
+            if ($node instanceof NameNode && $node->name === $name) {
+                $found[] = $node;
+            }
+
+            array_push($pending, ...$node->children());
+        }
+
+        usort($found, static fn (NameNode $a, NameNode $b): int => ($a->location->span->offset ?? 0) <=> ($b->location->span->offset ?? 0));
+
+        return $found;
     }
 }

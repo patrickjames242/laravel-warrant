@@ -31,11 +31,18 @@ its other packages and its extensions do not matter to it.
   `@include`, context keys after `@context`. A condition or template that takes
   arguments completes with its parentheses open and the cursor inside, and so
   does a schema with rows in a `can(...)` or `check(...)` handle.
+- **Parameter names** before the arguments of a condition, derived condition or
+  `@include`, as an editor shows them before the arguments of a PHP call:
+  `in_team(team: 1, role: 'admin')`. Only a literal or an `@sql` argument has
+  one: a binding, `@context` or `@column` argument is written by a name of its
+  own, as a PHP variable is.
 - **Go to definition** from a name to the constant or method that declares it,
   and from a frame name in `@column d2.id` to the `as d2` that names it.
-- **Usages** of a condition, template or ability across the project's rule text,
-  which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) renames and
-  finds usages with. It reads every `.warrant` and PHP file in the project but
+- **Usages** of a condition, template, ability or schema across the project's
+  rule text, and every place a context key or frame name is written,
+  which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
+  [VS Code](/editors/vscode/#renaming-and-finding-usages) rename and find
+  usages with. It reads every `.warrant` and PHP file in the project but
   those under `vendor/`, `node_modules/`, `storage/` and `.git/`.
 - **Quick fixes** for a name that is not declared, offering the closest declared
   names.
@@ -124,7 +131,13 @@ it boots your application only where that PHP can: a version your project accept
 with the extensions it needs. An application that runs in a container usually
 cannot boot this way, and is read from source.
 
-Both readings run again whenever a PHP file changes.
+Both readings run again whenever a PHP file is saved. The reading from source
+also runs again as you edit a PHP file open in the editor, once you pause or
+before the server answers the editor's next request, and reads the open files
+as the editor has them, so rule text is checked against a
+schema you have changed but not saved: after renaming a condition, say. While
+an open file differs from what is saved, the reading from source wins over the
+application's, which sees only what is saved.
 
 The editor setting `vocabulary` chooses between them:
 
@@ -163,7 +176,8 @@ declares it:
 | Request | Parameters | Result |
 |---|---|---|
 | `warrant/declaration` | `textDocument`, `position` | The condition, template or ability named there: `{kind, name, uri, member}`, where `kind` is `condition`, `template` or `ability`, and `member` the method or constant that declares it. Null on anything else. |
-| `warrant/usages` | `uri`, `member` | `{kind, name, usages, taken}`: each use in the project's rule text as a `Location`, and the names its kind already has in each schema that has it, which a rename must not take. Null when the member declares none. |
+| `warrant/occurrences` | `textDocument`, `position` | The context key or frame name there, and every place it is written: `{kind, name, occurrences}`, where `kind` is `context` or `frame`. A context key's occurrences are every one in the project's rule text; a frame name's are the `as` that gives it and each `@column` that refers to that frame. Null on anything else, and on a frame named by its schema's key. |
+| `warrant/usages` | `uri`, `member` | `{kind, name, usages, taken}`: each use in the project's rule text as a `Location`. `member` may also be a schema's class, whose uses are every place rule text names its key, with `kind` `schema`; and for a condition or template the names its kind already has in each schema that has it, which a rename must not take. An ability is not renamed, so its `taken` is empty. Null when the member declares none. |
 
 ## What it does not do
 

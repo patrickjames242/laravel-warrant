@@ -57,10 +57,14 @@ final class StaticSchemaScanner
     /**
      * @param string $root Absolute path of the project.
      * @param ClassFileLocator $locator Where the project's classes are declared.
+     * @param array<string, string> $openFiles The text of files open in the
+     *   editor, by absolute path, read in place of what is saved on disk, so
+     *   rule text is checked against a schema as it is being edited.
      */
     public function __construct(
         private readonly string $root,
         private readonly ClassFileLocator $locator,
+        private readonly array $openFiles = [],
     ) {
     }
 
@@ -134,14 +138,14 @@ final class StaticSchemaScanner
      */
     private function configEntries(string $name): array
     {
-        $path = $this->root.'/config/warrant.php';
+        $text = $this->textOf($this->root.'/config/warrant.php');
 
-        if (! is_file($path)) {
+        if ($text === null) {
             return [];
         }
 
         $tokens = array_values(array_filter(
-            PhpToken::tokenize((string) file_get_contents($path)),
+            PhpToken::tokenize($text),
             static fn (PhpToken $token): bool => ! $token->isIgnorable(),
         ));
 
@@ -521,11 +525,24 @@ final class StaticSchemaScanner
 
         $file = realpath($file) ?: $file;
 
-        foreach (PhpSourceReader::read($file, (string) @file_get_contents($file)) as $class) {
+        foreach (PhpSourceReader::read($file, (string) $this->textOf($file)) as $class) {
             $this->classes[strtolower($class->name)] = $class;
         }
 
         return $this->classes[$lower];
+    }
+
+    /**
+     * The text of the file at $path: as the editor has it when it is open, and
+     * as it is on disk otherwise. Null when it cannot be read.
+     *
+     * @param string $path Absolute path.
+     */
+    private function textOf(string $path): ?string
+    {
+        $text = $this->openFiles[$path] ?? $this->openFiles[realpath($path) ?: $path] ?? @file_get_contents($path);
+
+        return $text === false ? null : $text;
     }
 
     /**

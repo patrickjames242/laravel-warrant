@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Find the usages of a condition, template, ability or schema across the
+  project's rule text with Find All References, from its method, key, constant,
+  value or class or from a name in rule text, and of a context key or frame
+  name. Count each one's uses in rule text in a code lens.
+
+- Rename a condition or template with its uses in rule text: with F2 from rule
+  text or from a key given to its attribute, and with **Warrant: Rename
+  Condition or Template** from its method too. A method takes the new name in
+  camel case. The rename refuses a name rule text cannot write or the schema
+  already has, and after a condition is renamed the Refactor Preview offers the
+  builder strings that may name it, unticked. Rename a frame name with the
+  `@column`s that refer to its frame.
+
+- Highlight the other places a frame name or context key is written.
+
+- Show the parameter name of each argument of a condition or template as an
+  inlay hint, from the language server.
+
 - Stop highlighting `except` as a keyword, since the rule language has no
   `* except`.
 

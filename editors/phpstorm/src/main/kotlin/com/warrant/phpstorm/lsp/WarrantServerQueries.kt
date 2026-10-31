@@ -34,6 +34,10 @@ interface WarrantLanguageServer : LanguageServer {
     /** Where what a member of a file declares is used in the project's rule text. */
     @JsonRequest("warrant/usages")
     fun usages(params: WarrantUsagesParams): CompletableFuture<WarrantUsages?>
+
+    /** The context key or frame name at a position, and every place it is written. */
+    @JsonRequest("warrant/occurrences")
+    fun occurrences(params: WarrantPositionParams): CompletableFuture<WarrantOccurrences?>
 }
 
 /** A position in a document the server has open. */
@@ -67,6 +71,18 @@ data class WarrantDeclaration(val kind: String?, val name: String?, val uri: Str
 data class WarrantUsages(val kind: String?, val name: String?, val usages: List<Location>?, val taken: List<String>?)
 
 /**
+ * A context key or frame name, which no PHP member declares, and every place
+ * rule text writes it.
+ *
+ * @property kind `context` or `frame`.
+ * @property name The name.
+ * @property occurrences Where each is written: for a context key, across the
+ *   project's rule text; for a frame name, the `as` that gives it and each
+ *   `@column` that refers to it.
+ */
+data class WarrantOccurrences(val kind: String?, val name: String?, val occurrences: List<Location>?)
+
+/**
  * Asks the project's running Warrant language server about the conditions,
  * templates and abilities rule text names. Every answer is null when no server
  * is running or it does not answer in time.
@@ -88,6 +104,17 @@ open class WarrantServerQueries(private val project: Project) {
         val params = WarrantPositionParams(server.getDocumentIdentifier(hostFile), positionOf(hostFile, hostOffset) ?: return null)
 
         return ask(server) { it.declaration(params) }
+    }
+
+    /**
+     * The context key or frame name at [hostOffset] of [hostFile], and every
+     * place it is written.
+     */
+    open fun occurrencesAt(hostFile: VirtualFile, hostOffset: Int): WarrantOccurrences? {
+        val server = runningServer() ?: return null
+        val params = WarrantPositionParams(server.getDocumentIdentifier(hostFile), positionOf(hostFile, hostOffset) ?: return null)
+
+        return ask(server, SEARCH_TIMEOUT_MS) { it.occurrences(params) }
     }
 
     /**

@@ -4,6 +4,33 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- The language server answers `warrant/occurrences`, giving the context key or
+  frame name at a position and every place it is written: every one in the
+  project's rule text for a context key, and the `as` that names a frame and
+  each `@column` referring to it for a frame name. `warrant/usages` also takes a
+  schema's class, and gives every place rule text names the schema by its key.
+- The language server answers `textDocument/inlayHint` with the name of the
+  parameter each literal or `@sql` argument of a condition, derived condition
+  or `@include` is passed as, such as `team:` before the `1` of `in_team(1)`. A
+  binding, `@context` or `@column` argument, which is written by a name of its
+  own, gets none.
+
+### Changed
+
+- `warrant/usages` gives no names a rename must not take for an ability, which
+  is not renamed; its `taken` is empty.
+
+- The language server reads the schemas from source again as a PHP file open in
+  the editor changes, once the editor is quiet or before it answers a request,
+  whichever comes first, reading the open files as the editor has them, so rule text is checked against a schema that has changed but
+  not been saved, such as after a rename. While an open PHP file differs from
+  what is saved, the reading from source wins over the running application's.
+  `StaticSchemaScanner` takes the open files' text for that.
+
 ## 4.11.0 — 2026-10-29
 
 ### Added

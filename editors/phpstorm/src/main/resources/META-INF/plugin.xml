@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.12.0</version>
+    <version>0.12.1</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -13,7 +13,8 @@
         <br/><br/>
         Starts the <b>Warrant language server</b> that ships with the
         <code>patrickhanna/laravel-warrant</code> Composer package, for errors, hover,
-        completion, go-to-definition, quick fixes and formatting in <code>.warrant</code>
+        completion, go-to-definition, quick fixes, the parameter names of the
+        arguments of conditions and templates, and formatting in <code>.warrant</code>
         files and in the Warrant inside PHP files, and for renaming and finding the
         usages of conditions, templates and abilities across rule text. The server is found at
         <code>vendor/bin/warrant-language-server</code> and run with PHP; configure it
@@ -24,6 +25,15 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.12.1</b> &mdash; Count a condition's or template's usages over its method in
+                rule text in any PHP file, not only the method's own file and <code>.warrant</code>
+                files. Rename a condition or template from rule text by the name rule text writes:
+                the dialog asks for <code>is_author</code> and renames the method to
+                <code>isAuthor</code>, where renaming in place wrote the method's camel case name into
+                the rule text. Stop renaming abilities: renaming an ability constant's value no
+                longer renames its uses, and Laravel's ability strings are no longer offered after a
+                rename. Find Usages on a schema class lists the rule text naming its key. Rename
+                and find the usages of a frame name.</li>
             <li><b>0.12.0</b> &mdash; Rename a condition, template or ability with every use of
                 it in rule text: from its method (uses take the new name in snake case), from a
                 <code>key</code> given to its attribute, from an ability constant's value, or from
@@ -162,6 +172,15 @@
         <lang.findUsagesProvider
             language="Warrant"
             implementationClass="com.warrant.phpstorm.WarrantFindUsagesProvider"/>
+
+        <!-- The same for rule text in PHP files: PHP's own words, with the camel
+             case method name beside each snake case word, in a PHP file that
+             may hold rule text. Stands in front of PHP's provider, which it
+             hands everything else to. -->
+        <lang.findUsagesProvider
+            language="PHP"
+            order="first"
+            implementationClass="com.warrant.phpstorm.WarrantPhpFindUsagesProvider"/>
 
         <!-- 9. The template File, then New, then Warrant File, fills in. -->
         <internalFileTemplate name="Warrant File"/>

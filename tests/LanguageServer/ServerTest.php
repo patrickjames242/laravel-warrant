@@ -100,6 +100,48 @@ it('sends diagnostics for the latest text of an open document once the editor is
         ->and($published[0]['params']['diagnostics'])->toBe([]);
 });
 
+it('checks rule text against a schema as the editor has it, before it is saved', function () {
+    $rules = Uri::fromPath(fixtureRoot().'/rules.warrant');
+    $schemaPath = fixtureRoot().'/app/Schemas/DocumentSchema.php';
+    $schema = Uri::fromPath($schemaPath);
+    $renamed = str_replace('function isOwner(', 'function isAuthor(', (string) file_get_contents($schemaPath));
+
+    [$sent] = serve([
+        ...handshake(),
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $schema, 'languageId' => 'php', 'version' => 1, 'text' => (string) file_get_contents($schemaPath)]]],
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $rules, 'languageId' => 'warrant', 'version' => 1, 'text' => 'for documents { if is_author they can edit }']]],
+        ['method' => 'textDocument/didChange', 'params' => ['textDocument' => ['uri' => $schema, 'version' => 2], 'contentChanges' => [['text' => $renamed]]]],
+    ]);
+
+    $published = array_values(array_filter(
+        $sent,
+        static fn (array $message): bool => ($message['method'] ?? null) === 'textDocument/publishDiagnostics' && $message['params']['uri'] === $rules,
+    ));
+
+    expect($published)->not->toBeEmpty()
+        ->and($published[array_key_last($published)]['params']['diagnostics'])->toBe([]);
+});
+
+it('answers a request against the schemas as the editor last sent them, though it has not gone quiet', function () {
+    $schemaPath = fixtureRoot().'/app/Schemas/DocumentSchema.php';
+    $schema = Uri::fromPath($schemaPath);
+    $saved = (string) file_get_contents($schemaPath);
+    $renamed = str_replace('function isOwner(', 'function isAuthor(', $saved);
+
+    [$sent] = serve([
+        ...handshake(),
+        ['method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $schema, 'languageId' => 'php', 'version' => 1, 'text' => $saved]]],
+        ['method' => 'textDocument/didChange', 'params' => ['textDocument' => ['uri' => $schema, 'version' => 2], 'contentChanges' => [['text' => $renamed]]]],
+        ['id' => 2, 'method' => 'warrant/usages', 'params' => ['uri' => $schema, 'member' => 'isAuthor']],
+        ['method' => 'textDocument/didChange', 'params' => ['textDocument' => ['uri' => $schema, 'version' => 3], 'contentChanges' => [['text' => $saved]]]],
+        ['id' => 3, 'method' => 'warrant/usages', 'params' => ['uri' => $schema, 'member' => 'isOwner']],
+    ]);
+
+    expect(responseTo($sent, 2)['result']['name'])->toBe('is_author')
+        ->and(responseTo($sent, 3)['result']['name'])->toBe('is_owner')
+        ->and(responseTo($sent, 3)['result']['usages'])->not->toBeEmpty();
+});
+
 it('answers requests about an open document', function () {
     $uri = Uri::fromPath(fixtureRoot().'/rules.warrant');
 
