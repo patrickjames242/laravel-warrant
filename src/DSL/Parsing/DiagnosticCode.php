@@ -158,6 +158,9 @@ enum DiagnosticCode: string
     /** A constant inside a check(...) predicate, which asks the target nothing. */
     case ConstantInCheckPredicate = 'constant-in-check-predicate';
 
+    /** A check(...) written inside another check(...) predicate. */
+    case NestedCheck = 'nested-check';
+
     /** A `for` header in a template's or derived condition's answer naming a schema other than its own. */
     case HeaderNamesAnotherSchema = 'header-names-another-schema';
 

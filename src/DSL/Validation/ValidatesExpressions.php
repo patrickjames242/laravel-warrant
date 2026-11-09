@@ -112,7 +112,9 @@ trait ValidatesExpressions
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $writtenIn, $scope, $predicateOf),
             $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
-            $node instanceof CrossSchemaConditionNode => $this->assertCrossSchemaConditionValid($node, $scope),
+            $node instanceof CrossSchemaConditionNode => $predicateOf === null
+                ? $this->assertCrossSchemaConditionValid($node, $scope)
+                : $this->failNestedCheck($node, $predicateOf),
             $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $writtenIn, $predicateOf),
             $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $writtenIn, $predicateOf): void {
                 $this->validateExpression($node->leftSide, $vocabulary, $scope, $writtenIn, $predicateOf);
@@ -134,6 +136,26 @@ trait ValidatesExpressions
                 $node->location,
             ),
         };
+    }
+
+    /**
+     * Refuse a `check(...)` written inside another one's predicate. A predicate
+     * sees two frames at most, the rule's own and the one its handle names, so a
+     * second check has no frame to add. Its predicate is not validated, because
+     * it is not written in any scope the language has.
+     */
+    private function failNestedCheck(CrossSchemaConditionNode $node, CrossSchemaConditionNode $predicateOf): void
+    {
+        $this->fail(
+            DiagnosticCode::NestedCheck,
+            sprintf(
+                'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
+                    .'ask it from a derived condition of schema [%s] instead.',
+                $predicateOf->schemaKey->name,
+                $predicateOf->schemaKey->name,
+            ),
+            $node->location,
+        );
     }
 
     /**
@@ -200,7 +222,7 @@ trait ValidatesExpressions
      * target schema must be registered, a row-bound reference requires a target
      * with rows and a non-null row, and an alias requires a row to name. The predicate is a boolean expression read against the *target*
      * schema's vocabulary — so a `can(...)` in it names one of that schema's
-     * abilities, and a nested `check(...)` starts from that schema's frame. An
+     * abilities, and it may hold no `check(...)` of its own. An
      * unbound handle constrains the predicate's leaves not at all: a row condition
      * among them has no row and so no answer, which the compiler says with an
      * unknown rather than an error (see {@see assertConditionValid}).
