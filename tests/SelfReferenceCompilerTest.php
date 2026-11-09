@@ -5,6 +5,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
+use Warrant\Builders\CrossSchemaCheckBuilder;
+use Warrant\Builders\Ref;
 use Warrant\DSL\Compiling\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
@@ -13,6 +16,7 @@ use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
 use Warrant\Rules\RuleProviderContext;
 use Warrant\Schema\Abilities\Ability;
+use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
 use Warrant\Schema\Types\Classes\ModelSchema;
@@ -382,16 +386,14 @@ it('leaves an inlined can unanswerable when the frame it inlines into has no row
 
 // -- nesting ------------------------------------------------------------------
 
-it('nests a check inside a check, resolving each selector in its own frame', function () {
-    /* "you own this doc's parent, and you own that parent's parent." The inner
-       handle's `@column parent_id` is read in the *parent* frame, so the same
+it('nests a check from a derived condition in a predicate, resolving each selector in its own frame', function () {
+    /* "you own this doc's parent, and you own that parent's parent." The derived
+       condition's `@column parent_id` is read in the *parent* frame, so the same
        unqualified text means a different table at each level. */
     assertSelfRefSql(
         <<<'WARRANT'
-            if check(
-                is_owner and check(is_owner for sr_docs(@column parent_id) as gp)
-                for sr_docs(@column parent_id) as parent
-            ) they can do_thing_1
+            if check(is_owner and parent_is_owned for sr_docs(@column parent_id) as parent)
+            they can do_thing_1
         WARRANT,
         'do_thing_1',
         <<<SQL
@@ -432,14 +434,13 @@ it('reads a schema-less can inside a predicate against the frame the predicate i
     );
 });
 
-it('folds a nested check whose enclosing handle selects no row', function () {
-    /* An unbound outer handle gives the predicate no row, so the inner handle's
-       selector — read in that frame — names nothing and the whole reference is
-       unanswerable. Row conditions are rejected on an unbound handle at
-       validation; this is the other way a predicate can end up with no row. */
+it('folds a derived check whose enclosing handle selects no row', function () {
+    /* An unbound outer handle gives the predicate no row, so the derived
+       condition's selector — read in that frame — names nothing and the whole
+       reference is unanswerable. */
     assertSelfRefSql(
         <<<'WARRANT'
-            if check(check(is_owner for sr_docs(@column parent_id)) for sr_docs)
+            if check(parent_is_owned for sr_docs)
             they can do_thing_1
         WARRANT,
         'do_thing_1',
@@ -449,32 +450,16 @@ it('folds a nested check whose enclosing handle selects no row', function () {
     );
 });
 
-it('compiles a crossing can inside a predicate against its own target', function () {
-    /* `can(... for X)` names its target explicitly, so it crosses from inside the
-       predicate exactly as it would from outside — its own frame, its own empty
-       context. */
-    assertSelfRefSql(
+it('rejects a can(... for ...) inside a predicate', function () {
+    expect(fn () => assertSelfRefSql(
         <<<'WARRANT'
             if owner_is('role-1') they can do_thing_2
             if check(can(do_thing_2 for sr_docs(@column id)) for sr_docs(@column parent_id) as parent)
             they can do_thing_1
         WARRANT,
         'do_thing_1',
-        <<<SQL
-            select * from "sr_docs" where (
-                exists (
-                    select * from "sr_docs" as "parent"
-                    where "parent"."id" = "sr_docs"."parent_id" and (
-                        exists (
-                            select * from "sr_docs" as "sr_docs_1"
-                            where "sr_docs_1"."id" = "parent"."id"
-                                and (sr_docs_1.owner = 'role-1')
-                        )
-                    )
-                )
-            )
-        SQL,
-    );
+        'unreachable',
+    ))->toThrow(InvalidArgumentException::class, 'A can(...) inside the predicate of the check(...) for schema [sr_docs] may not name a schema with for');
 });
 
 // -- recursion is still bounded ------------------------------------------------
@@ -548,5 +533,12 @@ class SrDocSchema extends ModelSchema
     public function ownerMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
         return $c->query->where($column, '=', DB::raw($c->column('owner')));
+    }
+
+    // Asks about the parent of whichever row it is reached for.
+    #[DerivedCondition]
+    public function parentIsOwned(): CrossSchemaCheckBuilder
+    {
+        return Build::check('is_owner')->for('sr_docs', Ref::column('parent_id'))->as('gp');
     }
 }

@@ -162,6 +162,8 @@ parameter, an include argument, a row selector, or a `with` map value.
 - A check with no `for()`, or an empty predicate, throws a `LogicException` where
   it is written, since a predicate may not contain a constant and so cannot fall
   back to `false`.
+- A check whose predicate holds another check, or a `can(...)` with a `for()`,
+  throws a `LogicException` when the rule is built.
 - The `ifCan` factory must be called exactly once, or it throws a `LogicException`.
 - `$schema` is normalized through the registry, so a model or schema class-string
   resolving to nothing throws `OutOfBoundsException` at build time. A plain

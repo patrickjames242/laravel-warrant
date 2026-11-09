@@ -93,9 +93,9 @@ it('rejects an unknown condition nested inside a boolean predicate', function ()
         ->toThrow(InvalidArgumentException::class, 'Condition [is_bogus] is declared by neither schema [xcv_target] nor any global schema');
 });
 
-it('accepts a can(...) leaf inside a check(...) predicate', function () {
-    validateOwnerCheckSyntax('if check(can(view for xcv_target) for xcv_target(@context id)) they can edit');
-    expect(true)->toBeTrue();
+it('rejects a can(... for ...) inside a check(...) predicate', function () {
+    expect(fn () => validateOwnerCheckSyntax('if check(can(view for xcv_target) for xcv_target(@context id)) they can edit'))
+        ->toThrow(InvalidArgumentException::class, 'A can(...) inside the predicate of the check(...) for schema [xcv_target] may not name a schema with for');
 });
 
 it('accepts a schema-less can(...) inside a predicate, read against the handle\'s schema', function () {
@@ -110,11 +110,16 @@ it('rejects a schema-less can(...) in a predicate naming an ability the handle\'
         ->toThrow(InvalidArgumentException::class, 'Ability [edit] is not declared by the schema.');
 });
 
-it('accepts a nested check(...) inside a check(...) predicate', function () {
-    validateOwnerCheckSyntax(
+it('rejects a check(...) inside a check(...) predicate', function () {
+    expect(fn () => validateOwnerCheckSyntax(
         'if check(is_open and check(is_open for xcv_target(@context id)) for xcv_target(@context id)) they can edit'
-    );
-    expect(true)->toBeTrue();
+    ))->toThrow(InvalidArgumentException::class, 'A check(...) may not be written inside the predicate of the check(...) for schema [xcv_target]');
+});
+
+it('rejects a check(...) under a not inside a check(...) predicate', function () {
+    expect(fn () => validateOwnerCheckSyntax(
+        'if check(is_open and not (is_frozen or check(is_open for xcv_target)) for xcv_target(@context id)) they can edit'
+    ))->toThrow(InvalidArgumentException::class, 'may not be written inside the predicate of the check(...) for schema');
 });
 
 it('rejects a constant inside a check(...) predicate', function () {
@@ -185,12 +190,28 @@ it('accepts a builder-built row condition on an unbound handle', function () {
     expect(true)->toBeTrue();
 });
 
-it('accepts a nested can(...) inside a builder-built predicate', function () {
+it('accepts a schema-less can(...) inside a builder-built predicate', function () {
     validateOwnerCheckRule(
-        Build::rule()->ifCheck(fn ($p) => $p->ifCan(Build::can('view')->for('xcv_target'))->for('xcv_target', Ref::context('id')))->theyCan('edit')
+        Build::rule()->ifCheck(fn ($p) => $p->ifCan('view')->for('xcv_target', Ref::context('id')))->theyCan('edit')
     );
     expect(true)->toBeTrue();
 });
+
+it('refuses to build a can(... for ...) inside a predicate', function () {
+    expect(fn () => validateOwnerCheckRule(
+        Build::rule()->ifCheck(fn ($p) => $p->ifCan(Build::can('view')->for('xcv_target'))->for('xcv_target', Ref::context('id')))->theyCan('edit')
+    ))->toThrow(LogicException::class, 'A can(...) inside the predicate of the check(...) for schema [xcv_target] may not name a schema with for');
+});
+
+it('refuses to build a check(...) inside a predicate, however it is added', function (Closure $predicate) {
+    expect(fn () => validateOwnerCheckRule(
+        Build::rule()->ifCheck(fn ($p) => $predicate($p)->for('xcv_target', Ref::context('id')))->theyCan('edit')
+    ))->toThrow(LogicException::class, 'A check(...) may not be written inside the predicate of the check(...) for schema [xcv_target]');
+})->with([
+    'directly' => [fn ($p) => $p->if('is_open')->andIfCheck(Build::check('is_open')->for('xcv_target'))],
+    'in a group' => [fn ($p) => $p->if('is_open')->andIf(fn ($g) => $g->ifCheck(Build::check('is_open')->for('xcv_target')))],
+    'as raw text' => [fn ($p) => $p->ifRaw('is_open and check(is_open for xcv_target)')],
+]);
 
 it('rejects a builder-built row-bound reference with an explicit null row', function () {
     expect(fn () => validateOwnerCheckRule(

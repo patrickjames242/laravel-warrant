@@ -13,14 +13,18 @@ use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
+use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
+use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\DSL\Validation\ValidationInput;
@@ -438,3 +442,29 @@ it('rejects a constant in a check(...) predicate in the compiler, unvalidated', 
         $expanded,
     ));
 })->throws(InvalidArgumentException::class, 'A check(...) predicate for schema [course_sections] may not contain a constant');
+
+it('rejects a check(...) or can(... for ...) in a check(...) predicate in the compiler, unvalidated', function (IBooleanExpressionNode $predicate, string $message) {
+    /* The builder refuses both, so the rule is built from nodes, as only an
+       unvalidated path could hand it over. */
+    $check = new CrossSchemaConditionNode(nameNode('course_sections'), $predicate, false, [], [], null, SyntaxLocation::noProducer());
+    $rule = new RuleNode($check, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
+
+    $expanded = (fn () => new ExpandedSyntax('build_docs', [new ExpandedRule($rule)], new ValidationInput(null)))
+        ->bindTo(null, ExpandedSyntax::class)();
+
+    expect(fn () => (new RuleSetCompiler(new BuildDocSchema, 'build_docs', app(WarrantManager::class)))->compile(CompilationContext::ability(
+        QueryFactory::for(DB::table('build_docs')),
+        makeWarrantTestUser('build'),
+        'view',
+        $expanded,
+    )))->toThrow(InvalidArgumentException::class, $message);
+})->with([
+    'a check' => [
+        fn () => new CrossSchemaConditionNode(nameNode('course_sections'), new ConditionNode(nameNode('is_open'), [], SyntaxLocation::noProducer()), false, [], [], null, SyntaxLocation::noProducer()),
+        'A check(...) may not be written inside the predicate of the check(...) for schema [course_sections]',
+    ],
+    'a can with a for' => [
+        fn () => new CrossSchemaCanNode(nameNode('course_sections'), nameNode('view'), false, [], [], null, SyntaxLocation::noProducer()),
+        'A can(...) inside the predicate of the check(...) for schema [course_sections] may not name a schema with for',
+    ],
+]);

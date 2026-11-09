@@ -414,7 +414,8 @@ final class Completion
     /**
      * What may start a condition: a condition of the schema in scope, `can(`,
      * `check(` and `not`. Inside a `check(...)` predicate the schema is the one
-     * the check names.
+     * the check names, and `check(` is left out, because a predicate holds no
+     * `check(...)` of its own.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
@@ -426,9 +427,32 @@ final class Completion
         return [
             ...$this->conditions($checked === null ? $this->writtenIn : new KeyedSchemaId($checked)),
             ['can(', self::KIND_KEYWORD, 'whether the user holds an ability'],
-            ['check(', self::KIND_KEYWORD, 'a condition of another schema'],
+            ...($this->insideCheck() ? [] : [['check(', self::KIND_KEYWORD, 'a condition of another schema']]),
             ['not', self::KIND_KEYWORD, 'the opposite', 'not '],
         ];
+    }
+
+    /**
+     * Whether the cursor is inside the parentheses of a `check(...)`, at any
+     * depth.
+     */
+    private function insideCheck(): bool
+    {
+        $depth = 0;
+
+        for ($i = count($this->before) - 1; $i >= 0; $i--) {
+            $type = $this->before[$i]->type;
+
+            if ($type === TokenType::RPAREN) {
+                $depth++;
+            } elseif ($type === TokenType::LPAREN && $depth > 0) {
+                $depth--;
+            } elseif ($type === TokenType::LPAREN && ($this->before[$i - 1]->type ?? null) === TokenType::CHECK) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -129,6 +129,9 @@ final readonly class AliasScope
      * hop. This scope's names carry over so the predicate can correlate back to
      * them, and the new frame is bound under its alias when it has one, else under
      * the target's schema key (shadowing any outer binding of it).
+     *
+     * A predicate holds no `check(...)` of its own, so this is only ever called on
+     * the scope a rule set starts with, and a predicate sees two frames at most.
      */
     public function enteringPredicate(string $schemaKey, ?string $alias, ?string $qualifier): self
     {

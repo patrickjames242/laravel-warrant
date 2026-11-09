@@ -4,7 +4,12 @@ namespace Warrant\Builders;
 
 use LogicException;
 use Warrant\Builders\Concerns\TargetsSchema;
+use Warrant\DSL\Parsing\ASTNodes\AndNode;
+use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
@@ -17,8 +22,10 @@ use Warrant\DSL\Parsing\SyntaxSource;
  * ```
  *
  * Its condition terms are the predicate. That tree is read against the target,
- * so a `can(...)` in it names one of the target's abilities and a nested
- * `check(...)` starts from the target's frame. On a `check(...)` the alias is
+ * so a `can(...)` in it names one of the target's abilities and takes no
+ * `for`. It may hold no `check(...)` of its own. Both hold however the term is
+ * added: directly, in a group or as raw text.
+ * On a `check(...)` the alias is
  * also a name the predicate itself can use, which is how a predicate spanning
  * two frames of one table tells them apart.
  *
@@ -56,14 +63,46 @@ final class CrossSchemaCheckBuilder extends WarrantConditionBuilder
     {
         $this->assertComplete();
 
+        $predicate = $this->buildConditions($source);
+        $this->assertAsksOnlyTarget($predicate);
+
         return new CrossSchemaConditionNode(
             $this->schemaKeyNode($source),
-            $this->buildConditions($source),
+            $predicate,
             $this->isRowBound,
             $this->keyArgumentNodes($source),
             $this->withEntryNodes($source),
             $this->aliasNode($source),
             self::location($source),
         );
+    }
+
+    /**
+     * Throws when $predicate holds a `check(...)` or a `can(... for ...)`. A
+     * predicate sees two frames at most, the rule's own and the one this check
+     * names, and asks only the schema this check names.
+     */
+    private function assertAsksOnlyTarget(?IBooleanExpressionNode $predicate): void
+    {
+        if ($predicate instanceof NotNode) {
+            $this->assertAsksOnlyTarget($predicate->operand);
+        } elseif ($predicate instanceof AndNode || $predicate instanceof OrNode) {
+            $this->assertAsksOnlyTarget($predicate->leftSide);
+            $this->assertAsksOnlyTarget($predicate->rightSide);
+        } elseif ($predicate instanceof CrossSchemaConditionNode) {
+            throw new LogicException(sprintf(
+                'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
+                    .'ask it from a derived condition of schema [%s] instead.',
+                $this->schemaKey,
+                $this->schemaKey,
+            ));
+        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->schemaKey !== null) {
+            throw new LogicException(sprintf(
+                'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
+                    .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
+                $this->schemaKey,
+                $this->schemaKey,
+            ));
+        }
     }
 }

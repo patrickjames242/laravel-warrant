@@ -101,15 +101,17 @@ inside a subquery where the rows are called `parent`.
 
 ## Nesting
 
-A `check(...)` inside a `check(...)` nests the subqueries, and the inner handle
-resolves in the outer subquery's frame:
+A `check(...)` may not hold another `check(...)`. A derived condition in its
+predicate may, and its subquery nests inside the outer one, with the inner handle
+resolving in the outer subquery's frame:
 
 ```warrant
-if check(
-    is_open and check(is_active for tenants(@column tenant_id))
-    for pay_periods(@column pay_period_id)
-) they can submit
+if check(is_open and tenant_is_active for pay_periods(@column pay_period_id))
+they can submit
 ```
+
+Here `tenant_is_active` is a derived condition on the pay periods schema that
+returns `Build::check('is_active')->for(TenantSchema::class, Ref::column('tenant_id'))`.
 
 ```sql
 select * from "timesheets" where (

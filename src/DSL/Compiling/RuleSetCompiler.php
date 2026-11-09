@@ -767,8 +767,8 @@ final class RuleSetCompiler
      * by dispatching the target schema B's conditions and splicing the emitted SQL.
      * The dispatch itself enters no ability, so this leaf looks for no cycle of its
      * own. It does enter a {@see Call}, because the predicate can reach further —
-     * a derived condition's expression, a nested `check(...)`, a `can(...)` whose
-     * rules are compiled — and those chains are bounded by the
+     * a derived condition's expression, or a `can(...)` whose rules are compiled
+     * — and those chains are bounded by the
      * depth budget, with a `can(...)` among them caught by the ability cycle guard
      * wherever it is reached from. A
      * row-bound reference wraps B's predicate as `EXISTS` over B's table
@@ -1047,6 +1047,11 @@ final class RuleSetCompiler
      * constant in it is rejected, with the message validation gives the same
      * mistake in rule text. A derived condition in it may still answer with a
      * constant: that answer is the condition's, not the predicate's.
+     *
+     * A `check(...)` in it is rejected too, and so is a `can(...)` with a `for`.
+     * A predicate sees two frames at most, the rule's own and the one its handle
+     * names, and asks only the schema its handle names. A derived condition in it
+     * may still hold either, because its text starts a scope of its own.
      */
     private function assertPredicateAsksTarget(IBooleanExpressionNode $predicate, CrossSchemaConditionNode $check): void
     {
@@ -1059,6 +1064,20 @@ final class RuleSetCompiler
             throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
+                $check->schemaKey->name,
+            ));
+        } elseif ($predicate instanceof CrossSchemaConditionNode) {
+            throw new InvalidArgumentException(sprintf(
+                'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
+                    .'ask it from a derived condition of schema [%s] instead.',
+                $check->schemaKey->name,
+                $check->schemaKey->name,
+            ));
+        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->schemaKey !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
+                    .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
+                $check->schemaKey->name,
                 $check->schemaKey->name,
             ));
         }

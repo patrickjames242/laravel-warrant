@@ -111,7 +111,9 @@ trait ValidatesExpressions
     ): void {
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $writtenIn, $scope, $predicateOf),
-            $node instanceof CrossSchemaCanNode => $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
+            $node instanceof CrossSchemaCanNode => $predicateOf !== null && $node->schemaKey !== null
+                ? $this->failSchemaCanInCheck($node, $predicateOf)
+                : $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $predicateOf === null
                 ? $this->assertCrossSchemaConditionValid($node, $scope)
                 : $this->failNestedCheck($node, $predicateOf),
@@ -151,6 +153,25 @@ trait ValidatesExpressions
             sprintf(
                 'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
                     .'ask it from a derived condition of schema [%s] instead.',
+                $predicateOf->schemaKey->name,
+                $predicateOf->schemaKey->name,
+            ),
+            $node->location,
+        );
+    }
+
+    /**
+     * Refuse a `can(... for ...)` written inside a `check(...)` predicate. A
+     * predicate asks the schema its handle names, so a `can(...)` in it names one
+     * of that schema's own abilities and takes no `for`.
+     */
+    private function failSchemaCanInCheck(CrossSchemaCanNode $node, CrossSchemaConditionNode $predicateOf): void
+    {
+        $this->fail(
+            DiagnosticCode::SchemaCanInCheck,
+            sprintf(
+                'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
+                    .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
                 $predicateOf->schemaKey->name,
                 $predicateOf->schemaKey->name,
             ),
@@ -222,7 +243,7 @@ trait ValidatesExpressions
      * target schema must be registered, a row-bound reference requires a target
      * with rows and a non-null row, and an alias requires a row to name. The predicate is a boolean expression read against the *target*
      * schema's vocabulary — so a `can(...)` in it names one of that schema's
-     * abilities, and it may hold no `check(...)` of its own. An
+     * abilities and takes no `for`, and it may hold no `check(...)` of its own. An
      * unbound handle constrains the predicate's leaves not at all: a row condition
      * among them has no row and so no answer, which the compiler says with an
      * unknown rather than an error (see {@see assertConditionValid}).

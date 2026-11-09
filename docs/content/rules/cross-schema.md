@@ -60,7 +60,7 @@ public function inAncestorOfMine(RowConditionContext $c): Builder
 ```
 
 A `check(...)` dispatch touches no rules of its own, so the dispatch cannot close a
-loop. A `can(...)` inside its predicate can, and is guarded the same way.
+loop. A `can(<ability>)` inside its predicate can, and is guarded the same way.
 
 ## Depth
 
@@ -140,7 +140,8 @@ Caught when the rule set is validated or compiled:
   rejected.
 - `as <alias>` needs a row to name.
 - A `check(...)` predicate is read against the target's vocabulary. It may not hold
-  a constant, and on an unbound handle it may not hold a row condition.
+  a constant, another `check(...)` or a `can(... for ...)`, and on an unbound handle
+  it may not hold a row condition.
 - `can(<ability>)` with no `for` takes no `with` map and no `as`.
 - A `@column` reference must name a frame in scope where it is written.
 

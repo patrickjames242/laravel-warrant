@@ -9,8 +9,9 @@ namespace Warrant\LanguageServer\Positions;
  * Frames follow {@see \Warrant\DSL\Compiling\AliasScope}: a rule's own schema is
  * one frame, under its own key, and a `check(...)` predicate keeps the frames
  * around it and adds its target's on top, under the handle's alias when it has
- * one, else under the target's key, shadowing any frame of that name further out.
- * A schema with no rows is no frame at all.
+ * one, else under the target's key, shadowing the rule's own frame when the two
+ * share a name. A predicate holds no `check(...)` of its own, so it sees two
+ * frames at most. A schema with no rows is no frame at all.
  */
 final readonly class CursorScope
 {

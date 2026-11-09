@@ -161,6 +161,9 @@ enum DiagnosticCode: string
     /** A check(...) written inside another check(...) predicate. */
     case NestedCheck = 'nested-check';
 
+    /** A can(... for ...) written inside a check(...) predicate. */
+    case SchemaCanInCheck = 'schema-can-in-check';
+
     /** A `for` header in a template's or derived condition's answer naming a schema other than its own. */
     case HeaderNamesAnotherSchema = 'header-names-another-schema';
 

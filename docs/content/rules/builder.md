@@ -229,7 +229,9 @@ exactly once; calling it never, or twice, throws a `LogicException`.
 
 `Build::check('is_open')` starts the predicate, and the rest of it is built on the
 check like any condition. The predicate is read against the target, so a `can(...)`
-inside it names one of the target's abilities.
+inside it names one of the target's abilities and takes no `for()`. It may hold no
+`check(...)` of its own. Either mistake throws a `LogicException` when the rule is
+built, whether the term was added directly, in a group or as raw text.
 
 There is no string form, because a bare condition name has no schema to be checked
 against. A check needs `for()`, and a predicate of at least one term: unlike a

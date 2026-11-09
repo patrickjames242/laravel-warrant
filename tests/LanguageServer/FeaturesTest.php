@@ -100,6 +100,12 @@ it('offers what belongs at the cursor, from the schema in scope', function () {
         ->and(completionLabels('|'))->toBe(['if', 'they', 'can they', 'when', '@include', 'for']);
 });
 
+it('offers no check( inside a check(...) predicate, at any depth', function () {
+    expect(completionLabels('for documents { if check(| for folders(1, 2)) they can view }'))->toContain('can(', 'not')->not->toContain('check(')
+        ->and(completionLabels('for documents { if check(is_shared and (| or is_shared) for folders(1, 2)) they can view }'))->not->toContain('check(')
+        ->and(completionLabels('for documents { if (| or is_owner) they can view }'))->toContain('check(');
+});
+
 it('offers a condition after when, and otherwise after the body it closes', function () {
     expect(completionLabels('for documents { when | }'))->toContain('is_owner', 'in_team', 'can(', 'check(', 'not')
         ->and(completionLabels('for documents { when can | }'))->toBe(['view', 'edit', 'archive'])

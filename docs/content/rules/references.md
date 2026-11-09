@@ -140,21 +140,34 @@ they can view
 
 An alias needs a row to name, so it is valid only on a row-bound handle.
 
-## Nesting
+## One layer
 
-A `check(...)` predicate may hold another `check(...)`, whose handle is read in the
-target's frame, and may hold a `can(...)`:
+A `check(...)` predicate asks only the schema its handle names. It may hold a
+`can(<ability>)`, which names one of that schema's abilities, but no `can(... for
+...)` and no other `check(...)`. Inside a predicate two frames are in scope at
+most: the rule's own row, and the row the handle names, under its alias when it has
+one.
+
+To ask a further schema from inside a predicate, give the target a derived
+condition that asks it, and name that condition in the predicate:
+
+```php
+// On the pay periods schema
+#[DerivedCondition]
+public function tenantIsActive(): CrossSchemaCheckBuilder
+{
+    return Build::check('is_active')->for(TenantSchema::class, Ref::column('tenant_id'));
+}
+```
 
 ```warrant
-if check(
-    is_open and check(is_active for tenants(@column tenant_id))
-    for pay_periods(@column pay_period_id)
-) they can submit
+if check(is_open and tenant_is_active for pay_periods(@column pay_period_id))
+they can submit
 ```
 
 "This timesheet's pay period is open, and that pay period's tenant is active." The
-inner `@column tenant_id` resolves in the pay period's frame, which is what makes
-nesting worth having.
+derived condition's text starts a scope of its own, so its `@column tenant_id`
+names the pay period's row.
 
 What a predicate may not hold is a constant. One that decides itself asks the
 target nothing.
