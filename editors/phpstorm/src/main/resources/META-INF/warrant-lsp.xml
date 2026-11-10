@@ -109,6 +109,11 @@
         <listener
             class="com.warrant.phpstorm.lsp.WarrantNameStringsAfterRename"
             topic="com.intellij.refactoring.listeners.RefactoringEventListener"/>
+        <!-- Warns when a rename goes ahead while the search for its uses in
+             rule text timed out. -->
+        <listener
+            class="com.warrant.phpstorm.lsp.WarrantRenameAfterUnansweredSearch"
+            topic="com.intellij.refactoring.listeners.RefactoringEventListener"/>
     </projectListeners>
 
     <actions>

@@ -19,6 +19,7 @@ import org.eclipse.lsp4j.services.LanguageServer
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The Warrant language server's requests beyond the protocol's own, which the
@@ -95,6 +96,9 @@ open class WarrantServerQueries(private val project: Project) {
     /** Whether the user has been told rule text went unsearched. */
     private var notified = false
 
+    /** The declarations, as `path#member`, whose last search the server did not answer in time. */
+    private val unanswered: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
     /**
      * What the name at [hostOffset] of [hostFile] names, where [hostFile] is the
      * `.warrant` file or the PHP file holding the rule text.
@@ -120,7 +124,8 @@ open class WarrantServerQueries(private val project: Project) {
     /**
      * Where the declaration named by its ([file], [member]) is used. When no
      * server is running, says so once in a notification, since rule text then
-     * goes unsearched, unless [notifyIfUnsearched] is false.
+     * goes unsearched, unless [notifyIfUnsearched] is false. When the server does
+     * not answer in time, records it for [searchTimedOut].
      */
     open fun usagesOf(file: VirtualFile, member: String, notifyIfUnsearched: Boolean = true): WarrantUsages? {
         val server = runningServer()
@@ -131,10 +136,27 @@ open class WarrantServerQueries(private val project: Project) {
         }
 
         val params = WarrantUsagesParams(server.getDocumentIdentifier(file).uri, member)
+        var request: CompletableFuture<WarrantUsages?>? = null
 
         // The first search of a project reads all of it, so it is given longer than a lookup.
-        return ask(server, SEARCH_TIMEOUT_MS) { it.usages(params) }
+        val usages = ask(server, SEARCH_TIMEOUT_MS) { it.usages(params).also { future -> request = future } }
+
+        /* A request the server has not answered when the wait ends timed out, and
+           its uses were not found. Many searches run unasked, as usage counts do,
+           so this is only recorded; a rename asks with searchTimedOut(). */
+        if (usages == null && request?.isDone == false) {
+            unanswered.add(searchKey(file, member))
+        } else {
+            unanswered.remove(searchKey(file, member))
+        }
+
+        return usages
     }
+
+    /** Whether the last search for the uses of ([file], [member]) timed out. */
+    fun searchTimedOut(file: VirtualFile, member: String): Boolean = searchKey(file, member) in unanswered
+
+    private fun searchKey(file: VirtualFile, member: String): String = "${file.path}#$member"
 
     /**
      * Where the server says the name at [hostOffset] of [hostFile] is declared,
@@ -195,6 +217,19 @@ open class WarrantServerQueries(private val project: Project) {
             .createNotification(
                 "Warrant rule text was not searched",
                 "The Warrant language server is not running, so uses of conditions, templates and abilities in rule text are not found or renamed.",
+                NotificationType.WARNING,
+            )
+            .notify(project)
+    }
+
+    /** Says that a rename of [member] went ahead without its uses in rule text. */
+    fun notifyRenamedUnsearched(member: String) {
+        NotificationGroupManager.getInstance().getNotificationGroup("Warrant")
+            .createNotification(
+                "Warrant rule text was not searched in time",
+                "The Warrant language server did not finish searching the rule text for the uses of $member within " +
+                    "${SEARCH_TIMEOUT_MS / 1000} seconds, so the rename left the rule text that names it as it was. " +
+                    "Undo the rename and try again once the server has read the project.",
                 NotificationType.WARNING,
             )
             .notify(project)

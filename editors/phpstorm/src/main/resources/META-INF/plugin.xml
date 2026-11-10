@@ -29,7 +29,9 @@
                 and <code>of</code> as keywords, for <code>its &lt;relation&gt;</code> and the
                 <code>any of</code> and <code>all of</code> quantifiers. Rename a row relation with
                 its uses in rule text, from its method or from the <code>key</code> its
-                <code>#[RowRelation]</code> gives it, and find its usages.</li>
+                <code>#[RowRelation]</code> gives it, and find its usages. Warn when a rename goes
+                ahead while the language server did not finish searching rule text in time, since
+                the rename then leaves the rule text that names it as it was.</li>
             <li><b>0.12.1</b> &mdash; Count a condition's or template's usages over its method in
                 rule text in any PHP file, not only the method's own file and <code>.warrant</code>
                 files. Rename a condition or template from rule text by the name rule text writes:
