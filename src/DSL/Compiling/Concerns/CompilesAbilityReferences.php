@@ -10,6 +10,7 @@ use Warrant\DSL\Compiling\Units\AbilityUnit;
 use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\Schema\Context\ContextPolicy;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
@@ -86,16 +87,17 @@ trait CompilesAbilityReferences
             throw new InvalidArgumentException(sprintf(
                 'Compiling a can(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->handle->schemaKey->name,
+                self::handleLabel($node->handle),
             ));
         }
 
-        $bSchema = $this->hopTarget($node);
+        $bKey = $this->hopTargetKey($node->handle);
+        $bSchema = $this->hopTarget($node->handle, $bKey);
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bSchema);
+        $this->assertHandleIsWellFormed($node, $bSchema, $bKey);
         $bKeys = $this->contextMapKeys($node->contextMap);
 
         /* B's bag is B's own defaultContext() under the with map, each RHS
@@ -113,12 +115,12 @@ trait CompilesAbilityReferences
 
         $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
-            $node->handle->schemaKey->name,
+            $bKey,
             $node->ability->name,
         );
 
         $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->user)->expandedRuleSet();
-        $bCompiler = new self($bSchema, $node->handle->schemaKey->name, $this->manager);
+        $bCompiler = new self($bSchema, $bKey, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
@@ -144,11 +146,32 @@ trait CompilesAbilityReferences
                to call it. A B with no table has no frame for its key to name. */
             aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessRuleSet()
-                : $this->aliases($ctx)->enteringRuleSet($node->handle->schemaKey->name, $bQualifier),
+                : $this->aliases($ctx)->enteringRuleSet($bKey, $bQualifier),
         );
 
+        /* A relation says which of B's rows are related to A's, so it replaces the
+           row matcher: the subquery may reach many rows, and the exists asks
+           whether B grants the ability on any of them. No B model is in hand, so
+           B's rules always go to SQL. */
+        if ($node->handle instanceof RelationHandleNode) {
+            $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
+
+            $bSubquery = $this->relatedRows($node->handle, $bSchema, $ctx, $bQualifier, $bContext);
+
+            if ($bSubquery === null) {
+                return (new CompiledWhereClauseNode)->addAnd(null);
+            }
+
+            $bCompiler->compile($bCtx->forTargetRow())->spliceInto($bSubquery);
+
+            $existsLeaf = $ctx->queries->newQuery();
+            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
+
+            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+        }
+
         if ($node->handle->isRowBound()) {
-            $this->assertSameConnection($ctx->queries, $bSchema, $node->handle->schemaKey->name);
+            $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
 
             $selector = $this->resolveArgValues($node->handle->boundKey, $ctx);
 
@@ -160,7 +183,7 @@ trait CompilesAbilityReferences
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->handle->schemaKey->name,
+                $bKey,
                 $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 

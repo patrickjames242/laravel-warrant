@@ -39,6 +39,11 @@ final readonly class SchemaHandleNode implements IHandleNode
         return $this->hasRowSelector;
     }
 
+    public function rowSelector(): array
+    {
+        return $this->boundKey;
+    }
+
     public function children(): array
     {
         return [$this->schemaKey, ...$this->boundKey];

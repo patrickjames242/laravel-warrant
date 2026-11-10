@@ -43,9 +43,10 @@ final class CrossSchemaCheckBuilder extends WarrantConditionBuilder
      */
     public function assertComplete(): static
     {
-        if ($this->schemaKey === null) {
+        if ($this->schemaKey === null && $this->relation === null) {
             throw new LogicException(
-                'A check(...) needs the schema it asks; call for() on it with the target schema.'
+                'A check(...) needs the schema it asks; call for() on it with the target schema, or its() '
+                .'with a row relation.'
             );
         }
 
@@ -91,15 +92,15 @@ final class CrossSchemaCheckBuilder extends WarrantConditionBuilder
             throw new LogicException(sprintf(
                 'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
                     .'ask it from a derived condition of schema [%s] instead.',
-                $this->schemaKey,
-                $this->schemaKey,
+                $this->schemaKey ?? 'its '.$this->relation,
+                $this->schemaKey ?? 'its '.$this->relation,
             ));
         } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->handle !== null) {
             throw new LogicException(sprintf(
                 'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
                     .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
-                $this->schemaKey,
-                $this->schemaKey,
+                $this->schemaKey ?? 'its '.$this->relation,
+                $this->schemaKey ?? 'its '.$this->relation,
             ));
         }
     }

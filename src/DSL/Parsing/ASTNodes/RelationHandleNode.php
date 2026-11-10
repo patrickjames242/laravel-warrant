@@ -23,6 +23,11 @@ final readonly class RelationHandleNode implements IHandleNode
         return true;
     }
 
+    public function rowSelector(): array
+    {
+        return [];
+    }
+
     public function children(): array
     {
         return [$this->relation];

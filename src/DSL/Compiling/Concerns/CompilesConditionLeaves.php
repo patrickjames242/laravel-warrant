@@ -123,7 +123,7 @@ trait CompilesConditionLeaves
         // clauses. Anything that changes the query's row shape — a join, group,
         // having, aggregate, or union — cannot be inlined, ANDed/ORed, or negated
         // in place; reject it with a clear message pointing at whereExists().
-        $this->assertOnlyWhereClauses($conditionQuery, $node->conditionKey->name);
+        $this->assertOnlyWhereClauses($conditionQuery, sprintf('Condition [%s]', $node->conditionKey->name));
         $this->assertAddedAWhereClause($conditionQuery, $node->conditionKey->name);
 
         // The condition's where-group becomes a leaf, applied inline. Negation
@@ -228,9 +228,13 @@ trait CompilesConditionLeaves
      * aggregate, or union changes the query's row shape and cannot be inlined or
      * negated in place. Relational checks must use `whereExists()`/`whereNotExists()`
      * with a correlated subquery instead (their inner joins live on the subquery,
-     * not on this builder, so they are allowed).
+     * not on this builder, so they are allowed). A row relation's method is held
+     * to the same rule, since its clauses land in the hop's subquery.
+     *
+     * @param string $label What added the clauses, for the message:
+     *   `Condition [is_owner]` or `Row relation [folder]`.
      */
-    private function assertOnlyWhereClauses(Builder $conditionQuery, string $conditionKey): void
+    private function assertOnlyWhereClauses(Builder $conditionQuery, string $label): void
     {
         $offending = match (true) {
             ! empty($conditionQuery->joins) => 'join',
@@ -246,9 +250,9 @@ trait CompilesConditionLeaves
         }
 
         throw new InvalidArgumentException(sprintf(
-            'Condition [%s] on schema [%s] may only add where clauses, but it emitted a [%s]; '
+            '%s on schema [%s] may only add where clauses, but it emitted a [%s]; '
                 .'use whereExists()/whereNotExists() with a correlated subquery instead of join()/groupBy()/having().',
-            $conditionKey,
+            $label,
             $this->schema::class,
             $offending,
         ));

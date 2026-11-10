@@ -15,4 +15,12 @@ interface IHandleNode extends INode
      * with no row at all.
      */
     public function isRowBound(): bool;
+
+    /**
+     * The arguments the handle's row selector was written with: none for a
+     * handle that has no row selector.
+     *
+     * @return list<INode>
+     */
+    public function rowSelector(): array;
 }

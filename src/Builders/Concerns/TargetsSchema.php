@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Warrant\Builders\NoRow;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\SyntaxSource;
@@ -20,6 +22,8 @@ use Warrant\Schema\Types\Interfaces\ISchema;
 trait TargetsSchema
 {
     private ?string $schemaKey = null;
+
+    private ?string $relation = null;
 
     private mixed $key = null;
 
@@ -47,8 +51,26 @@ trait TargetsSchema
     public function for(Model|ISchema|string $schema, mixed $key = new NoRow): static
     {
         $this->schemaKey = Warrant::registry()->resolveSchemaKeyOrFail($schema);
+        $this->relation = null;
         $this->key = $key;
         $this->isRowBound = ! $key instanceof NoRow;
+
+        return $this;
+    }
+
+    /**
+     * The rows a row relation of the schema the rule is for reaches from the row
+     * it is about: `for its <relation>`. It replaces a {@see for()} on the same
+     * reference, as one replaces the other.
+     *
+     * @param string $relation The relation's name, as rule text writes it.
+     */
+    public function its(string $relation): static
+    {
+        $this->relation = $relation;
+        $this->schemaKey = null;
+        $this->key = null;
+        $this->isRowBound = true;
 
         return $this;
     }
@@ -78,8 +100,12 @@ trait TargetsSchema
         return $this;
     }
 
-    private function handleNode(SyntaxSource $source): ?SchemaHandleNode
+    private function handleNode(SyntaxSource $source): ?IHandleNode
     {
+        if ($this->relation !== null) {
+            return new RelationHandleNode(self::nameNode($this->relation, $source), self::location($source));
+        }
+
         if ($this->schemaKey === null) {
             return null;
         }

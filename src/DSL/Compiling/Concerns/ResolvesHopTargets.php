@@ -10,13 +10,20 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\AliasScope;
+use Warrant\DSL\Compiling\CompilationContext;
 use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Relations\IProvidesRowRelations;
+use Warrant\Schema\Relations\RowRelationContext;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
 
@@ -30,24 +37,112 @@ use Warrant\Schema\Types\Interfaces\IRowSchema;
 trait ResolvesHopTargets
 {
     /**
-     * The schema a hop names, from the registry. A hop reaches its target's
-     * abilities or conditions, so the target must be a schema checks are made
-     * against.
+     * The schema a hop reaches, from the registry, by {@see hopTargetKey()}. A hop
+     * reaches its target's abilities or conditions, so the target must be a schema
+     * checks are made against.
      */
-    private function hopTarget(CrossSchemaCanNode|CrossSchemaConditionNode $node): IAbilitySchema
+    private function hopTarget(IHandleNode $handle, string $bKey): IAbilitySchema
     {
-        $schema = $this->manager->registry()->resolveOrFail($node->handle->schemaKey->name)->schema;
+        $schema = $this->manager->registry()->resolveOrFail($bKey)->schema;
 
         if (! $schema instanceof IAbilitySchema) {
             throw new InvalidArgumentException(sprintf(
                 'A reference to schema [%s] needs a schema checks are made against, but [%s] is not an %s.',
-                $node->handle->schemaKey->name,
+                $bKey,
                 $schema::class,
                 IAbilitySchema::class,
             ));
         }
 
         return $schema;
+    }
+
+    /**
+     * The key of the schema a handle reaches: the key it names, or the key the
+     * target of this schema's row relation is registered under.
+     */
+    private function hopTargetKey(IHandleNode $handle): string
+    {
+        if ($handle instanceof SchemaHandleNode) {
+            return $handle->schemaKey->name;
+        }
+
+        return $this->manager->registry()->resolveSchemaKeyOrFail($this->ownRowRelation($handle)->targetSchemaClass);
+    }
+
+    /**
+     * How a handle is written, for a message that has no schema key to name yet.
+     */
+    private static function handleLabel(IHandleNode $handle): string
+    {
+        return $handle instanceof RelationHandleNode ? 'its '.$handle->relation->name : $handle->schemaKey->name;
+    }
+
+    /**
+     * The row relation an `its` handle names on the schema being compiled.
+     */
+    private function ownRowRelation(RelationHandleNode $handle): RowRelationDefinition
+    {
+        $relation = $this->schema instanceof IProvidesRowRelations
+            ? $this->schema->rowRelation($handle->relation->name)
+            : null;
+
+        return $relation ?? throw new InvalidArgumentException(sprintf(
+            'Schema [%s] declares no row relation [%s].',
+            $this->schema::class,
+            $handle->relation->name,
+        ));
+    }
+
+    /**
+     * The rows an `its` handle reaches: a subquery over the target's rows under
+     * $bQualifier, narrowed by the relation's method to those related to the row
+     * in scope. Null when no row is in scope, which answers unknown.
+     *
+     * The method may only add where clauses, as a condition may, and must add at
+     * least one: a relation that adds none reaches every row of the target, so an
+     * `exists` over it answers for any row at all rather than the related ones.
+     *
+     * @param array<string, mixed> $bContext
+     */
+    private function relatedRows(
+        RelationHandleNode $handle,
+        IRowSchema $bSchema,
+        CompilationContext $ctx,
+        string $bQualifier,
+        array $bContext,
+    ): ?Builder {
+        $ownQualifier = $this->aliases($ctx)->current;
+
+        if (! $ctx->targeted || $ownQualifier === null) {
+            return null;
+        }
+
+        $relation = $this->ownRowRelation($handle);
+        $bSubquery = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
+
+        $this->schema->invokeRowRelation($relation, new RowRelationContext(
+            $ctx->user,
+            $bSchema->conditionQuery($bSubquery, $bQualifier),
+            $ownQualifier,
+            $bQualifier,
+            $bContext,
+        ));
+
+        $this->assertOnlyWhereClauses($bSubquery, sprintf('Row relation [%s]', $relation->key));
+
+        if ($bSubquery->wheres === []) {
+            throw new InvalidArgumentException(sprintf(
+                'Row relation [%s] on schema [%s] added no where clause; a relation must narrow the related '
+                    .'rows to the ones related to this row, as in '
+                    .'$c->relatedQuery->where($c->relatedColumn(\'id\'), $c->ownColumn(\'%s_id\')).',
+                $relation->key,
+                $this->schema::class,
+                $relation->key,
+            ));
+        }
+
+        return $bSubquery;
     }
 
     /**
@@ -127,6 +222,7 @@ trait ResolvesHopTargets
     private function assertHandleIsWellFormed(
         CrossSchemaCanNode|CrossSchemaConditionNode $node,
         IAbilitySchema $schema,
+        string $bKey,
     ): void {
         $builtin = $node instanceof CrossSchemaCanNode ? 'can' : 'check';
 
@@ -135,13 +231,13 @@ trait ResolvesHopTargets
                 'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
                 $builtin,
-                $node->handle->schemaKey->name,
-                $node->handle->schemaKey->name,
+                $bKey,
+                $bKey,
             ));
         }
 
         $literalNulls = array_filter(
-            $node->handle->boundKey,
+            $node->handle->rowSelector(),
             static fn (INode $argument): bool => $argument instanceof LiteralNode && $argument->value === null,
         );
 
@@ -150,7 +246,7 @@ trait ResolvesHopTargets
                 'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id '
                     .'or a @context reference, or drop the row selector.',
                 $builtin,
-                $node->handle->schemaKey->name,
+                $bKey,
             ));
         }
 
@@ -159,9 +255,9 @@ trait ResolvesHopTargets
                 'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias '
                     .'names nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
                 $builtin,
-                $node->handle->schemaKey->name,
+                $bKey,
                 $node->alias->name,
-                $node->handle->schemaKey->name,
+                $bKey,
                 $node->alias->name,
             ));
         }

@@ -230,7 +230,7 @@ trait ValidatesExpressions
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([...self::rowSelector($node->handle), ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->handle->rowSelector(), ...self::withValues($node->contextMap)], $scope);
     }
 
     /**
@@ -260,7 +260,7 @@ trait ValidatesExpressions
         $this->assertAliasHasARow('check', $schemaKey, $node->handle->isRowBound(), $node->alias);
         $this->assertWithKeysDistinct($node->contextMap);
 
-        $this->assertColumnRefsInScope([...self::rowSelector($node->handle), ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->handle->rowSelector(), ...self::withValues($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
@@ -386,17 +386,6 @@ trait ValidatesExpressions
         }
 
         return [$targetKey, $target];
-    }
-
-    /**
-     * The arguments a handle's row selector was written with: none for a relation
-     * handle, which takes no arguments.
-     *
-     * @return list<INode>
-     */
-    private static function rowSelector(IHandleNode $handle): array
-    {
-        return $handle instanceof SchemaHandleNode ? $handle->boundKey : [];
     }
 
     /**

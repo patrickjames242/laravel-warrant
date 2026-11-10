@@ -16,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\Schema\Context\ContextPolicy;
@@ -53,16 +54,17 @@ trait CompilesCheckReferences
             throw new InvalidArgumentException(sprintf(
                 'Compiling a check(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->handle->schemaKey->name,
+                self::handleLabel($node->handle),
             ));
         }
 
-        $bSchema = $this->hopTarget($node);
+        $bKey = $this->hopTargetKey($node->handle);
+        $bSchema = $this->hopTarget($node->handle, $bKey);
 
         /* Before anything is resolved, because a malformed handle stays malformed
            whatever its arguments turn out to be — and the folds below would
            otherwise answer the reference before it was ever looked at. */
-        $this->assertHandleIsWellFormed($node, $bSchema);
+        $this->assertHandleIsWellFormed($node, $bSchema, $bKey);
         $this->assertPredicateAsksTarget($node->predicate, $node);
         $bKeys = $this->contextMapKeys($node->contextMap);
 
@@ -81,12 +83,12 @@ trait CompilesCheckReferences
 
         $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
-            $node->handle->schemaKey->name,
+            $bKey,
         );
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
-        $bCompiler = new self($bSchema, $node->handle->schemaKey->name, $this->manager);
+        $bCompiler = new self($bSchema, $bKey, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
@@ -101,16 +103,41 @@ trait CompilesCheckReferences
             user: $ctx->user,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bSchema::class)),
+            /* An `its` handle's rows go by the relation's name in the predicate,
+               as validation reads them. */
             aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
-                : $this->aliases($ctx)->enteringPredicate($node->handle->schemaKey->name, $node->alias?->name, $bQualifier),
+                : $this->aliases($ctx)->enteringPredicate(
+                    $node->handle instanceof RelationHandleNode ? $node->handle->relation->name : $bKey,
+                    $node->alias?->name,
+                    $bQualifier,
+                ),
             /* The `for` names the schema the predicate's names are written for,
                whatever text the check sits in. */
-            writtenIn: new KeyedSchemaId($node->handle->schemaKey->name),
+            writtenIn: new KeyedSchemaId($bKey),
         );
 
+        /* As in a can(...), a relation replaces the row matcher. The related rows
+           are read from $ctx, A's frame, before the predicate's frame is entered. */
+        if ($node->handle instanceof RelationHandleNode) {
+            $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
+
+            $bSubquery = $this->relatedRows($node->handle, $bSchema, $ctx, $bQualifier, $bContext);
+
+            if ($bSubquery === null) {
+                return (new CompiledWhereClauseNode)->addAnd(null);
+            }
+
+            $bCompiler->compile($bCtx->forTargetRow())->spliceInto($bSubquery);
+
+            $existsLeaf = $ctx->queries->newQuery();
+            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
+
+            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+        }
+
         if ($node->handle->isRowBound()) {
-            $this->assertSameConnection($ctx->queries, $bSchema, $node->handle->schemaKey->name);
+            $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
 
             $selector = $this->resolveArgValues($node->handle->boundKey, $ctx);
 
@@ -122,7 +149,7 @@ trait CompilesCheckReferences
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->handle->schemaKey->name,
+                $bKey,
                 $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 
@@ -195,21 +222,21 @@ trait CompilesCheckReferences
             throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
-                $check->handle->schemaKey->name,
+                self::handleLabel($check->handle),
             ));
         } elseif ($predicate instanceof CrossSchemaConditionNode) {
             throw new InvalidArgumentException(sprintf(
                 'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
                     .'ask it from a derived condition of schema [%s] instead.',
-                $check->handle->schemaKey->name,
-                $check->handle->schemaKey->name,
+                self::handleLabel($check->handle),
+                self::handleLabel($check->handle),
             ));
         } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->handle !== null) {
             throw new InvalidArgumentException(sprintf(
                 'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
                     .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
-                $check->handle->schemaKey->name,
-                $check->handle->schemaKey->name,
+                self::handleLabel($check->handle),
+                self::handleLabel($check->handle),
             ));
         }
     }

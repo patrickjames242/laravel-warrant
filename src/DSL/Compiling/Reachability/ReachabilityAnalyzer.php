@@ -12,8 +12,10 @@ use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\Reachability;
 use Warrant\Support\Set;
 
@@ -71,9 +73,14 @@ final class ReachabilityAnalyzer
      *   the same user is given for another schema, by key, or null when there is
      *   none to be had. Without one, every reference to another schema answers
      *   anything.
+     * @param (Closure(string $schemaKey, string $relation): ?string)|null $resolveRelationTarget
+     *   The key of the schema a row relation of $schemaKey reaches, or null when
+     *   there is none. Without one, every `its` reference answers anything.
      */
-    public function __construct(private readonly ?Closure $resolveRuleSet = null)
-    {
+    public function __construct(
+        private readonly ?Closure $resolveRuleSet = null,
+        private readonly ?Closure $resolveRelationTarget = null,
+    ) {
         $this->inProgress = new Set;
     }
 
@@ -175,7 +182,8 @@ final class ReachabilityAnalyzer
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            $ruleSet = $this->ruleSetFor($node->handle?->schemaKey?->name ?? $schemaKey);
+            $targetKey = $node->handle === null ? $schemaKey : $this->targetKeyOf($node->handle, $schemaKey);
+            $ruleSet = $targetKey === null ? null : $this->ruleSetFor($targetKey);
 
             if ($ruleSet === null) {
                 return TruthSet::any();
@@ -187,7 +195,13 @@ final class ReachabilityAnalyzer
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
-            $outcome = $this->expression($node->predicate, $node->handle->schemaKey->name);
+            $targetKey = $this->targetKeyOf($node->handle, $schemaKey);
+
+            if ($targetKey === null) {
+                return TruthSet::any();
+            }
+
+            $outcome = $this->expression($node->predicate, $targetKey);
 
             return $node->handle->isRowBound() ? self::overARow($outcome) : $outcome;
         }
@@ -208,6 +222,24 @@ final class ReachabilityAnalyzer
     private static function overARow(TruthSet $outcome): TruthSet
     {
         return $outcome->canBeTrue() ? TruthSet::any() : TruthSet::of(false)->union(TruthSet::of(null));
+    }
+
+    /**
+     * The key of the schema a handle reaches from rules for $schemaKey, or null
+     * when a row relation's target cannot be found.
+     *
+     * A relation may reach no rows at all, so it is a row-bound reference like any
+     * other: {@see overARow()} applies to it.
+     */
+    private function targetKeyOf(IHandleNode $handle, string $schemaKey): ?string
+    {
+        if ($handle instanceof SchemaHandleNode) {
+            return $handle->schemaKey->name;
+        }
+
+        return $this->resolveRelationTarget === null
+            ? null
+            : ($this->resolveRelationTarget)($schemaKey, $handle->relation->name);
     }
 
     private function ruleSetFor(string $schemaKey): ?ExpandedSyntax

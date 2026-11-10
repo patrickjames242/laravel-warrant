@@ -42,7 +42,7 @@ trait AnalyzesReachability
            condition, would otherwise be judged on what the author abbreviated.
            One analyzer serves the whole map, so an ability several others lean
            on through `can(...)` is analyzed once. */
-        $analyzer = new ReachabilityAnalyzer($this->reachabilityRuleSetFor(...));
+        $analyzer = new ReachabilityAnalyzer($this->reachabilityRuleSetFor(...), $this->relationTargetFor(...));
 
         $map = [];
         foreach ($abilities as $ability) {
@@ -50,6 +50,16 @@ trait AnalyzesReachability
         }
 
         return $map;
+    }
+
+    /**
+     * The key of the schema row relation $relation of $schemaKey reaches, which
+     * is where a `can(... for its <relation>)` in the rules leads. Null for a
+     * relation nobody declares, which validation reports.
+     */
+    private function relationTargetFor(string $schemaKey, string $relation): ?string
+    {
+        return $this->manager->registry()->constructs()->rowRelation($relation, $schemaKey)?->targetKey;
     }
 
     /**
