@@ -27,12 +27,7 @@ Extends `RuntimeException` and carries `$source`, `$offset`, `$sourceLine`, and
 `$sourceColumn`.
 
 ```text
-Reserved word 'can' cannot be used as a name; expected an ability name.
-
-  --> line 1, column 21
-
-  1 | if is_self they can can
-    |                     ^^^
+Reserved word 'can' cannot be used as a name; expected an ability name. (line 1, column 21)
 ```
 
 Representative messages:
@@ -74,25 +69,17 @@ The rule text targets schema [documents] in its `for` header but was scoped to [
 
 ## Where an error points
 
-A syntax or validation error in rule text says where it is, shows the line with
-the one before and after it, and underlines what it is about:
+When Warrant can find the file a piece of rule text is written in, an error in
+it takes that file and line as its own `getFile()` and `getLine()`. Laravel's
+error page then shows the rule text under the error, Artisan and Pest show a
+snippet of it, and a log or Sentry says where it is. The message is the error
+alone:
 
 ```text
-Schema [time_offs] declares no row relation [blah].
-
-  --> app/Schemas/TimeOffSchema.php:93:46
-      in the rules() of schema [App\Schemas\TimeOffSchema]
-
-  92 |             and themselves
-  93 |             and not can(approve_time_off for its blah)
-     |                                                  ^^^^
-  94 |         they cannot because 'Someone who approves your time off has to sign off its cancellation.'
-
-Schema [time_offs] declares one row relation: [user]. A row relation is a #[RowRelation] method on TimeOffSchema.
+Schema [time_offs] declares no row relation [blah]. Schema [time_offs] declares one row relation: [user]. A row relation is a #[RowRelation] method on TimeOffSchema.
 ```
 
-The path and line are those of the file the text is written in, when Warrant can
-show that file holds it:
+Warrant finds the file when it can show the file holds the text:
 
 - the `.warrant` file `warrant_file()` read it from;
 - the string a `warrant()` call was given, wherever that call is, since
@@ -100,21 +87,39 @@ show that file holds it:
 - the one string the method that answered returns: a schema's or provider's
   `rules()`, a rule template, or a derived condition.
 
-The exception's own `getFile()` and `getLine()` are then that place too, so an
-error page opens the rule text rather than Warrant's validator.
-
-A string returned through other functions, or built from parts, is in no file
-Warrant can read. Its error names what answered with it and shows the text's own
-lines instead:
+A string returned through other functions, built from parts, or read from a
+database is in no file Warrant can read. Its message says where in the text the
+error is, and what answered with the text:
 
 ```text
-  --> line 3, column 18 of the rules() of schema [App\Schemas\TimeOffSchema]
+Condition [is_ownr] is declared by neither schema [time_offs] nor any global schema. (line 3, column 18 of the rules() of schema [App\Schemas\TimeOffSchema]) Did you mean [is_owner]?
 ```
 
 Return such text through `warrant()` to have its errors point at it.
 
 An error about a name that is not declared ends with the declared names closest
 to it, `Did you mean [is_owner]?`, the same the editor's quick fix offers.
+
+Both exceptions carry an `$excerpt`, whose `describe()` lays the error out over
+several lines, for showing it in a fixed-width font:
+
+```php
+echo $e->excerpt->describe($e->reason, $e->hint);
+```
+
+```text
+Condition [is_ownr] is declared by neither schema [time_offs] nor any global schema.
+
+  --> app/Schemas/TimeOffSchema.php:93:17
+      in the rules() of schema [App\Schemas\TimeOffSchema]
+
+  92 |         if is_owner
+  93 |             and is_ownr
+     |                 ^^^^^^^
+  94 |         they can view
+
+Did you mean [is_owner]?
+```
 
 ## Validation, `RuleValidationException`
 

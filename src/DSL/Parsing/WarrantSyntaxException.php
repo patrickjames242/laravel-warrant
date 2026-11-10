@@ -19,12 +19,15 @@ use Warrant\DSL\Parsing\Positions\SourcePosition;
  */
 class WarrantSyntaxException extends RuntimeException
 {
+    /** Where in the text the error is, which can lay out the lines around it. */
+    public readonly RuleTextExcerpt $excerpt;
+
     /**
      * @param DiagnosticCode $diagnosticCode Which kind of mistake this is, as a
      *   {@see Diagnostic} made from it carries it. Named so as not to be the base
      *   Exception's own integer $code.
-     * @param string $reason The error alone, without the position and the
-     *   excerpt of the source that the exception's message adds to it.
+     * @param string $reason The error alone, without the position the
+     *   exception's message adds to it.
      * @param string $source The text the error is in.
      * @param int $offset 0-based byte offset in $source the error is at.
      * @param int $sourceLine 1-based line of $offset.
@@ -45,15 +48,15 @@ class WarrantSyntaxException extends RuntimeException
         public readonly ?SyntaxSource $origin = null,
         public readonly ?int $endOffset = null,
     ) {
-        $excerpt = $origin === null
+        $this->excerpt = $origin === null
             ? RuleTextExcerpt::inText($source, $offset, $endOffset ?? $offset + 1)
             : RuleTextExcerpt::of($source, $offset, $endOffset ?? $offset + 1, $origin);
 
-        parent::__construct($excerpt->describe($reason));
+        parent::__construct($this->excerpt->summary($reason));
 
-        if ($excerpt->file !== null) {
-            $this->file = $excerpt->file->path;
-            $this->line = $excerpt->line();
+        if ($this->excerpt->file !== null) {
+            $this->file = $this->excerpt->file->path;
+            $this->line = $this->excerpt->line();
         }
     }
 

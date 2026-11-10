@@ -63,7 +63,8 @@ it('points an error in provided rule text at the condition it is about', functio
         ->and($error->reason)->toContain('is_teachr')
         ->and($error->excerpt->line())->toBe(2)
         ->and($error->excerpt->column())->toBe(4)
-        ->and($error->getMessage())->toContain("\n\n  --> line 2, column 4 of the rule provider\n\n  1 | if is_teacher they can view\n  2 | if is_teachr they can archive\n    |    ^^^^^^^^^\n");
+        ->and($error->getMessage())->toContain('global schema. (line 2, column 4 of the rule provider) Did you mean [is_teacher]?')
+        ->and($error->excerpt->describe($error->reason))->toContain("  1 | if is_teacher they can view\n  2 | if is_teachr they can archive\n    |    ^^^^^^^^^");
 });
 
 it('points an undeclared ability at the ability', function () {
@@ -90,12 +91,12 @@ it('checks each for body against the schema its header names', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse('for course_sections { if is_teacher they can view }')))
         ->not->toThrow(InvalidArgumentException::class)
         ->and(fn () => validateRegistered(WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")))
-        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema.\n\n  --> line 2, column 12");
+        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema. (line 2, column 12)");
 });
 
 it('reports a for header that names no schema, at the name', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse('for nope { they can view }')))
-        ->toThrow(RuleValidationException::class, "The `for` header names unknown schema [nope].\n\n  --> line 1, column 5");
+        ->toThrow(RuleValidationException::class, "The `for` header names unknown schema [nope]. (line 1, column 5)");
 });
 
 it('checks rules with no header only against a schema it is given', function () {
@@ -385,5 +386,5 @@ it('holds rules with no header and no schema only to the rules of the language',
 
 it('validates each for body against its registered schema', function () {
     expect(fn () => WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")->validate())
-        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema.\n\n  --> line 2, column 12");
+        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema. (line 2, column 12)");
 });

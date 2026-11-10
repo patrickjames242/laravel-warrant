@@ -60,9 +60,9 @@ function ruleErrorOf(string $schema): RuleValidationException
     throw new LogicException("{$schema}'s rules raised no error.");
 }
 
-// -- the file -----------------------------------------------------------------
+// -- the place -----------------------------------------------------------------
 
-it('points into the method that returns the text', function () {
+it('points into the method that returns the text, leaving the place out of the message', function () {
     $error = ruleErrorOf(ReHeredocSchema::class);
     $line = lineWriting(__FILE__, "            and is_ownr\n");
 
@@ -71,8 +71,7 @@ it('points into the method that returns the text', function () {
         ->and($error->excerpt->column())->toBe(17)
         ->and($error->getFile())->toBe(__FILE__)
         ->and($error->getLine())->toBe($line)
-        ->and($error->getMessage())->toContain("--> ".__FILE__.":{$line}:17\n      in the rules() of schema [ReHeredocSchema]")
-        ->and($error->getMessage())->toContain(sprintf("  %d |             and is_ownr\n      |                 ^^^^^^^\n", $line));
+        ->and($error->getMessage())->toBe('Condition [is_ownr] is declared by neither schema [re_heredoc] nor any global schema. Did you mean [is_owner]?');
 });
 
 it('points into the .warrant file the text was read from', function () {
@@ -82,8 +81,7 @@ it('points into the .warrant file the text was read from', function () {
     expect($error->excerpt->file?->path)->toBe($path)
         ->and($error->getFile())->toBe($path)
         ->and($error->getLine())->toBe(2)
-        ->and($error->getMessage())->toContain("--> {$path}:2:9\n")
-        ->and($error->getMessage())->toContain("  1 | if is_owner\n  2 |     and is_ownr\n    |         ^^^^^^^\n  3 | they can view\n");
+        ->and($error->excerpt->column())->toBe(9);
 });
 
 it('points into the warrant() call that wrote the text, wherever that call is', function () {
@@ -94,15 +92,15 @@ it('points into the warrant() call that wrote the text, wherever that call is', 
     expect($error->excerpt->file?->path)->toBe($path)
         ->and($error->getFile())->toBe($path)
         ->and($error->getLine())->toBe($line)
-        ->and($error->getMessage())->toContain("--> {$path}:{$line}:17\n");
+        ->and($error->excerpt->column())->toBe(17);
 });
 
-it('names what answered with the text, and shows its own lines, when no file can be shown to hold it', function () {
+it('names the place and what answered with the text in the message, when no file can be shown to hold it', function () {
     $error = ruleErrorOf(RePlainSchema::class);
 
     expect($error->excerpt->file)->toBeNull()
         ->and($error->getFile())->toEndWith('SyntaxValidator.php')
-        ->and($error->getMessage())->toContain("--> line 2, column 9 of the rules() of schema [RePlainSchema]\n\n  1 | if is_owner\n  2 |     and is_ownr\n    |         ^^^^^^^\n  3 | they can view\n");
+        ->and($error->getMessage())->toBe('Condition [is_ownr] is declared by neither schema [re_plain] nor any global schema. (line 2, column 9 of the rules() of schema [RePlainSchema]) Did you mean [is_owner]?');
 });
 
 it('does not point into a file that holds no string with the text', function () {
@@ -112,15 +110,43 @@ it('does not point into a file that holds no string with the text', function () 
     expect(RuleTextExcerpt::of($text, 3, 10, $source)->file)->toBeNull();
 });
 
-// -- the lines shown ------------------------------------------------------------
+it('places a syntax error in the message the same way', function () {
+    try {
+        WarrantSyntax::parse("if is_owner\nthey can view )");
+    } catch (Throwable $error) {
+    }
 
-it('underlines all of what an error is about, with the lines on either side', function () {
+    expect($error->getMessage())->toBe('Unexpected token; expected end of input. (line 2, column 15)');
+});
+
+// -- the lines around it ----------------------------------------------------------
+
+it('lays out the lines around an error in the file, underlining all of what it is about', function () {
+    $error = ruleErrorOf(ReFileSchema::class);
+    $path = realpath(__DIR__.'/Fixtures/RuleErrors/rules.warrant');
+
+    expect($error->excerpt->describe($error->reason, $error->hint))->toBe(<<<TEXT
+        Condition [is_ownr] is declared by neither schema [re_file] nor any global schema.
+
+          --> {$path}:2:9
+              in the rules() of schema [ReFileSchema]
+
+          1 | if is_owner
+          2 |     and is_ownr
+            |         ^^^^^^^
+          3 | they can view
+
+        Did you mean [is_owner]?
+        TEXT);
+});
+
+it('lays out the text\'s own lines when no file was found', function () {
     try {
         validateRegistered(WarrantSyntax::parse("for re_heredoc {\n  if is_owner\n    and is_ownr\n  they can view\n}"));
     } catch (RuleValidationException $error) {
     }
 
-    expect($error->getMessage())->toBe(<<<'TEXT'
+    expect($error->excerpt->describe($error->reason))->toBe(<<<'TEXT'
         Condition [is_ownr] is declared by neither schema [re_heredoc] nor any global schema.
 
           --> line 3, column 9
@@ -129,18 +155,7 @@ it('underlines all of what an error is about, with the lines on either side', fu
           3 |     and is_ownr
             |         ^^^^^^^
           4 |   they can view
-
-        Did you mean [is_owner]?
         TEXT);
-});
-
-it('shows a syntax error the same way, over the token it is at', function () {
-    try {
-        WarrantSyntax::parse("if is_owner\nthey can view )");
-    } catch (Throwable $error) {
-    }
-
-    expect($error->getMessage())->toEndWith("  --> line 2, column 15\n\n  1 | if is_owner\n  2 | they can view )\n    |               ^");
 });
 
 // -- the hint -------------------------------------------------------------------

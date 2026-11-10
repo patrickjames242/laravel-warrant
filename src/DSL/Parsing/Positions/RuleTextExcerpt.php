@@ -7,13 +7,15 @@ use Illuminate\Contracts\Foundation\Application;
 use Warrant\DSL\Parsing\SyntaxSource;
 
 /**
- * Where an error in rule text is, as its message shows it: the file and line,
- * the line with the one before and after it, and the text the error is about
- * underlined.
+ * Where an error in rule text is: the file and line the text is written in,
+ * when that file can be found, and otherwise the line and column in the text
+ * and what answered with it.
  *
- * When the file the text is written in can be found, the lines are that file's,
- * numbered as an editor numbers them. Otherwise they are the text's own, and the
- * message names what answered with it.
+ * An error's message is one line, {@see summary()}: the file and line are the
+ * exception's own, which an error page, a log and a terminal all show, so the
+ * message names the place only when no file was found. {@see describe()} lays
+ * it out over several lines, with the lines around it and what it is about
+ * underlined, for code that shows an error in a fixed-width font.
  */
 final readonly class RuleTextExcerpt
 {
@@ -79,7 +81,26 @@ final readonly class RuleTextExcerpt
     }
 
     /**
-     * $reason, then where it is and the lines around it, then $hint.
+     * $reason and $hint on one line, as an error's message: with the line and
+     * column in the text, and what answered with it, when no file was found.
+     *
+     * @param string|null $hint What may fix it, as a sentence or two.
+     */
+    public function summary(string $reason, ?string $hint = null): string
+    {
+        if ($this->file === null) {
+            $where = $this->origin === null
+                ? sprintf('line %d, column %d', $this->line(), $this->column())
+                : sprintf('line %d, column %d of %s', $this->line(), $this->column(), lcfirst($this->origin));
+            $reason = "{$reason} ({$where})";
+        }
+
+        return $hint === null ? $reason : "{$reason} {$hint}";
+    }
+
+    /**
+     * $reason, then where it is and the lines around it, then $hint, over
+     * several lines for a fixed-width font.
      *
      * @param string|null $hint What may fix it, as a sentence or two.
      */

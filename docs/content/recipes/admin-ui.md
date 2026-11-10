@@ -78,9 +78,23 @@ class RoleRuleController extends Controller
 }
 ```
 
-A syntax error comes back with a line, a column, the lines around it and the
-mistake underlined, which is exactly what you want to put in front of an
-administrator:
+A syntax error comes back with a line and a column, which is exactly what you
+want to put in front of an administrator:
+
+```text
+Reserved word 'can' cannot be used as a name; expected an ability name. (line 2, column 21)
+```
+
+To show the line itself, with the mistake underlined, lay the error out from its
+excerpt, in a fixed-width font:
+
+```php
+} catch (WarrantSyntaxException|RuleValidationException $e) {
+    return back()->withErrors(['rules' => $e->getMessage()])
+        ->with('rules_excerpt', $e->excerpt?->describe($e->reason))
+        ->withInput();
+}
+```
 
 ```text
 Reserved word 'can' cannot be used as a name; expected an ability name.

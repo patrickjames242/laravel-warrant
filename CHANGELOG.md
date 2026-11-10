@@ -4,6 +4,20 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Changed
+
+- An error's message is one line again: the error and its hint. When the file
+  the rule text is written in was found, the place is the exception's own file
+  and line and is left out of the message; otherwise the message ends the error
+  with the line and column in the text and what answered with it, as
+  `(line 3, column 18 of the rules() of schema [...])`. Laravel's error page
+  shows HTML, which joined the laid-out lines into one run of text.
+- `RuleTextExcerpt::describe()` lays an error out over several lines, with the
+  lines around it and what it is about underlined, for code that shows it in a
+  fixed-width font. `WarrantSyntaxException::$excerpt` holds one too.
+
 ## 4.12.1 — 2026-11-10
 
 ### Added
