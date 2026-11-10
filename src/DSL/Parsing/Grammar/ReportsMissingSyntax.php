@@ -35,6 +35,7 @@ trait ReportsMissingSyntax
         TokenType::FOR,
         TokenType::WITH,
         TokenType::AS,
+        TokenType::ITS,
         TokenType::WHEN,
         TokenType::OTHERWISE,
     ];

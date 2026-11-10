@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
@@ -19,6 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 
@@ -229,10 +231,10 @@ final class CommentPlacement
         } elseif ($expression instanceof ConditionNode) {
             $this->registerAll($expression->parameters, $depth + 1);
         } elseif ($expression instanceof CrossSchemaCanNode) {
-            $this->registerAll([...$expression->boundKey, ...$expression->contextMap], $depth + 1);
+            $this->registerAll([...self::rowSelector($expression->handle), ...$expression->contextMap], $depth + 1);
         } elseif ($expression instanceof CrossSchemaConditionNode) {
             $this->registerExpression($expression->predicate, $depth + 1, true);
-            $this->registerAll([...$expression->boundKey, ...$expression->contextMap], $depth + 1);
+            $this->registerAll([...self::rowSelector($expression->handle), ...$expression->contextMap], $depth + 1);
         }
     }
 
@@ -325,6 +327,17 @@ final class CommentPlacement
     private static function bodyKey(INode|WarrantSyntax $owner, bool $otherwise): string
     {
         return spl_object_id($owner).($otherwise ? ':otherwise' : ':main');
+    }
+
+    /**
+     * The arguments a handle's row selector was written with: none for a relation
+     * handle, which takes no arguments.
+     *
+     * @return list<INode>
+     */
+    private static function rowSelector(?IHandleNode $handle): array
+    {
+        return $handle instanceof SchemaHandleNode ? $handle->boundKey : [];
     }
 
     /**

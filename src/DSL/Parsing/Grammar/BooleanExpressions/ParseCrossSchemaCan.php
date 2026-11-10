@@ -40,7 +40,7 @@ final class ParseCrossSchemaCan extends Parser
         if (! $this->check(TokenType::LPAREN)) {
             $ability = $this->abilityOrMissing('an ability name or \'(\' after \'can\'');
 
-            return new CrossSchemaCanNode(null, $ability, false, [], [], null, $this->locationEndingHere());
+            return new CrossSchemaCanNode(null, $ability, [], null, $this->locationEndingHere());
         }
 
         $this->advance(); // consume '('
@@ -56,17 +56,18 @@ final class ParseCrossSchemaCan extends Parser
             $contextMap = $this->parse(ParseWithContextMap::class)?->value ?? [];
             $this->expectOrAssume(TokenType::RPAREN, "Expected 'for' or ')' after the ability name in 'can(...)'.");
 
-            return new CrossSchemaCanNode(null, $ability, false, [], $contextMap, null, $this->locationEndingHere());
+            return new CrossSchemaCanNode(null, $ability, $contextMap, null, $this->locationEndingHere());
         }
 
         $this->advance(); // consume 'for'
 
-        [$schemaKey, $isRowBound, $boundKey, $alias] = $this->parse(ParseSchemaHandle::class)->value;
+        $handle = $this->parse(ParseHandle::class)->value;
+        $alias = $this->parse(ParseHandleAlias::class)?->value;
         $contextMap = $this->parse(ParseWithContextMap::class)?->value ?? [];
 
         $this->expectOrAssume(TokenType::RPAREN, "Expected ')' to close 'can(...)'.");
 
-        return new CrossSchemaCanNode($schemaKey, $ability, $isRowBound, $boundKey, $contextMap, $alias, $this->locationEndingHere());
+        return new CrossSchemaCanNode($handle, $ability, $contextMap, $alias, $this->locationEndingHere());
     }
 
     /**

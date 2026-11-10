@@ -17,6 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
@@ -25,8 +26,10 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
@@ -304,56 +307,29 @@ final class RuleSyntaxWriter
 
     private function writeCrossSchemaCan(CrossSchemaCanNode $node): string
     {
-        if ($node->schemaKey === null) {
+        if ($node->handle === null) {
             return 'can(' . $this->ability($node->ability) . ')';
         }
 
         return 'can(' . $this->ability($node->ability) . ' for '
-            . $this->writeHandleAndWith(
-                $node->schemaKey,
-                $node->isRowBound,
-                $node->boundKey,
-                $node->contextMap,
-                $node->alias,
-            );
+            . $this->writeHandleAndWith($node->handle, $node->contextMap, $node->alias);
     }
 
     private function writeCrossSchemaCheck(CrossSchemaConditionNode $node): string
     {
         return 'check(' . $this->writeExpression($node->predicate) . ' for '
-            . $this->writeHandleAndWith(
-                $node->schemaKey,
-                $node->isRowBound,
-                $node->boundKey,
-                $node->contextMap,
-                $node->alias,
-            );
+            . $this->writeHandleAndWith($node->handle, $node->contextMap, $node->alias);
     }
 
     /**
-     * Render the shared cross-schema tail: the handle (`schema` or
-     * `schema(<row>, …)`), an optional `as <alias>`, an optional `with <map>`, and
-     * the closing paren.
+     * Render the shared cross-schema tail: the handle, an optional `as <alias>`,
+     * an optional `with <map>`, and the closing paren.
      *
-     * A row-bound handle always carries its parentheses, empty ones included:
-     * `schema()` addresses a row with a key that takes no arguments, and bare
-     * `schema` addresses none, so the parentheses are what tell them apart.
-     *
-     * @param list<INode> $boundKey
      * @param list<WithEntryNode> $contextMap
      */
-    private function writeHandleAndWith(
-        NameNode $schemaKey,
-        bool $isRowBound,
-        array $boundKey,
-        array $contextMap,
-        ?NameNode $alias = null,
-    ): string {
-        $out = $schemaKey->name;
-
-        if ($isRowBound) {
-            $out .= '(' . implode(', ', array_map($this->arg(...), $boundKey)) . ')';
-        }
+    private function writeHandleAndWith(IHandleNode $handle, array $contextMap, ?NameNode $alias): string
+    {
+        $out = $this->writeHandle($handle);
 
         if ($alias !== null) {
             $out .= ' as ' . $alias->name;
@@ -370,6 +346,23 @@ final class RuleSyntaxWriter
         }
 
         return $out . ')';
+    }
+
+    /**
+     * A schema handle with a row selector always carries its parentheses, empty
+     * ones included: `schema()` addresses a row with a key that takes no
+     * arguments, and bare `schema` addresses none, so the parentheses are what
+     * tell them apart.
+     */
+    private function writeHandle(IHandleNode $handle): string
+    {
+        return match (true) {
+            $handle instanceof RelationHandleNode => 'its ' . $handle->relation->name,
+            $handle instanceof SchemaHandleNode && $handle->hasRowSelector => $handle->schemaKey->name
+                . '(' . implode(', ', array_map($this->arg(...), $handle->boundKey)) . ')',
+            $handle instanceof SchemaHandleNode => $handle->schemaKey->name,
+            default => throw new LogicException('Cannot render unknown handle ' . $handle::class . '.'),
+        };
     }
 
     private function writeCondition(ConditionNode $node): string

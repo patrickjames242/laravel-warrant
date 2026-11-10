@@ -8,11 +8,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * A cross-schema condition check:
  * `check(<predicate> for <handle> [as <alias>] [with <map>])`.
  *
- * Delegates a domain question to another schema ({@see $schemaKey}) by evaluating
- * {@see $predicate} — a boolean expression read against that schema's vocabulary —
- * either against a specific row ({@see $isRowBound} true, the `schema(@context id)`
- * form) or globally with no row at all ({@see $isRowBound} false, the bare `schema`
- * form).
+ * Delegates a domain question to another schema by evaluating {@see $predicate} —
+ * a boolean expression read against that schema's vocabulary — over the rows
+ * {@see $handle} reaches: one row, the rows a row relation reaches, or no row at
+ * all for an unbound schema handle.
  *
  * The predicate is a full expression, not just a list of conditions: it may nest
  * another `check(...)`, whose handle is read in *this* reference's frame, and it
@@ -20,18 +19,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * named. What it may not hold is a constant, which would decide the predicate
  * while asking the target nothing.
  *
- * {@see $isRowBound} is tracked separately from {@see $boundKey} because an empty
- * argument list is not an absent handle: `schema()` addresses a row with a key
- * that requires no arguments, while bare `schema` addresses no row at all.
- *
- * As with {@see CrossSchemaCanNode}, the elements of {@see $boundKey} and the
- * values of {@see $contextMap} hold what the parser resolved: concrete scalars for inline
- * literals and `:name` / `?` bindings, a symbolic {@see ContextRef} for a
- * `@context <key>` reference (filled per check at compile time), or a symbolic
- * {@see ColumnRef} for a `@column [<name>.]<column>` reference (resolved to a
- * grammar-wrapped column Expression at compile time). The condition
- * leaves inside {@see $predicate} are validated against — and compiled with — the
- * *target* schema's vocabulary, not the owning schema's.
+ * As with {@see CrossSchemaCanNode}, the values of {@see $contextMap} hold what
+ * was written. The condition leaves inside {@see $predicate} are validated
+ * against — and compiled with — the *target* schema's vocabulary, not the owning
+ * schema's.
  *
  * Validated by {@see \Warrant\DSL\Validation\ValidatesExpressions::assertCrossSchemaConditionValid()}
  * and compiled by {@see \Warrant\DSL\Compiling\RuleSetCompiler::crossSchemaCheckLeaf()}.
@@ -39,9 +30,7 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
 {
     /**
-     * @param list<INode> $boundKey The handle's row-selector arguments, bound
-     *   positionally to the target schema's row key. Empty on an unbound handle,
-     *   and also on `schema()`, whose key requires no arguments.
+     * @param IHandleNode $handle The rows the predicate is asked about.
      * @param list<WithEntryNode> $contextMap Explicit boundary context, each
      *   entry under one of the target schema's key names, in the order written.
      * @param NameNode|null $alias The SQL name this reference's own subquery gives
@@ -55,10 +44,8 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
      *   predicate over two frames of one table can tell them apart.
      */
     public function __construct(
-        public NameNode $schemaKey,
+        public IHandleNode $handle,
         public IBooleanExpressionNode $predicate,
-        public bool $isRowBound,
-        public array $boundKey,
         public array $contextMap,
         public ?NameNode $alias,
         public SyntaxLocation $location,
@@ -68,9 +55,8 @@ readonly class CrossSchemaConditionNode implements IBooleanExpressionNode
     public function children(): array
     {
         return [
-            $this->schemaKey,
             $this->predicate,
-            ...$this->boundKey,
+            $this->handle,
             ...$this->contextMap,
             ...($this->alias === null ? [] : [$this->alias]),
         ];

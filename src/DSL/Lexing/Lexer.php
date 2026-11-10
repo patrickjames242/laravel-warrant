@@ -17,7 +17,8 @@ use Warrant\DSL\Parsing\WarrantSyntaxException;
  * String literals may be delimited by single (`'`) or double (`"`) quotes; the
  * closing quote must match the opener, and `\'`, `\"`, and `\\` are the escapes.
  * Keywords are matched case-sensitively in lower case: `if`, `they`, `can`,
- * `cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`. `true` /
+ * `cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`, `its`,
+ * `when`, `otherwise`. `true` /
  * `false` / `null` are always lexed as literals, so they cannot double as
  * condition or ability names.
  *
@@ -51,6 +52,7 @@ final class Lexer
         'for' => TokenType::FOR,
         'with' => TokenType::WITH,
         'as' => TokenType::AS,
+        'its' => TokenType::ITS,
         'when' => TokenType::WHEN,
         'otherwise' => TokenType::OTHERWISE,
     ];

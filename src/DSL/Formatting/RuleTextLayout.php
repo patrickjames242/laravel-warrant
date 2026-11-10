@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Formatting;
 
+use LogicException;
 use Warrant\DSL\Lexing\Token;
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
@@ -15,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
@@ -23,9 +25,11 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
@@ -603,7 +607,7 @@ final class RuleTextLayout
     {
         return match (true) {
             $condition instanceof NotNode => self::isPlainCondition($condition->operand),
-            $condition instanceof CrossSchemaCanNode => $condition->schemaKey === null && $condition->contextMap === [],
+            $condition instanceof CrossSchemaCanNode => $condition->handle === null && $condition->contextMap === [],
             $condition instanceof OrNode, $condition instanceof AndNode, $condition instanceof CrossSchemaConditionNode => false,
             default => true,
         };
@@ -747,7 +751,7 @@ final class RuleTextLayout
             $expression instanceof ConditionNode => $expression->parameters === []
                 ? LaidOutLines::of($expression->conditionKey->name)
                 : $this->call($expression->conditionKey->name, $expression->parameters, $column, $trail),
-            $expression instanceof CrossSchemaCanNode && ($expression->schemaKey !== null || $expression->contextMap !== []) => $this->can($expression, $indent),
+            $expression instanceof CrossSchemaCanNode && ($expression->handle !== null || $expression->contextMap !== []) => $this->can($expression, $indent),
             $expression instanceof CrossSchemaConditionNode => $this->check($expression, $indent),
             default => LaidOutLines::of($flat ?? $this->expressionText($expression)),
         };
@@ -827,7 +831,7 @@ final class RuleTextLayout
     {
         $lines = LaidOutLines::of('can(')->addLine(LaidOutLines::of($this->abilityText($can->ability)), self::INDENT);
 
-        return $this->crossSchemaParts($lines, $can->schemaKey, $can->isRowBound, $can->boundKey, $can->alias, $can->contextMap, $indent);
+        return $this->crossSchemaParts($lines, $can->handle, $can->alias, $can->contextMap, $indent);
     }
 
     private function check(CrossSchemaConditionNode $check, int $indent): LaidOutLines
@@ -838,24 +842,25 @@ final class RuleTextLayout
             self::INDENT,
         );
 
-        return $this->crossSchemaParts($lines, $check->schemaKey, $check->isRowBound, $check->boundKey, $check->alias, $check->contextMap, $indent);
+        return $this->crossSchemaParts($lines, $check->handle, $check->alias, $check->contextMap, $indent);
     }
 
     /**
      * The `for` handle and `with` map of a broken `can(...)` or `check(...)`,
      * each on a line of its own, and its closing `)`.
      *
-     * @param list<INode> $boundKey
      * @param list<WithEntryNode> $contextMap
      */
-    private function crossSchemaParts(LaidOutLines $lines, ?NameNode $schemaKey, bool $isRowBound, array $boundKey, ?NameNode $alias, array $contextMap, int $indent): LaidOutLines
+    private function crossSchemaParts(LaidOutLines $lines, ?IHandleNode $handle, ?NameNode $alias, array $contextMap, int $indent): LaidOutLines
     {
         $inner = $indent + self::INDENT;
 
-        if ($schemaKey !== null) {
+        if ($handle !== null) {
             $alias = $alias === null ? '' : ' as '.$alias->name;
-            $handle = $isRowBound ? $this->call($schemaKey->name, $boundKey, $inner + 4, strlen($alias)) : LaidOutLines::of($schemaKey->name);
-            $lines->addLine(LaidOutLines::of('for ')->appendLines($handle)->append($alias), self::INDENT);
+            $handleLines = $handle instanceof SchemaHandleNode && $handle->hasRowSelector
+                ? $this->call($handle->schemaKey->name, $handle->boundKey, $inner + 4, strlen($alias))
+                : LaidOutLines::of($this->handleText($handle));
+            $lines->addLine(LaidOutLines::of('for ')->appendLines($handleLines)->append($alias), self::INDENT);
         }
 
         if ($contextMap !== []) {
@@ -890,7 +895,7 @@ final class RuleTextLayout
                 : $expression->conditionKey->name.'('.implode(', ', array_map($this->argumentText(...), $expression->parameters)).')',
             $expression instanceof CrossSchemaCanNode => $this->canText($expression),
             $expression instanceof CrossSchemaConditionNode => 'check('.$this->expressionText($expression->predicate)
-                .$this->crossSchemaText($expression->schemaKey, $expression->isRowBound, $expression->boundKey, $expression->alias, $expression->contextMap).')',
+                .$this->crossSchemaText($expression->handle, $expression->alias, $expression->contextMap).')',
             default => $this->writtenText($expression),
         };
     }
@@ -906,24 +911,22 @@ final class RuleTextLayout
     {
         $ability = $this->abilityText($can->ability);
 
-        if ($can->schemaKey === null && $can->contextMap === []) {
+        if ($can->handle === null && $can->contextMap === []) {
             return 'can '.$ability;
         }
 
-        return 'can('.$ability.$this->crossSchemaText($can->schemaKey, $can->isRowBound, $can->boundKey, $can->alias, $can->contextMap).')';
+        return 'can('.$ability.$this->crossSchemaText($can->handle, $can->alias, $can->contextMap).')';
     }
 
     /**
-     * @param list<INode> $boundKey
      * @param list<WithEntryNode> $contextMap
      */
-    private function crossSchemaText(?NameNode $schemaKey, bool $isRowBound, array $boundKey, ?NameNode $alias, array $contextMap): string
+    private function crossSchemaText(?IHandleNode $handle, ?NameNode $alias, array $contextMap): string
     {
         $text = '';
 
-        if ($schemaKey !== null) {
-            $text .= ' for '.$schemaKey->name;
-            $text .= $isRowBound ? '('.implode(', ', array_map($this->argumentText(...), $boundKey)).')' : '';
+        if ($handle !== null) {
+            $text .= ' for '.$this->handleText($handle);
             $text .= $alias === null ? '' : ' as '.$alias->name;
         }
 
@@ -932,6 +935,17 @@ final class RuleTextLayout
         }
 
         return $text;
+    }
+
+    private function handleText(IHandleNode $handle): string
+    {
+        return match (true) {
+            $handle instanceof RelationHandleNode => 'its '.$handle->relation->name,
+            $handle instanceof SchemaHandleNode && $handle->hasRowSelector => $handle->schemaKey->name
+                .'('.implode(', ', array_map($this->argumentText(...), $handle->boundKey)).')',
+            $handle instanceof SchemaHandleNode => $handle->schemaKey->name,
+            default => throw new LogicException('Cannot lay out unknown handle '.$handle::class.'.'),
+        };
     }
 
     // -------------------------------------------------------------------------

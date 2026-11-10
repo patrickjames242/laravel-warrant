@@ -65,7 +65,7 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *   and      := not ('and' not)*
  *   not      := 'not' not | primary
  *   primary  := '(' expr ')' | can_expr | check_expr | condition
- *   can_expr := 'can' '(' can_ability ( 'for' handle ( 'with' with_map )? )? ')'
+ *   can_expr := 'can' '(' can_ability ( 'for' handle ( 'as' IDENTIFIER )? ( 'with' with_map )? )? ')'
  *             | 'can' can_ability
  *              -- without `for` nothing is crossed: another ability of this
  *                 schema, over the row and context the rule already has. Only
@@ -73,12 +73,16 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *                 `can <ability>` is never its own
  *   can_ability := IDENTIFIER | NAMED_BINDING
  *              -- one ability: a binding's value is a single ability name
- *   check_expr := 'check' '(' expr 'for' handle ( 'with' with_map )? ')'
+ *   check_expr := 'check' '(' expr 'for' handle ( 'as' IDENTIFIER )? ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
- *   handle   := IDENTIFIER ( '(' arg ')' )? ( 'as' IDENTIFIER )?
- *              -- no parens: unbound; one arg: row-bound. `as` names the rows this
- *                 reference selects, so a @column can tell them apart from a table
- *                 of the same name further out; only a row-bound handle may take one.
+ *   handle   := 'its' IDENTIFIER
+ *             | IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
+ *              -- `its` follows a row relation of the schema the rule is for, from
+ *                 the row it is about. A schema name with no parens is unbound; with
+ *                 them it is row-bound, its args the target's row key. `as` names the
+ *                 rows a reference selects, so a @column can tell them apart from a
+ *                 table of the same name further out; only a row-bound handle may
+ *                 take one.
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
