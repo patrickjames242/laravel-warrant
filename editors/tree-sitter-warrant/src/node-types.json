@@ -459,6 +459,20 @@
           }
         ]
       },
+      "quantifier": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "all",
+            "named": false
+          },
+          {
+            "type": "any",
+            "named": false
+          }
+        ]
+      },
       "relation": {
         "multiple": false,
         "required": false,
@@ -868,7 +882,15 @@
     "named": false
   },
   {
+    "type": "all",
+    "named": false
+  },
+  {
     "type": "and",
+    "named": false
+  },
+  {
+    "type": "any",
     "named": false
   },
   {
@@ -939,6 +961,10 @@
   {
     "type": "null",
     "named": true
+  },
+  {
+    "type": "of",
+    "named": false
   },
   {
     "type": "or",

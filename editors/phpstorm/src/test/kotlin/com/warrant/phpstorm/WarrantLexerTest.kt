@@ -40,6 +40,10 @@ class WarrantLexerTest : BasePlatformTestCase() {
         assertEquals(listOf("for", "its"), keywords("for its folder itself"))
     }
 
+    fun testReadsAnyAllAndOfAsKeywordsAndNamesThatStartWithThemAsNames() {
+        assertEquals(listOf("for", "all", "of", "its"), keywords("for all of its folder anyone allowed office"))
+    }
+
     /** The text of each keyword the lexer finds in $text. */
     private fun keywords(text: String): List<String> {
         val lexer = WarrantLexer()

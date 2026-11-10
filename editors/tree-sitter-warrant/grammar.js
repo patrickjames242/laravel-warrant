@@ -221,7 +221,9 @@ module.exports = grammar({
     // for, or a schema name, optionally row-bound by a single selector
     // argument. Either may name the rows it selects. A schema name without the
     // selector is unbound (no row involved), and an alias needs a row to name.
+    // `any of` or `all of` before either says how many of the rows must pass.
     handle: $ => seq(
+      optional(seq(field('quantifier', choice('any', 'all')), 'of')),
       choice(
         seq('its', field('relation', $.identifier)),
         seq(
