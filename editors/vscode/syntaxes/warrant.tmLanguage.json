@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Warrant",
   "scopeName": "source.warrant",
-  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is a schema name, optionally row-bound with a single `(<arg>)` selector and optionally naming the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on, and then may drop its parentheses too, as `can <ability>`. Arguments may be literals, :name bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), or @sql \"<sql>\" (an arbitrary SQL fragment). If the DSL grows new tokens/keywords, add matching patterns here.",
+  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is `its <relation>`, following a #[RowRelation] of the schema the rule is for, or a schema name, optionally row-bound with a `(<arg>, …)` selector; either may name the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on, and then may drop its parentheses too, as `can <ability>`. Arguments may be literals, :name bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), or @sql \"<sql>\" (an arbitrary SQL fragment). If the DSL grows new tokens/keywords, add matching patterns here.",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
@@ -12,6 +12,7 @@
     { "include": "#sql-ref" },
     { "include": "#named-binding" },
     { "include": "#ability-block-header" },
+    { "include": "#relation-handle" },
     { "include": "#schema-target" },
     { "include": "#keywords" },
     { "include": "#constants" },
@@ -115,15 +116,24 @@
     },
     "schema-target": {
       "comment": "`for <schema>` — both the header of a top-level `for <schema> { ... }` rule-set block and the `for <schema-handle>` inside a cross-schema can(...)/check(...). Highlights `for` as a keyword and the schema name that follows it as a namespace. Any optional row-binding `(@context id)` after the name is tokenized by the other rules. Same-line only (a match cannot span lines); when `for` and the name are on different lines, `for` falls back to the keyword rule below.",
-      "match": "\\b(for)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)",
+      "match": "\\b(for)\\b\\s+(?!its\\b)([A-Za-z_][A-Za-z0-9_-]*)",
       "captures": {
         "1": { "name": "keyword.control.warrant" },
         "2": { "name": "entity.name.namespace.warrant" }
       }
     },
+    "relation-handle": {
+      "comment": "`for its <relation>` — a handle that follows a #[RowRelation] of the schema the rule is for. Highlights `for` and `its` as keywords and the relation's name as a namespace, as a schema name is in the same place, with `.relation` beside it for a theme that tells the two apart. Same-line only; split across lines, `for` and `its` fall back to the keyword rule below.",
+      "match": "\\b(for)\\b\\s+\\b(its)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)",
+      "captures": {
+        "1": { "name": "keyword.control.warrant" },
+        "2": { "name": "keyword.control.warrant" },
+        "3": { "name": "entity.name.namespace.relation.warrant" }
+      }
+    },
     "keywords": {
       "comment": "The DSL's reserved words (Lexer::KEYWORDS). `can`/`check` also act as expression-position builtins for cross-schema references; they still scope as keywords here.",
-      "match": "\\b(if|when|otherwise|they|can|cannot|because|and|or|not|check|for|with|as)\\b",
+      "match": "\\b(if|when|otherwise|they|can|cannot|because|and|or|not|check|for|with|as|its)\\b",
       "name": "keyword.control.warrant"
     },
     "constants": {

@@ -459,6 +459,16 @@
           }
         ]
       },
+      "relation": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
       "row": {
         "multiple": false,
         "required": false,
@@ -471,7 +481,7 @@
       },
       "schema": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "identifier",
@@ -913,6 +923,10 @@
   {
     "type": "integer",
     "named": true
+  },
+  {
+    "type": "its",
+    "named": false
   },
   {
     "type": "named_binding",

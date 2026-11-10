@@ -782,14 +782,6 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "FIELD",
-          "name": "schema",
-          "content": {
-            "type": "SYMBOL",
-            "name": "identifier"
-          }
-        },
-        {
           "type": "CHOICE",
           "members": [
             {
@@ -797,24 +789,59 @@
               "members": [
                 {
                   "type": "STRING",
-                  "value": "("
+                  "value": "its"
                 },
                 {
                   "type": "FIELD",
-                  "name": "row",
+                  "name": "relation",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "_argument"
+                    "name": "identifier"
                   }
-                },
-                {
-                  "type": "STRING",
-                  "value": ")"
                 }
               ]
             },
             {
-              "type": "BLANK"
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "schema",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  }
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": "("
+                        },
+                        {
+                          "type": "FIELD",
+                          "name": "row",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "_argument"
+                          }
+                        },
+                        {
+                          "type": "STRING",
+                          "value": ")"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },

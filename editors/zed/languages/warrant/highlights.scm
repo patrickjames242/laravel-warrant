@@ -20,6 +20,7 @@
   "for"
   "with"
   "as"
+  "its"
   "and"
   "or"
   "not"
@@ -34,6 +35,10 @@
 
 (handle
   schema: (identifier) @type)
+
+; A row relation after `its`, which stands where a schema name would.
+(handle
+  relation: (identifier) @type)
 
 ; Condition names, and the ability named inside `can(...)`.
 (condition

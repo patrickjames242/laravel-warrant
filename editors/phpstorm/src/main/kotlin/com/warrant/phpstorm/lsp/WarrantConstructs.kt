@@ -17,6 +17,7 @@ import com.warrant.phpstorm.WarrantNames
 enum class WarrantKind(val wireValue: String, val label: String) {
     CONDITION("condition", "Warrant condition"),
     TEMPLATE("template", "Warrant template"),
+    RELATION("relation", "Warrant row relation"),
     ABILITY("ability", "Warrant ability"),
     SCHEMA("schema", "Warrant schema");
 
@@ -44,13 +45,13 @@ data class WarrantConstruct(
     val nameDeclaredBy: PsiElement,
 ) {
     /**
-     * Whether a rename renames it with its uses in rule text: a condition or
-     * template does. An ability and a schema never do, so renaming an ability
-     * constant's value changes only the string, and renaming a schema's class
-     * leaves its key, which rule text names it by.
+     * Whether a rename renames it with its uses in rule text: a condition,
+     * template or row relation does. An ability and a schema never do, so
+     * renaming an ability constant's value changes only the string, and renaming
+     * a schema's class leaves its key, which rule text names it by.
      */
     val isRenamable: Boolean
-        get() = kind == WarrantKind.CONDITION || kind == WarrantKind.TEMPLATE
+        get() = kind == WarrantKind.CONDITION || kind == WarrantKind.TEMPLATE || kind == WarrantKind.RELATION
 
     /** The name rule text uses for it once [nameDeclaredBy] is renamed to [newName]. */
     fun nameAfterRename(newName: String): String =
@@ -58,9 +59,10 @@ data class WarrantConstruct(
 }
 
 /**
- * Finds the conditions, templates and abilities the PHP declares: a method
- * carrying a condition or template attribute, and a class constant carrying an
- * ability attribute, whose value is the ability's name.
+ * Finds the conditions, templates, row relations and abilities the PHP
+ * declares: a method carrying a condition, template or row relation attribute,
+ * and a class constant carrying an ability attribute, whose value is the
+ * ability's name.
  */
 object WarrantConstructs {
 
@@ -71,6 +73,9 @@ object WarrantConstructs {
     )
 
     private const val TEMPLATE_ATTRIBUTE = "\\Warrant\\Schema\\RuleTemplates\\RuleTemplate"
+
+    /** Names its schema first, so its key by position is its second argument. */
+    private const val RELATION_ATTRIBUTE = "\\Warrant\\Schema\\Relations\\RowRelation"
 
     /** What every schema class implements. */
     private const val SCHEMA_INTERFACE = "\\Warrant\\Schema\\Types\\Interfaces\\ISchema"
@@ -139,19 +144,22 @@ object WarrantConstructs {
         return keyOf(method) ?: method
     }
 
-    /** Whether [method] declares a condition or template, and which. */
+    /** Whether [method] declares a condition, template or row relation, and which. */
     fun kindOf(method: Method): WarrantKind? = when {
         method.attributes.any { it.fqn in CONDITION_ATTRIBUTES } -> WarrantKind.CONDITION
         method.attributes.any { it.fqn == TEMPLATE_ATTRIBUTE } -> WarrantKind.TEMPLATE
+        method.attributes.any { it.fqn == RELATION_ATTRIBUTE } -> WarrantKind.RELATION
         else -> null
     }
 
     /**
-     * The key [method]'s condition or template attribute is given, when it is
-     * given as a string: by the `key` name, or first.
+     * The key [method]'s condition, template or row relation attribute is given,
+     * when it is given as a string: by the `key` name, or by position.
      */
     fun keyOf(method: Method): StringLiteralExpression? {
-        val attribute = method.attributes.firstOrNull { it.fqn in CONDITION_ATTRIBUTES || it.fqn == TEMPLATE_ATTRIBUTE } ?: return null
+        val attribute = method.attributes.firstOrNull {
+            it.fqn in CONDITION_ATTRIBUTES || it.fqn == TEMPLATE_ATTRIBUTE || it.fqn == RELATION_ATTRIBUTE
+        } ?: return null
 
         return keyArgumentOf(attribute) as? StringLiteralExpression
     }
@@ -164,8 +172,12 @@ object WarrantConstructs {
         return if (keyArgumentOf(attribute) === literal && kindOf(method) != null) method else null
     }
 
-    /** The argument [attribute] is given its key by: by the `key` name, or first. */
-    private fun keyArgumentOf(attribute: PhpAttribute): PsiElement? = attribute.getParameter("key", 0)
+    /**
+     * The argument [attribute] is given its key by: by the `key` name, or by
+     * position, which is first, or second for a row relation.
+     */
+    private fun keyArgumentOf(attribute: PhpAttribute): PsiElement? =
+        attribute.getParameter("key", if (attribute.fqn == RELATION_ATTRIBUTE) 1 else 0)
 
     /** The ability constant [literal] is the value of. */
     private fun abilityConstantOf(literal: StringLiteralExpression): Field? {

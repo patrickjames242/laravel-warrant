@@ -217,12 +217,18 @@ module.exports = grammar({
       ')',
     ),
 
-    // A schema name, optionally row-bound by a single selector argument and
-    // optionally naming the rows it selects. Without the selector the handle is
-    // unbound (no row involved), and an alias needs a row to name.
+    // `its <relation>`, following a #[RowRelation] of the schema the rule is
+    // for, or a schema name, optionally row-bound by a single selector
+    // argument. Either may name the rows it selects. A schema name without the
+    // selector is unbound (no row involved), and an alias needs a row to name.
     handle: $ => seq(
-      field('schema', $.identifier),
-      optional(seq('(', field('row', $._argument), ')')),
+      choice(
+        seq('its', field('relation', $.identifier)),
+        seq(
+          field('schema', $.identifier),
+          optional(seq('(', field('row', $._argument), ')')),
+        ),
+      ),
       optional(seq('as', field('alias', $.identifier))),
     ),
 

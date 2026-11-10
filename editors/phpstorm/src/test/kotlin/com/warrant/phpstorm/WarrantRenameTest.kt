@@ -309,4 +309,58 @@ class WarrantRenameTest : BasePlatformTestCase() {
         assertEquals(listOf("if", "check"), conditions.map { (it.parent.parent as com.jetbrains.php.lang.psi.elements.FunctionReference).name })
         assertEquals(emptyList<String>(), WarrantNameStringsAfterRename.stringsNaming(project, "edit").map { it.text })
     }
+
+    private val folderSchema = """
+        <?php
+        namespace App;
+
+        use Warrant\Schema\Relations\RowRelation;
+
+        class FolderSchema
+        {
+            #[RowRelation(DocumentSchema::class, 'contents')]
+            public function documents(${'$'}c) {}
+
+            #[RowRelation(FolderSchema::class)]
+            public function parentFolder(${'$'}c) {}
+
+            public function rules(): string
+            {
+                return <<<'WARRANT'
+                    if can(view for its contents) they can share
+                    if can(share for its parent_folder) they can share
+                    WARRANT;
+            }
+        }
+    """.trimIndent()
+
+    private fun configureFolders(): VirtualFile {
+        val file = myFixture.addFileToProject("app/FolderSchema.php", folderSchema).virtualFile
+        server.searched = listOf("app/FolderSchema.php")
+        server.declare(file, "documents", WarrantKind.RELATION, "contents", taken = listOf("parent_folder"))
+        server.declare(file, "parentFolder", WarrantKind.RELATION, "parent_folder", taken = listOf("contents"))
+
+        return file
+    }
+
+    fun testRenamingARowRelationKeyGivenSecondRenamesItsUsesAndLeavesTheMethod() {
+        val file = configureFolders()
+
+        myFixture.renameElement(element<StringLiteralExpression>(file) { it.contents == "contents" }, "files")
+
+        val text = text(file)
+        assertTrue(text.contains("#[RowRelation(DocumentSchema::class, 'files')]"))
+        assertTrue(text.contains("public function documents("))
+        assertTrue(text.contains("if can(view for its files) they can share"))
+    }
+
+    fun testRenamingARowRelationMethodRenamesItsUsesInSnakeCase() {
+        val file = configureFolders()
+
+        myFixture.renameElement(element<Method>(file) { it.name == "parentFolder" }, "enclosingFolder")
+
+        val text = text(file)
+        assertTrue(text.contains("public function enclosingFolder("))
+        assertTrue(text.contains("if can(share for its enclosing_folder) they can share"))
+    }
 }

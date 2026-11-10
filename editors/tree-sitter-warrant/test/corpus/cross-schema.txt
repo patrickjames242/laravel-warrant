@@ -192,3 +192,49 @@ they can submit
       abilities: (ability_list
         (ability
           (identifier))))))
+
+========================================
+a handle following a row relation, aliased, and in a check
+========================================
+
+if can(view for its folder as f) or check(is_open for its folder)
+they can update
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (or_expression
+        left: (can_expression
+          ability: (identifier)
+          target: (handle
+            relation: (identifier)
+            alias: (identifier)))
+        right: (check_expression
+          predicate: (condition
+            name: (identifier))
+          target: (handle
+            relation: (identifier)))))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))
+
+========================================
+a name that starts with its
+========================================
+
+if itself they can view
+
+---
+
+(source_file
+  (rule
+    (condition_clause
+      condition: (condition
+        name: (identifier)))
+    (can_clause
+      abilities: (ability_list
+        (ability
+          (identifier))))))

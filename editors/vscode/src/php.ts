@@ -86,8 +86,9 @@ export function memberAt(document: vscode.TextDocument, position: vscode.Positio
 }
 
 /**
- * The members of `document` that may declare a condition, template, ability or
- * schema: each method and constant carrying an attribute, and each class.
+ * The members of `document` that may declare a condition, template, row
+ * relation, ability or schema: each method and constant carrying an attribute,
+ * and each class.
  */
 export function membersOf(document: vscode.TextDocument): PhpMember[] {
   const text = document.getText()
@@ -121,8 +122,9 @@ export function membersOf(document: vscode.TextDocument): PhpMember[] {
 /**
  * Where `document` writes the name of the `kind` that `member` declares and
  * rule text calls `name`: an ability constant's value, or failing that the
- * constant; a condition's or template's key, when its attribute gives one,
- * or else its method; a schema's class. Undefined when `member` is not found.
+ * constant; a condition's, template's or row relation's key, when its attribute
+ * gives one, or else its method; a schema's class. Undefined when `member` is
+ * not found.
  */
 export function declarationSite(document: vscode.TextDocument, kind: string, member: string, name: string): DeclarationSite | undefined {
   const text = document.getText()
@@ -179,8 +181,12 @@ export function positionIn(text: string, offset: number): vscode.Position {
 }
 
 /**
- * What the string whose contents are `contents` is: a condition's or
- * template's key, or an ability constant's value.
+ * What the string whose contents are `contents` is: a condition's, template's or
+ * row relation's key, or an ability constant's value.
+ *
+ * A key is an attribute's first argument, or its `key:`. A `#[RowRelation]`
+ * names its schema first, so its key by position is the second argument, after
+ * the `::class`.
  */
 function stringMember(document: vscode.TextDocument, contents: vscode.Range): PhpMember | undefined {
   const text = document.getText()
@@ -196,7 +202,8 @@ function stringMember(document: vscode.TextDocument, contents: vscode.Range): Ph
 
   const attribute = before.slice(before.lastIndexOf('#['))
   const isKey = before.includes('#[') && !/[;{}\]]/.test(attribute.slice(2)) &&
-    (/^#\[\s*\\?[\w\\]+\s*\(\s*$/.test(attribute) || /[(,]\s*key\s*:\s*$/.test(attribute))
+    (/^#\[\s*\\?[\w\\]+\s*\(\s*$/.test(attribute) || /[(,]\s*key\s*:\s*$/.test(attribute) ||
+      /^#\[\s*\\?(?:[\w\\]*\\)?RowRelation\s*\(\s*\\?[\w\\]+::class\s*,\s*$/.test(attribute))
   const method = isKey ? METHOD_AFTER_ATTRIBUTE.exec(text.slice(end, end + REACH)) : null
 
   return method === null ? undefined : { kind: 'key', member: method[1], range: contents, text: value }

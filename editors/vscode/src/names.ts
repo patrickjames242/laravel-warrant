@@ -13,7 +13,7 @@
 /** Mirror of the lexer's keywords and constants, which a name cannot be. */
 const RESERVED = new Set([
   'if', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not',
-  'for', 'with', 'as', 'when', 'otherwise', 'true', 'false', 'null',
+  'for', 'with', 'as', 'its', 'when', 'otherwise', 'true', 'false', 'null',
 ])
 
 /** One name as the lexer reads it: a letter or underscore, then letters, digits, `_` and `-`. */

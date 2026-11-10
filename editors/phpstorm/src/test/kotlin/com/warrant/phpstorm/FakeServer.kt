@@ -27,6 +27,9 @@ namespace Warrant\Schema\Conditions\Row {
 namespace Warrant\Schema\RuleTemplates {
     #[\Attribute] class RuleTemplate {}
 }
+namespace Warrant\Schema\Relations {
+    #[\Attribute] class RowRelation {}
+}
 namespace Warrant\Schema\Types\Interfaces {
     interface ISchema {}
 }
