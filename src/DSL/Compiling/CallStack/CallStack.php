@@ -1,6 +1,8 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\CallStack;
+
+use Warrant\DSL\Compiling\RuleSetCompiler;
 
 /**
  * The stack of layers {@see RuleSetCompiler} has descended through to reach the

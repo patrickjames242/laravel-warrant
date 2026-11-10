@@ -7,7 +7,7 @@ use Warrant\AbilityMatchMode;
 use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
 use Warrant\Builders\WarrantConditionBuilder;
-use Warrant\DSL\Compiling\CrossSchemaCycleException;
+use Warrant\DSL\Compiling\CallStack\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;

@@ -4,7 +4,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 
 use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
-use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Compiling\Reachability\ReachabilityAnalyzer;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;

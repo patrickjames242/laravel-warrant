@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
 use Warrant\Builders\Build;
 use Warrant\Builders\Ref;
-use Warrant\DSL\Compiling\CrossSchemaCycleException;
+use Warrant\DSL\Compiling\CallStack\CrossSchemaCycleException;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;

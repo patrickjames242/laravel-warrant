@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\CallStack;
 
 /**
  * Renders a {@see CallStack} as a numbered, human-readable trace for an exception

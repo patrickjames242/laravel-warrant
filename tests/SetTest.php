@@ -1,6 +1,6 @@
 <?php
 
-use Warrant\DSL\Compiling\TruthValue;
+use Warrant\DSL\Compiling\Reachability\TruthValue;
 use Warrant\Support\Set;
 
 it('adds, removes and looks up members', function () {

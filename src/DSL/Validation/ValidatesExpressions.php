@@ -187,7 +187,7 @@ trait ValidatesExpressions
      *
      * The target may be this schema itself. Two frames over one table are told
      * apart by naming the hop's rows (`as d2`), and recursion is bounded by
-     * {@see \Warrant\DSL\Compiling\CallStack}, which rejects re-entering an
+     * {@see \Warrant\DSL\Compiling\CallStack\CallStack}, which rejects re-entering an
      * ability already in progress and caps depth for everything else — so a
      * self-reference has to name a *different* ability to compile at all.
      */

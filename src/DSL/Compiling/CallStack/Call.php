@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\CallStack;
 
 use Throwable;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;

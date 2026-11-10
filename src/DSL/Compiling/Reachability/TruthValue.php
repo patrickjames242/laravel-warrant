@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\Reachability;
 
 /**
  * One of the three truth values a compiled condition can take for a row: SQL's

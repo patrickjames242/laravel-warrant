@@ -1,6 +1,6 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\CallStack;
 
 /**
  * What kind of layer a {@see Call} on the {@see CallStack} represents.

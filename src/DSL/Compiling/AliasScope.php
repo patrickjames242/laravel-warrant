@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Compiling;
 
 use InvalidArgumentException;
+use Warrant\DSL\Compiling\CallStack\CallStack;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 
 /**

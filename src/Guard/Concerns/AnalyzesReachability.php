@@ -3,7 +3,7 @@
 namespace Warrant\Guard\Concerns;
 
 use Warrant\AbilityMatchMode;
-use Warrant\DSL\Compiling\ReachabilityAnalyzer;
+use Warrant\DSL\Compiling\Reachability\ReachabilityAnalyzer;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\Reachability;
 

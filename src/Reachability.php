@@ -13,7 +13,7 @@ namespace Warrant;
  * granted alongside another the user can never hold is NEVER, and one granted on
  * another they always hold is ALWAYS.
  *
- * @see \Warrant\DSL\Compiling\ReachabilityAnalyzer for how an ability is judged.
+ * @see \Warrant\DSL\Compiling\Reachability\ReachabilityAnalyzer for how an ability is judged.
  */
 enum Reachability
 {

@@ -1,8 +1,9 @@
 <?php
 
-namespace Warrant\DSL\Compiling;
+namespace Warrant\DSL\Compiling\Reachability;
 
 use Closure;
+use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Expanding\DerivedConditionNode;
 use Warrant\DSL\Expanding\UnknownNode;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
