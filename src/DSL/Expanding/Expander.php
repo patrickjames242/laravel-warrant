@@ -203,9 +203,10 @@ final class Expander
             throw new RuleValidationException(
                 $e instanceof RuleValidationException ? $e->diagnosticCode : DiagnosticCode::InvalidRule,
                 sprintf('%s answered with a mistake: %s', $producer->describe(), $reason),
-                $e instanceof RuleValidationException ? $e->position : null,
+                $e instanceof RuleValidationException ? $e->excerpt : null,
                 $e,
                 $e instanceof RuleValidationException ? $e->span : null,
+                $e instanceof RuleValidationException ? $e->hint : null,
             );
         }
     }

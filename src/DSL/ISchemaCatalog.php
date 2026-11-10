@@ -25,6 +25,14 @@ interface ISchemaCatalog
     public function find(string $schemaKey): ?Vocabulary;
 
     /**
+     * The keys every schema is registered under, such as an error lists to say
+     * which one a misspelt key could have meant.
+     *
+     * @return list<string>
+     */
+    public function schemaKeys(): array;
+
+    /**
      * The key $schemaClass is registered under, or null when it is not a
      * registered schema. This is how a row relation, which names its target by
      * class, reaches the schema rule text knows by key.

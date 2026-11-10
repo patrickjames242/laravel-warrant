@@ -27,10 +27,12 @@ Extends `RuntimeException` and carries `$source`, `$offset`, `$sourceLine`, and
 `$sourceColumn`.
 
 ```text
-Reserved word 'can' cannot be used as a name; expected an ability name. (line 1, column 21)
+Reserved word 'can' cannot be used as a name; expected an ability name.
 
-    if is_self they can can
-                        ^
+  --> line 1, column 21
+
+  1 | if is_self they can can
+    |                     ^^^
 ```
 
 Representative messages:
@@ -70,10 +72,55 @@ Expected a single rule, but the source holds a rule set for [documents].
 The rule text targets schema [documents] in its `for` header but was scoped to [folders].
 ```
 
+## Where an error points
+
+A syntax or validation error in rule text says where it is, shows the line with
+the one before and after it, and underlines what it is about:
+
+```text
+Schema [time_offs] declares no row relation [blah].
+
+  --> app/Schemas/TimeOffSchema.php:93:46
+      in the rules() of schema [App\Schemas\TimeOffSchema]
+
+  92 |             and themselves
+  93 |             and not can(approve_time_off for its blah)
+     |                                                  ^^^^
+  94 |         they cannot because 'Someone who approves your time off has to sign off its cancellation.'
+
+Schema [time_offs] declares one row relation: [user]. A row relation is a #[RowRelation] method on TimeOffSchema.
+```
+
+The path and line are those of the file the text is written in, when Warrant can
+show that file holds it:
+
+- the `.warrant` file `warrant_file()` read it from;
+- the string a `warrant()` call was given, wherever that call is, since
+  `warrant()` notes the file and line it is called from;
+- the one string the method that answered returns: a schema's or provider's
+  `rules()`, a rule template, or a derived condition.
+
+The exception's own `getFile()` and `getLine()` are then that place too, so an
+error page opens the rule text rather than Warrant's validator.
+
+A string returned through other functions, or built from parts, is in no file
+Warrant can read. Its error names what answered with it and shows the text's own
+lines instead:
+
+```text
+  --> line 3, column 18 of the rules() of schema [App\Schemas\TimeOffSchema]
+```
+
+Return such text through `warrant()` to have its errors point at it.
+
+An error about a name that is not declared ends with the declared names closest
+to it, `Did you mean [is_owner]?`, the same the editor's quick fix offers.
+
 ## Validation, `RuleValidationException`
 
 Extends `InvalidArgumentException`. Each points at the text it is about, in the
-source that text was written in.
+source that text was written in. `$reason` is the error alone, `$hint` what may
+fix it, and `$excerpt` where it is.
 
 ### Bindings
 
@@ -88,6 +135,7 @@ Each needs the values, so an editor, which has none, reports none of them.
 
 - `Ability [%s] is not declared by the schema.`
 - `Condition [%s] is declared by neither schema [%s] nor any global schema.`
+- `Schema [%s] declares no row relation [%s].`, after `its`, with the relations the schema declares as its hint.
 - `Condition [%s] is declared by no global schema; the text global schema [%s] answers with looks only in the global schemas.`: a name in what a global schema's template or derived condition answered with, which is looked up in the global schemas alone.
 - `Condition [%s] requires at least %d argument(s), but the rule supplied %d.`
 - `Condition [%s] takes at most %d argument(s), but the rule supplied %d.`: more arguments than the method has parameters for, when its last is not variadic.

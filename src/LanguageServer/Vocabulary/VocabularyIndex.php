@@ -40,6 +40,11 @@ final readonly class VocabularyIndex implements ISchemaCatalog
         return $this->schema($schemaKey)?->vocabulary;
     }
 
+    public function schemaKeys(): array
+    {
+        return array_map('strval', array_keys($this->schemas));
+    }
+
     public function globalClasses(): array
     {
         return array_map(static fn (IndexedSchema $schema): string => $schema->className, $this->globals);

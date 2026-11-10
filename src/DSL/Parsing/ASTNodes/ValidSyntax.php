@@ -80,7 +80,7 @@ final readonly class ValidSyntax extends WarrantSyntax
         /* Every node of a parsed text is placed where it was written, so every
            mistake has a span; the start of the text stands in should one ever not. */
         return new InvalidSyntax($syntax, $input, array_map(static fn (InvalidArgumentException $error): Diagnostic => new Diagnostic(
-            $error instanceof RuleValidationException ? $error->reason : $error->getMessage(),
+            $error instanceof RuleValidationException ? $error->reasonWithHint() : $error->getMessage(),
             $error instanceof RuleValidationException ? ($error->span?->offset ?? 0) : 0,
             $error instanceof RuleValidationException ? ($error->span?->endOffset ?? 0) : 0,
             $error instanceof RuleValidationException ? $error->diagnosticCode : DiagnosticCode::InvalidRule,

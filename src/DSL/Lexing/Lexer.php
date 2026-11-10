@@ -615,7 +615,7 @@ final class Lexer
     private function report(DiagnosticCode $code, string $message, int $offset, int $line, int $col, int $endOffset): void
     {
         if (! $this->tolerant) {
-            throw WarrantSyntaxException::atOffset($code, $message, $this->source, $offset, $line, $col);
+            throw WarrantSyntaxException::atOffset($code, $message, $this->source, $offset, $line, $col, $endOffset);
         }
 
         $this->diagnostics[] = new Diagnostic($message, $offset, $endOffset, $code);

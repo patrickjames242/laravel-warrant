@@ -38,6 +38,74 @@ final class LanguageRuleMessages
     }
 
     /**
+     * The declared names $written could have meant, as a question, or null when
+     * none is close.
+     *
+     * @param string $written The name as written.
+     * @param iterable<string> $declared The names of its kind it could have meant.
+     */
+    public static function didYouMean(string $written, iterable $declared): ?string
+    {
+        $closest = ClosestNames::to($written, $declared);
+
+        return $closest === [] ? null : sprintf('Did you mean %s?', self::eitherOf($closest));
+    }
+
+    /**
+     * What `its $written` could have named on schema $schemaKey: the row relations
+     * it declares, the closest one, and where a row relation is declared.
+     *
+     * @param string $written The relation's name as written.
+     * @param string $schemaKey The schema the rule is for.
+     * @param string $schemaClass Its class.
+     * @param list<string> $relations The row relations it declares.
+     */
+    public static function rowRelationsOf(string $written, string $schemaKey, string $schemaClass, array $relations): string
+    {
+        $declared = match (count($relations)) {
+            0 => sprintf('Schema [%s] declares no row relations.', $schemaKey),
+            1 => sprintf('Schema [%s] declares one row relation: [%s].', $schemaKey, $relations[0]),
+            default => sprintf('Schema [%s] declares the row relations %s.', $schemaKey, self::allOf($relations)),
+        };
+        $class = substr((string) strrchr('\\'.$schemaClass, '\\'), 1);
+
+        return implode(' ', array_filter([
+            $declared,
+            self::didYouMean($written, $relations),
+            sprintf('A row relation is a #[RowRelation] method on %s.', $class),
+        ]));
+    }
+
+    /**
+     * @param list<string> $names
+     */
+    private static function eitherOf(array $names): string
+    {
+        return self::listed($names, 'or');
+    }
+
+    /**
+     * @param list<string> $names
+     */
+    private static function allOf(array $names): string
+    {
+        return self::listed($names, 'and');
+    }
+
+    /**
+     * $names bracketed, as `[a]`, `[a] or [b]`, or `[a], [b] or [c]`.
+     *
+     * @param list<string> $names
+     */
+    private static function listed(array $names, string $conjunction): string
+    {
+        $bracketed = array_map(static fn (string $name): string => "[{$name}]", $names);
+        $last = array_pop($bracketed);
+
+        return $bracketed === [] ? (string) $last : implode(', ', $bracketed)." {$conjunction} {$last}";
+    }
+
+    /**
      * That none of the schemas a name written in $writtenIn is looked up in
      * declares it: the schema itself and the globals, or, for text a global
      * schema answered with, the globals alone.

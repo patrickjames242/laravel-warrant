@@ -129,10 +129,12 @@ A malformed rule throws `Warrant\DSL\Parsing\WarrantSyntaxException` at parse ti
 with a caret, which stays readable even when the whole set is one line:
 
 ```text
-Reserved word 'can' cannot be used as a name; expected an ability name. (line 1, column 21)
+Reserved word 'can' cannot be used as a name; expected an ability name.
 
-    if is_self they can can
-                        ^
+  --> line 1, column 21
+
+  1 | if is_self they can can
+    |                     ^^^
 ```
 
 Names are checked later, when the set is validated or compiled against its schema,

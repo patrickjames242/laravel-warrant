@@ -10,11 +10,16 @@ if (! function_exists('warrant')) {
      *
      *     return warrant('if in_team(:team) they can view', ['team' => $team]);
      *
+     * Where it is called is kept, so an error in the text can point at the line
+     * of PHP that wrote it, wherever that is.
+     *
      * @param array<string, mixed> $bindings Values for `:name` placeholders, by name.
      */
     function warrant(string $syntax, array $bindings = []): BoundSyntax
     {
-        return new BoundSyntax($syntax, $bindings);
+        $call = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0];
+
+        return new BoundSyntax($syntax, $bindings, calledInFile: $call['file'] ?? null, calledOnLine: $call['line'] ?? null);
     }
 }
 

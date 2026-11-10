@@ -98,7 +98,11 @@ final class ParsingState
      */
     public static function forSource(SyntaxSource $source): self
     {
-        return new self($source, self::grammarTokens((new Lexer($source->bound->syntax ?? ''))->tokenize()));
+        try {
+            return new self($source, self::grammarTokens((new Lexer($source->bound->syntax ?? ''))->tokenize()));
+        } catch (WarrantSyntaxException $error) {
+            throw $error->from($source);
+        }
     }
 
     /**

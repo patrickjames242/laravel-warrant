@@ -172,14 +172,14 @@ it('parses rules with comments between any two tokens as it parses them without'
 it('quotes a multibyte unexpected character whole', function () {
     $e = strictLexError('if café they can view');
 
-    expect($e->getMessage())->toStartWith("Unexpected character 'é'. (line 1, column 7)")
+    expect($e->getMessage())->toStartWith("Unexpected character 'é'.\n\n  --> line 1, column 7")
         ->and(json_encode($e->getMessage()))->not->toBeFalse();
 });
 
 it('names a byte that starts no UTF-8 character by its value', function () {
     $e = strictLexError("if a \xC3 they can view");
 
-    expect($e->getMessage())->toStartWith('Unexpected byte 0xC3. (line 1, column 6)');
+    expect($e->getMessage())->toStartWith("Unexpected byte 0xC3.\n\n  --> line 1, column 6");
 });
 
 it('points an invalid escape at its backslash', function () {

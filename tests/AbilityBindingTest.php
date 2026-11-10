@@ -175,11 +175,11 @@ it('reports a can expression binding whose value is not one ability name', funct
 it('reports a bound ability the schema does not declare', function (string $syntax, array $bindings, string $message) {
     expect(abilityBindingMistakes($syntax, $bindings))->toBe([$message]);
 })->with([
-    'in a can/cannot clause' => ['they can view, :more', ['more' => ['update', 'veiw']], 'Ability [veiw] is not declared by the schema.'],
-    'in a block header' => ['can they :abilities { they can }', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
-    'in an @include' => ['@include grants_it for :abilities', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
-    'in a can expression' => ['if can :ability they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by the schema.'],
-    'across a boundary' => ['if can(:ability for course_sections) they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by schema [course_sections].'],
+    'in a can/cannot clause' => ['they can view, :more', ['more' => ['update', 'veiw']], 'Ability [veiw] is not declared by the schema. Did you mean [view]?'],
+    'in a block header' => ['can they :abilities { they can }', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema. Did you mean [view]?'],
+    'in an @include' => ['@include grants_it for :abilities', ['abilities' => 'veiw'], 'Ability [veiw] is not declared by the schema. Did you mean [view]?'],
+    'in a can expression' => ['if can :ability they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by the schema. Did you mean [view]?'],
+    'across a boundary' => ['if can(:ability for course_sections) they can update', ['ability' => 'veiw'], 'Ability [veiw] is not declared by schema [course_sections]. Did you mean [view]?'],
 ]);
 
 it('accepts a bound * as declared', function () {

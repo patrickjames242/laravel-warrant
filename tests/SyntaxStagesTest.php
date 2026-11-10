@@ -80,7 +80,7 @@ it('checks an invalid syntax into every mistake it makes', function () {
     );
 
     expect($checked)->toBeInstanceOf(InvalidSyntax::class)
-        ->and($checked->diagnostics[0]->message)->toBe('Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.');
+        ->and($checked->diagnostics[0]->message)->toBe('Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema. Did you mean [is_teacher]?');
 });
 
 // -- expanding ----------------------------------------------------------------

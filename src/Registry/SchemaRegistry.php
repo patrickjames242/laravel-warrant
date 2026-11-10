@@ -344,6 +344,11 @@ final class SchemaRegistry implements ISchemaCatalog
         return $schemaKey;
     }
 
+    public function schemaKeys(): array
+    {
+        return array_map('strval', array_keys($this->schemasByKey));
+    }
+
     /**
      * The schema classes registered with Warrant. Loads none of them.
      *

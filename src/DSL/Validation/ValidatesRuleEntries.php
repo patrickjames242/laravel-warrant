@@ -187,6 +187,7 @@ trait ValidatesRuleEntries
                 DiagnosticCode::UnknownTemplate,
                 LanguageRuleMessages::unknownTemplate($writtenIn, $templateKey),
                 $include->templateKey->location,
+                LanguageRuleMessages::didYouMean($templateKey, $this->constructs()->ruleTemplateKeysFrom($writtenIn)),
             );
 
             return;
@@ -260,6 +261,7 @@ trait ValidatesRuleEntries
                         DiagnosticCode::UnknownAbility,
                         sprintf('Ability [%s] is not declared by the schema.', $name),
                         $ability->location,
+                        LanguageRuleMessages::didYouMean($name, $schema->abilityNames()),
                     );
                 }
             }

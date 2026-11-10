@@ -61,23 +61,23 @@ it('points an error in provided rule text at the condition it is about', functio
 
     expect($error)->toBeInstanceOf(RuleValidationException::class)
         ->and($error->reason)->toContain('is_teachr')
-        ->and($error->position->line)->toBe(2)
-        ->and($error->position->column)->toBe(4)
-        ->and($error->getMessage())->toContain("(line 2, column 4)\n\n    if is_teachr they can archive\n       ^");
+        ->and($error->excerpt->line())->toBe(2)
+        ->and($error->excerpt->column())->toBe(4)
+        ->and($error->getMessage())->toContain("\n\n  --> line 2, column 4 of the rule provider\n\n  1 | if is_teacher they can view\n  2 | if is_teachr they can archive\n    |    ^^^^^^^^^\n");
 });
 
 it('points an undeclared ability at the ability', function () {
     $error = providedRulesError('if is_teacher they can view, frobnicate');
 
     expect($error->reason)->toBe('Ability [frobnicate] is not declared by the schema.')
-        ->and($error->position->column)->toBe(30);
+        ->and($error->excerpt->column())->toBe(30);
 });
 
 it('points into the text an error is in, when a provider answers with several', function () {
     $error = providedRulesError(['if is_teacher they can view', "\n\nthey cannot frobnicate"]);
 
-    expect($error->position->source)->toBe("\n\nthey cannot frobnicate")
-        ->and($error->position->line)->toBe(3);
+    expect($error->excerpt->text)->toBe("\n\nthey cannot frobnicate")
+        ->and($error->excerpt->line())->toBe(3);
 });
 
 it('says only what is wrong with rules built in code, which have no text', function () {
@@ -90,12 +90,12 @@ it('checks each for body against the schema its header names', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse('for course_sections { if is_teacher they can view }')))
         ->not->toThrow(InvalidArgumentException::class)
         ->and(fn () => validateRegistered(WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")))
-        ->toThrow(RuleValidationException::class, 'Ability [frobnicate] is not declared by the schema. (line 2, column 12)');
+        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema.\n\n  --> line 2, column 12");
 });
 
 it('reports a for header that names no schema, at the name', function () {
     expect(fn () => validateRegistered(WarrantSyntax::parse('for nope { they can view }')))
-        ->toThrow(RuleValidationException::class, 'The `for` header names unknown schema [nope]. (line 1, column 5)');
+        ->toThrow(RuleValidationException::class, "The `for` header names unknown schema [nope].\n\n  --> line 1, column 5");
 });
 
 it('checks rules with no header only against a schema it is given', function () {
@@ -126,7 +126,7 @@ function validationDiagnostics(string $source): array
 it('reports every mistake in a text, each over the text it is about', function () {
     expect(validationDiagnostics("if is_teachr they can view, frobnicate\nif is_teacher and nope they cannot fly"))->toBe([
         ['Ability [frobnicate] is not declared by the schema.', 'frobnicate'],
-        ['Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.', 'is_teachr'],
+        ['Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema. Did you mean [is_teacher]?', 'is_teachr'],
         ['Ability [fly] is not declared by the schema.', 'fly'],
         ['Condition [nope] is declared by neither schema [course_sections] nor any global schema.', 'nope'],
     ]);
@@ -167,7 +167,7 @@ it('reports syntax errors and then the rules a text breaks, when analysed agains
     expect(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $diagnostics))->toBe([
         'Ability [frobnicate] is not declared by the schema.',
         'Ability [fly] is not declared by the schema.',
-        'Condition [is_teachr] is declared by neither schema [lessons] nor any global schema.',
+        'Condition [is_teachr] is declared by neither schema [lessons] nor any global schema. Did you mean [is_teacher]?',
     ])->and(analyzedDiagnostics($source, catalogOf([]))[0]->message)->toBe("Unexpected character '~'.");
 });
 
@@ -319,7 +319,7 @@ it('checks a text into an invalid syntax holding every mistake and the input', f
         ->and($checked->input->producer?->schemaKey)->toBe('course_sections')
         ->and(array_map(static fn (Diagnostic $diagnostic): string => $diagnostic->message, $checked->diagnostics))->toBe([
             'Ability [frobnicate] is not declared by the schema.',
-            'Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema.',
+            'Condition [is_teachr] is declared by neither schema [course_sections] nor any global schema. Did you mean [is_teacher]?',
         ]);
 });
 
@@ -385,5 +385,5 @@ it('holds rules with no header and no schema only to the rules of the language',
 
 it('validates each for body against its registered schema', function () {
     expect(fn () => WarrantSyntax::parse("for course_sections {\n  they can frobnicate\n}")->validate())
-        ->toThrow(RuleValidationException::class, 'Ability [frobnicate] is not declared by the schema. (line 2, column 12)');
+        ->toThrow(RuleValidationException::class, "Ability [frobnicate] is not declared by the schema.\n\n  --> line 2, column 12");
 });

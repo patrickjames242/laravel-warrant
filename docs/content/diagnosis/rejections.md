@@ -29,10 +29,12 @@ Thrown eagerly, with a line, a column, and a caret, which stays readable even wh
 the whole set is one line:
 
 ```text
-Reserved word 'can' cannot be used as a name; expected an ability name. (line 1, column 21)
+Reserved word 'can' cannot be used as a name; expected an ability name.
 
-    if is_self they can can
-                        ^
+  --> line 1, column 21
+
+  1 | if is_self they can can
+    |                     ^^^
 ```
 
 The exception carries the source so you can log it:

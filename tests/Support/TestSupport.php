@@ -1015,6 +1015,11 @@ function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatal
             return $this->behind?->keyOf($schemaClass);
         }
 
+        public function schemaKeys(): array
+        {
+            return array_values(array_unique([...array_map('strval', array_keys($this->schemas)), ...($this->behind?->schemaKeys() ?? [])]));
+        }
+
         public function globalClasses(): array
         {
             return $this->behind?->globalClasses() ?? [];
@@ -1125,4 +1130,15 @@ function denialMessageOf(RuleNode $rule, string $ability): mixed
     }
 
     return null;
+}
+
+/**
+ * The 1-based line of $path that first writes $text.
+ */
+function lineWriting(string $path, string $text): int
+{
+    $contents = (string) file_get_contents($path);
+    $offset = strpos($contents, $text);
+
+    return $offset === false ? 0 : substr_count(substr($contents, 0, $offset), "\n") + 1;
 }

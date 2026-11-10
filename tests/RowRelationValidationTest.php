@@ -95,7 +95,7 @@ it('reports a relation the schema does not declare, over its name', function () 
         ->toBe([[DiagnosticCode::UnknownRelation, 'nope']]);
 
     expect(fn () => validateDocSyntax('if can(view for its nope) they can view'))
-        ->toThrow(InvalidArgumentException::class, 'Schema [RvDocSchema] declares no row relation [nope].');
+        ->toThrow(InvalidArgumentException::class, 'Schema [rv_docs] declares no row relation [nope].');
 });
 
 it('reports a relation whose schema is not registered', function () {

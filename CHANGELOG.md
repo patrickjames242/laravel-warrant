@@ -6,6 +6,26 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ## Unreleased
 
+### Added
+
+- An error in rule text points at the file and line the text is written in: the
+  `.warrant` file it was read from, the string a `warrant()` call was given, or
+  the one string the method that answered returns. The exception's `getFile()`
+  and `getLine()` are that place too, so Laravel's error page opens the rule
+  text. `warrant()` notes the file and line it is called from for this.
+- An error about a name that is not declared ends with the closest declared
+  names, as `Did you mean [is_owner]?`, and one about a row relation lists the
+  relations the schema declares. `RuleValidationException::$hint` holds it.
+- `ISchemaCatalog::schemaKeys()` lists the keys of every registered schema.
+
+### Changed
+
+- An error's message shows the lines on either side of the one it is on, and
+  underlines all of what it is about, under a `-->` line giving where it is.
+  `RuleValidationException::$excerpt`, a `RuleTextExcerpt`, replaces
+  `$position`.
+- `Schema [%s] declares no row relation [%s].` names the schema by its key.
+
 ### Fixed
 
 - `warrant/usages` for a row relation analyzes only the files that write `its`

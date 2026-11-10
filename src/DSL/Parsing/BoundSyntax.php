@@ -21,11 +21,17 @@ readonly class BoundSyntax
      * @param array<string, mixed> $bindings
      * @param string|null $path The file the syntax was read from; null for
      *   syntax given in code.
+     * @param string|null $calledInFile The PHP file of the `warrant()` call that
+     *   wrote the syntax, so an error in it can point at the string there; null
+     *   when it was not written through `warrant()`.
+     * @param int|null $calledOnLine The line of that call.
      */
     public function __construct(
         public string $syntax,
         public array $bindings = [],
         public ?string $path = null,
+        public ?string $calledInFile = null,
+        public ?int $calledOnLine = null,
     ) {
     }
 

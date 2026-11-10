@@ -28,23 +28,23 @@ it('points a binding error at the binding it is about', function () {
 
     expect($error->reason)->toBe('No binding provided for ":missing".')
         ->and($error->span->offset)->toBe(13)
-        ->and($error->position->line)->toBe(2)
-        ->and($error->position->column)->toBe(9);
+        ->and($error->excerpt->line())->toBe(2)
+        ->and($error->excerpt->column())->toBe(9);
 });
 
 it('points an unused binding at the end of the text', function () {
     $error = bindingError("if a they can view\n", ['unused' => 1]);
 
     expect($error->span->offset)->toBe(19)
-        ->and($error->position->line)->toBe(2)
-        ->and($error->position->column)->toBe(1);
+        ->and($error->excerpt->line())->toBe(2)
+        ->and($error->excerpt->column())->toBe(1);
 });
 
 it('reports a value that cannot stand where its binding was written, at the binding', function () {
     $error = bindingError('they cannot view because :why', ['why' => 5]);
 
     expect($error->reason)->toBe('A denial message must be a string or a closure, got int.')
-        ->and($error->position->column)->toBe(26);
+        ->and($error->excerpt->column())->toBe(26);
 });
 
 it('reports binding errors in the order the bindings were written', function () {

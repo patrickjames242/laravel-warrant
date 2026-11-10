@@ -296,7 +296,8 @@ abstract class Parser
      */
     final protected function errorAt(DiagnosticCode $code, string $message, Token $token): WarrantSyntaxException
     {
-        return WarrantSyntaxException::at($code, $message, $this->state->text, $token);
+        // A tolerant read only notes the error, so it is not looked up in its file.
+        return WarrantSyntaxException::at($code, $message, $this->state->text, $token, $this->state->tolerant ? null : $this->state->source);
     }
 
     /**

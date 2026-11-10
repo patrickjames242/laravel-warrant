@@ -222,6 +222,7 @@ trait ExpandsRuleTemplates
             throw new RuleValidationException(
                 DiagnosticCode::UnknownTemplate,
                 LanguageRuleMessages::unknownTemplate($writtenIn, $include->templateKey->name),
+                hint: LanguageRuleMessages::didYouMean($include->templateKey->name, $this->catalog->constructs()->ruleTemplateKeysFrom($writtenIn)),
             );
         }
 

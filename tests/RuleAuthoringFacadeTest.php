@@ -58,7 +58,7 @@ it('parses a BoundSyntax with the bindings it holds', function () {
 
 it('holds rule text and its values through warrant()', function () {
     expect(warrant('if is_owner(:id) they can view', ['id' => 'x-1']))
-        ->toEqual(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1']));
+        ->toEqual(new BoundSyntax('if is_owner(:id) they can view', ['id' => 'x-1'], calledInFile: __FILE__, calledOnLine: __LINE__ - 1));
 });
 
 it('reads a file through warrant_file(), with the extension left off', function () {

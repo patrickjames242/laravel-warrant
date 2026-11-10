@@ -219,6 +219,7 @@ trait ValidatesExpressions
                 DiagnosticCode::UnknownAbility,
                 sprintf('Ability [%s] is not declared by schema [%s].', $ability, $schemaKey),
                 $node->ability->location,
+                LanguageRuleMessages::didYouMean($ability, $target->abilityNames()),
             );
         }
 
@@ -319,6 +320,7 @@ trait ValidatesExpressions
                 DiagnosticCode::UnknownSchema,
                 sprintf('A %s(...) reference targets unknown schema [%s].', $builtin, $schemaKey),
                 $handle->schemaKey->location,
+                LanguageRuleMessages::didYouMean($schemaKey, $this->input->catalog->schemaKeys()),
             );
 
             return null;
@@ -346,10 +348,13 @@ trait ValidatesExpressions
         $relation = $own->rowRelation($name);
 
         if ($relation === null) {
+            $ownKey = $catalog->keyOf($own->schemaClass) ?? $own->schemaClass;
+
             $this->fail(
                 DiagnosticCode::UnknownRelation,
-                sprintf('Schema [%s] declares no row relation [%s].', $own->schemaClass, $name),
+                sprintf('Schema [%s] declares no row relation [%s].', $ownKey, $name),
                 $handle->relation->location,
+                LanguageRuleMessages::rowRelationsOf($name, $ownKey, $own->schemaClass, $own->rowRelationKeys()),
             );
 
             return null;
@@ -443,7 +448,12 @@ trait ValidatesExpressions
         $lookedUp = self::abilityToLookUp($node, $this->input);
 
         if ($vocabulary !== null && $lookedUp !== null && $vocabulary->ability($lookedUp) === null) {
-            $this->fail(DiagnosticCode::UnknownAbility, sprintf('Ability [%s] is not declared by the schema.', $lookedUp), $node->ability->location);
+            $this->fail(
+                DiagnosticCode::UnknownAbility,
+                sprintf('Ability [%s] is not declared by the schema.', $lookedUp),
+                $node->ability->location,
+                LanguageRuleMessages::didYouMean($lookedUp, $vocabulary->abilityNames()),
+            );
         }
 
         $ability = $node->ability instanceof BindingNode ? ':'.$node->ability->name : $node->ability->name;
@@ -679,6 +689,7 @@ trait ValidatesExpressions
                 DiagnosticCode::UnknownCondition,
                 LanguageRuleMessages::unknownCondition($writtenIn, $node->conditionKey->name),
                 $node->conditionKey->location,
+                LanguageRuleMessages::didYouMean($node->conditionKey->name, $this->constructs()->conditionKeysFrom($writtenIn)),
             );
 
             return;

@@ -78,14 +78,19 @@ class RoleRuleController extends Controller
 }
 ```
 
-A syntax error comes back with a line, a column, and a caret, which is exactly what
-you want to put in front of an administrator:
+A syntax error comes back with a line, a column, the lines around it and the
+mistake underlined, which is exactly what you want to put in front of an
+administrator:
 
 ```text
-Reserved word 'can' cannot be used as a name; expected an ability name. (line 2, column 21)
+Reserved word 'can' cannot be used as a name; expected an ability name.
 
-    if is_self they can can
-                        ^
+  --> line 2, column 21
+
+  1 | for documents {
+  2 | if is_self they can can
+    |                     ^^^
+  3 | }
 ```
 
 A name error comes back naming the bad name:

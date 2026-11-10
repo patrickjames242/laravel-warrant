@@ -67,6 +67,40 @@ final class ConstructLookup
     }
 
     /**
+     * Every condition a name written in $writtenIn could name, in the order they
+     * are looked up in.
+     *
+     * @return list<string>
+     */
+    public function conditionKeysFrom(ISchemaId $writtenIn): array
+    {
+        $keys = [];
+
+        foreach ($this->searchForConstruct($writtenIn) as [, $vocabulary]) {
+            array_push($keys, ...$vocabulary->conditionKeys());
+        }
+
+        return array_values(array_unique(array_map('strval', $keys)));
+    }
+
+    /**
+     * Every rule template an `@include` written in $writtenIn could name, in the
+     * order they are looked up in.
+     *
+     * @return list<string>
+     */
+    public function ruleTemplateKeysFrom(ISchemaId $writtenIn): array
+    {
+        $keys = [];
+
+        foreach ($this->searchForConstruct($writtenIn) as [, $vocabulary]) {
+            array_push($keys, ...$vocabulary->ruleTemplateKeys());
+        }
+
+        return array_values(array_unique(array_map('strval', $keys)));
+    }
+
+    /**
      * The row relation `its $name` names in rules for $ownSchemaKey, or null when
      * that schema declares none.
      *

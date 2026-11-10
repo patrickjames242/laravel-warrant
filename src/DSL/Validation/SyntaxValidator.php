@@ -12,7 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\DiagnosticCode;
-use Warrant\DSL\Parsing\Positions\SourcePosition;
+use Warrant\DSL\Parsing\Positions\RuleTextExcerpt;
 use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 use Warrant\DSL\Parsing\SyntaxProducer;
 use Warrant\DSL\Parsing\SyntaxProducerKind;
@@ -269,6 +269,7 @@ final class SyntaxValidator
                 DiagnosticCode::UnknownSchema,
                 sprintf('The `for` header names unknown schema [%s].', $body->schemaKey()),
                 $body->schemaKey->location,
+                LanguageRuleMessages::didYouMean($body->schemaKey(), $this->input->catalog->schemaKeys()),
             );
         }
 
@@ -285,17 +286,17 @@ final class SyntaxValidator
      * @param DiagnosticCode $code Which kind of mistake it is.
      * @param string $reason What is wrong, in words for the author.
      * @param SyntaxLocation $at Where the thing the mistake is about was written.
+     * @param string|null $hint What may fix it, as a sentence or two.
      */
-    private function fail(DiagnosticCode $code, string $reason, SyntaxLocation $at): void
+    private function fail(DiagnosticCode $code, string $reason, SyntaxLocation $at, ?string $hint = null): void
     {
-        $mistake = $at->span === null
-            ? new RuleValidationException($code, $reason)
-            : new RuleValidationException(
-                $code,
-                $reason,
-                SourcePosition::at($at->source->bound->syntax ?? '', $at->span->offset),
-                span: $at->span,
-            );
+        /* Only a thrown mistake shows its excerpt, and finding the file the text
+           is written in may tokenize it, so a tolerant validation finds none. */
+        $excerpt = $at->span === null || $this->tolerant
+            ? null
+            : RuleTextExcerpt::of($at->source->bound->syntax ?? '', $at->span->offset, $at->span->endOffset, $at->source);
+
+        $mistake = new RuleValidationException($code, $reason, $excerpt, span: $at->span, hint: $hint);
 
         if (! $this->tolerant) {
             throw $mistake;

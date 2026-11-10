@@ -831,6 +831,10 @@ it('reports an unknown template over its name, and too few arguments over the in
         {
             return ltrim($schemaClass, '\\') === TemplateExpansionSchema::class ? 'course_sections' : null;
         }
+        public function schemaKeys(): array
+        {
+            return ['course_sections'];
+        }
         public function globalClasses(): array
         {
             return [];
@@ -924,8 +928,10 @@ it('reports a mistake in a template\'s rule text as the template\'s, pointing in
         validateSyntax('@include names_an_unknown_condition for view');
     } catch (RuleValidationException $error) {
         expect($error->reason)->toStartWith('Rule template [TemplateExpansionSchema::namesAnUnknownCondition] answered with a mistake: ')
-            ->and($error->position->source)->toBe('if no_such_condition they can')
-            ->and($error->position->column)->toBe(4);
+            ->and($error->excerpt->text)->toBe('if no_such_condition they can')
+            ->and($error->excerpt->file?->path)->toBe(__FILE__)
+            ->and($error->excerpt->line())->toBe(lineWriting(__FILE__, "return 'if no_such_condition they can';\n"))
+            ->and($error->excerpt->column())->toBe(20);
 
         return;
     }

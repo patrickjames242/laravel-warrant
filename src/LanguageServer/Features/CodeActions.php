@@ -3,6 +3,7 @@
 namespace Warrant\LanguageServer\Features;
 
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Validation\ClosestNames;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Positions\SlotKind;
 use Warrant\LanguageServer\Workspace;
@@ -14,9 +15,6 @@ use Warrant\LanguageServer\Workspace;
  */
 final class CodeActions
 {
-    /** How many replacements are offered for one name. */
-    private const MOST_SUGGESTIONS = 3;
-
     /**
      * The quick fixes for the diagnostics in $context.
      *
@@ -46,7 +44,7 @@ final class CodeActions
             $start = $document->offsetAt($range['start']);
             $written = substr($document->text, $start, $document->offsetAt($range['end']) - $start);
 
-            foreach (self::closest($written, self::declaredNames($workspace, $document, $range['start'], $code)) as $index => $name) {
+            foreach (ClosestNames::to($written, self::declaredNames($workspace, $document, $range['start'], $code)) as $index => $name) {
                 $actions[] = [
                     'title' => "Change to '{$name}'",
                     'kind' => 'quickfix',
@@ -106,31 +104,5 @@ final class CodeActions
             $schema !== null && $context->slot === SlotKind::Relation => array_map('strval', array_keys($schema->relations)),
             default => [],
         };
-    }
-
-    /**
-     * The names among $candidates close enough to $written to be what was
-     * meant, closest first.
-     *
-     * @param string $written The name as written.
-     * @param list<string> $candidates The declared names.
-     * @return list<string>
-     */
-    private static function closest(string $written, array $candidates): array
-    {
-        $allowed = max(2, intdiv(strlen($written), 3));
-        $distances = [];
-
-        foreach ($candidates as $candidate) {
-            $distance = levenshtein(strtolower($written), strtolower($candidate));
-
-            if ($distance > 0 && $distance <= $allowed) {
-                $distances[$candidate] = $distance;
-            }
-        }
-
-        asort($distances);
-
-        return array_slice(array_map('strval', array_keys($distances)), 0, self::MOST_SUGGESTIONS);
     }
 }

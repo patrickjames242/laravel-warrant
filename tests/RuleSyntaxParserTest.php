@@ -59,6 +59,10 @@ function languageRuleErrors(string $syntax): array
         {
             return null;
         }
+        public function schemaKeys(): array
+        {
+            return [];
+        }
         public function globalClasses(): array
         {
             return [];

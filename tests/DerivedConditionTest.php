@@ -276,8 +276,12 @@ it('reports a mistake in a derived condition\'s text as the condition\'s, pointi
         validateDkExpanded('if misspelled they can view');
     } catch (RuleValidationException $error) {
         expect($error->reason)->toStartWith('Derived condition [DkDocSchema::misspelled] answered with a mistake: ')
-            ->and($error->position->source)->toBe('no_such_condition')
-            ->and($error->position->column)->toBe(1);
+            ->and($error->excerpt->text)->toBe('no_such_condition')
+            ->and($error->excerpt->file?->path)->toBe(__FILE__)
+            ->and($error->excerpt->line())->toBe(lineWriting(__FILE__, "return 'no_such_condition';\n"))
+            ->and($error->excerpt->column())->toBe(17)
+            ->and($error->getFile())->toBe(__FILE__)
+            ->and($error->getLine())->toBe($error->excerpt->line());
 
         return;
     }
