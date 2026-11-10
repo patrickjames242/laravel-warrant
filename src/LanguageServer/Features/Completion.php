@@ -166,6 +166,8 @@ final class Completion
             $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE, $p1 === TokenType::OTHERWISE => [],
             $p1 === TokenType::FOR => $this->afterFor(),
             $p1 === TokenType::ITS => $this->relations(),
+            $p1 === TokenType::ANY, $p1 === TokenType::ALL => [['of', self::KIND_KEYWORD, 'the rows the handle reaches', 'of ']],
+            $p1 === TokenType::OF => $this->handleStart(rowsOnly: true),
             $p1 === TokenType::WITH => $this->contextKeys($this->handleSchema()),
             $p1 === TokenType::LPAREN && $p2 === TokenType::CAN,
             $p1 === TokenType::CAN && in_array($p2, [TokenType::IF, TokenType::WHEN, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->abilities($this->namedSchema() ?? $this->scopeSchemaKey),
@@ -280,8 +282,7 @@ final class Completion
 
     /**
      * After `for`: a schema in a `for` header or a handle, an ability in an
-     * `@include`'s list. A handle may also follow a row relation, so `its` is
-     * offered there when the schema the rules are about declares one.
+     * `@include`'s list. A handle may also start with a quantifier.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
@@ -291,11 +292,31 @@ final class Completion
             return $this->abilities($this->scopeSchemaKey, withWildcard: true);
         }
 
-        $its = $this->openParenthesis() !== null && ($this->schema($this->scopeSchemaKey)?->relations ?? []) !== []
+        if ($this->openParenthesis() === null) {
+            return $this->schemas();
+        }
+
+        return [
+            ['any of', self::KIND_KEYWORD, 'passes when any of the rows passes', 'any of '],
+            ['all of', self::KIND_KEYWORD, 'passes when there are rows and every one passes', 'all of '],
+            ...$this->handleStart(rowsOnly: false),
+        ];
+    }
+
+    /**
+     * What a handle's target starts with: `its`, when the schema the rules are
+     * about declares a row relation, then the schemas. After a quantifier only a
+     * schema with rows can follow, since a quantifier counts rows.
+     *
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
+     */
+    private function handleStart(bool $rowsOnly): array
+    {
+        $its = ($this->schema($this->scopeSchemaKey)?->relations ?? []) !== []
             ? [['its', self::KIND_KEYWORD, 'the rows a row relation of this schema reaches', 'its ']]
             : [];
 
-        return [...$its, ...$this->schemas()];
+        return [...$its, ...$this->schemas($rowsOnly)];
     }
 
     /**
@@ -532,14 +553,19 @@ final class Completion
     }
 
     /**
-     * The schema the handle starting at $tokens[$start] reaches: the schema it
-     * names, or the target of the row relation after `its`. Null when neither is
-     * written there, or the relation cannot be found.
+     * The schema the handle starting at $tokens[$start] reaches, past any
+     * quantifier: the schema it names, or the target of the row relation after
+     * `its`. Null when neither is written there, or the relation cannot be found.
      *
      * @param list<Token> $tokens
      */
     private function handleTarget(array $tokens, int $start): ?string
     {
+        if (in_array($tokens[$start]->type ?? null, [TokenType::ANY, TokenType::ALL], true)
+            && ($tokens[$start + 1]->type ?? null) === TokenType::OF) {
+            $start += 2;
+        }
+
         $first = $tokens[$start] ?? null;
 
         if ($first?->type !== TokenType::ITS) {
@@ -562,9 +588,10 @@ final class Completion
     }
 
     /**
+     * @param bool $rowsOnly Leave out the schemas that have no rows.
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
-    private function schemas(): array
+    private function schemas(bool $rowsOnly = false): array
     {
         $catalog = $this->workspace->catalog();
         $isHandle = $this->openParenthesis() !== null;
@@ -576,7 +603,7 @@ final class Completion
                 $schema->className,
                 ...$this->opened((string) $schema->key, $isHandle && $schema->hasRows),
             ],
-            $catalog->schemas,
+            array_filter($catalog->schemas, static fn (IndexedSchema $schema): bool => ! $rowsOnly || $schema->hasRows),
         ));
     }
 

@@ -87,7 +87,7 @@ it('jumps to where a condition, ability or schema is declared, and to the as tha
 it('offers what belongs at the cursor, from the schema in scope', function () {
     expect(completionLabels('for documents { they can | }'))->toBe(['view', 'edit', 'archive', '*'])
         ->and(completionLabels('for documents { if is_| }'))->toContain('is_owner', 'in_team', 'can(', 'check(')
-        ->and(completionLabels('for documents { if can(view for | }'))->toBe(['its', 'documents', 'folders', 'billing'])
+        ->and(completionLabels('for documents { if can(view for | }'))->toBe(['any of', 'all of', 'its', 'documents', 'folders', 'billing'])
         ->and(completionLabels('for documents { if can(| for folders(1)) they can view }'))->toBe(['view', 'share'])
         ->and(completionLabels('for documents { if can(sh| for folders(1)) they can view }'))->toBe(['view', 'share'])
         ->and(completionLabels('for documents { if can(|) they can view }'))->toBe(['view', 'edit', 'archive'])
@@ -155,6 +155,33 @@ it('offers row relations after its, and reads a relation handle through to the s
         ->and(completionLabels('for documents { if can(| for its folder) they can view }'))->toBe(['view', 'share'])
         ->and(completionLabels('for documents { if check(| for its folder) they can view }'))->toContain('is_shared')
         ->and(completionLabels('for documents { if check(a(@column |) for its folder) they can view }'))->toContain('folder');
+});
+
+it('offers a quantifier in a handle, of after it, and then only what has rows', function () {
+    expect(completionLabels('for documents { if can(view for all | }'))->toBe(['of'])
+        ->and(completionLabels('for documents { if check(is_shared for any | }'))->toBe(['of'])
+        ->and(completionLabels('for documents { if can(view for all of | }'))->toBe(['its', 'documents', 'folders'])
+        ->and(completionLabels('for billing { if can(view for any of | }'))->toBe(['documents', 'folders'])
+        ->and(completionLabels('for documents { @include owner_edits for | }'))->not->toContain('any of', 'all of');
+});
+
+it('reads a quantified handle through to the schema it reaches', function () {
+    expect(completionLabels('for documents { if can(| for all of its folder) they can view }'))->toBe(['view', 'share'])
+        ->and(completionLabels('for documents { if can(| for any of folders(1)) they can view }'))->toBe(['view', 'share'])
+        ->and(completionLabels('for documents { if check(| for all of its folder) they can view }'))->toContain('is_shared')
+        ->and(completionLabels('for documents { if check(a(@column |) for all of its folder) they can view }'))->toContain('folder');
+});
+
+it('reports a quantifier on a handle that selects no rows, over the handle', function () {
+    $text = 'for documents { if can(share for all of folders) they can view }';
+    [$workspace, $document] = openInFixture('rules.warrant', $text);
+    $diagnostics = Diagnostics::of($workspace, $document);
+
+    expect(array_column($diagnostics, 'code'))->toBe(['quantifier-without-row'])
+        ->and($diagnostics[0]['range'])->toBe([
+            'start' => ['line' => 0, 'character' => strpos($text, 'all of')],
+            'end' => ['line' => 0, 'character' => strpos($text, ')')],
+        ]);
 });
 
 it('offers its only in a handle of a schema that declares a relation', function () {
