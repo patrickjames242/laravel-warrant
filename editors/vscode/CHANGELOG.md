@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.0
 
 - Highlight `its <relation>` and the `any of` and `all of` quantifiers in rule
   text. Rename a row relation with its uses in rule text, and find its usages,
