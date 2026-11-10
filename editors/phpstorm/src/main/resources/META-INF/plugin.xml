@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.patrickhanna.warrant</id>
     <name>Warrant for Laravel</name>
-    <version>0.12.1</version>
+    <version>0.13.0</version>
     <vendor email="patrick@platoalpha.com">Patrick Hanna</vendor>
 
     <description><![CDATA[
@@ -25,6 +25,11 @@
 
     <change-notes><![CDATA[
         <ul>
+            <li><b>0.13.0</b> &mdash; Colour <code>its</code>, <code>any</code>, <code>all</code>
+                and <code>of</code> as keywords, for <code>its &lt;relation&gt;</code> and the
+                <code>any of</code> and <code>all of</code> quantifiers. Rename a row relation with
+                its uses in rule text, from its method or from the <code>key</code> its
+                <code>#[RowRelation]</code> gives it, and find its usages.</li>
             <li><b>0.12.1</b> &mdash; Count a condition's or template's usages over its method in
                 rule text in any PHP file, not only the method's own file and <code>.warrant</code>
                 files. Rename a condition or template from rule text by the name rule text writes:
