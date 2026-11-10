@@ -49,3 +49,55 @@ it('names the method that declares a condition or template, as it does the const
         ->and($schema->conditions['is_owner']->member)->toBe('isOwner')
         ->and($schema->templates['owner_edits']->member)->toBe('ownerEdits');
 });
+
+it('describes the row relations of a running schema, and reads them back', function () {
+    $describe = new ReflectionMethod(ApplicationSchemaReader::class, 'describe');
+    $documents = $describe->invoke(null, ArsDocSchema::class);
+
+    expect($documents['relations'])->toHaveCount(1)
+        ->and($documents['relations'][0])->toMatchArray([
+            'name' => 'container',
+            'method' => 'folder',
+            'member' => 'folder',
+            'schema' => ArsFolderSchema::class,
+            'description' => 'The folder the document is in.',
+        ]);
+
+    $index = ApplicationSchemaReader::indexFrom([
+        'ars_docs' => $documents,
+        'ars_folders' => $describe->invoke(null, ArsFolderSchema::class),
+    ]);
+
+    expect($index->constructs()->rowRelation('container', 'ars_docs')?->targetKey)->toBe('ars_folders')
+        ->and($index->schema('ars_docs')->relations['container']->member)->toBe('folder')
+        ->and($index->schema('ars_folders')->relations)->toBe([]);
+});
+
+class ArsDoc extends Illuminate\Database\Eloquent\Model
+{
+    protected $table = 'ars_docs';
+}
+
+class ArsFolder extends Illuminate\Database\Eloquent\Model
+{
+    protected $table = 'ars_folders';
+}
+
+class ArsFolderSchema extends Warrant\Schema\Types\Classes\ModelSchema
+{
+    public const model = ArsFolder::class;
+}
+
+class ArsDocSchema extends Warrant\Schema\Types\Classes\ModelSchema
+{
+    public const model = ArsDoc::class;
+
+    /**
+     * The folder the document is in.
+     */
+    #[Warrant\Schema\Relations\RowRelation(ArsFolderSchema::class, key: 'container')]
+    public function folder(Warrant\Schema\Relations\RowRelationContext $c): Illuminate\Contracts\Database\Query\Builder
+    {
+        return $c->relatedQuery->where($c->relatedColumn('id'), $c->ownColumn('folder_id'));
+    }
+}

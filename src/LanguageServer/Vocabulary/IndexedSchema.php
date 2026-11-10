@@ -5,6 +5,7 @@ namespace Warrant\LanguageServer\Vocabulary;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Vocabulary;
 
@@ -41,6 +42,7 @@ final readonly class IndexedSchema
      * @param array<string, Declaration> $templates By key.
      * @param list<string> $requiredContextKeys The context keys every check
      *   against the schema must carry.
+     * @param array<string, Declaration> $relations Row relations, by key.
      */
     public function __construct(
         public ?string $key,
@@ -55,6 +57,7 @@ final readonly class IndexedSchema
         public array $conditions = [],
         public array $templates = [],
         public array $requiredContextKeys = [],
+        public array $relations = [],
     ) {
         $definitions = static fn (array $declarations, string $type): array => array_values(array_filter(
             array_map(static fn (Declaration $declaration): mixed => $declaration->definition, $declarations),
@@ -67,6 +70,7 @@ final readonly class IndexedSchema
             $definitions($conditions, ConditionDefinition::class),
             $definitions($templates, RuleTemplateDefinition::class),
             $hasRows ? new ConditionDefinition('matchKey', 'matchKey', ConditionKind::Row, $keyArgumentCount) : null,
+            $definitions($relations, RowRelationDefinition::class),
         );
     }
 
@@ -120,6 +124,7 @@ final readonly class IndexedSchema
             $fill($this->conditions, $other->conditions),
             $fill($this->templates, $other->templates),
             $this->requiredContextKeys,
+            $fill($this->relations, $other->relations),
         );
     }
 }

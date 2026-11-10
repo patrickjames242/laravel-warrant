@@ -83,15 +83,24 @@ final readonly class Located
     }
 
     /**
-     * The condition or template named at the position, and the schema that
-     * declares it, looked up as validation looks it up: null when the position
-     * is on neither, or no schema it is looked up in declares it.
+     * The condition, template or row relation named at the position, and the
+     * schema that declares it, looked up as validation looks it up: null when
+     * the position is on none of those, or no schema it is looked up in declares
+     * it. A row relation is declared by the schema the rules are about, never by
+     * a global schema.
      *
      * @param VocabularyIndex $vocabulary The schemas known.
      * @return array{0: IndexedSchema, 1: Declaration}|null
      */
     public function declared(VocabularyIndex $vocabulary): ?array
     {
+        if ($this->context->slot === SlotKind::Relation) {
+            $schema = $this->context->nameSchemaKey === null ? null : $vocabulary->schema($this->context->nameSchemaKey);
+            $declaration = $schema?->relations[(string) $this->context->name] ?? null;
+
+            return $schema === null || $declaration === null ? null : [$schema, $declaration];
+        }
+
         $name = $this->context->name;
         $writtenIn = $this->writtenIn($vocabulary, $this->context->nameSchemaKey);
 
@@ -111,8 +120,8 @@ final readonly class Located
     }
 
     /**
-     * The declaration of the condition, template or ability named at the
-     * position, or null when it is on none of those, or the name is not
+     * The declaration of the condition, template, row relation or ability named
+     * at the position, or null when it is on none of those, or the name is not
      * declared where it is looked up.
      *
      * @param VocabularyIndex $vocabulary The schemas known.

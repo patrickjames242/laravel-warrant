@@ -33,7 +33,7 @@ final class CodeActions
         foreach ($context['diagnostics'] ?? [] as $diagnostic) {
             $code = DiagnosticCode::tryFrom((string) ($diagnostic['code'] ?? ''));
 
-            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition, DiagnosticCode::UnknownTemplate], true)) {
+            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition, DiagnosticCode::UnknownTemplate, DiagnosticCode::UnknownRelation], true)) {
                 continue;
             }
 
@@ -101,9 +101,11 @@ final class CodeActions
 
         $schema = $context->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);
 
-        return $schema !== null && $context->slot === SlotKind::Ability
-            ? array_map('strval', array_keys($schema->abilities))
-            : [];
+        return match (true) {
+            $schema !== null && $context->slot === SlotKind::Ability => array_map('strval', array_keys($schema->abilities)),
+            $schema !== null && $context->slot === SlotKind::Relation => array_map('strval', array_keys($schema->relations)),
+            default => [],
+        };
     }
 
     /**

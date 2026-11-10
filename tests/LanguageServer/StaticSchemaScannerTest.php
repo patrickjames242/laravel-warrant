@@ -67,6 +67,21 @@ it('reads templates, required context, and whether and how rows are named', func
         ->and($vocabulary->find('billing')->rowMatcher())->toBeNull();
 });
 
+it('reads row relations, with a key given by position after the schema', function () {
+    $vocabulary = fixtureVocabulary();
+    $folder = $vocabulary->schema('documents')->relations['folder'];
+
+    expect(array_keys($vocabulary->schema('documents')->relations))->toBe(['folder'])
+        ->and($folder->definition->methodName)->toBe('folder')
+        ->and($folder->definition->targetSchemaClass)->toBe('App\\Schemas\\FolderSchema')
+        ->and($folder->description)->toBe('The folder the document is filed in.')
+        ->and($folder->file)->toEndWith('DocumentSchema.php')
+        ->and(array_keys($vocabulary->schema('folders')->relations))->toBe(['docs'])
+        ->and($vocabulary->find('folders')->rowRelation('docs')?->methodName)->toBe('documents')
+        ->and($vocabulary->schema('billing')->relations)->toBe([])
+        ->and($vocabulary->constructs()->rowRelation('folder', 'documents')?->targetKey)->toBe('folders');
+});
+
 it('finds a schema\'s key by its class', function () {
     expect(fixtureVocabulary()->keyOf('\App\Schemas\FolderSchema'))->toBe('folders')
         ->and(fixtureVocabulary()->keyOf('App\Other'))->toBeNull();

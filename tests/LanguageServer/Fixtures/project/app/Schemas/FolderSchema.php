@@ -23,4 +23,10 @@ final class FolderSchema extends BaseSchema
     {
         return null;
     }
+
+    #[\Warrant\Schema\Relations\RowRelation(DocumentSchema::class, 'docs')]
+    public function documents(\Warrant\Schema\Relations\RowRelationContext $c): mixed
+    {
+        return $c->relatedQuery;
+    }
 }

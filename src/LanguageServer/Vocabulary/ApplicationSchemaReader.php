@@ -14,6 +14,8 @@ use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Context\IProvidesContext;
+use Warrant\Schema\Relations\IProvidesRowRelations;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
@@ -159,6 +161,11 @@ final class ApplicationSchemaReader
                 isset($item['maxArgumentCount']) ? (int) $item['maxArgumentCount'] : null,
             )),
             array_values((array) ($schema['requiredContextKeys'] ?? [])),
+            $declarations('relations', static fn (array $item): RowRelationDefinition => new RowRelationDefinition(
+                $item['name'],
+                $item['method'],
+                $item['schema'],
+            )),
         );
     }
 
@@ -215,6 +222,16 @@ final class ApplicationSchemaReader
                 $schema->ruleTemplates(),
             ),
             'requiredContextKeys' => $schema instanceof IProvidesContext ? $schema->requiredContextKeys() : [],
+            'relations' => array_map(
+                static fn (RowRelationDefinition $relation): array => [
+                    'name' => $relation->key,
+                    'method' => $relation->methodName,
+                    'member' => $relation->methodName,
+                    'schema' => $relation->targetSchemaClass,
+                    ...self::methodLocation($class, $relation->methodName, 1),
+                ],
+                $schema instanceof IProvidesRowRelations ? $schema->rowRelations() : [],
+            ),
         ];
     }
 

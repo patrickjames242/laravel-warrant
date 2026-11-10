@@ -48,10 +48,11 @@ final class Usages
 
     /**
      * The uses in the project's rule text of what $member of $path declares, and
-     * for a condition or template the names a rename of it must not take: those
-     * its kind already has in each schema that has it. An ability is not renamed,
-     * so it has none, and neither has a schema. Null when $member of $path
-     * declares no condition, template, ability or schema the server knows.
+     * for a condition, template or row relation the names a rename of it must not
+     * take: those its kind already has in each schema that has it, with conditions
+     * and row relations counted together. An ability is not renamed, so it has
+     * none, and neither has a schema. Null when $member of $path declares no
+     * condition, template, row relation, ability or schema the server knows.
      *
      * @param Workspace $workspace What the server knows.
      * @param string $path Absolute path of the file the declaration is in.
@@ -76,7 +77,7 @@ final class Usages
         $taken = [];
 
         foreach ([...array_values($vocabulary->schemas), ...$vocabulary->globals] as $schema) {
-            foreach (['ability', 'condition', 'template'] as $kind) {
+            foreach (['ability', 'condition', 'template', 'relation'] as $kind) {
                 foreach (self::ofKind($schema, $kind) as $declaration) {
                     if (! self::declares($declaration, $kind, $path, $member)) {
                         continue;
@@ -84,8 +85,14 @@ final class Usages
 
                     $found ??= [$kind, $declaration->name];
 
-                    if ($kind !== 'ability') {
-                        array_push($taken, ...array_map('strval', array_keys(self::ofKind($schema, $kind))));
+                    /* Conditions and row relations share one set of names on a
+                       schema, so either one's rename must avoid both. */
+                    foreach (match ($kind) {
+                        'ability' => [],
+                        'condition', 'relation' => ['condition', 'relation'],
+                        default => [$kind],
+                    } as $sharing) {
+                        array_push($taken, ...array_map('strval', array_keys(self::ofKind($schema, $sharing))));
                     }
                 }
             }
@@ -179,6 +186,7 @@ final class Usages
             SlotKind::Condition => 'condition',
             SlotKind::Template => 'template',
             SlotKind::Ability => 'ability',
+            SlotKind::Relation => 'relation',
             default => null,
         };
     }
@@ -213,6 +221,7 @@ final class Usages
         return match ($kind) {
             'ability' => $schema->abilities,
             'condition' => $schema->conditions,
+            'relation' => $schema->relations,
             default => $schema->templates,
         };
     }

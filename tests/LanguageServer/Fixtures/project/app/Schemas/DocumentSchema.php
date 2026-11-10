@@ -76,4 +76,13 @@ class DocumentSchema extends BaseSchema
     {
         return Warrant::parse(new BoundSyntax('if in_team(:team) they can', ['team' => $team]));
     }
+
+    /**
+     * The folder the document is filed in.
+     */
+    #[\Warrant\Schema\Relations\RowRelation(FolderSchema::class)]
+    public function folder(\Warrant\Schema\Relations\RowRelationContext $c): mixed
+    {
+        return $c->relatedQuery;
+    }
 }

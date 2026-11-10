@@ -40,7 +40,7 @@ it('finds every use of a condition in the project, open documents included, and 
             'open.warrant:0:19',
         ])
         ->and($found['usages'][4]['range']['end'])->toBe(['line' => 0, 'character' => 27])
-        ->and($found['taken'])->toBe(['in_folder', 'in_team', 'owner_or_team']);
+        ->and($found['taken'])->toBe(['folder', 'in_folder', 'in_team', 'owner_or_team']);
 });
 
 it('reads an open document as the editor has it, not as it is on disk', function () {
@@ -190,4 +190,15 @@ it('finds no occurrences for a frame named by its schema, or a name that is no c
     [$workspace, $document] = openInFixture('open.warrant', $text);
 
     expect(Occurrences::at($workspace, $document, $position))->toBeNull();
+});
+
+it('finds every use of a row relation, and none of another schema\'s relation of the same name', function () {
+    [$workspace] = openInFixture('open.warrant', "for documents { if can(view for its folder) they can edit }\nfor folders { if check(is_owner for its docs) they can view }");
+
+    $found = Usages::of($workspace, fixtureRoot().'/app/Schemas/DocumentSchema.php', 'folder');
+
+    expect($found['kind'])->toBe('relation')
+        ->and($found['name'])->toBe('folder')
+        ->and(usageStarts($found['usages']))->toBe(['open.warrant:0:36'])
+        ->and($found['taken'])->toBe(['in_folder', 'in_team', 'is_owner', 'owner_or_team']);
 });

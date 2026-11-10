@@ -33,4 +33,7 @@ enum SlotKind
      * `.` of a `@column` reference to name them.
      */
     case Alias;
+
+    /** A row relation's name, after `its` in a handle. */
+    case Relation;
 }

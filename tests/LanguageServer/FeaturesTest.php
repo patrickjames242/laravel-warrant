@@ -87,7 +87,7 @@ it('jumps to where a condition, ability or schema is declared, and to the as tha
 it('offers what belongs at the cursor, from the schema in scope', function () {
     expect(completionLabels('for documents { they can | }'))->toBe(['view', 'edit', 'archive', '*'])
         ->and(completionLabels('for documents { if is_| }'))->toContain('is_owner', 'in_team', 'can(', 'check(')
-        ->and(completionLabels('for documents { if can(view for | }'))->toBe(['documents', 'folders', 'billing'])
+        ->and(completionLabels('for documents { if can(view for | }'))->toBe(['its', 'documents', 'folders', 'billing'])
         ->and(completionLabels('for documents { if can(| for folders(1)) they can view }'))->toBe(['view', 'share'])
         ->and(completionLabels('for documents { if can(sh| for folders(1)) they can view }'))->toBe(['view', 'share'])
         ->and(completionLabels('for documents { if can(|) they can view }'))->toBe(['view', 'edit', 'archive'])
@@ -147,6 +147,37 @@ it('replaces the @ of a reference already typed', function () {
             'end' => ['line' => 0, 'character' => $position['character']],
         ]);
     }
+});
+
+it('offers row relations after its, and reads a relation handle through to the schema it reaches', function () {
+    expect(completionLabels('for documents { if can(view for its |) they can view }'))->toBe(['folder'])
+        ->and(completionLabels('for folders { if can(view for its |) they can share }'))->toBe(['docs'])
+        ->and(completionLabels('for documents { if can(| for its folder) they can view }'))->toBe(['view', 'share'])
+        ->and(completionLabels('for documents { if check(| for its folder) they can view }'))->toContain('is_shared')
+        ->and(completionLabels('for documents { if check(a(@column |) for its folder) they can view }'))->toContain('folder');
+});
+
+it('offers its only in a handle of a schema that declares a relation', function () {
+    expect(completionLabels('for billing { if can(view for | }'))->not->toContain('its')
+        ->and(completionLabels('for documents { @include owner_edits for | }'))->not->toContain('its');
+});
+
+it('describes a row relation on hover, and jumps to the method that declares it', function () {
+    [$text, $position] = positionOfBar('for documents { if can(view for its fol|der) they can view }');
+    [$workspace, $document] = openInFixture('rules.warrant', $text);
+
+    expect(Hover::at($workspace, $document, $position)['contents']['value'])
+        ->toBe("**row relation `folder` on `documents`**\n\nReaches rows of `folders` · `App\\Schemas\\FolderSchema`\n\nThe folder the document is filed in.")
+        ->and(Definition::at($workspace, $document, $position)['uri'])->toEndWith('DocumentSchema.php');
+});
+
+it('reports a relation the schema does not declare, and offers the closest one', function () {
+    [$workspace, $document] = openInFixture('rules.warrant', 'for documents { if can(view for its foldr) they can view }');
+    $diagnostics = Diagnostics::of($workspace, $document);
+
+    expect(array_column($diagnostics, 'code'))->toBe(['unknown-relation'])
+        ->and(array_column(CodeActions::for($workspace, $document, ['diagnostics' => $diagnostics]), 'title'))
+        ->toBe(["Change to 'folder'"]);
 });
 
 it('offers the closest declared names for one that is not declared', function () {

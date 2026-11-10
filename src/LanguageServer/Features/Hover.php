@@ -9,6 +9,7 @@ use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Relations\RowRelationDefinition;
 
 /**
  * What the editor shows on hovering over a name in rule text: what it names, and
@@ -89,7 +90,30 @@ final class Hover
             SlotKind::Column => $schemaKey === null
                 ? "column `{$name}`"
                 : "column `{$name}` of the rows of `{$schemaKey}`",
+            SlotKind::Relation => self::declared(
+                $schema?->relations[$name] ?? null,
+                "row relation `{$name}`{$on}",
+                fn (Declaration $declaration): string => self::relationDetail($declaration, $workspace),
+            ),
         };
+    }
+
+    /**
+     * @param Declaration $declaration A row relation.
+     */
+    private static function relationDetail(Declaration $declaration, Workspace $workspace): string
+    {
+        $definition = $declaration->definition;
+
+        if (! $definition instanceof RowRelationDefinition) {
+            return '';
+        }
+
+        $targetKey = $workspace->vocabulary()->keyOf($definition->targetSchemaClass);
+
+        return $targetKey === null
+            ? "Reaches `{$definition->targetSchemaClass}`, which is not a registered schema."
+            : "Reaches rows of `{$targetKey}` · `{$definition->targetSchemaClass}`";
     }
 
     /**

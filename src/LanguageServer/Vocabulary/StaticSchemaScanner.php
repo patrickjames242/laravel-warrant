@@ -17,6 +17,8 @@ use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Context\RequiredContext;
+use Warrant\Schema\Relations\RowRelation;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 use Warrant\Schema\RuleTemplates\RuleTemplateContext;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
@@ -251,9 +253,30 @@ final class StaticSchemaScanner
 
         $conditions = [];
         $templates = [];
+        $relations = [];
 
         foreach ($methods as [$owner, $method]) {
             if (! $method->isPublic || $method->isStatic) {
+                continue;
+            }
+
+            $relation = $method->attribute([RowRelation::class]);
+            $target = $relation?->argument('schema', 0);
+
+            /* The schema comes first, so a key given by position is the second
+               argument rather than the first, as it is on every other attribute. */
+            if ($relation !== null && is_string($target)) {
+                $relationKey = self::keyOf($relation->argument('key', 1), $method->name);
+
+                $relations[$relationKey] = new Declaration(
+                    $relationKey,
+                    new RowRelationDefinition($relationKey, $method->name, $target),
+                    $owner->file,
+                    $method->line,
+                    self::summary($method->docComment),
+                    member: $method->name,
+                );
+
                 continue;
             }
 
@@ -350,6 +373,9 @@ final class StaticSchemaScanner
             $conditions,
             $templates,
             array_values(array_unique($requiredContext)),
+            /* A schema with no rows has no row for a relation to start from, and
+               refuses one when it is constructed. */
+            $type === 'model' || $type === 'query' ? $relations : [],
         );
     }
 

@@ -4,6 +4,7 @@ namespace Warrant\LanguageServer\Vocabulary;
 
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
 /**
@@ -14,9 +15,9 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 final readonly class Declaration
 {
     /**
-     * @param string $name The name rule text uses: an ability, condition or
-     *   template key.
-     * @param AbilityDefinition|ConditionDefinition|RuleTemplateDefinition $definition
+     * @param string $name The name rule text uses: an ability, condition,
+     *   template or row relation key.
+     * @param AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition $definition
      *   What validation reads for the name.
      * @param string|null $file Absolute path of the file it is declared in, when
      *   known.
@@ -32,7 +33,7 @@ final readonly class Declaration
      */
     public function __construct(
         public string $name,
-        public AbilityDefinition|ConditionDefinition|RuleTemplateDefinition $definition,
+        public AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition $definition,
         public ?string $file = null,
         public ?int $line = null,
         public ?string $description = null,

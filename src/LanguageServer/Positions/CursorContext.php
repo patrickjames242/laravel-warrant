@@ -15,6 +15,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
@@ -90,11 +91,13 @@ final readonly class CursorContext
         $hasRows = static fn (string $key): bool => $catalog?->find($key)?->hasRows() ?? true;
         $headerless = CursorScope::root($schemaKey, $schemaKey !== null && $hasRows($schemaKey));
 
+        $targetOf = static fn (?INode $reference, ?string $here): ?string => self::schemaKeyNamedBy($reference, $here, $catalog);
+
         $scope = null;
 
         if ($innermost !== null) {
             foreach ($syntax->children as $child) {
-                $scope = self::scopeOf($innermost, $child, $headerless, $hasRows);
+                $scope = self::scopeOf($innermost, $child, $headerless, $hasRows, $targetOf);
 
                 if ($scope !== null) {
                     break;
@@ -105,7 +108,7 @@ final readonly class CursorContext
         $scope ??= $syntax->isSchemaScoped() ? new CursorScope : $headerless;
 
         [$slot, $name, $nameSchemaKey] = $innermost instanceof NameNode
-            ? self::slotOf($innermost, $parents, $scope)
+            ? self::slotOf($innermost, $parents, $scope, $targetOf)
             : [null, null, null];
 
         return new self($nodes, $scope, $slot, $name, $nameSchemaKey);
@@ -149,8 +152,10 @@ final readonly class CursorContext
      * @param INode $node The node to look in, written in $scope.
      * @param CursorScope $scope The scope $node is written in.
      * @param Closure(string): bool $hasRows Whether the schema of a key has rows.
+     * @param Closure(?INode, ?string): ?string $targetOf The schema a reference
+     *   reaches from rules about a schema key; see {@see schemaKeyNamedBy()}.
      */
-    private static function scopeOf(INode $target, INode $node, CursorScope $scope, Closure $hasRows): ?CursorScope
+    private static function scopeOf(INode $target, INode $node, CursorScope $scope, Closure $hasRows, Closure $targetOf): ?CursorScope
     {
         if ($node instanceof ISchemaScopedNode) {
             $key = $node->schemaKey() === INode::MISSING_NAME ? null : $node->schemaKey();
@@ -164,12 +169,16 @@ final readonly class CursorContext
         foreach ($node->children() as $child) {
             $childScope = $scope;
 
+            /* An `its` handle's rows go by the relation's name in the predicate,
+               unless an alias names them. */
             if ($node instanceof CrossSchemaConditionNode && $child === $node->predicate) {
-                $key = self::schemaKeyNamedBy($node);
-                $childScope = $scope->enteringPredicate($key, $node->alias?->name, $key !== null && $hasRows($key));
+                $key = $targetOf($node, $scope->schemaKey);
+                $frameName = $node->alias?->name
+                    ?? ($node->handle instanceof RelationHandleNode ? $node->handle->relation->name : null);
+                $childScope = $scope->enteringPredicate($key, $frameName, $key !== null && $hasRows($key));
             }
 
-            $found = self::scopeOf($target, $child, $childScope, $hasRows);
+            $found = self::scopeOf($target, $child, $childScope, $hasRows, $targetOf);
 
             if ($found !== null) {
                 return $found;
@@ -186,9 +195,10 @@ final readonly class CursorContext
      * @param NameNode $name The innermost node over the offset.
      * @param array<int, INode> $parents Each node's parent, by object id.
      * @param CursorScope $scope The scope $name is written in.
+     * @param Closure(?INode, ?string): ?string $targetOf See {@see scopeOf()}.
      * @return array{0: ?SlotKind, 1: ?string, 2: ?string}
      */
-    private static function slotOf(NameNode $name, array $parents, CursorScope $scope): array
+    private static function slotOf(NameNode $name, array $parents, CursorScope $scope, Closure $targetOf): array
     {
         $holder = $parents[spl_object_id($name)] ?? null;
         $here = $scope->schemaKey;
@@ -197,14 +207,16 @@ final readonly class CursorContext
         if ($holder instanceof WithEntryNode) {
             $reference = $parents[spl_object_id($holder)] ?? null;
 
-            return [SlotKind::ContextKey, $written, self::schemaKeyNamedBy($reference) ?? $here];
+            return [SlotKind::ContextKey, $written, $targetOf($reference, $here) ?? $here];
         }
 
         return match (true) {
             $holder instanceof ConditionNode && $name === $holder->conditionKey
                 => [SlotKind::Condition, $written, $here],
             $holder instanceof CrossSchemaCanNode && $name === $holder->ability
-                => [SlotKind::Ability, $written, self::schemaKeyNamedBy($holder) ?? $here],
+                => [SlotKind::Ability, $written, $targetOf($holder, $here) ?? $here],
+            $holder instanceof RelationHandleNode && $name === $holder->relation
+                => [SlotKind::Relation, $written, $here],
             ($holder instanceof CanClauseNode || $holder instanceof CannotClauseNode
                 || $holder instanceof AbilityBlockNode || $holder instanceof IncludeInvocationNode)
                 && in_array($name, $holder->abilities, true)
@@ -216,7 +228,7 @@ final readonly class CursorContext
                 => [SlotKind::Schema, $written, null],
             ($holder instanceof CrossSchemaCanNode || $holder instanceof CrossSchemaConditionNode)
                 && $name === $holder->alias
-                => [SlotKind::Alias, $written, self::schemaKeyNamedBy($holder)],
+                => [SlotKind::Alias, $written, $targetOf($holder, $here)],
             $holder instanceof ContextRef
                 => [SlotKind::ContextKey, $written, $here],
             $holder instanceof ColumnRef && $name === $holder->alias
@@ -228,12 +240,22 @@ final readonly class CursorContext
     }
 
     /**
-     * The schema key a `can(...)` or `check(...)` names after its `for`, or null
-     * when $reference is neither, names no schema by key, or leaves the name out.
+     * The schema key a `can(...)` or `check(...)` reaches after its `for`: the key
+     * it names, or the target of the row relation `its` names on $here. Null when
+     * $reference is neither, has no handle, leaves the name out, or names a
+     * relation that cannot be found.
+     *
+     * @param string|null $here The schema the rules around $reference are about.
      */
-    private static function schemaKeyNamedBy(?INode $reference): ?string
+    private static function schemaKeyNamedBy(?INode $reference, ?string $here, ?ISchemaCatalog $catalog): ?string
     {
         $handle = $reference instanceof CrossSchemaCanNode || $reference instanceof CrossSchemaConditionNode ? $reference->handle : null;
+
+        if ($handle instanceof RelationHandleNode) {
+            return $here === null || $handle->relation->name === INode::MISSING_NAME
+                ? null
+                : $catalog?->constructs()->rowRelation($handle->relation->name, $here)?->targetKey;
+        }
 
         if (! $handle instanceof SchemaHandleNode || $handle->schemaKey->name === INode::MISSING_NAME) {
             return null;

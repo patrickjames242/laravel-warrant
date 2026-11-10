@@ -8,8 +8,10 @@ use Warrant\DSL\Parsing\SyntaxProducerKind;
 use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\LanguageServer\Documents\Document;
+use Warrant\LanguageServer\Vocabulary\Declaration;
 use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
+use Warrant\Schema\Relations\RowRelationDefinition;
 
 /**
  * What the editor offers to type at the cursor in rule text.
@@ -163,6 +165,7 @@ final class Completion
             $p1 === TokenType::COLUMN_REF => $this->frames(),
             $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE, $p1 === TokenType::OTHERWISE => [],
             $p1 === TokenType::FOR => $this->afterFor(),
+            $p1 === TokenType::ITS => $this->relations(),
             $p1 === TokenType::WITH => $this->contextKeys($this->handleSchema()),
             $p1 === TokenType::LPAREN && $p2 === TokenType::CAN,
             $p1 === TokenType::CAN && in_array($p2, [TokenType::IF, TokenType::WHEN, TokenType::AND, TokenType::OR, TokenType::NOT, TokenType::LPAREN], true) => $this->abilities($this->namedSchema() ?? $this->scopeSchemaKey),
@@ -277,7 +280,8 @@ final class Completion
 
     /**
      * After `for`: a schema in a `for` header or a handle, an ability in an
-     * `@include`'s list.
+     * `@include`'s list. A handle may also follow a row relation, so `its` is
+     * offered there when the schema the rules are about declares one.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
@@ -287,7 +291,29 @@ final class Completion
             return $this->abilities($this->scopeSchemaKey, withWildcard: true);
         }
 
-        return $this->schemas();
+        $its = $this->openParenthesis() !== null && ($this->schema($this->scopeSchemaKey)?->relations ?? []) !== []
+            ? [['its', self::KIND_KEYWORD, 'the rows a row relation of this schema reaches', 'its ']]
+            : [];
+
+        return [...$its, ...$this->schemas()];
+    }
+
+    /**
+     * After `its`: the row relations of the schema the rules are about, each with
+     * the schema it reaches.
+     *
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
+     */
+    private function relations(): array
+    {
+        return array_values(array_map(
+            static fn (Declaration $relation): array => [
+                $relation->name,
+                self::KIND_PROPERTY,
+                $relation->definition instanceof RowRelationDefinition ? $relation->definition->targetSchemaClass : '',
+            ],
+            $this->schema($this->scopeSchemaKey)?->relations ?? [],
+        ));
     }
 
     /**
@@ -483,9 +509,7 @@ final class Completion
             } elseif ($token->type === TokenType::RPAREN && $depth-- === 0) {
                 return null;
             } elseif ($depth === 0 && $token->type === TokenType::FOR) {
-                $schema = $this->after[$index + 1] ?? null;
-
-                return $schema?->type === TokenType::IDENTIFIER ? $schema->lexeme : null;
+                return $this->handleTarget($this->after, $index + 1);
             }
         }
 
@@ -493,20 +517,40 @@ final class Completion
     }
 
     /**
-     * The schema the handle before a `with` names: the identifier after the
-     * nearest `for` before the cursor.
+     * The schema the handle before a `with` names: the one after the nearest
+     * `for` before the cursor.
      */
     private function handleSchema(): ?string
     {
         for ($i = count($this->before) - 1; $i >= 0; $i--) {
             if ($this->before[$i]->type === TokenType::FOR) {
-                $schema = $this->before[$i + 1] ?? null;
-
-                return $schema?->type === TokenType::IDENTIFIER ? $schema->lexeme : null;
+                return $this->handleTarget($this->before, $i + 1);
             }
         }
 
         return null;
+    }
+
+    /**
+     * The schema the handle starting at $tokens[$start] reaches: the schema it
+     * names, or the target of the row relation after `its`. Null when neither is
+     * written there, or the relation cannot be found.
+     *
+     * @param list<Token> $tokens
+     */
+    private function handleTarget(array $tokens, int $start): ?string
+    {
+        $first = $tokens[$start] ?? null;
+
+        if ($first?->type !== TokenType::ITS) {
+            return $first?->type === TokenType::IDENTIFIER ? $first->lexeme : null;
+        }
+
+        $relation = $tokens[$start + 1] ?? null;
+
+        return $relation?->type !== TokenType::IDENTIFIER || $this->scopeSchemaKey === null
+            ? null
+            : $this->workspace->catalog()?->constructs()->rowRelation($relation->lexeme, $this->scopeSchemaKey)?->targetKey;
     }
 
     /**
