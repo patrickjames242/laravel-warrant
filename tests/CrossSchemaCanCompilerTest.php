@@ -140,7 +140,51 @@ it('embeds a row-bound reference as an exists over the referenced table', functi
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
+                )
+            )
+        SQL,
+    );
+});
+
+it('correlates a condition\'s subquery through a column given as a where value', function () {
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id)) they can view',
+        ['xc_folders' => 'if is_shared they can view'],
+        'view',
+        ['folder_id' => 'f-1'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders"
+                    where "xc_folders"."id" = 'f-1'
+                        and (exists (
+                            select * from "xc_shares"
+                            where "xc_shares"."folder_id" = "xc_folders"."id"
+                                and "xc_shares"."role" = 'role-1'
+                        ))
+                )
+            )
+        SQL,
+    );
+});
+
+it('correlates a condition\'s subquery to the alias a hop names its rows', function () {
+    assertXcFilterSql(
+        'if can(view for xc_folders(@context folder_id) as f2) they can view',
+        ['xc_folders' => 'if is_shared they can view'],
+        'view',
+        ['folder_id' => 'f-1'],
+        <<<SQL
+            select * from "xc_docs" where (
+                exists (
+                    select * from "xc_folders" as "f2"
+                    where "f2"."id" = 'f-1'
+                        and (exists (
+                            select * from "xc_shares"
+                            where "xc_shares"."folder_id" = "f2"."id"
+                                and "xc_shares"."role" = 'role-1'
+                        ))
                 )
             )
         SQL,
@@ -164,7 +208,7 @@ it('compiles a builder-built row-bound reference to the same SQL as the DSL', fu
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -191,7 +235,7 @@ it('binds a model row selector by its key', function () {
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -211,7 +255,7 @@ it('binds a backed enum and a date row selector', function () {
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -227,7 +271,7 @@ it('binds a backed enum and a date row selector', function () {
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = '2026-01-02 03:04:05'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -249,7 +293,7 @@ it('splices a @column row selector as raw SQL, not a binding', function () {
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = "xc_docs"."id"
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -271,7 +315,7 @@ it('splices an @sql row selector as a parenthesized scalar subquery', function (
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = (select folder_id from xc_pins limit 1)
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -295,7 +339,7 @@ it('aliases the subquery from, and qualifies every B predicate with that alias',
                 exists (
                     select * from "xc_folders" as "f2"
                     where "f2"."id" = "xc_docs"."id"
-                        and (f2.owner = 'role-1')
+                        and ("f2"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -314,7 +358,7 @@ it('leaves an unaliased hop emitting a bare from, shadowing as SQL does', functi
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = "xc_docs"."id"
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -360,7 +404,7 @@ it('embeds a row-bound reference under a cannot as not exists', function () {
                 not exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -423,7 +467,7 @@ it('feeds the referenced schema a fresh bag built from the with map', function (
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-2')
+                        and ("xc_folders"."owner" = 'role-2')
                 )
             )
         SQL,
@@ -443,7 +487,7 @@ it('fills the referenced schema\'s bag from its own defaultContext()', function 
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-default')
+                        and ("xc_folders"."owner" = 'role-default')
                 )
             )
         SQL,
@@ -461,7 +505,7 @@ it('lets a with-map value override the referenced schema\'s default', function (
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-2')
+                        and ("xc_folders"."owner" = 'role-2')
                 )
             )
         SQL,
@@ -480,7 +524,7 @@ it('does not let the caller\'s context stand in for the referenced schema\'s def
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-default')
+                        and ("xc_folders"."owner" = 'role-default')
                 )
             )
         SQL,
@@ -503,13 +547,13 @@ it('emits two independent exists clauses for sibling references to one schema', 
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
                 or
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-other'
-                        and (xc_folders.owner = 'role-1')
+                        and ("xc_folders"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -588,7 +632,7 @@ it('resolves a @column in the target\'s own rules against the alias this caller 
             select * from "xc_docs" where (
                 exists (
                     select * from "xc_folders" as "f2"
-                    where "f2"."id" = "xc_docs"."id" and ("f2"."id" = f2.owner)
+                    where "f2"."id" = "xc_docs"."id" and ("f2"."id" = "f2"."owner")
                 )
             )
         SQL,
@@ -609,7 +653,7 @@ it('resolves a with-map @column against the frame the handle was written in', fu
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and ("xc_docs"."id" = xc_folders.owner)
+                        and ("xc_docs"."id" = "xc_folders"."owner")
                 )
             )
         SQL,
@@ -630,7 +674,7 @@ it('resolves a with-map @sql value and hands it to B as an expression', function
                 exists (
                     select * from "xc_folders"
                     where "xc_folders"."id" = 'f-owned'
-                        and ((select owner from xc_pins limit 1) = xc_folders.owner)
+                        and ((select owner from xc_pins limit 1) = "xc_folders"."owner")
                 )
             )
         SQL,
@@ -729,6 +773,17 @@ class XcFolderSchema extends ModelSchema
     public function ownerIs(RowConditionContext $c, mixed $owner): BuilderContract
     {
         return $c->query->whereRaw("{$c->column('owner')} = ?", [$owner]);
+    }
+
+    /* Correlates a subquery to this frame through a where's value rather than
+       whereColumn(), which only compares columns because column() is an expression. */
+    #[RowCondition]
+    public function isShared(RowConditionContext $c): BuilderContract
+    {
+        return $c->query->whereExists(fn ($shares) => $shares
+            ->from('xc_shares')
+            ->where('xc_shares.folder_id', $c->column('id'))
+            ->where('xc_shares.role', $c->user->role_id));
     }
 
     /* Takes a column operand and compares this frame's owner to it. Both operands

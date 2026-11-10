@@ -240,7 +240,7 @@ it('does not charge sibling conditions for each other', function () {
        across a breadth. */
     bindCstRules(['cst_folders' => 'if '.implode(' or ', array_fill(0, 70, 'is_editable')).' they can view']);
 
-    expect(compileCst('cst_folders', new CstFolderSchema))->toContain('cst_folders.owner');
+    expect(compileCst('cst_folders', new CstFolderSchema))->toContain('"cst_folders"."owner"');
 });
 
 it('allows a recursion that shrinks a literal argument each level', function () {
@@ -252,7 +252,7 @@ it('allows a recursion that shrinks a literal argument each level', function () 
 
     $sql = compileCst('cst_folders', new CstFolderSchema);
 
-    expect(substr_count($sql, 'cst_folders.owner'))->toBe(4);
+    expect(substr_count($sql, '"cst_folders"."owner"'))->toBe(4);
 });
 
 // -- fixtures -----------------------------------------------------------------

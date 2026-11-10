@@ -220,11 +220,14 @@ public function __construct(
     public ?Model $model = null,
 );
 
-public function column(?string $column = null): string;
-// column() => "documents.id"; column('user_id') => "documents.user_id"
+public function column(?string $column = null): StringableExpression;
+// column() => "documents"."id"; column('user_id') => "documents"."user_id"
 ```
 
-`column()` with no argument names the key, and needs a key of exactly one column.
+`column()` with no argument names the key, and needs a key of exactly one column. The
+result is a query expression quoted by the query's grammar, so a builder writes it as a
+column in any position, including a where's value. As a string it is the same quoted SQL,
+for `whereRaw()`.
 
 `model` is set only when the check named one specific hydrated row. It is `null`
 when filtering, listing per-row abilities, or when the row was named by key or is

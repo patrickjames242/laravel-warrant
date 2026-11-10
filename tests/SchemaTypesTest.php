@@ -25,6 +25,7 @@ use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\Schema\Vocabulary;
+use Warrant\Support\StringableExpression;
 
 class SchemaTypesDocument extends Model
 {
@@ -280,6 +281,16 @@ it('finds a row with a matchKey of its own', function () {
         ->and($matched->rowMatcher()->methodName)->toBe('matchKey')
         ->and($matched->invokeRowMatcher(schemaTypesRowContext($matched, 'warrant_rows', [5]))->toSql())
         ->toBe('select * from "x" where "warrant_rows"."id" = ?');
+});
+
+it('names a column as a quoted expression that is also a string', function () {
+    $c = schemaTypesRowContext(new SchemaTypesDocumentSchema, 'docs');
+    $correlated = DB::table('shares')->where('shares.doc_id', $c->column());
+
+    expect($c->column('owner_id'))->toBeInstanceOf(StringableExpression::class)
+        ->and((string) $c->column('owner_id'))->toBe('"docs"."owner_id"')
+        ->and($correlated->toSql())->toBe('select * from "shares" where "shares"."doc_id" = "docs"."id"')
+        ->and($correlated->getBindings())->toBe([]);
 });
 
 it('asks for a column name when the key is not one column', function () {

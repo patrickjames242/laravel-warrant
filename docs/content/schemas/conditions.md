@@ -56,6 +56,10 @@ public function inMyTeam(RowConditionContext $c): Builder
 }
 ```
 
+`$c->column()` is an expression, so `->where('team_members.team_id', $c->column('team_id'))`
+compares the two columns too. It is never bound as a value. It is also a string, already
+quoted, so it can be written into raw SQL.
+
 ## Global conditions
 
 A global condition is about the user or the world. Its context has no `column()`, and
@@ -192,7 +196,7 @@ parameter.`
 | `$c->query` | `Builder` | both |
 | `$c->arguments` | `array` | both |
 | `$c->context` | `array` | both |
-| `$c->column()` | `string` method | row only |
+| `$c->column()` | `StringableExpression` method | row only |
 | `$c->model` | `?Model` | row only |
 | `$c->table` | `string` | row only |
 | `$c->keyColumns` | `array` | row only |

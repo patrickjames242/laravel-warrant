@@ -267,7 +267,7 @@ it('hands the key the alias the hop named the row, not the table', function () {
         ['mk_days' => 'if is_open they can assign'],
     );
 
-    expect(MkDaySchema::$seenRow)->toBe('d.team_id');
+    expect(MkDaySchema::$seenRow)->toBe('"d"."team_id"');
 });
 
 // -- arity --------------------------------------------------------------------

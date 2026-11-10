@@ -39,8 +39,8 @@ beforeEach(function () {
 |   - every condition leaf is applied inline; a negated leaf lands as
 |     `not (...)` (no EXISTS wrapping). Reaching another table is the condition
 |     author's own `whereExists`, which splices in as-is.
-|   - the target id is injected raw by the fixture conditions (isTeacher writes
-|     `course_sections.id = ?`), while the base table is grammar-quoted.
+|   - the target id is written into raw SQL by the fixture conditions (isTeacher
+|     writes `"course_sections"."id" = ?`), quoted by the grammar like the base table.
 |
 | Fixture conditions (tests/Support/TestSupport.php, WarrantTestSchema), shown
 | here with the fixture user's role ("teacher-role") already substituted:
@@ -106,7 +106,7 @@ it('inlines a positive row condition as a correlated predicate', function () {
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
         where (
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
         )
     SQL);
 });
@@ -119,7 +119,7 @@ it('ORs two inlined condition leaves for an or-expression', function () {
         where (
             'advisor' = 'teacher-role'
             or
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
         )
     SQL);
 });
@@ -167,7 +167,7 @@ it('ANDs an inline negated leaf for a conditional cannot', function () {
     // unconditional grant's always-true term folds away, leaving only the deny.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
-        where (not (course_sections.id = 'teacher:teacher-role'))
+        where (not ("course_sections"."id" = 'teacher:teacher-role'))
     SQL);
 });
 
@@ -195,7 +195,7 @@ it('pushes a not over an or down to an and of negated leaves', function () {
         where (
             not ('advisor' = 'teacher-role')
             and
-            not (course_sections.id = 'teacher:teacher-role')
+            not ("course_sections"."id" = 'teacher:teacher-role')
         )
     SQL);
 });
@@ -208,7 +208,7 @@ it('pushes a not over an and down to an or of negated leaves', function () {
         where (
             not ('advisor' = 'teacher-role')
             or
-            not (course_sections.id = 'teacher:teacher-role')
+            not ("course_sections"."id" = 'teacher:teacher-role')
         )
     SQL);
 });
@@ -239,7 +239,7 @@ it('cancels a double negation instead of emitting NOT NOT', function () {
     // and then cleaned up — it never exists.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
-        where (course_sections.id = 'teacher:teacher-role')
+        where ("course_sections"."id" = 'teacher:teacher-role')
     SQL);
 });
 
@@ -253,7 +253,7 @@ it('cancels an inner not while negating its sibling', function () {
         where (
             not ('advisor' = 'teacher-role')
             or
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
         )
     SQL);
 });
@@ -287,7 +287,7 @@ it('applies de morgan to a cannot whose rule text has no not at all', function (
         where (
             not ('advisor' = 'teacher-role')
             and
-            not (course_sections.id = 'teacher:teacher-role')
+            not ("course_sections"."id" = 'teacher:teacher-role')
         )
     SQL);
 });
@@ -299,7 +299,7 @@ it('cancels the deny-side seed against a not written in the cannot', function ()
     // negation and the author's `not` cancel, leaving no negation in the SQL.
     assertWarrantFilterSql('view', <<<SQL
         select * from "course_sections"
-        where (course_sections.id = 'teacher:teacher-role')
+        where ("course_sections"."id" = 'teacher:teacher-role')
     SQL);
 });
 
@@ -333,9 +333,9 @@ it('ANDs every ability predicate under ALL match mode', function () {
     assertWarrantFilterSql(['view', 'update'], <<<SQL
         select * from "course_sections"
         where (
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
             and
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
         )
     SQL, AbilityMatchMode::ALL);
 });
@@ -365,7 +365,7 @@ it('qualifies a row condition with the host query alias rather than the table', 
 
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
         select * from "course_sections" as "cs"
-        where (cs.id = 'teacher:teacher-role')
+        where ("cs"."id" = 'teacher:teacher-role')
     SQL));
 });
 

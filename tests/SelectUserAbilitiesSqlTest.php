@@ -36,7 +36,7 @@ beforeEach(function () {
 |     declared set, in declaration order: create, publish, archive, view, update.
 |   - bindings are substituted inline via toRawSql(); the fixture role is
 |     "teacher-role", so isTeacher's target predicate reads
-|     `course_sections.id = 'teacher:teacher-role'`.
+|     `"course_sections"."id" = 'teacher:teacher-role'`.
 |
 */
 
@@ -77,7 +77,7 @@ it('qualifies each branch with the host query alias rather than the table', func
             from (
                 select 'view' as "ability"
                 where (
-                    cs.id = 'teacher:teacher-role'
+                    "cs"."id" = 'teacher:teacher-role'
                 )
             ) as "available_abilities"
         ) as "abilities"
@@ -96,7 +96,7 @@ it('wraps a single ability branch without a union', function () {
             from (
                 select 'view' as "ability"
                 where (
-                    course_sections.id = 'teacher:teacher-role'
+                    "course_sections"."id" = 'teacher:teacher-role'
                 )
             ) as "available_abilities"
         ) as "abilities"
@@ -130,14 +130,14 @@ it('UNION ALLs one wrapped branch per ability', function () {
                 select * from (
                     select 'view' as "ability"
                     where (
-                        course_sections.id = 'teacher:teacher-role'
+                        "course_sections"."id" = 'teacher:teacher-role'
                     )
                 )
                 union all
                 select * from (
                     select 'update' as "ability"
                     where (
-                        course_sections.id = 'teacher:teacher-role'
+                        "course_sections"."id" = 'teacher:teacher-role'
                     )
                 )
             ) as "available_abilities"

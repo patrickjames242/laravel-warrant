@@ -93,7 +93,7 @@ it('compiles a check(...) an expansion produced, in the frame the condition sits
         select * from "dc_folders" where (
             exists (
                 select * from "dc_folders" as "parent"
-                where "parent"."id" = "dc_folders"."parent_id" and (parent.owner = 'role-1')
+                where "parent"."id" = "dc_folders"."parent_id" and ("parent"."owner" = 'role-1')
             )
         )
     SQL);
@@ -106,7 +106,7 @@ it('emits the same SQL for an expanded check as for the hand-written rule', func
             select * from "dc_folders" where (
                 exists (
                     select * from "dc_folders" as "parent"
-                    where "parent"."id" = "dc_folders"."parent_id" and (parent.owner = 'role-1')
+                    where "parent"."id" = "dc_folders"."parent_id" and ("parent"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -126,7 +126,7 @@ it('expands a condition reached from inside a predicate, in that predicate\'s fr
                     where "p"."id" = "dc_folders"."parent_id" and (
                         exists (
                             select * from "dc_folders" as "parent"
-                            where "parent"."id" = "p"."parent_id" and (parent.owner = 'role-1')
+                            where "parent"."id" = "p"."parent_id" and ("parent"."owner" = 'role-1')
                         )
                     )
                 )
@@ -143,7 +143,7 @@ it('compiles a condition that returns a builder as the expression it composed', 
         'if is_editable they can view',
         <<<SQL
             select * from "dc_folders" where (
-                dc_folders.owner = 'role-1' or dc_folders.owner = 'role-9'
+                "dc_folders"."owner" = 'role-1' or "dc_folders"."owner" = 'role-9'
             )
         SQL,
     );
@@ -168,7 +168,7 @@ it('pushes negation through an expansion, De Morgan and all', function () {
         'if not is_editable they can view',
         <<<SQL
             select * from "dc_folders" where (
-                (not (dc_folders.owner = 'role-1') and not (dc_folders.owner = 'role-9'))
+                (not ("dc_folders"."owner" = 'role-1') and not ("dc_folders"."owner" = 'role-9'))
             )
         SQL,
     );
@@ -244,7 +244,7 @@ it('reads a qualified @column in an expansion as the frame the condition was ask
                     where "p"."id" = "dc_folders"."parent_id" and (
                         exists (
                             select * from "dc_folders" as "parent"
-                            where "parent"."id" = "p"."parent_id" and (parent.owner = 'role-1')
+                            where "parent"."id" = "p"."parent_id" and ("parent"."owner" = 'role-1')
                         )
                     )
                 )
@@ -291,7 +291,7 @@ it('names the schema key in an expansion reached from another schema', function 
                 where "f"."id" = "dc_files"."folder_id" and (
                     exists (
                         select * from "dc_folders" as "parent"
-                        where "parent"."id" = "f"."parent_id" and (parent.owner = 'role-1')
+                        where "parent"."id" = "f"."parent_id" and ("parent"."owner" = 'role-1')
                     )
                 )
             )

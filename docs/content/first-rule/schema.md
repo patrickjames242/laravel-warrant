@@ -53,7 +53,7 @@ Warrant ships no fixed list, so if your domain says `approve`, `submit`, and
 `#[RowCondition]` declares a test a rule may put after `if`. The method name
 snake-cases into the rule name, so `isMine` is written `is_mine`. The body adds a
 `where` to the query it was handed and returns it. `$c->column('user_id')` gives back
-the qualified column, `documents.user_id`, which matters later when the same
+the qualified, quoted column, `"documents"."user_id"`, which matters later when the same
 condition runs under an alias.
 
 ## The model side

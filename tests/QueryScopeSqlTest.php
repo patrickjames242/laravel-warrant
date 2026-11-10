@@ -44,7 +44,7 @@ it('scopeUserHasAbility emits filterQuery SQL through Eloquent', function () {
     expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
         select * from "course_sections"
         where (
-            course_sections.id = 'teacher:teacher-role'
+            "course_sections"."id" = 'teacher:teacher-role'
         )
     SQL));
 });
@@ -64,7 +64,7 @@ it('scopeSelectUserAbilities emits the per-row JSON column through Eloquent', fu
             from (
                 select 'view' as "ability"
                 where (
-                    course_sections.id = 'teacher:teacher-role'
+                    "course_sections"."id" = 'teacher:teacher-role'
                 )
             ) as "available_abilities"
         ) as "abilities"

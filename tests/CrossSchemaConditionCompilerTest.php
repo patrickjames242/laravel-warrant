@@ -123,7 +123,7 @@ it('embeds a row-bound predicate as an exists over the referenced table', functi
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-1')
+                        and ("chk_targets"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -143,7 +143,7 @@ it('aliases the subquery from and leaves the enclosing frame nameable in the pre
                 exists (
                     select * from "chk_targets" as "t2"
                     where "t2"."id" = 'f-owned'
-                        and ("chk_docs"."id" = t2.owner and t2.owner = 'role-1')
+                        and ("chk_docs"."id" = "t2"."owner" and "t2"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -189,7 +189,7 @@ it('compiles a builder-built row-bound predicate to the same SQL as the DSL', fu
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-1')
+                        and ("chk_targets"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -210,7 +210,7 @@ it('binds a model row selector by its key, and rejects a foreign one', function 
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-1')
+                        and ("chk_targets"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -236,7 +236,7 @@ it('embeds a row-bound predicate under a cannot as not exists', function () {
                 not exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-1')
+                        and ("chk_targets"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -254,10 +254,10 @@ it('compiles a complex boolean predicate of conditions inside the exists', funct
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
                         and (
-                            chk_targets.owner = 'role-1'
+                            "chk_targets"."owner" = 'role-1'
                             or (
-                                chk_targets.owner = 'role-9'
-                                and not (chk_targets.owner = 'role-1')
+                                "chk_targets"."owner" = 'role-9'
+                                and not ("chk_targets"."owner" = 'role-1')
                             )
                         )
                 )
@@ -280,7 +280,7 @@ it('splices an @sql row selector as a parenthesized scalar subquery', function (
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = (select target_id from chk_pins limit 1)
-                        and (chk_targets.owner = 'role-1')
+                        and ("chk_targets"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -299,7 +299,7 @@ it('hands an @sql condition argument to the target as an expression', function (
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and ((select owner from chk_pins limit 1) = chk_targets.owner)
+                        and ((select owner from chk_pins limit 1) = "chk_targets"."owner")
                 )
             )
         SQL,
@@ -399,7 +399,7 @@ it('feeds the referenced condition a fresh bag built from the with map', functio
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-2')
+                        and ("chk_targets"."owner" = 'role-2')
                 )
             )
         SQL,
@@ -417,7 +417,7 @@ it('carries an @sql with-map value across the boundary as an expression', functi
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and ((select owner from chk_pins limit 1) = chk_targets.owner)
+                        and ((select owner from chk_pins limit 1) = "chk_targets"."owner")
                 )
             )
         SQL,
@@ -435,7 +435,7 @@ it('fills the referenced condition\'s bag from its schema\'s defaultContext()', 
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-default')
+                        and ("chk_targets"."owner" = 'role-default')
                 )
             )
         SQL,
@@ -451,7 +451,7 @@ it('lets a with-map value override the referenced condition schema\'s default', 
                 exists (
                     select * from "chk_targets"
                     where "chk_targets"."id" = 'f-owned'
-                        and (chk_targets.owner = 'role-2')
+                        and ("chk_targets"."owner" = 'role-2')
                 )
             )
         SQL,

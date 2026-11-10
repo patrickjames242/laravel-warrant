@@ -104,7 +104,7 @@ it('gives each frame of a self-referencing chain its own alias', function () {
                     where "d3"."id" = "sr_docs"."id" and (
                         exists (
                             select * from "sr_docs" as "d2"
-                            where "d2"."id" = "d3"."id" and (d2.owner = 'role-1')
+                            where "d2"."id" = "d3"."id" and ("d2"."owner" = 'role-1')
                         )
                     )
                 )
@@ -122,7 +122,7 @@ it('correlates a self-reference to a different row of the same table', function 
             select * from "sr_docs" where (
                 exists (
                     select * from "sr_docs" as "parent"
-                    where "parent"."id" = "sr_docs"."parent_id" and (parent.owner = 'role-1')
+                    where "parent"."id" = "sr_docs"."parent_id" and ("parent"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -141,7 +141,7 @@ it('lets a self check(...) predicate name both frames at once', function () {
                 exists (
                     select * from "sr_docs" as "parent"
                     where "parent"."id" = "sr_docs"."parent_id"
-                        and ("sr_docs"."owner" = parent.owner)
+                        and ("sr_docs"."owner" = "parent"."owner")
                 )
             )
         SQL,
@@ -165,7 +165,7 @@ it('gives an unaliased self-reference an identifier of its own', function () {
             select * from "sr_docs" where (
                 exists (
                     select * from "sr_docs" as "sr_docs_1"
-                    where "sr_docs_1"."id" = "sr_docs"."id" and (sr_docs_1.owner = 'role-1')
+                    where "sr_docs_1"."id" = "sr_docs"."id" and ("sr_docs_1"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -190,7 +190,7 @@ it('keeps the author alias as the base when two hops ask for one name', function
                     where "d2"."id" = "sr_docs"."id" and (
                         exists (
                             select * from "sr_docs" as "d2_1"
-                            where "d2_1"."id" = "d2"."id" and (d2_1.owner = 'role-1')
+                            where "d2_1"."id" = "d2"."id" and ("d2_1"."owner" = 'role-1')
                         )
                     )
                 )
@@ -212,7 +212,7 @@ it('compiles a can with no for clause inline, with no subquery at all', function
         WARRANT,
         'do_thing_2',
         <<<SQL
-            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+            select * from "sr_docs" where ("sr_docs"."owner" = 'role-1')
         SQL,
     );
 });
@@ -226,7 +226,7 @@ it('collapses a whole chain of abilities into one predicate', function () {
         WARRANT,
         'do_thing_3',
         <<<SQL
-            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+            select * from "sr_docs" where ("sr_docs"."owner" = 'role-1')
         SQL,
     );
 });
@@ -239,7 +239,7 @@ it('compiles a can written with no parentheses as the same inline predicate', fu
         WARRANT,
         'do_thing_2',
         <<<SQL
-            select * from "sr_docs" where (sr_docs.owner = 'role-1')
+            select * from "sr_docs" where ("sr_docs"."owner" = 'role-1')
         SQL,
     );
 });
@@ -252,13 +252,13 @@ it('compiles cans with no parentheses joined by or, and and not', function (stri
     );
 })->with([
     'or' => ['can do_thing_1 or can do_thing_2', <<<SQL
-        select * from "sr_docs" where (sr_docs.owner = 'role-1' or sr_docs.owner = 'role-2')
+        select * from "sr_docs" where ("sr_docs"."owner" = 'role-1' or "sr_docs"."owner" = 'role-2')
         SQL],
     'and' => ['can do_thing_1 and can do_thing_2', <<<SQL
-        select * from "sr_docs" where (sr_docs.owner = 'role-1' and sr_docs.owner = 'role-2')
+        select * from "sr_docs" where ("sr_docs"."owner" = 'role-1' and "sr_docs"."owner" = 'role-2')
         SQL],
     'not' => ['can do_thing_1 and not can do_thing_2', <<<SQL
-        select * from "sr_docs" where (sr_docs.owner = 'role-1' and not (sr_docs.owner = 'role-2'))
+        select * from "sr_docs" where ("sr_docs"."owner" = 'role-1' and not ("sr_docs"."owner" = 'role-2'))
         SQL],
 ]);
 
@@ -299,7 +299,7 @@ it('carries the check-time context through a can with no for clause', function (
         WARRANT,
         'do_thing_2',
         <<<SQL
-            select * from "sr_docs" where (sr_docs.owner = 'role-9')
+            select * from "sr_docs" where ("sr_docs"."owner" = 'role-9')
         SQL,
         ['who' => 'role-9'],
     );
@@ -319,7 +319,7 @@ it('leaves the context behind once a for clause names a schema', function () {
             select * from "sr_docs" where (
                 exists (
                     select * from "sr_docs" as "sr_docs_1"
-                    where "sr_docs_1"."id" = "sr_docs"."id" and (sr_docs_1.owner = null)
+                    where "sr_docs_1"."id" = "sr_docs"."id" and ("sr_docs_1"."owner" = null)
                 )
             )
         SQL,
@@ -338,7 +338,7 @@ it('negates an inlined ability without disturbing its own deny side', function (
         WARRANT,
         'do_thing_2',
         <<<SQL
-            select * from "sr_docs" where (not (sr_docs.owner = 'role-1'))
+            select * from "sr_docs" where (not ("sr_docs"."owner" = 'role-1'))
         SQL,
     );
 });
@@ -356,7 +356,7 @@ it('suffixes an author alias that collides with the query being filtered', funct
             select * from "sr_docs" where (
                 exists (
                     select * from "sr_docs" as "sr_docs_1"
-                    where "sr_docs_1"."id" = "sr_docs"."id" and (sr_docs_1.owner = 'role-1')
+                    where "sr_docs_1"."id" = "sr_docs"."id" and ("sr_docs_1"."owner" = 'role-1')
                 )
             )
         SQL,
@@ -401,10 +401,10 @@ it('nests a check from a derived condition in a predicate, resolving each select
                 exists (
                     select * from "sr_docs" as "parent"
                     where "parent"."id" = "sr_docs"."parent_id" and (
-                        parent.owner = 'role-1'
+                        "parent"."owner" = 'role-1'
                         and exists (
                             select * from "sr_docs" as "gp"
-                            where "gp"."id" = "parent"."parent_id" and (gp.owner = 'role-1')
+                            where "gp"."id" = "parent"."parent_id" and ("gp"."owner" = 'role-1')
                         )
                     )
                 )
@@ -426,7 +426,7 @@ it('reads a schema-less can inside a predicate against the frame the predicate i
             select * from "sr_docs" where (
                 exists (
                     select * from "sr_docs" as "parent"
-                    where "parent"."id" = "sr_docs"."parent_id" and (parent.owner = null)
+                    where "parent"."id" = "sr_docs"."parent_id" and ("parent"."owner" = null)
                 )
             )
         SQL,

@@ -21,6 +21,13 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ### Changed
 
+- `RowConditionContext::column()` returns a `Warrant\Support\StringableExpression`
+  quoted by the query's grammar, in place of an unquoted string. A builder writes it
+  as a column wherever you put it, so `->where('team_members.team_id',
+  $c->column('team_id'))` inside a correlated subquery compares the two columns
+  instead of binding the column's name as text. It is still a string, so it can be
+  written into `whereRaw()`, where it is now quoted too.
+
 - `warrant/usages` gives no names a rename must not take for an ability, which
   is not renamed; its `taken` is empty.
 

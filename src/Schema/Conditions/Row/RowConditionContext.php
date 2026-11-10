@@ -5,7 +5,10 @@ namespace Warrant\Schema\Conditions\Row;
 use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Grammars\Grammar;
+use Warrant\Support\StringableExpression;
 
 /**
  * The evaluation context passed to a `#[RowCondition]` method: the current user,
@@ -93,14 +96,19 @@ final readonly class RowConditionContext
 
     /**
      * A column of the target row, qualified with the name the row goes by in
-     * the query, so a condition never has to hand-concatenate the table prefix:
-     * `column('owner_id')` → `timesheets.owner_id`.
+     * the query and quoted by the query's grammar, so a condition never has to
+     * hand-concatenate the table prefix: `column('owner_id')` →
+     * `"timesheets"."owner_id"`.
      *
-     * With no argument, the row's key column (e.g. `timesheets.id`). That form
+     * It is an expression, so it is a column wherever a builder is handed it,
+     * including a where's value position inside a correlated subquery, and a
+     * string, so it can be written into raw SQL. See {@see StringableExpression}.
+     *
+     * With no argument, the row's key column (e.g. `"timesheets"."id"`). That form
      * needs a key of exactly one column, so for a key of several columns, or none,
      * name the column.
      */
-    public function column(?string $column = null): string
+    public function column(?string $column = null): StringableExpression
     {
         if ($column === null) {
             if (count($this->keyColumns) !== 1) {
@@ -113,6 +121,13 @@ final readonly class RowConditionContext
             $column = $this->keyColumns[0];
         }
 
-        return $this->table . '.' . $column;
+        return new StringableExpression($this->grammar()->wrap($this->table . '.' . $column));
+    }
+
+    private function grammar(): Grammar
+    {
+        $query = $this->query instanceof EloquentBuilder ? $this->query->getQuery() : $this->query;
+
+        return $query->getGrammar();
     }
 }
