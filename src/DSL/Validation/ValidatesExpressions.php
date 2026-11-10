@@ -11,12 +11,15 @@ use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
 use Warrant\DSL\Resolution\ISchemaId;
@@ -115,7 +118,7 @@ trait ValidatesExpressions
                 ? $this->failSchemaCanInCheck($node, $predicateOf)
                 : $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $predicateOf === null
-                ? $this->assertCrossSchemaConditionValid($node, $scope)
+                ? $this->assertCrossSchemaConditionValid($node, $vocabulary, $scope)
                 : $this->failNestedCheck($node, $predicateOf),
             $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $writtenIn, $predicateOf),
             $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $writtenIn, $predicateOf): void {
@@ -131,9 +134,9 @@ trait ValidatesExpressions
             default => $predicateOf === null ? null : $this->fail(
                 DiagnosticCode::ConstantInCheckPredicate,
                 sprintf(
-                    'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
+                    'A check(...) predicate for %s may not contain a constant; it has to ask that '
                         .'schema something.',
-                    $predicateOf->handle->schemaKey->name,
+                    self::describeTarget($predicateOf->handle),
                 ),
                 $node->location,
             ),
@@ -151,10 +154,10 @@ trait ValidatesExpressions
         $this->fail(
             DiagnosticCode::NestedCheck,
             sprintf(
-                'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
-                    .'ask it from a derived condition of schema [%s] instead.',
-                $predicateOf->handle->schemaKey->name,
-                $predicateOf->handle->schemaKey->name,
+                'A check(...) may not be written inside the predicate of the check(...) for %s; '
+                    .'ask it from a derived condition of %s instead.',
+                self::describeTarget($predicateOf->handle),
+                self::describeTarget($predicateOf->handle),
             ),
             $node->location,
         );
@@ -170,10 +173,10 @@ trait ValidatesExpressions
         $this->fail(
             DiagnosticCode::SchemaCanInCheck,
             sprintf(
-                'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
-                    .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
-                $predicateOf->handle->schemaKey->name,
-                $predicateOf->handle->schemaKey->name,
+                'A can(...) inside the predicate of the check(...) for %s may not name a schema with for; '
+                    .'write can(<ability>) to ask %s about one of its own abilities.',
+                self::describeTarget($predicateOf->handle),
+                self::describeTarget($predicateOf->handle),
             ),
             $node->location,
         );
@@ -202,21 +205,14 @@ trait ValidatesExpressions
             return;
         }
 
-        $schemaKey = $node->handle->schemaKey->name;
+        $reached = $this->handleTarget('can', $node->handle, $vocabulary);
+
+        if ($reached === null) {
+            return;
+        }
+
+        [$schemaKey, $target] = $reached;
         $ability = self::abilityToLookUp($node, $this->input);
-
-        // A handle with no name was reported where it was read; there is no schema to look up.
-        if ($schemaKey === INode::MISSING_NAME) {
-            return;
-        }
-
-        $target = $this->input->catalog?->find($schemaKey);
-
-        if ($this->input->catalog !== null && $target === null) {
-            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A can(...) reference targets unknown schema [%s].', $schemaKey), $node->handle->schemaKey->location);
-
-            return;
-        }
 
         if ($target !== null && $ability !== null && $target->ability($ability) === null) {
             $this->fail(
@@ -234,7 +230,7 @@ trait ValidatesExpressions
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([...$node->handle->boundKey, ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...self::rowSelector($node->handle), ...self::withValues($node->contextMap)], $scope);
     }
 
     /**
@@ -250,28 +246,21 @@ trait ValidatesExpressions
      *
      * As with `can(...)` the target may be this schema itself.
      */
-    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, ?AliasScope $scope): void
+    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, ?Vocabulary $vocabulary, ?AliasScope $scope): void
     {
-        $schemaKey = $node->handle->schemaKey->name;
+        $reached = $this->handleTarget('check', $node->handle, $vocabulary);
 
-        // A handle with no name was reported where it was read; there is no schema to check the predicate against.
-        if ($schemaKey === INode::MISSING_NAME) {
+        if ($reached === null) {
             return;
         }
 
-        $target = $this->input->catalog?->find($schemaKey);
-
-        if ($this->input->catalog !== null && $target === null) {
-            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A check(...) reference targets unknown schema [%s].', $schemaKey), $node->handle->schemaKey->location);
-
-            return;
-        }
+        [$schemaKey, $target] = $reached;
 
         $this->assertRowTargetValid('check', $node, $schemaKey, $target);
         $this->assertAliasHasARow('check', $schemaKey, $node->handle->isRowBound(), $node->alias);
         $this->assertWithKeysDistinct($node->contextMap);
 
-        $this->assertColumnRefsInScope([...$node->handle->boundKey, ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...self::rowSelector($node->handle), ...self::withValues($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
@@ -290,13 +279,144 @@ trait ValidatesExpressions
             match (true) {
                 $scope === null || $target === null => null,
                 ! $target->hasRows() => $scope->enteringRowlessPredicate(),
-                default => $scope->enteringPredicate($schemaKey, $node->alias?->name, null),
+                default => $scope->enteringPredicate(self::frameNameOf($node->handle, $schemaKey), $node->alias?->name, null),
             },
             /* The `for` names the schema the predicate's names are written for,
                whatever text the check sits in. */
             $target === null ? null : new KeyedSchemaId($schemaKey),
             $node,
         );
+    }
+
+    /**
+     * The key of the schema a handle reaches, and that schema's vocabulary when
+     * the catalog knows it. Null when there is nothing to check the reference
+     * against: a name missing from the text, which was reported where it was read,
+     * or a target that does not exist, which is reported here.
+     *
+     * @param Vocabulary|null $own The schema the rule is for, whose row relations
+     *   an `its` handle names.
+     * @return array{0: string, 1: ?Vocabulary}|null
+     */
+    private function handleTarget(string $builtin, IHandleNode $handle, ?Vocabulary $own): ?array
+    {
+        if ($handle instanceof RelationHandleNode) {
+            return $this->relationTarget($handle, $own);
+        }
+
+        $schemaKey = $handle->schemaKey->name;
+
+        if ($schemaKey === INode::MISSING_NAME) {
+            return null;
+        }
+
+        $target = $this->input->catalog?->find($schemaKey);
+
+        if ($this->input->catalog !== null && $target === null) {
+            $this->fail(
+                DiagnosticCode::UnknownSchema,
+                sprintf('A %s(...) reference targets unknown schema [%s].', $builtin, $schemaKey),
+                $handle->schemaKey->location,
+            );
+
+            return null;
+        }
+
+        return [$schemaKey, $target];
+    }
+
+    /**
+     * The schema an `its <relation>` handle reaches: the relation must be declared
+     * by the schema the rule is for, and its `schema:` must be a registered schema
+     * with rows. With no catalog there is no schema to look the relation up on.
+     *
+     * @return array{0: string, 1: Vocabulary}|null
+     */
+    private function relationTarget(RelationHandleNode $handle, ?Vocabulary $own): ?array
+    {
+        $name = $handle->relation->name;
+        $catalog = $this->input->catalog;
+
+        if ($name === INode::MISSING_NAME || $catalog === null || $own === null) {
+            return null;
+        }
+
+        $relation = $own->rowRelation($name);
+
+        if ($relation === null) {
+            $this->fail(
+                DiagnosticCode::UnknownRelation,
+                sprintf('Schema [%s] declares no row relation [%s].', $own->schemaClass, $name),
+                $handle->relation->location,
+            );
+
+            return null;
+        }
+
+        $targetKey = $catalog->keyOf($relation->targetSchemaClass);
+
+        if ($targetKey === null) {
+            $this->fail(
+                DiagnosticCode::RelationTargetUnregistered,
+                sprintf(
+                    'Row relation [%s] reaches [%s], which is not a registered schema.',
+                    $name,
+                    $relation->targetSchemaClass,
+                ),
+                $handle->relation->location,
+            );
+
+            return null;
+        }
+
+        $target = $catalog->find($targetKey);
+
+        if (! $target->hasRows()) {
+            $this->fail(
+                DiagnosticCode::RowTargetOnRowlessSchema,
+                sprintf(
+                    'Row relation [%s] reaches schema [%s], which has no rows for it to reach.',
+                    $name,
+                    $targetKey,
+                ),
+                $handle->relation->location,
+            );
+
+            return null;
+        }
+
+        return [$targetKey, $target];
+    }
+
+    /**
+     * The arguments a handle's row selector was written with: none for a relation
+     * handle, which takes no arguments.
+     *
+     * @return list<INode>
+     */
+    private static function rowSelector(IHandleNode $handle): array
+    {
+        return $handle instanceof SchemaHandleNode ? $handle->boundKey : [];
+    }
+
+    /**
+     * The name a `check(...)` predicate knows the handle's rows by: the relation's
+     * name for an `its` handle, and otherwise the schema key the handle names.
+     */
+    private static function frameNameOf(IHandleNode $handle, string $schemaKey): string
+    {
+        return $handle instanceof RelationHandleNode ? $handle->relation->name : $schemaKey;
+    }
+
+    /**
+     * What a handle reaches, for a message: `schema [folders]`, or the schema a
+     * row relation reaches.
+     */
+    private static function describeTarget(IHandleNode $handle): string
+    {
+        return $handle instanceof RelationHandleNode
+            ? sprintf('the schema row relation [%s] reaches', $handle->relation->name)
+            : sprintf('schema [%s]', $handle->schemaKey->name);
     }
 
     /**
@@ -417,7 +537,9 @@ trait ValidatesExpressions
         string $schemaKey,
         ?Vocabulary $target,
     ): void {
-        if (! $node->handle->isRowBound()) {
+        /* A relation handle has no row selector: the relation names its rows, and
+           that it can was checked when its target was found. */
+        if (! $node->handle instanceof SchemaHandleNode || ! $node->handle->hasRowSelector) {
             return;
         }
 

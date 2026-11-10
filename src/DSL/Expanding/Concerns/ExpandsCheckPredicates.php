@@ -5,6 +5,7 @@ namespace Warrant\DSL\Expanding\Concerns;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 
 /**
@@ -18,13 +19,20 @@ trait ExpandsCheckPredicates
     /**
      * A `check(...)` with its predicate expanded against the schema it names,
      * whose conditions those are.
+     *
+     * @param string $schemaKey The schema the rule is for, whose row relation an
+     *   `its` handle follows.
      */
-    private function expandCheckPredicate(CrossSchemaConditionNode $node, ExpansionTrail $trail): CrossSchemaConditionNode
+    private function expandCheckPredicate(CrossSchemaConditionNode $node, string $schemaKey, ExpansionTrail $trail): CrossSchemaConditionNode
     {
-        /* A schema nobody registered has no conditions to expand. Leaving the
-           reference as it is lets the validator and the compiler reject it with
-           the message they give for any unknown schema. */
-        $target = $this->schemaNamed($node->handle->schemaKey->name);
+        $targetKey = $node->handle instanceof RelationHandleNode
+            ? $this->catalog->constructs()->rowRelation($node->handle->relation->name, $schemaKey)?->targetKey
+            : $node->handle->schemaKey->name;
+
+        /* A schema nobody registered, or a relation nothing declares, has no
+           conditions to expand. Leaving the reference as it is lets the validator
+           and the compiler reject it with the message they give for either. */
+        $target = $targetKey === null ? null : $this->schemaNamed($targetKey);
 
         if ($target === null) {
             return $node;
@@ -35,8 +43,8 @@ trait ExpandsCheckPredicates
         $predicate = $this->expandExpression(
             $node->predicate,
             $target,
-            $node->handle->schemaKey->name,
-            new KeyedSchemaId($node->handle->schemaKey->name),
+            $targetKey,
+            new KeyedSchemaId($targetKey),
             $trail,
         );
 

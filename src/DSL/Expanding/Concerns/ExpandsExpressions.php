@@ -50,7 +50,7 @@ trait ExpandsExpressions
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
-            return $this->expandCheckPredicate($node, $trail);
+            return $this->expandCheckPredicate($node, $schemaKey, $trail);
         }
 
         if ($node instanceof ConditionNode) {

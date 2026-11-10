@@ -134,6 +134,12 @@ enum DiagnosticCode: string
     /** A rule template the schema does not declare, named by an `@include`. */
     case UnknownTemplate = 'unknown-template';
 
+    /** A row relation the schema the rule is for does not declare, named after `its`. */
+    case UnknownRelation = 'unknown-relation';
+
+    /** A row relation whose `schema:` is not a registered schema. */
+    case RelationTargetUnregistered = 'relation-target-unregistered';
+
     /** Fewer arguments than a condition, a rule template, or a schema's row key, needs. */
     case TooFewArguments = 'too-few-arguments';
 
