@@ -36,12 +36,12 @@ trait ResolvesHopTargets
      */
     private function hopTarget(CrossSchemaCanNode|CrossSchemaConditionNode $node): IAbilitySchema
     {
-        $schema = $this->manager->registry()->resolveOrFail($node->schemaKey->name)->schema;
+        $schema = $this->manager->registry()->resolveOrFail($node->handle->schemaKey->name)->schema;
 
         if (! $schema instanceof IAbilitySchema) {
             throw new InvalidArgumentException(sprintf(
                 'A reference to schema [%s] needs a schema checks are made against, but [%s] is not an %s.',
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
                 $schema::class,
                 IAbilitySchema::class,
             ));
@@ -98,7 +98,7 @@ trait ResolvesHopTargets
     ): ?string {
         $table = $schema instanceof IRowSchema ? $schema->rowName() : null;
 
-        if (! $node->isRowBound || $table === null) {
+        if (! $node->handle->isRowBound() || $table === null) {
             return null;
         }
 
@@ -130,38 +130,38 @@ trait ResolvesHopTargets
     ): void {
         $builtin = $node instanceof CrossSchemaCanNode ? 'can' : 'check';
 
-        if ($node->isRowBound && ! $schema instanceof IRowSchema) {
+        if ($node->handle->isRowBound() && ! $schema instanceof IRowSchema) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference targets a specific row of schema [%s], but [%s] has no rows and '
                     .'cannot be row-targeted; drop the row selector.',
                 $builtin,
-                $node->schemaKey->name,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
+                $node->handle->schemaKey->name,
             ));
         }
 
         $literalNulls = array_filter(
-            $node->boundKey,
+            $node->handle->boundKey,
             static fn (INode $argument): bool => $argument instanceof LiteralNode && $argument->value === null,
         );
 
-        if ($node->isRowBound && $literalNulls !== []) {
+        if ($node->handle->isRowBound() && $literalNulls !== []) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference to schema [%s] specifies a row target that is null; supply a row id '
                     .'or a @context reference, or drop the row selector.',
                 $builtin,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
             ));
         }
 
-        if (! $node->isRowBound && $node->alias !== null) {
+        if (! $node->handle->isRowBound() && $node->alias !== null) {
             throw new InvalidArgumentException(sprintf(
                 'A %s(...) reference to schema [%s] is aliased [as %s] but selects no row, so the alias '
                     .'names nothing; add a row selector like %s(@context id) as %s, or drop the alias.',
                 $builtin,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
                 $node->alias->name,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
                 $node->alias->name,
             ));
         }

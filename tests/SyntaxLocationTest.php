@@ -12,9 +12,9 @@ it('places a node and every name and literal it holds where each was written', f
 
     expect($node->location->span)->toEqual(new Span(0, 24))
         ->and($node->ability->location->span)->toEqual(new Span(4, 8))
-        ->and($node->schemaKey->location->span)->toEqual(new Span(13, 17))
-        ->and($node->boundKey[0]->location->span)->toEqual(new Span(18, 19))
-        ->and($node->boundKey[1]->location->span)->toEqual(new Span(21, 22));
+        ->and($node->handle->schemaKey->location->span)->toEqual(new Span(13, 17))
+        ->and($node->handle->boundKey[0]->location->span)->toEqual(new Span(18, 19))
+        ->and($node->handle->boundKey[1]->location->span)->toEqual(new Span(21, 22));
 });
 
 it('spans a node written over several tokens from the first to the last', function () {

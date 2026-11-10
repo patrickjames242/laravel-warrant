@@ -150,9 +150,11 @@ it('records cross-schema references whole, and the predicate inside', function (
         ['ConditionNode', 'is_open'],
         ['NotNode', 'not is_locked'],
         ['ConditionNode', 'is_locked'],
+        ['SchemaHandleNode', 'folders(@context folder)'],
         ['ContextRef', '@context folder'],
         ['ContextRef', '@context org'],
         ['CrossSchemaCanNode', 'can(edit for folders)'],
+        ['SchemaHandleNode', 'folders'],
         ['CanClauseNode', 'can view'],
     ]);
 });
@@ -269,6 +271,17 @@ it('records the names and arguments of a rule set\'s entries', function () {
         ->and(writtenText($source, $include->abilities[0]))->toBe('delete');
 });
 
+it('records a handle without the alias written after it', function () {
+    $source = 'if can(view for folders(@context folder) as f) or check(is_open for its folder as g) they can edit';
+    $either = WarrantParser::parse($source)->children[0]->conditions;
+
+    expect(writtenText($source, $either->leftSide->handle))->toBe('folders(@context folder)')
+        ->and(writtenText($source, $either->leftSide->alias))->toBe('f')
+        ->and(writtenText($source, $either->rightSide->handle))->toBe('its folder')
+        ->and(writtenText($source, $either->rightSide->handle->relation))->toBe('folder')
+        ->and(writtenText($source, $either->rightSide->alias))->toBe('g');
+});
+
 it('records each part of a cross-schema reference', function () {
     $source = 'if check(is_open(@column docs.org_id, 2) for folders(@context folder, 7) as f with org = @context org, n = 1) '
         .'they can edit, *';
@@ -276,9 +289,9 @@ it('records each part of a cross-schema reference', function () {
     $rule = $result->children[0];
     $check = $rule->conditions;
 
-    expect(writtenText($source, $check->schemaKey))->toBe('folders')
-        ->and(writtenText($source, $check->boundKey[0]))->toBe('@context folder')
-        ->and(writtenText($source, $check->boundKey[1]))->toBe('7')
+    expect(writtenText($source, $check->handle->schemaKey))->toBe('folders')
+        ->and(writtenText($source, $check->handle->boundKey[0]))->toBe('@context folder')
+        ->and(writtenText($source, $check->handle->boundKey[1]))->toBe('7')
         ->and(writtenText($source, $check->alias))->toBe('f')
         ->and(writtenText($source, $check->contextMap[0]))->toBe('org = @context org')
         ->and(writtenText($source, $check->contextMap[0]->key))->toBe('org')

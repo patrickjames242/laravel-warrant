@@ -152,6 +152,21 @@ dataset('formatting', [
             they can approve
             WARRANT,
     ],
+    'a relation handle stays on its line when it fits' => [
+        'if  can(view for its   folder as f) or check(is_open for its folder) they can edit',
+        "if can(view for its folder as f) or check(is_open for its folder)\nthey can edit",
+    ],
+    'a can over a relation that does not fit puts its parts on lines of their own' => [
+        'if can(create_timesheet for its containing_pay_period as period with user_id = @context user_id) they can create',
+        <<<'WARRANT'
+            if can(
+                create_timesheet
+                for its containing_pay_period as period
+                with user_id = @context user_id
+            )
+            they can create
+            WARRANT,
+    ],
     'a can that does not fit puts its parts on lines of their own' => [
         'if can(create_timesheet for pay_periods(@context pay_period_id) with user_id = @context user_id) they can create',
         <<<'WARRANT'

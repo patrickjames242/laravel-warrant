@@ -213,7 +213,7 @@ final class RuleSetCompiler
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            return $node->schemaKey === null
+            return $node->handle === null
                 ? $this->ownAbilityLeaf($node, $ctx)
                 : $this->crossSchemaCanLeaf($node, $ctx);
         }

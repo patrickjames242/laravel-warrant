@@ -24,7 +24,7 @@ trait ExpandsCheckPredicates
         /* A schema nobody registered has no conditions to expand. Leaving the
            reference as it is lets the validator and the compiler reject it with
            the message they give for any unknown schema. */
-        $target = $this->schemaNamed($node->schemaKey->name);
+        $target = $this->schemaNamed($node->handle->schemaKey->name);
 
         if ($target === null) {
             return $node;
@@ -35,16 +35,14 @@ trait ExpandsCheckPredicates
         $predicate = $this->expandExpression(
             $node->predicate,
             $target,
-            $node->schemaKey->name,
-            new KeyedSchemaId($node->schemaKey->name),
+            $node->handle->schemaKey->name,
+            new KeyedSchemaId($node->handle->schemaKey->name),
             $trail,
         );
 
         return $predicate === $node->predicate ? $node : new CrossSchemaConditionNode(
-            $node->schemaKey,
+            $node->handle,
             $predicate,
-            $node->isRowBound,
-            $node->boundKey,
             $node->contextMap,
             $node->alias,
             $node->location,

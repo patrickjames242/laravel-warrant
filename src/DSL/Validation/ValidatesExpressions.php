@@ -111,7 +111,7 @@ trait ValidatesExpressions
     ): void {
         match (true) {
             $node instanceof ConditionNode => $this->assertConditionValid($node, $writtenIn, $scope, $predicateOf),
-            $node instanceof CrossSchemaCanNode => $predicateOf !== null && $node->schemaKey !== null
+            $node instanceof CrossSchemaCanNode => $predicateOf !== null && $node->handle !== null
                 ? $this->failSchemaCanInCheck($node, $predicateOf)
                 : $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
             $node instanceof CrossSchemaConditionNode => $predicateOf === null
@@ -133,7 +133,7 @@ trait ValidatesExpressions
                 sprintf(
                     'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                         .'schema something.',
-                    $predicateOf->schemaKey->name,
+                    $predicateOf->handle->schemaKey->name,
                 ),
                 $node->location,
             ),
@@ -153,8 +153,8 @@ trait ValidatesExpressions
             sprintf(
                 'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
                     .'ask it from a derived condition of schema [%s] instead.',
-                $predicateOf->schemaKey->name,
-                $predicateOf->schemaKey->name,
+                $predicateOf->handle->schemaKey->name,
+                $predicateOf->handle->schemaKey->name,
             ),
             $node->location,
         );
@@ -172,8 +172,8 @@ trait ValidatesExpressions
             sprintf(
                 'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
                     .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
-                $predicateOf->schemaKey->name,
-                $predicateOf->schemaKey->name,
+                $predicateOf->handle->schemaKey->name,
+                $predicateOf->handle->schemaKey->name,
             ),
             $node->location,
         );
@@ -196,13 +196,13 @@ trait ValidatesExpressions
         ?Vocabulary $vocabulary,
         ?AliasScope $scope,
     ): void {
-        if ($node->schemaKey === null) {
+        if ($node->handle === null) {
             $this->assertOwnAbilityValid($node, $vocabulary);
 
             return;
         }
 
-        $schemaKey = $node->schemaKey->name;
+        $schemaKey = $node->handle->schemaKey->name;
         $ability = self::abilityToLookUp($node, $this->input);
 
         // A handle with no name was reported where it was read; there is no schema to look up.
@@ -213,7 +213,7 @@ trait ValidatesExpressions
         $target = $this->input->catalog?->find($schemaKey);
 
         if ($this->input->catalog !== null && $target === null) {
-            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A can(...) reference targets unknown schema [%s].', $schemaKey), $node->schemaKey->location);
+            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A can(...) reference targets unknown schema [%s].', $schemaKey), $node->handle->schemaKey->location);
 
             return;
         }
@@ -228,13 +228,13 @@ trait ValidatesExpressions
 
         $this->assertRowTargetValid('can', $node, $schemaKey, $target);
 
-        $this->assertAliasHasARow('can', $schemaKey, $node->isRowBound, $node->alias);
+        $this->assertAliasHasARow('can', $schemaKey, $node->handle->isRowBound(), $node->alias);
         $this->assertWithKeysDistinct($node->contextMap);
 
         /* The handle's own arguments are written in the enclosing rule, so they see
            the enclosing scope. The target's *rules* are not validated here at all —
            they are validated against their own schema, with their own scope. */
-        $this->assertColumnRefsInScope([...$node->boundKey, ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->handle->boundKey, ...self::withValues($node->contextMap)], $scope);
     }
 
     /**
@@ -252,7 +252,7 @@ trait ValidatesExpressions
      */
     private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, ?AliasScope $scope): void
     {
-        $schemaKey = $node->schemaKey->name;
+        $schemaKey = $node->handle->schemaKey->name;
 
         // A handle with no name was reported where it was read; there is no schema to check the predicate against.
         if ($schemaKey === INode::MISSING_NAME) {
@@ -262,16 +262,16 @@ trait ValidatesExpressions
         $target = $this->input->catalog?->find($schemaKey);
 
         if ($this->input->catalog !== null && $target === null) {
-            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A check(...) reference targets unknown schema [%s].', $schemaKey), $node->schemaKey->location);
+            $this->fail(DiagnosticCode::UnknownSchema, sprintf('A check(...) reference targets unknown schema [%s].', $schemaKey), $node->handle->schemaKey->location);
 
             return;
         }
 
         $this->assertRowTargetValid('check', $node, $schemaKey, $target);
-        $this->assertAliasHasARow('check', $schemaKey, $node->isRowBound, $node->alias);
+        $this->assertAliasHasARow('check', $schemaKey, $node->handle->isRowBound(), $node->alias);
         $this->assertWithKeysDistinct($node->contextMap);
 
-        $this->assertColumnRefsInScope([...$node->boundKey, ...self::withValues($node->contextMap)], $scope);
+        $this->assertColumnRefsInScope([...$node->handle->boundKey, ...self::withValues($node->contextMap)], $scope);
 
         /* Unlike a can(...), the predicate is written right here, in the enclosing
            rule — so it keeps the enclosing scope and gains the target's frame on
@@ -417,7 +417,7 @@ trait ValidatesExpressions
         string $schemaKey,
         ?Vocabulary $target,
     ): void {
-        if (! $node->isRowBound) {
+        if (! $node->handle->isRowBound()) {
             return;
         }
 
@@ -427,7 +427,7 @@ trait ValidatesExpressions
 
         /* A binding's value is looked up only when values are being checked; it
            becomes a literal at expansion, where the compiler checks it again. */
-        foreach ($node->boundKey as $argument) {
+        foreach ($node->handle->boundKey as $argument) {
             $isNull = match (true) {
                 $argument instanceof LiteralNode => $argument->value === null,
                 $argument instanceof BindingNode => $this->input->checkBindingValues && $argument->hasValue() && $argument->value() === null,
@@ -477,7 +477,7 @@ trait ValidatesExpressions
 
         $required = $target->rowMatcher()->requiredArgumentCount;
 
-        if (count($node->boundKey) < $required) {
+        if (count($node->handle->boundKey) < $required) {
             $this->fail(
                 DiagnosticCode::TooFewArguments,
                 sprintf(
@@ -485,7 +485,7 @@ trait ValidatesExpressions
                         .'key requires at least %d.',
                     $builtin,
                     $schemaKey,
-                    count($node->boundKey),
+                    count($node->handle->boundKey),
                     $required,
                 ),
                 $node->location,

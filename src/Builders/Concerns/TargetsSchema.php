@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Warrant\Builders\NoRow;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Parsing\SyntaxSource;
 use Warrant\Facades\Warrant;
@@ -77,9 +78,18 @@ trait TargetsSchema
         return $this;
     }
 
-    private function schemaKeyNode(SyntaxSource $source): ?NameNode
+    private function handleNode(SyntaxSource $source): ?SchemaHandleNode
     {
-        return $this->schemaKey === null ? null : self::nameNode($this->schemaKey, $source);
+        if ($this->schemaKey === null) {
+            return null;
+        }
+
+        return new SchemaHandleNode(
+            self::nameNode($this->schemaKey, $source),
+            $this->isRowBound,
+            $this->keyArgumentNodes($source),
+            self::location($source),
+        );
     }
 
     /**

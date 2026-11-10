@@ -17,6 +17,7 @@ use Warrant\DSL\Parsing\ASTNodes\ISchemaScopedNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\ISchemaCatalog;
@@ -164,7 +165,7 @@ final readonly class CursorContext
             $childScope = $scope;
 
             if ($node instanceof CrossSchemaConditionNode && $child === $node->predicate) {
-                $key = $node->schemaKey->name === INode::MISSING_NAME ? null : $node->schemaKey->name;
+                $key = self::schemaKeyNamedBy($node);
                 $childScope = $scope->enteringPredicate($key, $node->alias?->name, $key !== null && $hasRows($key));
             }
 
@@ -194,29 +195,28 @@ final readonly class CursorContext
         $written = $name->name;
 
         if ($holder instanceof WithEntryNode) {
-            $handle = $parents[spl_object_id($holder)] ?? null;
+            $reference = $parents[spl_object_id($holder)] ?? null;
 
-            return [SlotKind::ContextKey, $written, $handle?->schemaKey?->name ?? $here];
+            return [SlotKind::ContextKey, $written, self::schemaKeyNamedBy($reference) ?? $here];
         }
 
         return match (true) {
             $holder instanceof ConditionNode && $name === $holder->conditionKey
                 => [SlotKind::Condition, $written, $here],
             $holder instanceof CrossSchemaCanNode && $name === $holder->ability
-                => [SlotKind::Ability, $written, $holder->schemaKey?->name ?? $here],
+                => [SlotKind::Ability, $written, self::schemaKeyNamedBy($holder) ?? $here],
             ($holder instanceof CanClauseNode || $holder instanceof CannotClauseNode
                 || $holder instanceof AbilityBlockNode || $holder instanceof IncludeInvocationNode)
                 && in_array($name, $holder->abilities, true)
                 => [SlotKind::Ability, $written, $here],
             $holder instanceof IncludeInvocationNode && $name === $holder->templateKey
                 => [SlotKind::Template, $written, $here],
-            ($holder instanceof RuleSetNode || $holder instanceof SchemaConditionNode
-                || $holder instanceof CrossSchemaCanNode || $holder instanceof CrossSchemaConditionNode)
+            ($holder instanceof RuleSetNode || $holder instanceof SchemaConditionNode || $holder instanceof SchemaHandleNode)
                 && $name === $holder->schemaKey
                 => [SlotKind::Schema, $written, null],
             ($holder instanceof CrossSchemaCanNode || $holder instanceof CrossSchemaConditionNode)
                 && $name === $holder->alias
-                => [SlotKind::Alias, $written, $holder->schemaKey?->name],
+                => [SlotKind::Alias, $written, self::schemaKeyNamedBy($holder)],
             $holder instanceof ContextRef
                 => [SlotKind::ContextKey, $written, $here],
             $holder instanceof ColumnRef && $name === $holder->alias
@@ -225,5 +225,20 @@ final readonly class CursorContext
                 => [SlotKind::Column, $written, $holder->alias === null ? $scope->rowSchemaKey : ($scope->frames[$holder->alias->name] ?? null)],
             default => [null, null, null],
         };
+    }
+
+    /**
+     * The schema key a `can(...)` or `check(...)` names after its `for`, or null
+     * when $reference is neither, names no schema by key, or leaves the name out.
+     */
+    private static function schemaKeyNamedBy(?INode $reference): ?string
+    {
+        $handle = $reference instanceof CrossSchemaCanNode || $reference instanceof CrossSchemaConditionNode ? $reference->handle : null;
+
+        if (! $handle instanceof SchemaHandleNode || $handle->schemaKey->name === INode::MISSING_NAME) {
+            return null;
+        }
+
+        return $handle->schemaKey->name;
     }
 }

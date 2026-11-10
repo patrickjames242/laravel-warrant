@@ -23,6 +23,7 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
@@ -754,7 +755,7 @@ function treeToString(?object $node): string
         $node instanceof ConditionNode => $node->conditionKey->name . ($node->parameters === []
             ? ''
             : '(' . implode(',', array_map(fn ($p) => argToString($p), $node->parameters)) . ')'),
-        $node instanceof CrossSchemaCanNode => $node->schemaKey === null
+        $node instanceof CrossSchemaCanNode => $node->handle === null
             ? 'can(' . $node->ability->name . ')'
             : 'can(' . $node->ability->name . ' for ' . handleToString($node) . ')',
         $node instanceof CrossSchemaConditionNode => 'check(' . treeToString($node->predicate) . ' for ' . handleToString($node) . ')',
@@ -949,10 +950,16 @@ function asTemplateBody(string $text, string $schemaKey): WarrantSyntax
  */
 function handleToString(CrossSchemaCanNode|CrossSchemaConditionNode $node): string
 {
-    $out = $node->schemaKey->name;
+    $handle = $node->handle;
 
-    if ($node->isRowBound) {
-        $out .= '(' . implode(', ', array_map(fn ($a) => argToString($a), $node->boundKey)) . ')';
+    if ($handle instanceof RelationHandleNode) {
+        $out = 'its ' . $handle->relation->name;
+    } else {
+        $out = $handle->schemaKey->name;
+
+        if ($handle->hasRowSelector) {
+            $out .= '(' . implode(', ', array_map(fn ($a) => argToString($a), $handle->boundKey)) . ')';
+        }
     }
 
     if ($node->alias !== null) {

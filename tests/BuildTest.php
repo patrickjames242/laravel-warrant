@@ -16,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
@@ -229,8 +230,8 @@ it('keeps an explicit null key row-bound', function () {
     $node = Build::rule()->ifCan(Build::can('view')->for('xs_target', null))->buildConditions(new SyntaxSource(null));
 
     expect($node)->toBeInstanceOf(CrossSchemaCanNode::class)
-        ->and($node->isRowBound)->toBeTrue()
-        ->and(argumentValues($node->boundKey))->toBe([null]);
+        ->and($node->handle->isRowBound())->toBeTrue()
+        ->and(argumentValues($node->handle->boundKey))->toBe([null]);
 });
 
 it('throws when the ifCan factory is not called exactly once', function (Closure $factory, int $calls) {
@@ -446,7 +447,7 @@ it('rejects a constant in a check(...) predicate in the compiler, unvalidated', 
 it('rejects a check(...) or can(... for ...) in a check(...) predicate in the compiler, unvalidated', function (IBooleanExpressionNode $predicate, string $message) {
     /* The builder refuses both, so the rule is built from nodes, as only an
        unvalidated path could hand it over. */
-    $check = new CrossSchemaConditionNode(nameNode('course_sections'), $predicate, false, [], [], null, SyntaxLocation::noProducer());
+    $check = new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), $predicate, [], null, SyntaxLocation::noProducer());
     $rule = new RuleNode($check, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
 
     $expanded = (fn () => new ExpandedSyntax('build_docs', [new ExpandedRule($rule)], new ValidationInput(null)))
@@ -460,11 +461,11 @@ it('rejects a check(...) or can(... for ...) in a check(...) predicate in the co
     )))->toThrow(InvalidArgumentException::class, $message);
 })->with([
     'a check' => [
-        fn () => new CrossSchemaConditionNode(nameNode('course_sections'), new ConditionNode(nameNode('is_open'), [], SyntaxLocation::noProducer()), false, [], [], null, SyntaxLocation::noProducer()),
+        fn () => new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('is_open'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()),
         'A check(...) may not be written inside the predicate of the check(...) for schema [course_sections]',
     ],
     'a can with a for' => [
-        fn () => new CrossSchemaCanNode(nameNode('course_sections'), nameNode('view'), false, [], [], null, SyntaxLocation::noProducer()),
+        fn () => new CrossSchemaCanNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), nameNode('view'), [], null, SyntaxLocation::noProducer()),
         'A can(...) inside the predicate of the check(...) for schema [course_sections] may not name a schema with for',
     ],
 ]);

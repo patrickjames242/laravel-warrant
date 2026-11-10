@@ -308,8 +308,8 @@ it('leaves a cross-schema reference unbound when no row selector is given', func
     $check = Build::rule()->ifCheck(Build::check('is_open')->for('xs_capability'))->buildConditions(new SyntaxSource(null));
 
     foreach ([$can, $check] as $node) {
-        expect($node->isRowBound)->toBeFalse();
-        expect(argumentValues($node->boundKey))->toEqualSyntax(([]));
+        expect($node->handle->isRowBound())->toBeFalse();
+        expect(argumentValues($node->handle->boundKey))->toEqualSyntax(([]));
     }
 });
 
@@ -320,8 +320,8 @@ it('keeps an explicit null row selector row-bound so validation can reject it', 
     $check = Build::rule()->ifCheck(Build::check('is_open')->for('xs_target', null))->buildConditions(new SyntaxSource(null));
 
     foreach ([$can, $check] as $node) {
-        expect($node->isRowBound)->toBeTrue();
-        expect(argumentValues($node->boundKey))->toEqualSyntax(([null]));
+        expect($node->handle->isRowBound())->toBeTrue();
+        expect(argumentValues($node->handle->boundKey))->toEqualSyntax(([null]));
     }
 });
 
@@ -329,15 +329,15 @@ it('treats an explicitly passed NoRow as an unbound handle', function () {
     $id = null;
     $node = Build::rule()->ifCan(Build::can('manage')->for('xs_target', $id ?? new NoRow))->buildConditions(new SyntaxSource(null));
 
-    expect($node->isRowBound)->toBeFalse();
+    expect($node->handle->isRowBound())->toBeFalse();
 });
 
 it('passes a model row selector through untouched', function () {
     $model = (new WarrantTestModel)->forceFill(['id' => 't-1']);
     $node = Build::rule()->ifCan(Build::can('manage')->for('xs_target', $model))->buildConditions(new SyntaxSource(null));
 
-    expect($node->isRowBound)->toBeTrue();
-    expect(argumentValues($node->boundKey))->toEqualSyntax(([$model]));
+    expect($node->handle->isRowBound())->toBeTrue();
+    expect(argumentValues($node->handle->boundKey))->toEqualSyntax(([$model]));
 });
 
 it('preserves the with map insertion order', function () {
@@ -357,7 +357,7 @@ it('normalizes a model or schema reference to its schema key', function () {
     useWarrantSchemas(['course_sections' => WarrantTestSchema::class]);
 
     $keys = array_map(
-        fn ($schema) => Build::rule()->ifCan(Build::can('view')->for($schema))->buildConditions(new SyntaxSource(null))->schemaKey->name,
+        fn ($schema) => Build::rule()->ifCan(Build::can('view')->for($schema))->buildConditions(new SyntaxSource(null))->handle->schemaKey->name,
         [WarrantTestModel::class, new WarrantTestModel, WarrantTestSchema::class, new WarrantTestSchema, 'course_sections'],
     );
 
@@ -369,7 +369,7 @@ it('throws when a class-string reference resolves to no registered schema', func
 
     // A plain *key* string passes through unresolved by design — the builder stays
     // usable without a warm registry, and a typo'd key is caught by validate().
-    expect(Build::rule()->ifCan(Build::can('view')->for('never_registered'))->buildConditions(new SyntaxSource(null))->schemaKey?->name)
+    expect(Build::rule()->ifCan(Build::can('view')->for('never_registered'))->buildConditions(new SyntaxSource(null))->handle->schemaKey?->name)
         ->toBe('never_registered');
 
     expect(fn () => Build::rule()->ifCan(Build::can('view')->for(WarrantTestModel::class)))
@@ -441,7 +441,7 @@ it('carries a non-inlinable row selector as a binding in bound syntax', function
     // The round-trip only closes if the binding refills the selector.
     $reparsed = WarrantSyntax::parse(new BoundSyntax($bound->syntax, $bound->bindings))->validateWithoutSchemas()->rule();
 
-    expect(argumentValues($reparsed->conditions->boundKey))->toEqualSyntax(([$bound->bindings['b0']]));
+    expect(argumentValues($reparsed->conditions->handle->boundKey))->toEqualSyntax(([$bound->bindings['b0']]));
     expect(treeToString($reparsed->conditions))->toBe(treeToString($rule->conditions));
 });
 

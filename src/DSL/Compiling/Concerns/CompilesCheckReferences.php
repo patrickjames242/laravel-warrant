@@ -53,7 +53,7 @@ trait CompilesCheckReferences
             throw new InvalidArgumentException(sprintf(
                 'Compiling a check(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
             ));
         }
 
@@ -81,12 +81,12 @@ trait CompilesCheckReferences
 
         $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
-            $node->schemaKey->name,
+            $node->handle->schemaKey->name,
         );
 
         // Compile the predicate with B's own resolver, so its condition leaves emit
         // B's SQL. A ConditionUnit walks an expression subtree in isolation.
-        $bCompiler = new self($bSchema, $node->schemaKey->name, $this->manager);
+        $bCompiler = new self($bSchema, $node->handle->schemaKey->name, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
@@ -103,16 +103,16 @@ trait CompilesCheckReferences
             callStack: $ctx->callStack->enter(Call::check($bSchema::class)),
             aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessPredicate()
-                : $this->aliases($ctx)->enteringPredicate($node->schemaKey->name, $node->alias?->name, $bQualifier),
+                : $this->aliases($ctx)->enteringPredicate($node->handle->schemaKey->name, $node->alias?->name, $bQualifier),
             /* The `for` names the schema the predicate's names are written for,
                whatever text the check sits in. */
-            writtenIn: new KeyedSchemaId($node->schemaKey->name),
+            writtenIn: new KeyedSchemaId($node->handle->schemaKey->name),
         );
 
-        if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bSchema, $node->schemaKey->name);
+        if ($node->handle->isRowBound()) {
+            $this->assertSameConnection($ctx->queries, $bSchema, $node->handle->schemaKey->name);
 
-            $selector = $this->resolveArgValues($node->boundKey, $ctx);
+            $selector = $this->resolveArgValues($node->handle->boundKey, $ctx);
 
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
@@ -122,7 +122,7 @@ trait CompilesCheckReferences
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
                 $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 
@@ -195,21 +195,21 @@ trait CompilesCheckReferences
             throw new InvalidArgumentException(sprintf(
                 'A check(...) predicate for schema [%s] may not contain a constant; it has to ask that '
                     .'schema something.',
-                $check->schemaKey->name,
+                $check->handle->schemaKey->name,
             ));
         } elseif ($predicate instanceof CrossSchemaConditionNode) {
             throw new InvalidArgumentException(sprintf(
                 'A check(...) may not be written inside the predicate of the check(...) for schema [%s]; '
                     .'ask it from a derived condition of schema [%s] instead.',
-                $check->schemaKey->name,
-                $check->schemaKey->name,
+                $check->handle->schemaKey->name,
+                $check->handle->schemaKey->name,
             ));
-        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->schemaKey !== null) {
+        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->handle !== null) {
             throw new InvalidArgumentException(sprintf(
                 'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
                     .'write can(<ability>) to ask schema [%s] about one of its own abilities.',
-                $check->schemaKey->name,
-                $check->schemaKey->name,
+                $check->handle->schemaKey->name,
+                $check->handle->schemaKey->name,
             ));
         }
     }

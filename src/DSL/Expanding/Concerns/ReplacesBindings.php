@@ -20,6 +20,7 @@ use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\DSL\Validation\AbilityMistakes;
@@ -61,21 +62,23 @@ trait ReplacesBindings
             $node instanceof NotNode => new NotNode(self::withBindingsReplaced($node->operand), $node->location),
             $node instanceof ConditionNode => new ConditionNode($node->conditionKey, self::eachWithBindingsReplaced($node->parameters), $node->location),
             $node instanceof CrossSchemaCanNode => new CrossSchemaCanNode(
-                $node->schemaKey,
+                $node->handle === null ? null : self::withBindingsReplaced($node->handle),
                 self::abilityWithBindingReplaced($node->ability),
-                $node->isRowBound,
-                self::eachWithBindingsReplaced($node->boundKey),
                 self::eachWithBindingsReplaced($node->contextMap),
                 $node->alias,
                 $node->location,
             ),
             $node instanceof CrossSchemaConditionNode => new CrossSchemaConditionNode(
-                $node->schemaKey,
+                self::withBindingsReplaced($node->handle),
                 self::withBindingsReplaced($node->predicate),
-                $node->isRowBound,
-                self::eachWithBindingsReplaced($node->boundKey),
                 self::eachWithBindingsReplaced($node->contextMap),
                 $node->alias,
+                $node->location,
+            ),
+            $node instanceof SchemaHandleNode => new SchemaHandleNode(
+                $node->schemaKey,
+                $node->hasRowSelector,
+                self::eachWithBindingsReplaced($node->boundKey),
                 $node->location,
             ),
             $node instanceof WithEntryNode => new WithEntryNode($node->key, self::withBindingsReplaced($node->value), $node->location),

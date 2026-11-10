@@ -13,6 +13,7 @@ use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedRule;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -203,9 +204,9 @@ it('gives every node a builder made the producer of the answer it is in, through
 
     expect(array_values(array_filter(producersOf($rule), static fn (string $node): bool => ! str_ends_with($node, 'SchemaRules'))))->toBe([
         'ConditionNode RawCondition',
-        'ColumnRef none',
         'NameNode(owner_is) RawCondition',
         "LiteralNode('u2') RawCondition",
+        'ColumnRef none',
         'NameNode(id) none',
     ]);
 });
@@ -349,10 +350,8 @@ it('still checks the targets the text names against a catalog that holds no sche
 
 it('rejects a with key written twice in the compiler too', function () {
     $handle = new CrossSchemaCanNode(
-        nameNode('course_sections'),
+        new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()),
         nameNode('view'),
-        false,
-        [],
         [...withEntries(['a' => 1]), ...withEntries(['a' => 2])],
         null,
         SyntaxLocation::noProducer(),

@@ -34,10 +34,8 @@ final class CrossSchemaCanBuilder
     public function toNode(SyntaxSource $source): CrossSchemaCanNode
     {
         return new CrossSchemaCanNode(
-            $this->schemaKeyNode($source),
+            $this->handleNode($source),
             self::nameNode($this->ability, $source),
-            $this->isRowBound,
-            $this->keyArgumentNodes($source),
             $this->withEntryNodes($source),
             $this->aliasNode($source),
             self::location($source),

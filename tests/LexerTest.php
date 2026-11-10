@@ -78,6 +78,14 @@ it('reads when and otherwise as keywords, and else as a name', function () {
     ]);
 });
 
+it('reads its as a keyword, and a name that starts with it as a name', function () {
+    expect(lexedTokens('its itself'))->toBe([
+        [TokenType::ITS, 'its'],
+        [TokenType::IDENTIFIER, 'itself'],
+        [TokenType::EOF, ''],
+    ]);
+});
+
 it('measures the width of a token in bytes, not characters', function () {
     $string = (new Lexer("'café'"))->tokenize()[0];
 

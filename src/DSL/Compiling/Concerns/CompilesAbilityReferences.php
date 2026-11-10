@@ -86,7 +86,7 @@ trait CompilesAbilityReferences
             throw new InvalidArgumentException(sprintf(
                 'Compiling a can(...) reference to schema [%s] requires the schema registry; '
                     .'construct RuleSetCompiler with a WarrantManager.',
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
             ));
         }
 
@@ -113,12 +113,12 @@ trait CompilesAbilityReferences
 
         $bContext = (new ContextPolicy($bSchema))->resolveBoundaryContext(
             array_combine($bKeys, $bValues),
-            $node->schemaKey->name,
+            $node->handle->schemaKey->name,
             $node->ability->name,
         );
 
         $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->user)->expandedRuleSet();
-        $bCompiler = new self($bSchema, $node->schemaKey->name, $this->manager);
+        $bCompiler = new self($bSchema, $node->handle->schemaKey->name, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
 
@@ -144,13 +144,13 @@ trait CompilesAbilityReferences
                to call it. A B with no table has no frame for its key to name. */
             aliases: ! $bSchema instanceof IRowSchema
                 ? $this->aliases($ctx)->enteringRowlessRuleSet()
-                : $this->aliases($ctx)->enteringRuleSet($node->schemaKey->name, $bQualifier),
+                : $this->aliases($ctx)->enteringRuleSet($node->handle->schemaKey->name, $bQualifier),
         );
 
-        if ($node->isRowBound) {
-            $this->assertSameConnection($ctx->queries, $bSchema, $node->schemaKey->name);
+        if ($node->handle->isRowBound()) {
+            $this->assertSameConnection($ctx->queries, $bSchema, $node->handle->schemaKey->name);
 
-            $selector = $this->resolveArgValues($node->boundKey, $ctx);
+            $selector = $this->resolveArgValues($node->handle->boundKey, $ctx);
 
             /* The selector names B's row in terms of A's, so a selector A cannot
                resolve here leaves nothing to correlate against. */
@@ -160,7 +160,7 @@ trait CompilesAbilityReferences
 
             [$keyArguments, $bTargetModel] = $this->resolveKeyArguments(
                 $selector,
-                $node->schemaKey->name,
+                $node->handle->schemaKey->name,
                 $bSchema instanceof IModelSchema ? $bSchema::model() : null,
             );
 

@@ -67,10 +67,8 @@ final class CrossSchemaCheckBuilder extends WarrantConditionBuilder
         $this->assertAsksOnlyTarget($predicate);
 
         return new CrossSchemaConditionNode(
-            $this->schemaKeyNode($source),
+            $this->handleNode($source),
             $predicate,
-            $this->isRowBound,
-            $this->keyArgumentNodes($source),
             $this->withEntryNodes($source),
             $this->aliasNode($source),
             self::location($source),
@@ -96,7 +94,7 @@ final class CrossSchemaCheckBuilder extends WarrantConditionBuilder
                 $this->schemaKey,
                 $this->schemaKey,
             ));
-        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->schemaKey !== null) {
+        } elseif ($predicate instanceof CrossSchemaCanNode && $predicate->handle !== null) {
             throw new LogicException(sprintf(
                 'A can(...) inside the predicate of the check(...) for schema [%s] may not name a schema with for; '
                     .'write can(<ability>) to ask schema [%s] about one of its own abilities.',

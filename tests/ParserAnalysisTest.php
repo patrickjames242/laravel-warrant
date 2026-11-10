@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
+use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -15,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
+use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
@@ -81,6 +83,41 @@ function analysisDiagnostics(string $source): array
     );
 }
 
+it('reads its <relation> as a relation handle, with the alias and with map beside it', function () {
+    $either = WarrantParser::parse('if can(view for its folder as f with org = @context org) or check(is_open for its folder) they can edit')
+        ->children[0]->conditions;
+
+    expect($either->leftSide)->toBeInstanceOf(CrossSchemaCanNode::class)
+        ->and($either->leftSide->handle)->toBeInstanceOf(RelationHandleNode::class)
+        ->and($either->leftSide->handle->relation->name)->toBe('folder')
+        ->and($either->leftSide->handle->isRowBound())->toBeTrue()
+        ->and($either->leftSide->alias?->name)->toBe('f')
+        ->and(array_map(static fn ($entry): string => $entry->key->name, $either->leftSide->contextMap))->toBe(['org'])
+        ->and($either->rightSide)->toBeInstanceOf(CrossSchemaConditionNode::class)
+        ->and($either->rightSide->handle)->toBeInstanceOf(RelationHandleNode::class)
+        ->and($either->rightSide->handle->relation->name)->toBe('folder')
+        ->and($either->rightSide->alias)->toBeNull();
+});
+
+it('reports a relation handle with no name after its, over where the name belongs', function () {
+    $analysed = WarrantParser::analyze('if can(view for its) they can edit');
+
+    expect(array_map(static fn (Diagnostic $diagnostic): DiagnosticCode => $diagnostic->code, $analysed->diagnostics))
+        ->toBe([DiagnosticCode::MissingName])
+        ->and($analysed->syntax->children[0]->conditions->handle->relation->name)->toBe(INode::MISSING_NAME);
+});
+
+it('reads a schema handle\'s row selector apart from whether it was written', function () {
+    $bound = WarrantParser::parse('if can(view for folders()) they can edit')->children[0]->conditions->handle;
+    $unbound = WarrantParser::parse('if can(view for folders) they can edit')->children[0]->conditions->handle;
+
+    expect($bound)->toBeInstanceOf(SchemaHandleNode::class)
+        ->and($bound->isRowBound())->toBeTrue()
+        ->and($bound->boundKey)->toBe([])
+        ->and($unbound->isRowBound())->toBeFalse()
+        ->and($unbound->boundKey)->toBe([]);
+});
+
 it('reads sound text to the same tree and positions as a strict read, with no diagnostics', function (string $source) {
     $analysed = WarrantParser::analyze($source);
     $strict = WarrantParser::parse($source);
@@ -93,6 +130,7 @@ it('reads sound text to the same tree and positions as a strict read, with no di
     'unscoped rules' => 'they can view if is_owner they can edit @include shared for view',
     'a when block' => "when is_open {\n  if is_owner they can view\n} otherwise {\n  they cannot view\n}",
     'a bare expression' => 'is_owner or (is_admin and check(is_open for folders(@column folder_id)))',
+    'relation handles' => 'if can(view for its folder as f with org = @context org) or check(is_open for its folder) they can edit',
     'nothing' => '',
 ]);
 
@@ -342,12 +380,12 @@ it('reads a missing name as none, and keeps what is around it', function (string
         'the ability of a can' => [
             'if can( for docs) they can edit',
             ["Reserved word 'for' cannot be used as a name; expected an ability name.", 'for'],
-            [new RuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode(INode::MISSING_NAME), false, [], [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], SyntaxLocation::noProducer()), nameNode(INode::MISSING_NAME), [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
         ],
         'the schema of a check' => [
             'if check(a for ) they can view',
             ['Expected a schema name.', ')'],
-            [new RuleNode(new CrossSchemaConditionNode(nameNode(INode::MISSING_NAME), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), false, [], [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaConditionNode(new SchemaHandleNode(nameNode(INode::MISSING_NAME), false, [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
         ],
         'the template of an include' => [
             '@include for view',
@@ -389,7 +427,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
 it('reads a with map past a missing key or value, and keeps both of a key written twice', function (string $source, array $missing, array $contextMap) {
     expect(analysisDiagnostics($source))->toBe([$missing])
         ->and(WarrantParser::analyze($source)->syntax->children)
-        ->toEqualSyntax([new RuleNode(new CrossSchemaCanNode(nameNode('docs'), nameNode('view'), false, [], $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
+        ->toEqualSyntax([new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], SyntaxLocation::noProducer()), nameNode('view'), $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with([
     'a missing value' => [
         'if can(view for docs with org = ) they can edit',
@@ -492,6 +530,7 @@ it('says which kind of mistake each diagnostic is about, and that it is an error
     'a token after the end' => ['if a they can view )', DiagnosticCode::UnexpectedToken],
     'a missing bracket' => ['if check a for docs) they can edit', DiagnosticCode::MissingToken],
     'a reserved word as a name' => ['if they can view', DiagnosticCode::ReservedWordAsName],
+    'its as a name' => ['if its they can view', DiagnosticCode::ReservedWordAsName],
     'a missing name' => ['if check(a for ) they can view', DiagnosticCode::MissingName],
     'a missing condition' => ['if () they can view', DiagnosticCode::MissingCondition],
     'a missing argument' => ['if a(1, ) they can view', DiagnosticCode::MissingArgument],

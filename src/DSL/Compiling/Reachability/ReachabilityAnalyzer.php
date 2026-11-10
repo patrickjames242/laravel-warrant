@@ -175,7 +175,7 @@ final class ReachabilityAnalyzer
         }
 
         if ($node instanceof CrossSchemaCanNode) {
-            $ruleSet = $this->ruleSetFor($node->schemaKey?->name ?? $schemaKey);
+            $ruleSet = $this->ruleSetFor($node->handle?->schemaKey?->name ?? $schemaKey);
 
             if ($ruleSet === null) {
                 return TruthSet::any();
@@ -183,13 +183,13 @@ final class ReachabilityAnalyzer
 
             $outcome = $this->abilityOutcome($ruleSet, $node->ability->name);
 
-            return $node->schemaKey !== null && $node->isRowBound ? self::overARow($outcome) : $outcome;
+            return $node->handle !== null && $node->handle->isRowBound() ? self::overARow($outcome) : $outcome;
         }
 
         if ($node instanceof CrossSchemaConditionNode) {
-            $outcome = $this->expression($node->predicate, $node->schemaKey->name);
+            $outcome = $this->expression($node->predicate, $node->handle->schemaKey->name);
 
-            return $node->isRowBound ? self::overARow($outcome) : $outcome;
+            return $node->handle->isRowBound() ? self::overARow($outcome) : $outcome;
         }
 
         /* A row or global condition, which is never evaluated here — and anything
