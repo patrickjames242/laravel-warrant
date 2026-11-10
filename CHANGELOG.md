@@ -8,6 +8,21 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ### Added
 
+- Row relations. A `#[RowRelation(TargetSchema::class)]` method says how a row of
+  a schema reaches rows of another, by narrowing `RowRelationContext::$relatedQuery`
+  with `ownColumn()` and `relatedColumn()`. Rule text follows it by name, as
+  `can(view for its folder)` or `check(is_open for its pay_period)`, and it
+  compiles to an `exists` over the related rows with the relation's `where`
+  clauses in it. A relation may reach many rows, and `its` asks whether any of
+  them passes. The builders write it as `->its('folder')`. Validation, the
+  formatter, the language server and the editor grammars read it.
+- The quantifiers `any of` and `all of` on `its` and on a row-bound handle:
+  `can(edit for all of its documents)` passes when there is at least one document
+  and every one passes, and a row on which the other schema's rules answer null
+  fails. `any of` is what a handle with no quantifier means. The builders write
+  them as `anyOfIts()`, `allOfIts()`, `forAnyOf()` and `forAllOf()`. A quantifier
+  on an unbound handle is rejected with the `quantifier-without-row` diagnostic.
+  `its`, `any`, `all` and `of` are reserved words.
 - The language server answers `warrant/occurrences`, giving the context key or
   frame name at a position and every place it is written: every one in the
   project's rule text for a context key, and the `as` that names a frame and

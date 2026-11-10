@@ -24,11 +24,15 @@ its other packages and its extensions do not matter to it.
   condition or template given too few arguments or too many, a `@column` naming a table that is not in
   scope. It reports them all at once, not just the first, each with a code such as
   `unknown-ability`.
-- **Hover** over a condition, ability, template, schema or context key, to see
-  what it is, its arguments, the context it requires, and its docblock.
+- **Hover** over a condition, ability, template, schema, row relation or context
+  key, to see what it is, its arguments, the context it requires, and its
+  docblock. A row relation shows the schema it reaches.
 - **Completion** of whatever fits where the cursor is: abilities after
   `they can`, conditions after `if`, schemas after `for`, templates after
-  `@include`, context keys after `@context`. A condition or template that takes
+  `@include`, context keys after `@context`. In a `can(...)` or `check(...)`
+  handle it offers `any of` and `all of`, `its` when the schema declares a row
+  relation, and the relations after `its`; after a quantifier, only schemas with
+  rows. A condition or template that takes
   arguments completes with its parentheses open and the cursor inside, and so
   does a schema with rows in a `can(...)` or `check(...)` handle.
 - **Parameter names** before the arguments of a condition, derived condition or
@@ -38,7 +42,7 @@ its other packages and its extensions do not matter to it.
   own, as a PHP variable is.
 - **Go to definition** from a name to the constant or method that declares it,
   and from a frame name in `@column d2.id` to the `as d2` that names it.
-- **Usages** of a condition, template, ability or schema across the project's
+- **Usages** of a condition, template, row relation, ability or schema across the project's
   rule text, and every place a context key or frame name is written,
   which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
   [VS Code](/editors/vscode/#renaming-and-finding-usages) rename and find

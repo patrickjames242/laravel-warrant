@@ -104,6 +104,52 @@ select * from "documents" where (
 Under negation the same subquery is emitted as `not exists (...)`. Two references
 on sibling branches produce two independent `EXISTS` clauses.
 
+An `its` handle is the same `EXISTS`, with the relation's `where` clauses in place
+of the row selector:
+
+```warrant
+for folders {
+    if can(view for its documents) they can view
+}
+```
+
+```sql
+select * from "folders" where (
+    exists (
+        select * from "documents"
+        where "documents"."folder_id" = "folders"."id"
+          and ("documents"."owner" = 'role-1')
+    )
+)
+```
+
+`all of` asks the related rows twice: that there is one, and that none fails. The
+other schema's predicate goes in the second subquery under `is not true`, so a
+row on which it answers null counts as failing:
+
+```warrant
+for folders {
+    if can(view for all of its documents) they can view
+}
+```
+
+```sql
+select * from "folders" where (
+    exists (
+        select * from "documents"
+        where "documents"."folder_id" = "folders"."id"
+    )
+    and not exists (
+        select * from "documents"
+        where "documents"."folder_id" = "folders"."id"
+          and ("documents"."owner" = 'role-1') is not true
+    )
+)
+```
+
+Both subqueries are correlated to the folder being checked, so each reads only
+that folder's documents. Under negation the pair is wrapped in one `not (...)`.
+
 An unbound reference has nothing to correlate, so the target's boolean tree is
 spliced inline rather than wrapped in a subquery, which lets a target that decides
 outright fold into the caller's predicate instead of stopping at a literal.
@@ -139,6 +185,10 @@ Caught when the rule set is validated or compiled:
   nothing at check time, such as an absent `@context`, is unanswerable rather than
   rejected.
 - `as <alias>` needs a row to name.
+- `its <relation>` must name a `#[RowRelation]` of the schema the rule is for,
+  and the relation must reach a registered schema with rows.
+- `any of` and `all of` need rows to count, so they go on `its` or a row-bound
+  handle.
 - A `check(...)` predicate is read against the target's vocabulary. It may not hold
   a constant, another `check(...)` or a `can(... for ...)`, and on an unbound handle
   it may not hold a row condition.
@@ -150,4 +200,5 @@ Caught at compile time:
 - A row selector that is a model of the wrong schema, or any object with no meaning
   as a row key.
 - A target on a different connection.
+- A row relation whose method adds no `where` clause, or adds a `join`.
 - A cycle, or nesting deeper than 64.

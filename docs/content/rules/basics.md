@@ -80,9 +80,10 @@ Identifiers match `[A-Za-z_][A-Za-z0-9_-]*`. They start with a letter or
 underscore and may contain letters, digits, underscores, and dashes. No dots.
 
 These cannot be used as an exact ability or condition name: `if`, `they`, `can`,
-`cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`, `true`,
-`false`, `null`. A name may still contain or start with one, so `canonical`,
-`cannot_publish`, and `is_and_something` are all fine.
+`cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`, `its`,
+`any`, `all`, `of`, `true`, `false`, `null`. A name may still contain or start with
+one, so `canonical`, `cannot_publish`, `anyone` and `is_and_something` are all
+fine.
 
 ## Wildcards
 

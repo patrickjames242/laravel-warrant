@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Highlight `its <relation>` and the `any of` and `all of` quantifiers in rule
+  text. Rename a row relation with its uses in rule text, and find its usages,
+  from its method or from the key its `#[RowRelation]` gives it.
+
 - Find the usages of a condition, template, ability or schema across the
   project's rule text with Find All References, from its method, key, constant,
   value or class or from a name in rule text, and of a context key or frame

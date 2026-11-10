@@ -59,7 +59,14 @@ can_ref       = "can" "(" can_ability ( "for" handle ( "with" with_map )? )? ")"
 can_ability   = IDENTIFIER | NAMED_BINDING ;
                 (* one ability: a binding's value is one ability name *)
 check_ref     = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
-handle        = IDENTIFIER ( "(" arg ")" )? ( "as" IDENTIFIER )? ;
+handle        = ( ( "any" | "all" ) "of" )?
+                ( "its" IDENTIFIER | IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? )
+                ( "as" IDENTIFIER )? ;
+                (* `its` follows a row relation of the schema the rule is for.
+                   A schema name with parentheses is row-bound, its arguments
+                   the target's row key; without them it is unbound. A
+                   quantifier or an alias needs rows, so it is rejected on an
+                   unbound handle *)
 with_map      = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 
 arg           = STRING | INT | FLOAT | BOOL | NULL
@@ -113,7 +120,8 @@ such as `Expected a single rule, but the source holds a rule set for [documents]
 ## Keywords
 
 `if`, `when`, `otherwise`, `they`, `can`, `cannot`, `because`, `check`, `and`,
-`or`, `not`, `for`, `with`, `as`, plus the literals `true`, `false`, `null`.
+`or`, `not`, `for`, `with`, `as`, `its`, `any`, `all`, `of`, plus the literals
+`true`, `false`, `null`.
 
 None may be used as an exact condition or ability name. A name may contain or start
 with one: `canonical`, `cannot_publish`, `is_and_something`.

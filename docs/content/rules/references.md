@@ -69,10 +69,11 @@ predicate holds a `can(...)`.
 ## The handle
 
 Both take the same handle after `for`: a schema key, optionally followed by a row
-selector.
+selector, or `its` and a row relation of the schema the rule is for.
 
 ```text
 can(view for folders(@context folder_id))   # one specific folder
+can(view for its folder)                    # the folder this document's relation reaches
 can(access for billing)                     # the schema as a whole, no row
 ```
 
@@ -118,6 +119,82 @@ supply a row id or a @context reference, or drop the row selector.
 A `$folder?->id` that came back null should fail loudly rather than quietly widen a
 question about one row into a question about the whole schema.
 
+## Following a relation with `its`
+
+A schema declares how its rows reach another schema's with a
+[`#[RowRelation]`](/reference/attributes/#rowrelation) method, and rule text
+follows it by name:
+
+```php
+#[RowRelation(FolderSchema::class)]
+public function folder(RowRelationContext $c): Builder
+{
+    return $c->relatedQuery->where($c->relatedColumn('id'), $c->ownColumn('folder_id'));
+}
+```
+
+```warrant
+if can(view for its folder) they can view
+```
+
+The relation's method stands where a row selector would: it says which of the
+folders' rows belong to the document being checked, and the folder schema's rules
+run against them. The relation is always followed from the row the rule is about,
+so `its` takes no arguments.
+
+It reads like the schema it is written on, and it reaches what a selector cannot:
+a folder's documents, or a document's editors through a pivot table. Use
+`schema(@column …)` when a column of this row names one row of the other schema
+and no relation is declared, and `schema(@context …)` when the row is named at
+check time.
+
+```warrant
+if can(view for its documents) they can view       # a folder, when they can view one of its documents
+if check(is_open for its pay_period) they can submit
+if can(view for folders(@context folder_id)) they can create
+```
+
+A relation may reach many rows, and then `its` asks whether **any** of them
+passes. On a `check(...)` the related rows go by the relation's name, so a
+predicate can write `@column folder.owner_id`, or by an alias when the reference
+has one.
+
+## How many rows: `any of` and `all of`
+
+A handle that reaches rows may say how many of them must pass:
+
+```warrant
+if can(view for any of its documents) they can view     # one is enough
+if can(edit for all of its documents) they can archive  # every one, and at least one
+```
+
+A schema handle takes one too. It matters when the target's
+[`matchKey()`](/concepts/row-identity/) matches several rows, as a key by team
+does:
+
+```warrant
+if check(is_staffed for all of shift_days(@column team_id)) they can publish
+```
+
+`any of` is what a handle with no quantifier already means. `all of` is true when
+the handle reaches at least one row and the other schema passes every one, so a
+folder with no documents is never archived by the rule above. A row on which the
+other schema's rules answer null, as a comparison with a null column does, fails:
+`all of` passes a row only when its rules are true.
+
+Under `not` the whole question is negated. `not can(edit for all of its documents)`
+is true when some document fails or there are none. To say none passes, write
+`not can(edit for any of its documents)`.
+
+A quantifier needs rows to count, so it goes on `its` or on a row-bound handle.
+On an unbound one it is rejected:
+
+```text
+A can(...) reference to schema [documents] is quantified but selects no rows, so
+there is nothing to count; add a row selector like documents(@context id), or drop
+the quantifier.
+```
+
 ## Naming the rows with `as`
 
 ```warrant
@@ -138,7 +215,8 @@ if check(owner_matches(@column documents.owner_id) for documents(@column parent_
 they can view
 ```
 
-An alias needs a row to name, so it is valid only on a row-bound handle.
+An alias needs a row to name, so it is valid only on a row-bound handle or on
+`its`.
 
 ## One layer
 

@@ -23,7 +23,7 @@ export interface Line {
   tokens: Token[]
 }
 
-const RULE_KEYWORDS = new Set(['if', 'when', 'otherwise', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not', 'for', 'with', 'as'])
+const RULE_KEYWORDS = new Set(['if', 'when', 'otherwise', 'they', 'can', 'cannot', 'because', 'check', 'and', 'or', 'not', 'for', 'with', 'as', 'its', 'any', 'all', 'of'])
 const RULE_CONSTANTS = new Set(['true', 'false', 'null'])
 const PHP_KEYWORDS = new Set([
   'public',
@@ -98,8 +98,10 @@ const IDENTIFIER = /^[A-Za-z_][\w-]*$/
  * the way it does in an editor:
  *
  * - keywords, `@include`, and the `! * =` operators as keywords;
- * - the schema after `for` (except an `@include`'s, which lists abilities), the frame in `@column <frame>.<column>`, and the
- *   ability list of a `can they <abilities> {` header as names of a type;
+ * - the schema or relation after `for`, past any `any of`, `all of` or `its`
+ *   (except an `@include`'s, which lists abilities), the frame in
+ *   `@column <frame>.<column>`, and the ability list of a
+ *   `can they <abilities> {` header as names of a type;
  * - `@context`, `@column`, `@sql`, `:name` and `?` as variables, and the column
  *   a `@column` names as a property;
  * - `true`, `false`, `null`, numbers and string escapes as constants;
@@ -124,7 +126,10 @@ function highlightRule(line: string): Token[] {
 
     /* The `for` of an `@include` lists abilities, not a schema. */
     const inInclude = significant.slice(0, n).some((before) => before.text === '@include')
-    if (token.text === 'for' && isName(next) && !inInclude) retag(next, 'class', 500)
+    if (token.text === 'for' && !inInclude) {
+      const target = handleTarget(significant.slice(n + 1))
+      if (isName(target)) retag(target, 'class', 500)
+    }
 
     if (token.text === '@column' && isName(next)) {
       if (second?.text === '.' && isName(third)) {
@@ -141,6 +146,18 @@ function highlightRule(line: string): Token[] {
   })
 
   return tokens
+}
+
+/**
+ * The token naming what a handle reaches, given the significant tokens after its
+ * `for`: the first, or the one after an `any of` or `all of` quantifier and an
+ * `its`, when they are written.
+ */
+function handleTarget(rest: Token[]): Token | undefined {
+  let n = 0
+  if ((rest[n]?.text === 'any' || rest[n]?.text === 'all') && rest[n + 1]?.text === 'of') n += 2
+  if (rest[n]?.text === 'its') n += 1
+  return rest[n]
 }
 
 /**

@@ -160,6 +160,94 @@ public function frozen(RuleTemplateContext $context): string { /* ... */ }
 A method cannot be both a condition and a template. Both attributes on one method is
 rejected when the schema is read.
 
+## `#[RowRelation]`
+
+Marks a public method as a row relation: how a row of this schema reaches rows of
+another. Rule text follows it by name after `its`, as in
+`can(view for its folder)`. The name is the method name snake-cased, overridable
+with `key`.
+
+```php
+use Illuminate\Contracts\Database\Query\Builder;
+use Warrant\Schema\Relations\RowRelation;
+use Warrant\Schema\Relations\RowRelationContext;
+
+#[RowRelation(FolderSchema::class)]
+public function folder(RowRelationContext $c): Builder
+{
+    return $c->relatedQuery->where($c->relatedColumn('id'), $c->ownColumn('folder_id'));
+}
+
+#[RowRelation(FolderSchema::class, key: 'parent_folder')]
+public function folder(RowRelationContext $c): Builder { /* ... */ }
+```
+
+The first argument is the schema the relation reaches, and it is required. It
+must be a registered schema with rows. Validation reads it to check the ability
+or predicate on the other side of `its`, and so does the
+[language server](/editors/language-server/), which reads your schemas without
+running your application.
+
+The method takes exactly one parameter, the `RowRelationContext`:
+
+| Member | Is |
+|---|---|
+| `$c->relatedQuery` | the related schema's rows, to narrow to the ones related to this row |
+| `$c->ownColumn('folder_id')` | a column of this schema's row, qualified and quoted |
+| `$c->relatedColumn('id')` | a column of the related rows, qualified and quoted |
+| `$c->user` | the user being checked |
+| `$c->context` | the related schema's check context, with the reference's `with` map over it |
+
+Name every column through `ownColumn()` and `relatedColumn()`, never by table.
+Either side may go by another name in the query: an alias, an enclosing hop's
+rows, or a numbered copy of a table already in scope. Both return expressions, so
+a builder compares them as columns in a `where`'s value position as well as in
+`whereColumn()`.
+
+The method narrows `relatedQuery` and returns it. As a condition does, it may only
+add `where` clauses, and must add at least one: a `join`, `groupBy`, `having`,
+aggregate or `union` throws, and so does returning the query untouched. A pivot
+table goes in a `whereExists()`. `relatedQuery` carries none of the related
+model's global scopes: a relation reaches the rows its method names, and nothing
+the model would otherwise add.
+
+A to-one relation, a document's folder:
+
+```php
+#[RowRelation(FolderSchema::class)]
+public function folder(RowRelationContext $c): Builder
+{
+    return $c->relatedQuery->where($c->relatedColumn('id'), $c->ownColumn('folder_id'));
+}
+```
+
+A to-many relation, a folder's documents:
+
+```php
+#[RowRelation(DocumentSchema::class)]
+public function documents(RowRelationContext $c): Builder
+{
+    return $c->relatedQuery->where($c->relatedColumn('folder_id'), $c->ownColumn('id'));
+}
+```
+
+A relation through a pivot table, a document's editors:
+
+```php
+#[RowRelation(UserSchema::class)]
+public function editors(RowRelationContext $c): Builder
+{
+    return $c->relatedQuery->whereExists(fn ($pivot) => $pivot
+        ->from('document_editors')
+        ->whereColumn('document_editors.user_id', $c->relatedColumn('id'))
+        ->whereColumn('document_editors.document_id', $c->ownColumn('id')));
+}
+```
+
+A relation may reach any number of rows. `its documents` passes when **any** of
+them passes, and `all of its documents` when there is at least one and every one
+passes. See [following a relation](/rules/references/#following-a-relation-with-its).
+
 ## `AuthorizesWithWarrant`
 
 A trait rather than an attribute, on the user model:

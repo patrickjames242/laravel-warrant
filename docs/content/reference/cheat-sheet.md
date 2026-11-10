@@ -42,6 +42,12 @@ class DocumentSchema extends ModelSchema
         return "if not is_approved they cannot because 'Needs approval.'";
     }
 
+    #[RowRelation(FolderSchema::class)]
+    public function folder(RowRelationContext $c): Builder
+    {
+        return $c->relatedQuery->where($c->relatedColumn('id'), $c->ownColumn('folder_id'));
+    }
+
     public function rules(RuleProviderContext $context): string
     {
         return 'if is_suspended they cannot *';
@@ -107,6 +113,8 @@ if is_editor they can view, :editing
 if can(view for folders(@column folder_id)) they can view
 if check(is_open for pay_periods(@context period_id)) they can submit
 if can(view for folders(@context f) with tenant_id = @context t) they can view
+if can(view for its folder) they can view
+if can(edit for all of its documents) they can archive
 if can(read) they can comment
 
 @include requires_approval for view, edit
@@ -202,6 +210,9 @@ Build::rule()
 $visible = Build::condition()->if('is_public')->orIf('is_mine');
 Build::rule()->if($visible)->ifNot(Build::can('manage')->for('departments', Ref::context('department_id')))->theyCan('view');
 Build::rule()->ifCheck(fn ($check) => $check->if('is_open')->andIfNot('is_locked')->for('pay_periods', Ref::column('pay_period_id')));
+Build::rule()->ifCan(Build::can('view')->its('folder'))->theyCan('view');
+Build::rule()->ifCan(Build::can('edit')->allOfIts('documents'))->theyCan('archive');
+Build::rule()->ifCheck(Build::check('is_staffed')->forAllOf('shift_days', Ref::column('team_id')))->theyCan('publish');
 
 Build::ruleSet('documents', function ($rule) {
     $rule()->if('is_mine')->theyCan('view');

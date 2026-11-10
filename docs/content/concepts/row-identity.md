@@ -84,9 +84,15 @@ row.
 override from adding required parameters, so an inherited signature would make a
 two-part key impossible to write.
 
-:::caution[A key must identify at most one row]
-Nothing enforces it. A key matching several rows turns an `EXISTS` from "this row
-grants it" into "some row grants it", which is a quiet and serious difference.
+:::caution[A key matching several rows means "some row"]
+Nothing stops a key from matching several rows, and then a hop asks whether **any**
+of them grants it. When a key reaches several rows on purpose, say which question
+you mean: `any of shift_days(@column team_id)` or `all of shift_days(@column
+team_id)`. A key that should name one row and quietly names several turns "this
+row grants it" into "some row grants it", which is a serious difference.
+
+A [row relation](/rules/references/#following-a-relation-with-its) reaches several
+rows in the same way, and takes the same `any of` and `all of`.
 :::
 
 ## Rows that are not a model's table
