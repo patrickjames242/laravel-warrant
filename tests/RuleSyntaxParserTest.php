@@ -55,6 +55,10 @@ function languageRuleErrors(string $syntax): array
         {
             return null;
         }
+        public function keyOf(string $schemaClass): ?string
+        {
+            return null;
+        }
         public function globalClasses(): array
         {
             return [];

@@ -67,6 +67,30 @@ final class ConstructLookup
     }
 
     /**
+     * The row relation `its $name` names in rules for $ownSchemaKey, or null when
+     * that schema declares none.
+     *
+     * Only that schema is searched. A relation starts from a row of the schema the
+     * rule is for, and a global schema has no rows, so no global declares one.
+     */
+    public function rowRelation(string $name, string $ownSchemaKey): ?FoundRowRelation
+    {
+        $vocabulary = $this->catalog->find($ownSchemaKey);
+        $definition = $vocabulary?->rowRelation($name);
+
+        if ($definition === null) {
+            return null;
+        }
+
+        return new FoundRowRelation(
+            $definition,
+            new KeyedSchemaId($ownSchemaKey),
+            $vocabulary->schemaClass,
+            $this->catalog->keyOf($definition->targetSchemaClass),
+        );
+    }
+
+    /**
      * The schema the text $producer answered with was written in: the global
      * schema whose method answered, when one did, and otherwise $schemaKey, the
      * keyed schema the text's rules are for. Null when neither is known.

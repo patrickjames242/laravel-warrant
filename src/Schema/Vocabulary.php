@@ -5,13 +5,15 @@ namespace Warrant\Schema;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Relations\IProvidesRowRelations;
+use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\Rows\IProvidesRows;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
- * What a rule may say about one schema, as data: its abilities, conditions and
- * rule templates by name, and how one of its rows is found.
+ * What a rule may say about one schema, as data: its abilities, conditions, rule
+ * templates and row relations by name, and how one of its rows is found.
  *
  * Validation and the language server read this, never a live schema. A running
  * application builds it from a schema with {@see of()}; the language server
@@ -35,6 +37,11 @@ final readonly class Vocabulary
     private array $ruleTemplates;
 
     /**
+     * @var array<string, RowRelationDefinition>
+     */
+    private array $rowRelations;
+
+    /**
      * @param class-string<ISchema> $schemaClass The schema the vocabulary was
      *   read from.
      * @param list<AbilityDefinition> $abilities
@@ -42,6 +49,7 @@ final readonly class Vocabulary
      * @param list<RuleTemplateDefinition> $ruleTemplates
      * @param ConditionDefinition|null $rowMatcher How one row is found, or null for
      *   a schema with no rows.
+     * @param list<RowRelationDefinition> $rowRelations
      */
     public function __construct(
         public string $schemaClass,
@@ -49,16 +57,18 @@ final readonly class Vocabulary
         array $conditions,
         array $ruleTemplates,
         private ?ConditionDefinition $rowMatcher,
+        array $rowRelations = [],
     ) {
         $this->abilities = array_column(array_map(static fn (AbilityDefinition $a): array => [$a->name, $a], $abilities), 1, 0);
         $this->conditions = array_column(array_map(static fn (ConditionDefinition $c): array => [$c->key, $c], $conditions), 1, 0);
         $this->ruleTemplates = array_column(array_map(static fn (RuleTemplateDefinition $t): array => [$t->key, $t], $ruleTemplates), 1, 0);
+        $this->rowRelations = array_column(array_map(static fn (RowRelationDefinition $r): array => [$r->key, $r], $rowRelations), 1, 0);
     }
 
     /**
      * Read once from $schema: abilities when it provides them, every kind of
-     * condition it provides, its rule templates, and its row matcher when it has
-     * rows.
+     * condition it provides, its rule templates, and its row matcher and row
+     * relations when it has rows.
      */
     public static function of(ISchema $schema): self
     {
@@ -68,12 +78,26 @@ final readonly class Vocabulary
             $schema->conditions(),
             $schema->ruleTemplates(),
             $schema instanceof IProvidesRows ? $schema->rowMatcher() : null,
+            $schema instanceof IProvidesRowRelations ? $schema->rowRelations() : [],
         );
     }
 
     public function ability(string $name): ?AbilityDefinition
     {
         return $this->abilities[$name] ?? null;
+    }
+
+    public function rowRelation(string $key): ?RowRelationDefinition
+    {
+        return $this->rowRelations[$key] ?? null;
+    }
+
+    /**
+     * @return list<string> The key of every row relation, in declaration order.
+     */
+    public function rowRelationKeys(): array
+    {
+        return array_map('strval', array_keys($this->rowRelations));
     }
 
     public function condition(string $key): ?ConditionDefinition

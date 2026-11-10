@@ -13,6 +13,7 @@ use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Relations\RowRelation;
 use Warrant\Schema\RuleTemplates\RuleTemplate;
 
 /**
@@ -87,7 +88,7 @@ trait ReflectsRowMatcher
     {
         $method = new ReflectionMethod(static::class, 'matchKey');
 
-        foreach ([RowCondition::class, GlobalCondition::class, DerivedCondition::class, RuleTemplate::class] as $attribute) {
+        foreach ([RowCondition::class, GlobalCondition::class, DerivedCondition::class, RuleTemplate::class, RowRelation::class] as $attribute) {
             if ($method->getAttributes($attribute) !== []) {
                 throw new InvalidArgumentException(sprintf(
                     'Schema [%s] declares a vocabulary attribute on matchKey(), which finds the schema\'s rows '

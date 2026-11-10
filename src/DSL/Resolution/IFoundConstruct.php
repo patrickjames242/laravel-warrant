@@ -5,8 +5,8 @@ namespace Warrant\DSL\Resolution;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
- * A construct a name resolved to: a condition or a rule template, and the
- * schema that declares it.
+ * A construct a name resolved to: a condition, a rule template or a row
+ * relation, and the schema that declares it.
  */
 interface IFoundConstruct
 {

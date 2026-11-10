@@ -128,7 +128,7 @@ final readonly class VocabularyIndex implements ISchemaCatalog
      * @param string $className A class name, with or without its leading
      *   backslash.
      */
-    public function keyOfClass(string $className): ?string
+    public function keyOf(string $className): ?string
     {
         $className = ltrim($className, '\\');
 

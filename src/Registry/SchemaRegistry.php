@@ -306,6 +306,11 @@ final class SchemaRegistry implements ISchemaCatalog
      * Only a model reference needs resolving here, and an unregistered model
      * yields null.
      */
+    public function keyOf(string $schemaClass): ?string
+    {
+        return $this->keysBySchema()[ltrim($schemaClass, '\\')] ?? null;
+    }
+
     public function resolveSchemaKeyOrNull(Model|ISchema|string|null $ref): ?string
     {
         /* class_exists() is what separates an unregistered key from a class-string,

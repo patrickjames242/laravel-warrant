@@ -14,6 +14,8 @@ use Warrant\Schema\Conditions\Row\IProvidesRowConditions;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Context\IProvidesContext;
 use Warrant\Schema\Context\RequiredContext;
+use Warrant\Schema\Relations\IProvidesRowRelations;
+use Warrant\Schema\Relations\RowRelation;
 use Warrant\Schema\RuleTemplates\ReflectsRuleTemplates;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
@@ -95,6 +97,18 @@ abstract class Schema implements ISchema
                 if ($method->getAttributes(RowCondition::class) !== []) {
                     throw $this->unprovided(
                         sprintf('Method [%s::%s] is a #[RowCondition]', static::class, $method->getName()),
+                        'rows',
+                        'ModelSchema or QuerySchema',
+                    );
+                }
+            }
+        }
+
+        if (! $this instanceof IProvidesRowRelations) {
+            foreach ($class->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+                if ($method->getAttributes(RowRelation::class) !== []) {
+                    throw $this->unprovided(
+                        sprintf('Method [%s::%s] is a #[RowRelation]', static::class, $method->getName()),
                         'rows',
                         'ModelSchema or QuerySchema',
                     );

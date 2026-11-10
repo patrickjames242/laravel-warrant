@@ -10,6 +10,7 @@ use ReflectionNamedType;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Relations\RowRelation;
 
 /**
  * Implements {@see \Warrant\Schema\RuleTemplates\IProvidesRuleTemplates} over the
@@ -110,6 +111,14 @@ trait ReflectsRuleTemplates
         ) {
             throw new InvalidArgumentException(sprintf(
                 'Method [%s::%s] cannot be both a condition and a rule template.',
+                static::class,
+                $method->getName(),
+            ));
+        }
+
+        if ($method->getAttributes(RowRelation::class) !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'Method [%s::%s] cannot be both a row relation and a rule template.',
                 static::class,
                 $method->getName(),
             ));

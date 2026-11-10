@@ -17,6 +17,7 @@ use Warrant\Schema\Conditions\Global\ReflectsGlobalConditions;
 use Warrant\Schema\Conditions\Row\ReflectsRowConditions;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Relations\RowRelation;
 
 /**
  * Reads a schema's condition methods, of every kind, in one pass.
@@ -127,6 +128,16 @@ trait ReflectsConditionMethods
             throw new InvalidArgumentException(sprintf(
                 'Condition method [%s::%s] must declare exactly one of #[RowCondition], #[GlobalCondition] '
                     .'and #[DerivedCondition].',
+                static::class,
+                $method->getName(),
+            ));
+        }
+
+        /* A condition answers about a row or a user; a relation names rows. A
+           method wearing both attributes has no single meaning to pick. */
+        if ($method->getAttributes(RowRelation::class) !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'Method [%s::%s] cannot be both a condition and a row relation.',
                 static::class,
                 $method->getName(),
             ));

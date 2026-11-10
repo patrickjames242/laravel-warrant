@@ -123,9 +123,9 @@ final class Document
         $known = $index ?? new VocabularyIndex;
         $classes = RuleProviderClasses::ofProject($projectRoot)->knowing($this->path, $this->text);
         $fragments = (new FragmentExtractor(
-            $known->keyOfClass(...),
+            $known->keyOf(...),
             // A class the index knows as a schema provides rules, even where its source cannot be followed.
-            static fn (string $class): bool => $known->keyOfClass($class) !== null || $classes->providesRules($class),
+            static fn (string $class): bool => $known->keyOf($class) !== null || $classes->providesRules($class),
         ))->extract($this->path, $this->text);
 
         $this->analyzed = array_map(

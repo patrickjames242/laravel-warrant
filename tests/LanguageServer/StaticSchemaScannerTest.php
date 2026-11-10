@@ -68,8 +68,8 @@ it('reads templates, required context, and whether and how rows are named', func
 });
 
 it('finds a schema\'s key by its class', function () {
-    expect(fixtureVocabulary()->keyOfClass('\App\Schemas\FolderSchema'))->toBe('folders')
-        ->and(fixtureVocabulary()->keyOfClass('App\Other'))->toBeNull();
+    expect(fixtureVocabulary()->keyOf('\App\Schemas\FolderSchema'))->toBe('folders')
+        ->and(fixtureVocabulary()->keyOf('App\Other'))->toBeNull();
 });
 
 it('merges the application\'s reading over the reading from source, keeping locations it lacks', function () {

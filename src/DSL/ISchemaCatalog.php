@@ -25,6 +25,16 @@ interface ISchemaCatalog
     public function find(string $schemaKey): ?Vocabulary;
 
     /**
+     * The key $schemaClass is registered under, or null when it is not a
+     * registered schema. This is how a row relation, which names its target by
+     * class, reaches the schema rule text knows by key.
+     *
+     * @param string $schemaClass A class name, with or without its leading
+     *   backslash.
+     */
+    public function keyOf(string $schemaClass): ?string;
+
+    /**
      * The global schemas' classes, in the order a name is looked up in them.
      * Every class listed is a global schema: a catalog lists none it does not
      * know implements {@see IGlobalSchema}, which is what lets a

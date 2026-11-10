@@ -997,6 +997,17 @@ function catalogOf(array $schemas, ?ISchemaCatalog $behind = null): ISchemaCatal
             return $this->schemas[$schemaKey] ?? $this->behind?->find($schemaKey);
         }
 
+        public function keyOf(string $schemaClass): ?string
+        {
+            foreach ($this->schemas as $key => $vocabulary) {
+                if (strcasecmp($vocabulary->schemaClass, ltrim($schemaClass, '\\')) === 0) {
+                    return $key;
+                }
+            }
+
+            return $this->behind?->keyOf($schemaClass);
+        }
+
         public function globalClasses(): array
         {
             return $this->behind?->globalClasses() ?? [];
