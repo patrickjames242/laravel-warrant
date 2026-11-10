@@ -4,6 +4,15 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Fixed
+
+- `warrant/usages` for a row relation analyzes only the files that write `its`
+  before the relation's name. A relation named like a common word, as `user`
+  is, no longer has the language server analyze nearly every file in the
+  project, which took long enough for an editor's rename to give up waiting.
+
 ## 4.12.0 — 2026-11-10
 
 ### Added

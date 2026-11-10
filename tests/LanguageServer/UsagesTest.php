@@ -202,3 +202,11 @@ it('finds every use of a row relation, and none of another schema\'s relation of
         ->and(usageStarts($found['usages']))->toBe(['open.warrant:0:36'])
         ->and($found['taken'])->toBe(['in_folder', 'in_team', 'is_owner', 'owner_or_team']);
 });
+
+it('finds a row relation written after its across a line break and a comment', function () {
+    [$workspace] = openInFixture('open.warrant', "for documents {\n  if can(view for its # the folder\n    folder) they can edit\n}");
+
+    $found = Usages::of($workspace, fixtureRoot().'/app/Schemas/DocumentSchema.php', 'folder');
+
+    expect(usageStarts($found['usages']))->toBe(['open.warrant:2:4']);
+});

@@ -105,7 +105,7 @@ final class Usages
         [$kind, $name] = $found;
         $usages = [];
 
-        foreach ($workspace->projectDocumentsHolding($name) as $document) {
+        foreach (self::documentsThatMayWrite($workspace, $kind, $name) as $document) {
             foreach ($workspace->analyze($document) as $fragment) {
                 foreach ($fragment->namesWriting($name) as $node) {
                     $span = $node->location->span;
@@ -133,6 +133,30 @@ final class Usages
         sort($taken);
 
         return ['kind' => $kind, 'name' => $name, 'usages' => $usages, 'taken' => $taken];
+    }
+
+    /**
+     * The project's files that may write $name as a $kind. A row relation is
+     * only ever written after `its`, so a file that never writes `its` before
+     * the name is left out before it is analyzed: a relation is often named
+     * like a word most files hold, as `user` is.
+     *
+     * @return list<Document>
+     */
+    private static function documentsThatMayWrite(Workspace $workspace, string $kind, string $name): array
+    {
+        $documents = $workspace->projectDocumentsHolding($name);
+
+        if ($kind !== 'relation') {
+            return $documents;
+        }
+
+        $afterIts = '/(?<![\w-])its(?:\s|#[^\n]*\n)+'.preg_quote($name, '/').'(?![\w-])/';
+
+        return array_values(array_filter(
+            $documents,
+            static fn (Document $document): bool => preg_match($afterIts, $document->text) === 1,
+        ));
     }
 
     /**
