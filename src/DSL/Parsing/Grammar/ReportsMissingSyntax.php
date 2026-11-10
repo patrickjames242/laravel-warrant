@@ -36,6 +36,9 @@ trait ReportsMissingSyntax
         TokenType::WITH,
         TokenType::AS,
         TokenType::ITS,
+        TokenType::ANY,
+        TokenType::ALL,
+        TokenType::OF,
         TokenType::WHEN,
         TokenType::OTHERWISE,
     ];

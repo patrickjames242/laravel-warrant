@@ -225,6 +225,7 @@ trait ValidatesExpressions
         $this->assertRowTargetValid('can', $node, $schemaKey, $target);
 
         $this->assertAliasHasARow('can', $schemaKey, $node->handle->isRowBound(), $node->alias);
+        $this->assertQuantifierHasRows('can', $schemaKey, $node->handle);
         $this->assertWithKeysDistinct($node->contextMap);
 
         /* The handle's own arguments are written in the enclosing rule, so they see
@@ -258,6 +259,7 @@ trait ValidatesExpressions
 
         $this->assertRowTargetValid('check', $node, $schemaKey, $target);
         $this->assertAliasHasARow('check', $schemaKey, $node->handle->isRowBound(), $node->alias);
+        $this->assertQuantifierHasRows('check', $schemaKey, $node->handle);
         $this->assertWithKeysDistinct($node->contextMap);
 
         $this->assertColumnRefsInScope([...$node->handle->rowSelector(), ...self::withValues($node->contextMap)], $scope);
@@ -499,6 +501,30 @@ trait ValidatesExpressions
                 $alias->name,
             ),
             $alias->location,
+        );
+    }
+
+    /**
+     * An `any of` or `all of` counts the rows a reference selects. An unbound
+     * handle selects none, so a quantifier there counts nothing, and is far more
+     * likely a forgotten row selector than a deliberate no-op.
+     */
+    private function assertQuantifierHasRows(string $builtin, string $schemaKey, IHandleNode $handle): void
+    {
+        if ($handle->quantifier() === null || $handle->isRowBound()) {
+            return;
+        }
+
+        $this->fail(
+            DiagnosticCode::QuantifierWithoutRow,
+            sprintf(
+                'A %s(...) reference to schema [%s] is quantified but selects no rows, so there is nothing to '
+                    .'count; add a row selector like %s(@context id), or drop the quantifier.',
+                $builtin,
+                $schemaKey,
+                $schemaKey,
+            ),
+            $handle->location,
         );
     }
 

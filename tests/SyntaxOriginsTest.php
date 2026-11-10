@@ -350,7 +350,7 @@ it('still checks the targets the text names against a catalog that holds no sche
 
 it('rejects a with key written twice in the compiler too', function () {
     $handle = new CrossSchemaCanNode(
-        new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()),
+        new SchemaHandleNode(nameNode('course_sections'), false, [], null, SyntaxLocation::noProducer()),
         nameNode('view'),
         [...withEntries(['a' => 1]), ...withEntries(['a' => 2])],
         null,

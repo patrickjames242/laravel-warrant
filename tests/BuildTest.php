@@ -212,6 +212,12 @@ it('builds can(...) to the tree its text parses to', function (string $text, Clo
         'if can(assign for xs_target(@column team_id, @column starts_on)) they can x',
         fn () => Build::rule()->ifCan(Build::can('assign')->for('xs_target', [Ref::column('team_id'), Ref::column('starts_on')])),
     ],
+    'any of a key' => ['if can(view for any of xs_target(@context id)) they can x', fn () => Build::rule()->ifCan(Build::can('view')->forAnyOf('xs_target', Ref::context('id')))],
+    'all of a key' => ['if can(view for all of xs_target(@context id)) they can x', fn () => Build::rule()->ifCan(Build::can('view')->forAllOf('xs_target', Ref::context('id')))],
+    'a relation' => ['if can(view for its folder) they can x', fn () => Build::rule()->ifCan(Build::can('view')->its('folder'))],
+    'any of a relation' => ['if can(view for any of its folder) they can x', fn () => Build::rule()->ifCan(Build::can('view')->anyOfIts('folder'))],
+    'all of a relation' => ['if can(view for all of its folder) they can x', fn () => Build::rule()->ifCan(Build::can('view')->allOfIts('folder'))],
+    'a later for drops the quantifier' => ['if can(view for xs_target(@context id)) they can x', fn () => Build::rule()->ifCan(Build::can('view')->allOfIts('folder')->for('xs_target', Ref::context('id')))],
     'as and with' => [
         'if can(view for xs_target(@context id) as t2 with tenant = @context t, plan = 3) they can x',
         fn () => Build::rule()->ifCan(Build::can('view')->for('xs_target', Ref::context('id'))->as('t2')->with(['tenant' => Ref::context('t'), 'plan' => 3])),
@@ -248,6 +254,8 @@ it('builds check(...) to the tree its text parses to', function (string $text, C
     expect($build()->theyCan('x')->toRule())->toEqualSyntax(parsedRule($text));
 })->with([
     'one condition' => ['if check(is_open for xs_target) they can x', fn () => Build::rule()->ifCheck(Build::check('is_open')->for('xs_target'))],
+    'all of a key' => ['if check(is_open for all of xs_target(@column p_id)) they can x', fn () => Build::rule()->ifCheck(Build::check('is_open')->forAllOf('xs_target', Ref::column('p_id')))],
+    'all of a relation' => ['if check(is_open for all of its periods) they can x', fn () => Build::rule()->ifCheck(Build::check('is_open')->allOfIts('periods'))],
     'parameters' => [
         "if check(in_region('west') for xs_target(@column p_id)) they can x",
         fn () => Build::rule()->ifCheck(Build::check('in_region', ['west'])->for('xs_target', Ref::column('p_id'))),
@@ -447,7 +455,7 @@ it('rejects a constant in a check(...) predicate in the compiler, unvalidated', 
 it('rejects a check(...) or can(... for ...) in a check(...) predicate in the compiler, unvalidated', function (IBooleanExpressionNode $predicate, string $message) {
     /* The builder refuses both, so the rule is built from nodes, as only an
        unvalidated path could hand it over. */
-    $check = new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), $predicate, [], null, SyntaxLocation::noProducer());
+    $check = new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], null, SyntaxLocation::noProducer()), $predicate, [], null, SyntaxLocation::noProducer());
     $rule = new RuleNode($check, [new CanClauseNode([nameNode('view')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer());
 
     $expanded = (fn () => new ExpandedSyntax('build_docs', [new ExpandedRule($rule)], new ValidationInput(null)))
@@ -461,11 +469,11 @@ it('rejects a check(...) or can(... for ...) in a check(...) predicate in the co
     )))->toThrow(InvalidArgumentException::class, $message);
 })->with([
     'a check' => [
-        fn () => new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('is_open'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()),
+        fn () => new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('course_sections'), false, [], null, SyntaxLocation::noProducer()), new ConditionNode(nameNode('is_open'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()),
         'A check(...) may not be written inside the predicate of the check(...) for schema [course_sections]',
     ],
     'a can with a for' => [
-        fn () => new CrossSchemaCanNode(new SchemaHandleNode(nameNode('course_sections'), false, [], SyntaxLocation::noProducer()), nameNode('view'), [], null, SyntaxLocation::noProducer()),
+        fn () => new CrossSchemaCanNode(new SchemaHandleNode(nameNode('course_sections'), false, [], null, SyntaxLocation::noProducer()), nameNode('view'), [], null, SyntaxLocation::noProducer()),
         'A can(...) inside the predicate of the check(...) for schema [course_sections] may not name a schema with for',
     ],
 ]);

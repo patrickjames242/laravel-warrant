@@ -79,6 +79,7 @@ trait ReplacesBindings
                 $node->schemaKey,
                 $node->hasRowSelector,
                 self::eachWithBindingsReplaced($node->boundKey),
+                $node->writtenQuantifier,
                 $node->location,
             ),
             $node instanceof WithEntryNode => new WithEntryNode($node->key, self::withBindingsReplaced($node->value), $node->location),

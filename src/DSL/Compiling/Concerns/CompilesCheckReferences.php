@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Compiling\Concerns;
 
+use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\CallStack\Call;
 use Warrant\DSL\Compiling\CompilationContext;
@@ -117,23 +118,26 @@ trait CompilesCheckReferences
             writtenIn: new KeyedSchemaId($bKey),
         );
 
-        /* As in a can(...), a relation replaces the row matcher. The related rows
-           are read from $ctx, A's frame, before the predicate's frame is entered. */
+        /* As in a can(...), a relation replaces the row matcher and its quantifier
+           says how many related rows must pass. The related rows are read from
+           $ctx, A's frame, before the predicate's frame is entered. */
         if ($node->handle instanceof RelationHandleNode) {
+            $handle = $node->handle;
             $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
 
-            $bSubquery = $this->relatedRows($node->handle, $bSchema, $ctx, $bQualifier, $bContext);
+            $bSubquery = $this->relatedRows($handle, $bSchema, $ctx, $bQualifier, $bContext);
 
             if ($bSubquery === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
-            $bCompiler->compile($bCtx->forTargetRow())->spliceInto($bSubquery);
-
-            $existsLeaf = $ctx->queries->newQuery();
-            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
-
-            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+            return $this->quantifiedLeaf(
+                $handle,
+                $ctx,
+                $bSubquery,
+                fn (): Builder => $this->relatedRows($handle, $bSchema, $ctx, $bQualifier, $bContext),
+                $bCompiler->compile($bCtx->forTargetRow()),
+            );
         }
 
         if ($node->handle->isRowBound()) {
@@ -180,14 +184,18 @@ trait CompilesCheckReferences
                 return (new CompiledWhereClauseNode)->addAnd($bDecision->asOperand(), negated: $ctx->negate);
             }
 
-            $bResult->spliceInto($bSubquery);
+            return $this->quantifiedLeaf(
+                $node->handle,
+                $ctx,
+                $bSubquery,
+                function () use ($bSchema, $ctx, $bQualifier, $keyArguments, $bContext, $bTargetModel): Builder {
+                    $rows = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
+                    $this->narrowToRow($bSchema, $ctx->user, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
-            // As in a row-bound can(...): the exists is its own one-clause leaf,
-            // already negated, so the tree lifts it back out without a group.
-            $existsLeaf = $ctx->queries->newQuery();
-            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
-
-            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+                    return $rows;
+                },
+                $bResult,
+            );
         }
 
         // Unbound / no-target: as in a can(...), a row condition in B folds to

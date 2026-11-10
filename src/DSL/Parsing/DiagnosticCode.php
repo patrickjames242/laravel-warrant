@@ -152,6 +152,9 @@ enum DiagnosticCode: string
     /** An `as` alias on a reference that selects no row for it to name. */
     case AliasWithoutRow = 'alias-without-row';
 
+    /** An `any of` or `all of` on a reference that selects no rows for it to count. */
+    case QuantifierWithoutRow = 'quantifier-without-row';
+
     /** A row selector on a reference to a schema that has no rows. */
     case RowTargetOnRowlessSchema = 'row-target-on-rowless-schema';
 

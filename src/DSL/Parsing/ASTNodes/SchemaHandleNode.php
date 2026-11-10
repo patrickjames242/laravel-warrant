@@ -17,6 +17,9 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
  * a {@see BindingNode} whose value expansion puts in its place, a symbolic
  * {@see ContextRef} filled per check, or a symbolic {@see ColumnRef} resolved to
  * a column of the enclosing frame.
+ *
+ * A row key may match more than one row, so the handle may be written after a
+ * quantifier, as `all of schema(<arg>)`.
  */
 final readonly class SchemaHandleNode implements IHandleNode
 {
@@ -25,13 +28,21 @@ final readonly class SchemaHandleNode implements IHandleNode
      * @param bool $hasRowSelector Whether the handle was written with parentheses.
      * @param list<INode> $boundKey The row selector's arguments. Empty on an
      *   unbound handle, and on `schema()`.
+     * @param Quantifier|null $writtenQuantifier The `any of` or `all of` written
+     *   before the handle, or null when none was.
      */
     public function __construct(
         public NameNode $schemaKey,
         public bool $hasRowSelector,
         public array $boundKey,
+        public ?Quantifier $writtenQuantifier,
         public SyntaxLocation $location,
     ) {
+    }
+
+    public function quantifier(): ?Quantifier
+    {
+        return $this->writtenQuantifier;
     }
 
     public function isRowBound(): bool

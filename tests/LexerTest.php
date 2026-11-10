@@ -86,6 +86,18 @@ it('reads its as a keyword, and a name that starts with it as a name', function 
     ]);
 });
 
+it('reads any, all and of as keywords, and names that start with them as names', function () {
+    expect(lexedTokens('any of all anyone office allowed'))->toBe([
+        [TokenType::ANY, 'any'],
+        [TokenType::OF, 'of'],
+        [TokenType::ALL, 'all'],
+        [TokenType::IDENTIFIER, 'anyone'],
+        [TokenType::IDENTIFIER, 'office'],
+        [TokenType::IDENTIFIER, 'allowed'],
+        [TokenType::EOF, ''],
+    ]);
+});
+
 it('measures the width of a token in bytes, not characters', function () {
     $string = (new Lexer("'café'"))->tokenize()[0];
 

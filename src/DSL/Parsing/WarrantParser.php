@@ -75,14 +75,16 @@ use Warrant\DSL\Parsing\Parsers\ParsingState;
  *              -- one ability: a binding's value is a single ability name
  *   check_expr := 'check' '(' expr 'for' handle ( 'as' IDENTIFIER )? ( 'with' with_map )? ')'
  *              -- the inner expr is a boolean tree of the target schema's conditions
- *   handle   := 'its' IDENTIFIER
- *             | IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?
+ *   handle   := ( ( 'any' | 'all' ) 'of' )? ( 'its' IDENTIFIER
+ *             | IDENTIFIER ( '(' (arg (',' arg)*)? ')' )? )
  *              -- `its` follows a row relation of the schema the rule is for, from
  *                 the row it is about. A schema name with no parens is unbound; with
- *                 them it is row-bound, its args the target's row key. `as` names the
- *                 rows a reference selects, so a @column can tell them apart from a
- *                 table of the same name further out; only a row-bound handle may
- *                 take one.
+ *                 them it is row-bound, its args the target's row key. A row-bound
+ *                 handle may reach many rows: `any of` (or nothing) asks whether one
+ *                 of them passes, `all of` whether there is one and every one does.
+ *                 `as` names the rows a reference selects, so a @column can tell
+ *                 them apart from a table of the same name further out; only a
+ *                 row-bound handle may take one, or a quantifier.
  *   with_map := with_entry (',' with_entry)*
  *   with_entry := IDENTIFIER '=' arg
  *   condition:= IDENTIFIER ( '(' (arg (',' arg)*)? ')' )?

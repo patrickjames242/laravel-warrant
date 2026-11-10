@@ -26,6 +26,7 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\Quantifier;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaConditionNode;
@@ -352,11 +353,18 @@ final class RuleSyntaxWriter
      * A schema handle with a row selector always carries its parentheses, empty
      * ones included: `schema()` addresses a row with a key that takes no
      * arguments, and bare `schema` addresses none, so the parentheses are what
-     * tell them apart.
+     * tell them apart. A quantifier is written only when the handle was given one,
+     * so a handle written without one comes back without one.
      */
     private function writeHandle(IHandleNode $handle): string
     {
-        return match (true) {
+        $quantifier = match ($handle->quantifier()) {
+            Quantifier::Any => 'any of ',
+            Quantifier::All => 'all of ',
+            null => '',
+        };
+
+        return $quantifier . match (true) {
             $handle instanceof RelationHandleNode => 'its ' . $handle->relation->name,
             $handle instanceof SchemaHandleNode && $handle->hasRowSelector => $handle->schemaKey->name
                 . '(' . implode(', ', array_map($this->arg(...), $handle->boundKey)) . ')',

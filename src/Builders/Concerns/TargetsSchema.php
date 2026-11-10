@@ -7,6 +7,7 @@ use Warrant\Builders\NoRow;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
+use Warrant\DSL\Parsing\ASTNodes\Quantifier;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
@@ -28,6 +29,8 @@ trait TargetsSchema
     private mixed $key = null;
 
     private bool $isRowBound = false;
+
+    private ?Quantifier $quantifier = null;
 
     /** @var array<string, mixed> */
     private array $with = [];
@@ -54,6 +57,31 @@ trait TargetsSchema
         $this->relation = null;
         $this->key = $key;
         $this->isRowBound = ! $key instanceof NoRow;
+        $this->quantifier = null;
+
+        return $this;
+    }
+
+    /**
+     * As {@see for()}, asking whether any of the rows the key matches passes:
+     * `for any of <schema>(<key>)`.
+     */
+    public function forAnyOf(Model|ISchema|string $schema, mixed $key = new NoRow): static
+    {
+        $this->for($schema, $key);
+        $this->quantifier = Quantifier::Any;
+
+        return $this;
+    }
+
+    /**
+     * As {@see for()}, asking whether the key matches at least one row and every
+     * one of them passes: `for all of <schema>(<key>)`.
+     */
+    public function forAllOf(Model|ISchema|string $schema, mixed $key = new NoRow): static
+    {
+        $this->for($schema, $key);
+        $this->quantifier = Quantifier::All;
 
         return $this;
     }
@@ -61,7 +89,7 @@ trait TargetsSchema
     /**
      * The rows a row relation of the schema the rule is for reaches from the row
      * it is about: `for its <relation>`. It replaces a {@see for()} on the same
-     * reference, as one replaces the other.
+     * reference, as each of these replaces the others.
      *
      * @param string $relation The relation's name, as rule text writes it.
      */
@@ -71,6 +99,31 @@ trait TargetsSchema
         $this->schemaKey = null;
         $this->key = null;
         $this->isRowBound = true;
+        $this->quantifier = null;
+
+        return $this;
+    }
+
+    /**
+     * As {@see its()}, asking whether any of the related rows passes:
+     * `for any of its <relation>`.
+     */
+    public function anyOfIts(string $relation): static
+    {
+        $this->its($relation);
+        $this->quantifier = Quantifier::Any;
+
+        return $this;
+    }
+
+    /**
+     * As {@see its()}, asking whether there is at least one related row and every
+     * one of them passes: `for all of its <relation>`.
+     */
+    public function allOfIts(string $relation): static
+    {
+        $this->its($relation);
+        $this->quantifier = Quantifier::All;
 
         return $this;
     }
@@ -103,7 +156,7 @@ trait TargetsSchema
     private function handleNode(SyntaxSource $source): ?IHandleNode
     {
         if ($this->relation !== null) {
-            return new RelationHandleNode(self::nameNode($this->relation, $source), self::location($source));
+            return new RelationHandleNode(self::nameNode($this->relation, $source), $this->quantifier, self::location($source));
         }
 
         if ($this->schemaKey === null) {
@@ -114,6 +167,7 @@ trait TargetsSchema
             self::nameNode($this->schemaKey, $source),
             $this->isRowBound,
             $this->keyArgumentNodes($source),
+            $this->quantifier,
             self::location($source),
         );
     }

@@ -2,6 +2,7 @@
 
 namespace Warrant\DSL\Compiling\Concerns;
 
+use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\CallStack\Call;
 use Warrant\DSL\Compiling\CompilationContext;
@@ -150,24 +151,26 @@ trait CompilesAbilityReferences
         );
 
         /* A relation says which of B's rows are related to A's, so it replaces the
-           row matcher: the subquery may reach many rows, and the exists asks
-           whether B grants the ability on any of them. No B model is in hand, so
-           B's rules always go to SQL. */
+           row matcher: the subquery may reach many rows, and the handle's
+           quantifier says whether B must grant on any of them or all. No B model
+           is in hand, so B's rules always go to SQL. */
         if ($node->handle instanceof RelationHandleNode) {
+            $handle = $node->handle;
             $this->assertSameConnection($ctx->queries, $bSchema, $bKey);
 
-            $bSubquery = $this->relatedRows($node->handle, $bSchema, $ctx, $bQualifier, $bContext);
+            $bSubquery = $this->relatedRows($handle, $bSchema, $ctx, $bQualifier, $bContext);
 
             if ($bSubquery === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
             }
 
-            $bCompiler->compile($bCtx->forTargetRow())->spliceInto($bSubquery);
-
-            $existsLeaf = $ctx->queries->newQuery();
-            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
-
-            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+            return $this->quantifiedLeaf(
+                $handle,
+                $ctx,
+                $bSubquery,
+                fn (): Builder => $this->relatedRows($handle, $bSchema, $ctx, $bQualifier, $bContext),
+                $bCompiler->compile($bCtx->forTargetRow()),
+            );
         }
 
         if ($node->handle->isRowBound()) {
@@ -219,15 +222,18 @@ trait CompilesAbilityReferences
                 return (new CompiledWhereClauseNode)->addAnd($bDecision->asOperand(), negated: $ctx->negate);
             }
 
-            $bResult->spliceInto($bSubquery);
+            return $this->quantifiedLeaf(
+                $node->handle,
+                $ctx,
+                $bSubquery,
+                function () use ($bSchema, $ctx, $bQualifier, $keyArguments, $bContext, $bTargetModel): Builder {
+                    $rows = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
+                    $this->narrowToRow($bSchema, $ctx->user, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
-            // The exists goes on a leaf of its own, already carrying its negation,
-            // so it is a one-clause leaf the tree lifts back out without adding a
-            // group — `exists (…)` / `not exists (…)`, as before.
-            $existsLeaf = $ctx->queries->newQuery();
-            $existsLeaf->addWhereExistsQuery($bSubquery, 'and', $ctx->negate);
-
-            return (new CompiledWhereClauseNode)->addAnd($existsLeaf);
+                    return $rows;
+                },
+                $bResult,
+            );
         }
 
         // Unbound / no-target: with no row in scope, a row condition in B folds to

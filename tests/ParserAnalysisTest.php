@@ -380,12 +380,12 @@ it('reads a missing name as none, and keeps what is around it', function (string
         'the ability of a can' => [
             'if can( for docs) they can edit',
             ["Reserved word 'for' cannot be used as a name; expected an ability name.", 'for'],
-            [new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], SyntaxLocation::noProducer()), nameNode(INode::MISSING_NAME), [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], null, SyntaxLocation::noProducer()), nameNode(INode::MISSING_NAME), [], null, SyntaxLocation::noProducer()), $canEdit, [], SyntaxLocation::noProducer())],
         ],
         'the schema of a check' => [
             'if check(a for ) they can view',
             ['Expected a schema name.', ')'],
-            [new RuleNode(new CrossSchemaConditionNode(new SchemaHandleNode(nameNode(INode::MISSING_NAME), false, [], SyntaxLocation::noProducer()), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
+            [new RuleNode(new CrossSchemaConditionNode(new SchemaHandleNode(nameNode(INode::MISSING_NAME), false, [], null, SyntaxLocation::noProducer()), new ConditionNode(nameNode('a'), [], SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer()), $canView, [], SyntaxLocation::noProducer())],
         ],
         'the template of an include' => [
             '@include for view',
@@ -427,7 +427,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
 it('reads a with map past a missing key or value, and keeps both of a key written twice', function (string $source, array $missing, array $contextMap) {
     expect(analysisDiagnostics($source))->toBe([$missing])
         ->and(WarrantParser::analyze($source)->syntax->children)
-        ->toEqualSyntax([new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], SyntaxLocation::noProducer()), nameNode('view'), $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
+        ->toEqualSyntax([new RuleNode(new CrossSchemaCanNode(new SchemaHandleNode(nameNode('docs'), false, [], null, SyntaxLocation::noProducer()), nameNode('view'), $contextMap, null, SyntaxLocation::noProducer()), [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())]);
 })->with([
     'a missing value' => [
         'if can(view for docs with org = ) they can edit',
@@ -531,6 +531,10 @@ it('says which kind of mistake each diagnostic is about, and that it is an error
     'a missing bracket' => ['if check a for docs) they can edit', DiagnosticCode::MissingToken],
     'a reserved word as a name' => ['if they can view', DiagnosticCode::ReservedWordAsName],
     'its as a name' => ['if its they can view', DiagnosticCode::ReservedWordAsName],
+    'any as a name' => ['if any they can view', DiagnosticCode::ReservedWordAsName],
+    'all as a name' => ['if all they can view', DiagnosticCode::ReservedWordAsName],
+    'of as a name' => ['if of they can view', DiagnosticCode::ReservedWordAsName],
+    'a quantifier with no of' => ['if can(view for any its folder) they can edit', DiagnosticCode::MissingToken],
     'a missing name' => ['if check(a for ) they can view', DiagnosticCode::MissingName],
     'a missing condition' => ['if () they can view', DiagnosticCode::MissingCondition],
     'a missing argument' => ['if a(1, ) they can view', DiagnosticCode::MissingArgument],

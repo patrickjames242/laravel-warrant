@@ -4,6 +4,7 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
+use Warrant\DSL\Parsing\ASTNodes\Quantifier;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseArguments;
@@ -22,6 +23,10 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * {@see \Warrant\DSL\Validation\SyntaxValidator}, along with whether the schema
  * or relation exists.
  *
+ * Either may follow a quantifier, `any of` or `all of`, which the handle's
+ * location covers. Whether the handle selects rows for it to count is left to
+ * the validator, as an alias is.
+ *
  * The `as <alias>` that may follow is read by {@see ParseHandleAlias}, so the
  * handle's location covers the handle alone.
  *
@@ -33,15 +38,33 @@ final class ParseHandle extends Parser
 
     protected function read(): IHandleNode
     {
+        $quantifier = $this->quantifier();
+
         if ($this->check(TokenType::ITS)) {
             $this->advance(); // consume 'its'
 
-            return new RelationHandleNode($this->nameOrMissing("a relation name after 'its'"), $this->locationEndingHere());
+            return new RelationHandleNode($this->nameOrMissing("a relation name after 'its'"), $quantifier, $this->locationEndingHere());
         }
 
         $schemaKey = $this->nameOrMissing('a schema name');
         $boundKey = $this->parse(new ParseArguments('the row selector'));
 
-        return new SchemaHandleNode($schemaKey, $boundKey !== null, $boundKey?->value ?? [], $this->locationEndingHere());
+        return new SchemaHandleNode($schemaKey, $boundKey !== null, $boundKey?->value ?? [], $quantifier, $this->locationEndingHere());
+    }
+
+    private function quantifier(): ?Quantifier
+    {
+        $quantifier = match (true) {
+            $this->check(TokenType::ANY) => Quantifier::Any,
+            $this->check(TokenType::ALL) => Quantifier::All,
+            default => null,
+        };
+
+        if ($quantifier !== null) {
+            $word = $this->advance()->lexeme;
+            $this->expectOrAssume(TokenType::OF, "Expected 'of' after '{$word}'.");
+        }
+
+        return $quantifier;
     }
 }

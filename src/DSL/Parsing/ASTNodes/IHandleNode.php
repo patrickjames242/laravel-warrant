@@ -23,4 +23,11 @@ interface IHandleNode extends INode
      * @return list<INode>
      */
     public function rowSelector(): array;
+
+    /**
+     * The quantifier written before the handle, `any of` or `all of`, or null
+     * when none was written. A reference with none asks about any of the rows,
+     * as `any of` does.
+     */
+    public function quantifier(): ?Quantifier;
 }

@@ -156,6 +156,21 @@ dataset('formatting', [
         'if  can(view for its   folder as f) or check(is_open for its folder) they can edit',
         "if can(view for its folder as f) or check(is_open for its folder)\nthey can edit",
     ],
+    'a quantified handle keeps its quantifier after the for' => [
+        'if  can(view for  all   of its folder) or check(is_open for any of  docs(@context id)) they can edit',
+        "if can(view for all of its folder)\n    or check(is_open for any of docs(@context id))\nthey can edit",
+    ],
+    'a quantified can that does not fit puts the quantifier on the for line' => [
+        'if can(create_timesheet for all of its containing_pay_periods as period with user_id = @context user_id) they can create',
+        <<<'WARRANT'
+            if can(
+                create_timesheet
+                for all of its containing_pay_periods as period
+                with user_id = @context user_id
+            )
+            they can create
+            WARRANT,
+    ],
     'a can over a relation that does not fit puts its parts on lines of their own' => [
         'if can(create_timesheet for its containing_pay_period as period with user_id = @context user_id) they can create',
         <<<'WARRANT'

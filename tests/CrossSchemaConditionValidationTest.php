@@ -126,7 +126,7 @@ it('rejects a check(...) under a not inside a check(...) predicate', function ()
 it('rejects a constant inside a check(...) predicate', function () {
     /* A predicate that decides itself asks the target nothing. The builder refuses
        to compose one, so this reaches the validator only as a hand-built node. */
-    $node = new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('xcv_target'), true, [argumentNode(Ref::context('id'))], SyntaxLocation::noProducer()), new BooleanNode(true, SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer());
+    $node = new CrossSchemaConditionNode(new SchemaHandleNode(nameNode('xcv_target'), true, [argumentNode(Ref::context('id'))], null, SyntaxLocation::noProducer()), new BooleanNode(true, SyntaxLocation::noProducer()), [], null, SyntaxLocation::noProducer());
 
     expect(fn () => validateRegistered(new RuleSetNode(nameNode('xcv_owner'), [new RuleNode($node, [new CanClauseNode([nameNode('edit')], null, SyntaxLocation::noProducer())], [], SyntaxLocation::noProducer())], SyntaxLocation::noProducer())))
         ->toThrow(InvalidArgumentException::class, 'may not contain a constant');

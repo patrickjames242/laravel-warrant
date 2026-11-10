@@ -25,6 +25,7 @@ use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
+use Warrant\DSL\Parsing\ASTNodes\Quantifier;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
@@ -857,10 +858,11 @@ final class RuleTextLayout
 
         if ($handle !== null) {
             $alias = $alias === null ? '' : ' as '.$alias->name;
+            $lead = 'for '.self::quantifierText($handle);
             $handleLines = $handle instanceof SchemaHandleNode && $handle->hasRowSelector
-                ? $this->call($handle->schemaKey->name, $handle->boundKey, $inner + 4, strlen($alias))
+                ? $this->call($handle->schemaKey->name, $handle->boundKey, $inner + strlen($lead), strlen($alias))
                 : LaidOutLines::of($this->handleText($handle));
-            $lines->addLine(LaidOutLines::of('for ')->appendLines($handleLines)->append($alias), self::INDENT);
+            $lines->addLine(LaidOutLines::of($lead)->appendLines($handleLines)->append($alias), self::INDENT);
         }
 
         if ($contextMap !== []) {
@@ -926,7 +928,7 @@ final class RuleTextLayout
         $text = '';
 
         if ($handle !== null) {
-            $text .= ' for '.$this->handleText($handle);
+            $text .= ' for '.self::quantifierText($handle).$this->handleText($handle);
             $text .= $alias === null ? '' : ' as '.$alias->name;
         }
 
@@ -945,6 +947,19 @@ final class RuleTextLayout
                 .'('.implode(', ', array_map($this->argumentText(...), $handle->boundKey)).')',
             $handle instanceof SchemaHandleNode => $handle->schemaKey->name,
             default => throw new LogicException('Cannot lay out unknown handle '.$handle::class.'.'),
+        };
+    }
+
+    /**
+     * The quantifier written before $handle, with the space after it, or nothing
+     * when none was written.
+     */
+    private static function quantifierText(IHandleNode $handle): string
+    {
+        return match ($handle->quantifier()) {
+            Quantifier::Any => 'any of ',
+            Quantifier::All => 'all of ',
+            null => '',
         };
     }
 

@@ -265,6 +265,14 @@ it('round-trips relation handles, with the alias and with map after them', funct
         ->toBe("if can(view for its folder as f with org = @context org)\n    or check(is_open for its folder)\nthey can update");
 });
 
+it('round-trips quantified handles, on a relation and on a schema', function () {
+    $text = 'if can(view for all of its documents as d) or check(is_open for any of docs(@context id)) they can update';
+    $rule = WarrantSyntax::parse($text)->validateWithoutSchemas()->rule();
+
+    expect(writeSyntax($rule))
+        ->toBe("if can(view for all of its documents as d)\n    or check(is_open for any of docs(@context id))\nthey can update");
+});
+
 it('renders no as tail for an unaliased handle', function () {
     $rule = WarrantSyntax::parse('if can(view for docs(@context id)) they can update')->validateWithoutSchemas()->rule();
 

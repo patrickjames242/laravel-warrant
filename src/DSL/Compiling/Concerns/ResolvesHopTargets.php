@@ -3,6 +3,7 @@
 namespace Warrant\DSL\Compiling\Concerns;
 
 use BackedEnum;
+use Closure;
 use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -11,12 +12,15 @@ use Illuminate\Database\Query\Expression;
 use InvalidArgumentException;
 use Warrant\DSL\Compiling\AliasScope;
 use Warrant\DSL\Compiling\CompilationContext;
+use Warrant\DSL\Compiling\CompilationResult;
 use Warrant\DSL\Compiling\QueryFactory;
+use Warrant\DSL\Compiling\WhereClause\CompiledWhereClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\LiteralNode;
+use Warrant\DSL\Parsing\ASTNodes\Quantifier;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
@@ -92,6 +96,51 @@ trait ResolvesHopTargets
             $this->schema::class,
             $handle->relation->name,
         ));
+    }
+
+    /**
+     * The leaf asking whether B grants on the rows a handle reaches, by the
+     * handle's quantifier.
+     *
+     * With `any of`, or none, it is `exists` over $rows with B's rules in it.
+     * With `all of`, there must be at least one row and no row on which B's rules
+     * are not true, so an empty set grants nothing. The failing rows are those
+     * where the rules are `is not true` rather than `not (…)`: a rule comparing a
+     * null column answers null, which `not` keeps null and so leaves out of the
+     * failing rows, passing a row nothing granted. An unknown fails a row for the
+     * same reason it denies anywhere else.
+     *
+     * @param Builder $rows The rows the handle reaches, with nothing else on them.
+     * @param Closure(): Builder $moreRows Another subquery over the same rows,
+     *   for `all of`, which asks about them twice.
+     */
+    private function quantifiedLeaf(
+        IHandleNode $handle,
+        CompilationContext $ctx,
+        Builder $rows,
+        Closure $moreRows,
+        CompilationResult $bResult,
+    ): CompiledWhereClauseNode {
+        $leaf = $ctx->queries->newQuery();
+
+        if ($handle->quantifier() !== Quantifier::All) {
+            $bResult->spliceInto($rows);
+
+            /* The exists is a one-clause leaf already carrying its negation, so
+               the tree lifts it back out without adding a group. */
+            $leaf->addWhereExistsQuery($rows, 'and', $ctx->negate);
+
+            return (new CompiledWhereClauseNode)->addAnd($leaf);
+        }
+
+        $granted = $bResult->toQuery();
+        $grantedSql = preg_replace('/^where /', '', $granted->getGrammar()->compileWheres($granted));
+        $failing = $moreRows()->whereRaw("({$grantedSql}) is not true", $granted->getBindings());
+
+        $leaf->addWhereExistsQuery($rows);
+        $leaf->addWhereExistsQuery($failing, 'and', true);
+
+        return (new CompiledWhereClauseNode)->addAnd($leaf, negated: $ctx->negate);
     }
 
     /**
@@ -259,6 +308,16 @@ trait ResolvesHopTargets
                 $node->alias->name,
                 $bKey,
                 $node->alias->name,
+            ));
+        }
+
+        if (! $node->handle->isRowBound() && $node->handle->quantifier() !== null) {
+            throw new InvalidArgumentException(sprintf(
+                'A %s(...) reference to schema [%s] is quantified but selects no rows, so there is nothing '
+                    .'to count; add a row selector like %s(@context id), or drop the quantifier.',
+                $builtin,
+                $bKey,
+                $bKey,
             ));
         }
     }
