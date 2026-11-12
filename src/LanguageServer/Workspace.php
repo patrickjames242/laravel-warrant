@@ -38,8 +38,11 @@ final class Workspace
     /**
      * The project's files read from disk, by path, each with the modification
      * time it was read at, so a file is read again only once it has changed.
+     * A file that cannot hold rule text is kept as null rather than as its
+     * text, so what is held grows with the project's rule text, not with all of
+     * its PHP. Only the files of the latest listing of the project are kept.
      *
-     * @var array<string, array{0: int, 1: Document}>
+     * @var array<string, array{0: int, 1: Document|null}>
      */
     private array $read = [];
 
@@ -142,7 +145,10 @@ final class Workspace
 
         $found = [];
 
-        $this->projectFiles ??= $this->root === null ? [] : ProjectFiles::under($this->root);
+        if ($this->projectFiles === null) {
+            $this->projectFiles = $this->root === null ? [] : ProjectFiles::under($this->root);
+            $this->read = array_intersect_key($this->read, array_flip($this->projectFiles));
+        }
 
         foreach ($this->projectFiles as $path) {
             $document = $open[$path] ?? $this->fromDisk($path);
@@ -205,7 +211,8 @@ final class Workspace
     }
 
     /**
-     * The file at $path as it is on disk, or null when it cannot be read.
+     * The file at $path as it is on disk, or null when it cannot be read or
+     * cannot hold rule text.
      *
      * @param string $path Absolute path.
      */
@@ -217,14 +224,15 @@ final class Workspace
             return null;
         }
 
-        if (($this->read[$path][0] ?? null) !== $modified) {
+        if (! array_key_exists($path, $this->read) || $this->read[$path][0] !== $modified) {
             $text = @file_get_contents($path);
 
             if ($text === false) {
                 return null;
             }
 
-            $this->read[$path] = [$modified, new Document(Uri::fromPath($path), $path, $text, 0)];
+            $document = new Document(Uri::fromPath($path), $path, $text, 0);
+            $this->read[$path] = [$modified, $document->mayHoldRuleText() ? $document : null];
         }
 
         return $this->read[$path][1];

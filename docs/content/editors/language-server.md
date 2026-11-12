@@ -47,7 +47,8 @@ its other packages and its extensions do not matter to it.
   which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
   [VS Code](/editors/vscode/#renaming-and-finding-usages) rename and find
   usages with. It reads every `.warrant` and PHP file in the project but
-  those under `vendor/`, `node_modules/`, `storage/` and `.git/`.
+  those under `vendor/`, `node_modules/`, `storage/`, `.git/` and `.idea/`, and
+  any git worktree inside the project, which is another checkout of the same code.
 - **Quick fixes** for a name that is not declared, offering the closest declared
   names.
 - **An outline** of the `for` blocks, ability blocks, rules and `@include`s in a

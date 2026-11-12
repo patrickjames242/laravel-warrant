@@ -4,6 +4,21 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Fixed
+
+- The language server leaves a git worktree inside the project out of its
+  search for usages, wherever the worktree is and whatever it is called. A
+  project with worktrees in it, as `.claude/worktrees/` holds them, was searched
+  once for each checkout and ran the server out of memory. `.idea/` is left out
+  too.
+- The language server keeps the text of a project file it has read only when
+  the file may hold rule text. For any other file it keeps the file's
+  modification time alone, and reads it again once that changes, so what it
+  holds grows with the project's rule text rather than with all of its PHP. A
+  file no longer in the project is forgotten when the project is listed again.
+
 ## 4.12.2 — 2026-11-10
 
 ### Changed
