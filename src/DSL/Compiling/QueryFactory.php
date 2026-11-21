@@ -28,7 +28,7 @@ use Illuminate\Database\Query\Expression;
  */
 final readonly class QueryFactory
 {
-    private function __construct(private Builder $prototype)
+    private function __construct(private Builder $prototype, private ?string $rowsAs = null)
     {
     }
 
@@ -36,10 +36,14 @@ final readonly class QueryFactory
      * Wrap an existing query builder. Only its connection, grammar, processor and
      * `from` are ever read; its wheres and bindings are irrelevant here and are
      * never copied into anything this hands out.
+     *
+     * @param string|null $rowsAs The name the schema's rows go by in $query, when
+     *   its `from` does not say: a `fromSub()` or `fromRaw()`, or rows joined onto
+     *   another table. Null reads the name from the `from`.
      */
-    public static function for(Builder $query): self
+    public static function for(Builder $query, ?string $rowsAs = null): self
     {
-        return new self($query);
+        return new self($query, $rowsAs);
     }
 
     /**
@@ -82,18 +86,24 @@ final readonly class QueryFactory
      * The SQL name the host query's rows answer to — the qualifier a predicate
      * about one of those rows has to be written against.
      *
-     * `from('docs')` gives `docs` and `from('docs as d')` gives `d`, matching
-     * Laravel's own aliasing: a table prefix, if one is configured, is applied to
-     * an alias too ({@see \Illuminate\Database\Grammar::wrapAliasedTable()}), so
-     * the unprefixed name returned here is exactly what {@see wrap()} expects.
+     * A name given to {@see for()} as `$rowsAs` is the answer whatever the `from`
+     * says. Otherwise `from('docs')` gives `docs` and `from('docs as d')` gives
+     * `d`, matching Laravel's own aliasing: a table prefix, if one is configured,
+     * is applied to an alias too
+     * ({@see \Illuminate\Database\Grammar::wrapAliasedTable()}), so the unprefixed
+     * name returned here is exactly what {@see wrap()} expects.
      *
-     * Null when the prototype has no `from` at all (a no-target compile, which has
-     * no row anyway) or when it is a raw {@see Expression}, whose rows have no name
-     * this can read out. Either way the caller falls back to the schema model's own
-     * table.
+     * Null when no `$rowsAs` was given and the prototype has no `from` at all (a
+     * no-target compile, which has no row anyway) or a raw {@see Expression},
+     * whose rows have no name this can read out. Either way the caller falls back
+     * to the schema model's own table.
      */
     public function rowQualifier(): ?string
     {
+        if ($this->rowsAs !== null) {
+            return $this->rowsAs;
+        }
+
         $from = $this->prototype->from;
 
         if (! is_string($from) || trim($from) === '') {

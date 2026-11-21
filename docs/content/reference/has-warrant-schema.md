@@ -46,6 +46,7 @@ public function scopeUserHasAbility(
     ?Authenticatable $user = null,
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     array $context = [],
+    ?string $rowsAs = null,
 ): EloquentBuilder;
 
 public function scopeSelectUserAbilities(
@@ -54,6 +55,7 @@ public function scopeSelectUserAbilities(
     string $selectedAbilitiesKey = 'abilities',
     ?array $onlyAbilities = null,
     array $context = [],
+    ?string $rowsAs = null,
 ): EloquentBuilder;
 ```
 
@@ -64,6 +66,9 @@ Document::query()->selectUserAbilities(onlyAbilities: ['update'])->get();
 ```
 
 `userHasAbility([])` leaves the query unchanged.
+
+`rowsAs` names the model's rows when the query's `from` does not, as in
+[aliased queries](/checking/many-rows/#aliased-queries).
 
 `selectUserAbilities` targets rows via `getQualifiedKeyName()`. Its JSON column is
 in ability declaration order and needs a

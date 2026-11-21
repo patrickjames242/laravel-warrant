@@ -124,6 +124,44 @@ select * from "documents" as "d" where ("d"."user_id" = 'user-7')
 A condition that hard-codes `documents.user_id` produces SQL naming a table the
 query does not have. See [frames](/concepts/frames/).
 
+Warrant reads the alias from the query's `from`. When the `from` does not name the
+schema's rows, say what they go by with `rowsAs`. A subquery is one such case:
+`fromSub()` and `fromRaw()` leave the `from` as raw SQL, with no name Warrant can
+read out of it.
+
+```php
+$guard->filterQuery(
+    DB::query()->fromSub(DB::table('documents')->whereNull('archived_at'), 'd'),
+    'view',
+    rowsAs: 'd',
+);
+```
+
+```sql
+select * from (select * from "documents" where "archived_at" is null) as "d"
+where ("d"."user_id" = 'user-7')
+```
+
+The other is filtering rows joined onto another table. Here the `from` is
+`folders`, and the schema's rows are the joined `d`:
+
+```php
+$guard->filterQuery(
+    DB::table('folders')->join('documents as d', 'd.folder_id', '=', 'folders.id'),
+    'view',
+    rowsAs: 'd',
+);
+```
+
+```sql
+select * from "folders" inner join "documents" as "d" on "d"."folder_id" = "folders"."id"
+where ("d"."user_id" = 'user-7')
+```
+
+The scopes and `selectAbilitiesInQuery()` take `rowsAs` too. Warrant does not check
+that the name is in the query, so a wrong one is reported by the database when the
+query runs.
+
 ## Relations
 
 The scope is an ordinary scope, so it works wherever one does:

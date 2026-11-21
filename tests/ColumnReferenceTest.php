@@ -110,6 +110,53 @@ it('resolves a @column against the host query alias when the caller aliased its 
     SQL));
 });
 
+it('qualifies against the name given as rowsAs when the from is a subquery', function () {
+    /* A fromSub() leaves the from as raw SQL, so no name can be read out of it;
+       rowsAs says what the rows go by. */
+    bindColRules('if pay_period_matches(@column pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_timesheets')->newQuery()->fromSub(warrantTestQuery('col_timesheets'), 't'),
+        'view',
+        rowsAs: 't',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from (select * from "col_timesheets") as "t" where ("t"."pay_period_id" = 'role-1')
+    SQL));
+});
+
+it('qualifies against the name given as rowsAs when the rows are joined onto another table', function () {
+    /* The from is col_docs, which is not the schema's rows; rowsAs points the
+       conditions at the joined table instead. */
+    bindColRules('if pay_period_matches(@column pay_period_id) they can view', 'timesheets');
+
+    $sql = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->filterQuery(
+        warrantTestQuery('col_docs')->join('col_timesheets as t', 't.id', '=', 'col_docs.target_id'),
+        'view',
+        rowsAs: 't',
+    )->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toBe(normalizeWarrantSql(<<<SQL
+        select * from "col_docs" inner join "col_timesheets" as "t" on "t"."id" = "col_docs"."target_id"
+        where ("t"."pay_period_id" = 'role-1')
+    SQL));
+});
+
+it('selects per-row abilities against the name given as rowsAs', function () {
+    bindColRules('if pay_period_matches(@column pay_period_id) they can view', 'timesheets');
+    DB::table('col_timesheets')->insert([['id' => 'ts-1', 'pay_period_id' => 'role-1'], ['id' => 'ts-2', 'pay_period_id' => 'other']]);
+
+    $rows = Warrant::guard(makeWarrantTestUser('role-1'))->forSchema((new ColTsSchema))->selectAbilitiesInQuery(
+        DB::query()->fromSub(DB::table('col_timesheets'), 't')->orderBy('t.id'),
+        onlyAbilities: ['view'],
+        rowsAs: 't',
+    )->get();
+
+    expect($rows->map(fn ($row) => [$row->id, json_decode($row->abilities, true)])->all())
+        ->toBe([['ts-1', ['view']], ['ts-2', []]]);
+});
+
 // -- the unqualified form ------------------------------------------------------
 
 it('resolves an unqualified @column against the rows the rule is about', function () {

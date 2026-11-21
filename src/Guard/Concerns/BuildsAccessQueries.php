@@ -59,12 +59,17 @@ trait BuildsAccessQueries
      *
      * `AbilityMatchMode::ALL` requires every requested ability to match for a row.
      * `AbilityMatchMode::ANY` allows a row through if any requested ability matches.
+     *
+     * @param string|null $rowsAs The name the schema's rows go by in $query, for a
+     *   query whose `from` does not say: a `fromSub()` or `fromRaw()`, or the rows
+     *   joined onto another table. Null reads it from the `from`.
      */
     public function filterQuery(
         Builder $query,
         string|array $abilities,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-        array $context = []
+        array $context = [],
+        ?string $rowsAs = null,
     ): Builder
     {
         $abilities = $this->normalizeAbilities($abilities);
@@ -78,7 +83,7 @@ trait BuildsAccessQueries
            gate that folded to a constant is spelled out as `1 = 1` / `1 = 0`,
            since a row filter still has to say something out loud — reach for
            compileGate() directly when the constant is the answer you want. */
-        return $this->compileGate($query, $abilities, $matchMode, $context)->spliceInto($query);
+        return $this->compileGate($query, $abilities, $matchMode, $context, rowsAs: $rowsAs)->spliceInto($query);
     }
 
     /**
@@ -103,20 +108,23 @@ trait BuildsAccessQueries
      *   exactly one and the caller supplied it. Reaches a row condition as
      *   `$c->model`, letting it answer in PHP; every caller filtering more than one
      *   row leaves this null.
+     * @param string|null $rowsAs The name the schema's rows go by in $query, as
+     *   for {@see filterQuery}.
      */
     public function compileGate(
         Builder $query,
         string|array $abilities,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
         array $context = [],
-        ?Model $targetModel = null
+        ?Model $targetModel = null,
+        ?string $rowsAs = null,
     ): CompilationResult
     {
         $abilities = $this->normalizeAbilities($abilities);
 
         return $this->compiler()->compile(
             CompilationContext::gate(
-                QueryFactory::for($query),
+                QueryFactory::for($query, $rowsAs),
                 $this->user,
                 new WarrantGate($abilities, $matchMode),
                 $this->expandedRuleSet(),
@@ -138,12 +146,15 @@ trait BuildsAccessQueries
      *   gates on a known subset (e.g. just `update` for an Edit button): the
      *   attached subquery grows one UNION branch per ability, so narrowing it from
      *   all abilities to one is a large per-row cost reduction on list endpoints.
+     * @param string|null $rowsAs The name the schema's rows go by in $query, as
+     *   for {@see filterQuery}.
      */
     public function selectAbilitiesInQuery(
         Builder $query,
         string $selectedAbilitiesKey = 'abilities',
         ?array $onlyAbilities = null,
-        array $context = []
+        array $context = [],
+        ?string $rowsAs = null,
     ): Builder
     {
         if ($query->columns === null) {
@@ -176,7 +187,7 @@ trait BuildsAccessQueries
         $ruleSet = $this->expandedRuleSet();
         $branches = [];
 
-        $queries = QueryFactory::for($query);
+        $queries = QueryFactory::for($query, $rowsAs);
 
         foreach ($abilities as $ability) {
             $branches[] = [$ability, $this->compiler()->compile(

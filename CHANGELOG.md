@@ -6,6 +6,13 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ## Unreleased
 
+### Added
+
+- `filterQuery()`, `selectAbilitiesInQuery()`, `compileGate()` and the
+  `userHasAbility` and `selectUserAbilities` scopes take `rowsAs`, the name the
+  schema's rows go by in the query. It covers a query whose `from` does not name
+  them: a `fromSub()` or `fromRaw()`, or the rows joined onto another table.
+
 ### Fixed
 
 - The language server reads the project's Composer maps once, and again only

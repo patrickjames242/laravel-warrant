@@ -95,13 +95,16 @@ trait HasWarrantSchema
      * Scope the query to rows the user can act on with the given ability(ies).
      *
      * @param  string|array<int, string>  $abilities
+     * @param  string|null  $rowsAs  The name this model's rows go by in the query,
+     *   when its `from` does not say (see WarrantGuardForSchema::filterQuery).
      */
     public function scopeUserHasAbility(
         EloquentBuilder $query,
         string|array $abilities,
         ?Authenticatable $user = null,
         AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
-        array $context = []
+        array $context = [],
+        ?string $rowsAs = null,
     ): EloquentBuilder
     {
         Warrant::forSchema(static::class, $user)->filterQuery(
@@ -109,6 +112,7 @@ trait HasWarrantSchema
             abilities: $abilities,
             matchMode: $matchMode,
             context: $context,
+            rowsAs: $rowsAs,
         );
 
         return $query;
@@ -117,13 +121,16 @@ trait HasWarrantSchema
     /**
      * @param  array<int, string>|null  $onlyAbilities  Compute only these per-row
      *   abilities instead of the full set (see WarrantGuardForSchema::selectAbilitiesInQuery).
+     * @param  string|null  $rowsAs  The name this model's rows go by in the query,
+     *   when its `from` does not say (see WarrantGuardForSchema::filterQuery).
      */
     public function scopeSelectUserAbilities(
         EloquentBuilder $query,
         ?Authenticatable $user = null,
         string $selectedAbilitiesKey = 'abilities',
         ?array $onlyAbilities = null,
-        array $context = []
+        array $context = [],
+        ?string $rowsAs = null,
     ): EloquentBuilder
     {
         Warrant::forSchema(static::class, $user)->selectAbilitiesInQuery(
@@ -131,6 +138,7 @@ trait HasWarrantSchema
             selectedAbilitiesKey: $selectedAbilitiesKey,
             onlyAbilities: $onlyAbilities,
             context: $context,
+            rowsAs: $rowsAs,
         );
 
         return $query;

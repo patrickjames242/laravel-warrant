@@ -23,7 +23,9 @@ $guard->filterQuery(DB::table('timesheets as t'), 'view');
 ```
 
 The rows are now called `t`. A condition that hard-coded `timesheets.user_id`
-produces SQL naming a table the query never mentions.
+produces SQL naming a table the query never mentions. When the query's `from` does
+not name the rows, as with a subquery or a join, the caller names them with
+`rowsAs` ([aliased queries](/checking/many-rows/#aliased-queries)).
 
 **A hop gave the rows a name.**
 

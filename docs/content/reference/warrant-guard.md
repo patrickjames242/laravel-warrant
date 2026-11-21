@@ -69,6 +69,7 @@ public function filterQuery(
     string|array $abilities,
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     array $context = [],
+    ?string $rowsAs = null,
 ): Builder;
 
 public function selectAbilitiesInQuery(
@@ -76,6 +77,7 @@ public function selectAbilitiesInQuery(
     string $selectedAbilitiesKey = 'abilities',
     ?array $onlyAbilities = null,
     array $context = [],
+    ?string $rowsAs = null,
 ): Builder;
 
 public function getAbilitiesWithoutTarget(
@@ -88,6 +90,11 @@ public function getAbilitiesWithoutTarget(
 `getAbilitiesWithoutTarget()` defaults to `ANY`, the one exception to the `ALL`
 default.
 
+`$rowsAs` is the name the schema's rows go by in `$query`. Leave it null and Warrant
+reads it from the query's `from`. Pass it when the `from` does not say: a
+`fromSub()` or `fromRaw()`, or the schema's rows joined onto another table. See
+[aliased queries](/checking/many-rows/#aliased-queries).
+
 ### The compiled gate
 
 ```php
@@ -97,6 +104,7 @@ public function compileGate(
     AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
     array $context = [],
     ?Model $targetModel = null,
+    ?string $rowsAs = null,
 ): CompilationResult;
 ```
 
