@@ -5,6 +5,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\Builders\Build;
+use Warrant\DSL\Compiling\CompilationContext;
+use Warrant\DSL\Compiling\QueryFactory;
+use Warrant\DSL\Compiling\RuleSetCompiler;
 use Warrant\DSL\Parsing\ASTNodes\WarrantSyntax;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
@@ -271,4 +275,46 @@ it('skips an ability missing its required context in a per-row selection', funct
         ->get();
 
     expect(json_decode($rows[0]->abilities, true))->toBe(['view']); // d1: audit skipped
+});
+
+// -- the compiler on its own --------------------------------------------------
+
+/**
+ * A compile of $ability against $schema, with no guard in front of it to form
+ * the context first.
+ *
+ * @param array<string, mixed> $context
+ */
+function compileContextDocAbility(ContextDocSchema $schema, string $ability, array $context): \Warrant\DSL\Compiling\CompilationResult
+{
+    $ruleSet = expandedFor(
+        Build::ruleSet('context_docs', fn ($rule) => $rule()->if('current_workspace')->theyCan('view', 'audit')),
+        $schema,
+    );
+
+    return (new RuleSetCompiler($schema, 'context_docs'))->compile(
+        CompilationContext::ability(QueryFactory::for(DB::table('context_docs')), makeWarrantTestUser(), $ability, $ruleSet)
+            ->forTargetRow()
+            ->withCheckContext($context),
+    );
+}
+
+it('throws from the compiler itself when a key the schema requires is missing', function () {
+    expect(fn () => compileContextDocAbility(new ContextDocSchema, 'view', []))
+        ->toThrow(InvalidArgumentException::class, 'Schema [ContextDocSchema] requires context key(s) [workspace_id]');
+});
+
+it('throws from the compiler itself when a key the compiled ability requires is missing', function () {
+    expect(fn () => compileContextDocAbility(new ContextDocSchema, 'audit', ['workspace_id' => 'w-1']))
+        ->toThrow(InvalidArgumentException::class, 'Ability [audit] requires context key(s) [as_of_date]');
+});
+
+it('compiles under the schema default context when the caller passes none', function () {
+    $ids = compileContextDocAbility(new ContextDocWithDefaults, 'view', [])
+        ->spliceInto(DB::table('context_docs'))
+        ->orderBy('id')
+        ->pluck('id')
+        ->all();
+
+    expect($ids)->toBe(['d1']);
 });

@@ -14,17 +14,20 @@ use Warrant\Schema\Types\Interfaces\IAbilitySchema;
  * abilities' required context, so it takes no user and decides nothing about
  * access. The engine asks it at each place a context is formed:
  *
- *  - a check names abilities, and a missing key throws ({@see resolveEffectiveContext},
- *    {@see assertAbilitiesHaveRequiredContext});
- *  - a listing enumerates abilities, and one missing a key is left out
- *    ({@see partitionAbilitiesByContext});
+ *  - every compile throws on a missing key the schema or the abilities it names
+ *    require ({@see resolveEffectiveContext}, {@see assertAbilitiesHaveRequiredContext});
+ *  - a caller that hands the context to the schema itself — the row matcher, the
+ *    denial message hooks — forms it the same way first ({@see resolveEffectiveContext});
+ *  - a listing enumerates abilities, and one missing a key is left out before
+ *    anything is compiled ({@see partitionAbilitiesByContext});
  *  - a `can(<ability>)` in the same schema answers unknown when a key is missing,
  *    since the caller did not pass it ({@see contextForReference});
  *  - a hop into this schema throws, since only the rule text's `with` map can
  *    supply the key ({@see resolveBoundaryContext}).
  *
- * Each merges the schema's default context under what it is given, explicit
- * values winning.
+ * Each context it forms is the schema's default context with what it is given
+ * merged over it, explicit values winning. {@see partitionAbilitiesByContext} and
+ * {@see assertAbilitiesHaveRequiredContext} read a context already formed.
  */
 final readonly class ContextPolicy
 {

@@ -80,7 +80,6 @@ trait DiagnosesDenials
 
         if ($target !== null) {
             $targeted = true;
-            $effectiveContext = $this->contextPolicy()->resolveEffectiveContext($context);
 
             /* A closure, not a QueryFactory: each iteration below needs a fresh
                *seeded* query — one carrying the table and the row key's filter —
@@ -90,9 +89,9 @@ trait DiagnosesDenials
                Seeded through the schema's own row key, so a schema that addresses
                rows by something other than a primary key is diagnosed about the
                same row the check decided on. */
-            $baseQuery = function () use ($target, $effectiveContext): Builder {
+            $baseQuery = function () use ($target, $context): Builder {
                 $query = $this->rowsQuery(withoutScopes: true);
-                $this->narrowQueryToTarget($query, $target, $effectiveContext);
+                $this->narrowQueryToTarget($query, $target, $context);
 
                 return $query;
             };
@@ -102,7 +101,7 @@ trait DiagnosesDenials
                named no row, and there is nothing to blame for a row nobody named. */
             $seeded = $this->rowsQuery(withoutScopes: true);
 
-            if (! $this->narrowQueryToTarget($seeded, $target, $effectiveContext)) {
+            if (! $this->narrowQueryToTarget($seeded, $target, $context)) {
                 return null;
             }
 

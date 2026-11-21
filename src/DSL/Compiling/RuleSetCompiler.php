@@ -28,6 +28,7 @@ use Warrant\DSL\Parsing\ASTNodes\MissingExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\NotNode;
 use Warrant\DSL\Parsing\ASTNodes\OrNode;
 use Warrant\Facades\Warrant;
+use Warrant\Schema\Context\ContextPolicy;
 use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\WarrantManager;
@@ -148,10 +149,19 @@ final class RuleSetCompiler
      * built from, the user, whether a row is in scope, the check-time context —
      * is the same in all three cases and is read off the context unchanged.
      *
-     * The one thing not taken at face value is the target: a schema with no rows
-     * has no row to target, so a compile against one is never targeted however
-     * the caller asked for it. That is the same conclusion
-     * validation reaches, settled here, on the way in, so that everything below
+     * Two things are not taken at face value. The first is the check-time
+     * context: it compiles merged over the schema's default context, and a key
+     * the schema requires, or one an ability the unit names requires, throws when
+     * it is missing. A required key can never be skipped, since that would lift a
+     * `cannot` gated on it. Every compile is held to this, so a caller cannot
+     * reach the rules with a context the schema does not accept. A context
+     * already formed this way passes through unchanged, which is what each
+     * cross-schema descent hands in.
+     *
+     * The second is the target: a schema with no rows has no row to target, so a
+     * compile against one is never targeted however the caller asked for it. That
+     * is the same conclusion validation reaches, settled here, on the way in, so
+     * that everything below
      * reads one already-correct flag — and so a row condition answers unknown
      * rather than emitting a reference to a table that does not exist. Each
      * cross-schema descent re-enters through a compiler bound to that schema, so
@@ -159,6 +169,20 @@ final class RuleSetCompiler
      */
     public function compile(CompilationContext $ctx): CompilationResult
     {
+        $ctx = (function () use ($ctx): CompilationContext {
+            $policy = new ContextPolicy($this->schema);
+            $context = $policy->resolveEffectiveContext($ctx->checkContext);
+            $unit = $ctx->unit;
+
+            $policy->assertAbilitiesHaveRequiredContext(match (true) {
+                $unit instanceof GateUnit => $unit->gate->abilities,
+                $unit instanceof AbilityUnit => [$unit->ability],
+                default => [],
+            }, $context);
+
+            return $ctx->withCheckContext($context);
+        })();
+
         if ($ctx->targeted && ! $this->schema instanceof IRowSchema) {
             $ctx = $ctx->withoutTarget();
         }

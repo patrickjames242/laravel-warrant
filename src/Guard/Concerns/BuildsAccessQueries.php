@@ -92,9 +92,9 @@ trait BuildsAccessQueries
      * needs the SQL calls {@see CompilationResult::spliceInto()} on the same
      * result, and nothing is compiled twice.
      *
-     * Validation matches `filterQuery` exactly — abilities are normalized and
-     * their required context asserted — so folding never skips an error a query
-     * would have raised. An **empty ability set folds to `true`**, the match-all
+     * Validation matches `filterQuery` exactly — abilities are normalized here,
+     * and the compiler checks the context has the keys they require — so folding
+     * never skips an error a query would have raised. An **empty ability set folds to `true`**, the match-all
      * an empty gate has always meant; callers that treat "nothing requested" as
      * a failure (a boolean check does) handle that before calling.
      *
@@ -113,8 +113,6 @@ trait BuildsAccessQueries
     ): CompilationResult
     {
         $abilities = $this->normalizeAbilities($abilities);
-        $context = $this->contextPolicy()->resolveEffectiveContext($context);
-        $this->contextPolicy()->assertAbilitiesHaveRequiredContext($abilities, $context);
 
         return $this->compiler()->compile(
             CompilationContext::gate(
@@ -243,15 +241,13 @@ trait BuildsAccessQueries
                 : $this->runNoTargetAbilityQuery($declared, $context);
         }
 
-        /* Explicit named abilities: a missing per-ability requirement throws. */
+        /* Explicit named abilities: a missing per-ability requirement throws, from
+           the compiler. */
         $requestedAbilities = $this->normalizeAbilities($abilities);
 
         if ($requestedAbilities === []) {
             return [];
         }
-
-        $context = $this->contextPolicy()->resolveEffectiveContext($context);
-        $this->contextPolicy()->assertAbilitiesHaveRequiredContext($requestedAbilities, $context);
 
         $allowedAbilities = $this->runNoTargetAbilityQuery($requestedAbilities, $context);
 
@@ -266,8 +262,8 @@ trait BuildsAccessQueries
     }
 
     /**
-     * Run the no-target ability predicate for the given (already context-resolved)
-     * abilities and return the ones the user holds.
+     * Run the no-target ability predicate for the given abilities and return the
+     * ones the user holds.
      *
      * @param array<int, string> $abilities
      * @return array<int, string>
