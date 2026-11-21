@@ -7,13 +7,15 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Grammars\Grammar;
+use Warrant\Schema\Conditions\UserRow;
 use Warrant\Support\StringableExpression;
 
 /**
  * The evaluation context passed to a `#[RowCondition]` method: the current user,
  * the where-clause builder the condition constrains, the resolved DSL arguments,
- * the check-time context bag, and {@see column()} — a column of the target row
- * being evaluated, qualified with the name the row goes by in the query.
+ * the check-time context bag, {@see column()} — a column of the target row
+ * being evaluated, qualified with the name the row goes by in the query — and
+ * {@see userColumn()}, a column of the user's own row.
  *
  * `query` is an Eloquent builder over the schema's model, so a condition can
  * spend a scope the model already defines rather than restating its SQL:
@@ -49,7 +51,7 @@ use Warrant\Support\StringableExpression;
  *         return $c->model->owner_id === $c->user->getAuthIdentifier();
  *     }
  *
- *     return $c->query->whereRaw("{$c->column('owner_id')} = ?", [$c->user->getAuthIdentifier()]);
+ *     return $c->query->where($c->column('owner_id'), $c->userColumn('id'));
  *
  * A condition that cannot settle its question either way returns null instead,
  * answering unknown: it neither grants nor lifts a deny. One that does must leave
@@ -69,6 +71,7 @@ use Warrant\Support\StringableExpression;
 final readonly class RowConditionContext
 {
     /**
+     * @param UserRow $userRow The user's row, which {@see userColumn()} reads.
      * @param string $table The name the target row answers to in SQL: the schema
      *   model's table, or the alias standing in for it — the host query's own
      *   (`from('docs as d')`), or a cross-schema hop's (`can(… for docs(…) as d2)`).
@@ -84,6 +87,7 @@ final readonly class RowConditionContext
      */
     public function __construct(
         public Authenticatable $user,
+        private UserRow $userRow,
         public Builder $query,
         public string $table,
         public array $keyColumns,
@@ -106,6 +110,19 @@ final readonly class RowConditionContext
     public function column(string $column): StringableExpression
     {
         return new StringableExpression($this->grammar()->wrap($this->table . '.' . $column));
+    }
+
+    /**
+     * A column of the user's row, for a predicate that compares the target row
+     * with the user in SQL:
+     *
+     *     return $c->query->whereColumn($c->column('team_id'), $c->userColumn('team_id'));
+     *
+     * See {@see UserRow} for the SQL it stands for.
+     */
+    public function userColumn(string $column): StringableExpression
+    {
+        return $this->userRow->column($column);
     }
 
     private function grammar(): Grammar
