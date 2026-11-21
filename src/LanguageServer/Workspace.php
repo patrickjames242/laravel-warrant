@@ -8,6 +8,7 @@ use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Documents\ProjectFiles;
 use Warrant\LanguageServer\Documents\Uri;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
+use Warrant\PhpSource\ClassFileLocator;
 
 /**
  * What the server knows at a moment: the project, the documents open in the
@@ -53,6 +54,16 @@ final class Workspace
     private int $generation = 0;
 
     /**
+     * Where the project's classes are declared, with the
+     * {@see ClassFileLocator::versionOf() version} of the Composer maps it was
+     * read from, so the maps are read once and again only after Composer
+     * rewrites them.
+     *
+     * @var array{0: string, 1: ClassFileLocator}|null
+     */
+    private ?array $classFiles = null;
+
+    /**
      * @param string|null $root Absolute path of the project, or null when the
      *   editor named none.
      * @param VocabularyMode $mode How the schemas are learned.
@@ -71,15 +82,52 @@ final class Workspace
     }
 
     /**
-     * Replace the schemas known, so every document is analysed against them.
+     * Check every document against $vocabulary, and say whether it differs from
+     * the schemas known. A reading equal to the one known changes nothing, so
+     * the analyses made against that one stand. Readings are trees of value
+     * objects, so `==` compares them field by field.
      *
      * @param VocabularyIndex $vocabulary The new reading.
      */
-    public function useVocabulary(VocabularyIndex $vocabulary): void
+    public function useVocabulary(VocabularyIndex $vocabulary): bool
+    {
+        if ($vocabulary == $this->vocabulary) {
+            return false;
+        }
+
+        $this->vocabulary = $vocabulary;
+        $this->forgetAnalyses();
+
+        return true;
+    }
+
+    /**
+     * Analyse every document afresh the next time it is asked for, since what
+     * an analysis reads besides the document and the schemas has changed: the
+     * project's classes on disk, which say which methods return rule text.
+     */
+    public function forgetAnalyses(): void
     {
         $this->remembered = [];
-        $this->vocabulary = $vocabulary;
         $this->generation++;
+    }
+
+    /**
+     * Where the project's classes are declared, by its Composer maps.
+     */
+    public function classFiles(): ClassFileLocator
+    {
+        if ($this->root === null) {
+            return new ClassFileLocator;
+        }
+
+        $version = ClassFileLocator::versionOf($this->root);
+
+        if ($this->classFiles === null || $this->classFiles[0] !== $version) {
+            $this->classFiles = [$version, ClassFileLocator::forProject($this->root)];
+        }
+
+        return $this->classFiles[1];
     }
 
     /**
@@ -246,6 +294,6 @@ final class Workspace
      */
     public function analyze(Document $document): array
     {
-        return $document->analyzed($this->catalog(), $this->generation, $this->root);
+        return $document->analyzed($this->catalog(), $this->generation, $this->classFiles());
     }
 }

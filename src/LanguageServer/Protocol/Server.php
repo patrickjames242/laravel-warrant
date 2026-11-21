@@ -16,7 +16,6 @@ use Warrant\LanguageServer\Features\InlayHints;
 use Warrant\LanguageServer\Features\Occurrences;
 use Warrant\LanguageServer\Features\Usages;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
-use Warrant\PhpSource\ClassFileLocator;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
 use Warrant\LanguageServer\Vocabulary\VocabularyIndex;
 use Warrant\LanguageServer\VocabularyMode;
@@ -469,6 +468,10 @@ final class Server
         if ($this->vocabularyStale) {
             $this->vocabularyStale = false;
             $this->sourceStale = false;
+            /* A file saved may change which classes provide rules, which every
+               analysis read, whether or not it changes the schemas. */
+            $this->workspace->forgetAnalyses();
+            $this->markEveryDocumentStale();
             $this->readVocabulary();
         } else {
             $this->catchUpOnSource();
@@ -540,7 +543,7 @@ final class Server
     private function readSource(): VocabularyIndex
     {
         $root = (string) $this->workspace->root;
-        $fromSource = (new StaticSchemaScanner($root, ClassFileLocator::forProject($root), $this->openPhpFiles()))->scan();
+        $fromSource = (new StaticSchemaScanner($root, $this->workspace->classFiles(), $this->openPhpFiles()))->scan();
         $this->latestFromSource = $fromSource;
         $this->useVocabulary($this->combined($fromSource));
 
@@ -618,14 +621,20 @@ final class Server
     }
 
     /**
-     * Check every open document against $vocabulary.
+     * Check every open document against $vocabulary, when it differs from the
+     * schemas known.
      *
      * @param VocabularyIndex $vocabulary The schemas.
      */
     private function useVocabulary(VocabularyIndex $vocabulary): void
     {
-        $this->workspace->useVocabulary($vocabulary);
+        if ($this->workspace->useVocabulary($vocabulary)) {
+            $this->markEveryDocumentStale();
+        }
+    }
 
+    private function markEveryDocumentStale(): void
+    {
         foreach (array_keys($this->workspace->documents()) as $uri) {
             $this->stale[$uri] = true;
         }

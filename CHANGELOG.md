@@ -4,6 +4,22 @@ Changes to the `laravel-warrant` package. Releases up to v4.3.4 are described in
 the [GitHub releases](https://github.com/patrickjames242/laravel-warrant/releases).
 The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
+## Unreleased
+
+### Fixed
+
+- The language server reads the project's Composer maps once, and again only
+  after Composer rewrites them, rather than for every document it analyses. In
+  a project whose classmap lists every vendor class, as Laravel's
+  `optimize-autoloader` makes it, a search for usages spent most of its time
+  reading the same map.
+- Editing a PHP file analyses rule text afresh only when the schemas read from
+  it differ from the ones known, and a PHP file that cannot hold rule text is
+  not analysed at all. Typing in any PHP file re-analysed every open document.
+- The language server lists the rest of the project when a directory in it
+  cannot be read, as a database volume owned by another user often cannot.
+  Every search for usages failed.
+
 ## 4.12.3 — 2026-11-12
 
 ### Fixed

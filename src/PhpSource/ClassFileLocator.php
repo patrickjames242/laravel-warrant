@@ -8,15 +8,28 @@ namespace Warrant\PhpSource;
  */
 final readonly class ClassFileLocator
 {
+    /** The maps Composer generates in a project's `vendor/composer` directory. */
+    private const MAPS = ['autoload_psr4.php', 'autoload_classmap.php'];
+
+    /**
+     * Namespace prefix to directories, longest prefix first, the order Composer
+     * tries them in.
+     *
+     * @var array<string, list<string>>
+     */
+    private array $psr4;
+
     /**
      * @param array<string, list<string>> $psr4 Namespace prefix, with its trailing
      *   backslash, to the directories it maps to.
      * @param array<string, string> $classMap Class name to file.
      */
     public function __construct(
-        private array $psr4 = [],
+        array $psr4 = [],
         private array $classMap = [],
     ) {
+        uksort($psr4, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+        $this->psr4 = $psr4;
     }
 
     /**
@@ -27,12 +40,28 @@ final readonly class ClassFileLocator
      */
     public static function forProject(string $root): self
     {
-        $directory = $root.'/vendor/composer';
+        [$psr4, $classMap] = self::MAPS;
 
         return new self(
-            self::readMap($directory.'/autoload_psr4.php'),
-            self::readMap($directory.'/autoload_classmap.php'),
+            self::readMap($root.'/vendor/composer/'.$psr4),
+            self::readMap($root.'/vendor/composer/'.$classMap),
         );
+    }
+
+    /**
+     * A string that is the same for as long as the maps {@see forProject()} reads
+     * for $root are: the modification time and size of each. A locator read when
+     * it was the same still finds every class where Composer would.
+     *
+     * @param string $root Absolute path of the project.
+     */
+    public static function versionOf(string $root): string
+    {
+        return implode('|', array_map(static function (string $map) use ($root): string {
+            $stat = @stat($root.'/vendor/composer/'.$map);
+
+            return $stat === false ? '-' : $stat['mtime'].':'.$stat['size'];
+        }, self::MAPS));
     }
 
     /**
@@ -51,12 +80,7 @@ final readonly class ClassFileLocator
             return $this->classMap[$className];
         }
 
-        $prefixes = array_keys($this->psr4);
-        usort($prefixes, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
-
-        foreach ($prefixes as $prefix) {
-            $directories = $this->psr4[$prefix];
-
+        foreach ($this->psr4 as $prefix => $directories) {
             if (! str_starts_with($className, $prefix)) {
                 continue;
             }

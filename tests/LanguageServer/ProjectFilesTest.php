@@ -2,6 +2,7 @@
 
 use Warrant\LanguageServer\Documents\ProjectFiles;
 use Warrant\LanguageServer\Workspace;
+use Warrant\PhpSource\ClassFileLocator;
 
 /**
  * A new, empty directory under the system's temporary directory, removed once
@@ -178,4 +179,50 @@ it('forgets the files it read that a new listing of the project no longer has', 
     $workspace->projectDocumentsHolding('is_owner');
 
     expect(array_keys($read()))->toBe([$kept]);
+});
+
+it('lists the rest of the project when a directory in it cannot be read', function () {
+    if (PHP_OS_FAMILY === 'Windows' || (function_exists('posix_geteuid') && posix_geteuid() === 0)) {
+        $this->markTestSkipped('Permissions do not keep this user out of a directory.');
+    }
+
+    $root = scratchProject();
+    writeUnder($root, 'app/Rules.php', '<?php');
+    writeUnder($root, 'docker/db/data.php', '<?php');
+    chmod($root.'/docker/db', 0);
+
+    try {
+        expect(projectFilesOf($root))->toBe(['app/Rules.php']);
+    } finally {
+        chmod($root.'/docker/db', 0755);
+    }
+});
+
+it('reads the project\'s Composer maps once, and again after Composer rewrites them', function () {
+    $root = scratchProject();
+    $first = writeUnder($root, 'app/First.php', '<?php');
+    $second = writeUnder($root, 'app/Second.php', '<?php');
+    $map = writeUnder($root, 'vendor/composer/autoload_classmap.php', '<?php return '.var_export(['App\\Rules' => $first], true).';');
+    $workspace = new Workspace($root);
+    $locator = $workspace->classFiles();
+
+    expect($workspace->classFiles())->toBe($locator)
+        ->and($locator->fileOf('App\\Rules'))->toBe($first);
+
+    file_put_contents($map, '<?php return '.var_export(['App\\Rules' => $second], true).';');
+    touch($map, time() + 10);
+
+    expect($workspace->classFiles()->fileOf('App\\Rules'))->toBe($second);
+});
+
+it('finds a class under the longest namespace prefix that holds it, whatever order the map lists them in', function () {
+    $root = scratchProject();
+    writeUnder($root, 'app/Schemas/DocumentSchema.php', '<?php');
+    $nested = writeUnder($root, 'schemas/DocumentSchema.php', '<?php');
+    $locator = new ClassFileLocator([
+        'App\\' => [$root.'/app'],
+        'App\\Schemas\\' => [$root.'/schemas'],
+    ]);
+
+    expect($locator->fileOf('App\\Schemas\\DocumentSchema'))->toBe($nested);
 });

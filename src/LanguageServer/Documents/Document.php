@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\ValidSyntax;
 use Warrant\DSL\Parsing\WarrantParser;
 use Warrant\DSL\Validation\ValidationInput;
 use Warrant\DSL\Fragments\FragmentExtractor;
+use Warrant\PhpSource\ClassFileLocator;
 use Warrant\PhpSource\RuleProviderClasses;
 use Warrant\LanguageServer\Positions\LineIndex;
 use Warrant\LanguageServer\Positions\LinePosition;
@@ -110,22 +111,37 @@ final class Document
      *   to check syntax and the rules of the language that need no schema only.
      * @param int $generation Which reading of the vocabulary $index is; a new
      *   one is analysed afresh.
-     * @param string|null $projectRoot The project the document is in, whose
-     *   classes say which `rules()` methods return rule text.
+     * @param ClassFileLocator $classFiles Where the project's classes are
+     *   declared, which say which `rules()` methods return rule text. They are
+     *   read only for a PHP file that may hold rule text.
      * @return list<AnalyzedFragment>
      */
-    public function analyzed(?VocabularyIndex $index, int $generation, ?string $projectRoot = null): array
+    public function analyzed(?VocabularyIndex $index, int $generation, ClassFileLocator $classFiles = new ClassFileLocator): array
     {
         if ($this->analyzed !== null && $this->analyzedWith === $generation) {
             return $this->analyzed;
         }
 
+        if (! $this->mayHoldRuleText()) {
+            $this->analyzedWith = $generation;
+
+            return $this->analyzed = [];
+        }
+
         $known = $index ?? new VocabularyIndex;
-        $classes = RuleProviderClasses::ofProject($projectRoot)->knowing($this->path, $this->text);
+        $classes = null;
         $fragments = (new FragmentExtractor(
             $known->keyOf(...),
             // A class the index knows as a schema provides rules, even where its source cannot be followed.
-            static fn (string $class): bool => $known->keyOf($class) !== null || $classes->providesRules($class),
+            function (string $class) use ($known, $classFiles, &$classes): bool {
+                if ($known->keyOf($class) !== null) {
+                    return true;
+                }
+
+                $classes ??= (new RuleProviderClasses($classFiles))->knowing($this->path, $this->text);
+
+                return $classes->providesRules($class);
+            },
         ))->extract($this->path, $this->text);
 
         $this->analyzed = array_map(

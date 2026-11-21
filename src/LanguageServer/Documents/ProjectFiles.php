@@ -25,12 +25,15 @@ final class ProjectFiles
      * so it is left out wherever it is, though $root itself is always searched,
      * since a worktree may be the project an editor has open.
      *
+     * A directory that cannot be read, as a database's volume owned by another
+     * user often cannot, is left out, and the rest of the project is listed.
+     *
      * @param string $root Absolute path of the project.
      * @return list<string>
      */
     public static function under(string $root): array
     {
-        if (! is_dir($root)) {
+        if (! is_dir($root) || ! is_readable($root)) {
             return [];
         }
 
@@ -42,7 +45,7 @@ final class ProjectFiles
 
         $paths = [];
 
-        foreach (new RecursiveIteratorIterator($directories) as $file) {
+        foreach (new RecursiveIteratorIterator($directories, RecursiveIteratorIterator::LEAVES_ONLY, RecursiveIteratorIterator::CATCH_GET_CHILD) as $file) {
             if ($file instanceof SplFileInfo && $file->isFile() && in_array($file->getExtension(), ['php', 'warrant'], true)) {
                 $paths[] = $file->getPathname();
             }
