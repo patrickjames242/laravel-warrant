@@ -27,8 +27,8 @@ use Warrant\WarrantGate;
  * {@see filterQuery} is one consumer of that — it always wants SQL — while a
  * boolean check reads the literal and skips the database entirely.
  *
- * Resolving the rule set itself lives in {@see ResolvesRuleSets}; diagnosing a
- * denial into a message lives in {@see DiagnosesDenials}.
+ * The rule set itself comes from {@see \Warrant\WarrantManager::ruleSet()};
+ * diagnosing a denial into a message lives in {@see DiagnosesDenials}.
  */
 trait BuildsAccessQueries
 {
@@ -333,8 +333,8 @@ trait BuildsAccessQueries
     }
 
     /**
-     * Memoized for the guard's lifetime: a single check now compiles through it
-     * more than once (folding, then materializing), and it is stateless anyway.
+     * Memoized for the guard's lifetime: a single check compiles through it more
+     * than once (folding, then materializing), and it is stateless anyway.
      */
     protected function compiler(): RuleSetCompiler
     {

@@ -104,7 +104,7 @@ pair read the constant and return without querying.
 $guard->expandedRuleSet();   // what your provider returned, plus schema rules
 ```
 
-Memoized per guard, validated once. This is the entry point for debugging and for
+Memoized per user and schema, validated once. This is the entry point for debugging and for
 anything that wants to introspect policy rather than evaluate it. The rules are the
 [expanded](/sql/rule-to-query/#before-compiling-expansion) set every check
 compiles: ability blocks opened, includes replaced by their templates' rules,

@@ -18,10 +18,10 @@ Warrant::can('update', $document, ['workspace_id' => 'ws-1']);
 `warrantSchema()`, a class string or schema key through the registry. An
 unregistered reference throws here.
 
-**2. Get a guard.** A guard is fixed to one user and one schema, and it is
-memoized for the request. Every later check on the same pair reuses it.
+**2. Get a guard.** A guard is fixed to one user and one schema. It holds nothing
+worth keeping, so each check may build a new one; what is kept is the rule set.
 
-**3. Resolve the rule set, once.** The guard asks your provider, if
+**3. Resolve the rule set, once.** Warrant asks your provider, if
 there is one, and the schema's own [`rules()`](/schemas/schema-policy/) — both
 handed the same context — validates every ability and condition name against the
 schema, keeps the provider's rules about this schema, and expands them all into

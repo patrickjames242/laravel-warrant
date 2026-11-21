@@ -6,12 +6,12 @@ namespace Warrant\Guard;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use InvalidArgumentException;
+use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\Guard\Concerns\AnalyzesReachability;
 use Warrant\Guard\Concerns\BuildsAccessQueries;
 use Warrant\Guard\Concerns\ChecksAbilities;
 use Warrant\Guard\Concerns\DiagnosesDenials;
 use Warrant\Guard\Concerns\ResolvesCheckTargets;
-use Warrant\Guard\Concerns\ResolvesRuleSets;
 use Warrant\Schema\Context\ContextPolicy;
 use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
@@ -26,14 +26,14 @@ use Warrant\WarrantManager;
  * conditions, context policy, and the author override hooks).
  *
  * Because the guard is fixed to one user and one schema, no method takes a user
- * and none takes a schema, and the resolved {@see \Warrant\DSL\Parsing\ASTNodes\RuleSetNode}
- * is memoized once for the instance. Reach one through the facade:
+ * and none takes a schema. Its rules come from {@see WarrantManager::ruleSet()},
+ * which memoizes them per (schema, user), so a guard holds nothing worth keeping
+ * and is cheap to build again. Reach one through the facade:
  * `Warrant::forSchema($schemaOrModel[, $user])`.
  *
  * The engine is split across concerns:
  *  - {@see ChecksAbilities}     — can/canAny/cannot/authorize/authorizeAny/abilities;
  *  - {@see ResolvesCheckTargets}— reading the caller's `$target` argument;
- *  - {@see ResolvesRuleSets}    — resolving + memoizing the ordered rule set;
  *  - {@see BuildsAccessQueries} — turning the rule set into SQL access predicates;
  *  - {@see DiagnosesDenials}    — turning a denied check into a message/exception;
  *  - {@see AnalyzesReachability}— the structural "could they ever?" analysis.
@@ -42,7 +42,6 @@ final class WarrantGuardForSchema
 {
     use ChecksAbilities;
     use ResolvesCheckTargets;
-    use ResolvesRuleSets;
     use BuildsAccessQueries;
     use DiagnosesDenials;
     use AnalyzesReachability;
@@ -83,6 +82,15 @@ final class WarrantGuardForSchema
     public function user(): Authenticatable
     {
         return $this->user;
+    }
+
+    /**
+     * This guard's rules, validated and expanded, as
+     * {@see WarrantManager::ruleSet()} resolves them for its schema and user.
+     */
+    public function expandedRuleSet(): ExpandedSyntax
+    {
+        return $this->manager->ruleSet($this->schemaKey, $this->user);
     }
 
     /**

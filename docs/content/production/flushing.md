@@ -12,8 +12,7 @@ Warrant::flush($user);   // one user
 Warrant::flush();        // everyone
 ```
 
-Flushing drops the memoized guard and rule set, so the next check re-runs your
-provider.
+Flushing drops the memoized rule sets, so the next check re-runs your provider.
 
 :::caution[A bare `flush()` means everyone]
 Unlike the check methods, `flush()`'s `$user` argument does **not** fall back to

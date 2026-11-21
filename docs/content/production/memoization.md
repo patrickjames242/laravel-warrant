@@ -7,12 +7,11 @@ sidebar:
   order: 2
 ---
 
-Warrant memoizes two things, both for the life of one request.
-
-**A guard per user.** `Warrant::guard($user)` twice returns the same object.
-
-**A resolved rule set per guard.** So `rules()` runs at most once per user and
-schema, and the set is validated once. Nothing else is cached.
+Warrant memoizes one thing, for the life of one request: **a resolved rule set
+per user and schema.** So `rules()` runs at most once per user and schema, and the
+set is validated once. Nothing else is cached. A guard holds nothing worth keeping,
+so `Warrant::guard($user)` builds a new one each time, and each one reads the same
+memoized rules.
 
 ## What is not memoized
 

@@ -64,8 +64,8 @@ trait AnalyzesReachability
 
     /**
      * The expanded rule set this guard's user is given for $schemaKey — the
-     * guard's own, or the one the user's guard for another schema resolves, which
-     * is where a `can(... for <schema>)` in the rules leads. Null for a schema
+     * guard's own, or the one the manager resolves for another schema, which is
+     * where a `can(... for <schema>)` in the rules leads. Null for a schema
      * nobody registered, which validation reports.
      */
     private function reachabilityRuleSetFor(string $schemaKey): ?ExpandedSyntax
@@ -76,7 +76,7 @@ trait AnalyzesReachability
 
         return $this->manager->registry()->resolveOrNull($schemaKey) === null
             ? null
-            : $this->manager->forSchema($schemaKey, $this->user)->expandedRuleSet();
+            : $this->manager->ruleSet($schemaKey, $this->user);
     }
 
     /**

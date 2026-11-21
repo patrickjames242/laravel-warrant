@@ -136,8 +136,8 @@ if ($context->user === null) {
 
 ## It is called once per request
 
-Not once per check. Warrant memoizes a guard per user for the life of the request,
-and each guard memoizes the rule set it resolved, so your provider and the
-schema's `rules()` each run at most once per user and schema. See [memoization and
+Not once per check. Warrant memoizes the rule set it resolved per user and schema
+for the life of the request, so your provider and the schema's `rules()` each run
+at most once per user and schema. See [memoization and
 flushing](/supplying-rules/memoization/), which also covers what to do after a
 permission change.

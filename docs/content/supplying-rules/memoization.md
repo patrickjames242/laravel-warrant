@@ -7,9 +7,9 @@ sidebar:
   order: 6
 ---
 
-Your provider is not called once per check. Warrant memoizes a guard per user for
-the life of the request, and each guard memoizes the rule set it resolved. So
-`rules()` runs at most once per user and schema, however many checks follow:
+Your provider is not called once per check. Warrant memoizes the rule set it
+resolved per user and schema for the life of the request. So `rules()` runs at
+most once per user and schema, however many checks follow:
 
 ```php
 Warrant::can('view', $documentA);      // rules() runs

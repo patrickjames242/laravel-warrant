@@ -105,10 +105,10 @@ final class WarrantServiceProvider extends ServiceProvider
     }
 
     /**
-     * Drop Warrant's memoized guards at every long-lived-process boundary.
+     * Drop Warrant's memoized rule sets at every long-lived-process boundary.
      *
-     * The manager memoizes a guard per user, and each guard memoizes the rule set
-     * it resolved. Under PHP-FPM that memo dies with the request; under Octane or
+     * The manager memoizes the rule set it resolved per (schema, user). Under
+     * PHP-FPM that memo dies with the request; under Octane or
      * a queue worker the container is reused, so without this a worker would keep
      * answering from rules resolved for an earlier request — long after a role
      * change should have taken effect.

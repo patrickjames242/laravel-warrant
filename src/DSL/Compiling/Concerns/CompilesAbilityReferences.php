@@ -60,7 +60,7 @@ trait CompilesAbilityReferences
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $ruleSet = $this->manager->forSchema($this->schema::class, $ctx->userRow->user)->expandedRuleSet();
+        $ruleSet = $this->manager->ruleSet($this->schemaKey, $ctx->userRow->user);
 
         /* A unit is always entered unnegated — {@see abilityNode} sets the deny
            side's polarity itself — so the reference's own negation rides on the
@@ -120,7 +120,7 @@ trait CompilesAbilityReferences
             $node->ability->name,
         );
 
-        $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->userRow->user)->expandedRuleSet();
+        $bRuleSet = $this->manager->ruleSet($bKey, $ctx->userRow->user);
         $bCompiler = new self($bSchema, $bKey, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
