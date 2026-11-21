@@ -127,7 +127,7 @@ final class SchemaTypesMatchedShiftSchema extends QuerySchema
 function schemaTypesRowContext(IRowSchema $schema, string $rowName, array $arguments = []): RowConditionContext
 {
     return new RowConditionContext(
-        new User,
+        warrantTestUserRow(new User),
         $schema->conditionQuery(DB::table('x'), $rowName),
         $rowName,
         $schema->keyColumns(),
@@ -172,8 +172,8 @@ it('invokes a global condition with its DSL arguments after the context', functi
     $billing = new SchemaTypesBillingSchema;
     $isFinance = $billing->condition('is_finance');
 
-    expect($billing->invokeGlobalCondition($isFinance, new GlobalConditionContext(new User, DB::table('x'), ['finance'])))->toBeTrue()
-        ->and($billing->invokeGlobalCondition($isFinance, new GlobalConditionContext(new User, DB::table('x'), ['sales'])))->toBeFalse();
+    expect($billing->invokeGlobalCondition($isFinance, new GlobalConditionContext(warrantTestUserRow(new User), DB::table('x'), ['finance'])))->toBeTrue()
+        ->and($billing->invokeGlobalCondition($isFinance, new GlobalConditionContext(warrantTestUserRow(new User), DB::table('x'), ['sales'])))->toBeFalse();
 });
 
 it('invokes a row condition against the name the row goes by', function () {
@@ -200,7 +200,7 @@ it('refuses a condition that answers with anything but a query, a bool or null',
         }
     };
 
-    expect(fn () => $schema->invokeGlobalCondition($schema->condition('bad'), new GlobalConditionContext(new User, DB::table('x'))))
+    expect(fn () => $schema->invokeGlobalCondition($schema->condition('bad'), new GlobalConditionContext(warrantTestUserRow(new User), DB::table('x'))))
         ->toThrow(InvalidArgumentException::class, 'returned a [string]');
 });
 

@@ -5,6 +5,7 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Warrant\DSL\ISchemaCatalog;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
@@ -51,6 +52,7 @@ use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Row\RowCondition;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\UserRow;
 use Warrant\Schema\Types\Classes\ModelSchema;
 use Warrant\WarrantManager;
 
@@ -559,6 +561,15 @@ function makeWarrantTestUser(?string $roleId = 'role-1'): Authenticatable
 function warrantTestQuery(string $table = 'course_sections'): BuilderContract
 {
     return DB::connection()->table($table);
+}
+
+/**
+ * The user row a condition context hands out through `userColumn()`, on the
+ * default connection.
+ */
+function warrantTestUserRow(Authenticatable $user): UserRow
+{
+    return new UserRow($user, QueryFactory::for(DB::connection()->query()));
 }
 
 /**

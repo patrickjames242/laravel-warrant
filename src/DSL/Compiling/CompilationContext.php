@@ -15,6 +15,7 @@ use Warrant\DSL\Compiling\Units\ICompilationUnit;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Resolution\ISchemaId;
+use Warrant\Schema\Conditions\UserRow;
 use Warrant\WarrantGate;
 
 /**
@@ -86,6 +87,10 @@ final readonly class CompilationContext
     public CallStack $callStack;
 
     /**
+     * @param UserRow $userRow The user the predicate is compiled for, and their
+     *   row, which a condition reads through `userColumn()`. Required, so every
+     *   context the compiler derives carries the one it was given rather than
+     *   building its own.
      * @param bool $targeted Whether the schema's row is in scope where this
      *   predicate will be spliced. See the class docblock.
      *   {@see RuleSetCompiler::compile()} narrows a `true` to `false` for a schema
@@ -113,7 +118,7 @@ final readonly class CompilationContext
     public function __construct(
         public ICompilationUnit $unit,
         public QueryFactory $queries,
-        public Authenticatable $user,
+        public UserRow $userRow,
         public bool $targeted = false,
         public ?Model $targetModel = null,
         public array $checkContext = [],
@@ -135,7 +140,7 @@ final readonly class CompilationContext
         WarrantGate $gate,
         ExpandedSyntax $ruleSet,
     ): self {
-        return new self(new GateUnit($gate, $ruleSet), $queries, $user);
+        return new self(new GateUnit($gate, $ruleSet), $queries, new UserRow($user, $queries));
     }
 
     /**
@@ -147,7 +152,7 @@ final readonly class CompilationContext
         string $ability,
         ExpandedSyntax $ruleSet,
     ): self {
-        return new self(new AbilityUnit($ability, $ruleSet), $queries, $user);
+        return new self(new AbilityUnit($ability, $ruleSet), $queries, new UserRow($user, $queries));
     }
 
     /**
@@ -158,7 +163,7 @@ final readonly class CompilationContext
         Authenticatable $user,
         ?IBooleanExpressionNode $condition,
     ): self {
-        return new self(new ConditionUnit($condition), $queries, $user);
+        return new self(new ConditionUnit($condition), $queries, new UserRow($user, $queries));
     }
 
     /**
@@ -247,7 +252,7 @@ final readonly class CompilationContext
         return new self(
             unit: $unit ?? $this->unit,
             queries: $this->queries,
-            user: $this->user,
+            userRow: $this->userRow,
             targeted: $targeted ?? $this->targeted,
             /* Not `??`: clearing the model is meaningful, and every caller that
                changes the target passes both halves together. */

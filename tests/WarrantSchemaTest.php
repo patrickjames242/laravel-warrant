@@ -263,7 +263,7 @@ it('rejects a condition method typed with the wrong context', function () {
 it('binds DSL arguments to declared condition parameters positionally', function () {
     $schema = new ParameterizedConditionSchema;
     $filtered = $schema->invokeRowCondition($schema->condition('is_specific_user'), new RowConditionContext(
-        makeWarrantTestUser('teacher-role'),
+        warrantTestUserRow(makeWarrantTestUser('teacher-role')),
         $schema->conditionQuery(warrantTestQuery(), 'course_sections'),
         'course_sections',
         $schema->keyColumns(),
@@ -279,7 +279,7 @@ it('allows more arguments than declared parameters, leaving the extras on $c->ar
     $schema = new ParameterizedConditionSchema;
     $result = $schema->invokeGlobalCondition(
         $schema->condition('has_extra_args'),
-        new GlobalConditionContext(makeWarrantTestUser('teacher-role'), warrantTestQuery(), ['a', 'b']),
+        new GlobalConditionContext(warrantTestUserRow(makeWarrantTestUser('teacher-role')), warrantTestQuery(), ['a', 'b']),
     );
 
     expect($result)->toBeTrue();
@@ -289,7 +289,7 @@ it('falls back to a parameter default when the argument is omitted', function ()
     $schema = new ParameterizedConditionSchema;
     $result = $schema->invokeGlobalCondition(
         $schema->condition('role_is'),
-        new GlobalConditionContext(makeWarrantTestUser('guest'), warrantTestQuery()),
+        new GlobalConditionContext(warrantTestUserRow(makeWarrantTestUser('guest')), warrantTestQuery()),
     );
 
     expect($result)->toBeTrue();

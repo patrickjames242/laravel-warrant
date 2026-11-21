@@ -54,4 +54,14 @@ return [
      * through untouched to your own policies. Set false to opt out entirely.
      */
     'register_gate' => true,
+
+    /*
+     * The model whose table holds your users, for userColumn() in a condition.
+     *
+     * Optional. A user that is an Eloquent model is read from its own table, and
+     * this is never consulted. Name one when your auth provider returns users
+     * that are not models, such as Laravel's `database` provider. Each such user
+     * must have a row in this model's table.
+     */
+    'user_model' => null,
 ];

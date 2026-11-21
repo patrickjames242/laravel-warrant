@@ -10,8 +10,8 @@ use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\Support\StringableExpression;
 
 /**
- * The row of the users table that holds the user a check is for, as a condition
- * reaches it through `userColumn()`.
+ * The user a check is for, and the row of the users table that holds them, as a
+ * condition reaches it through `userColumn()`.
  *
  * A column of that row is a subquery that mentions nothing from the query it
  * lands in, `(select "users"."team_id" from "users" where "users"."id" = 5)`, so
@@ -30,8 +30,11 @@ use Warrant\Support\StringableExpression;
  */
 final readonly class UserRow
 {
+    /**
+     * @param Authenticatable $user The user the check is for.
+     */
     public function __construct(
-        private Authenticatable $user,
+        public Authenticatable $user,
         private QueryFactory $queries,
     ) {
     }

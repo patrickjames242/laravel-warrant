@@ -30,18 +30,22 @@ use Warrant\Support\StringableExpression;
  */
 final readonly class GlobalConditionContext
 {
+    /** The user the check is for. */
+    public Authenticatable $user;
+
     /**
-     * @param UserRow $userRow The user's row, which {@see userColumn()} reads.
+     * @param UserRow $userRow The user the check is for, and their row, which
+     *   {@see userColumn()} reads.
      * @param array<int, mixed> $arguments The resolved DSL arguments.
      * @param array<string, mixed> $context The effective check-time context.
      */
     public function __construct(
-        public Authenticatable $user,
         private UserRow $userRow,
         public Builder $query,
         public array $arguments = [],
         public array $context = [],
     ) {
+        $this->user = $userRow->user;
     }
 
     /**

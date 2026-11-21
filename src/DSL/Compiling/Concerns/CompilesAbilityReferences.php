@@ -60,7 +60,7 @@ trait CompilesAbilityReferences
             return (new CompiledWhereClauseNode)->addAnd(null);
         }
 
-        $ruleSet = $this->manager->forSchema($this->schema::class, $ctx->user)->expandedRuleSet();
+        $ruleSet = $this->manager->forSchema($this->schema::class, $ctx->userRow->user)->expandedRuleSet();
 
         /* A unit is always entered unnegated — {@see abilityNode} sets the deny
            side's polarity itself — so the reference's own negation rides on the
@@ -120,7 +120,7 @@ trait CompilesAbilityReferences
             $node->ability->name,
         );
 
-        $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->user)->expandedRuleSet();
+        $bRuleSet = $this->manager->forSchema($bSchema::class, $ctx->userRow->user)->expandedRuleSet();
         $bCompiler = new self($bSchema, $bKey, $this->manager);
 
         $bQualifier = $this->hopQualifier($node, $bSchema, $this->aliases($ctx));
@@ -139,7 +139,7 @@ trait CompilesAbilityReferences
         $bCtx = new CompilationContext(
             unit: new AbilityUnit($node->ability->name, $bRuleSet),
             queries: $ctx->queries,
-            user: $ctx->user,
+            userRow: $ctx->userRow,
             checkContext: $bContext,
             callStack: $ctx->callStack,
             /* B's rules name their own key, so that is the name this frame's
@@ -201,7 +201,7 @@ trait CompilesAbilityReferences
                nobody named. Validation rejects a *literal* null selector; a
                `@context` one is filled per check, so this is the point at which
                it is known. */
-            $keyed = $this->narrowToRow($bSchema, $ctx->user, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
+            $keyed = $this->narrowToRow($bSchema, $ctx->userRow, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
             if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
@@ -228,7 +228,7 @@ trait CompilesAbilityReferences
                 $bSubquery,
                 function () use ($bSchema, $ctx, $bQualifier, $keyArguments, $bContext, $bTargetModel): Builder {
                     $rows = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
-                    $this->narrowToRow($bSchema, $ctx->user, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
+                    $this->narrowToRow($bSchema, $ctx->userRow, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
                     return $rows;
                 },

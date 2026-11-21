@@ -219,6 +219,12 @@ From the compiler, on what a condition emitted:
 
 That last one is nearly always a missing `return`.
 
+From `userColumn()`, when it reads the user's row:
+
+- `BadMethodCallException`: `userColumn() reads the user's row from its table, but %s is not a model. Name your user model in the warrant.user_model config.`
+- `BadMethodCallException`: `userColumn() reads the user's row, but this %s has no key: it is not saved.`
+- `InvalidArgumentException`: `userColumn() cannot reach the user's row: %s is on database connection [%s] but the query runs on [%s].`
+
 ## Row keys, `InvalidArgumentException`
 
 From validation, and from the compiler, which makes the same checks for handles

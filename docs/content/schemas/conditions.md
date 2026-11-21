@@ -61,6 +61,53 @@ public function inMyTeam(RowConditionContext $c): Builder
 compares the two columns too. It is never bound as a value. It is also a string, already
 quoted, so it can be written into raw SQL.
 
+## The user's row
+
+`$c->userColumn()` names a column of the user's own row, so a condition can compare
+the target row with the user in SQL:
+
+```php
+#[RowCondition]
+public function inMyTeam(RowConditionContext $c): Builder
+{
+    return $c->query->whereColumn($c->column('team_id'), $c->userColumn('team_id'));
+}
+```
+
+A column of the user's row is a subquery over the users table. It mentions nothing
+from the query it lands in, so the database runs it once:
+
+```sql
+select * from "documents"
+where "documents"."team_id" = (
+    select "users"."team_id" from "users" where "users"."id" = 5
+)
+```
+
+The user's key is already known, so naming the auth identifier's column writes the
+key itself, with no subquery:
+
+```php
+return $c->query->where($c->column('owner_id'), $c->userColumn('id'));
+// "documents"."owner_id" = 5
+```
+
+Like `column()`, it always takes the column's name, and it is an expression that is
+also a string. Global conditions have it too:
+
+```php
+#[GlobalCondition]
+public function isAdmin(GlobalConditionContext $c): Builder
+{
+    return $c->query->where($c->userColumn('role'), 'admin');
+}
+```
+
+The users table comes from the user when it is an Eloquent model, and otherwise from
+the [`user_model`](/reference/config/#user_model) config. `userColumn()` throws when
+there is neither, when the user is not saved, or when the users table is on another
+database connection than the query.
+
 ## Global conditions
 
 A global condition is about the user or the world. Its context has no `column()`, and
@@ -198,6 +245,7 @@ parameter.`
 | `$c->arguments` | `array` | both |
 | `$c->context` | `array` | both |
 | `$c->column()` | `StringableExpression` method | row only |
+| `$c->userColumn()` | `StringableExpression` method | both |
 | `$c->model` | `?Model` | row only |
 | `$c->table` | `string` | row only |
 | `$c->keyColumns` | `array` | row only |

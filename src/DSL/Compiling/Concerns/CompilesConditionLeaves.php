@@ -158,7 +158,7 @@ trait CompilesConditionLeaves
         if (! $definition->isRow()) {
             return $found->schema()->invokeGlobalCondition(
                 $definition,
-                new GlobalConditionContext($ctx->user, $conditionQuery, $parameters, $ctx->checkContext),
+                new GlobalConditionContext($ctx->userRow, $conditionQuery, $parameters, $ctx->checkContext),
             );
         }
 
@@ -167,7 +167,7 @@ trait CompilesConditionLeaves
         $rowName = $this->aliases($ctx)->current ?? $schema->rowName();
 
         return $schema->invokeRowCondition($definition, new RowConditionContext(
-            $ctx->user,
+            $ctx->userRow,
             $schema->conditionQuery($conditionQuery, $rowName),
             $rowName,
             $schema->keyColumns(),

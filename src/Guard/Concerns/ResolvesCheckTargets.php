@@ -4,7 +4,9 @@ namespace Warrant\Guard\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\UserRow;
 use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
@@ -166,7 +168,7 @@ trait ResolvesCheckTargets
         $rowName = $schema->rowName();
 
         return $schema->invokeRowMatcher(new RowConditionContext(
-            $this->user,
+            new UserRow($this->user, QueryFactory::for($query)),
             $schema->conditionQuery($query, $rowName),
             $rowName,
             $schema->keyColumns(),

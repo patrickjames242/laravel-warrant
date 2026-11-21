@@ -101,7 +101,7 @@ trait CompilesCheckReferences
         $bCtx = new CompilationContext(
             unit: new ConditionUnit($node->predicate),
             queries: $ctx->queries,
-            user: $ctx->user,
+            userRow: $ctx->userRow,
             checkContext: $bContext,
             callStack: $ctx->callStack->enter(Call::check($bSchema::class)),
             /* An `its` handle's rows go by the relation's name in the predicate,
@@ -168,7 +168,7 @@ trait CompilesCheckReferences
                nobody named. Validation rejects a *literal* null selector; a
                `@context` one is filled per check, so this is the point at which
                it is known. */
-            $keyed = $this->narrowToRow($bSchema, $ctx->user, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
+            $keyed = $this->narrowToRow($bSchema, $ctx->userRow, $bSubquery, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
             if ($keyed === null) {
                 return (new CompiledWhereClauseNode)->addAnd(null);
@@ -190,7 +190,7 @@ trait CompilesCheckReferences
                 $bSubquery,
                 function () use ($bSchema, $ctx, $bQualifier, $keyArguments, $bContext, $bTargetModel): Builder {
                     $rows = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
-                    $this->narrowToRow($bSchema, $ctx->user, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
+                    $this->narrowToRow($bSchema, $ctx->userRow, $rows, $keyArguments, $bContext, $bTargetModel, $bQualifier);
 
                     return $rows;
                 },

@@ -5,7 +5,6 @@ namespace Warrant\DSL\Compiling\Concerns;
 use BackedEnum;
 use Closure;
 use DateTimeInterface;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
@@ -25,6 +24,7 @@ use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\SchemaHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\WithEntryNode;
 use Warrant\Schema\Conditions\Row\RowConditionContext;
+use Warrant\Schema\Conditions\UserRow;
 use Warrant\Schema\Relations\IProvidesRowRelations;
 use Warrant\Schema\Relations\RowRelationContext;
 use Warrant\Schema\Relations\RowRelationDefinition;
@@ -171,7 +171,7 @@ trait ResolvesHopTargets
         $bSubquery = $bSchema->fromRows($ctx->queries->newQuery(), $bQualifier);
 
         $this->schema->invokeRowRelation($relation, new RowRelationContext(
-            $ctx->user,
+            $ctx->userRow->user,
             $bSchema->conditionQuery($bSubquery, $bQualifier),
             $ownQualifier,
             $bQualifier,
@@ -207,7 +207,7 @@ trait ResolvesHopTargets
      */
     private function narrowToRow(
         IRowSchema $schema,
-        Authenticatable $user,
+        UserRow $userRow,
         Builder $subquery,
         array $arguments,
         array $context,
@@ -215,7 +215,7 @@ trait ResolvesHopTargets
         string $rowName,
     ): ?Builder {
         return $schema->invokeRowMatcher(new RowConditionContext(
-            $user,
+            $userRow,
             $schema->conditionQuery($subquery, $rowName),
             $rowName,
             $schema->keyColumns(),

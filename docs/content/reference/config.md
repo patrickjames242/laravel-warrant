@@ -35,6 +35,10 @@ return [
     // Resolve Warrant abilities through Laravel's Gate: $user->can(), @can,
     // can: middleware. Set false to opt out. Defaults to true.
     'register_gate' => true,
+
+    // The model whose table holds your users, for userColumn(). Only read
+    // when the user is not an Eloquent model.
+    'user_model' => App\Models\User::class,
 ];
 ```
 
@@ -93,6 +97,22 @@ falls through to your own policies. Guests always fall through.
 Set it false to reach Warrant only through the facade, the guards, the query
 scopes, and the `warrant` middleware. See
 [the Gate bridge](/checking/gate/).
+
+## `user_model`
+
+A class-string of the Eloquent model whose table holds your users. Optional, and
+`null` by default.
+
+A condition's `userColumn()` reads a column of the user's row from the database.
+When the user is an Eloquent model, Warrant reads it from that model's own table and
+never looks at this key. Set it when your auth provider returns users that are not
+models, such as Laravel's `database` provider, which returns `GenericUser`.
+
+Each such user must have a row in this model's table, found by its auth identifier.
+A user with no row there, such as one from an external identity service, gets a
+`userColumn()` that matches nothing.
+
+See [conditions](/schemas/conditions/#the-users-row).
 
 ## Requirements
 

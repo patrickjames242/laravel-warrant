@@ -252,7 +252,7 @@ it('still hands the condition something the compiler can read back', function ()
        calls gave back. Callers are promised the query builder. */
     $schema = new ConditionScopeSchema;
     $returned = $schema->invokeRowCondition($schema->condition('is_published'), new RowConditionContext(
-        makeWarrantTestUser(),
+        warrantTestUserRow(makeWarrantTestUser()),
         $schema->conditionQuery(warrantTestQuery(), 'course_sections'),
         'course_sections',
         $schema->keyColumns(),

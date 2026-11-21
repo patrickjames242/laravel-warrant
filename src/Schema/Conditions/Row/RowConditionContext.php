@@ -70,8 +70,12 @@ use Warrant\Support\StringableExpression;
  */
 final readonly class RowConditionContext
 {
+    /** The user the check is for. */
+    public Authenticatable $user;
+
     /**
-     * @param UserRow $userRow The user's row, which {@see userColumn()} reads.
+     * @param UserRow $userRow The user the check is for, and their row, which
+     *   {@see userColumn()} reads.
      * @param string $table The name the target row answers to in SQL: the schema
      *   model's table, or the alias standing in for it — the host query's own
      *   (`from('docs as d')`), or a cross-schema hop's (`can(… for docs(…) as d2)`).
@@ -86,7 +90,6 @@ final readonly class RowConditionContext
      *   compiling against more than one row. See the class docblock.
      */
     public function __construct(
-        public Authenticatable $user,
         private UserRow $userRow,
         public Builder $query,
         public string $table,
@@ -95,6 +98,7 @@ final readonly class RowConditionContext
         public array $context = [],
         public ?Model $model = null,
     ) {
+        $this->user = $userRow->user;
     }
 
     /**
