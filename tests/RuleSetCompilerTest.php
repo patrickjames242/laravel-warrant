@@ -87,20 +87,20 @@ final class CompilerDocSchema extends ModelSchema
     #[RowCondition]
     public function isTeacher(RowConditionContext $c): Builder
     {
-        return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role}"]);
+        return $c->query->whereRaw("{$c->column('id')} = ?", ["teacher:{$c->user->role}"]);
     }
 
     #[RowCondition]
     public function isOwner(RowConditionContext $c, mixed $id): Builder
     {
-        return $c->query->whereRaw("{$c->column()} = ?", [$id]);
+        return $c->query->whereRaw("{$c->column('id')} = ?", [$id]);
     }
 
     /** Matches a row whose id equals the (context- or literal-supplied) argument. */
     #[RowCondition]
     public function idIs(RowConditionContext $c, mixed $id): Builder
     {
-        return $c->query->whereRaw("{$c->column()} = ?", [$id]);
+        return $c->query->whereRaw("{$c->column('id')} = ?", [$id]);
     }
 
     /**
@@ -112,7 +112,7 @@ final class CompilerDocSchema extends ModelSchema
     #[RowCondition]
     public function idIsOptional(RowConditionContext $c, mixed $id = null): Builder|bool
     {
-        return $id === null ? true : $c->query->whereRaw("{$c->column()} = ?", [$id]);
+        return $id === null ? true : $c->query->whereRaw("{$c->column('id')} = ?", [$id]);
     }
 
     /** Returns its query without adding anything, which is always an error. */
@@ -126,7 +126,7 @@ final class CompilerDocSchema extends ModelSchema
     #[RowCondition]
     public function ctxIdIs(RowConditionContext $c): Builder
     {
-        return $c->query->whereRaw("{$c->column()} = ?", [$c->context['doc_id'] ?? '__missing__']);
+        return $c->query->whereRaw("{$c->column('id')} = ?", [$c->context['doc_id'] ?? '__missing__']);
     }
 
     #[GlobalCondition]

@@ -237,11 +237,6 @@ From the schema's declaration:
 - `Schema [%s] declares a vocabulary attribute on matchKey(), which finds the schema's rows and is not part of its rule vocabulary; …`
 - `Schema [%s] must accept a [%s] as the first parameter of matchKey().`
 
-From `column()` with no argument, over rows whose key is not one column:
-
-- `BadMethodCallException`: `These rows are identified by no key column, so column() must be given a column name.`
-- `BadMethodCallException`: `These rows are identified by several key columns, so column() must be given a column name.`
-
 An empty argument list is not an error in itself: it addresses a row by a key
 requiring no arguments. Only `null` means a no-row check.
 

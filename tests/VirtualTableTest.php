@@ -115,7 +115,7 @@ class VtDaySchema extends QuerySchema
 /**
  * A virtual table over a spine table, declaring the column its rows are
  * identified by. That is all the built-in key needs, so it declares no
- * matchKey() of its own — and its conditions may write column() bare.
+ * matchKey() of its own.
  */
 class VtSpineSchema extends QuerySchema
 {
@@ -136,11 +136,11 @@ class VtSpineSchema extends QuerySchema
         return $c->query->where($c->column('region'), '=', 'north');
     }
 
-    /** Names no column, so it leans on the declared key. */
+    /** Compares the declared key column with the argument. */
     #[RowCondition]
     public function isNamedTeam(RowConditionContext $c, string $id): BuilderContract
     {
-        return $c->query->where($c->column(), '=', $id);
+        return $c->query->where($c->column('team_id'), '=', $id);
     }
 }
 
@@ -326,7 +326,7 @@ it('compares the declared key column in the emitted SQL', function () {
     $guard = Warrant::guard(makeWarrantTestUser())->forSchema(new VtSpineSchema);
     $sql = normalizeWarrantSql($guard->filterQuery($guard->query(), 'view')->toRawSql());
 
-    // column() with no argument resolved to the declared key, under the rows' name.
+    // The key column, under the rows' name.
     expect($sql)->toContain('"warrant_rows"."team_id" = \'north-1\'');
 });
 

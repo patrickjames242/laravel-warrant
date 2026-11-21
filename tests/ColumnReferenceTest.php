@@ -501,7 +501,7 @@ class ColTargetSchema extends ModelSchema
     #[RowCondition]
     public function idMatches(RowConditionContext $c, mixed $column): BuilderContract
     {
-        return $c->query->where($c->column(), '=', $column);
+        return $c->query->where($c->column('id'), '=', $column);
     }
 }
 

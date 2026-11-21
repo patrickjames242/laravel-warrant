@@ -285,17 +285,12 @@ it('finds a row with a matchKey of its own', function () {
 
 it('names a column as a quoted expression that is also a string', function () {
     $c = schemaTypesRowContext(new SchemaTypesDocumentSchema, 'docs');
-    $correlated = DB::table('shares')->where('shares.doc_id', $c->column());
+    $correlated = DB::table('shares')->where('shares.doc_id', $c->column('id'));
 
     expect($c->column('owner_id'))->toBeInstanceOf(StringableExpression::class)
         ->and((string) $c->column('owner_id'))->toBe('"docs"."owner_id"')
         ->and($correlated->toSql())->toBe('select * from "shares" where "shares"."doc_id" = "docs"."id"')
         ->and($correlated->getBindings())->toBe([]);
-});
-
-it('asks for a column name when the key is not one column', function () {
-    expect(fn () => schemaTypesRowContext(new SchemaTypesShiftSchema, 'warrant_rows')->column())
-        ->toThrow(BadMethodCallException::class, 'several key columns');
 });
 
 // -- the vocabulary -----------------------------------------------------------

@@ -80,8 +80,8 @@ and never bound as a value.
 
 ## Conditions: use `$c->column()`
 
-Inside a condition, `$c->column()` is the frame-aware way to name a column. With no
-argument it gives the key column; with one it gives that column:
+Inside a condition, `$c->column()` is the frame-aware way to name a column. It
+takes the column's name and gives that column of the row:
 
 ```php
 #[RowCondition]

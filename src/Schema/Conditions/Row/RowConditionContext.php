@@ -2,7 +2,6 @@
 
 namespace Warrant\Schema\Conditions\Row;
 
-use BadMethodCallException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -103,24 +102,9 @@ final readonly class RowConditionContext
      * It is an expression, so it is a column wherever a builder is handed it,
      * including a where's value position inside a correlated subquery, and a
      * string, so it can be written into raw SQL. See {@see StringableExpression}.
-     *
-     * With no argument, the row's key column (e.g. `"timesheets"."id"`). That form
-     * needs a key of exactly one column, so for a key of several columns, or none,
-     * name the column.
      */
-    public function column(?string $column = null): StringableExpression
+    public function column(string $column): StringableExpression
     {
-        if ($column === null) {
-            if (count($this->keyColumns) !== 1) {
-                throw new BadMethodCallException(sprintf(
-                    'These rows are identified by %s, so column() must be given a column name.',
-                    $this->keyColumns === [] ? 'no key column' : 'several key columns',
-                ));
-            }
-
-            $column = $this->keyColumns[0];
-        }
-
         return new StringableExpression($this->grammar()->wrap($this->table . '.' . $column));
     }
 

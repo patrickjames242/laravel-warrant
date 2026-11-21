@@ -40,8 +40,9 @@ public function isMine(RowConditionContext $c): Builder
 }
 ```
 
-`$c->column()` with no argument gives the key column, `documents.id`. With one it
-gives that column. See [frames](/concepts/frames/) for why that matters.
+`$c->column('user_id')` gives that column of the row, `documents.user_id`. It
+always takes the column's name, the key included: `$c->column('id')`. See
+[frames](/concepts/frames/) for why that matters.
 
 To reach another table, use a correlated `whereExists` rather than a join:
 

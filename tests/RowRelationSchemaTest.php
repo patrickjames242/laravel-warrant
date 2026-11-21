@@ -315,6 +315,6 @@ class RrRelationOnMatchKeySchema extends ModelSchema
     #[RowRelation(RrFolderSchema::class)]
     public function matchKey(RowConditionContext $c, mixed $key): ?BuilderContract
     {
-        return $c->query->where($c->column(), '=', $key);
+        return $c->query->where($c->column('id'), '=', $key);
     }
 }

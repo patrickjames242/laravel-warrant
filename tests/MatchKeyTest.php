@@ -30,7 +30,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 | columns where no single one is unique.
 |
 | The key is dispatched exactly as a row condition is, so it may follow an alias
-| through $c->column() and may answer unknown by returning null. Its parameters
+| through $c->column('id') and may answer unknown by returning null. Its parameters
 | decide how many arguments a handle must supply, and both the validator and the
 | key's own dispatch enforce that.
 |
@@ -441,6 +441,6 @@ class MkAttributedKeySchema extends ModelSchema
     #[RowCondition]
     public function matchKey(RowConditionContext $c, mixed $key): ?BuilderContract
     {
-        return $c->query->where($c->column(), '=', $key);
+        return $c->query->where($c->column('id'), '=', $key);
     }
 }

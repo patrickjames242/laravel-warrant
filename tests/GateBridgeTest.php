@@ -54,7 +54,7 @@ class GateTestSchema extends ModelSchema
     #[RowCondition]
     public function isTeacher(RowConditionContext $c): BuilderContract
     {
-        return $c->query->whereRaw("{$c->column()} = ?", ["teacher:{$c->user->role_id}"]);
+        return $c->query->whereRaw("{$c->column('id')} = ?", ["teacher:{$c->user->role_id}"]);
     }
 
     #[GlobalCondition]
