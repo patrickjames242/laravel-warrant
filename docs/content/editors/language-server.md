@@ -20,16 +20,19 @@ its other packages and its extensions do not matter to it.
 ## What it does
 
 - **Diagnostics.** Every syntax error in rule text, and every rule of the language
-  it breaks: an ability, condition, template or schema that is not declared, a
+  it breaks: an ability, condition, template, constant or schema that is not declared, a
   condition or template given too few arguments or too many, a `@column` naming a table that is not in
   scope. It reports them all at once, not just the first, each with a code such as
   `unknown-ability`.
-- **Hover** over a condition, ability, template, schema, row relation or context
-  key, to see what it is, its arguments, the context it requires, and its
-  docblock. A row relation shows the schema it reaches.
+- **Hover** over a condition, ability, template, constant, schema, row relation
+  or context key, to see what it is, its arguments, the context it requires, and
+  its docblock. A row relation shows the schema it reaches, and a
+  [constant](/schemas/constants/) its value.
 - **Completion** of whatever fits where the cursor is: abilities after
   `they can`, conditions after `if`, schemas after `for`, templates after
-  `@include`, context keys after `@context`. In a `can(...)` or `check(...)`
+  `@include`, context keys after `@context`, constants in an argument, and a
+  schema's own constants after its key and a dot. Where abilities go it also
+  offers the constants that may name them. In a `can(...)` or `check(...)`
   handle it offers `any of` and `all of`, `its` when the schema declares a row
   relation, and the relations after `its`; after a quantifier, only schemas with
   rows. A condition or template that takes
@@ -38,11 +41,11 @@ its other packages and its extensions do not matter to it.
 - **Parameter names** before the arguments of a condition, derived condition or
   `@include`, as an editor shows them before the arguments of a PHP call:
   `in_team(team: 1, role: 'admin')`. Only a literal or an `@sql` argument has
-  one: a binding, `@context` or `@column` argument is written by a name of its
-  own, as a PHP variable is.
+  one: a binding, constant, `@context` or `@column` argument is written by a name
+  of its own, as a PHP variable is.
 - **Go to definition** from a name to the constant or method that declares it,
   and from a frame name in `@column d2.id` to the `as d2` that names it.
-- **Usages** of a condition, template, row relation, ability or schema across the project's
+- **Usages** of a condition, template, row relation, ability, constant or schema across the project's
   rule text, and every place a context key or frame name is written,
   which [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
   [VS Code](/editors/vscode/#renaming-and-finding-usages) rename and find
@@ -53,6 +56,9 @@ its other packages and its extensions do not matter to it.
   names.
 - **An outline** of the `for` blocks, ability blocks, rules and `@include`s in a
   file.
+- **Semantic colours** for constants. A bare constant looks like a condition's
+  name in an argument and like an ability where abilities go, so no grammar can
+  colour it; the server marks each one, and the editor colours it as a constant.
 - **Formatting** of a `.warrant` file, and of the rule text in a PHP file as the
   `source.format.warrant` code action. See [formatting](/editors/formatting/).
 

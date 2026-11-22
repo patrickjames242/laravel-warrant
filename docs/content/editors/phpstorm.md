@@ -128,7 +128,7 @@ Tools, then Restart Warrant Language Server, restarts it.
 With the language server running, a condition or template renames together
 with every place rule text uses it: `.warrant` files, `WARRANT` heredocs, and
 the rule text in PHP strings. Find Usages finds those places, for abilities
-too. An ability is not renamed with its uses.
+and constants too. An ability or a constant is not renamed with its uses.
 The server looks each name up as validation does, so an `is_owner` that belongs
 to another schema is left alone.
 
@@ -139,6 +139,7 @@ Start from whichever end is to hand:
 | A condition or template method, `isOwner` | Renames the method, and each use to the new name in snake case, `is_author` | Lists the uses in rule text with the PHP ones |
 | A key given to the attribute, `#[RowCondition(key: 'in_folder')]` | Renames the key and each use; the method keeps its name | Lists the uses |
 | An ability constant's value, `public const EDIT = 'edit'` | Not renamed with its uses | Lists the uses |
+| A `#[Constant]`, `public const PAYROLL_MODULE` | Not renamed with its uses | Lists the uses |
 | A name in rule text | Renames the condition or template the name comes from, by the name rule text writes, `is_author`; its method takes it in camel case. An ability's name is not renamed | Goes to it |
 
 **Schemas.** Find Usages on a schema class lists every place rule text names it

@@ -4,7 +4,7 @@ banner:
 title: Conditions
 description: Row and global conditions, the contract they honour, and the context object.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 A condition is a public method marked `#[RowCondition]` or `#[GlobalCondition]`.

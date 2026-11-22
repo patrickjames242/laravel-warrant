@@ -38,9 +38,10 @@ use Warrant\DSL\Parsing\BoundSyntax;
  *    position information (line:col / offset) and a snippet.
  *
  * Lexical rules:
- *  - Identifiers (condition names, ability names, :binding names): must start with
- *    a letter or underscore, then letters / digits / underscores / dashes —
- *    `[A-Za-z_][A-Za-z0-9_-]*`. No dots.
+ *  - Identifiers (condition names, ability names, constant names, :binding
+ *    names): must start with a letter or underscore, then letters / digits /
+ *    underscores / dashes — `[A-Za-z_][A-Za-z0-9_-]*`. No dots: a dot stands only
+ *    between a schema key and one of its constants, or in `@column <name>.<column>`.
  *  - Reserved words (cannot be used as an EXACT condition or ability name, though a
  *    name may start with or contain them): if, they, can, cannot, because, and, or,
  *    not.
@@ -186,7 +187,8 @@ class RuleSyntaxExamples
 
     /**
      * Inline literals may be: string, int, float, bool, null.
-     * (Lists / arbitrary values are only available via bindings — see section 5.)
+     * (Lists / arbitrary values are only available via bindings and schema
+     *  constants — see sections 5 and 6.)
      */
     public function inlineLiterals(): void
     {
@@ -265,7 +267,33 @@ class RuleSyntaxExamples
     }
 
     // -------------------------------------------------------------------------
-    // 6. Wildcard abilities
+    // 6. Schema constants
+    // -------------------------------------------------------------------------
+
+    /**
+     * A schema names a fixed value once with #[Constant], and rule text writes
+     * the name: bare, looked up as a condition is (the schema, then the global
+     * schemas), or after a schema key and a dot, looked up in that schema alone.
+     * A constant stands wherever an argument does, as an @sql body, as a denial
+     * message, and wherever an ability does. Where abilities go, a constant
+     * holding a list of them is spliced in, as a binding's list is, so it names a
+     * group of abilities. Every ability is a constant too, named by its value.
+     *
+     *   #[Constant] public const PAYROLL_MODULE = 'payroll';      // payroll_module
+     *   #[Constant] public const EDITORS = [self::VIEW, self::EDIT];
+     *   #[Constant] public const LOCKED_MESSAGE = 'Payroll is locked.';
+     */
+    public function schemaConstants(): void
+    {
+        $ruleSet = WarrantSyntax::parse(<<<'WARRANT'
+            if module_enabled(payroll_module) and in_region(billing.home_region)
+            they can editors
+            they cannot approve because locked_message
+            WARRANT)->validate()->scopedTo('timesheets');
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. Wildcard abilities
     // -------------------------------------------------------------------------
 
     /**
@@ -288,7 +316,7 @@ class RuleSyntaxExamples
     }
 
     // -------------------------------------------------------------------------
-    // 7. Composing rules built one at a time
+    // 8. Composing rules built one at a time
     // -------------------------------------------------------------------------
 
     /**
@@ -309,7 +337,7 @@ class RuleSyntaxExamples
     }
 
     // -------------------------------------------------------------------------
-    // 8. Invalid input — each throws WarrantSyntaxException at build time
+    // 9. Invalid input — each throws WarrantSyntaxException at build time
     // -------------------------------------------------------------------------
 
     /**

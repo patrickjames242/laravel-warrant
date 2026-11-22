@@ -4,7 +4,7 @@ banner:
 title: Conditions that are not query constraints
 description: Derived conditions built from other conditions, and Eloquent scopes used as conditions.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 A row or global condition constrains the builder it was handed. Two other shapes

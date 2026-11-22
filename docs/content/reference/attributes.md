@@ -56,6 +56,23 @@ your implementation carries its own `#[Attribute(...)]`.
 
 A constant carries at most one ability attribute.
 
+## `#[Constant]`
+
+Marks a class constant as a [constant](/schemas/constants/) rule text may name.
+Its name in rule text is the constant's PHP name in lowercase snake_case, unless
+the attribute gives one. Its value may be anything a class constant holds.
+
+```php
+use Warrant\Schema\Constants\Constant;
+
+#[Constant]           public const PAYROLL_MODULE = 'payroll';            // payroll_module
+#[Constant('module')] public const REPORTS_MODULE = 'reports';            // module
+#[Constant]           public const EDITORS        = [self::VIEW, self::EDIT];
+```
+
+A constant may not also carry an ability attribute, and no two constants of a
+schema, nor a constant and an ability, may share a name.
+
 ## `#[RowCondition]` and `#[GlobalCondition]`
 
 Mark a public method as a condition. An optional key overrides the snake-cased

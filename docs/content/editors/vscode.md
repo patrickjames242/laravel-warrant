@@ -140,13 +140,14 @@ output is under **Warrant Language Server** in the Output panel.
 ## Renaming and finding usages
 
 With the language server running, Find All References and Peek References find
-where rule text uses a condition, template, ability or schema: `.warrant`
-files, `WARRANT` heredocs, and the rule text in PHP strings. They start from any
-of the places that name it:
+where rule text uses a condition, template, ability, constant or schema:
+`.warrant` files, `WARRANT` heredocs, and the rule text in PHP strings. They
+start from any of the places that name it:
 
 - a condition or template method, `isOwner`, or a key given to its attribute,
   `#[RowCondition(key: 'in_folder')]`
 - an ability constant, `EDIT`, or its value, `'edit'`
+- a `#[Constant]`, `PAYROLL_MODULE`
 - a schema class, whose uses are every place rule text names it by its key:
   `for documents`, `check(... for documents(...))`, and `@column documents.id`
   where the frame is the schema's own rows
@@ -179,8 +180,8 @@ name the old name but that nothing ties to a schema: the names given to
 Warrant's builders, as in `->if('is_owner')` and `Build::check('is_owner')`.
 Each is unticked; the ones you tick change with the rename.
 
-An ability and a schema are not renamed with their uses, and nor is a context
-key, which the PHP that gives a check its context names too.
+An ability, a constant and a schema are not renamed with their uses, and nor is
+a context key, which the PHP that gives a check its context names too.
 
 **Frame names.** Rename and Find All References on a frame name, the `d` of
 `check(... as d)` or of `@column d.id`, reach the `as` that gives it and each

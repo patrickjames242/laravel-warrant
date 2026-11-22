@@ -4,7 +4,7 @@ banner:
 title: Registering schemas
 description: The config index, what it costs, and how to inspect it.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 Every schema is listed in `config/warrant.php`. A schema checks are made against

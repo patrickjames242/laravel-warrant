@@ -4,7 +4,7 @@ banner:
 title: Where rows come from
 description: Model schemas, query schemas, and schemas with no rows at all.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 Which class a schema extends says where its rows come from: a model's table, a

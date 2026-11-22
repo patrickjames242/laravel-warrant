@@ -42,6 +42,17 @@ they cannot update because 'This document is locked and can no longer be edited.
 they cannot delete because 'Locked documents cannot be deleted.'
 ```
 
+A message used in many rules can be named once as a string
+[constant](/schemas/constants/) and written by its name:
+
+```php
+#[Constant] public const LOCKED_MESSAGE = 'This document is locked and can no longer be edited.';
+```
+
+```warrant
+if is_locked they cannot update because locked_message
+```
+
 ## With the builder
 
 ```php

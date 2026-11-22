@@ -4,7 +4,7 @@ banner:
 title: Global schemas
 description: Conditions and rule templates every schema's rules may use, and how a name finds them.
 sidebar:
-  order: 8
+  order: 9
 ---
 
 Some conditions belong to no one schema. Whether the user is staff, whether the
@@ -131,13 +131,14 @@ its own.
 
 Names are shared across kinds within a schema, as they are for any schema: a
 schema's `is_staff` row condition hides a global `is_staff` global condition.
-Conditions and templates are separate names.
+Conditions, templates and [constants](/schemas/constants/) are separate names.
 
 ### No two globals share a name
 
-Two global schemas may not declare the same condition, or the same template.
-The one listed later could never be found, so it is a mistake rather than an
-override, and every lookup that reaches the globals throws until one is renamed:
+Two global schemas may not declare the same condition, the same template, or the
+same constant. The one listed later could never be found, so it is a mistake
+rather than an override, and every lookup that reaches the globals throws until
+one is renamed:
 
 ```text
 Global schemas [App\Warrant\TenancySchema] and [App\Warrant\AuditSchema] both declare condition [is_staff]; a name may be declared by only one global schema, since the one listed first would always be found. Rename one of them.

@@ -42,10 +42,11 @@ can_or_cannot_clause = "they" ( "can" ability ( "," ability )*
                               | "cannot" ability ( "," ability )* ( "because" message )? ) ;
                 (* inside an ability block the ability list is omitted *)
 
-ability       = IDENTIFIER | "*" | NAMED_BINDING ;
-                (* a binding's value is an ability name, "*", or a list of
-                   them, spliced in where the binding stands *)
-message       = STRING | NAMED_BINDING ;
+ability       = IDENTIFIER | "*" | NAMED_BINDING | PREFIXED_CONSTANT ;
+                (* a binding's or constant's value is an ability name, "*",
+                   or a list of them, spliced in where it stands. A bare
+                   IDENTIFIER the schema declares no ability by is a constant *)
+message       = STRING | NAMED_BINDING | CONSTANT ;
 
 expr          = or ;
 or            = and ( "or" and )* ;
@@ -56,8 +57,9 @@ primary       = "(" expr ")" | can_ref | check_ref | condition ;
 condition     = IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? ;
 can_ref       = "can" "(" can_ability ( "for" handle ( "with" with_map )? )? ")"
               | "can" can_ability ;
-can_ability   = IDENTIFIER | NAMED_BINDING ;
-                (* one ability: a binding's value is one ability name *)
+can_ability   = IDENTIFIER | NAMED_BINDING | PREFIXED_CONSTANT ;
+                (* one ability: a binding's or constant's value is one
+                   ability name *)
 check_ref     = "check" "(" expr "for" handle ( "with" with_map )? ")" ;
 handle        = ( ( "any" | "all" ) "of" )?
                 ( "its" IDENTIFIER | IDENTIFIER ( "(" ( arg ( "," arg )* )? ")" )? )
@@ -70,12 +72,15 @@ handle        = ( ( "any" | "all" ) "of" )?
 with_map      = IDENTIFIER "=" arg ( "," IDENTIFIER "=" arg )* ;
 
 arg           = STRING | INT | FLOAT | BOOL | NULL
-              | NAMED_BINDING
+              | NAMED_BINDING | CONSTANT
               | CONTEXT_REF | COLUMN_REF | SQL_REF ;
 
-CONTEXT_REF   = "@context" IDENTIFIER ;
-COLUMN_REF    = "@column" IDENTIFIER [ "." IDENTIFIER ] ;
-SQL_REF       = "@sql" ( STRING | NAMED_BINDING ) ;
+CONSTANT          = [ IDENTIFIER "." ] IDENTIFIER ;
+                    (* a schema constant; the prefix is a schema key *)
+PREFIXED_CONSTANT = IDENTIFIER "." IDENTIFIER ;
+CONTEXT_REF       = "@context" IDENTIFIER ;
+COLUMN_REF        = "@column" IDENTIFIER [ "." IDENTIFIER ] ;
+SQL_REF           = "@sql" ( STRING | NAMED_BINDING | CONSTANT ) ;
 ```
 
 Rule text may open with a `for <schema>` header naming the schema its conditions

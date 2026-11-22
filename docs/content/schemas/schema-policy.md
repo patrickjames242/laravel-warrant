@@ -4,7 +4,7 @@ banner:
 title: Schema-level policy
 description: Schema rules and default context, the two places a schema is allowed to decide something.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 A schema is vocabulary. Two hooks are the deliberate exceptions: rules the schema

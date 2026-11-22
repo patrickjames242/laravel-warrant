@@ -8,6 +8,24 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
 
 ### Added
 
+- Schema constants. A class constant marked `#[Constant]` is a value rule text
+  names by the constant's name in snake_case, or by a name the attribute gives:
+  `if module_enabled(payroll_module) they can view`. A bare name is looked up as
+  a condition is, in the schema and then the global schemas; `billing.region`
+  names a constant of the `billing` schema alone. A constant stands wherever an
+  argument does, as an `@sql` body and as a denial message, and holds any value
+  PHP allows, which a condition receives as it is, an enum case included.
+- A constant holding abilities stands wherever an ability does, as a binding
+  can, so `#[Constant] public const EDITORS = [self::VIEW, self::EDIT]` makes
+  `they can editors` grant both. Every ability is a constant too, named by its
+  value, so `users.view_payroll` passes the string `'view_payroll'`.
+- A schema is refused when two of its constants share a name, a constant shares
+  an ability's name, or a constant or ability is named as a keyword or literal.
+- The language server completes, describes, finds and fixes constants, and
+  colours them with semantic tokens. The VS Code and PhpStorm clients find a
+  constant's uses from its PHP declaration, and the TextMate and tree-sitter
+  grammars read `<schema>.<name>`.
+
 - `filterQuery()`, `selectAbilitiesInQuery()`, `compileGate()` and the
   `userHasAbility` and `selectUserAbilities` scopes take `rowsAs`, the name the
   schema's rows go by in the query. It covers a query whose `from` does not name

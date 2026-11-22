@@ -17,6 +17,8 @@ class DocumentSchema extends ModelSchema
     #[Ability] public const VIEW = 'view';
     #[Ability(requiredContext: ['workspace_id'])] public const PUBLISH = 'publish';
     #[RequiredContext] public const TENANT = 'tenant_id';
+    #[Constant] public const EDITORS = [self::VIEW, self::PUBLISH];
+    #[Constant] public const SALES_TEAM = 'sales';
 
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
@@ -109,6 +111,8 @@ if in_workspace(@context workspace_id) they can view
 if matches(@column pay_period_id) they can view
 if matches(@sql "select id from settings limit 1") they can view
 if is_editor they can view, :editing
+if in_team(sales_team) they can editors
+if in_team(billing.finance_team) they can view
 
 if can(view for folders(@column folder_id)) they can view
 if check(is_open for pay_periods(@context period_id)) they can submit

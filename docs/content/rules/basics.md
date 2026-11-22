@@ -77,13 +77,16 @@ Each cannot clause carries its own, so one rule can deny two things for two reas
 ## Names and reserved words
 
 Identifiers match `[A-Za-z_][A-Za-z0-9_-]*`. They start with a letter or
-underscore and may contain letters, digits, underscores, and dashes. No dots.
+underscore and may contain letters, digits, underscores, and dashes. No dots: a
+dot only ever stands between a schema's key and one of its
+[constants](/schemas/constants/), or in a `@column` reference.
 
 These cannot be used as an exact ability or condition name: `if`, `they`, `can`,
 `cannot`, `because`, `check`, `and`, `or`, `not`, `for`, `with`, `as`, `its`,
 `any`, `all`, `of`, `true`, `false`, `null`. A name may still contain or start with
 one, so `canonical`, `cannot_publish`, `anyone` and `is_and_something` are all
-fine.
+fine. A schema declaring an ability or a constant by one of these names is
+refused when the schema is read.
 
 ## Wildcards
 
@@ -115,8 +118,9 @@ Granting and denying one ability in the same rule is fine, as is naming it again
 in another rule.
 
 The list is judged as it is written. A [binding](/rules/values/#abilities-from-a-binding)
-written twice is a mistake, as is one written beside `*`. A binding whose value
-repeats a name written beside it is not.
+or a [constant](/schemas/constants/#groups-of-abilities) written twice is a
+mistake, as is one written beside `*`. One whose value repeats a name written
+beside it is not.
 
 ```text
 Ability [view] is written more than once among the abilities this rule grants; write it once.

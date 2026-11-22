@@ -2,14 +2,15 @@
 banner:
   content: 'Laravel Warrant is in <strong>beta</strong> and still being tested — expect API changes between releases. <a href="https://github.com/patrickjames242/laravel-warrant/issues">Report an issue</a>.'
 title: Passing values to conditions
-description: Inline literals, named bindings, abilities from a binding, and the rules each obeys.
+description: Inline literals, named bindings, schema constants, abilities from a binding, and the rules each obeys.
 sidebar:
   order: 5
 ---
 
-A condition may take arguments. There are two ways to supply them before
+A condition may take arguments. There are three ways to supply them before
 compilation, plus [`@context`](/concepts/context/in-rules/), which is resolved
-later when the check runs.
+later when the check runs: an inline literal, a named binding, and a
+[schema constant](#schema-constants).
 
 ## Inline literals
 
@@ -78,6 +79,25 @@ No binding provided for ":uid".
 Binding(s) provided but never used: region.
 ```
 
+## Schema constants
+
+A value a schema names once, with `#[Constant]`, is written by its name:
+
+```php
+#[Constant] public const PAYROLL_MODULE = 'payroll';
+```
+
+```warrant
+if module_enabled(payroll_module) they can view
+if module_enabled(billing.payroll_module) they can view
+```
+
+A bare name is looked up as a condition is, in the schema first and then the
+global schemas; a name after a schema's key and a dot is that schema's own.
+Like a binding's, a constant's value may be any PHP value, and the condition
+receives it verbatim. [Constants](/schemas/constants/) covers declaring them,
+how a name is found, and the mistakes reported.
+
 ## Abilities from a binding
 
 A binding may also stand wherever an ability is written: in a `they can` or
@@ -118,6 +138,10 @@ the same error as a written one: `Ability [%s] is not declared by the schema.`
 
 Each of these needs the values, so an editor, which has none, reports none of
 them. It still reads a binding as an ability wherever one may stand.
+
+A [constant holding abilities](/schemas/constants/#groups-of-abilities) stands
+wherever a binding may, with the same rules, and an editor checks it, since the
+schema gives its value.
 
 [Each ability once](/rules/basics/#each-ability-once) is judged on the list as
 written, never on what its bindings hold: `they can :editing, view` is fine even
@@ -173,8 +197,9 @@ The body is wrapped in one pair of parentheses and handed to the condition as an
 ')')` produces. The parentheses are always added, so a bare `select ...` is valid
 as a scalar subquery in a comparison.
 
-The body may also come from a binding, which is how you keep long SQL out of the
-rule text:
+The body may also come from a binding or a string
+[constant](/schemas/constants/), which is how you keep long SQL out of the rule
+text:
 
 ```php
 WarrantSyntax::parse(warrant('if matches(@sql :q) they can view', [

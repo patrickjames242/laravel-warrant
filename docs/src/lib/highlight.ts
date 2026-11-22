@@ -125,7 +125,9 @@ const IDENTIFIER = /^[A-Za-z_][\w-]*$/
  *   `can they <abilities> {` header as names of a type;
  * - `@context`, `@column`, `@sql`, `:name` and `?` as variables, and the column
  *   a `@column` names as a property;
- * - `true`, `false`, `null`, numbers and string escapes as constants;
+ * - the schema in a `<schema>.<name>` constant as the name of a type, and the
+ *   name after its dot, like `true`, `false`, `null`, numbers and string
+ *   escapes, as a constant;
  * - every other name, condition and ability alike, as a function.
  *
  * Like the VS Code grammar, the patterns that read more than one token match
@@ -162,6 +164,12 @@ function highlightRule(line: string): Token[] {
     }
 
     if (token.text === '@context' && isName(next)) retag(next, 'property')
+
+    /* `<schema>.<name>` is a constant of that schema, unless a `@column` claims the dot. */
+    if (isName(token) && next?.text === '.' && isName(second) && significant[n - 1]?.text !== '@column') {
+      retag(token, 'class', 500)
+      retag(second, 'number')
+    }
 
     if (token.text === 'can' && next?.text === 'they') abilityBlockHeader(significant.slice(n + 2))
   })
