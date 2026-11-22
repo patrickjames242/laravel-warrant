@@ -11,6 +11,7 @@ use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Vocabulary\Declaration;
 use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
+use Warrant\Schema\Constants\ConstantDefinition;
 use Warrant\Schema\Relations\RowRelationDefinition;
 
 /**
@@ -163,6 +164,8 @@ final class Completion
             $p1 === TokenType::CONTEXT_REF => $this->contextKeys($this->scopeSchemaKey),
             $p1 === TokenType::INCLUDE_REF => $this->templates(),
             $p1 === TokenType::COLUMN_REF => $this->frames(),
+            $p1 === TokenType::DOT && $p2 === TokenType::IDENTIFIER && $this->back(3) !== TokenType::COLUMN_REF
+                => $this->constantsDeclaredBy($this->before[count($this->before) - 2]->lexeme),
             $p1 === TokenType::AS, $p1 === TokenType::DOT, $p1 === TokenType::BECAUSE, $p1 === TokenType::OTHERWISE => [],
             $p1 === TokenType::FOR => $this->afterFor(),
             $p1 === TokenType::ITS => $this->relations(),
@@ -503,17 +506,70 @@ final class Completion
     }
 
     /**
-     * What may start an argument, beyond a literal or a binding.
+     * What may start an argument, beyond a literal or a binding: a reference,
+     * or a constant a bare name written here may mean, abilities included.
      *
      * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
      */
     private function argumentStarts(): array
     {
+        $constants = [];
+
+        foreach ($this->searched($this->writtenIn) as $schema) {
+            foreach ($this->constantItems($schema, withAbilities: true) as $item) {
+                $constants[$item[0]] ??= $item;
+            }
+        }
+
         return [
             ['@context', self::KIND_KEYWORD, 'a value of the check-time context', '@context '],
             ['@column', self::KIND_KEYWORD, 'a column of a row in scope', '@column '],
             ['@sql', self::KIND_KEYWORD, 'raw SQL', '@sql '],
+            ...array_values($constants),
         ];
+    }
+
+    /**
+     * After `<schema>.`: the constants the schema keyed $schemaKey declares
+     * itself, its abilities among them, which a prefixed name alone reaches.
+     *
+     * @return list<array{0: string, 1: int, 2: string, 3?: string, 4?: bool}>
+     */
+    private function constantsDeclaredBy(string $schemaKey): array
+    {
+        $schema = $this->schema($schemaKey);
+
+        return $schema === null ? [] : $this->constantItems($schema, withAbilities: true);
+    }
+
+    /**
+     * $schema's `#[Constant]`s as completion items, and its abilities after them
+     * when $withAbilities. Given $abilitiesOf, only the constants that may name
+     * its abilities: a list, one of its abilities' names, or one whose value is
+     * not known.
+     *
+     * @return list<array{0: string, 1: int, 2: string}>
+     */
+    private function constantItems(IndexedSchema $schema, bool $withAbilities = false, ?IndexedSchema $abilitiesOf = null): array
+    {
+        $items = [];
+
+        foreach ($schema->constants as $name => $declaration) {
+            $definition = $declaration->definition;
+            $namesAbilities = ! $definition instanceof ConstantDefinition || ! $definition->valueIsKnown
+                || is_array($definition->value)
+                || (is_string($definition->value) && isset($abilitiesOf?->abilities[$definition->value]));
+
+            if ($abilitiesOf === null || $namesAbilities) {
+                $items[] = [(string) $name, self::KIND_CONSTANT, self::detail('constant', $schema)];
+            }
+        }
+
+        foreach ($withAbilities ? $schema->abilities : [] as $name => $declaration) {
+            $items[] = [(string) $name, self::KIND_CONSTANT, "ability of {$schema->key}"];
+        }
+
+        return $items;
     }
 
     /**
@@ -635,8 +691,20 @@ final class Completion
         $items = [];
 
         foreach ($schema?->abilities ?? [] as $name => $declaration) {
-            $items[] = [(string) $name, self::KIND_CONSTANT, "ability of {$schemaKey}"];
+            $items[(string) $name] = [(string) $name, self::KIND_CONSTANT, "ability of {$schemaKey}"];
         }
+
+        /* A constant naming abilities is looked up as one written here would
+           be, from the schema they belong to when that is another's. */
+        $writtenIn = $schemaKey === $this->scopeSchemaKey || $schemaKey === null ? $this->writtenIn : new KeyedSchemaId($schemaKey);
+
+        foreach ($this->searched($writtenIn) as $searched) {
+            foreach ($schema === null ? [] : $this->constantItems($searched, abilitiesOf: $schema) as $item) {
+                $items[$item[0]] ??= $item;
+            }
+        }
+
+        $items = array_values($items);
 
         return $withWildcard ? [...$items, ['*', self::KIND_CONSTANT, 'every ability']] : $items;
     }

@@ -10,14 +10,18 @@ use Warrant\LanguageServer\Positions\SlotKind;
 use Warrant\LanguageServer\Vocabulary\Declaration;
 use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
+use Warrant\Schema\Abilities\AbilityDefinition;
+use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Constants\ConstantDefinition;
+use Warrant\Schema\Relations\RowRelationDefinition;
 
 /**
- * Where a condition, template, ability or schema is used in the project's rule
- * text, for an editor finding its usages or renaming it.
+ * Where a condition, template, ability, constant or schema is used in the
+ * project's rule text, for an editor finding its usages or renaming it.
  *
  * A declaration is named by its file and the member in it that declares it,
  * which is how the editor knows it from the PHP: the method or constant of a
- * condition, template or ability, and a schema's class. A name in rule text is a
+ * condition, template, ability or constant, and a schema's class. A name in rule text is a
  * use of it when it is looked up to that declaration as validation looks it up,
  * so the same name meaning another schema's declaration is not. A schema is
  * named in rule text by the key `config/warrant.php` registers it under.
@@ -25,8 +29,10 @@ use Warrant\LanguageServer\Workspace;
 final class Usages
 {
     /**
-     * The condition, template or ability named at $position, and what declares
-     * it: null when the position is on none, or its declaration is not known.
+     * The condition, template, ability or constant named at $position, and what
+     * declares it: null when the position is on none, or its declaration is not
+     * known. A name standing for a constant is that constant wherever it is
+     * written, an ability list included.
      *
      * @param Workspace $workspace What the server knows.
      * @param Document $document An open document.
@@ -35,24 +41,22 @@ final class Usages
      */
     public static function declarationAt(Workspace $workspace, Document $document, array $position): ?array
     {
-        $located = Located::at($workspace, $document, $position);
-        $kind = $located === null ? null : self::kindOf($located->context->slot);
-        $declaration = $kind === null ? null : $located?->declaration($workspace->vocabulary());
-
-        if ($kind === null || $declaration === null || $declaration->file === null || $declaration->member === null) {
+        $declaration = Located::at($workspace, $document, $position)?->declaration($workspace->vocabulary());
+        if ($declaration === null || $declaration->file === null || $declaration->member === null) {
             return null;
         }
 
-        return ['kind' => $kind, 'name' => $declaration->name, 'uri' => Uri::fromPath($declaration->file), 'member' => $declaration->member];
+        return ['kind' => self::kindOf($declaration), 'name' => $declaration->name, 'uri' => Uri::fromPath($declaration->file), 'member' => $declaration->member];
     }
 
     /**
      * The uses in the project's rule text of what $member of $path declares, and
      * for a condition, template or row relation the names a rename of it must not
      * take: those its kind already has in each schema that has it, with conditions
-     * and row relations counted together. An ability is not renamed, so it has
-     * none, and neither has a schema. Null when $member of $path declares no
-     * condition, template, row relation, ability or schema the server knows.
+     * and row relations counted together. An ability or a constant is not
+     * renamed, so it has none, and neither has a schema. Null when $member of
+     * $path declares no condition, template, row relation, ability, constant or
+     * schema the server knows.
      *
      * @param Workspace $workspace What the server knows.
      * @param string $path Absolute path of the file the declaration is in.
@@ -77,7 +81,7 @@ final class Usages
         $taken = [];
 
         foreach ([...array_values($vocabulary->schemas), ...$vocabulary->globals] as $schema) {
-            foreach (['ability', 'condition', 'template', 'relation'] as $kind) {
+            foreach (['ability', 'constant', 'condition', 'template', 'relation'] as $kind) {
                 foreach (self::ofKind($schema, $kind) as $declaration) {
                     if (! self::declares($declaration, $kind, $path, $member)) {
                         continue;
@@ -88,7 +92,7 @@ final class Usages
                     /* Conditions and row relations share one set of names on a
                        schema, so either one's rename must avoid both. */
                     foreach (match ($kind) {
-                        'ability' => [],
+                        'ability', 'constant' => [],
                         'condition', 'relation' => ['condition', 'relation'],
                         default => [$kind],
                     } as $sharing) {
@@ -120,9 +124,9 @@ final class Usages
                         $workspace->catalog(),
                         $fragment->fragment->schemaKey,
                     ));
-                    $declaration = self::kindOf($located->context->slot) === $kind ? $located->declaration($vocabulary) : null;
+                    $declaration = $located->declaration($vocabulary);
 
-                    if ($declaration !== null && self::declares($declaration, $kind, $path, $member)) {
+                    if ($declaration !== null && self::kindOf($declaration) === $kind && self::declares($declaration, $kind, $path, $member)) {
                         $usages[] = ['uri' => $document->uri, 'range' => $located->rangeOf($document, $span)];
                     }
                 }
@@ -201,17 +205,16 @@ final class Usages
     }
 
     /**
-     * What a name in a slot of this kind names, as the editor calls it, or null
-     * for a slot that names none of a condition, template or ability.
+     * What $declaration declares, as the editor calls it.
      */
-    private static function kindOf(?SlotKind $slot): ?string
+    private static function kindOf(Declaration $declaration): string
     {
-        return match ($slot) {
-            SlotKind::Condition => 'condition',
-            SlotKind::Template => 'template',
-            SlotKind::Ability => 'ability',
-            SlotKind::Relation => 'relation',
-            default => null,
+        return match (true) {
+            $declaration->definition instanceof ConditionDefinition => 'condition',
+            $declaration->definition instanceof AbilityDefinition => 'ability',
+            $declaration->definition instanceof ConstantDefinition => 'constant',
+            $declaration->definition instanceof RowRelationDefinition => 'relation',
+            default => 'template',
         };
     }
 
@@ -225,7 +228,9 @@ final class Usages
             return false;
         }
 
-        $sameMember = $kind === 'ability' ? $declaration->member === $member : strcasecmp($declaration->member, $member) === 0;
+        $sameMember = in_array($kind, ['ability', 'constant'], true)
+            ? $declaration->member === $member
+            : strcasecmp($declaration->member, $member) === 0;
 
         return $sameMember && self::samePath($declaration->file, $path);
     }
@@ -244,6 +249,7 @@ final class Usages
     {
         return match ($kind) {
             'ability' => $schema->abilities,
+            'constant' => $schema->constants,
             'condition' => $schema->conditions,
             'relation' => $schema->relations,
             default => $schema->templates,

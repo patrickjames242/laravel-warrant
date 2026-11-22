@@ -10,8 +10,8 @@ use Warrant\LanguageServer\Workspace;
 
 /**
  * Quick fixes for the diagnostics the editor shows: for a schema, ability,
- * condition or template name that is not declared, the declared names closest
- * to it.
+ * condition, template or constant name that is not declared, the declared
+ * names closest to it.
  */
 final class CodeActions
 {
@@ -31,7 +31,7 @@ final class CodeActions
         foreach ($context['diagnostics'] ?? [] as $diagnostic) {
             $code = DiagnosticCode::tryFrom((string) ($diagnostic['code'] ?? ''));
 
-            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition, DiagnosticCode::UnknownTemplate, DiagnosticCode::UnknownRelation], true)) {
+            if (! in_array($code, [DiagnosticCode::UnknownSchema, DiagnosticCode::UnknownAbility, DiagnosticCode::UnknownCondition, DiagnosticCode::UnknownTemplate, DiagnosticCode::UnknownRelation, DiagnosticCode::UnknownConstant], true)) {
                 continue;
             }
 
@@ -95,6 +95,23 @@ final class CodeActions
             }
 
             return array_values(array_unique(array_map('strval', $names)));
+        }
+
+        /* A bare constant may be any the text's names are looked up in; a
+           prefixed one only the named schema's own. */
+        if ($context->slot === SlotKind::Constant) {
+            $prefix = $located->constantRef()?->schema?->name;
+            $writtenIn = $located->writtenIn($vocabulary, $context->nameSchemaKey);
+            $searched = match (true) {
+                $prefix !== null => array_filter([$vocabulary->schema($prefix)]),
+                $writtenIn !== null => $vocabulary->searchedFrom($writtenIn),
+                default => [],
+            };
+
+            return array_values(array_unique(array_merge([], ...array_map(
+                static fn ($schema): array => $schema->vocabulary->constantNames(),
+                array_values($searched),
+            ))));
         }
 
         $schema = $context->nameSchemaKey === null ? null : $vocabulary->schema($context->nameSchemaKey);

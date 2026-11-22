@@ -2,6 +2,7 @@
 
 namespace Warrant\LanguageServer\Features;
 
+use UnitEnum;
 use Warrant\LanguageServer\Documents\Document;
 use Warrant\LanguageServer\Positions\SlotKind;
 use Warrant\LanguageServer\Vocabulary\Declaration;
@@ -9,6 +10,7 @@ use Warrant\LanguageServer\Vocabulary\IndexedSchema;
 use Warrant\LanguageServer\Workspace;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Constants\ConstantDefinition;
 use Warrant\Schema\Relations\RowRelationDefinition;
 
 /**
@@ -36,11 +38,18 @@ final class Hover
 
         $context = $located->context;
 
-        /* A condition or template is described where it is declared, which may
-           be a global schema rather than the schema the text is about. */
+        /* A condition, template or constant is described where it is declared,
+           which may be a global schema rather than the schema the text is
+           about. A name naming a constant is described as one wherever it is
+           written, and a constant naming an ability as that ability. */
         $declared = $located->declared($workspace->vocabulary());
         $schema = $declared[0] ?? ($context->nameSchemaKey === null ? null : $workspace->vocabulary()->schema($context->nameSchemaKey));
-        $markdown = self::describe($context->slot, $context->name, $context->nameSchemaKey, $schema, $workspace);
+        $slot = match (true) {
+            ($declared[1] ?? null)?->definition instanceof ConstantDefinition => SlotKind::Constant,
+            ($declared[1] ?? null)?->definition instanceof AbilityDefinition => SlotKind::Ability,
+            default => $context->slot,
+        };
+        $markdown = self::describe($slot, $context->name, $context->nameSchemaKey, $schema, $workspace);
 
         return [
             'contents' => ['kind' => 'markdown', 'value' => $markdown],
@@ -94,6 +103,11 @@ final class Hover
                 $schema?->relations[$name] ?? null,
                 "row relation `{$name}`{$on}",
                 fn (Declaration $declaration): string => self::relationDetail($declaration, $workspace),
+            ),
+            SlotKind::Constant => self::declared(
+                $schema?->constants[$name] ?? null,
+                "constant `{$name}`{$on}",
+                fn (Declaration $declaration): string => self::constantDetail($declaration),
             ),
         };
     }
@@ -159,6 +173,41 @@ final class Hover
         return $context === []
             ? ''
             : 'Requires context: '.implode(', ', array_map(static fn (string $key): string => "`{$key}`", $context));
+    }
+
+    /**
+     * @param Declaration $declaration A constant.
+     */
+    private static function constantDetail(Declaration $declaration): string
+    {
+        $definition = $declaration->definition;
+
+        return $definition instanceof ConstantDefinition && $definition->valueIsKnown
+            ? '`'.self::valueText($definition->value).'`'
+            : '';
+    }
+
+    /**
+     * $value written as PHP writes a constant's value.
+     */
+    private static function valueText(mixed $value): string
+    {
+        if (is_array($value)) {
+            $items = array_map(
+                static fn (mixed $key, mixed $item): string => (array_is_list($value) ? '' : self::valueText($key).' => ').self::valueText($item),
+                array_keys($value),
+                $value,
+            );
+
+            return '['.implode(', ', $items).']';
+        }
+
+        return match (true) {
+            is_string($value) => "'".addcslashes($value, "'\\")."'",
+            $value instanceof UnitEnum => $value::class.'::'.$value->name,
+            $value === null => 'null',
+            default => var_export($value, true),
+        };
     }
 
     /**

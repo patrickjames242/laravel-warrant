@@ -36,4 +36,11 @@ enum SlotKind
 
     /** A row relation's name, after `its` in a handle. */
     case Relation;
+
+    /**
+     * A constant's name: bare where an argument goes, or after the `.` of a
+     * schema prefix anywhere. A bare name where an ability goes is an
+     * {@see Ability}, even when it names a constant.
+     */
+    case Constant;
 }

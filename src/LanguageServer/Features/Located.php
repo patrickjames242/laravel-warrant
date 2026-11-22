@@ -2,10 +2,12 @@
 
 namespace Warrant\LanguageServer\Features;
 
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Positions\Span;
+use Warrant\DSL\Resolution\FoundConstant;
 use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 use Warrant\LanguageServer\Documents\AnalyzedFragment;
@@ -83,58 +85,82 @@ final readonly class Located
     }
 
     /**
-     * The condition, template or row relation named at the position, and the
-     * schema that declares it, looked up as validation looks it up: null when
-     * the position is on none of those, or no schema it is looked up in declares
-     * it. A row relation is declared by the schema the rules are about, never by
-     * a global schema.
+     * The condition, template, row relation, constant or ability named at the
+     * position, and the schema that declares it, looked up as validation looks
+     * it up: null when the position is on none of those, or no schema it is
+     * looked up in declares it. A row relation is declared by the schema the
+     * rules are about, never by a global schema. A bare name where an ability
+     * goes that the schema does not declare is the constant of that name, which
+     * may name abilities.
      *
      * @param VocabularyIndex $vocabulary The schemas known.
      * @return array{0: IndexedSchema, 1: Declaration}|null
      */
     public function declared(VocabularyIndex $vocabulary): ?array
     {
-        if ($this->context->slot === SlotKind::Relation) {
-            $schema = $this->context->nameSchemaKey === null ? null : $vocabulary->schema($this->context->nameSchemaKey);
-            $declaration = $schema?->relations[(string) $this->context->name] ?? null;
+        $name = (string) $this->context->name;
+        $ownSchema = $this->context->nameSchemaKey === null ? null : $vocabulary->schema($this->context->nameSchemaKey);
 
-            return $schema === null || $declaration === null ? null : [$schema, $declaration];
+        if ($this->context->slot === SlotKind::Relation) {
+            $declaration = $ownSchema?->relations[$name] ?? null;
+
+            return $ownSchema === null || $declaration === null ? null : [$ownSchema, $declaration];
         }
 
-        $name = $this->context->name;
-        $writtenIn = $this->writtenIn($vocabulary, $this->context->nameSchemaKey);
+        if ($this->context->slot === SlotKind::Ability && isset($ownSchema?->abilities[$name])) {
+            return [$ownSchema, $ownSchema->abilities[$name]];
+        }
 
-        if ($name === null || $writtenIn === null) {
+        $writtenIn = $this->writtenIn($vocabulary, $this->context->nameSchemaKey);
+        $prefix = $this->constantRef()?->schema?->name;
+
+        if ($this->context->name === null || ($writtenIn === null && $prefix === null)) {
             return null;
         }
 
+        $lookup = $vocabulary->constructs();
         $found = match ($this->context->slot) {
-            SlotKind::Condition => $vocabulary->constructs()->condition($name, $writtenIn),
-            SlotKind::Template => $vocabulary->constructs()->ruleTemplate($name, $writtenIn),
+            SlotKind::Condition => $lookup->condition($name, $writtenIn),
+            SlotKind::Template => $lookup->ruleTemplate($name, $writtenIn),
+            SlotKind::Constant => $prefix !== null ? $lookup->constantDeclaredBy($prefix, $name) : $lookup->constant($name, $writtenIn),
+            SlotKind::Ability => $ownSchema === null || $name === '*' ? null : $lookup->constantNamingAbilities($name, $ownSchema->vocabulary, $writtenIn),
             default => null,
         };
         $schema = $found === null ? null : $vocabulary->declaring($found);
-        $declaration = $this->context->slot === SlotKind::Condition ? $schema?->conditions[$name] ?? null : $schema?->templates[$name] ?? null;
+        $declaration = match (true) {
+            $found instanceof FoundConstant => $schema?->constants[$name] ?? $schema?->abilities[$name] ?? null,
+            $this->context->slot === SlotKind::Condition => $schema?->conditions[$name] ?? null,
+            default => $schema?->templates[$name] ?? null,
+        };
 
         return $schema === null || $declaration === null ? null : [$schema, $declaration];
     }
 
     /**
-     * The declaration of the condition, template, row relation or ability named
-     * at the position, or null when it is on none of those, or the name is not
-     * declared where it is looked up.
+     * The declaration of the condition, template, row relation, constant or
+     * ability named at the position, or null when it is on none of those, or the
+     * name is not declared where it is looked up.
      *
      * @param VocabularyIndex $vocabulary The schemas known.
      */
     public function declaration(VocabularyIndex $vocabulary): ?Declaration
     {
-        if ($this->context->slot === SlotKind::Ability) {
-            $schema = $this->context->nameSchemaKey === null ? null : $vocabulary->schema($this->context->nameSchemaKey);
+        return $this->declared($vocabulary)[1] ?? null;
+    }
 
-            return $schema?->abilities[(string) $this->context->name] ?? null;
+    /**
+     * The constant reference whose name the position is on, or null when it is
+     * on none.
+     */
+    public function constantRef(): ?ConstantRef
+    {
+        foreach (array_reverse($this->context->nodes) as $node) {
+            if ($node instanceof ConstantRef) {
+                return $node;
+            }
         }
 
-        return $this->declared($vocabulary)[1] ?? null;
+        return null;
     }
 
     /**

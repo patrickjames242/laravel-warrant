@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
@@ -231,12 +232,33 @@ final readonly class CursorContext
                 => [SlotKind::Alias, $written, $targetOf($holder, $here)],
             $holder instanceof ContextRef
                 => [SlotKind::ContextKey, $written, $here],
+            $holder instanceof ConstantRef && $name === $holder->schema
+                => [SlotKind::Schema, $written, null],
+            $holder instanceof ConstantRef
+                => [SlotKind::Constant, $written, $holder->schema?->name ?? self::constantSchemaKey($holder, $parents, $here, $targetOf)],
             $holder instanceof ColumnRef && $name === $holder->alias
                 => [SlotKind::Alias, $written, $scope->frames[$written] ?? null],
             $holder instanceof ColumnRef && $name === $holder->column
                 => [SlotKind::Column, $written, $holder->alias === null ? $scope->rowSchemaKey : ($scope->frames[$holder->alias->name] ?? null)],
             default => [null, null, null],
         };
+    }
+
+    /**
+     * The schema a bare constant $ref is looked up from: the schema the ability
+     * of a `can(... for <schema>)` belongs to, when $ref names that ability,
+     * and otherwise $here, the schema the rules around it are about.
+     *
+     * @param array<int, INode> $parents Each node's parent, by object id.
+     * @param Closure(?INode, ?string): ?string $targetOf See {@see scopeOf()}.
+     */
+    private static function constantSchemaKey(ConstantRef $ref, array $parents, ?string $here, Closure $targetOf): ?string
+    {
+        $holder = $parents[spl_object_id($ref)] ?? null;
+
+        return $holder instanceof CrossSchemaCanNode && $ref === $holder->ability
+            ? $targetOf($holder, $here) ?? $here
+            : $here;
     }
 
     /**
