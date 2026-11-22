@@ -39,10 +39,7 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function isSelf(RowConditionContext $c): Builder
     {
-        return $c->query->whereRaw(
-            'documents.user_id = ?',
-            [$c->user->getAuthIdentifier()],
-        );
+        return $c->query->where('documents.user_id', $c->userColumn('id'));
     }
 }
 ```

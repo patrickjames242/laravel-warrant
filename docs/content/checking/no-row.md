@@ -4,7 +4,7 @@ banner:
 title: Checking without a row
 description: "Can they create? Can they reach settings? Questions that name no target."
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Not every check is about a row. "Can this user create documents?" has no document

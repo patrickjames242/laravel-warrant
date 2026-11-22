@@ -104,7 +104,7 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->userColumn('id'));
     }
 
     #[RowCondition]
@@ -113,7 +113,7 @@ class DocumentSchema extends ModelSchema
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
             ->whereColumn('team_members.team_id', $c->column('team_id'))
-            ->where('team_members.user_id', $c->user->getAuthIdentifier()));
+            ->where('team_members.user_id', $c->userColumn('id')));
     }
 
     #[RowCondition]
@@ -122,7 +122,7 @@ class DocumentSchema extends ModelSchema
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
             ->whereColumn('team_members.team_id', $c->column('team_id'))
-            ->where('team_members.user_id', $c->user->getAuthIdentifier())
+            ->where('team_members.user_id', $c->userColumn('id'))
             ->where('team_members.role', 'manager'));
     }
 

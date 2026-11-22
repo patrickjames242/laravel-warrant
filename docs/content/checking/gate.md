@@ -4,7 +4,7 @@ banner:
 title: The Gate bridge
 description: "Warrant behind $user->can(), @can, and can: routes, alongside your existing policies."
 sidebar:
-  order: 8
+  order: 9
 ---
 
 Warrant resolves through Laravel's Gate, so the authorization calls already in your

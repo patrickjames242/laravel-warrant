@@ -87,13 +87,13 @@ takes the column's name and gives that column of the row:
 #[RowCondition]
 public function isMine(RowConditionContext $c): Builder
 {
-    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('user_id'), $c->userColumn('id'));
 }
 ```
 
 ```php
 // Works, until someone aliases the query or reaches this schema through a hop:
-return $c->query->where('documents.user_id', $c->user->getAuthIdentifier());
+return $c->query->where('documents.user_id', $c->userColumn('id'));
 ```
 
 The second form is not wrong today and is silently wrong tomorrow, which is the

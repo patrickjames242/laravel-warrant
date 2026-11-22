@@ -49,7 +49,7 @@ public function inMyTeam(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
         ->whereColumn('team_members.team_id', $c->column('team_id'))
-        ->where('team_members.user_id', $c->user->getAuthIdentifier()));
+        ->where('team_members.user_id', $c->userColumn('id')));
 }
 
 #[RowCondition]
@@ -58,7 +58,7 @@ public function managesMyTeam(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
         ->whereColumn('team_members.team_id', $c->column('team_id'))
-        ->where('team_members.user_id', $c->user->getAuthIdentifier())
+        ->where('team_members.user_id', $c->userColumn('id'))
         ->where('team_members.role', 'manager'));
 }
 ```
@@ -132,7 +132,7 @@ abstract class TeamOwnedSchema extends ModelSchema
         return $c->query->whereExists(fn ($sub) => $sub
             ->from('team_members')
             ->whereColumn('team_members.team_id', $c->column('team_id'))
-            ->where('team_members.user_id', $c->user->getAuthIdentifier()));
+            ->where('team_members.user_id', $c->userColumn('id')));
     }
 }
 

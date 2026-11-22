@@ -45,6 +45,11 @@ public function rules(RuleProviderContext $context): iterable
 }
 ```
 
+Rules that depend on the user cannot answer
+[which users hold an ability](/checking/filtering-users/), since that is asked for
+no particular user and `$context->user` is null. See
+[rules the same for everyone](/supplying-rules/provider/#rules-the-same-for-everyone).
+
 Because [rule order never matters](/concepts/grants-and-denials/), a schema's
 `cannot` beats any `can` a provider supplies. That is the whole point: a suspension
 lockout that cannot be undone by a badly built rule set, an admin escape hatch that

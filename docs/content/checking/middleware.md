@@ -4,7 +4,7 @@ banner:
 title: Middleware
 description: Gating routes and route groups, with and without a bound model.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 Warrant registers a `warrant` route middleware. You rarely write the string

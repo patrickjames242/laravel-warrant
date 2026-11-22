@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Warrant\AbilityMatchMode;
+use Warrant\AuthorizesWithWarrant;
 use Warrant\Facades\Warrant;
 use Warrant\HasWarrantSchema;
 use Warrant\Rules\IRuleProvider;
@@ -35,6 +36,7 @@ require_once __DIR__.'/Support/TestSupport.php';
 class FuUser extends User
 {
     use HasWarrantSchema;
+    use AuthorizesWithWarrant;
 
     protected $table = 'fu_users';
 
@@ -71,6 +73,12 @@ class FuUserSchema extends ModelSchema
     public function isSelf(RowConditionContext $c): BuilderContract
     {
         return $c->query->where($c->column('id'), $c->userColumn('id'));
+    }
+
+    #[GlobalCondition]
+    public function isAdmin(GlobalConditionContext $c): BuilderContract
+    {
+        return $c->query->where($c->userColumn('role'), 'admin');
     }
 }
 
@@ -344,4 +352,42 @@ it('refuses a users query on another connection than the schema', function () {
 
     expect(fn () => Warrant::filterUsers(FuUser::on('fu_other'), 'edit', fuDocument()))
         ->toThrow(InvalidArgumentException::class, 'Cannot filter users by schema [fu_documents]');
+});
+
+// -- through the hasAbilityOn scope ---------------------------------------------
+
+it('filters users through the hasAbilityOn scope', function () {
+    bindFuRules('for fu_documents { if owned_by_user or in_users_team they can edit }');
+
+    expect(fuIds(FuUser::query()->hasAbilityOn('edit', fuDocument())))->toBe([1, 2]);
+});
+
+it('follows an aliased users query through the scope', function () {
+    bindFuRules('for fu_documents { if in_users_team they can edit }');
+
+    expect(fuIds(FuUser::query()->from('fu_users as u')->hasAbilityOn('edit', fuDocument()), 'u'))->toBe([1]);
+});
+
+it('passes the match mode, context and rowsAs through the scope', function () {
+    bindFuRules(<<<'RULES'
+        for fu_documents {
+            if in_users_team they can view
+            if owned_by_user they can edit
+        }
+    RULES);
+
+    $users = FuUser::query()->fromSub(DB::table('fu_users'), 'everyone')
+        ->hasAbilityOn(['view', 'edit'], fuDocument(), AbilityMatchMode::ANY, [], 'everyone');
+
+    expect(fuIds($users, 'everyone'))->toBe([1, 2]);
+});
+
+it('mirrors userHasAbility on a model with both traits', function () {
+    bindFuRules('for fu_users { if is_self or is_admin they can view }');
+    $bob = FuUser::query()->findOrFail(1);
+
+    /* userHasAbility keeps the users bob can view; hasAbilityOn keeps the users
+       who can view bob. */
+    expect(fuIds(FuUser::query()->userHasAbility('view', $bob)))->toBe([1])
+        ->and(fuIds(FuUser::query()->hasAbilityOn('view', $bob)))->toBe([1, 2]);
 });

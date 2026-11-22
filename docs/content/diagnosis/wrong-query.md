@@ -49,10 +49,10 @@ condition hard-coding its table:
 
 ```php
 // The bug.
-return $c->query->where('documents.user_id', $c->user->getAuthIdentifier());
+return $c->query->where('documents.user_id', $c->userColumn('id'));
 
 // The fix.
-return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
+return $c->query->where($c->column('user_id'), $c->userColumn('id'));
 ```
 
 The same bug appears inside a subquery, where the rows have a hop's alias:

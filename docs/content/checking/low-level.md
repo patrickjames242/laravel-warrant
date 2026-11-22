@@ -4,7 +4,7 @@ banner:
 title: Low-level access
 description: compileGate, the decision enum, and reaching the predicate before it becomes SQL.
 sidebar:
-  order: 9
+  order: 10
 ---
 
 The high-level helpers cover almost everything. When they do not, the layer under

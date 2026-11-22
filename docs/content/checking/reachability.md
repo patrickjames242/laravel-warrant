@@ -4,7 +4,7 @@ banner:
 title: Checking reachability
 description: Could they ever? The API, the route guards, and what to render from each answer.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 Reachability asks whether a grant is conceivable, by reading the rules rather than

@@ -36,7 +36,7 @@ class DatabaseRuleProvider implements IRuleProvider
 ## What you are handed
 
 ```php
-$context->user;       // the Authenticatable being checked, nullable
+$context->user;       // the Authenticatable being checked, or null
 $context->schemaKey;  // 'documents'
 $context->schema;     // App\Warrant\DocumentSchema
 $context->model;      // App\Models\Document, or null for a schema with no model
@@ -122,17 +122,42 @@ public function rules(RuleProviderContext $context): BoundSyntax
 **Several sources merged**, which is the shape most real applications end up with.
 That has [its own page](/supplying-rules/composing/).
 
-## Where the user is null
+## Rules the same for everyone
 
-`$context->user` is nullable, because a schema-bound guard can be constructed
-before a check runs. In practice every check path requires a user, so a provider
-may safely treat null as "no rules":
+`$context->user` is null when Warrant asks which users hold an ability, as
+[filtering users](/checking/filtering-users/) does. One query answers for every
+user at once, so the rules are resolved once, for no particular user.
+
+A provider that returns different rules for different users cannot answer that.
+The role lookup above is one: with no user there is no `role_id` to look up, and
+returning nothing would grant nobody.
+
+Return the same rules for everyone, and let a condition decide which users each
+rule matches. The role becomes something the rule tests rather than something
+that picks the rules:
+
+```warrant
+if has_role('editor') they can edit
+```
 
 ```php
-if ($context->user === null) {
-    return [];
+#[GlobalCondition]
+public function hasRole(GlobalConditionContext $c, string $role): Builder
+{
+    return $c->query->whereExists(fn ($sub) => $sub
+        ->from('role_user')
+        ->join('roles', 'roles.id', '=', 'role_user.role_id')
+        ->whereColumn('role_user.user_id', $c->userColumn('id'))
+        ->where('roles.name', $role));
 }
 ```
+
+For a check about one user, `userColumn('id')` is that user's key. For a filter
+over users, it is each user's own column. The same rule answers both questions.
+See [the user's row](/schemas/conditions/#the-users-row).
+
+Rules that differ per user still work for checks about one user. They just
+cannot be asked which users hold an ability.
 
 ## It is called once per request
 

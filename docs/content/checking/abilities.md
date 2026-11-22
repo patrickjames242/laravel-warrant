@@ -4,7 +4,7 @@ banner:
 title: Listing abilities
 description: What can they do to this row, and to each row of a list.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 A UI rarely wants one boolean. It wants to know which buttons to draw, which is a

@@ -114,7 +114,7 @@ final class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function isStaff(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->column('staff_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('staff_id'), $c->userColumn('id'));
     }
 }
 ```

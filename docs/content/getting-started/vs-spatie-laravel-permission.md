@@ -168,7 +168,7 @@ class DocumentSchema extends ModelSchema
     #[RowCondition] // is_self
     public function isSelf(RowConditionContext $c): Builder
     {
-        return $c->query->whereRaw('documents.user_id = ?', [$c->user->getAuthIdentifier()]);
+        return $c->query->where('documents.user_id', $c->userColumn('id'));
     }
 
     #[RowCondition] // manages_team — the current user manages the document's team

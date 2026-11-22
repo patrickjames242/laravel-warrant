@@ -84,7 +84,7 @@ public function grantedAndCurrent(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_grants')
         ->whereColumn('document_grants.document_id', $c->column('id'))
-        ->where('document_grants.user_id', $c->user->getAuthIdentifier())
+        ->where('document_grants.user_id', $c->userColumn('id'))
         ->where('document_grants.starts_at', '<=', $c->context['now'])
         ->where(fn ($q) => $q
             ->whereNull('document_grants.ends_at')

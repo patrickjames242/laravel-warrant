@@ -40,7 +40,7 @@ public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Build
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_shares')
         ->whereColumn('document_shares.document_id', $c->column('id'))
-        ->where('document_shares.user_id', $c->user->getAuthIdentifier())
+        ->where('document_shares.user_id', $c->userColumn('id'))
         ->whereIn('document_shares.level', $levels)
         ->where(fn ($q) => $q
             ->whereNull('document_shares.expires_at')
@@ -114,7 +114,7 @@ Widen the condition rather than adding a second one:
 #[RowCondition]
 public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Builder
 {
-    $userId  = $c->user->getAuthIdentifier();
+    $userId  = $c->userColumn('id');
     $teamIds = $c->user->teamIds();
 
     return $c->query->whereExists(fn ($sub) => $sub

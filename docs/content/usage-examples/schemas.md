@@ -33,7 +33,7 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function isMine(RowConditionContext $c): Builder
     {
-        return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
+        return $c->query->where($c->column('user_id'), $c->userColumn('id'));
     }
 }
 ```
@@ -85,7 +85,7 @@ public function inMyTeam(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_members')
         ->whereColumn('team_members.team_id', $c->column('team_id'))
-        ->where('user_id', $c->user->getAuthIdentifier()));
+        ->where('user_id', $c->userColumn('id')));
 }
 
 #[RowCondition]
@@ -148,13 +148,13 @@ public function inBillingPeriod(GlobalConditionContext $c): ?bool
 
 ```php
 #[RowCondition]
-public function isMine(RowConditionContext $c): Builder|bool
+public function isPublic(RowConditionContext $c): Builder|bool
 {
     if ($c->model !== null) {
-        return $c->model->user_id === $c->user->getAuthIdentifier();
+        return (bool) $c->model->is_public;
     }
 
-    return $c->query->where($c->column('user_id'), $c->user->getAuthIdentifier());
+    return $c->query->where($c->column('is_public'), true);
 }
 ```
 
