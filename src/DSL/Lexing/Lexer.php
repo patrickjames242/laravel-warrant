@@ -72,6 +72,15 @@ final class Lexer
         '.' => TokenType::DOT,
     ];
 
+    /**
+     * Whether $word is read as a keyword or a literal, so it can never be read as
+     * a name.
+     */
+    public static function isReservedWord(string $word): bool
+    {
+        return isset(self::KEYWORDS[$word]) || in_array($word, ['true', 'false', 'null'], true);
+    }
+
     /** The characters `ctype_space()` accepts, which separate tokens. */
     private const WHITESPACE = " \t\n\r\x0B\f";
 

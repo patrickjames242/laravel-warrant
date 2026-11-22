@@ -1,4 +1,4 @@
-for some_schema {
+for documents {
     if blah_blah
     they can view, delete
     they cannot touch, fight
@@ -27,7 +27,7 @@ for some_schema {
     #         and pay_periods(@context pay_period_id).is_payroll_published_for_user(@context user_id)
     #     they can create
 
-    if can(create_timesheet for users(@context user_id))
+    if can(create_timesheet for all of its folders)
         and can(
             create_timesheet
             for pay_periods(@context pay_period_id)

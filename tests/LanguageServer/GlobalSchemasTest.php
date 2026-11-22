@@ -151,17 +151,19 @@ it('holds a keyed schema\'s template body to a for header naming its own schema'
         ->and(diagnosticCodes($opened('folders')))->toContain('header-names-another-schema');
 });
 
-it('marks a condition a global declares that a global listed before it declares too', function () {
+it('marks a condition or constant a global declares that a global listed before it declares too', function () {
     $path = 'app/Schemas/AuditSchema.php';
     [$workspace, $document] = openInFixture($path, (string) file_get_contents(fixtureRoot().'/'.$path));
     $diagnostics = Diagnostics::of($workspace, $document);
 
-    expect(array_column($diagnostics, 'code'))->toBe(['duplicate-global-name'])
+    expect(array_column($diagnostics, 'code'))->toBe(['duplicate-global-name', 'duplicate-global-name'])
         ->and($diagnostics[0]['range'])->toBe([
             'start' => ['line' => 14, 'character' => 4],
             'end' => ['line' => 14, 'character' => 60],
         ])
-        ->and($diagnostics[0]['message'])->toStartWith('Global schemas [App\Schemas\TenancySchema] and [App\Schemas\AuditSchema] both declare condition [is_staff]');
+        ->and($diagnostics[0]['message'])->toStartWith('Global schemas [App\Schemas\TenancySchema] and [App\Schemas\AuditSchema] both declare condition [is_staff]')
+        ->and($diagnostics[1]['range']['start'])->toBe(['line' => 20, 'character' => 4])
+        ->and($diagnostics[1]['message'])->toStartWith('Global schemas [App\Schemas\TenancySchema] and [App\Schemas\AuditSchema] both declare constant [tenant_source]');
 
     expect(diagnosticCodes(openTenancyWithTemplate('if in_current_tenant they can')))->not->toContain('duplicate-global-name');
 });

@@ -5,6 +5,7 @@ namespace Warrant\Schema;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Constants\ConstantDefinition;
 use Warrant\Schema\Relations\IProvidesRowRelations;
 use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\Rows\IProvidesRows;
@@ -13,7 +14,8 @@ use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
  * What a rule may say about one schema, as data: its abilities, conditions, rule
- * templates and row relations by name, and how one of its rows is found.
+ * templates, constants and row relations by name, and how one of its rows is
+ * found.
  *
  * Validation and the language server read this, never a live schema. A running
  * application builds it from a schema with {@see of()}; the language server
@@ -42,6 +44,11 @@ final readonly class Vocabulary
     private array $rowRelations;
 
     /**
+     * @var array<string, ConstantDefinition>
+     */
+    private array $constants;
+
+    /**
      * @param class-string<ISchema> $schemaClass The schema the vocabulary was
      *   read from.
      * @param list<AbilityDefinition> $abilities
@@ -50,6 +57,8 @@ final readonly class Vocabulary
      * @param ConditionDefinition|null $rowMatcher How one row is found, or null for
      *   a schema with no rows.
      * @param list<RowRelationDefinition> $rowRelations
+     * @param list<ConstantDefinition> $constants The `#[Constant]`s; the
+     *   abilities are constants too, without being listed here.
      */
     public function __construct(
         public string $schemaClass,
@@ -58,17 +67,19 @@ final readonly class Vocabulary
         array $ruleTemplates,
         private ?ConditionDefinition $rowMatcher,
         array $rowRelations = [],
+        array $constants = [],
     ) {
         $this->abilities = array_column(array_map(static fn (AbilityDefinition $a): array => [$a->name, $a], $abilities), 1, 0);
         $this->conditions = array_column(array_map(static fn (ConditionDefinition $c): array => [$c->key, $c], $conditions), 1, 0);
         $this->ruleTemplates = array_column(array_map(static fn (RuleTemplateDefinition $t): array => [$t->key, $t], $ruleTemplates), 1, 0);
         $this->rowRelations = array_column(array_map(static fn (RowRelationDefinition $r): array => [$r->key, $r], $rowRelations), 1, 0);
+        $this->constants = array_column(array_map(static fn (ConstantDefinition $c): array => [$c->name, $c], $constants), 1, 0);
     }
 
     /**
      * Read once from $schema: abilities when it provides them, every kind of
-     * condition it provides, its rule templates, and its row matcher and row
-     * relations when it has rows.
+     * condition it provides, its rule templates and constants, and its row
+     * matcher and row relations when it has rows.
      */
     public static function of(ISchema $schema): self
     {
@@ -79,6 +90,7 @@ final readonly class Vocabulary
             $schema->ruleTemplates(),
             $schema instanceof IProvidesRows ? $schema->rowMatcher() : null,
             $schema instanceof IProvidesRowRelations ? $schema->rowRelations() : [],
+            $schema->constants(),
         );
     }
 
@@ -111,6 +123,20 @@ final readonly class Vocabulary
     }
 
     /**
+     * The constant named $name: a `#[Constant]`, or an ability, which is a
+     * constant named by its value and holding it. Null when the schema declares
+     * neither.
+     */
+    public function constant(string $name): ?ConstantDefinition
+    {
+        if (isset($this->constants[$name])) {
+            return $this->constants[$name];
+        }
+
+        return isset($this->abilities[$name]) ? new ConstantDefinition($name, $name) : null;
+    }
+
+    /**
      * @return list<string> The name of every ability, in declaration order.
      */
     public function abilityNames(): array
@@ -124,6 +150,15 @@ final readonly class Vocabulary
     public function conditionKeys(): array
     {
         return array_map('strval', array_keys($this->conditions));
+    }
+
+    /**
+     * @return list<string> The name of every constant: each `#[Constant]`, then
+     *   each ability.
+     */
+    public function constantNames(): array
+    {
+        return [...array_map('strval', array_keys($this->constants)), ...$this->abilityNames()];
     }
 
     /**

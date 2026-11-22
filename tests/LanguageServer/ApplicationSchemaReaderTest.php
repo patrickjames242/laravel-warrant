@@ -9,7 +9,7 @@ use Warrant\Tests\Fixtures\TraitAbilities\TraitAbilitiesSchema;
  */
 function abilityLocation(string $name): string
 {
-    $location = (new ReflectionMethod(ApplicationSchemaReader::class, 'constantLocation'))
+    $location = (new ReflectionMethod(ApplicationSchemaReader::class, 'abilityLocation'))
         ->invoke(null, new ReflectionClass(TraitAbilitiesSchema::class), $name);
 
     return basename((string) $location['file']).':'.$location['line'];
@@ -28,7 +28,7 @@ it('locates an ability declared in a trait used by one of the schema\'s traits',
 });
 
 it('names the constant that declares an ability', function () {
-    $location = (new ReflectionMethod(ApplicationSchemaReader::class, 'constantLocation'))
+    $location = (new ReflectionMethod(ApplicationSchemaReader::class, 'abilityLocation'))
         ->invoke(null, new ReflectionClass(TraitAbilitiesSchema::class), 'publish');
 
     expect($location['member'])->toBe('PUBLISH');
@@ -72,6 +72,51 @@ it('describes the row relations of a running schema, and reads them back', funct
         ->and($index->schema('ars_docs')->relations['container']->member)->toBe('folder')
         ->and($index->schema('ars_folders')->relations)->toBe([]);
 });
+
+it('describes the constants of a running schema, and reads them back', function () {
+    $describe = new ReflectionMethod(ApplicationSchemaReader::class, 'describe');
+    $described = $describe->invoke(null, ArsConstantsSchema::class);
+
+    expect(array_column($described['constants'], 'name'))->toBe(['region', 'reviewers', 'status'])
+        ->and($described['constants'][0])->toMatchArray([
+            'value' => 'emea',
+            'valueIsKnown' => true,
+            'member' => 'DEFAULT_REGION',
+            'description' => 'The region every invoice is filed under.',
+        ])
+        ->and($described['constants'][2])->toMatchArray(['value' => null, 'valueIsKnown' => false]);
+
+    $schema = ApplicationSchemaReader::indexFrom(['ars_constants' => json_decode(json_encode($described), true)])->schema('ars_constants');
+
+    expect($schema->vocabulary->constant('region')?->value)->toBe('emea')
+        ->and($schema->vocabulary->constant('reviewers')?->value)->toBe(['view', 'audit'])
+        ->and($schema->vocabulary->constant('status')?->valueIsKnown)->toBeFalse()
+        ->and($schema->vocabulary->constant('view')?->value)->toBe('view')
+        ->and($schema->constants['reviewers']->member)->toBe('REVIEWERS');
+});
+
+enum ArsStatus: string
+{
+    case Open = 'open';
+}
+
+class ArsConstantsSchema extends Warrant\Schema\Types\Classes\RowlessSchema
+{
+    #[Warrant\Schema\Abilities\Ability]
+    public const VIEW = 'view';
+
+    /**
+     * The region every invoice is filed under.
+     */
+    #[Warrant\Schema\Constants\Constant('region')]
+    public const DEFAULT_REGION = 'emea';
+
+    #[Warrant\Schema\Constants\Constant]
+    public const REVIEWERS = [self::VIEW, 'audit'];
+
+    #[Warrant\Schema\Constants\Constant]
+    public const STATUS = ArsStatus::Open;
+}
 
 class ArsDoc extends Illuminate\Database\Eloquent\Model
 {

@@ -39,4 +39,7 @@ final class TenancySchema extends GlobalSchema
     {
         return 'if in_current_tenant they can';
     }
+
+    #[\Warrant\Schema\Constants\Constant]
+    public const TENANT_SOURCE = 'tenancy';
 }

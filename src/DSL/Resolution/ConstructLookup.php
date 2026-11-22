@@ -22,6 +22,9 @@ use Warrant\Schema\Vocabulary;
  * same name, since the later one could never be found: the first time a lookup
  * reaches the globals, every global is read, and a name two of them declare is
  * refused, on that lookup and every one after, until none is.
+ *
+ * A constant written with a schema prefix, `users.view_payroll`, is looked up in
+ * the schema the prefix names alone: see {@see constantDeclaredBy()}.
  */
 final class ConstructLookup
 {
@@ -64,6 +67,38 @@ final class ConstructLookup
         }
 
         return null;
+    }
+
+    /**
+     * The constant a bare name written in $writtenIn names. An ability is a
+     * constant, so it is found here too.
+     */
+    public function constant(string $name, ISchemaId $writtenIn): ?FoundConstant
+    {
+        foreach ($this->searchForConstruct($writtenIn) as [$id, $vocabulary]) {
+            $definition = $vocabulary->constant($name);
+
+            if ($definition !== null) {
+                return new FoundConstant($definition, $id, $vocabulary->schemaClass);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The constant $name that the schema registered under $schemaKey declares
+     * itself, as a name prefixed with that schema's key names it. The global
+     * schemas are not searched, so a prefix only ever reaches the named schema's
+     * own constants. Null when that schema declares none, or no schema is
+     * registered under $schemaKey.
+     */
+    public function constantDeclaredBy(string $schemaKey, string $name): ?FoundConstant
+    {
+        $vocabulary = $this->catalog->find($schemaKey);
+        $definition = $vocabulary?->constant($name);
+
+        return $definition === null ? null : new FoundConstant($definition, new KeyedSchemaId($schemaKey), $vocabulary->schemaClass);
     }
 
     /**
@@ -188,21 +223,27 @@ final class ConstructLookup
     }
 
     /**
-     * Every condition or rule template name declared by more than one global
-     * schema, each naming the global listed first that declares it and one
-     * listed after it. Reading it reads every global's vocabulary.
+     * Every condition, rule template or constant name declared by more than one
+     * global schema, each naming the global listed first that declares it and
+     * one listed after it. Reading it reads every global's vocabulary.
      *
      * @return list<DuplicateGlobalName>
      */
     public function duplicateGlobalNames(): array
     {
-        $declaredBy = ['condition' => [], 'rule template' => []];
+        $declaredBy = ['condition' => [], 'rule template' => [], 'constant' => []];
         $duplicates = [];
 
         foreach ($this->catalog->globalClasses() as $class) {
             $vocabulary = $this->catalog->findGlobal($class);
 
-            foreach (['condition' => $vocabulary->conditionKeys(), 'rule template' => $vocabulary->ruleTemplateKeys()] as $kind => $names) {
+            $namesByKind = [
+                'condition' => $vocabulary->conditionKeys(),
+                'rule template' => $vocabulary->ruleTemplateKeys(),
+                'constant' => $vocabulary->constantNames(),
+            ];
+
+            foreach ($namesByKind as $kind => $names) {
                 foreach ($names as $name) {
                     if (isset($declaredBy[$kind][$name])) {
                         $duplicates[] = new DuplicateGlobalName($kind, $name, $declaredBy[$kind][$name], $class);

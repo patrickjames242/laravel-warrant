@@ -5,6 +5,7 @@ namespace Warrant\Schema\Abilities;
 use InvalidArgumentException;
 use ReflectionAttribute;
 use ReflectionClass;
+use Warrant\DSL\Lexing\Lexer;
 
 /**
  * Implements {@see \Warrant\Schema\Abilities\IProvidesAbilities} over the
@@ -75,6 +76,16 @@ trait ReflectsAbilities
             }
 
             $name = $constant->getValue();
+
+            if (is_string($name) && Lexer::isReservedWord($name)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Schema constant [%s::%s] declares ability [%s], which rule text reads as a keyword or a '
+                        .'literal. Give the ability another name.',
+                    static::class,
+                    $constant->getName(),
+                    $name,
+                ));
+            }
 
             if (isset($abilities[$name])) {
                 throw new InvalidArgumentException(sprintf(

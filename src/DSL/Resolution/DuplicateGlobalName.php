@@ -5,7 +5,7 @@ namespace Warrant\DSL\Resolution;
 use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 
 /**
- * A condition or rule template name declared by two global schemas.
+ * A condition, rule template or constant name declared by two global schemas.
  *
  * A name is looked up in the global schemas in the order they are listed, so the
  * later global's construct could never be reached. That is a mistake, not a way
@@ -14,7 +14,7 @@ use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 final readonly class DuplicateGlobalName
 {
     /**
-     * @param 'condition'|'rule template' $kind What the name names.
+     * @param 'condition'|'rule template'|'constant' $kind What the name names.
      * @param string $name The name.
      * @param class-string<IGlobalSchema> $declaredFirst The global listed first
      *   that declares it.

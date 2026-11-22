@@ -5,12 +5,16 @@ namespace Warrant\LanguageServer\Vocabulary;
 use Closure;
 use ReflectionAttribute;
 use ReflectionClass;
+use ReflectionClassConstant;
 use ReflectionMethod;
 use Throwable;
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Conditions\ConditionDefinition;
 use Warrant\Schema\Conditions\ConditionKind;
+use Warrant\Schema\Constants\Constant;
+use Warrant\Schema\Constants\ConstantDefinition;
+use Warrant\Schema\Constants\ConstantName;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Context\IProvidesContext;
@@ -166,6 +170,11 @@ final class ApplicationSchemaReader
                 $item['method'],
                 $item['schema'],
             )),
+            $declarations('constants', static fn (array $item): ConstantDefinition => new ConstantDefinition(
+                $item['name'],
+                $item['value'] ?? null,
+                (bool) $item['valueIsKnown'],
+            )),
         );
     }
 
@@ -192,7 +201,7 @@ final class ApplicationSchemaReader
                 static fn (AbilityDefinition $ability): array => [
                     'name' => $ability->name,
                     'requiredContext' => $ability->requiredContext,
-                    ...self::constantLocation($class, $ability->name),
+                    ...self::abilityLocation($class, $ability->name),
                 ],
                 $schema instanceof IProvidesAbilities ? $schema->abilities() : [],
             ),
@@ -232,7 +241,56 @@ final class ApplicationSchemaReader
                 ],
                 $schema instanceof IProvidesRowRelations ? $schema->rowRelations() : [],
             ),
+            'constants' => array_map(
+                static fn (ConstantDefinition $constant): array => [
+                    'name' => $constant->name,
+                    ...(self::isJsonValue($constant->value)
+                        ? ['value' => $constant->value, 'valueIsKnown' => true]
+                        : ['value' => null, 'valueIsKnown' => false]),
+                    ...self::constantLocation(self::constantNamed($class, $constant->name)),
+                ],
+                $schema->constants(),
+            ),
         ];
+    }
+
+    /**
+     * Whether $value reads back from JSON as itself: a scalar, null, or an array
+     * of them. An enum case or other object does not, so its value is written as
+     * not known.
+     */
+    private static function isJsonValue(mixed $value): bool
+    {
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if (! self::isJsonValue($item)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return $value === null || is_scalar($value);
+    }
+
+    /**
+     * The `#[Constant]` of $class that rule text names $name.
+     *
+     * @param ReflectionClass<object> $class The schema class.
+     * @param string $name The name rule text uses.
+     */
+    private static function constantNamed(ReflectionClass $class, string $name): ?ReflectionClassConstant
+    {
+        foreach ($class->getReflectionConstants() as $constant) {
+            $attribute = $constant->getAttributes(Constant::class)[0] ?? null;
+
+            if ($attribute !== null && ConstantName::of($constant->getName(), $attribute->newInstance()->name) === $name) {
+                return $constant;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -261,42 +319,55 @@ final class ApplicationSchemaReader
 
     /**
      * Which ability constant has the value $ability, where it is declared, and
-     * what its docblock says. A constant has no line of its own in reflection, so the
-     * line is found in the file of the class that declares it.
+     * what its docblock says.
      *
      * @param ReflectionClass<object> $class The schema class.
      * @param string $ability The ability's name.
      * @return array{member?: string, file?: ?string, line?: ?int, description?: ?string}
      */
-    private static function constantLocation(ReflectionClass $class, string $ability): array
+    private static function abilityLocation(ReflectionClass $class, string $ability): array
     {
         foreach ($class->getReflectionConstants() as $constant) {
-            if ($constant->getValue() !== $ability || $constant->getAttributes(IDeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF) === []) {
-                continue;
+            if ($constant->getValue() === $ability && $constant->getAttributes(IDeclaresAbility::class, ReflectionAttribute::IS_INSTANCEOF) !== []) {
+                return self::constantLocation($constant);
             }
-
-            $pattern = '/\bconst\s+(?:[\w\\\\|?]+\s+)?'.preg_quote($constant->getName(), '/').'\b/';
-            $file = $constant->getDeclaringClass()->getFileName() ?: null;
-            $line = null;
-
-            foreach (self::declaringCandidates($constant->getDeclaringClass()) as $candidate) {
-                $line = self::lineMatching($candidate->getFileName() ?: null, $pattern);
-
-                if ($line !== null) {
-                    $file = $candidate->getFileName() ?: null;
-                    break;
-                }
-            }
-
-            return [
-                'member' => $constant->getName(),
-                'file' => $file,
-                'line' => $line,
-                'description' => StaticSchemaScanner::summary($constant->getDocComment() ?: null),
-            ];
         }
 
         return [];
+    }
+
+    /**
+     * The name of $constant, where it is declared, and what its docblock says. A
+     * constant has no line of its own in reflection, so the line is found in the
+     * file of the class that declares it. Empty when there is no constant.
+     *
+     * @return array{member?: string, file?: ?string, line?: ?int, description?: ?string}
+     */
+    private static function constantLocation(?ReflectionClassConstant $constant): array
+    {
+        if ($constant === null) {
+            return [];
+        }
+
+        $pattern = '/\bconst\s+(?:[\w\\\\|?]+\s+)?'.preg_quote($constant->getName(), '/').'\b/';
+        $file = $constant->getDeclaringClass()->getFileName() ?: null;
+        $line = null;
+
+        foreach (self::declaringCandidates($constant->getDeclaringClass()) as $candidate) {
+            $line = self::lineMatching($candidate->getFileName() ?: null, $pattern);
+
+            if ($line !== null) {
+                $file = $candidate->getFileName() ?: null;
+                break;
+            }
+        }
+
+        return [
+            'member' => $constant->getName(),
+            'file' => $file,
+            'line' => $line,
+            'description' => StaticSchemaScanner::summary($constant->getDocComment() ?: null),
+        ];
     }
 
     /**

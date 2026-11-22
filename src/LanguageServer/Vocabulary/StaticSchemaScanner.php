@@ -16,6 +16,9 @@ use Warrant\Schema\Conditions\ConditionKind;
 use Warrant\Schema\Conditions\Derived\DerivedCondition;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 use Warrant\Schema\Conditions\Row\RowCondition;
+use Warrant\Schema\Constants\Constant;
+use Warrant\Schema\Constants\ConstantDefinition;
+use Warrant\Schema\Constants\ConstantName;
 use Warrant\Schema\Context\RequiredContext;
 use Warrant\Schema\Relations\RowRelation;
 use Warrant\Schema\Relations\RowRelationDefinition;
@@ -32,12 +35,14 @@ use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
  * Composer's autoload maps place it in, along with the classes it extends and the
  * traits it uses, and its vocabulary is read from its attributes as the schema
  * class reads it by reflection: abilities from constants carrying an ability
- * attribute, conditions and templates from public methods carrying theirs.
+ * attribute, `#[Constant]`s from constants carrying that, and conditions and
+ * templates from public methods carrying theirs.
  *
  * What only running the code can tell is left out: an ability whose name is a
- * computed constant, the required context of an ability attribute of the
- * project's own, how many columns a query schema's `key()` returns, and a schema
- * whose class cannot be found.
+ * computed constant, the value of a `#[Constant]` that is computed or is an enum
+ * case, the required context of an ability attribute of the project's own, how
+ * many columns a query schema's `key()` returns, and a schema whose class cannot
+ * be found.
  */
 final class StaticSchemaScanner
 {
@@ -223,9 +228,27 @@ final class StaticSchemaScanner
 
         $abilities = [];
         $requiredContext = [];
+        $declaredConstants = [];
 
         foreach ($constants as [$owner, $constant]) {
             $value = $this->constantValue($owner, $constant);
+            $marked = $constant->attribute([Constant::class]);
+
+            if ($marked !== null) {
+                $explicitName = $marked->argument('name', 0);
+                $name = ConstantName::of($constant->name, is_string($explicitName) ? $explicitName : null);
+
+                $declaredConstants[$name] = new Declaration(
+                    $name,
+                    new ConstantDefinition($name, $value, $value !== null),
+                    $owner->file,
+                    $constant->line,
+                    self::summary($constant->docComment),
+                    member: $constant->name,
+                );
+
+                continue;
+            }
 
             if (! is_string($value)) {
                 continue;
@@ -376,6 +399,7 @@ final class StaticSchemaScanner
             /* A schema with no rows has no row for a relation to start from, and
                refuses one when it is constructed. */
             $type === 'model' || $type === 'query' ? $relations : [],
+            $declaredConstants,
         );
     }
 
@@ -448,30 +472,53 @@ final class StaticSchemaScanner
     }
 
     /**
-     * The value of $constant, declared on $owner, following a reference to
-     * another class's constant.
+     * The value of $constant, declared on $owner, with every reference to another
+     * constant in it followed and every spread spread. Null when any part of it
+     * cannot be read from source.
      *
      * @param PhpClass $owner The class that declares it.
      * @param PhpMember $constant The constant.
+     */
+    private function constantValue(PhpClass $owner, PhpMember $constant): mixed
+    {
+        return $this->evaluated($owner, $constant->value, 0);
+    }
+
+    /**
+     * $value, as {@see PhpSourceReader} read it in $owner, with its references
+     * followed and its spreads spread; null when any part of it cannot be read.
+     *
+     * @param PhpClass $owner The class $value is written in, which `self` names.
+     * @param mixed $value The value as read.
      * @param int $depth How many references have been followed, so a cycle ends.
      */
-    private function constantValue(PhpClass $owner, PhpMember $constant, int $depth = 0): mixed
+    private function evaluated(PhpClass $owner, mixed $value, int $depth): mixed
     {
-        $value = $constant->value;
-
-        if (! is_array($value) || ! isset($value['class'], $value['constant']) || $depth > 8) {
+        if (! is_array($value)) {
             return $value;
         }
 
-        $target = in_array($value['class'], ['self', 'static'], true) ? $owner : $this->classNamed($value['class']);
+        if (isset($value['class'], $value['constant'])) {
+            $target = in_array($value['class'], ['self', 'static'], true) ? $owner : $this->classNamed($value['class']);
+            $found = $target === null || $depth > 8 ? null : $this->members($target, 'constants')[$value['constant']] ?? null;
 
-        if ($target === null) {
-            return null;
+            return $found === null ? null : $this->evaluated($found[0], $found[1]->value, $depth + 1);
         }
 
-        $found = $this->members($target, 'constants')[$value['constant']] ?? null;
+        $items = [];
 
-        return $found === null ? null : $this->constantValue($found[0], $found[1], $depth + 1);
+        foreach ($value as $item) {
+            $spread = is_array($item) && array_key_exists('spread', $item);
+            $evaluated = $this->evaluated($owner, $spread ? $item['spread'] : $item, $depth);
+
+            if ($evaluated === null || ($spread && ! (is_array($evaluated) && array_is_list($evaluated)))) {
+                return null;
+            }
+
+            array_push($items, ...($spread ? $evaluated : [$evaluated]));
+        }
+
+        return $items;
     }
 
     /**

@@ -11,7 +11,8 @@ use PhpToken;
  *
  * Only what is written as a literal is read. A constant whose value is computed,
  * or an attribute argument that is an expression, reads as null; a reference to
- * another class's constant reads as that reference, for the caller to follow.
+ * another class's constant reads as that reference, for the caller to follow,
+ * and so does one spread into an array.
  */
 final class PhpSourceReader
 {
@@ -51,10 +52,12 @@ final class PhpSourceReader
     }
 
     /**
-     * The value a run of tokens is written as, when it is a literal: a string, a
-     * list of strings, `true`, `false` or `null`. `Foo::class` reads as the class
+     * The value a run of tokens is written as, when it is a literal: a string, an
+     * integer, `true`, `false`, or a list of them. `Foo::class` reads as the class
      * name; `Foo::BAR` reads as `['class' => 'Foo', 'constant' => 'BAR']`, the
-     * class resolved. Anything else reads as null.
+     * class resolved; and `...Foo::BAR` in a list reads as `['spread' => ...]`
+     * holding that reference. Anything else reads as null, and so does a list
+     * with any item that does, since the list it is written as is not known.
      *
      * @param list<PhpToken> $tokens The value's tokens.
      */
@@ -91,11 +94,14 @@ final class PhpSourceReader
         $items = [];
 
         foreach (self::splitOnCommas($inner) as $item) {
-            $value = $this->literal($item);
+            $spread = $item[0]->is(T_ELLIPSIS);
+            $value = $this->literal($spread ? array_slice($item, 1) : $item);
 
-            if ($value !== null) {
-                $items[] = $value;
+            if ($value === null) {
+                return null;
             }
+
+            $items[] = $spread ? ['spread' => $value] : $value;
         }
 
         return $items;

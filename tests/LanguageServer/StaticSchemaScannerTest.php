@@ -119,3 +119,24 @@ it('reads a file open in the editor as the editor has it, in place of what is sa
         ->not->toContain('is_owner')
         ->and(array_keys(fixtureVocabulary()->schema('documents')->conditions))->toContain('is_owner');
 });
+
+it('reads #[Constant]s by name, with their values, following references and spreads', function () {
+    $billing = fixtureVocabulary()->schema('billing');
+
+    expect(array_keys($billing->constants))->toBe(['invoice_prefix', 'ledger', 'managers', 'computed', 'status'])
+        ->and($billing->vocabulary->constant('invoice_prefix')?->value)->toBe('inv')
+        ->and($billing->vocabulary->constant('ledger')?->value)->toBe('general')
+        ->and($billing->vocabulary->constant('managers')?->value)->toBe(['manage', 'audit', 'review'])
+        ->and($billing->vocabulary->constant('managers')?->valueIsKnown)->toBeTrue()
+        ->and($billing->vocabulary->constant('manage')?->value)->toBe('manage')
+        ->and($billing->constants['invoice_prefix']->member)->toBe('INVOICE_PREFIX')
+        ->and($billing->constants['invoice_prefix']->description)->toBe('The prefix every invoice number starts with.')
+        ->and($billing->constants['invoice_prefix']->line)->toBe(16);
+});
+
+it('reads a #[Constant] whose value its source cannot give as one whose value is not known', function () {
+    $billing = fixtureVocabulary()->find('billing');
+
+    expect($billing->constant('computed')?->valueIsKnown)->toBeFalse()
+        ->and($billing->constant('status')?->valueIsKnown)->toBeFalse();
+});

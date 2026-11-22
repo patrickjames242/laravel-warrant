@@ -9,6 +9,7 @@ use ReflectionMethod;
 use Warrant\Schema\Abilities\IDeclaresAbility;
 use Warrant\Schema\Abilities\IProvidesAbilities;
 use Warrant\Schema\Conditions\Derived\ReflectsDerivedConditions;
+use Warrant\Schema\Constants\ReflectsConstants;
 use Warrant\Schema\Conditions\Global\ReflectsGlobalConditions;
 use Warrant\Schema\Conditions\Row\IProvidesRowConditions;
 use Warrant\Schema\Conditions\Row\RowCondition;
@@ -20,8 +21,8 @@ use Warrant\Schema\RuleTemplates\ReflectsRuleTemplates;
 use Warrant\Schema\Types\Interfaces\ISchema;
 
 /**
- * What every schema shares: rule templates, global conditions and derived
- * conditions, each read from the class's attributes.
+ * What every schema shares: rule templates, constants, global conditions and
+ * derived conditions, each read from the class's attributes.
  *
  * Nothing extends this directly. A schema extends {@see GlobalSchema},
  * {@see RowlessSchema}, {@see ModelSchema} or {@see QuerySchema}.
@@ -33,6 +34,7 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  */
 abstract class Schema implements ISchema
 {
+    use ReflectsConstants;
     use ReflectsDerivedConditions;
     use ReflectsGlobalConditions;
     use ReflectsRuleTemplates;
@@ -60,6 +62,7 @@ abstract class Schema implements ISchema
         $this->refuseUnprovidedConstructs();
         $this->conditions();
         $this->ruleTemplates();
+        $this->constants();
     }
 
     /**

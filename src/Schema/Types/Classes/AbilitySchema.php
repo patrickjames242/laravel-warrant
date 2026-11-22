@@ -3,6 +3,7 @@
 namespace Warrant\Schema\Types\Classes;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use InvalidArgumentException;
 use Warrant\Facades\Warrant;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\Rules\RuleProviderContext;
@@ -86,6 +87,19 @@ abstract class AbilitySchema extends Schema implements IAbilitySchema
     {
         parent::verifyDeclarations();
 
-        $this->abilities();
+        $abilityNames = array_flip($this->abilityNames());
+
+        /* An ability is a constant named by its value, so a `#[Constant]` of the
+           same name would leave rule text naming two things at once. */
+        foreach ($this->constants() as $constant) {
+            if (isset($abilityNames[$constant->name])) {
+                throw new InvalidArgumentException(sprintf(
+                    'Schema [%s] declares constant [%s] and an ability of the same name; an ability is a constant '
+                        .'named by its value, so a name may be only one of them.',
+                    static::class,
+                    $constant->name,
+                ));
+            }
+        }
     }
 }

@@ -62,9 +62,11 @@ final class Diagnostics
 
         foreach ($catalog === null ? [] : $catalog->constructs()->duplicateGlobalNames() as $duplicate) {
             $schema = $catalog->globalSchema($duplicate->declaredAgain);
-            $declaration = $duplicate->kind === 'condition'
-                ? $schema?->conditions[$duplicate->name] ?? null
-                : $schema?->templates[$duplicate->name] ?? null;
+            $declaration = match ($duplicate->kind) {
+                'condition' => $schema?->conditions[$duplicate->name] ?? null,
+                'rule template' => $schema?->templates[$duplicate->name] ?? null,
+                'constant' => $schema?->constants[$duplicate->name] ?? null,
+            };
 
             if ($declaration?->file === null || $declaration->line === null || (realpath($declaration->file) ?: $declaration->file) !== $path) {
                 continue;

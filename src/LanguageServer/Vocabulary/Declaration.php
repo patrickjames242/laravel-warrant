@@ -4,6 +4,7 @@ namespace Warrant\LanguageServer\Vocabulary;
 
 use Warrant\Schema\Abilities\AbilityDefinition;
 use Warrant\Schema\Conditions\ConditionDefinition;
+use Warrant\Schema\Constants\ConstantDefinition;
 use Warrant\Schema\Relations\RowRelationDefinition;
 use Warrant\Schema\RuleTemplates\RuleTemplateDefinition;
 
@@ -16,8 +17,8 @@ final readonly class Declaration
 {
     /**
      * @param string $name The name rule text uses: an ability, condition,
-     *   template or row relation key.
-     * @param AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition $definition
+     *   template, constant or row relation key.
+     * @param AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition|ConstantDefinition $definition
      *   What validation reads for the name.
      * @param string|null $file Absolute path of the file it is declared in, when
      *   known.
@@ -25,7 +26,7 @@ final readonly class Declaration
      * @param string|null $description The summary of its docblock, when it has
      *   one.
      * @param list<string> $parameters The names of the arguments rule text passes
-     *   it, in order; empty for an ability.
+     *   it, in order; empty for an ability or a constant.
      * @param string|null $member The method or constant that declares it, in
      *   $file, when known. With $file it says which declaration a name is, since
      *   one trait or parent class declares the same name for every schema that
@@ -33,7 +34,7 @@ final readonly class Declaration
      */
     public function __construct(
         public string $name,
-        public AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition $definition,
+        public AbilityDefinition|ConditionDefinition|RuleTemplateDefinition|RowRelationDefinition|ConstantDefinition $definition,
         public ?string $file = null,
         public ?int $line = null,
         public ?string $description = null,

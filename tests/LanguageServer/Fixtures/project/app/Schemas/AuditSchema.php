@@ -16,4 +16,7 @@ final class AuditSchema extends GlobalSchema
     {
         return true;
     }
+
+    #[\Warrant\Schema\Constants\Constant]
+    public const TENANT_SOURCE = 'audit';
 }
