@@ -144,9 +144,11 @@ final class UsersFilter
 
         /* The target's rows take the schema's own name unless the users query
            already goes by it, as it does when users are filtered by what they may
-           do to a user. */
+           do to a user. They are selected into a fresh query on the users query's
+           connection, which the schema shares: `fromRows()` brings the schema's
+           own source and its bindings, once. */
         $rowName = AliasScope::none($usersQualifier)->freeQualifier($schema->rowName());
-        $rows = $schema->fromRows($this->rowsQuery(), $rowName);
+        $rows = $schema->fromRows($usersQuery->newQuery(), $rowName);
 
         if (! $this->narrowQueryToTarget($rows, $target, $context, $userRow, $rowName)) {
             $usersQuery->whereRaw('1 = 0');

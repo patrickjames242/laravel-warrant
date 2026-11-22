@@ -47,6 +47,18 @@ class UserColumnOtherUser extends User
     public $timestamps = false;
 }
 
+/** A user keyed by a string, over its own table. */
+class UserColumnNamedUser extends User
+{
+    protected $table = 'uc_named_users';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
+    public $timestamps = false;
+}
+
 class UserColumnDocument extends Model
 {
     use HasWarrantSchema;
@@ -336,4 +348,28 @@ it('needs the user\'s table on the query\'s connection', function () {
 
     expect(fn () => documentsUserCanView($user))
         ->toThrow(InvalidArgumentException::class, 'is on database connection [uc_other]');
+});
+
+it('writes a string key as an escaped literal', function () {
+    Schema::create('uc_named_users', function ($table) {
+        $table->string('id')->primary();
+        $table->integer('team_id');
+    });
+    DB::table('uc_named_users')->insert(['id' => "o'brien", 'team_id' => 10]);
+    DB::table('uc_documents')->where('id', 100)->update(['owner_id' => 0]);
+    bindUserColumnRules('for uc_documents { if owned_by_user or in_users_team they can view }');
+
+    $user = UserColumnNamedUser::query()->findOrFail("o'brien");
+    $sql = userColumnGuard($user)->filterQuery(DB::table('uc_documents'), 'view')->toRawSql();
+
+    expect(normalizeWarrantSql($sql))->toContain('"uc_documents"."owner_id" = \'o\'\'brien\'')
+        ->and(normalizeWarrantSql($sql))->toContain('where "uc_named_users"."id" = \'o\'\'brien\'')
+        ->and(documentsUserCanView($user))->toBe([100]);
+});
+
+it('needs a model for a user that is not one even for its key', function () {
+    bindUserColumnRules('for uc_documents { if owned_by_user they can view }');
+
+    expect(fn () => documentsUserCanView(new GenericUser(['id' => 1])))
+        ->toThrow(BadMethodCallException::class, 'Name your user model in the warrant.user_model config.');
 });
