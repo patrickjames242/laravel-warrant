@@ -7,6 +7,7 @@ use Warrant\LanguageServer\Features\Completion;
 use Warrant\LanguageServer\Features\Definition;
 use Warrant\LanguageServer\Features\Diagnostics;
 use Warrant\LanguageServer\Features\Hover;
+use Warrant\LanguageServer\Features\SemanticTokens;
 use Warrant\LanguageServer\Features\Usages;
 
 /**
@@ -115,4 +116,18 @@ it('names the constant a name in an ability list stands for as its declaration',
 it('offers the closest constants for one that is not declared, bare or prefixed', function () {
     expect(constantFixes('for documents { if in_team(tenant_sourc) they can view }'))->toBe(["Change to 'tenant_source'"])
         ->and(constantFixes('for documents { if in_team(billing.invoice_prefx) they can view }'))->toBe(["Change to 'invoice_prefix'"]);
+});
+
+it('colours constants, their schema prefixes, and groups in ability lists, but not abilities', function () {
+    [$workspace, $document] = openInFixture(
+        'rules.warrant',
+        "for billing { if in_current_tenant they can managers, manage }\nfor documents { if in_team(billing.invoice_prefix, tenant_source) they can view }",
+    );
+
+    expect(SemanticTokens::of($workspace, $document))->toBe([
+        0, 44, 8, 0, 1,
+        1, 27, 7, 1, 0,
+        0, 8, 14, 0, 1,
+        0, 16, 13, 0, 1,
+    ]);
 });

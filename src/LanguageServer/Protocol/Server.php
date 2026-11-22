@@ -14,6 +14,7 @@ use Warrant\LanguageServer\Features\Formatting;
 use Warrant\LanguageServer\Features\Hover;
 use Warrant\LanguageServer\Features\InlayHints;
 use Warrant\LanguageServer\Features\Occurrences;
+use Warrant\LanguageServer\Features\SemanticTokens;
 use Warrant\LanguageServer\Features\Usages;
 use Warrant\LanguageServer\Vocabulary\ApplicationVocabularyProcess;
 use Warrant\LanguageServer\Vocabulary\StaticSchemaScanner;
@@ -244,6 +245,7 @@ final class Server
             'textDocument/completion' => ['isIncomplete' => false, 'items' => $document === null ? [] : Completion::at($this->workspace, $document, $position, $this->takesSnippets)],
             'textDocument/inlayHint' => $document === null ? [] : InlayHints::in($this->workspace, $document, is_array($params['range'] ?? null) ? $params['range'] : []),
             'textDocument/documentSymbol' => $document === null ? [] : DocumentSymbols::of($this->workspace, $document),
+            'textDocument/semanticTokens/full' => ['data' => $document === null ? [] : SemanticTokens::of($this->workspace, $document)],
             'textDocument/codeAction' => $document === null ? [] : [
                 ...CodeActions::for($this->workspace, $document, is_array($params['context'] ?? null) ? $params['context'] : []),
                 ...Formatting::codeActions($document, is_array($params['context'] ?? null) ? $params['context'] : [], $this->workspace->root),
@@ -330,6 +332,7 @@ final class Server
                 'definitionProvider' => true,
                 'documentSymbolProvider' => true,
                 'inlayHintProvider' => true,
+                'semanticTokensProvider' => ['legend' => SemanticTokens::legend(), 'full' => true],
                 'completionProvider' => ['triggerCharacters' => [' ', '(', '@', '.', ',']],
                 'codeActionProvider' => ['codeActionKinds' => ['quickfix', Formatting::KIND]],
                 /* Registered later for `.warrant` files only when the editor can

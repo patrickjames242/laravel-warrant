@@ -12,6 +12,10 @@
         "named": true
       },
       {
+        "type": "constant",
+        "named": true
+      },
+      {
         "type": "context_ref",
         "named": true
       },
@@ -83,6 +87,10 @@
       "multiple": false,
       "required": true,
       "types": [
+        {
+          "type": "constant",
+          "named": true
+        },
         {
           "type": "identifier",
           "named": true
@@ -189,6 +197,10 @@
         "required": true,
         "types": [
           {
+            "type": "constant",
+            "named": true
+          },
+          {
             "type": "named_binding",
             "named": true
           },
@@ -267,6 +279,10 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "constant",
+            "named": true
+          },
           {
             "type": "identifier",
             "named": true
@@ -423,6 +439,32 @@
         "types": [
           {
             "type": "_expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "constant",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "schema": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
             "named": true
           }
         ]
@@ -718,6 +760,10 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "constant",
+            "named": true
+          },
           {
             "type": "named_binding",
             "named": true

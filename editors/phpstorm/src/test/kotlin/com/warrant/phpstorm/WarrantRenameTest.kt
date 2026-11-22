@@ -57,10 +57,14 @@ class WarrantRenameTest : BasePlatformTestCase() {
 
         use Warrant\Schema\Abilities\Ability;
         use Warrant\Schema\Conditions\Row\RowCondition;
+        use Warrant\Schema\Constants\Constant;
         use Warrant\Schema\RuleTemplates\RuleTemplate;
 
         class DocumentSchema
         {
+            #[Constant]
+            public const EDITORS = [self::EDIT, self::VIEW];
+
             #[Ability]
             public const EDIT = 'edit';
 
@@ -270,6 +274,16 @@ class WarrantRenameTest : BasePlatformTestCase() {
 
         assertEquals("VIEW", (declared as Field).name)
         assertNull(WarrantConstructs.declaredBy(declared))
+    }
+
+    fun testAConstantResolvesToItsClassConstantAndIsNotRenamed() {
+        val (schemaFile, _) = configure()
+
+        val declared = WarrantConstructs.declaringElement(project, WarrantDeclaration("constant", "editors", schemaFile.url, "EDITORS"))
+
+        assertEquals("EDITORS", (declared as Field).name)
+        assertEquals(WarrantKind.CONSTANT, WarrantConstructs.declaredBy(declared)?.kind)
+        assertFalse(WarrantConstructs.declaredBy(declared)!!.isRenamable)
     }
 
     fun testANewNameMustBeWritableAndFree() {

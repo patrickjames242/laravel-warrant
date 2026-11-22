@@ -5,7 +5,9 @@
 ; in Zed as it does in VS Code and PhpStorm. Two places deliberately do better
 ; than the TextMate grammar can, because a real parse tree knows more than a
 ; regex: a `@context` key is a property rather than falling through to the
-; bare-identifier rule.
+; bare-identifier rule, and a bare constant in an argument is a constant rather
+; than a condition's name. A bare constant where an ability goes looks like an
+; ability to the parse tree too; only the language server can tell them apart.
 
 ; -- keywords ----------------------------------------------------------------
 
@@ -56,6 +58,13 @@
 
 (ability
   (wildcard) @operator)
+
+; Schema constants: bare in an argument, or `<schema>.<name>` anywhere.
+(constant
+  schema: (identifier) @type)
+
+(constant
+  name: (identifier) @constant)
 
 ; Keys: `with` map entries, `@context` keys, and `@column` column names.
 (with_entry

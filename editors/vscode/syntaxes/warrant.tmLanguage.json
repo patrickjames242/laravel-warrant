@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Warrant",
   "scopeName": "source.warrant",
-  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is `its <relation>`, following a #[RowRelation] of the schema the rule is for, or a schema name, optionally row-bound with a `(<arg>, …)` selector; either may start with `any of` or `all of`, saying how many of its rows must pass, and may name the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on, and then may drop its parentheses too, as `can <ability>`. Arguments may be literals, :name bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), or @sql \"<sql>\" (an arbitrary SQL fragment). If the DSL grows new tokens/keywords, add matching patterns here.",
+  "comment": "Grammar for the Warrant rule DSL, kept in sync with the parser (src/DSL/Parsing/WarrantParser.php) and lexer (src/DSL/Lexing/Lexer.php). Cross-schema references are implemented: KEYWORD(<predicate> for <handle> [with <context map>]) — e.g. can(create_timesheet for users(@context user_id)) and check(is_open('p') for pay_periods(@context id) with k = @context v). A handle is `its <relation>`, following a #[RowRelation] of the schema the rule is for, or a schema name, optionally row-bound with a `(<arg>, …)` selector; either may start with `any of` or `all of`, saying how many of its rows must pass, and may name the rows it selects with a trailing `as <alias>`; a can(...) may omit the `for <handle>` entirely, asking about another ability of the schema the rule is written on, and then may drop its parentheses too, as `can <ability>`. Arguments may be literals, :name bindings, @context <key>, @column <column> or @column <name>.<column> (a database column, qualified by a frame name when a rule can see more than one), @sql \"<sql>\" (an arbitrary SQL fragment), or a schema constant, bare or as <schema>.<name>; a constant may also stand where an ability goes. If the DSL grows new tokens/keywords, add matching patterns here.",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
@@ -20,6 +20,7 @@
     { "include": "#numbers" },
     { "include": "#operators" },
     { "include": "#punctuation" },
+    { "include": "#constant-ref" },
     { "include": "#identifiers" }
   ],
   "repository": {
@@ -166,6 +167,15 @@
       "comment": "( ) , punctuation, plus { } delimiting a `for <schema> { ... }` rule-set block.",
       "match": "[(){},]",
       "name": "punctuation.separator.warrant"
+    },
+    "constant-ref": {
+      "comment": "`<schema>.<name>` — a constant of the schema keyed `<schema>`, written where an argument or an ability goes. Highlights the schema as a namespace and the name as a constant. A bare constant cannot be told from a condition or an ability by its shape, so the language server's semantic tokens colour it. Listed after #column-ref, whose `@column <name>.<column>` claims its own dot first (same line only).",
+      "match": "([A-Za-z_][A-Za-z0-9_-]*)\\s*(\\.)\\s*([A-Za-z_][A-Za-z0-9_-]*)",
+      "captures": {
+        "1": { "name": "entity.name.namespace.warrant" },
+        "2": { "name": "punctuation.separator.warrant" },
+        "3": { "name": "variable.other.constant.warrant" }
+      }
     },
     "identifiers": {
       "match": "[A-Za-z_][A-Za-z0-9_-]*",

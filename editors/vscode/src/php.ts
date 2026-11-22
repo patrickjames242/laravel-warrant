@@ -122,9 +122,9 @@ export function membersOf(document: vscode.TextDocument): PhpMember[] {
 /**
  * Where `document` writes the name of the `kind` that `member` declares and
  * rule text calls `name`: an ability constant's value, or failing that the
- * constant; a condition's, template's or row relation's key, when its attribute
- * gives one, or else its method; a schema's class. Undefined when `member` is
- * not found.
+ * constant; a `#[Constant]`'s constant; a condition's, template's or row
+ * relation's key, when its attribute gives one, or else its method; a schema's
+ * class. Undefined when `member` is not found.
  */
 export function declarationSite(document: vscode.TextDocument, kind: string, member: string, name: string): DeclarationSite | undefined {
   const text = document.getText()
@@ -138,6 +138,12 @@ export function declarationSite(document: vscode.TextDocument, kind: string, mem
     const match = new RegExp(String.raw`\bclass\s+(${escape(short)})\b`).exec(text)
 
     return match === null ? undefined : at('class', match.index + match[0].length - short.length, short.length)
+  }
+
+  if (kind === 'constant') {
+    const match = new RegExp(String.raw`\bconst\s+(?:[\w\\?|]+\s+)?(${escape(member)})\s*=`).exec(text)
+
+    return match === null ? undefined : at('constant', match.index + match[0].lastIndexOf(match[1]), match[1].length)
   }
 
   if (kind === 'ability') {

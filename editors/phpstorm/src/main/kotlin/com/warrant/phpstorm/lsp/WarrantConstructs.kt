@@ -19,6 +19,7 @@ enum class WarrantKind(val wireValue: String, val label: String) {
     TEMPLATE("template", "Warrant template"),
     RELATION("relation", "Warrant row relation"),
     ABILITY("ability", "Warrant ability"),
+    CONSTANT("constant", "Warrant constant"),
     SCHEMA("schema", "Warrant schema");
 
     companion object {
@@ -59,10 +60,10 @@ data class WarrantConstruct(
 }
 
 /**
- * Finds the conditions, templates, row relations and abilities the PHP
- * declares: a method carrying a condition, template or row relation attribute,
- * and a class constant carrying an ability attribute, whose value is the
- * ability's name.
+ * Finds the conditions, templates, row relations, abilities and constants the
+ * PHP declares: a method carrying a condition, template or row relation
+ * attribute, a class constant carrying an ability attribute, whose value is the
+ * ability's name, and a class constant marked `#[Constant]`.
  */
 object WarrantConstructs {
 
@@ -83,12 +84,15 @@ object WarrantConstructs {
     /** What every ability attribute implements, the library's `#[Ability]` among them. */
     private const val ABILITY_ATTRIBUTE = "\\Warrant\\Schema\\Abilities\\IDeclaresAbility"
 
+    /** What marks a class constant as a constant rule text may name. */
+    private const val CONSTANT_ATTRIBUTE = "\\Warrant\\Schema\\Constants\\Constant"
+
     /**
      * The construct whose name [element] declares: a condition or template
-     * method with no key given, the key given to its attribute, or an ability
-     * constant's string value. Null for anything else, an ability constant
-     * whose value is computed among them, since no string of its own holds the
-     * name.
+     * method with no key given, the key given to its attribute, an ability
+     * constant's string value, or a class constant marked `#[Constant]`. Null
+     * for anything else, an ability constant whose value is computed among
+     * them, since no string of its own holds the name.
      */
     fun declaredBy(element: PsiElement): WarrantConstruct? {
         val file = element.containingFile?.virtualFile ?: return null
@@ -106,6 +110,8 @@ object WarrantConstructs {
                     null
                 }
 
+            is Field -> if (isMarkedConstant(element)) WarrantConstruct(WarrantKind.CONSTANT, file, element.name, element) else null
+
             is StringLiteralExpression -> {
                 keyedMethodOf(element)?.let { method ->
                     WarrantConstruct(kindOf(method) ?: return null, file, method.name, element)
@@ -121,13 +127,18 @@ object WarrantConstructs {
     /**
      * What the PHP declaring [declaration] is: the string or method
      * [declaredBy] takes it from, or for an ability whose value is computed,
-     * the constant.
+     * and for a `#[Constant]`, the class constant.
      */
     fun declaringElement(project: Project, declaration: WarrantDeclaration): PsiElement? {
         val kind = WarrantKind.of(declaration.kind) ?: return null
         val member = declaration.member ?: return null
         val file = WarrantServerQueries.getInstance(project).fileOf(declaration.uri ?: return null) ?: return null
         val psiFile = PsiManager.getInstance(project).findFile(file) ?: return null
+
+        if (kind == WarrantKind.CONSTANT) {
+            return PsiTreeUtil.findChildrenOfType(psiFile, Field::class.java)
+                .firstOrNull { it.isConstant && it.name == member }
+        }
 
         if (kind == WarrantKind.ABILITY) {
             val constant = PsiTreeUtil.findChildrenOfType(psiFile, Field::class.java)
@@ -197,6 +208,10 @@ object WarrantConstructs {
             index.getClassesByFQN(fqn).any { implementsInterface(it, ABILITY_ATTRIBUTE, mutableSetOf()) }
         }
     }
+
+    /** Whether [field] is a class constant marked `#[Constant]`. */
+    fun isMarkedConstant(field: Field): Boolean =
+        field.isConstant && field.attributes.any { it.fqn == CONSTANT_ATTRIBUTE }
 
     /** Whether [phpClass] is, extends or implements [interfaceFqn], at any remove. */
     private fun implementsInterface(phpClass: PhpClass, interfaceFqn: String, seen: MutableSet<String>): Boolean {

@@ -30,6 +30,9 @@ namespace Warrant\Schema\RuleTemplates {
 namespace Warrant\Schema\Relations {
     #[\Attribute] class RowRelation {}
 }
+namespace Warrant\Schema\Constants {
+    #[\Attribute] class Constant {}
+}
 namespace Warrant\Schema\Types\Interfaces {
     interface ISchema {}
 }

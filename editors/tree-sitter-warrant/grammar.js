@@ -132,10 +132,11 @@ module.exports = grammar({
     ),
 
     // `because` attaches a denial message. The message is fixed at parse time,
-    // so it is a literal string or a binding -- never an @context reference.
+    // so it is a literal string, a binding or a constant -- never an @context
+    // reference.
     because_clause: $ => seq(
       'because',
-      field('message', choice($.string, $.named_binding)),
+      field('message', choice($.string, $.named_binding, $.constant)),
     ),
 
     ability_list: $ => seq(
@@ -143,8 +144,10 @@ module.exports = grammar({
       repeat(seq(',', $.ability)),
     ),
 
-    // An ability name, `*`, or a binding whose value names one or a list of them.
-    ability: $ => choice($.identifier, $.wildcard, $.named_binding),
+    // An ability name, `*`, or a binding or constant whose value names one or a
+    // list of them. A bare name may be a constant too, which only the schemas can
+    // tell, so only a prefixed one is a `constant` here.
+    ability: $ => choice($.identifier, $.wildcard, $.named_binding, alias($._prefixed_constant, $.constant)),
 
     wildcard: _ => '*',
 
@@ -190,7 +193,7 @@ module.exports = grammar({
       seq(
         'can',
         '(',
-        field('ability', choice($.identifier, $.named_binding)),
+        field('ability', choice($.identifier, $.named_binding, alias($._prefixed_constant, $.constant))),
         optional(seq(
           'for',
           field('target', $.handle),
@@ -200,7 +203,7 @@ module.exports = grammar({
       ),
       seq(
         'can',
-        field('ability', choice($.identifier, $.named_binding)),
+        field('ability', choice($.identifier, $.named_binding, alias($._prefixed_constant, $.constant))),
       ),
     ),
 
@@ -270,6 +273,7 @@ module.exports = grammar({
       $.context_ref,
       $.column_ref,
       $.sql_ref,
+      $.constant,
     ),
 
     // A check-time context value, resolved per authorization check.
@@ -294,10 +298,24 @@ module.exports = grammar({
       ),
     ),
 
-    // An arbitrary SQL fragment, as a literal or a binding resolving to a string.
+    // An arbitrary SQL fragment, as a literal, or a binding or constant resolving
+    // to a string.
     sql_ref: $ => seq(
       '@sql',
-      field('sql', choice($.string, $.named_binding)),
+      field('sql', choice($.string, $.named_binding, $.constant)),
+    ),
+
+    // A schema constant: `<name>`, or `<schema>.<name>` for a constant of the
+    // schema keyed `<schema>`.
+    constant: $ => choice(
+      $._prefixed_constant,
+      field('name', $.identifier),
+    ),
+
+    _prefixed_constant: $ => seq(
+      field('schema', $.identifier),
+      '.',
+      field('name', $.identifier),
     ),
 
     // -- terminals -----------------------------------------------------------

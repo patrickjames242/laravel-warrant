@@ -192,6 +192,10 @@ function refusal(target: Target): void {
     throw new Error('An ability is not renamed with its uses in rule text.')
   }
 
+  if (target.declaration.kind === 'constant') {
+    throw new Error('A constant is not renamed with its uses in rule text.')
+  }
+
   if (target.declaration.kind === 'schema') {
     throw new Error("Rule text names a schema by its key, which is not renamed.")
   }
