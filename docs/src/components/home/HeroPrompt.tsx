@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 
 /**
  * What the prompt types: one sentence that carries on from the headline's first
- * line, with an ending for each of the hero's three questions, in the order its
+ * line, with an ending for each of the hero's four questions, in the order its
  * tabs list them. Every ending follows the same opening.
  */
 const OPENING = 'Use it to '
-const ENDINGS = ['filter queries.', 'check a row.', 'list abilities.']
+const ENDINGS = ['filter queries.', 'check a row.', 'list abilities.', 'filter users.']
 const LINES = ENDINGS.map((ending) => OPENING + ending)
 const LONGEST = LINES.reduce((longest, line) => (line.length > longest.length ? line : longest))
 

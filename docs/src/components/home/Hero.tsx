@@ -1,7 +1,7 @@
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import type { ReactNode } from 'react'
-import { useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { links } from '../../lib/links'
 import { useElementWidth } from '../../lib/useElementWidth'
 import { CodeLines } from '../CodeLines'
@@ -11,8 +11,8 @@ import { bend } from './flow'
 import { FlowSegment, REVEAL_LENGTH } from './FlowSegment'
 import { HeroPrompt } from './HeroPrompt'
 import { WarrantForLaravel } from '../WarrantForLaravel'
-import type { Document, HeroQuestion } from './heroData'
-import { DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT } from './heroData'
+import type { Document, HeroQuestion, User } from './heroData'
+import { ASKED_DOCUMENT, DOCUMENTS, HERO_MODES, HERO_QUESTIONS, HERO_RULE, HERO_RULE_HIGHLIGHT, USERS } from './heroData'
 import { themed, tint } from './sectionStyles'
 
 type OutputView = 'sql' | 'rows'
@@ -37,9 +37,22 @@ const HERO_GLOW = [
 const GRID_BACKGROUND = `linear-gradient(${themed('line-0')} 1px, transparent 1px), linear-gradient(90deg, ${themed('line-0')} 1px, transparent 1px)`
 
 const ROW_COLUMNS = 'grid-cols-[44px_minmax(143px,1.4fr)_79px_79px_64px_minmax(154px,1.2fr)]'
+const USER_COLUMNS = 'grid-cols-[44px_minmax(110px,1.1fr)_86px_92px_64px_minmax(170px,1.3fr)]'
 
-/** Width of the gap between the three question tabs, in pixels. */
+const HEADING_ROW = 'h-8 items-center bg-pane-head px-3.5 font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase'
+const BODY_ROW = 'h-9.5 items-center border-t border-line-1 px-3.5 font-mono text-[14.5px] leading-none transition-[opacity,background,box-shadow] duration-400'
+const EMPHASISED_ROW = 'bg-coral/10 shadow-[inset_2px_0_0_var(--color-coral)]'
+const RESULT_CELL = '-mr-3.5 flex items-center self-stretch px-3 transition-all duration-400'
+
+/** Width of the gap between the question tabs, in pixels. */
 const TAB_GAP = 17.5
+/**
+ * Below this workspace width, in pixels, the question tabs keep a fixed width
+ * of `SCROLLING_TAB_WIDTH` and scroll sideways in a row that runs to the edges
+ * of the screen.
+ */
+const SCROLL_BELOW = 640
+const SCROLLING_TAB_WIDTH = 214
 /** Height of the connector between two panels that changes column on the way. */
 const ELBOW_HEIGHT = 70
 /** Height of the straight connector from the code panel to the output. */
@@ -51,6 +64,8 @@ const DROP_HEIGHT = 44
  */
 const REDRAW = 0.32
 const DROP_REDRAW = 0.22
+/** How long, in seconds, the line into and out of the tabs takes to fade while a picked tab scrolls to the middle. */
+const LINE_FADE = 0.2
 /** How long, in seconds, the code and output panels take to settle to their new height. */
 const RESIZE = 0.45
 
@@ -73,7 +88,7 @@ export function Hero() {
       />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: HERO_GLOW }} />
 
-      <div className="relative mx-auto flex max-w-330 flex-wrap items-start justify-center gap-[clamp(44px,5.5vw,79px)] px-[clamp(22px,4.4vw,53px)] pb-[clamp(70px,8.8vw,114px)]">
+      <div className="relative mx-auto flex max-w-330 flex-wrap items-start justify-center gap-[clamp(44px,5.5vw,79px)] px-(--gutter) pb-[clamp(70px,8.8vw,114px)] [--gutter:clamp(22px,4.4vw,53px)]">
         {/*
           At least a screen tall, less the sticky header, with its content centred
           in it, so the page opens on the pitch alone and the workspace waits below.
@@ -90,7 +105,7 @@ export function Hero() {
             <span data-choreo="intro" className="block text-balance">
               Write authorization once.
             </span>
-            <span className="sr-only">Use it to filter queries, check a row, and list abilities.</span>
+            <span className="sr-only">Use it to filter queries, check a row, list abilities, and filter users.</span>
             <span data-choreo="intro" className="mt-[0.3em] flex justify-center">
               <HeroPrompt />
             </span>
@@ -163,9 +178,14 @@ interface PanelHeights {
 }
 
 /**
- * The rule set, then one of three questions asked of it, then the code that
+ * The rule set, then one of four questions asked of it, then the code that
  * asks it, then what the database sends back. Dotted connectors trace the path
  * from the rule through the chosen question down to the output.
+ *
+ * On a narrow workspace the questions scroll sideways, and the connectors
+ * follow the scroll so the line keeps meeting the picked question wherever it
+ * sits. A branch to a question scrolled out of view runs off the edge of the
+ * screen, towards it.
  *
  * Picking another question redraws the line from the rule down to it, into
  * the code and on into the output, while the panels ease to their new height and their new
@@ -184,6 +204,72 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
   // re-renders them, so the change can grow or shrink them from there.
   const before = useRef<PanelHeights | null>(null)
   const shownQuestion = useRef(question)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const scrolling = width < SCROLL_BELOW
+  const [tabScroll, setTabScroll] = useState<TabScroll>({ left: 0, visible: 1, total: 1 })
+
+  useLayoutEffect(() => {
+    const list = tabsRef.current
+    if (!list) return
+    const measure = () => {
+      setTabScroll(scrollOf(list))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(list)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  /** The coral line into the tabs and the one out of them. */
+  const tabLines = () =>
+    [fanRef.current, toCodeRef.current].flatMap((connector) =>
+      Array.from(connector?.querySelectorAll('.flow-path') ?? []),
+    )
+
+  // Counts picks, so a pick still waiting on the row to scroll gives way to a later one.
+  const picks = useRef(0)
+
+  /**
+   * Scrolls the tab row so question `i` sits in the middle of the screen, and
+   * calls `then` as the row is about to arrive.
+   */
+  const bringIntoView = (i: number, then: () => void) => {
+    const list = tabsRef.current
+    const tab = list?.children[i]
+    if (!list || !(tab instanceof HTMLElement)) {
+      then()
+      return
+    }
+    const furthest = list.scrollWidth - list.clientWidth
+    const target = Math.min(furthest, Math.max(0, tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2))
+    list.scrollTo({
+      left: target,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+    whenScrollNears(list, target, then)
+  }
+
+  /**
+   * Picks question `i`. A scrolling row first brings it to the middle while the
+   * line into and out of the tabs fades away, and the line starts to redraw
+   * just before the row gets there.
+   */
+  const pick = (key: HeroQuestion, i: number) => {
+    const ticket = ++picks.current
+    const choose = () => {
+      if (ticket !== picks.current) return
+      remember()
+      onQuestion(key)
+    }
+    if (!scrolling) {
+      choose()
+      return
+    }
+    gsap.to(tabLines(), { opacity: 0, duration: LINE_FADE, ease: 'power1.out', overwrite: true })
+    bringIntoView(i, choose)
+  }
 
   const remember = () => {
     const code = codeRef.current
@@ -203,6 +289,9 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
       const redraw = shownQuestion.current !== question
       shownQuestion.current = question
       if (!from || !code || !output || !fan || !toCode || !toOutput) return
+      // The lines a pick faded out while the row scrolled show again, hidden
+      // until their redraw reveals them.
+      if (redraw) gsap.set(tabLines(), { clearProps: 'opacity', overwrite: true })
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
       const settle = (panel: HTMLElement, height: number) =>
@@ -256,12 +345,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
       gsap
         .timeline()
         .add(draw(fan, REDRAW))
-        .fromTo(
-          fan.querySelectorAll('[data-choreo="branch"]'),
-          { opacity: 0.35 },
-          { opacity: 1, duration: REDRAW, ease: 'power1.out', overwrite: true, clearProps: 'opacity' },
-          0,
-        )
         .add(draw(toCode, REDRAW), '>-0.04')
         .add(land(toCode), '>-0.06')
         .add(fadeIn(code.lastElementChild), '<')
@@ -272,8 +355,13 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
     { dependencies: [question, view], revertOnUpdate: false },
   )
 
-  const columnWidth = (width - TAB_GAP * 2) / 3
-  const tabCentres = [0, 1, 2].map((i) => columnWidth * (i + 0.5) + TAB_GAP * i)
+  // A scrolling row's leading padding and the negative margin that takes it to
+  // the screen's edge cancel out, so a tab's centre is the same sum either way,
+  // less however far the row is scrolled.
+  const count = HERO_QUESTIONS.length
+  const tabWidth = scrolling ? SCROLLING_TAB_WIDTH : (width - TAB_GAP * (count - 1)) / count
+  const scrolled = scrolling ? tabScroll.left : 0
+  const tabCentres = HERO_QUESTIONS.map((_, i) => tabWidth * (i + 0.5) + TAB_GAP * i - scrolled)
   const middle = width / 2
   const selectedCentre = tabCentres[selected] ?? middle
 
@@ -294,7 +382,7 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
       </div>
 
       <div ref={fanRef} aria-hidden="true" className="relative" style={{ height: ELBOW_HEIGHT }}>
-        <Connector height={ELBOW_HEIGHT}>
+        <Connector height={ELBOW_HEIGHT} clipped={scrolling}>
           {/*
             Keyed by the tab each branch leads to, not by where it lands, so a
             change of width reshapes the same branches rather than replacing them.
@@ -303,7 +391,6 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
             i === selected ? null : (
               <path
                 key={HERO_QUESTIONS[i]}
-                data-choreo="branch"
                 d={elbow(middle, x, ELBOW_HEIGHT)}
                 className="fill-none stroke-line-5 stroke-1 light:stroke-line-3"
               />
@@ -313,8 +400,21 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         </Connector>
       </div>
 
-      <div role="tablist" aria-label="Authorization question" className="grid grid-cols-3" style={{ gap: TAB_GAP }}>
-        {HERO_QUESTIONS.map((key) => {
+      <div
+        ref={tabsRef}
+        role="tablist"
+        aria-label="Authorization question"
+        onScroll={(event) => {
+          setTabScroll(scrollOf(event.currentTarget))
+        }}
+        className={`relative ${
+          scrolling
+            ? '-mx-(--gutter) flex snap-x snap-mandatory overflow-x-auto px-(--gutter) [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'grid grid-cols-4'
+        }`}
+        style={{ gap: TAB_GAP }}
+      >
+        {HERO_QUESTIONS.map((key, i) => {
           const on = key === question
           return (
             <button
@@ -323,11 +423,10 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
               role="tab"
               aria-selected={on}
               onClick={() => {
-                if (on) return
-                remember()
-                onQuestion(key)
+                if (!on) pick(key, i)
               }}
-              className={`group min-w-0 cursor-pointer rounded-[17px] border px-3.5 py-3 text-left shadow-pane transition-colors duration-300 ${
+              style={scrolling ? { width: SCROLLING_TAB_WIDTH } : undefined}
+              className={`group min-w-0 flex-none snap-center cursor-pointer rounded-[17px] border px-3.5 py-3 text-left shadow-pane transition-colors duration-300 ${
                 on
                   ? 'border-coral bg-coral/8'
                   : 'border-line-3 bg-pane hover:border-line-5 hover:bg-pane-head light:border-pane-edge light:hover:border-line-5'
@@ -358,7 +457,8 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
         className="relative"
         style={{ height: ELBOW_HEIGHT }}
       >
-        <Connector height={ELBOW_HEIGHT}>
+        {scrolling && <ScrollTrack scroll={tabScroll} getRow={() => tabsRef.current} />}
+        <Connector height={ELBOW_HEIGHT} clipped={scrolling}>
           <FlowSegment d={elbow(selectedCentre, middle, ELBOW_HEIGHT)} />
         </Connector>
         <Dot />
@@ -437,25 +537,23 @@ function Workspace({ question, onQuestion, view, onView }: WorkspaceProps) {
 }
 
 function ResultRows({ question }: { question: HeroQuestion }) {
+  return question === 'users' ? <UserRows /> : <DocumentRows question={question} />
+}
+
+function DocumentRows({ question }: { question: DocumentQuestion }) {
   const abilities = question === 'abilities'
   const resultCell = abilities ? 'bg-coral/12 shadow-[inset_2px_0_0_var(--color-coral)]' : ''
 
   return (
     <div className="min-h-58 overflow-x-auto overflow-y-hidden">
       <div className="min-w-140">
-        <div
-          className={`grid ${ROW_COLUMNS} h-8 items-center bg-pane-head px-3.5 font-mono text-[11.5px] leading-none font-semibold tracking-[.1em] text-umber uppercase`}
-        >
+        <div className={`grid ${ROW_COLUMNS} ${HEADING_ROW}`}>
           <span>id</span>
           <span>title</span>
           <span>owner</span>
           <span>team</span>
           <span>locked</span>
-          <span
-            className={`-mr-3.5 flex items-center gap-2 self-stretch px-3 transition-all duration-400 ${resultCell} ${
-              abilities ? 'text-coral' : ''
-            }`}
-          >
+          <span className={`${RESULT_CELL} gap-2 ${resultCell} ${abilities ? 'text-coral' : ''}`}>
             {HERO_MODES[question].resultHeading}
           </span>
         </div>
@@ -465,9 +563,9 @@ function ResultRows({ question }: { question: HeroQuestion }) {
           return (
             <div
               key={document.id}
-              className={`grid ${ROW_COLUMNS} h-9.5 items-center border-t border-line-1 px-3.5 font-mono text-[14.5px] leading-none transition-[opacity,background,box-shadow] duration-400 ${
-                abilities ? 'text-umber' : 'text-sand'
-              } ${row.emphasis ? 'bg-coral/10 shadow-[inset_2px_0_0_var(--color-coral)]' : ''}`}
+              className={`grid ${ROW_COLUMNS} ${BODY_ROW} ${abilities ? 'text-umber' : 'text-sand'} ${
+                row.emphasis ? EMPHASISED_ROW : ''
+              }`}
               style={{ opacity: row.opacity }}
             >
               <span className="text-taupe">#{document.id}</span>
@@ -483,11 +581,7 @@ function ResultRows({ question }: { question: HeroQuestion }) {
               <span className={document.locked ? 'text-coral-soft' : 'text-umber'}>
                 {document.locked ? 'yes' : 'no'}
               </span>
-              <span
-                className={`-mr-3.5 flex items-center self-stretch px-3 font-semibold transition-all duration-400 ${resultCell} ${row.resultClass}`}
-              >
-                {row.result}
-              </span>
+              <span className={`${RESULT_CELL} font-semibold ${resultCell} ${row.resultClass}`}>{row.result}</span>
             </div>
           )
         })}
@@ -495,6 +589,44 @@ function ResultRows({ question }: { question: HeroQuestion }) {
     </div>
   )
 }
+
+/** The users table, each user kept or filtered out by whether they can update the asked document. */
+function UserRows() {
+  return (
+    <div className="min-h-58 overflow-x-auto overflow-y-hidden">
+      <div className="min-w-140">
+        <div className={`grid ${USER_COLUMNS} ${HEADING_ROW}`}>
+          <span>id</span>
+          <span>name</span>
+          <span>team</span>
+          <span>manages</span>
+          <span>admin</span>
+          <span className={`${RESULT_CELL} normal-case`}>{HERO_MODES.users.resultHeading}</span>
+        </div>
+
+        {USERS.map((user) => {
+          const row = describeUser(user, ASKED_DOCUMENT)
+          return (
+            <div
+              key={user.id}
+              className={`grid ${USER_COLUMNS} ${BODY_ROW} text-sand ${row.emphasis ? EMPHASISED_ROW : ''}`}
+              style={{ opacity: row.opacity }}
+            >
+              <span className="text-taupe">#{user.id}</span>
+              <span className={`font-sans text-sm text-cream ${row.struck ? 'line-through' : ''}`}>{user.name}</span>
+              <span>{user.team}</span>
+              <span className={user.manages ? '' : 'text-umber'}>{user.manages ?? '—'}</span>
+              <span className={user.admin ? 'text-coral-soft' : 'text-umber'}>{user.admin ? 'yes' : 'no'}</span>
+              <span className={`${RESULT_CELL} font-semibold ${row.resultClass}`}>{row.result}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+type DocumentQuestion = Exclude<HeroQuestion, 'users'>
 
 interface RowDescription {
   result: string
@@ -504,20 +636,22 @@ interface RowDescription {
   struck: boolean
 }
 
-function describeRow(document: Document, question: HeroQuestion): RowDescription {
-  const row: RowDescription = { result: '', resultClass: 'text-taupe', emphasis: false, opacity: 1, struck: false }
+const PLAIN_ROW: RowDescription = { result: '', resultClass: 'text-taupe', emphasis: false, opacity: 1, struck: false }
+const RETURNED = { resultClass: 'text-coral', emphasis: true }
+const FILTERED_OUT = { result: '— filtered out', opacity: 0.28, struck: true }
+
+function describeRow(document: Document, question: DocumentQuestion): RowDescription {
+  const row = PLAIN_ROW
 
   switch (question) {
     case 'check':
-      if (document.id === 2) return { ...row, result: 'true · manages_team', resultClass: 'text-coral', emphasis: true }
+      if (document.id === ASKED_DOCUMENT.id) return { ...row, ...RETURNED, result: 'true · manages_team' }
       if (document.id === 4) return { ...row, result: '403 · locked', resultClass: 'text-coral-soft' }
       return { ...row, opacity: 0.32 }
 
     case 'filter':
-      if (document.abilities.includes('update')) {
-        return { ...row, result: '✓ returned', resultClass: 'text-coral', emphasis: true }
-      }
-      return { ...row, result: '— filtered out', opacity: 0.28, struck: true }
+      if (document.abilities.includes('update')) return { ...row, ...RETURNED, result: '✓ returned' }
+      return { ...row, ...FILTERED_OUT }
 
     case 'abilities':
       return {
@@ -528,9 +662,134 @@ function describeRow(document: Document, question: HeroQuestion): RowDescription
   }
 }
 
-function Connector({ height, children }: { height: number; children: ReactNode }) {
+/** Whether `user` can update `document` under the hero's rule, and through which condition. */
+function describeUser(user: User, document: Document): RowDescription {
+  if (user.name === document.owner) return { ...PLAIN_ROW, ...RETURNED, result: '✓ owns_document' }
+  if (user.manages === document.team) return { ...PLAIN_ROW, ...RETURNED, result: '✓ manages_team' }
+  return { ...PLAIN_ROW, ...FILTERED_OUT }
+}
+
+/**
+ * How close, in pixels, a smooth scroll must come to where it is headed to
+ * count as arriving. A smooth scroll eases out, so its last few pixels take
+ * the last split second of it.
+ */
+const ARRIVING_WITHIN = 12
+/** How many animation frames a scroll must hold still for to count as stopped short of where it was headed. */
+const STOPPED_FRAMES = 4
+/** The longest, in milliseconds, to wait for a scroll to arrive before carrying on regardless. */
+const ARRIVAL_LIMIT = 1500
+
+/**
+ * Calls `then` once `element` has scrolled to within `ARRIVING_WITHIN` of
+ * `target`, or has stopped somewhere else, or has taken too long.
+ */
+function whenScrollNears(element: HTMLElement, target: number, then: () => void) {
+  const started = performance.now()
+  let last = element.scrollLeft
+  let still = 0
+
+  const check = () => {
+    const now = element.scrollLeft
+    still = now === last ? still + 1 : 0
+    last = now
+    const arriving = Math.abs(now - target) <= ARRIVING_WITHIN
+    if (arriving || still >= STOPPED_FRAMES || performance.now() - started > ARRIVAL_LIMIT) then()
+    else requestAnimationFrame(check)
+  }
+  requestAnimationFrame(check)
+}
+
+/** How far a row is scrolled, how much of it shows, and how wide it is in all, in pixels. */
+interface TabScroll {
+  left: number
+  visible: number
+  total: number
+}
+
+function scrollOf(element: HTMLElement): TabScroll {
+  return { left: element.scrollLeft, visible: element.clientWidth, total: element.scrollWidth }
+}
+
+/**
+ * A scrollbar for the tab row, drawn under it. A phone shows its own scrollbar
+ * only while the row is moving, so this one stays to show there is more to
+ * scroll to. Dragging the thumb scrolls the row with it, and pressing the
+ * track elsewhere first centres the thumb there. The row's snapping is held
+ * off while the thumb is dragged, so it follows the pointer smoothly, and
+ * settles the row on a tab once the thumb is let go.
+ */
+interface ScrollTrackProps {
+  scroll: TabScroll
+  /** The row the track scrolls. */
+  getRow: () => HTMLElement | null
+}
+
+function ScrollTrack({ scroll, getRow }: ScrollTrackProps) {
+  const thumbWidth = scroll.visible / scroll.total
+
+  const drag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const list = getRow()
+    if (!list) return
+    const track = event.currentTarget
+    const box = track.getBoundingClientRect()
+    // Row pixels per track pixel.
+    const ratio = scroll.total / box.width
+    const thumbLeft = (scroll.left / scroll.total) * box.width
+    const onThumb = event.clientX >= box.left + thumbLeft && event.clientX <= box.left + thumbLeft + thumbWidth * box.width
+    const startScroll = onThumb ? list.scrollLeft : (event.clientX - box.left) * ratio - scroll.visible / 2
+    const startX = event.clientX
+
+    list.style.scrollSnapType = 'none'
+    list.scrollLeft = startScroll
+    track.setPointerCapture(event.pointerId)
+
+    const move = (moved: PointerEvent) => {
+      list.scrollLeft = startScroll + (moved.clientX - startX) * ratio
+    }
+    const release = () => {
+      list.style.scrollSnapType = ''
+      track.removeEventListener('pointermove', move)
+      track.removeEventListener('pointerup', release)
+      track.removeEventListener('pointercancel', release)
+    }
+    track.addEventListener('pointermove', move)
+    track.addEventListener('pointerup', release)
+    track.addEventListener('pointercancel', release)
+  }
+
   return (
-    <svg width="100%" height={height} className="absolute top-0 left-0 overflow-visible">
+    <div
+      aria-hidden="true"
+      onPointerDown={drag}
+      className="group absolute inset-x-0 top-0.5 z-2 h-6 cursor-pointer touch-none"
+    >
+      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line-2 transition-[height] group-hover:h-1.5">
+        <div
+          className="absolute inset-y-0 rounded-full bg-taupe/60 group-hover:bg-taupe"
+          style={{ left: `${(scroll.left / scroll.total) * 100}%`, width: `${thumbWidth * 100}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+interface ConnectorProps {
+  height: number
+  /** Whether to cut the connector off at the edges of the screen, for lines that lead to a tab scrolled out of view. */
+  clipped?: boolean
+  children: ReactNode
+}
+
+function Connector({ height, clipped = false, children }: ConnectorProps) {
+  return (
+    <svg
+      width="100%"
+      height={height}
+      className={`pointer-events-none absolute top-0 left-0 overflow-visible ${
+        clipped ? '[clip-path:inset(-8px_calc(-1*var(--gutter)))]' : ''
+      }`}
+    >
       {children}
     </svg>
   )
