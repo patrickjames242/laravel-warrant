@@ -10,33 +10,60 @@ use Warrant\DSL\Compiling\QueryFactory;
 use Warrant\Support\StringableExpression;
 
 /**
- * The user a check is for, and the row of the users table that holds them, as a
- * condition reaches it through `userColumn()`.
+ * The user a compile is for, and the row of the users table that holds them, as
+ * a condition reaches it through `userColumn()`. It is one of two things.
  *
- * A column of that row is a subquery that mentions nothing from the query it
- * lands in, `(select "users"."team_id" from "users" where "users"."id" = 5)`, so
- * the database runs it once and treats the result as a constant, and an index on
- * the column it is compared with stays usable under `or` and `not` alike. The
- * user's key is known without asking the database, so a column naming it is the
- * value itself.
- *
- * The key is written into the SQL, escaped by the connection the query runs on,
+ * For a check about one user ({@see forUser()}), it is that user's row. A column
+ * of it is a subquery that mentions nothing from the query it lands in,
+ * `(select "users"."team_id" from "users" where "users"."id" = 5)`, so the
+ * database runs it once and treats the result as a constant, and an index on the
+ * column it is compared with stays usable under `or` and `not` alike. The user's
+ * key is known without asking the database, so a column naming it is the value
+ * itself, written into the SQL and escaped by the connection the query runs on,
  * because a {@see StringableExpression} carries no bindings.
  *
  * The table and connection come from a model: the user itself when it is one,
  * else the model named by the `warrant.user_model` config, for an auth provider
  * that returns users that are not models. The key column is the user's auth
  * identifier, which is what the rest of Laravel treats as the user's id.
+ *
+ * For a filter over users ({@see forUsersQuery()}), there is no one user: the
+ * user is null, and the row is each row of the users query the predicate lands
+ * in. A column of it is that row's column, qualified with the name the query
+ * gives its rows.
  */
 final readonly class UserRow
 {
     /**
-     * @param Authenticatable $user The user the check is for.
+     * @param Authenticatable|null $user The user the compile is for; null for a
+     *   filter over users.
+     * @param string|null $usersQualifier The SQL name a users query gives its
+     *   rows, which its columns are qualified with; null for a check about one
+     *   user.
      */
-    public function __construct(
-        public Authenticatable $user,
+    private function __construct(
+        public ?Authenticatable $user,
         private QueryFactory $queries,
+        private ?string $usersQualifier = null,
     ) {
+    }
+
+    /**
+     * The row of $user, for a check about that one user, compiled into queries
+     * $queries makes.
+     */
+    public static function forUser(Authenticatable $user, QueryFactory $queries): self
+    {
+        return new self($user, $queries);
+    }
+
+    /**
+     * Each row of the users query $queries was made from, whose rows go by
+     * $usersQualifier, for a filter that answers for every user at once.
+     */
+    public static function forUsersQuery(string $usersQualifier, QueryFactory $queries): self
+    {
+        return new self(null, $queries, $usersQualifier);
     }
 
     /**
@@ -49,13 +76,21 @@ final readonly class UserRow
      */
     public function column(string $column): StringableExpression
     {
-        $model = $this->userModel();
-        $key = $this->user->getAuthIdentifier();
+        if ($this->usersQualifier !== null) {
+            return new StringableExpression(
+                $this->queries->newQuery()->getGrammar()->wrap($this->usersQualifier.'.'.$column),
+            );
+        }
+
+        /** @var Authenticatable $user A check about one user always has one. */
+        $user = $this->user;
+        $model = $this->userModel($user);
+        $key = $user->getAuthIdentifier();
 
         if ($key === null) {
             throw new BadMethodCallException(sprintf(
                 'userColumn() reads the user\'s row, but this %s has no key: it is not saved.',
-                $this->user::class,
+                $user::class,
             ));
         }
 
@@ -68,7 +103,7 @@ final readonly class UserRow
             ));
         }
 
-        $keyName = $this->user->getAuthIdentifierName();
+        $keyName = $user->getAuthIdentifierName();
         $query = $this->queries->newQuery();
 
         if ($column === $keyName) {
@@ -85,15 +120,15 @@ final readonly class UserRow
     }
 
     /**
-     * The model whose table holds the user's row: the user itself when it is a
-     * model, else a new instance of the one `warrant.user_model` names.
+     * The model whose table holds $user's row: $user itself when it is a model,
+     * else a new instance of the one `warrant.user_model` names.
      *
      * @throws BadMethodCallException When neither is there.
      */
-    private function userModel(): Model
+    private function userModel(Authenticatable $user): Model
     {
-        if ($this->user instanceof Model) {
-            return $this->user;
+        if ($user instanceof Model) {
+            return $user;
         }
 
         $class = config('warrant.user_model');
@@ -101,7 +136,7 @@ final readonly class UserRow
         if ($class === null) {
             throw new BadMethodCallException(sprintf(
                 'userColumn() reads the user\'s row from its table, but %s is not a model. Name your user model in the warrant.user_model config.',
-                $this->user::class,
+                $user::class,
             ));
         }
 

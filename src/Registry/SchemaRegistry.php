@@ -9,6 +9,7 @@ use Warrant\DSL\ISchemaCatalog;
 use Warrant\HasWarrantSchema;
 use Warrant\Registry\Concerns\ActsAsSchemaCatalog;
 use Warrant\Registry\Concerns\VerifiesSchemaModelPairs;
+use Warrant\Schema\Types\Interfaces\IAbilitySchema;
 use Warrant\Schema\Types\Interfaces\IGlobalSchema;
 use Warrant\Schema\Types\Interfaces\IModelSchema;
 use Warrant\Schema\Types\Interfaces\ISchema;
@@ -205,6 +206,29 @@ final class SchemaRegistry implements ISchemaCatalog
 
         if ($resolved === null && !($passThroughNull && $ref === null)) {
             throw new OutOfBoundsException($this->unresolvableMessage('schema', $ref));
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * The schema the reference resolves to, which must declare abilities: the
+     * only kind a check, or a filter over users, can be made against.
+     *
+     * @throws OutOfBoundsException When the reference is unregistered.
+     * @throws InvalidArgumentException When the schema declares no abilities.
+     */
+    public function resolveAbilitySchemaOrFail(Model|ISchema|string $ref): ResolvedSchema
+    {
+        $resolved = $this->resolveOrFail($ref);
+
+        if (! $resolved->schema instanceof IAbilitySchema) {
+            throw new InvalidArgumentException(sprintf(
+                'Schema [%s] declares no abilities, so no check can be made against it; checks are made '
+                    .'against a %s.',
+                $resolved->key,
+                IAbilitySchema::class,
+            ));
         }
 
         return $resolved;

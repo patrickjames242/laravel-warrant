@@ -97,21 +97,30 @@ final readonly class AliasScope
     /**
      * The scope a top-level compile starts from: one name, the compiled schema's
      * own key, standing for the row the caller's query is already selecting.
+     *
+     * $reserved is an identifier already standing for a frame outside the
+     * compile — the users query a filter over users lands in, whose rows a
+     * condition reads through `userColumn()`. It names nothing, but no frame
+     * below may take it, or a column of those rows would land on that frame.
      */
-    public static function root(string $schemaKey, ?string $qualifier): self
+    public static function root(string $schemaKey, ?string $qualifier, ?string $reserved = null): self
     {
-        return new self([$schemaKey => $qualifier], $qualifier, $qualifier === null ? [] : [$qualifier]);
+        return new self(
+            [$schemaKey => $qualifier],
+            $qualifier,
+            array_values(array_unique(array_filter([$reserved, $qualifier], static fn (?string $name): bool => $name !== null))),
+        );
     }
 
     /**
      * The empty scope, naming nothing. What a schema with no model at all gets: a
      * capability schema has no rows, so there is no qualifier to bind its key to,
      * and a `@column` naming it is an author's mistake rather than a row out of
-     * scope.
+     * scope. $reserved is taken as {@see root()} takes it.
      */
-    public static function none(): self
+    public static function none(?string $reserved = null): self
     {
-        return new self;
+        return new self(usedQualifiers: $reserved === null ? [] : [$reserved]);
     }
 
     /**

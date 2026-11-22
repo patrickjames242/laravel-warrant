@@ -3,10 +3,12 @@
 namespace Warrant;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\Guard\WarrantGuard;
+use Warrant\Guard\UsersFilter;
 use Warrant\Guard\WarrantGuardForSchema;
 use Warrant\Registry\SchemaRegistry;
 use Warrant\Rules\RuleSetResolver;
@@ -62,6 +64,32 @@ class WarrantManager
     public function ruleSet(string $schemaKey, ?Authenticatable $user): ExpandedSyntax
     {
         return $this->ruleSetResolver->ruleSet($schemaKey, $user);
+    }
+
+    /**
+     * $users narrowed to the users who hold $abilities on $target, which names its
+     * schema as a check's target does: a model, a `[ModelClass|SchemaClass, $id]`
+     * tuple, or a model or schema class for abilities with no target. See
+     * {@see UsersFilter}.
+     *
+     * @param string|array<int, string> $abilities
+     * @param Model|string|array<int, mixed> $target
+     * @param array<string, mixed> $context
+     * @param string|null $rowsAs The name the users query's rows go by, for a
+     *   query whose `from` does not say.
+     */
+    public function filterUsers(
+        EloquentBuilder $users,
+        string|array $abilities,
+        Model|string|array $target,
+        AbilityMatchMode $matchMode = AbilityMatchMode::ALL,
+        array $context = [],
+        ?string $rowsAs = null,
+    ): EloquentBuilder {
+        [$schema, $rowTarget] = WarrantGuard::splitTarget($target);
+
+        return UsersFilter::forSchema($this, $schema)
+            ->apply($users, $abilities, $rowTarget, $matchMode, $context, $rowsAs);
     }
 
     /**
