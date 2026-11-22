@@ -55,7 +55,7 @@ public function inAncestorOfMine(RowConditionContext $c): Builder
         ->from('folder_paths')
         ->whereColumn('folder_paths.descendant_id', $c->column('id'))
         ->join('folder_owners', 'folder_owners.folder_id', '=', 'folder_paths.ancestor_id')
-        ->where('folder_owners.user_id', $c->user->getKey()));
+        ->where('folder_owners.user_id', $c->userColumn('id')));
 }
 ```
 

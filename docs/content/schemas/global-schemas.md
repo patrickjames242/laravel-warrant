@@ -26,15 +26,15 @@ use Warrant\Schema\Types\Classes\GlobalSchema;
 final class TenancySchema extends GlobalSchema
 {
     #[GlobalCondition]
-    public function inCurrentTenant(GlobalConditionContext $c): bool
+    public function inCurrentTenant(GlobalConditionContext $c): Builder
     {
-        return $c->user->tenant_id === $c->context['tenant_id'];
+        return $c->query->where($c->userColumn('tenant_id'), $c->context['tenant_id']);
     }
 
     #[GlobalCondition]
-    public function isStaff(GlobalConditionContext $c): bool
+    public function isStaff(GlobalConditionContext $c): Builder
     {
-        return $c->user->is_staff;
+        return $c->query->where($c->userColumn('is_staff'), true);
     }
 
     #[DerivedCondition]

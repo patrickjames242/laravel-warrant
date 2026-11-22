@@ -53,7 +53,10 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function inMyTeam(RowConditionContext $c): Builder
     {
-        return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
+        return $c->query->whereExists(fn ($sub) => $sub
+            ->from('team_members')
+            ->whereColumn('team_members.team_id', $c->column('team_id'))
+            ->whereColumn('team_members.user_id', $c->userColumn('id')));
     }
 }
 ```

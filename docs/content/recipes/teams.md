@@ -105,9 +105,18 @@ Sometimes you already have the ids and would rather not re-query:
 #[RowCondition]
 public function inMyTeam(RowConditionContext $c): Builder
 {
-    return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
+    return $c->user !== null
+        ? $c->query->whereIn($c->column('team_id'), $c->user->teamIds())
+        : $c->query->whereExists(fn ($sub) => $sub
+            ->from('team_members')
+            ->whereColumn('team_members.team_id', $c->column('team_id'))
+            ->whereColumn('team_members.user_id', $c->userColumn('id')));
 }
 ```
+
+The ids come from PHP, so they need a user. When
+[users are filtered](/checking/filtering-users/) there is none, and the condition
+falls back to the subquery.
 
 ```sql
 where ("documents"."team_id" in (3, 9, 14))

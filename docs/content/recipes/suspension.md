@@ -17,9 +17,9 @@ depends on nothing: no `can` anywhere can appeal it.
 
 ```php
 #[GlobalCondition]
-public function isSuspended(GlobalConditionContext $c): bool
+public function isSuspended(GlobalConditionContext $c): Builder
 {
-    return $c->user->suspended_at !== null;
+    return $c->query->whereNotNull($c->userColumn('suspended_at'));
 }
 ```
 
@@ -45,9 +45,9 @@ On a base schema, every resource inherits it:
 abstract class AppSchema extends RowlessSchema
 {
     #[GlobalCondition]
-    public function isSuspended(GlobalConditionContext $c): bool
+    public function isSuspended(GlobalConditionContext $c): Builder
     {
-        return $c->user->suspended_at !== null;
+        return $c->query->whereNotNull($c->userColumn('suspended_at'));
     }
 
     public function rules(RuleProviderContext $context): string
@@ -124,11 +124,9 @@ Put the clock in context so it is testable, and default it:
 
 ```php
 #[GlobalCondition]
-public function isSuspended(GlobalConditionContext $c): bool
+public function isSuspended(GlobalConditionContext $c): Builder
 {
-    $until = $c->user->suspended_until;
-
-    return $until !== null && $until->isAfter($c->context['now'] ?? now());
+    return $c->query->where($c->userColumn('suspended_until'), '>', $c->context['now'] ?? now());
 }
 
 public function defaultContext(): array

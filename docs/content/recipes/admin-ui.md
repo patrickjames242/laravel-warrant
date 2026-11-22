@@ -218,9 +218,9 @@ class SettingsSchema extends RowlessSchema
     #[Ability] public const MANAGE_PERMISSIONS = 'manage_permissions';
 
     #[GlobalCondition]
-    public function isOwner(GlobalConditionContext $c): bool
+    public function isOwner(GlobalConditionContext $c): Builder
     {
-        return $c->user->is_account_owner;
+        return $c->query->where($c->userColumn('is_account_owner'), true);
     }
 }
 ```

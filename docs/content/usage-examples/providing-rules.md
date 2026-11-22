@@ -39,31 +39,31 @@ class DatabaseRuleProvider implements IRuleProvider
 ## What it is handed
 
 ```php
-$context->user;       // the Authenticatable being checked, nullable
+$context->user;       // the Authenticatable being checked, or null
 $context->schemaKey;  // 'documents'
 $context->schema;     // App\Warrant\DocumentSchema
 $context->model;      // App\Models\Document, or null for a schema with no model
 ```
 
-## Returning text, by role
+## Returning text
 
 A provider can return rule text, `warrant()` text with its values, a parsed
-`WarrantSyntax`, rules, a `RuleSetNode`, or an iterable of any of these:
+`WarrantSyntax`, rules, a `RuleSetNode`, or an iterable of any of these. Roles go
+in the rules as conditions, so the same rules answer for every user, including
+when [users are filtered](/checking/filtering-users/) and `$context->user` is null:
 
 ```php
-public function rules(RuleProviderContext $context): string|iterable
+public function rules(RuleProviderContext $context): string
 {
-    if ($context->user === null) {
-        return [];
-    }
-
-    return match ($context->user->role) {
-        'admin'  => 'they can *',
-        'editor' => 'if is_mine or in_my_team they can view, update',
-        default  => [],
-    };
+    return <<<'RULES'
+        if has_role('admin') they can *
+        if has_role('editor') and (is_mine or in_my_team) they can view, update
+    RULES;
 }
 ```
+
+`has_role` is a global condition that compares through `$c->userColumn('id')`;
+see [rules the same for everyone](/supplying-rules/provider/#rules-the-same-for-everyone).
 
 ## Returning a rule set from a file
 

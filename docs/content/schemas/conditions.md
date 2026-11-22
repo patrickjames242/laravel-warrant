@@ -110,23 +110,42 @@ database connection than the query.
 
 ## Global conditions
 
-A global condition is about the user or the world. Its context has no `column()`, and
-it may simply return a `bool`:
+A global condition is about the user or the world. Its context has no `column()`.
+A question about the user goes through `$c->userColumn()`, so it works whether the
+check is about one user or [filters users](/checking/filtering-users/):
 
 ```php
 use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 
 #[GlobalCondition]
-public function isAdmin(GlobalConditionContext $c): bool
+public function isAdmin(GlobalConditionContext $c): Builder
 {
-    return $c->user->role === 'admin';
+    return $c->query->where($c->userColumn('role'), 'admin');
 }
 ```
 
-A `bool` is a constant to the compiler, so it folds. For an admin, `if is_admin
-they can *` makes every predicate true and the other conditions are never emitted
-at all.
+A global condition may also return a `bool`. A `bool` is a constant to the
+compiler, so it folds: for an admin, `if is_admin they can *` makes every predicate
+true and the other conditions are never emitted at all. When the condition holds
+the user, it can answer in PHP and keep the SQL for when it does not, the same way
+a row condition [answers from a loaded row](#answering-in-php-when-you-hold-the-row):
+
+```php
+#[GlobalCondition]
+public function isAdmin(GlobalConditionContext $c): Builder|bool
+{
+    // Holding the user, answer in PHP: a bool folds away.
+    if ($c->user !== null) {
+        return $c->user->role === 'admin';
+    }
+
+    return $c->query->where($c->userColumn('role'), 'admin');
+}
+```
+
+`$c->user` is null only when users are being filtered, so the PHP branch answers
+every check about one user.
 
 A global condition may also constrain the query, like a row condition, when the
 question is about the world in a way SQL has to answer.
@@ -208,11 +227,11 @@ A condition that cannot settle its question may return `null`:
 
 ```php
 #[GlobalCondition]
-public function inBillingPeriod(GlobalConditionContext $c): ?bool
+public function inBillingPeriod(GlobalConditionContext $c): ?Builder
 {
     $period = $c->context['period'] ?? null;
 
-    return $period === null ? null : $period === $c->user->billing_period;
+    return $period === null ? null : $c->query->where($c->userColumn('billing_period'), $period);
 }
 ```
 

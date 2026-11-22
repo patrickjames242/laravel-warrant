@@ -114,8 +114,7 @@ Widen the condition rather than adding a second one:
 #[RowCondition]
 public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Builder
 {
-    $userId  = $c->userColumn('id');
-    $teamIds = $c->user->teamIds();
+    $userId = $c->userColumn('id');
 
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('document_shares')
@@ -123,7 +122,10 @@ public function sharedWithMeAs(RowConditionContext $c, string ...$levels): Build
         ->whereIn('document_shares.level', $levels)
         ->where(fn ($q) => $q
             ->where('document_shares.user_id', $userId)
-            ->orWhereIn('document_shares.team_id', $teamIds)));
+            ->orWhereIn('document_shares.team_id', fn ($teams) => $teams
+                ->select('team_members.team_id')
+                ->from('team_members')
+                ->whereColumn('team_members.user_id', $userId))));
 }
 ```
 

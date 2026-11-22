@@ -30,10 +30,24 @@ public function inMyTeam(RowConditionContext $c): Builder
 }
 ```
 
-Memoize it yourself, on the user or in a request-scoped service:
+The simplest fix is to leave the work to the database, through `userColumn()`. The
+condition then does no PHP work at all, and it also answers when
+[users are filtered](/checking/filtering-users/), where there is no `$c->user`:
 
 ```php
-return $c->query->whereIn($c->column('team_id'), $c->user->teamIds());
+return $c->query->whereExists(fn ($sub) => $sub
+    ->from('team_members')
+    ->whereColumn('team_members.team_id', $c->column('team_id'))
+    ->whereColumn('team_members.user_id', $c->userColumn('id')));
+```
+
+If the ids have to come from PHP, memoize them yourself, on the user or in a
+request-scoped service, and keep the SQL for when there is no user:
+
+```php
+return $c->user !== null
+    ? $c->query->whereIn($c->column('team_id'), $c->user->teamIds())
+    : $c->query->whereExists(/* as above */);
 ```
 
 ```php

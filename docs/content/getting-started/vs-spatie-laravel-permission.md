@@ -174,7 +174,10 @@ class DocumentSchema extends ModelSchema
     #[RowCondition] // manages_team — the current user manages the document's team
     public function managesTeam(RowConditionContext $c): Builder
     {
-        return $c->query->whereIn('documents.team_id', $c->user->managedTeamIds());
+        return $c->query->whereExists(fn ($sub) => $sub
+            ->from('team_managers')
+            ->whereColumn('team_managers.team_id', 'documents.team_id')
+            ->whereColumn('team_managers.user_id', $c->userColumn('id')));
     }
 
     #[RowCondition] // is_locked
@@ -184,9 +187,13 @@ class DocumentSchema extends ModelSchema
     }
 
     #[GlobalCondition] // is_admin
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return $c->user->hasRole('admin');
+        return $c->query->whereExists(fn ($sub) => $sub
+            ->from('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->whereColumn('model_has_roles.model_id', $c->userColumn('id'))
+            ->where('roles.name', 'admin'));
     }
 }
 ```

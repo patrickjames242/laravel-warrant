@@ -120,7 +120,7 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function isMyOwnDocument(RowConditionContext $c): Builder
     {
-        return $c->query->where('documents.user_id', '=', $c->user->getKey());
+        return $c->query->where('documents.user_id', '=', $c->userColumn('id'));
     }
 
     /** The current user manages the team that owns the document. */
@@ -130,7 +130,7 @@ class DocumentSchema extends ModelSchema
         return $c->query->whereIn('documents.team_id', function ($sub) use ($c) {
             $sub->select('team_id')
                 ->from('team_managers')
-                ->where('user_id', '=', $c->user->getKey());
+                ->where('user_id', '=', $c->userColumn('id'));
         });
     }
 
@@ -142,9 +142,9 @@ class DocumentSchema extends ModelSchema
 
     /** Global — no target row required. */
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return $c->user->is_admin === true;
+        return $c->query->where($c->userColumn('is_admin'), true);
     }
 }
 ```

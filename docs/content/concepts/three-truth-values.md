@@ -41,13 +41,13 @@ genuinely unanswerable rather than negative:
 
 ```php
 #[GlobalCondition]
-public function inBillingPeriod(GlobalConditionContext $c): ?bool
+public function inBillingPeriod(GlobalConditionContext $c): ?Builder
 {
     $period = $c->context['period'] ?? null;
 
     return $period === null
-        ? null                                    // no answer
-        : $period === $c->user->billing_period;    // an answer
+        ? null                                                          // no answer
+        : $c->query->where($c->userColumn('billing_period'), $period);  // an answer
 }
 ```
 

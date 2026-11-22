@@ -123,9 +123,9 @@ use Warrant\Schema\Conditions\Global\GlobalConditionContext;
 use Warrant\Schema\Conditions\Global\GlobalCondition;
 
 #[GlobalCondition]
-public function isAdmin(GlobalConditionContext $c): bool
+public function isAdmin(GlobalConditionContext $c): Builder
 {
-    return $c->user->role === 'admin';
+    return $c->query->where($c->userColumn('role'), 'admin');
 }
 ```
 
@@ -136,11 +136,11 @@ denial:
 
 ```php
 #[GlobalCondition]
-public function inBillingPeriod(GlobalConditionContext $c): ?bool
+public function inBillingPeriod(GlobalConditionContext $c): ?Builder
 {
     $period = $c->context['period'] ?? null;
 
-    return $period === null ? null : $period === $c->user->billing_period;
+    return $period === null ? null : $c->query->where($c->userColumn('billing_period'), $period);
 }
 ```
 
@@ -262,9 +262,9 @@ class SettingsSchema extends RowlessSchema
     #[Ability] public const MANAGE = 'manage';
 
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return (bool) $c->user->is_admin;
+        return $c->query->where($c->userColumn('is_admin'), true);
     }
 }
 ```

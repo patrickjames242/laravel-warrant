@@ -15,9 +15,9 @@ system.
 
 ```php
 #[GlobalCondition]
-public function isSuperAdmin(GlobalConditionContext $c): bool
+public function isSuperAdmin(GlobalConditionContext $c): Builder
 {
-    return $c->user->is_super_admin;
+    return $c->query->where($c->userColumn('is_super_admin'), true);
 }
 ```
 
@@ -46,9 +46,9 @@ Better still, put it on a base schema so every resource inherits it:
 abstract class AppSchema extends RowlessSchema
 {
     #[GlobalCondition]
-    public function isSuperAdmin(GlobalConditionContext $c): bool
+    public function isSuperAdmin(GlobalConditionContext $c): Builder
     {
-        return $c->user->is_super_admin;
+        return $c->query->where($c->userColumn('is_super_admin'), true);
     }
 
     public function rules(RuleProviderContext $context): string|iterable
@@ -118,7 +118,10 @@ stays in the predicate:
 #[RowCondition]
 public function inMyAdministeredTenant(RowConditionContext $c): Builder
 {
-    return $c->query->whereIn($c->column('tenant_id'), $c->user->administeredTenantIds());
+    return $c->query->whereExists(fn ($sub) => $sub
+        ->from('tenant_admins')
+        ->whereColumn('tenant_admins.tenant_id', $c->column('tenant_id'))
+        ->whereColumn('tenant_admins.user_id', $c->userColumn('id')));
 }
 ```
 
@@ -137,9 +140,13 @@ member's own powers suppressed:
 
 ```php
 #[GlobalCondition]
-public function isSuperAdmin(GlobalConditionContext $c): bool
+public function isSuperAdmin(GlobalConditionContext $c): Builder|bool
 {
-    return $c->user->is_super_admin && ! session()->has('impersonating');
+    if (session()->has('impersonating')) {
+        return false;
+    }
+
+    return $c->query->where($c->userColumn('is_super_admin'), true);
 }
 ```
 

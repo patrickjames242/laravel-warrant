@@ -21,13 +21,20 @@ compile time. What it has to produce is a query constraint, a `bool`, or `null`:
 
 ```php
 #[GlobalCondition]
-public function hasActiveSubscription(GlobalConditionContext $c): bool
+public function hasActiveSubscription(GlobalConditionContext $c): ?bool
 {
+    if ($c->user === null) {
+        return null;   // filtering users: no one user to ask about
+    }
+
     return app(Billing::class)->isActive($c->user);   // any PHP you like
 }
 ```
 
-Called once per compile, not once per row.
+Called once per compile, not once per row. PHP about the user has no user to run
+on when [users are filtered](/checking/filtering-users/), so it answers unknown
+there. A question the database can answer belongs in SQL, through
+`$c->userColumn()`, which works both ways.
 
 ## A condition cannot join, group, or aggregate
 
@@ -50,7 +57,7 @@ public function managesTeam(RowConditionContext $c): Builder
     return $c->query->whereExists(fn ($sub) => $sub
         ->from('team_managers')
         ->whereColumn('team_managers.team_id', $c->column('team_id'))
-        ->where('user_id', $c->user->getKey()));
+        ->where('user_id', $c->userColumn('id')));
 }
 ```
 

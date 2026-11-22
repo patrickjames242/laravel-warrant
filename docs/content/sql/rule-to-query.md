@@ -52,7 +52,13 @@ class DocumentSchema extends ModelSchema
     #[RowCondition]
     public function managesTeam(RowConditionContext $c): Builder
     {
-        return $c->query->whereIn($c->column('team_id'), $c->user->managedTeamIds());
+        // Holding the user, pass the ids; filtering users, ask the database.
+        return $c->user !== null
+            ? $c->query->whereIn($c->column('team_id'), $c->user->managedTeamIds())
+            : $c->query->whereExists(fn ($sub) => $sub
+                ->from('team_managers')
+                ->whereColumn('team_managers.team_id', $c->column('team_id'))
+                ->whereColumn('team_managers.user_id', $c->userColumn('id')));
     }
 
     #[RowCondition]
@@ -62,9 +68,14 @@ class DocumentSchema extends ModelSchema
     }
 
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder|bool
     {
-        return $c->user->role === 'admin';
+        // Holding the user, answer in PHP: a bool folds away.
+        if ($c->user !== null) {
+            return $c->user->role === 'admin';
+        }
+
+        return $c->query->where($c->userColumn('role'), 'admin');
     }
 }
 ```

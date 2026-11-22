@@ -105,12 +105,15 @@ A contractor whose engagement has a period is a global condition:
 
 ```php
 #[GlobalCondition]
-public function engagementIsCurrent(GlobalConditionContext $c): bool
+public function engagementIsCurrent(GlobalConditionContext $c): Builder
 {
     $now = $c->context['now'] ?? now();
 
-    return $c->user->engagement_starts_at <= $now
-        && ($c->user->engagement_ends_at === null || $c->user->engagement_ends_at > $now);
+    return $c->query
+        ->where($c->userColumn('engagement_starts_at'), '<=', $now)
+        ->where(fn ($q) => $q
+            ->whereNull($c->userColumn('engagement_ends_at'))
+            ->orWhere($c->userColumn('engagement_ends_at'), '>', $now));
 }
 ```
 

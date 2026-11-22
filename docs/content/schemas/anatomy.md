@@ -57,9 +57,9 @@ class DocumentSchema extends ModelSchema
 
     // 5. A question about the user rather than a row.
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return $c->user->role === 'admin';
+        return $c->query->where($c->userColumn('role'), 'admin');
     }
 
     // 6. A question answered by composing other questions.

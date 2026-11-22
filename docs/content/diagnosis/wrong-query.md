@@ -141,7 +141,7 @@ return $c->query->whereExists(fn ($sub) => $sub
     ->from('team_managers')
     ->join('teams', 'teams.id', '=', 'team_managers.team_id')
     ->whereColumn('team_managers.team_id', $c->column('team_id'))
-    ->where('team_managers.user_id', $c->user->getKey()));
+    ->where('team_managers.user_id', $c->userColumn('id')));
 ```
 
 ## Comparing against what you meant

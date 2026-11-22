@@ -68,15 +68,18 @@ class SettingsSchema extends RowlessSchema
     #[Ability] public const VIEW_BILLING = 'view_billing';
 
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return (bool) $c->user->is_admin;
+        return $c->query->where($c->userColumn('is_admin'), true);
     }
 
     #[GlobalCondition]
-    public function onPaidPlan(GlobalConditionContext $c): bool
+    public function onPaidPlan(GlobalConditionContext $c): Builder
     {
-        return $c->user->account->plan !== 'free';
+        return $c->query->whereExists(fn ($sub) => $sub
+            ->from('accounts')
+            ->whereColumn('accounts.id', $c->userColumn('account_id'))
+            ->where('accounts.plan', '!=', 'free'));
     }
 }
 ```

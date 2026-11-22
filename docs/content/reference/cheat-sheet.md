@@ -25,9 +25,9 @@ class DocumentSchema extends ModelSchema
     }
 
     #[GlobalCondition]
-    public function isAdmin(GlobalConditionContext $c): bool
+    public function isAdmin(GlobalConditionContext $c): Builder
     {
-        return $c->user->is_admin;
+        return $c->query->where($c->userColumn('is_admin'), true);
     }
 
     #[DerivedCondition]
@@ -66,9 +66,9 @@ class DocumentSchema extends ModelSchema
 class TenancySchema extends GlobalSchema
 {
     #[GlobalCondition]
-    public function inCurrentTenant(GlobalConditionContext $c): bool
+    public function inCurrentTenant(GlobalConditionContext $c): Builder
     {
-        return $c->user->tenant_id === $c->context['tenant_id'];
+        return $c->query->where($c->userColumn('tenant_id'), $c->context['tenant_id']);
     }
 
     #[RuleTemplate]

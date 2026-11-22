@@ -95,17 +95,24 @@ hand-written query scope are two definitions that drift. This is one.
 The model is not airtight, and the seams are worth knowing.
 
 A condition that was handed the actual row may decide in PHP and return a `bool`,
-which folds into the predicate as a constant. A global condition, which asks about
-the user rather than a row, always may. So PHP does participate, at the leaves,
-where it can produce a value the compiler can fold before any SQL is emitted.
+which folds into the predicate as a constant. A global condition handed the user may
+do the same. So PHP does participate, at the leaves, where it can produce a value
+the compiler can fold before any SQL is emitted.
 
 ```php
 #[GlobalCondition]
-public function isAdmin(GlobalConditionContext $c): bool
+public function isAdmin(GlobalConditionContext $c): Builder|bool
 {
-    return $c->user->role === 'admin';   // no SQL at all
+    if ($c->user !== null) {
+        return $c->user->role === 'admin';   // no SQL at all
+    }
+
+    return $c->query->where($c->userColumn('role'), 'admin');
 }
 ```
+
+The SQL branch is for [filtering users](/checking/filtering-users/), where one
+query answers for every user and no single user is handed over.
 
 For an admin, `if is_admin they can *` makes every predicate `true`, so the other
 conditions are never emitted and the query is `where (1 = 1)`.
