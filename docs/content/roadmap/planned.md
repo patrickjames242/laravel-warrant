@@ -46,13 +46,6 @@ its scope while can/cannot clauses at an outer level can override it. The design
 
 Status: **design**, not implemented.
 
-## The language server in Zed
-
-The [language server](/editors/language-server/) runs in VS Code and PhpStorm. Zed
-speaks LSP natively, but its extension does not start the server yet.
-
-Status: **planned**.
-
 ## Until then
 
 For the scopes gap, write exceptions into the denial with `and not`, and keep

@@ -15,10 +15,8 @@ not part of the runtime library.
 | `vscode/` | The VS Code extension: grammar, PHP injection, and the client that starts the language server. Publishable to the VS Code Marketplace. |
 | `vscode/syntaxes/warrant.tmLanguage.json` | **The canonical TextMate grammar.** Shared by every editor that speaks TextMate. |
 | `phpstorm/` | The PhpStorm plugin: highlighting, PHP injection, and the client that starts the language server. |
-| `zed/` | The Zed extension (language config + tree-sitter queries). Publishable to Zed's extension registry. |
-| `tree-sitter-warrant/` | The tree-sitter grammar Zed needs, since Zed cannot read TextMate. |
 
-## Two grammars, four editors
+## One grammar, three editors
 
 `vscode/syntaxes/warrant.tmLanguage.json` is a TextMate grammar — a format VS
 Code, PhpStorm, and Sublime all understand:
@@ -28,16 +26,10 @@ Code, PhpStorm, and Sublime all understand:
   token rules, which PSI injection into PHP needs (see `phpstorm/README.md`).
 - **Sublime** — drop the grammar in `Packages/User`.
 
-**Zed is the exception.** It has no TextMate support whatsoever; every language
-it highlights is defined by a tree-sitter grammar — a real generated parser —
-plus queries mapping the syntax tree to theme colors. That grammar lives in
-`tree-sitter-warrant/` and the extension around it in `zed/` (see
-`zed/README.md`). Its highlight scopes deliberately mirror the TextMate ones so
-a rule looks the same in every editor.
-
-So the language is written down twice in this directory, and a change to the DSL
-means updating both. Everything beyond colouring comes from the language server,
-so no editor needs a third copy.
+So the token rules are written down twice in this directory, in the grammar and
+in PhpStorm's lexer, and a change to the DSL means updating both. Everything
+beyond colouring comes from the language server, so no editor needs a third
+copy.
 
 ## What triggers highlighting
 
@@ -48,8 +40,7 @@ so no editor needs a third copy.
       if is_self they can edit
       WARRANT
   ```
-  Works in VS Code, PhpStorm and Zed — Zed's PHP extension injects whatever
-  language a heredoc's closing label names.
+  Works in VS Code and PhpStorm.
 - **Inside PHP, where rule text is expected** — VS Code and PhpStorm only. A
   string literal, or a heredoc/nowdoc of any label, is highlighted when it is the
   first argument of `warrant()`, `Warrant::parse()`, `WarrantSyntax::parse()`,
@@ -62,11 +53,7 @@ so no editor needs a third copy.
   PhpStorm checks that `rules()` is on a schema or rule provider and highlights
   an array it returns; a TextMate grammar cannot see the class, so VS Code
   highlights only a string returned from `rules()`, leaving the arrays of a
-  Laravel form request as PHP. Zed's PHP extension owns the injections into PHP,
-  so Zed has neither.
-- **SQL inside `@sql "..."`** — Zed only, and only when a SQL extension is
-  installed. The tree-sitter grammar can address a string's body as a node,
-  which a TextMate grammar cannot, so the SQL is highlighted as SQL.
+  Laravel form request as PHP.
 
 ## The language server
 
@@ -85,7 +72,6 @@ so no client maps positions.
 |------|------|
 | VS Code | `vscode/src/extension.ts` |
 | PhpStorm | `phpstorm/src/main/kotlin/com/warrant/phpstorm/lsp/` (2024.2 and later) |
-| Zed | Not yet: the `zed/` extension needs a Rust shim and a `[language_servers.warrant]` entry. |
 
 Any other editor with an LSP client can run `php vendor/bin/warrant-language-server`
 from the project root. The docs page `docs/content/editors/language-server.md`

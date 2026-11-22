@@ -94,21 +94,6 @@ The [language server](/editors/language-server/) formats too.
 - **PhpStorm**: Reformat Code formats a `.warrant` file, and the rule text in a
   PHP file along with the PHP, so Actions on Save formats both. Code, then
   Reformat Warrant Rules, formats only the Warrant.
-- **Zed**: has no language server for Warrant yet, so run the command line
-  formatter as an external one, in `settings.json`:
-
-  ```json
-  "languages": {
-      "Warrant": {
-          "formatter": {
-              "external": {
-                  "command": "vendor/bin/warrant-format",
-                  "arguments": ["--stdin-filepath={buffer_path}"]
-              }
-          }
-      }
-  }
-  ```
 
 The server registers formatting for `.warrant` files only, so it is never
 offered as a formatter for PHP itself. In a PHP file it formats only the

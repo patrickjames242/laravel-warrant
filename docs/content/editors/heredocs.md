@@ -26,7 +26,7 @@ $rules = Warrant::parse(<<<'WARRANT'
 WARRANT)->validate()->ruleSet();
 ```
 
-This works in VS Code, PhpStorm and Zed.
+This works in VS Code and PhpStorm.
 
 ## Strings where rule text is expected
 
@@ -65,8 +65,7 @@ public function isEditable(): string
 VS Code highlights an array returned from `rules()` as PHP. Its grammar sees the
 method but not the class around it, and `rules()` is also where a Laravel form
 request returns its validation rules, so there a schema's array of rules needs the
-`WARRANT` label. Zed highlights `WARRANT` heredocs only, because the injections
-into PHP belong to Zed's PHP extension.
+`WARRANT` label.
 
 ## Prefer the nowdoc
 

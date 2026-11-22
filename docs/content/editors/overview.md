@@ -13,14 +13,13 @@ in sync.
 
 ## What each editor has
 
-| Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | SQL inside `@sql` | Language server |
-|---|---|---|---|---|---|---|
-| [VS Code](/editors/vscode/) | yes | yes | yes | yes | no | yes |
-| [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | no | yes, 2024.2 or later |
-| [Zed](/editors/zed/) | yes | yes | no | no | yes, with a SQL extension | no |
-| Sublime Text | yes | no | no | no | no | through an LSP client |
+| Editor | `.warrant` files | `WARRANT` heredocs | Rule-text arguments | Returned rule text | Language server |
+|---|---|---|---|---|---|
+| [VS Code](/editors/vscode/) | yes | yes | yes | yes | yes |
+| [PhpStorm](/editors/phpstorm/) | yes | yes | yes | yes | yes, 2024.2 or later |
+| Sublime Text | yes | no | no | no | through an LSP client |
 
-The columns up to `@sql` are highlighting. The [language server](/editors/language-server/)
+The columns before the last are highlighting. The [language server](/editors/language-server/)
 adds diagnostics, hover, completion and go-to-definition, checked against your
 schemas, in `.warrant` files and in rule text inside PHP alike, renaming and
 finding usages in [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
@@ -29,20 +28,14 @@ finding usages in [PhpStorm](/editors/phpstorm/#renaming-and-finding-usages) and
 command line. With the language server, rule text returned from a method is
 checked in every editor, even where it is not highlighted.
 
-## Two grammars
+## The grammar
 
 `editors/vscode/syntaxes/warrant.tmLanguage.json` is the canonical TextMate
 grammar. VS Code and Sublime read it directly. PhpStorm has a small native plugin,
 in `editors/phpstorm/`, whose lexer mirrors the same token rules.
 
-Zed is the exception. It has no TextMate support: every language it highlights is
-defined by a tree-sitter grammar, a real generated parser, plus queries mapping the
-syntax tree to theme colours. That grammar lives in `editors/tree-sitter-warrant/`
-and the extension around it in `editors/zed/`. Its highlight scopes deliberately
-mirror the TextMate ones, so a rule looks the same in every editor.
-
-The language is therefore written down twice, and a change to it means updating
-both.
+The token rules are therefore written down twice, and a change to the language
+means updating both.
 
 ## What triggers highlighting
 
@@ -67,7 +60,7 @@ $rules = Warrant::parse(<<<'WARRANT'
 WARRANT)->validate()->ruleSet();
 ```
 
-That works in VS Code, PhpStorm and Zed.
+That works in VS Code and PhpStorm.
 
 **A string where rule text is expected**, in VS Code and PhpStorm: the first
 argument of `warrant()`, `Warrant::parse()` and the other parsing calls, with no

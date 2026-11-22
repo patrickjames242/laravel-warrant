@@ -23,8 +23,8 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   an ability's name, or a constant or ability is named as a keyword or literal.
 - The language server completes, describes, finds and fixes constants, and
   colours them with semantic tokens. The VS Code and PhpStorm clients find a
-  constant's uses from its PHP declaration, and the TextMate and tree-sitter
-  grammars read `<schema>.<name>`.
+  constant's uses from its PHP declaration, and the TextMate grammar reads
+  `<schema>.<name>`.
 
 - `filterQuery()`, `selectAbilitiesInQuery()`, `compileGate()` and the
   `userHasAbility` and `selectUserAbilities` scopes take `rowsAs`, the name the
