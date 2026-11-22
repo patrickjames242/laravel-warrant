@@ -30,6 +30,8 @@ use Warrant\Support\StringableExpression;
 final readonly class RowRelationContext
 {
     /**
+     * @param Authenticatable|null $user The user the check is for, or null for a
+     *   filter over users.
      * @param Builder $relatedQuery The related schema's rows under the hop's name.
      * @param string $ownTable The name this schema's row goes by where the hop is
      *   written.
@@ -37,7 +39,7 @@ final readonly class RowRelationContext
      * @param array<string, mixed> $context The related schema's check context.
      */
     public function __construct(
-        public Authenticatable $user,
+        public ?Authenticatable $user,
         public Builder $relatedQuery,
         private string $ownTable,
         private string $relatedTable,

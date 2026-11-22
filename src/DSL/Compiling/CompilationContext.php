@@ -140,7 +140,7 @@ final readonly class CompilationContext
         WarrantGate $gate,
         ExpandedSyntax $ruleSet,
     ): self {
-        return new self(new GateUnit($gate, $ruleSet), $queries, new UserRow($user, $queries));
+        return new self(new GateUnit($gate, $ruleSet), $queries, UserRow::forUser($user, $queries));
     }
 
     /**
@@ -152,7 +152,7 @@ final readonly class CompilationContext
         string $ability,
         ExpandedSyntax $ruleSet,
     ): self {
-        return new self(new AbilityUnit($ability, $ruleSet), $queries, new UserRow($user, $queries));
+        return new self(new AbilityUnit($ability, $ruleSet), $queries, UserRow::forUser($user, $queries));
     }
 
     /**
@@ -163,7 +163,7 @@ final readonly class CompilationContext
         Authenticatable $user,
         ?IBooleanExpressionNode $condition,
     ): self {
-        return new self(new ConditionUnit($condition), $queries, new UserRow($user, $queries));
+        return new self(new ConditionUnit($condition), $queries, UserRow::forUser($user, $queries));
     }
 
     /**

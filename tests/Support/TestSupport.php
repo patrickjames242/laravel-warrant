@@ -569,7 +569,7 @@ function warrantTestQuery(string $table = 'course_sections'): BuilderContract
  */
 function warrantTestUserRow(Authenticatable $user): UserRow
 {
-    return new UserRow($user, QueryFactory::for(DB::connection()->query()));
+    return UserRow::forUser($user, QueryFactory::for(DB::connection()->query()));
 }
 
 /**

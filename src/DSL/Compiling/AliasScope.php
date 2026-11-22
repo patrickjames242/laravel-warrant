@@ -55,6 +55,11 @@ use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
  * fresh set of *names*, but its rows are selected into the same query, where the
  * *identifiers* are still taken.
  *
+ * A root scope may also start with an identifier reserved for a frame outside
+ * the compile altogether: the users query a filter over users lands in, whose
+ * rows a condition reads through `userColumn()`. Nothing binds a name to it, but
+ * no frame below may take it, or a column of those rows would land on that frame.
+ *
  * The suffixed form is never something an author types. A `check(… as d2)` binds
  * the name `d2`, and `@column d2.x` resolves through it to whichever identifier
  * that frame was given.

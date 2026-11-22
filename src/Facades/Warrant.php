@@ -11,6 +11,8 @@ use Warrant\WarrantManager;
  * @method static \Warrant\Registry\SchemaRegistry registry()
  * @method static \Warrant\Guard\WarrantGuard guard(\Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static void flush(\Illuminate\Contracts\Auth\Authenticatable|null $user = null)
+ * @method static \Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax ruleSet(string $schemaKey, \Illuminate\Contracts\Auth\Authenticatable|null $user)
+ * @method static \Illuminate\Database\Eloquent\Builder filterUsers(\Illuminate\Database\Eloquent\Builder $users, string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, \Warrant\AbilityMatchMode $matchMode = \Warrant\AbilityMatchMode::ALL, array $context = [], string|null $rowsAs = null)
  * @method static \Warrant\Guard\WarrantGuardForSchema forSchema(\Illuminate\Database\Eloquent\Model|\Warrant\Schema\Types\Interfaces\ISchema|string $schema, \Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static bool can(string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, array $context = [], \Illuminate\Contracts\Auth\Authenticatable|null $user = null)
  * @method static bool canAny(string|array $abilities, \Illuminate\Database\Eloquent\Model|string|array $target, array $context = [], \Illuminate\Contracts\Auth\Authenticatable|null $user = null)

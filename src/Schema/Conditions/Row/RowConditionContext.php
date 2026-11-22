@@ -11,10 +11,10 @@ use Warrant\Schema\Conditions\UserRow;
 use Warrant\Support\StringableExpression;
 
 /**
- * The evaluation context passed to a `#[RowCondition]` method: the current user,
- * the where-clause builder the condition constrains, the resolved DSL arguments,
- * the check-time context bag, {@see column()} — a column of the target row
- * being evaluated, qualified with the name the row goes by in the query — and
+ * The evaluation context passed to a `#[RowCondition]` method: the user the check
+ * is for, the where-clause builder the condition constrains, the resolved DSL
+ * arguments, the check-time context bag, {@see column()} — a column of the target
+ * row being evaluated, qualified with the name the row goes by in the query — and
  * {@see userColumn()}, a column of the user's own row.
  *
  * `query` is an Eloquent builder over the schema's model, so a condition can
@@ -48,8 +48,13 @@ use Warrant\Support\StringableExpression;
  * decides differently depending on how it was reached:
  *
  *     if ($c->model !== null) {
- *         return $c->model->owner_id === $c->user->getAuthIdentifier();
+ *         return (bool) $c->model->is_public;
  *     }
+ *
+ *     return $c->query->where($c->column('is_public'), true);
+ *
+ * A comparison with the user belongs in SQL, through {@see userColumn()}, since
+ * `user` is null when a filter over users hands the condition its target:
  *
  *     return $c->query->where($c->column('owner_id'), $c->userColumn('id'));
  *
@@ -70,8 +75,13 @@ use Warrant\Support\StringableExpression;
  */
 final readonly class RowConditionContext
 {
-    /** The user the check is for. */
-    public Authenticatable $user;
+    /**
+     * The user the check is for, or null for a filter over users, which answers
+     * for every user at once. A condition reaches the user's row through
+     * {@see userColumn()} either way, so it reads `user` only for what it cannot
+     * ask in SQL, and must not assume one is there.
+     */
+    public ?Authenticatable $user;
 
     /**
      * @param UserRow $userRow The user the check is for, and their row, which

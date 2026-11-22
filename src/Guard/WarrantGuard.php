@@ -44,19 +44,13 @@ final class WarrantGuard
      */
     public function forSchema(Model|ISchema|string $schema): WarrantGuardForSchema
     {
-        $resolved = $this->manager->registry()->resolveOrFail($schema);
+        $resolved = $this->manager->registry()->resolveAbilitySchemaOrFail($schema);
 
-        if (! $resolved->schema instanceof IAbilitySchema) {
-            throw new InvalidArgumentException(sprintf(
-                'Schema [%s] declares no abilities, so no check can be made against it; checks are made '
-                    .'against a %s.',
-                $resolved->key,
-                IAbilitySchema::class,
-            ));
-        }
+        /** @var IAbilitySchema $abilitySchema */
+        $abilitySchema = $resolved->schema;
 
         return $this->schemaGuards[$resolved->key] ??= new WarrantGuardForSchema(
-            $resolved->schema,
+            $abilitySchema,
             $resolved->key,
             $this->user,
             $this->manager,
@@ -68,7 +62,7 @@ final class WarrantGuard
      */
     public function can(string|array $abilities, Model|string|array $target, array $context = []): bool
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         return $this->forSchema($schema)->can($abilities, $rowTarget, $context);
     }
@@ -78,7 +72,7 @@ final class WarrantGuard
      */
     public function canAny(string|array $abilities, Model|string|array $target, array $context = []): bool
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         return $this->forSchema($schema)->canAny($abilities, $rowTarget, $context);
     }
@@ -88,7 +82,7 @@ final class WarrantGuard
      */
     public function cannot(string|array $abilities, Model|string|array $target, array $context = []): bool
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         return $this->forSchema($schema)->cannot($abilities, $rowTarget, $context);
     }
@@ -99,7 +93,7 @@ final class WarrantGuard
      */
     public function authorize(string|array $abilities, Model|string|array $target, array $context = []): void
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         $this->forSchema($schema)->authorize($abilities, $rowTarget, $context);
     }
@@ -110,7 +104,7 @@ final class WarrantGuard
      */
     public function authorizeAny(string|array $abilities, Model|string|array $target, array $context = []): void
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         $this->forSchema($schema)->authorizeAny($abilities, $rowTarget, $context);
     }
@@ -120,7 +114,7 @@ final class WarrantGuard
      */
     public function abilities(Model|string|array $target, array $context = []): array
     {
-        [$schema, $rowTarget] = $this->splitTarget($target);
+        [$schema, $rowTarget] = self::splitTarget($target);
 
         return $this->forSchema($schema)->abilities($rowTarget, $context);
     }
@@ -214,7 +208,7 @@ final class WarrantGuard
      * @param Model|string|array<int, mixed> $target
      * @return array{0: Model|ISchema|string, 1: Model|string|int|array<int, mixed>|null}
      */
-    private function splitTarget(Model|string|array $target): array
+    public static function splitTarget(Model|string|array $target): array
     {
         if ($target instanceof Model) {
             return [$target, $target];

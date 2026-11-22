@@ -157,18 +157,24 @@ trait ResolvesCheckTargets
      *
      * @param  Model|string|int|array<int, mixed>  $target
      * @param  array<string, mixed>  $context  The effective check-time context.
+     * @param  UserRow|null  $userRow  The user row the matcher is handed; null for
+     *   this guard's user's.
+     * @param  string|null  $rowName  The name $query's rows go by; null for the
+     *   schema's own.
      */
     protected function narrowQueryToTarget(
         \Illuminate\Database\Query\Builder $query,
         Model|string|int|array $target,
         array $context = [],
+        ?UserRow $userRow = null,
+        ?string $rowName = null,
     ): bool {
         /** @var IRowSchema $schema */
         $schema = $this->schema;
-        $rowName = $schema->rowName();
+        $rowName ??= $schema->rowName();
 
         return $schema->invokeRowMatcher(new RowConditionContext(
-            new UserRow($this->user, QueryFactory::for($query)),
+            $userRow ?? UserRow::forUser($this->user, QueryFactory::for($query)),
             $schema->conditionQuery($query, $rowName),
             $rowName,
             $schema->keyColumns(),

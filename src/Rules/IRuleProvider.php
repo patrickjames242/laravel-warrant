@@ -13,7 +13,7 @@ use Warrant\DSL\Parsing\BoundSyntax;
 interface IRuleProvider
 {
     /**
-     * Return the rules that govern this user's access to the entity in $context,
+     * Return the rules that govern access to the entity in $context,
      * merged with that schema's own `rules()`. The rules are compiled directly to
      * SQL, so the implementation is free to build them however it likes — a
      * database lookup, hardcoded rules, ... — and to return them in whichever

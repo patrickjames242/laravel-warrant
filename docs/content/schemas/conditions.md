@@ -240,7 +240,7 @@ parameter.`
 
 | Property | Type | On |
 | --- | --- | --- |
-| `$c->user` | `Authenticatable` | both |
+| `$c->user` | `?Authenticatable` | both |
 | `$c->query` | `Builder` | both |
 | `$c->arguments` | `array` | both |
 | `$c->context` | `array` | both |
@@ -249,6 +249,10 @@ parameter.`
 | `$c->model` | `?Model` | row only |
 | `$c->table` | `string` | row only |
 | `$c->keyColumns` | `array` | row only |
+
+`$c->user` is null when users are filtered by the abilities they hold, with
+`Warrant::filterUsers()`, since that answers for every user at once. Compare with
+the user through `$c->userColumn()`, which works either way.
 
 ## Always bind values
 

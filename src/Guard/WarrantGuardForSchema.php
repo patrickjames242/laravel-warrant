@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Warrant\Guard;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use InvalidArgumentException;
 use Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax;
 use Warrant\Guard\Concerns\AnalyzesReachability;
 use Warrant\Guard\Concerns\BuildsAccessQueries;
 use Warrant\Guard\Concerns\ChecksAbilities;
 use Warrant\Guard\Concerns\DiagnosesDenials;
+use Warrant\Guard\Concerns\ReadsAbilitySchema;
 use Warrant\Guard\Concerns\ResolvesCheckTargets;
-use Warrant\Schema\Context\ContextPolicy;
 use Warrant\Schema\Types\Interfaces\IAbilitySchema;
-use Warrant\Schema\Types\Interfaces\IModelSchema;
-use Warrant\Schema\Types\Interfaces\IRowSchema;
 use Warrant\WarrantManager;
 
 /**
@@ -32,6 +29,7 @@ use Warrant\WarrantManager;
  * `Warrant::forSchema($schemaOrModel[, $user])`.
  *
  * The engine is split across concerns:
+ *  - {@see ReadsAbilitySchema}  — what the schema's definition says about a request;
  *  - {@see ChecksAbilities}     — can/canAny/cannot/authorize/authorizeAny/abilities;
  *  - {@see ResolvesCheckTargets}— reading the caller's `$target` argument;
  *  - {@see BuildsAccessQueries} — turning the rule set into SQL access predicates;
@@ -40,13 +38,12 @@ use Warrant\WarrantManager;
  */
 final class WarrantGuardForSchema
 {
+    use ReadsAbilitySchema;
     use ChecksAbilities;
     use ResolvesCheckTargets;
     use BuildsAccessQueries;
     use DiagnosesDenials;
     use AnalyzesReachability;
-
-    private ?ContextPolicy $contextPolicy = null;
 
     /**
      * @param string $schemaKey The key $schema is registered under, which its rules
@@ -91,62 +88,5 @@ final class WarrantGuardForSchema
     public function expandedRuleSet(): ExpandedSyntax
     {
         return $this->manager->ruleSet($this->schemaKey, $this->user);
-    }
-
-    /**
-     * What the schema's context declarations mean for a check.
-     */
-    private function contextPolicy(): ContextPolicy
-    {
-        return $this->contextPolicy ??= new ContextPolicy($this->schema);
-    }
-
-    /**
-     * The model a model schema names, or null for any other schema.
-     *
-     * @return class-string<\Illuminate\Database\Eloquent\Model>|null
-     */
-    private function modelClass(): ?string
-    {
-        return $this->schema instanceof IModelSchema ? $this->schema::model() : null;
-    }
-
-    /**
-     * The requested abilities as a list, with empty names dropped, after checking
-     * the schema declares each one.
-     *
-     * @param string|array<int, mixed> $abilities
-     * @return list<string>
-     */
-    private function normalizeAbilities(string|array $abilities): array
-    {
-        $abilities = array_values(array_filter(
-            is_array($abilities) ? $abilities : [$abilities],
-            static fn (mixed $ability): bool => is_string($ability) && $ability !== '',
-        ));
-
-        foreach ($abilities as $ability) {
-            if ($this->schema->ability($ability) === null) {
-                throw new InvalidArgumentException(
-                    sprintf('Ability [%s] is not defined on schema [%s].', $ability, $this->schema::class)
-                );
-            }
-        }
-
-        return $abilities;
-    }
-
-    /**
-     * A check about one row needs a schema with rows, so a schema without them
-     * answers only checks with no target.
-     */
-    private function assertSupportsTargetedChecks(): void
-    {
-        if (! $this->schema instanceof IRowSchema) {
-            throw new InvalidArgumentException(sprintf(
-                'Schema [%s] has no rows and does not support targeted checks; use a no-target check instead.',
-                $this->schema::class,
-            ));
-        }
     }
 }

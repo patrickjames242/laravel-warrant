@@ -8,10 +8,10 @@ use Warrant\Schema\Conditions\UserRow;
 use Warrant\Support\StringableExpression;
 
 /**
- * The evaluation context passed to a `#[GlobalCondition]` method: the current
- * user, the where-clause builder the condition may constrain, the resolved DSL
- * arguments, the check-time context bag, and {@see userColumn()}, a column of the
- * user's own row.
+ * The evaluation context passed to a `#[GlobalCondition]` method: the user the
+ * check is for, the where-clause builder the condition may constrain, the
+ * resolved DSL arguments, the check-time context bag, and {@see userColumn()}, a
+ * column of the user's own row.
  *
  * There is no target row — a global condition is about the user or the ambient
  * context, not a specific record. It may mutate the query and return it,
@@ -30,8 +30,13 @@ use Warrant\Support\StringableExpression;
  */
 final readonly class GlobalConditionContext
 {
-    /** The user the check is for. */
-    public Authenticatable $user;
+    /**
+     * The user the check is for, or null for a filter over users, which answers
+     * for every user at once. A condition reaches the user's row through
+     * {@see userColumn()} either way, so it reads `user` only for what it cannot
+     * ask in SQL, and must not assume one is there.
+     */
+    public ?Authenticatable $user;
 
     /**
      * @param UserRow $userRow The user the check is for, and their row, which
