@@ -8,6 +8,7 @@ use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
@@ -203,7 +204,7 @@ trait ValidatesExpressions
         $this->assertConstantsResolve([...$node->handle?->rowSelector() ?? [], ...self::withValues($node->contextMap)], $writtenIn);
 
         if ($node->handle === null) {
-            $this->assertOwnAbilityValid($node, $vocabulary);
+            $this->assertOwnAbilityValid($node, $vocabulary, $writtenIn);
 
             return;
         }
@@ -215,7 +216,7 @@ trait ValidatesExpressions
         }
 
         [$schemaKey, $target] = $reached;
-        $ability = self::abilityToLookUp($node, $this->input);
+        $ability = $this->abilityToLookUp($node, $target, $target === null ? null : new KeyedSchemaId($schemaKey));
 
         if ($target !== null && $ability !== null && $target->ability($ability) === null) {
             $this->fail(
@@ -428,21 +429,61 @@ trait ValidatesExpressions
     }
 
     /**
-     * The ability $node asks about, to look up in a schema: its name, or the
-     * name a binding's value gives it when binding values are checked. Null
-     * when there is none to look up: a name missing from the text, which was
-     * reported where it was read, or a binding whose value is unchecked or is
-     * reported by the binding checks.
+     * The ability $node asks about, to look up in $abilitiesOf: its name, or the
+     * name the value of a binding or constant gives it. A bare name $abilitiesOf
+     * does not declare may be a constant, looked up from $writtenIn. Null when
+     * there is none to look up: a name missing from the text, which was reported
+     * where it was read; a binding whose value is unchecked or is reported by
+     * the binding checks; or a constant that names none, which is reported, or
+     * whose value is not known.
+     *
+     * @param Vocabulary|null $abilitiesOf The schema whose ability it is, when
+     *   known.
+     * @param ISchemaId|null $writtenIn Where a constant naming it is looked up
+     *   from; null when that is not known.
      */
-    private static function abilityToLookUp(CrossSchemaCanNode $node, ValidationInput $input): ?string
+    private function abilityToLookUp(CrossSchemaCanNode $node, ?Vocabulary $abilitiesOf, ?ISchemaId $writtenIn): ?string
     {
         $ability = $node->ability;
 
-        return match (true) {
-            $ability instanceof NameNode => $ability->name === INode::MISSING_NAME ? null : $ability->name,
-            $input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundAbility($ability) === null => $ability->value(),
-            default => null,
-        };
+        if ($ability instanceof BindingNode) {
+            return $this->input->checkBindingValues && $ability->hasValue()
+                && AbilityMistakes::inOneAbilityValue($ability, $ability->value()) === null
+                    ? $ability->value()
+                    : null;
+        }
+
+        if ($ability instanceof NameNode) {
+            if ($ability->name === INode::MISSING_NAME) {
+                return null;
+            }
+
+            $found = $abilitiesOf === null || $writtenIn === null
+                ? null
+                : $this->constructs()->constantNamingAbilities($ability->name, $abilitiesOf, $writtenIn)?->definition;
+
+            if ($found === null || $found->value === $ability->name) {
+                return $ability->name;
+            }
+
+            $ability = new ConstantRef(null, $ability, $ability->location);
+        } else {
+            $found = $this->resolvedConstant($ability, $writtenIn);
+        }
+
+        if ($found === null || ! $found->valueIsKnown) {
+            return null;
+        }
+
+        $mistake = AbilityMistakes::inOneAbilityValue($ability, $found->value);
+
+        if ($mistake !== null) {
+            $this->fail(DiagnosticCode::InvalidConstantValue, $mistake, $ability->location);
+
+            return null;
+        }
+
+        return $found->value;
     }
 
     /**
@@ -455,9 +496,9 @@ trait ValidatesExpressions
      * vocabulary arrives as $vocabulary. Inside a `check(...)` predicate that is
      * the schema the handle named, not the one the rule is written on.
      */
-    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?Vocabulary $vocabulary): void
+    private function assertOwnAbilityValid(CrossSchemaCanNode $node, ?Vocabulary $vocabulary, ?ISchemaId $writtenIn): void
     {
-        $lookedUp = self::abilityToLookUp($node, $this->input);
+        $lookedUp = $this->abilityToLookUp($node, $vocabulary, $writtenIn);
 
         if ($vocabulary !== null && $lookedUp !== null && $vocabulary->ability($lookedUp) === null) {
             $this->fail(
@@ -468,7 +509,11 @@ trait ValidatesExpressions
             );
         }
 
-        $ability = $node->ability instanceof BindingNode ? ':'.$node->ability->name : $node->ability->name;
+        $ability = match (true) {
+            $node->ability instanceof BindingNode => ':'.$node->ability->name,
+            $node->ability instanceof ConstantRef => $node->ability->written(),
+            default => $node->ability->name,
+        };
 
         if ($node->contextMap !== []) {
             $this->fail(

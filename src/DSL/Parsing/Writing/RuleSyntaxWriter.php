@@ -244,7 +244,7 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * @param list<NameNode|BindingNode> $names
+     * @param list<NameNode|BindingNode|ConstantRef> $names
      */
     private function names(array $names): string
     {
@@ -252,12 +252,16 @@ final class RuleSyntaxWriter
     }
 
     /**
-     * An ability as it is written: a name, or a binding as the abilities its
-     * value names.
+     * An ability as it is written: a name, a constant as its name, or a binding
+     * as the abilities its value names.
      */
-    private function ability(NameNode|BindingNode $ability): string
+    private function ability(NameNode|BindingNode|ConstantRef $ability): string
     {
-        return $ability instanceof BindingNode ? implode(', ', (array) $ability->value()) : $ability->name;
+        return match (true) {
+            $ability instanceof BindingNode => implode(', ', (array) $ability->value()),
+            $ability instanceof ConstantRef => $ability->written(),
+            default => $ability->name,
+        };
     }
 
     private function writeExpression(IBooleanExpressionNode $node): string

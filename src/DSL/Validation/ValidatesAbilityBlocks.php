@@ -31,7 +31,7 @@ trait ValidatesAbilityBlocks
             $this->fail(DiagnosticCode::AbilityBlockNamesNone, LanguageRuleMessages::blockNamesNone(), $block->location);
         }
 
-        $this->assertAbilitiesDeclared($block->abilities, $schema);
+        $this->assertAbilitiesDeclared($block->abilities, $schema, $this->writtenIn($block, $schema, $schemaKey));
         $this->assertAbilityListsWellWritten($block);
         $this->validateAbilityBlockEntries($block->entries, $schema, $schemaKey);
     }

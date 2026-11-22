@@ -306,36 +306,39 @@ final class LanguageRuleMessages
     }
 
     /**
-     * @param string $binding The binding's name, without its colon.
+     * @param string $written The binding or constant as words for the author,
+     *   such as 'binding [:more]' or 'constant [editors]'.
      * @param string $got What its value is instead, as words for the author.
      */
-    public static function abilityListBindingValue(string $binding, string $got): string
+    public static function abilityListValue(string $written, string $got): string
     {
         return sprintf(
-            'The binding [:%s] stands in an ability list, so its value is an ability name or a non-empty list '
-                .'of them; got %s.',
-            $binding,
+            'The %s stands in an ability list, so its value is an ability name or a non-empty list of them; '
+                .'got %s.',
+            $written,
             $got,
         );
     }
 
     /**
-     * @param string $binding The binding's name, without its colon.
+     * @param string $written The binding or constant as words for the author,
+     *   such as 'binding [:more]' or 'constant [editors]'.
      * @param string $got What its value is instead, as words for the author.
      */
-    public static function oneAbilityBindingValue(string $binding, string $got): string
+    public static function oneAbilityValue(string $written, string $got): string
     {
         return sprintf(
-            'The binding [:%s] stands for the one ability a can(...) reference asks about, so its value is an '
-                .'ability name; got %s.',
-            $binding,
+            'The %s stands for the one ability a can(...) reference asks about, so its value is an ability '
+                .'name; got %s.',
+            $written,
             $got,
         );
     }
 
     /**
-     * @param string $written The ability or binding as words for the author,
-     *   such as 'Ability [view]' or 'Binding [:more]'.
+     * @param string $written The ability, binding or constant as words for the
+     *   author, such as 'Ability [view]', 'Binding [:more]' or
+     *   'Constant [payroll.editors]'.
      * @param string $among The abilities it is written among, such as 'this rule grants'.
      */
     public static function abilityWrittenTwice(string $written, string $among): string

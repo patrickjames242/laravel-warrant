@@ -106,8 +106,8 @@ trait ValidatesBindings
         }
 
         $abilityMistake = match ($slot) {
-            self::BINDING_IN_ABILITY_LIST_SLOT => AbilityMistakes::inBoundList($binding),
-            self::BINDING_IN_ONE_ABILITY_SLOT => AbilityMistakes::inBoundAbility($binding),
+            self::BINDING_IN_ABILITY_LIST_SLOT => AbilityMistakes::inListValue($binding, $value),
+            self::BINDING_IN_ONE_ABILITY_SLOT => AbilityMistakes::inOneAbilityValue($binding, $value),
             default => null,
         };
 

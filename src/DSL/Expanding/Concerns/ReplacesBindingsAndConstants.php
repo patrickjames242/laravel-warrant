@@ -39,6 +39,11 @@ use Warrant\DSL\Validation\LanguageRuleMessages;
  * is looked up from the schema the check names, as the predicate's conditions
  * are. A prefixed name is looked up in the schema the prefix names alone.
  *
+ * Where abilities are written, a bare name is an ability of the schema they
+ * belong to when that schema declares one, and a constant naming abilities
+ * otherwise. The abilities of a `can(... for <handle>)` belong to the schema the
+ * handle reaches, so a constant there is looked up from that schema.
+ *
  * @internal
  */
 trait ReplacesBindingsAndConstants
@@ -54,7 +59,8 @@ trait ReplacesBindingsAndConstants
      * @template T of INode
      * @param T $node
      * @param string $schemaKey The schema the rules $node is in are for, or, in
-     *   a `check(...)` predicate, the schema the check names.
+     *   a `check(...)` predicate, the schema the check names: whose abilities a
+     *   bare name in an ability list names.
      * @param ISchemaId|null $writtenIn Where a bare constant in $node is looked
      *   up from, when every one is looked up from the same place, as in a
      *   predicate. Null to look each one up from the text it was written in.
@@ -85,7 +91,7 @@ trait ReplacesBindingsAndConstants
             $node instanceof ConditionNode => new ConditionNode($node->conditionKey, $eachReplaced($node->parameters), $node->location),
             $node instanceof CrossSchemaCanNode => new CrossSchemaCanNode(
                 $node->handle === null ? null : $replaced($node->handle),
-                self::abilityWithBindingReplaced($node->ability),
+                $this->canAbilityWithBindingOrConstantReplaced($node, $schemaKey, $writtenIn),
                 $eachReplaced($node->contextMap),
                 $node->alias,
                 $node->location,
@@ -107,12 +113,12 @@ trait ReplacesBindingsAndConstants
             $node instanceof WithEntryNode => new WithEntryNode($node->key, $replaced($node->value), $node->location),
             $node instanceof SqlRef => new SqlRef($this->sqlWithBindingOrConstantReplaced($node->sql, $schemaKey, $writtenIn), $node->location),
             $node instanceof CanClauseNode => new CanClauseNode(
-                self::abilitiesWithBindingsReplaced($node->abilities),
+                $this->abilitiesWithBindingsAndConstantsReplaced($node->abilities, $schemaKey, $writtenIn),
                 $node->message === null ? null : $replaced($node->message),
                 $node->location,
             ),
             $node instanceof CannotClauseNode => new CannotClauseNode(
-                self::abilitiesWithBindingsReplaced($node->abilities),
+                $this->abilitiesWithBindingsAndConstantsReplaced($node->abilities, $schemaKey, $writtenIn),
                 $node->message === null ? null : $replaced($node->message),
                 $node->location,
             ),
@@ -125,10 +131,10 @@ trait ReplacesBindingsAndConstants
             $node instanceof IncludeInvocationNode => new IncludeInvocationNode(
                 $node->templateKey,
                 $eachReplaced($node->arguments),
-                self::abilitiesWithBindingsReplaced($node->abilities),
+                $this->abilitiesWithBindingsAndConstantsReplaced($node->abilities, $schemaKey, $writtenIn),
                 $node->location,
             ),
-            $node instanceof AbilityBlockNode => new AbilityBlockNode(self::abilitiesWithBindingsReplaced($node->abilities), $eachReplaced($node->entries), $node->location),
+            $node instanceof AbilityBlockNode => new AbilityBlockNode($this->abilitiesWithBindingsAndConstantsReplaced($node->abilities, $schemaKey, $writtenIn), $eachReplaced($node->entries), $node->location),
             $node instanceof WhenBlockNode => new WhenBlockNode(
                 $replaced($node->condition),
                 $eachReplaced($node->entries),
@@ -139,6 +145,28 @@ trait ReplacesBindingsAndConstants
         };
 
         return $rebuilt->children() === $node->children() ? $node : $rebuilt;
+    }
+
+    /**
+     * The ability a `can(...)` asks about, with a binding or constant replaced.
+     * With no `for` it is an ability of the schema the expression is about, and
+     * a constant naming it is looked up as the expression's are. With a `for` it
+     * is an ability of the schema the handle reaches, and a constant naming it is
+     * looked up from that schema.
+     */
+    private function canAbilityWithBindingOrConstantReplaced(CrossSchemaCanNode $can, string $schemaKey, ?ISchemaId $writtenIn): NameNode
+    {
+        if ($can->handle === null) {
+            return $this->abilityWithBindingOrConstantReplaced($can->ability, $schemaKey, $writtenIn);
+        }
+
+        $targetKey = $this->handleTargetKey($can->handle, $schemaKey);
+
+        return $this->abilityWithBindingOrConstantReplaced(
+            $can->ability,
+            $targetKey,
+            $targetKey === null ? null : new KeyedSchemaId($targetKey),
+        );
     }
 
     /**
@@ -153,7 +181,7 @@ trait ReplacesBindingsAndConstants
      */
     private function predicateWithBindingsAndConstantsReplaced(CrossSchemaConditionNode $check, string $schemaKey): INode
     {
-        $targetKey = $this->checkTargetKey($check, $schemaKey);
+        $targetKey = $this->handleTargetKey($check->handle, $schemaKey);
 
         return $targetKey === null
             ? $this->withBindingsAndConstantsReplaced($check->predicate, $schemaKey)
@@ -217,31 +245,41 @@ trait ReplacesBindingsAndConstants
     }
 
     /**
-     * $abilities with each binding among them replaced by a name for every
-     * ability its value names, in order, where the binding is written: one for
+     * $abilities with each binding or constant among them replaced by a name
+     * for every ability its value names, in order, where it is written: one for
      * an ability name, and one for each name in a list.
      *
-     * @param list<NameNode|BindingNode> $abilities
+     * A bare name is a constant too when it is not one of the abilities of
+     * $abilitiesOf, and is replaced by what its value names when a constant of
+     * that name is found. One nothing declares is kept, for validation and the
+     * compiler to report as the ability it is not.
+     *
+     * @param list<NameNode|BindingNode|ConstantRef> $abilities
+     * @param string $abilitiesOf The schema whose abilities the list names.
+     * @param ISchemaId|null $writtenIn Where a bare constant is looked up from,
+     *   or null to look each up from the text it was written in.
      * @return list<NameNode>
      */
-    private static function abilitiesWithBindingsReplaced(array $abilities): array
+    private function abilitiesWithBindingsAndConstantsReplaced(array $abilities, string $abilitiesOf, ?ISchemaId $writtenIn): array
     {
         $replaced = [];
 
         foreach ($abilities as $ability) {
-            if (! $ability instanceof BindingNode) {
+            [$written, $value] = $this->abilityValue($ability, $abilitiesOf, $writtenIn);
+
+            if ($written === null) {
                 $replaced[] = $ability;
 
                 continue;
             }
 
-            $mistake = AbilityMistakes::inBoundList($ability);
+            $mistake = AbilityMistakes::inListValue($written, $value);
 
             if ($mistake !== null) {
                 throw new InvalidArgumentException($mistake);
             }
 
-            foreach (AbilityMistakes::boundNames($ability) as $name) {
+            foreach (AbilityMistakes::namesIn($value) as $name) {
                 $replaced[] = new NameNode($name, $ability->location);
             }
         }
@@ -250,21 +288,73 @@ trait ReplacesBindingsAndConstants
     }
 
     /**
-     * $ability, or the name a binding's value gives it, where the binding is
-     * written.
+     * $ability, or the name the value of a binding or constant gives it, where it
+     * is written. A bare name is looked up as a constant, as in a list, when
+     * $abilitiesOf is known and does not declare it.
+     *
+     * @param string|null $abilitiesOf The schema whose ability it is; null when
+     *   that schema cannot be found, and a bare name is kept.
      */
-    private static function abilityWithBindingReplaced(NameNode|BindingNode $ability): NameNode
-    {
-        if (! $ability instanceof BindingNode) {
+    private function abilityWithBindingOrConstantReplaced(
+        NameNode|BindingNode|ConstantRef $ability,
+        ?string $abilitiesOf,
+        ?ISchemaId $writtenIn,
+    ): NameNode {
+        [$written, $value] = $ability instanceof NameNode && $abilitiesOf === null
+            ? [null, null]
+            : $this->abilityValue($ability, (string) $abilitiesOf, $writtenIn);
+
+        if ($written === null) {
             return $ability;
         }
 
-        $mistake = AbilityMistakes::inBoundAbility($ability);
+        $mistake = AbilityMistakes::inOneAbilityValue($written, $value);
 
         if ($mistake !== null) {
             throw new InvalidArgumentException($mistake);
         }
 
-        return new NameNode($ability->value(), $ability->location);
+        return new NameNode($value, $ability->location);
+    }
+
+    /**
+     * The binding or constant $ability is, with its value; or [null, null] when
+     * it is a name that stays as written: `*`, an ability of $abilitiesOf, or a
+     * name no constant has.
+     *
+     * @return array{0: BindingNode|ConstantRef|null, 1: mixed}
+     */
+    private function abilityValue(NameNode|BindingNode|ConstantRef $ability, string $abilitiesOf, ?ISchemaId $writtenIn): array
+    {
+        if ($ability instanceof BindingNode) {
+            return [$ability, $ability->value()];
+        }
+
+        if ($ability instanceof ConstantRef) {
+            return [$ability, $this->constantValue($ability, $abilitiesOf, $writtenIn)];
+        }
+
+        if ($ability->name === '*' || $ability->name === INode::MISSING_NAME) {
+            return [null, null];
+        }
+
+        $vocabulary = $this->catalog->find($abilitiesOf);
+
+        if ($vocabulary === null) {
+            return [null, null];
+        }
+
+        $lookup = $this->catalog->constructs();
+        $found = $lookup->constantNamingAbilities(
+            $ability->name,
+            $vocabulary,
+            $writtenIn ?? $lookup->writtenIn($ability->location->source->producer(), $abilitiesOf),
+        );
+
+        if ($found === null || $found->definition->value === $ability->name) {
+            return [null, null];
+        }
+
+        return [new ConstantRef(null, $ability, $ability->location), $found->definition->value];
     }
 }

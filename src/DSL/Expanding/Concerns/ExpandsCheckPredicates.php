@@ -5,6 +5,7 @@ namespace Warrant\DSL\Expanding\Concerns;
 use Warrant\DSL\Expanding\Expander;
 use Warrant\DSL\Expanding\ExpansionTrail;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaConditionNode;
+use Warrant\DSL\Parsing\ASTNodes\IHandleNode;
 use Warrant\DSL\Parsing\ASTNodes\RelationHandleNode;
 use Warrant\DSL\Resolution\KeyedSchemaId;
 
@@ -25,7 +26,7 @@ trait ExpandsCheckPredicates
      */
     private function expandCheckPredicate(CrossSchemaConditionNode $node, string $schemaKey, ExpansionTrail $trail): CrossSchemaConditionNode
     {
-        $targetKey = $this->checkTargetKey($node, $schemaKey);
+        $targetKey = $this->handleTargetKey($node->handle, $schemaKey);
 
         /* A schema nobody registered, or a relation nothing declares, has no
            conditions to expand. Leaving the reference as it is lets the validator
@@ -56,17 +57,17 @@ trait ExpandsCheckPredicates
     }
 
     /**
-     * The key of the schema a `check(...)` names: the one written after `for`, or
-     * the target of the row relation `its` follows. Null for a relation nothing
+     * The key of the schema $handle reaches: the one written after `for`, or the
+     * target of the row relation `its` follows. Null for a relation nothing
      * declares.
      *
      * @param string $schemaKey The schema the rule is for, whose row relation an
      *   `its` handle follows.
      */
-    private function checkTargetKey(CrossSchemaConditionNode $node, string $schemaKey): ?string
+    private function handleTargetKey(IHandleNode $handle, string $schemaKey): ?string
     {
-        return $node->handle instanceof RelationHandleNode
-            ? $this->catalog->constructs()->rowRelation($node->handle->relation->name, $schemaKey)?->targetKey
-            : $node->handle->schemaKey->name;
+        return $handle instanceof RelationHandleNode
+            ? $this->catalog->constructs()->rowRelation($handle->relation->name, $schemaKey)?->targetKey
+            : $handle->schemaKey->name;
     }
 }

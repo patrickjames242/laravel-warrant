@@ -4,9 +4,11 @@ namespace Warrant\DSL\Parsing\Grammar\BooleanExpressions;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
 use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\Grammar\Arguments\ParseBinding;
+use Warrant\DSL\Parsing\Grammar\ParseConstantRef;
 use Warrant\DSL\Parsing\Grammar\ReportsMissingSyntax;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -16,8 +18,8 @@ use Warrant\DSL\Parsing\Parsers\TokensAhead;
  * `can(<ability> for <handle> [with <map>])`. A reference that is only an
  * ability may leave its parentheses off, as `can <ability>`; one with a `for`
  * or a `with` keeps them, so that in `check(can view for folders)` the `for`
- * belongs to the `check`. The ability is a name, or a binding whose value
- * names it.
+ * belongs to the `check`. The ability is a name, or a binding or a prefixed
+ * constant whose value names it.
  *
  * In expression position `can` is always this builtin: the can/cannot clause keyword in
  * `they can ...` is read by {@see \Warrant\DSL\Parsing\Grammar\RuleEntries\ParseCanClause} and never reaches here.
@@ -71,13 +73,18 @@ final class ParseCrossSchemaCan extends Parser
     }
 
     /**
-     * The ability the reference asks about: a binding, or else a name, reported
-     * as missing when none is written.
+     * The ability the reference asks about: a binding, a constant of another
+     * schema written `<schema>.<name>`, or else a name, reported as missing when
+     * none is written.
      */
-    private function abilityOrMissing(string $expected): NameNode|BindingNode
+    private function abilityOrMissing(string $expected): NameNode|BindingNode|ConstantRef
     {
         if ($this->check(TokenType::NAMED_BINDING)) {
             return $this->parse(ParseBinding::class)->value;
+        }
+
+        if ($this->tokensAhead()->nextIs(TokenType::IDENTIFIER, TokenType::DOT)) {
+            return $this->parse(ParseConstantRef::class)->value;
         }
 
         return $this->nameOrMissing($expected);

@@ -12,14 +12,14 @@ use Warrant\DSL\Parsing\Parsers\Parser;
  * A comma-separated list of at least one ability, each a name, `*` or a
  * binding.
  *
- * @extends Parser<list<NameNode|BindingNode>>
+ * @extends Parser<list<NameNode|BindingNode|\Warrant\DSL\Parsing\ASTNodes\ConstantRef>>
  */
 final class ParseAbilityList extends Parser
 {
     use ReportsMissingSyntax;
 
     /**
-     * @return list<NameNode|BindingNode>
+     * @return list<NameNode|BindingNode|\Warrant\DSL\Parsing\ASTNodes\ConstantRef>
      */
     protected function read(): array
     {

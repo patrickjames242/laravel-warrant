@@ -4,12 +4,12 @@ namespace Warrant\DSL\Parsing\Grammar\Arguments;
 
 use Warrant\DSL\Lexing\TokenType;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
-use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\MissingArgumentNode;
 use Warrant\DSL\Parsing\ASTNodes\SqlRef;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Parsing\Grammar\ParseConstantRef;
 use Warrant\DSL\Parsing\Grammar\ParseName;
 use Warrant\DSL\Parsing\Parsers\Parser;
 use Warrant\DSL\Parsing\Parsers\TokensAhead;
@@ -49,32 +49,11 @@ final class ParseArgument extends Parser
             TokenType::BOOL,
             TokenType::NULL => $this->parse(ParseLiteral::class)->value,
             TokenType::NAMED_BINDING => $this->parse(ParseBinding::class)->value,
-            TokenType::IDENTIFIER => $this->constantRef(),
+            TokenType::IDENTIFIER => $this->parse(ParseConstantRef::class)->value,
             TokenType::CONTEXT_REF => $this->contextRef(),
             TokenType::COLUMN_REF => $this->columnRef(),
             TokenType::SQL_REF => $this->sqlRef(),
         };
-    }
-
-    /**
-     * A constant: `<name>`, or `<schema>.<name>` for a constant of the schema
-     * keyed `<schema>`.
-     */
-    private function constantRef(): ConstantRef|MissingArgumentNode
-    {
-        $first = $this->parse(ParseName::class)->value;
-
-        if (! $this->check(TokenType::DOT)) {
-            return new ConstantRef(null, $first, $this->locationEndingHere());
-        }
-
-        $this->advance(); // consume '.'
-
-        if (! $this->check(TokenType::IDENTIFIER)) {
-            return $this->missingReference("Expected a constant name after '{$first->name}.'.");
-        }
-
-        return new ConstantRef($first, $this->parse(ParseName::class)->value, $this->locationEndingHere());
     }
 
     /**
@@ -134,7 +113,7 @@ final class ParseArgument extends Parser
         $sql = match ($token->type) {
             TokenType::STRING => $this->parse(ParseLiteral::class)->value,
             TokenType::NAMED_BINDING => $this->parse(ParseBinding::class)->value,
-            TokenType::IDENTIFIER => $this->constantRef(),
+            TokenType::IDENTIFIER => $this->parse(ParseConstantRef::class)->value,
             default => null,
         };
 

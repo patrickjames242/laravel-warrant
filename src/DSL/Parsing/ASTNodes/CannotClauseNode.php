@@ -19,9 +19,10 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 readonly class CannotClauseNode implements INode
 {
     /**
-     * @param list<NameNode|BindingNode> $abilities Denied ability names (or
-     *   `*`), and bindings whose values name them until expansion puts those
-     *   names in their place.
+     * @param list<NameNode|BindingNode|ConstantRef> $abilities Denied ability
+     *   names (or `*`), and bindings and constants whose values name them until
+     *   expansion puts those names in their place. A bare name may itself be a
+     *   constant naming abilities.
      * @param INode|null $message The denial message shared by every ability in
      *   this clause, as a {@see LiteralNode} or a {@see BindingNode} that
      *   supplies one until expansion puts it in its place. Its value is a string,

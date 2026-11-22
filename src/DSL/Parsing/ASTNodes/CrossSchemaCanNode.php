@@ -32,8 +32,10 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
     /**
      * @param IHandleNode|null $handle The rows this reference crosses to, or null
      *   for the boundary-free form, which stays on the schema being compiled.
-     * @param NameNode|BindingNode $ability The ability asked about, or a binding
-     *   whose value names it until expansion puts that name in its place.
+     * @param NameNode|BindingNode|ConstantRef $ability The ability asked about,
+     *   or a binding or prefixed constant whose value names it until expansion
+     *   puts that name in its place. A bare name may itself be a constant naming
+     *   an ability, which expansion also puts in its place.
      * @param list<WithEntryNode> $contextMap Explicit boundary context, each
      *   entry under one of the target schema's key names, in the order written.
      * @param NameNode|null $alias The SQL name this reference's own subquery gives
@@ -45,7 +47,7 @@ readonly class CrossSchemaCanNode implements IBooleanExpressionNode
      */
     public function __construct(
         public ?IHandleNode $handle,
-        public NameNode|BindingNode $ability,
+        public NameNode|BindingNode|ConstantRef $ability,
         public array $contextMap,
         public ?NameNode $alias,
         public SyntaxLocation $location,

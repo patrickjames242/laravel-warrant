@@ -5,6 +5,7 @@ namespace Warrant\DSL\Resolution;
 use LogicException;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\SyntaxProducer;
+use Warrant\Schema\Constants\ConstantDefinition;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -84,6 +85,28 @@ final class ConstructLookup
         }
 
         return null;
+    }
+
+    /**
+     * The constant a bare name written where the abilities of $abilitiesOf go
+     * names: that schema's ability of that name when it declares one, and
+     * otherwise the constant the name names written in $writtenIn. Abilities
+     * are looked for in $abilitiesOf first because they belong to it wherever
+     * the text naming them was written, as in a global schema's answer.
+     */
+    public function constantNamingAbilities(string $name, Vocabulary $abilitiesOf, ISchemaId $writtenIn): ?FoundConstant
+    {
+        if ($abilitiesOf->ability($name) === null) {
+            return $this->constant($name, $writtenIn);
+        }
+
+        $key = $this->catalog->keyOf($abilitiesOf->schemaClass);
+
+        return new FoundConstant(
+            new ConstantDefinition($name, $name),
+            $key === null ? new GlobalSchemaId($abilitiesOf->schemaClass, $this->catalog) : new KeyedSchemaId($key),
+            $abilitiesOf->schemaClass,
+        );
     }
 
     /**

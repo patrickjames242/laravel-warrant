@@ -6,6 +6,7 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\IBooleanExpressionNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -156,14 +157,19 @@ final class DocumentSymbols
     }
 
     /**
-     * Abilities as the text writes them: each a name, `*`, or a binding.
+     * Abilities as the text writes them: each a name, `*`, a binding or a
+     * prefixed constant.
      *
-     * @param list<NameNode|BindingNode> $abilities
+     * @param list<NameNode|BindingNode|ConstantRef> $abilities
      */
     private static function abilities(array $abilities): string
     {
         return implode(', ', array_map(
-            static fn (NameNode|BindingNode $ability): string => $ability instanceof BindingNode ? ':'.$ability->name : $ability->name,
+            static fn (NameNode|BindingNode|ConstantRef $ability): string => match (true) {
+                $ability instanceof BindingNode => ':'.$ability->name,
+                $ability instanceof ConstantRef => $ability->written(),
+                default => $ability->name,
+            },
             $abilities,
         ));
     }

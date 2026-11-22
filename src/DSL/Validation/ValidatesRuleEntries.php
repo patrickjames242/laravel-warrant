@@ -101,7 +101,7 @@ trait ValidatesRuleEntries
                     );
                 }
 
-                $this->assertAbilitiesDeclared($entry->abilities, $schema);
+                $this->assertAbilitiesDeclared($entry->abilities, $schema, $this->writtenIn($entry, $schema, $schemaKey));
                 $this->assertAbilityListsWellWritten($entry);
                 $this->assertTemplateDeclared($entry, $schema, $schemaKey);
             } elseif ($entry instanceof RuleNode) {
@@ -225,7 +225,7 @@ trait ValidatesRuleEntries
     private function validateRule(RuleNode $rule, ?Vocabulary $schema, ?string $schemaKey): void
     {
         foreach ([...$rule->canClauses, ...$rule->cannotClauses] as $clause) {
-            $this->assertAbilitiesDeclared($clause->abilities, $schema);
+            $this->assertAbilitiesDeclared($clause->abilities, $schema, $this->writtenIn($rule, $schema, $schemaKey));
         }
 
         $this->assertAbilityListsWellWritten($rule);
@@ -238,28 +238,33 @@ trait ValidatesRuleEntries
 
     /**
      * Every name in an ability list must be one the schema declares, and so
-     * must every name a binding's value gives it when binding values are
-     * checked. `*` is not a name but a stand-in for all of them, so it is
-     * passed over. A binding with no value, or one whose value names no
-     * abilities, is reported by the binding checks.
+     * must every name the value of a binding or constant gives it: a binding's
+     * when binding values are checked, and a constant's when its value is
+     * known. A bare name the schema does not declare may be a constant naming
+     * abilities, looked up from $writtenIn. `*` is not a name but a stand-in for
+     * all of them, so it is passed over. A binding with no value, or one whose
+     * value names no abilities, is reported by the binding checks.
      *
-     * @param list<NameNode|BindingNode> $abilities
+     * @param list<NameNode|BindingNode|ConstantRef> $abilities
+     * @param ISchemaId|null $writtenIn Where a constant among them is looked up
+     *   from; null when that is not known.
      */
-    private function assertAbilitiesDeclared(array $abilities, ?Vocabulary $schema): void
+    private function assertAbilitiesDeclared(array $abilities, ?Vocabulary $schema, ?ISchemaId $writtenIn): void
     {
-        if ($schema === null) {
-            return;
-        }
-
         foreach ($abilities as $ability) {
+            if ($ability instanceof NameNode && ($schema === null || $ability->name === '*' || $schema->ability($ability->name) !== null)) {
+                continue;
+            }
+
             $names = match (true) {
-                $ability instanceof NameNode => [$ability->name],
-                $this->input->checkBindingValues && $ability->hasValue() && AbilityMistakes::inBoundList($ability) === null
-                    => AbilityMistakes::boundNames($ability),
-                default => [],
+                $ability instanceof BindingNode => $this->input->checkBindingValues && $ability->hasValue()
+                    && AbilityMistakes::inListValue($ability, $ability->value()) === null
+                        ? AbilityMistakes::namesIn($ability->value())
+                        : [],
+                default => $this->abilitiesNamedByConstant($ability, $schema, $writtenIn),
             };
 
-            foreach ($names as $name) {
+            foreach ($schema === null ? [] : $names as $name) {
                 if ($name !== '*' && $schema->ability($name) === null) {
                     $this->fail(
                         DiagnosticCode::UnknownAbility,
@@ -270,6 +275,46 @@ trait ValidatesRuleEntries
                 }
             }
         }
+    }
+
+    /**
+     * The abilities the constant $ability stands for in an ability list names,
+     * reporting a value that names none. A bare name no constant has is
+     * returned as the one ability it names, for the caller to report as one the
+     * schema does not declare. Empty when there is nothing to judge: a constant
+     * that names none, which is reported, or one whose value is not known.
+     *
+     * @return list<string>
+     */
+    private function abilitiesNamedByConstant(NameNode|ConstantRef $ability, ?Vocabulary $schema, ?ISchemaId $writtenIn): array
+    {
+        if ($ability instanceof NameNode) {
+            $found = $schema === null || $writtenIn === null
+                ? null
+                : $this->constructs()->constantNamingAbilities($ability->name, $schema, $writtenIn)?->definition;
+
+            if ($found === null) {
+                return [$ability->name];
+            }
+
+            $ability = new ConstantRef(null, $ability, $ability->location);
+        } else {
+            $found = $this->resolvedConstant($ability, $writtenIn);
+        }
+
+        if ($found === null || ! $found->valueIsKnown) {
+            return [];
+        }
+
+        $mistake = AbilityMistakes::inListValue($ability, $found->value);
+
+        if ($mistake !== null) {
+            $this->fail(DiagnosticCode::InvalidConstantValue, $mistake, $ability->location);
+
+            return [];
+        }
+
+        return AbilityMistakes::namesIn($found->value);
     }
 
     /**

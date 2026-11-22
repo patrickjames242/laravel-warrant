@@ -177,3 +177,11 @@ it('marks a constant no schema declares, and an @sql constant that is not a stri
         ->and(diagnosticCodes($opened('for documents { if in_team(@sql billing.managers) they can view }')))->toBe(['invalid-constant-value'])
         ->and(diagnosticCodes($opened('for documents { if in_team(@sql billing.computed) they can view }')))->toBe([]);
 });
+
+it('marks an ability a group names that the schema does not declare, and a group that names none', function () {
+    $opened = fn (string $text): array => openInFixture('warrant/constants.warrant', $text);
+
+    expect(diagnosticCodes($opened('for billing { if in_current_tenant they can manage }')))->toBe([])
+        ->and(diagnosticCodes($opened('for billing { if in_current_tenant they can managers }')))->toBe(['unknown-ability', 'unknown-ability'])
+        ->and(diagnosticCodes($opened('for billing { if in_current_tenant they can computed }')))->toBe([]);
+});
