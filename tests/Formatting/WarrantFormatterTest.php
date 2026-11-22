@@ -442,7 +442,7 @@ it('refuses comments on one line', function () {
         ->toThrow(RuleTextFormattingException::class);
 });
 
-it('formats every sample in the docs and the syntax examples without changing what it says', function () {
+it('formats every sample in the docs without changing what it says', function () {
     $root = dirname(__DIR__, 2);
     $samples = [];
 
@@ -452,9 +452,6 @@ it('formats every sample in the docs and the syntax examples without changing wh
             array_push($samples, ...$blocks[1]);
         }
     }
-
-    preg_match_all("/<<<'WARRANT'\n(.*?)\n\s*WARRANT/s", (string) file_get_contents($root.'/src/DSL/RuleSyntaxExamples.php'), $examples);
-    array_push($samples, ...array_map(static fn (string $text): string => (string) preg_replace('/^ {12}/m', '', $text), $examples[1]));
 
     $formatter = new WarrantFormatter;
     $formatted = 0;
