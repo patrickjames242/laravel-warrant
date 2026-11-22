@@ -34,8 +34,8 @@ trait AuthorizesWithWarrant
      * Scope the query to users who hold the given ability or abilities on
      * $target, named as a check's target is: a model, a
      * `[ModelClass|SchemaClass, $id]` tuple, or a model or schema class for
-     * abilities with no target. It answers for every user at once, so the rules
-     * it reads have to be the same for every user. See
+     * abilities with no target. It answers for every user at once, so it reads
+     * the rules resolved for no particular user. See
      * {@see \Warrant\Guard\UsersFilter}.
      *
      * @param  string|array<int, string>  $abilities

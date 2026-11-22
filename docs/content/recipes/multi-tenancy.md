@@ -145,7 +145,7 @@ the predicate. The two are not redundant.
 ## Tenant-specific rules
 
 Tenancy usually means the policy differs per tenant too, which is the provider's
-job:
+job. The tenant picks the rules; the user's roles stay conditions inside them:
 
 ```php
 public function rules(RuleProviderContext $context): iterable
@@ -154,11 +154,17 @@ public function rules(RuleProviderContext $context): iterable
 
     return DB::table('tenant_role_rules')
         ->where('tenant_id', $tenantId)
-        ->whereIn('role', $context->user->roleNamesFor($tenantId))
         ->where('schema_key', $context->schemaKey)
-        ->pluck('rules');
+        ->get()
+        ->map(fn ($row) => warrant(
+            "when has_role(:role) {\n{$row->rules}\n}",
+            ['role' => $row->role],
+        ));
 }
 ```
+
+Here `has_role` reads the user's roles in the current tenant, from
+`$c->context['tenant_id']`.
 
 :::caution[The memo is keyed by user, not by tenant]
 If one request can switch tenant, flush in between:

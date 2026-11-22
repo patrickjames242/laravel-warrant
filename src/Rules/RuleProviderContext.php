@@ -14,9 +14,9 @@ use Warrant\Schema\Types\Interfaces\IAbilitySchema;
  *
  * `user` is null when the rules are resolved for no particular user, as they are
  * for a filter over users, which answers for every user at once. Rules that
- * differ from one user to the next can only answer for one user at a time, so a
- * provider gets the most out of Warrant by returning the same rules for everyone
- * and leaving the user to the conditions those rules name.
+ * branch on the user inside their text, through conditions, answer that in full.
+ * Rules a provider picks per user in PHP answer only for one user at a time, so a
+ * filter over users sees whatever the provider returns for a null user.
  */
 final readonly class RuleProviderContext
 {

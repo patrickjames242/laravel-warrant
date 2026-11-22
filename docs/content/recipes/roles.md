@@ -7,9 +7,11 @@ sidebar:
   order: 1
 ---
 
-Warrant has no roles table and no `hasRole()`. A role is a named rule set, and a
-user with three roles gets three sets merged. Because
-[order never matters](/concepts/grants-and-denials/), merging is safe.
+Warrant has no roles table and no `hasRole()`. A role is a named block of rules,
+and a condition says which users hold it. Every role's rules go to every check,
+each inside a `when` block on its role, so a user with three roles matches three
+blocks. Because [order never matters](/concepts/grants-and-denials/), merging is
+safe.
 
 ## The storage
 
@@ -58,8 +60,21 @@ class DocumentSchema extends ModelSchema
             ->whereColumn('team_members.team_id', $c->column('team_id'))
             ->whereColumn('team_members.user_id', $c->userColumn('id')));
     }
+
+    #[GlobalCondition]
+    public function hasRole(GlobalConditionContext $c, string $role): Builder
+    {
+        return $c->query->whereExists(fn ($sub) => $sub
+            ->from('role_user')
+            ->whereColumn('role_user.user_id', $c->userColumn('id'))
+            ->where('role_user.role', $role));
+    }
 }
 ```
+
+`has_role` reads the user's roles in SQL, so it answers for one user and for
+[filtering users](/checking/filtering-users/) alike. Put it on a
+[global schema](/schemas/global-schemas/) to share it between schemas.
 
 ## The provider
 
@@ -69,22 +84,35 @@ class RoleRuleProvider implements IRuleProvider
     public function rules(RuleProviderContext $context): iterable
     {
         return DB::table('role_rules')
-            ->whereIn('role', $context->user->roles->pluck('name'))
             ->where('schema_key', $context->schemaKey)
-            ->pluck('rules');
+            ->get()
+            ->map(fn ($row) => warrant(
+                "when has_role(:role) {\n{$row->rules}\n}",
+                ['role' => $row->role],
+            ));
     }
 }
 ```
 
-A user with `viewer` and `approver` gets:
+Every check on documents gets:
 
 ```warrant
-they can view
-if in_my_team they can approve
+when has_role('viewer') {
+    they can view
+}
+
+when has_role('editor') {
+    if is_mine or in_my_team they can view, update
+}
+
+when has_role('approver') {
+    if in_my_team they can approve
+}
 ```
 
-Which compiles, for `view`, to an unconditional grant, and for `approve`, to
-`documents.team_id in (…)`.
+For a user with `viewer` and `approver`, `view` compiles to a grant through
+`has_role('viewer')`, and `approve` to `has_role('approver')` and the team
+check.
 
 ## Roles in code instead
 
@@ -102,26 +130,33 @@ class RoleRuleProvider implements IRuleProvider
 
     public function rules(RuleProviderContext $context): iterable
     {
-        return collect($context->user->roleNames())
-            ->map(fn (string $role) => self::RULES[$role][$context->schemaKey] ?? null)
-            ->filter();
+        return collect(self::RULES)
+            ->filter(fn (array $bySchema) => isset($bySchema[$context->schemaKey]))
+            ->map(fn (array $bySchema, string $role) => warrant(
+                "when has_role(:role) {\n{$bySchema[$context->schemaKey]}\n}",
+                ['role' => $role],
+            ));
     }
 }
 ```
 
 Or as [`.warrant` files](/supplying-rules/where-rules-live/), one per role, which
-gets you editor highlighting:
+gets you editor highlighting. Each file says which users it is for:
 
 ```warrant
 # warrant/roles/editor.warrant
 
 for documents {
-    if is_mine or in_my_team they can view, update
-    if is_locked they cannot update because 'This document is locked.'
+    when has_role('editor') {
+        if is_mine or in_my_team they can view, update
+        if is_locked they cannot update because 'This document is locked.'
+    }
 }
 
 for folders {
-    if is_member they can view
+    when has_role('editor') {
+        if is_member they can view
+    }
 }
 ```
 

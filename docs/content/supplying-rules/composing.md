@@ -7,8 +7,8 @@ sidebar:
   order: 3
 ---
 
-Real policies come from more than one place. A user has a role. They belong to
-teams, each with its own grants. Someone granted them access to one specific
+Real policies come from more than one place. Users have roles. They belong to
+teams, each with its own grants. Someone granted one of them access to one specific
 record. An administrator revoked one thing.
 
 Warrant has no roles table and no notion of any of those. What it has is lists:
@@ -36,29 +36,30 @@ class CompositeRuleProvider implements IRuleProvider
     {
         $key = $context->schemaKey;
 
-        $sources = [
+        return [
             // 1. Baseline for everyone.
             'they can view',
 
-            // 2. Whatever the user's role grants.
-            $this->roles->forRole($context->user->role, $key),
+            // 2. What each role grants, inside a when block on that role.
+            ...$this->roles->forSchema($key),
+
+            // 3. What each team grants, inside a when block on membership.
+            ...$this->teams->forSchema($key),
+
+            // 4. Grants on one record, read from a table by a condition.
+            "if shared_with_me_as('editor') they can view, update",
         ];
-
-        // 3. One source per team the user belongs to.
-        foreach ($context->user->teams as $team) {
-            $sources[] = $this->teams->forTeam($team, $key);
-        }
-
-        // 4. Per-user overrides, including revocations.
-        $sources[] = $this->overridesFor($context->user, $key);
-
-        return $sources;
     }
 }
 ```
 
 Each source is written and tested on its own, and none of them has to know the
-others exist.
+others exist. None of them looks at the user either: which users a rule matches is
+the rule's own condition, so the same list answers for every user, including when
+[users are filtered](/checking/filtering-users/). A source that does have to pick
+rules per user can sit in the same list; see [branching in the rules or in
+PHP](/supplying-rules/provider/#branching-in-the-rules-or-in-php). [Sharing](/recipes/sharing/)
+covers the grants table behind `shared_with_me_as`.
 
 ## What joining can and cannot express
 
@@ -88,17 +89,23 @@ Locally overridable denials are [on the roadmap](/roadmap/planned/).
 
 ## Roles, expressed as sources
 
-A role is a block of rule text. Store one per role per schema:
+A role is a block of rule text. Store one per role per schema, and return every
+role's, each inside a `when` block on that role:
 
 ```php
 class RoleRules
 {
-    public function forRole(string $role, string $schemaKey): string
+    /** @return list<BoundSyntax> */
+    public function forSchema(string $schemaKey): array
     {
         return DB::table('role_rules')
-            ->where('role', $role)
             ->where('schema_key', $schemaKey)
-            ->value('rules') ?? '';
+            ->get()
+            ->map(fn ($row) => warrant(
+                "when has_role(:role) {\n{$row->rules}\n}",
+                ['role' => $row->role],
+            ))
+            ->all();
     }
 }
 ```
@@ -110,21 +117,23 @@ if is_locked they cannot update because 'This document is locked.'
 ```
 
 The text has no `for` header, so it is about the schema the provider was asked
-for. A user with several roles returns several texts. Nothing else changes.
-[Roles](/recipes/roles/) works this through as a complete recipe.
+for. Inside its `when` block, every rule in it applies only to editors, the
+denial included. A user with several roles matches several blocks. Nothing else
+changes. [Roles](/recipes/roles/) works this through as a complete recipe.
 
 ## Joining files
 
 When each source is a `.warrant` file covering several schemas, return the files.
 Each file's blocks for the schema asked about apply, in source order, and its
-blocks for every other schema are left out:
+blocks for every other schema are left out. A file per role says which users it is
+for with a `when` block inside each schema's block:
 
 ```php
 public function rules(RuleProviderContext $context): array
 {
     return array_map(
-        fn (string $role) => warrant_file(base_path("warrant/{$role}")),
-        $context->user->roleNames(),
+        fn (string $path) => warrant_file($path),
+        glob(base_path('warrant/roles/*.warrant')),
     );
 }
 ```
@@ -133,11 +142,11 @@ public function rules(RuleProviderContext $context): array
 
 The two authoring front ends produce the same AST, so one list can hold both.
 Stored text for the parts an administrator edits, builders for the parts that
-depend on runtime values:
+depend on runtime values that are not about the user:
 
 ```php
-$dynamic = Build::ruleSet($key, function ($rule) use ($teamIds) {
-    $rule()->if(fn ($c) => array_map(fn ($id) => $c->orIf('in_team', [$id]), $teamIds))
+$dynamic = Build::ruleSet($key, function ($rule) use ($publicTeamIds) {
+    $rule()->if(fn ($c) => array_map(fn ($id) => $c->orIf('in_team', [$id]), $publicTeamIds))
         ->theyCan('view');
 });
 

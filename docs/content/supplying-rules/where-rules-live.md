@@ -33,7 +33,7 @@ changes with deploys. Not good for: anything an administrator edits.
 
 ## In the database
 
-One row per role, per tenant, per user, whatever your model is:
+One row per role, per tenant, whatever your model is:
 
 ```php
 Schema::create('role_rules', function (Blueprint $table) {
@@ -48,6 +48,10 @@ Schema::create('role_rules', function (Blueprint $table) {
 ```php
 Warrant::parse($row->rules)->validate()->scopedTo($row->schema_key);
 ```
+
+The provider returns every row for the schema it is asked about, each inside a
+`when` block on its role, so the same rules answer for every user. See
+[the rule provider](/supplying-rules/provider/).
 
 Good for: policy that differs per tenant, or that an administrator edits through a
 UI. See [an admin permissions UI](/recipes/admin-ui/).
@@ -98,24 +102,36 @@ and for the case where you want the [editor
 tooling](/editors/overview/) working on it. `.warrant` files are what the tooling
 targets by extension, so they get highlighting everywhere with no configuration.
 
-A provider built on them:
+A provider built on them returns every file. Each file says which users its rules
+are for, with a `when` block on its role:
 
-```php
-public function rules(RuleProviderContext $context): BoundSyntax|array
-{
-    $path = base_path("warrant/{$context->user->role}.warrant");
+```warrant
+# warrant/editor.warrant
 
-    return is_file($path) ? warrant_file($path) : [];
+for documents {
+    when has_role('editor') {
+        if is_mine or in_my_team they can view, update
+    }
 }
 ```
 
-Only the file's blocks for the schema the provider was asked about apply. In
+```php
+public function rules(RuleProviderContext $context): array
+{
+    return array_map(
+        fn (string $path) => warrant_file($path),
+        glob(base_path('warrant/*.warrant')),
+    );
+}
+```
+
+Only each file's blocks for the schema the provider was asked about apply. In
 production, cache the parse rather than reading and parsing per request, and
 return the parsed file:
 
 ```php
 $file = Cache::rememberForever(
-    "warrant.rules.{$role}." . filemtime($path),
+    'warrant.rules.'.md5($path).'.'.filemtime($path),
     fn () => WarrantSyntax::parseFile($path),
 );
 ```

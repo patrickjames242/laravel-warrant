@@ -23,10 +23,14 @@ class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): iterable
     {
+        // Every role's rules, each in a when block on its role.
         return DB::table('role_rules')
-            ->where('role_id', $context->user->role_id)
             ->where('schema_key', $context->schemaKey)
-            ->pluck('rule');            // a collection of rule text
+            ->get()
+            ->map(fn ($row) => warrant(
+                "when has_role(:role) {\n{$row->rules}\n}",
+                ['role' => $row->role],
+            ));
     }
 }
 ```
@@ -49,7 +53,7 @@ $context->model;      // App\Models\Document, or null for a schema with no model
 
 A provider can return rule text, `warrant()` text with its values, a parsed
 `WarrantSyntax`, rules, a `RuleSetNode`, or an iterable of any of these. Roles go
-in the rules as conditions, so the same rules answer for every user, including
+in the rules as conditions here, so the same rules answer for every user, including
 when [users are filtered](/checking/filtering-users/) and `$context->user` is null:
 
 ```php
@@ -63,7 +67,7 @@ public function rules(RuleProviderContext $context): string
 ```
 
 `has_role` is a global condition that compares through `$c->userColumn('id')`;
-see [rules the same for everyone](/supplying-rules/provider/#rules-the-same-for-everyone).
+see [branching in the rules or in PHP](/supplying-rules/provider/#branching-in-the-rules-or-in-php).
 
 ## Returning a rule set from a file
 
@@ -72,7 +76,8 @@ use Warrant\DSL\Parsing\BoundSyntax;
 
 public function rules(RuleProviderContext $context): BoundSyntax
 {
-    return warrant_file(base_path("warrant/{$context->user->role}"));
+    // One file holding every role's rules, each in a when block on its role.
+    return warrant_file(base_path('warrant/policy'));
 }
 ```
 
@@ -84,7 +89,8 @@ use Warrant\DSL\Parsing\ASTNodes\RuleSetNode;
 
 public function rules(RuleProviderContext $context): RuleSetNode
 {
-    $teamIds = $context->user->teams->pluck('id');
+    // Values that are not about the user, such as the teams whose documents are open.
+    $teamIds = Team::query()->where('is_open', true)->pluck('id');
 
     return Build::ruleSet($context->schemaKey, function ($rule) use ($teamIds) {
         $rule()->orIf(function ($c) use ($teamIds) {
@@ -104,18 +110,12 @@ public function rules(RuleProviderContext $context): array
 {
     $key = $context->schemaKey;
 
-    $sources = [
-        'they can view',                                         // a baseline
-        $this->roles->forRole($context->user->role, $key),       // the role's rules
+    return [
+        'they can view',                            // a baseline
+        ...$this->roles->forSchema($key),           // each role's rules, in a when block
+        ...$this->teams->forSchema($key),           // each team's rules, in a when block
+        'if is_suspended they cannot *',
     ];
-
-    foreach ($context->user->teams as $team) {
-        $sources[] = $this->teams->forTeam($team, $key);         // each team's rules
-    }
-
-    $sources[] = 'if is_suspended they cannot *';
-
-    return $sources;
 }
 ```
 

@@ -114,7 +114,7 @@ If your provider reads from storage, cache there, where you control invalidation
 public function rules(RuleProviderContext $context): RuleSetNode
 {
     $text = Cache::remember(
-        "warrant.rules.{$context->user->role_id}.{$context->schemaKey}",
+        "warrant.rules.{$context->schemaKey}",
         now()->addMinutes(10),
         fn () => $this->fetchRuleText($context),
     );

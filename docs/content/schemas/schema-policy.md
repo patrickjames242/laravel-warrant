@@ -45,10 +45,9 @@ public function rules(RuleProviderContext $context): iterable
 }
 ```
 
-Rules that depend on the user cannot answer
-[which users hold an ability](/checking/filtering-users/), since that is asked for
-no particular user and `$context->user` is null. See
-[rules the same for everyone](/supplying-rules/provider/#rules-the-same-for-everyone).
+When users are [filtered by the abilities they hold](/checking/filtering-users/),
+`$context->user` is null, so rules picked this way are left out of that answer. See
+[branching in the rules or in PHP](/supplying-rules/provider/#branching-in-the-rules-or-in-php).
 
 Because [rule order never matters](/concepts/grants-and-denials/), a schema's
 `cannot` beats any `can` a provider supplies. That is the whole point: a suspension

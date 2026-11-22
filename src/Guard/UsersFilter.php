@@ -29,8 +29,8 @@ use Warrant\WarrantManager;
  * It answers for every user at once, so it is not a guard: there is no one user.
  * The schema's rules are resolved for no particular user, its conditions are
  * handed a null `$c->user`, and `$c->userColumn()` names a column of each row of
- * the users query. Rules that differ from one user to the next cannot be
- * answered this way, which is why rules are best written the same for everyone.
+ * the users query. Rules a provider picks per user in PHP are not part of the
+ * answer: only what the provider returns for a null user is.
  *
  * A row target becomes a correlated `exists` over the schema's rows, narrowed to
  * that row by the schema's row matcher, with the abilities compiled inside it:

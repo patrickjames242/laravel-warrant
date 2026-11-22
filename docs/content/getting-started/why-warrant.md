@@ -88,9 +88,7 @@ class DatabaseRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): RuleSetNode
     {
-        $user = $context->user; // the user these rules are for
-
-        if ($context->schemaKey === 'documents' && $user->role === 'employee') {
+        if ($context->schemaKey === 'documents') {
             return WarrantSyntax::parse('
                 if is_my_own_document or manages_team they can update
                 if is_document_locked and not is_admin they cannot update

@@ -114,20 +114,20 @@ public function isPublic(RowConditionContext $c): Builder|bool
 }
 ```
 
-## Rules have to be the same for everyone
+## Rules picked per user
 
 The rules are resolved once, for no particular user, and your rule provider is
-handed a null `$context->user`. A provider that returns different rules for
-different users cannot answer this question, because there is no one user to
-return them for.
-
-Write the rules the same for everyone, and let conditions decide who they match:
+handed a null `$context->user`. Rules that branch inside the text, with conditions
+deciding who they match, answer this question in full:
 
 ```warrant
 if in_my_team they can edit
 ```
 
-See [the rule provider](/supplying-rules/provider/#rules-the-same-for-everyone).
+A provider that picks different rules for different users in PHP still works, and
+some applications need one. A users filter then sees only the rules the provider
+returns for no user. See [branching in the rules or in
+PHP](/supplying-rules/provider/#branching-in-the-rules-or-in-php).
 
 ## The target
 

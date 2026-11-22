@@ -31,41 +31,50 @@ class FileRuleProvider implements IRuleProvider
 
 The provider is asked once for each schema a check touches. `warrant_file()` reads
 the file, and Warrant keeps the `for documents` block when the schema is
-`documents` and leaves out every block for another schema. Every user gets the
-same rules here,
-which is fine for a first pass. The context tells you who is asking and what
-about:
+`documents` and leaves out every block for another schema. The context tells you
+what is being asked about:
 
 ```php
-$context->user;       // the Authenticatable being checked
 $context->schemaKey;  // 'documents'
 $context->schema;     // App\Warrant\DocumentSchema
 $context->model;      // App\Models\Document, or null for a schema with no model
+$context->user;       // the Authenticatable being checked, or null
 ```
 
-A real provider usually picks rules per user. One file per role:
+Every user gets the same rules here, which suits most applications. Differences
+between users, such as roles, can live inside the rules as conditions rather than
+in which rules the provider picks:
 
-```php
-public function rules(RuleProviderContext $context): BoundSyntax
-{
-    return warrant_file(base_path("warrant/{$context->user->role}"));
+```warrant
+for documents {
+    when has_role('editor') {
+        if is_mine or in_my_team they can view, update
+    }
 }
 ```
 
-Or rules stored per role in the database:
+Rules that are the same for everyone can also be asked
+[which users hold an ability](/checking/filtering-users/), where there is no one
+user to pick rules for. A provider may still pick rules per user when it has to. Rules stored per role in the database keep the same shape,
+each role's rules wrapped in its condition:
 
 ```php
 public function rules(RuleProviderContext $context): iterable
 {
     return DB::table('role_rules')
-        ->where('role_id', $context->user->role_id)
         ->where('schema_key', $context->schemaKey)
-        ->pluck('rule');
+        ->get()
+        ->map(fn ($row) => warrant(
+            "when has_role(:role) {\n{$row->rules}\n}",
+            ['role' => $row->role],
+        ));
 }
 ```
 
 A collection of rule text is a valid return. Each row is read as rule text for the
-schema you were asked about, and the rows merge into one set.
+schema you were asked about, and the rows merge into one set. `has_role` is a
+condition you write; see [branching in the rules or in
+PHP](/supplying-rules/provider/#branching-in-the-rules-or-in-php).
 
 ## Wire it up
 

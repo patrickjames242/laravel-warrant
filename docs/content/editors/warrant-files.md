@@ -100,17 +100,10 @@ class FileRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): array
     {
-        $files = [];
-
-        foreach ($context->user->roleNames() as $role) {
-            $path = base_path("warrant/roles/{$role}.warrant");
-
-            if (is_file($path)) {
-                $files[] = $this->parsed($path);
-            }
-        }
-
-        return $files;
+        return array_map(
+            fn (string $path) => $this->parsed($path),
+            glob(base_path('warrant/roles/*.warrant')),
+        );
     }
 
     private function parsed(string $path): WarrantSyntax
@@ -123,8 +116,11 @@ class FileRuleProvider implements IRuleProvider
 }
 ```
 
-Each file's blocks for the schema the provider was asked about apply; its blocks
-for every other schema are left out. Keying the cache on `filemtime` means an edit
+Every file is returned for every user. Each one says which users it is for, with a
+`when` block on its role inside each schema's block, so the same rules answer every
+question, including [which users hold an ability](/checking/filtering-users/). Each
+file's blocks for the schema the provider was asked about apply; its blocks for
+every other schema are left out. Keying the cache on `filemtime` means an edit
 invalidates it without a deploy step.
 
 ## Validating them in CI

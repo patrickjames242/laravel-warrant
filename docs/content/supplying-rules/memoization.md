@@ -99,7 +99,7 @@ invalidation:
 public function rules(RuleProviderContext $context): RuleSetNode
 {
     $text = Cache::remember(
-        "warrant.rules.{$context->user->role_id}.{$context->schemaKey}",
+        "warrant.rules.{$context->schemaKey}",
         now()->addMinutes(10),
         fn () => $this->fetchRuleText($context),
     );
@@ -108,7 +108,9 @@ public function rules(RuleProviderContext $context): RuleSetNode
 }
 ```
 
-Cache the text or the built set, and invalidate it on write. Warrant's own memo
+When the rules are the same for every user, the cache key is the schema alone; a
+provider that picks rules per user keys by the user too. Cache the text or the
+built set, and invalidate it on write. Warrant's own memo
 then sits in front of yours, so a request that checks twenty documents still hits
 neither.
 

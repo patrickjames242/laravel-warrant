@@ -39,7 +39,7 @@ class CachingRuleProvider implements IRuleProvider
 
     public function rules(RuleProviderContext $context): RuleSetNode
     {
-        return $this->cache[$context->user->id] ??= $this->build($context);
+        return $this->cache[$context->schemaKey] ??= $this->build($context);
     }
 }
 ```

@@ -26,12 +26,21 @@ class DatabaseRuleProvider implements IRuleProvider
     public function rules(RuleProviderContext $context): iterable
     {
         return DB::table('role_rules')
-            ->where('role_id', $context->user->role_id)
             ->where('schema_key', $context->schemaKey)
-            ->pluck('rule');            // a collection of rule text
+            ->get()
+            ->map(fn ($row) => warrant(
+                "when has_role(:role) {\n{$row->rules}\n}",
+                ['role' => $row->role],
+            ));
     }
 }
 ```
+
+Rules are stored per role, but every role's rules are returned, each inside a
+`when` block on that role. The provider picks rules by schema rather than by user,
+so the same rules answer every question, including
+[which users hold an ability](/checking/filtering-users/). See
+[branching in the rules or in PHP](#branching-in-the-rules-or-in-php).
 
 ## What you are handed
 
@@ -42,8 +51,9 @@ $context->schema;     // App\Warrant\DocumentSchema
 $context->model;      // App\Models\Document, or null for a schema with no model
 ```
 
-You are asked once per user and schema, so the provider is called with one schema
-key at a time rather than being asked for everything.
+You are asked once per user and schema, and once per schema for no user at all, so
+the provider is called with one schema key at a time rather than being asked for
+everything.
 
 ## What you may return
 
@@ -67,8 +77,7 @@ schema. A schema's own [`rules()`](/schemas/schema-policy/) is stricter: every
 rule set it returns must be for that schema.
 
 Returning nothing — `''`, `[]`, an empty collection or an empty set — is legitimate
-and means this user has no rules for this resource, which denies everything. That is the right answer for an anonymous or
-unprivileged user.
+and means there are no rules for this resource, which denies everything.
 
 ## Registering it
 
@@ -93,51 +102,56 @@ denies.
 ## Shapes that work
 
 **Rules stored as text, per role.** The example above. Each row is read as rule
-text, and the rows merge into one set.
+text inside its role's `when` block, and the rows merge into one set.
 
-**Rules built in code, per role name.** No storage at all, and the policy lives in
-your repository where it can be reviewed:
+**Rules written in code.** No storage at all, and the policy lives in your
+repository where it can be reviewed:
 
 ```php
-public function rules(RuleProviderContext $context): string|iterable
+public function rules(RuleProviderContext $context): string
 {
-    return match ($context->user->role) {
-        'admin'  => 'they can *',
-        'editor' => $this->editorRules($context),
-        default  => [],
-    };
+    return <<<'WARRANT'
+        when has_role('admin') {
+            they can *
+        }
+
+        when has_role('editor') {
+            if is_mine or in_my_team they can view, update
+        }
+    WARRANT;
 }
 ```
 
 **Rules from a file on disk**, which is what [`.warrant`
-files](/supplying-rules/where-rules-live/) are for:
+files](/supplying-rules/where-rules-live/) are for. One file can hold every role:
 
 ```php
 public function rules(RuleProviderContext $context): BoundSyntax
 {
-    return warrant_file(base_path("warrant/{$context->user->role}"));
+    return warrant_file(base_path('warrant/policy'));
 }
 ```
 
 **Several sources merged**, which is the shape most real applications end up with.
 That has [its own page](/supplying-rules/composing/).
 
-## Rules the same for everyone
+## Branching in the rules or in PHP
 
 `$context->user` is null when Warrant asks which users hold an ability, as
 [filtering users](/checking/filtering-users/) does. One query answers for every
 user at once, so the rules are resolved once, for no particular user.
 
-A provider that returns different rules for different users cannot answer that.
-The role lookup above is one: with no user there is no `role_id` to look up, and
-returning nothing would grant nobody.
-
-Return the same rules for everyone, and let a condition decide which users each
-rule matches. The role becomes something the rule tests rather than something
-that picks the rules:
+Rules that differ between users can be written two ways: branch inside the rule
+text, with conditions, or branch in the provider's PHP, picking different rules
+for different users. For most applications the first is the better default,
+because the same rules then answer every question, including which users hold an
+ability. The role becomes something the rules test rather than something that
+picks them:
 
 ```warrant
-if has_role('editor') they can edit
+when has_role('editor') {
+    if is_mine or in_my_team they can view, update
+}
 ```
 
 ```php
@@ -156,8 +170,28 @@ For a check about one user, `userColumn('id')` is that user's key. For a filter
 over users, it is each user's own column. The same rule answers both questions.
 See [the user's row](/schemas/conditions/#the-users-row).
 
-Rules that differ per user still work for checks about one user. They just
-cannot be asked which users hold an ability.
+Branching in PHP is still a reasonable choice, and some applications need it. If
+every user can be given a permission set of their own, there may be thousands of
+distinct rule sets, and folding all of them into one rule text that answers for
+every user at once would be impractical. Pick the rules per user in the provider
+then:
+
+```php
+public function rules(RuleProviderContext $context): iterable
+{
+    if ($context->user === null) {
+        // No one user: the rules that hold for everyone, if there are any.
+        return $this->sharedRules($context->schemaKey);
+    }
+
+    return $this->permissionSetFor($context->user, $context->schemaKey);
+}
+```
+
+Checks about one user work exactly as before. What changes is filtering users:
+with no user to pick for, it sees only the rules the provider returns for null.
+The two approaches mix, too, with shared rules branching in the text and the
+per-user parts picked in PHP.
 
 ## It is called once per request
 

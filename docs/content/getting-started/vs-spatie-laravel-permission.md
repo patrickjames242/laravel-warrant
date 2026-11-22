@@ -143,7 +143,7 @@ class DocumentRuleProvider implements IRuleProvider
 {
     public function rules(RuleProviderContext $context): string
     {
-        // $context->user and $context->schemaKey tell you who's asking, and about what
+        // $context->schemaKey tells you what is being asked about
         return '
             if is_self or manages_team they can update
             if is_locked and not is_admin they cannot update
@@ -250,26 +250,28 @@ into memory and filtered in PHP — and the check, the filter, and the per-row c
 ## Can you use them together?
 
 Yes — they operate at different layers, so Spatie (or any role system) can stay as
-your **source of roles**, while Warrant does the actual authorization. Your
-[provider](/supplying-rules/provider/) translates the current user's roles into the rules
-for a resource:
+your **source of roles**, while Warrant does the actual authorization. A condition
+reads Spatie's tables, and the rules test it:
 
 ```php
-use Warrant\Rules\RuleProviderContext;
-use Warrant\Rules\IRuleProvider;
-
-class DatabaseRuleProvider implements IRuleProvider
+#[GlobalCondition] // is_admin: Spatie answers "what role?"
+public function isAdmin(GlobalConditionContext $c): Builder
 {
-    public function rules(RuleProviderContext $context): string
-    {
-        if ($context->user->hasRole('admin')) {          // Spatie answers "what role?"
-            return 'they can *';
-        }
-
-        return 'if is_self they can view, update';       // Warrant answers "on which rows?"
-    }
+    return $c->query->whereExists(fn ($sub) => $sub
+        ->from('model_has_roles')
+        ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+        ->whereColumn('model_has_roles.model_id', $c->userColumn('id'))
+        ->where('roles.name', 'admin'));
 }
 ```
+
+```warrant
+if is_admin they can *
+if is_self they can view, update
+```
+
+Warrant answers "on which rows?", and because the role is a condition, the same
+rules also answer [which users can edit this document](/checking/filtering-users/).
 
 Spatie tells you *"what role is this user?"* Warrant answers the question that
 actually took all the work: *"so what can they do to these rows?"*
