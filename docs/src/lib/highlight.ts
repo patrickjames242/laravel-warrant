@@ -63,27 +63,48 @@ const SQL_KEYWORDS = new Set([
 
 const TOKEN = /(\/\/.*|--.*|'[^']*'|"[^"]*"|@\w+|\$\w+|->|::|#\[|\w+|\s+|[^\w\s])/g
 
+/** Attributes on a PHP method whose returned string is rule text. */
+const RULE_TEXT_ATTRIBUTE = /#\[(RuleTemplate|DerivedCondition)\b/
+
 /**
  * A small tokenizer for the languages the site shows. PHP and SQL are coloured
  * by shape, which is enough for short, hand-written snippets and keeps the page
- * free of a full highlighter. Rule text is coloured by {@link highlightRule}.
+ * free of a full highlighter. Rule text is coloured by {@link highlightRule},
+ * and so is a string a PHP method marked `#[RuleTemplate]` or
+ * `#[DerivedCondition]` returns, as the editor plugins colour it.
  */
 export function highlight(source: string, language: Language): Line[] {
   const lines = source.replace(/^\n/, '').replace(/\s+$/, '').split('\n')
 
   if (language === 'rule') return lines.map((line) => ({ tokens: highlightRule(line) }))
 
+  // Set from a rule-text attribute until the method under it returns a string.
+  let returnsRuleText = false
+
   return lines.map((line) => {
+    if (language === 'php' && line.includes('#[')) returnsRuleText = RULE_TEXT_ATTRIBUTE.test(line)
+
     let previous = ''
 
-    const tokens = (line.match(TOKEN) ?? []).map((text): Token => {
+    const tokens = (line.match(TOKEN) ?? []).flatMap((text): Token[] => {
+      if (returnsRuleText && previous === 'return' && /^['"]/.test(text)) {
+        returnsRuleText = false
+        previous = text
+        return ruleString(text)
+      }
       const token = classify(text, language, previous)
       if (!/^\s+$/.test(text)) previous = text
-      return token
+      return [token]
     })
 
     return { tokens }
   })
+}
+
+/** A PHP string literal holding rule text: its quotes as a string, its content as rule text. */
+function ruleString(literal: string): Token[] {
+  const quote: Token = { text: literal.charAt(0), kind: 'string', weight: 400 }
+  return [quote, ...highlightRule(literal.slice(1, -1)), { ...quote }]
 }
 
 const RULE_TOKEN =

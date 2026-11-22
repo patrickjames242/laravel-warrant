@@ -105,7 +105,7 @@ export function Hero() {
             <span data-choreo="intro" className="block text-balance">
               Write authorization once.
             </span>
-            <span className="sr-only">Use it to filter queries, check a row, list abilities, and filter users.</span>
+            <span className="sr-only">Use it to filter models, check a row, list abilities, and filter users.</span>
             <span data-choreo="intro" className="mt-[0.3em] flex justify-center">
               <HeroPrompt />
             </span>

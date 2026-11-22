@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
  * tabs list them. Every ending follows the same opening.
  */
 const OPENING = 'Use it to '
-const ENDINGS = ['filter queries.', 'check a row.', 'list abilities.', 'filter users.']
+const ENDINGS = ['filter models.', 'check a row.', 'list abilities.', 'filter users.']
 const LINES = ENDINGS.map((ending) => OPENING + ending)
 const LONGEST = LINES.reduce((longest, line) => (line.length > longest.length ? line : longest))
 
@@ -79,6 +79,10 @@ export function HeroPrompt() {
   }, [state, still])
 
   const line = LINES[state.at] ?? ''
+  // A terminal's cursor holds steady while letters are typed or erased, and
+  // blinks only while it waits.
+  const [, delay] = advance(state)
+  const typing = !still && (delay === LETTER || delay === ERASE)
   // Everything typed but the last letter, which the cursor sits on.
   const before = line.slice(0, Math.max(state.typed - 1, 0))
 
@@ -102,7 +106,7 @@ export function HeroPrompt() {
         </span>
         <span className="col-start-1 row-start-1 whitespace-pre">
           {before}
-          <Cursor letter={state.typed ? line[state.typed - 1] : undefined} />
+          <Cursor letter={state.typed ? line[state.typed - 1] : undefined} blinking={!typing} />
         </span>
       </span>
     </span>
@@ -111,12 +115,16 @@ export function HeroPrompt() {
 
 /**
  * A terminal's block cursor on one letter: a solid coral cell with the letter
- * showing through in the ground colour. As it blinks off the letter shows in
- * coral again. With no letter yet it is an empty cell.
+ * showing through in the ground colour. While it blinks, each time it goes off
+ * the letter shows in coral again. With no letter yet it is an empty cell.
  */
-function Cursor({ letter }: { letter?: string }) {
+function Cursor({ letter, blinking = true }: { letter?: string; blinking?: boolean }) {
   return (
-    <span className="inline-block w-[1ch] animate-[cursor-blink_1.05s_step-end_infinite] bg-coral text-center leading-[1.2em] text-ink [--cursor-off:var(--color-coral)]">
+    <span
+      className={`inline-block w-[1ch] bg-coral text-center leading-[1.2em] text-ink [--cursor-off:var(--color-coral)] ${
+        blinking ? 'animate-[cursor-blink_1.05s_step-end_infinite]' : ''
+      }`}
+    >
       {letter === ' ' || letter === undefined ? ' ' : letter}
     </span>
   )

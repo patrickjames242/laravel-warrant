@@ -9,7 +9,7 @@ const PIECES = [
   {
     title: 'Schema',
     tagline: 'What can be expressed.',
-    body: "The vocabulary for one resource: its abilities and the conditions a rule may test. Each condition knows how to become SQL. It decides nothing.",
+    body: 'Lists what can be done to a document, and the conditions rules can test. is_owner becomes SQL; feature_enabled answers in PHP.',
     label: 'DocumentSchema.php',
     language: 'php',
     source: `class DocumentSchema extends ModelSchema
@@ -18,38 +18,53 @@ const PIECES = [
 
     #[Ability] public const VIEW = 'view';
     #[Ability] public const UPDATE = 'update';
-    #[Ability] public const APPROVE = 'approve';
+    #[Ability] public const DELETE = 'delete';
 
     #[RowCondition]
-    public function isOwner(RowConditionContext $c): Builder
-    {
-        return $c->query->where($c->column('user_id'), $c->user->id);
+    public function isOwner(RowConditionContext $c): Builder {
+        return $c->query->whereColumn($c->column('owner_id'), $c->userColumn('id'));
     }
+
+    #[GlobalCondition]
+    public function featureEnabled(GlobalConditionContext $c, string $feature): bool {
+        return config("features.{$feature}");
+    }
+
+    // ...
 }`,
   },
   {
     title: 'Rules',
     tagline: 'What is allowed.',
-    body: "The policy itself, as plain strings that use the schema's words. Warrant validates every rule against the schema when it compiles. Rules are data.",
-    label: 'RULES',
+    body: 'Says who can do what. Owners can do everything, anyone who can view the folder can view its documents, public documents can be viewed while public links are on, and archived documents stay read-only.',
+    label: 'documents.warrant',
     language: 'rule',
-    source: `if is_owner
-    they can view, update
+    source: `for documents
 
-if is_manager and same_department
-    they can approve`,
+if is_owner they can view, update, delete
+
+# Whoever can see the folder can see its documents.
+if can(view for its folder) they can view
+
+if is_public and feature_enabled('public_links')
+they can view
+
+# Include the rules from the schema's archived_is_read_only
+# template, applied to update and delete.
+@include archived_is_read_only for update, delete`,
   },
   {
-    title: 'Provider',
-    tagline: 'Which rules apply.',
-    body: 'An optional class you write. At request time it hands Warrant the rules for this user and this resource, from wherever your app keeps them.',
-    label: 'RoleRuleProvider.php',
+    title: 'Source',
+    tagline: 'Where the rules live.',
+    body: "The schema's rules() method reads documents.warrant, so those rules govern every document.",
+    label: 'DocumentSchema.php',
     language: 'php',
-    source: `class RoleRuleProvider implements IRuleProvider
+    source: `class DocumentSchema extends ModelSchema
 {
-    public function rules(RuleProviderContext $context): string
-    {
-        return $context->user->role->rules;
+    // ...
+
+    public function rules(RuleProviderContext $context): BoundSyntax {
+        return warrant_file(base_path('warrant/documents.warrant'));
     }
 }`,
   },
@@ -87,7 +102,7 @@ export function MentalModel() {
           <div className="max-w-190">
             <Eyebrow>01 — The mental model</Eyebrow>
             <h2 className="mt-5.5 text-[clamp(44px,6.16vw,88px)] leading-[0.95] font-extrabold tracking-[-0.045em] text-balance text-title">
-              Three pieces. Each does one job.
+              Behind every rule is a schema.
             </h2>
           </div>
         </div>
