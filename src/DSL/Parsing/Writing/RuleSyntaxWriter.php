@@ -12,6 +12,7 @@ use Warrant\DSL\Parsing\ASTNodes\AndNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\BooleanNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
@@ -391,6 +392,11 @@ final class RuleSyntaxWriter
      */
     private function messageArg(INode $node): string
     {
+        // A constant is written as its name in both modes; its value is the schema's.
+        if ($node instanceof ConstantRef) {
+            return $node->written();
+        }
+
         $message = $this->value($node);
 
         if ($this->bound) {
@@ -427,7 +433,13 @@ final class RuleSyntaxWriter
         // same rule: it renders identically in both modes, and not as a binding.
         // The body is quoted/escaped so it round-trips back through the lexer.
         if ($value instanceof SqlRef) {
-            return '@sql ' . $this->literal($this->value($value->sql));
+            return '@sql ' . ($value->sql instanceof ConstantRef ? $value->sql->written() : $this->literal($this->value($value->sql)));
+        }
+
+        // A constant is likewise written as its name in both modes: its value is
+        // the schema's, not the rule's.
+        if ($value instanceof ConstantRef) {
+            return $value->written();
         }
 
         if ($this->bound) {

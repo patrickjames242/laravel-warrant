@@ -167,3 +167,13 @@ it('marks a condition or constant a global declares that a global listed before 
 
     expect(diagnosticCodes(openTenancyWithTemplate('if in_current_tenant they can')))->not->toContain('duplicate-global-name');
 });
+
+it('marks a constant no schema declares, and an @sql constant that is not a string, but not one whose value is not known', function () {
+    $opened = fn (string $text): array => openInFixture('warrant/constants.warrant', $text);
+
+    expect(diagnosticCodes($opened("for documents { if in_team(billing.invoice_prefix, tenant_source) they can view }")))->toBe([])
+        ->and(diagnosticCodes($opened('for documents { if in_team(nowhere) they can view }')))->toBe(['unknown-constant'])
+        ->and(diagnosticCodes($opened('for documents { if in_team(billing.tenant_source) they can view }')))->toBe(['unknown-constant'])
+        ->and(diagnosticCodes($opened('for documents { if in_team(@sql billing.managers) they can view }')))->toBe(['invalid-constant-value'])
+        ->and(diagnosticCodes($opened('for documents { if in_team(@sql billing.computed) they can view }')))->toBe([]);
+});

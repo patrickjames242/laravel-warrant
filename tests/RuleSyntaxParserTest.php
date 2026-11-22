@@ -589,7 +589,7 @@ it('errors when @sql is not followed by a quoted string', function (string $synt
         ->toThrow(WarrantSyntaxException::class, $needle);
 })->with([
     'missing string' => ['if is_teacher(@sql) they can view', 'Expected a quoted SQL string'],
-    'identifier not string' => ['if is_teacher(@sql foo) they can view', 'Expected a quoted SQL string'],
+    'number not string' => ['if is_teacher(@sql 5) they can view', 'Expected a quoted SQL string'],
 ]);
 
 // -- Wildcards ----------------------------------------------------------------

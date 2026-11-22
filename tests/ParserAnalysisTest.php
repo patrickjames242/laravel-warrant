@@ -420,7 +420,7 @@ it('puts a placeholder where an argument is missing, so the arguments keep their
         'in an unclosed list' => ['if a( they can view', [$expectedArgument, 'they'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
         'a context reference with no key' => ['if a(@context) they can view', ["Expected a context key after '@context'.", ')'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
         'a column reference with no column' => ['if a(@column x.) they can view', ["Expected a column name after '@column x.'.", ')'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
-        'an sql reference with a number for a body' => ['if a(@sql 5) they can view', ["Expected a quoted SQL string or a binding (:name) after '@sql'.", '5'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
+        'an sql reference with a number for a body' => ['if a(@sql 5) they can view', ["Expected a quoted SQL string, a binding (:name) or a constant after '@sql'.", '5'], [new MissingArgumentNode(SyntaxLocation::noProducer())]],
     ];
 });
 
@@ -445,7 +445,7 @@ it('reads a with map past a missing key or value, and keeps both of a key writte
 it('reads a because with no message as giving none', function () {
     $source = 'if a they cannot view because';
 
-    expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string or a binding (:name).", '']])
+    expect(analysisDiagnostics($source))->toBe([["Expected a denial message after 'because': a quoted string, a binding (:name) or a constant.", '']])
         ->and(WarrantParser::analyze($source)->syntax->children)->toEqualSyntax(WarrantParser::parse('if a they cannot view')->children);
 });
 

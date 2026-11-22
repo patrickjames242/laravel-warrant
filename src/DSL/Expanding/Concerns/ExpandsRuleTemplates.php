@@ -161,7 +161,7 @@ trait ExpandsRuleTemplates
             $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($body, new ValidationInput($this->catalog)));
 
             /** @var list<RuleNode|IncludeInvocationNode|WhenBlockNode> */
-            return self::eachWithBindingsReplaced($valid->entriesFor((string) $producer->schemaKey));
+            return $this->eachWithBindingsAndConstantsReplaced($valid->entriesFor((string) $producer->schemaKey), (string) $producer->schemaKey);
         }
 
         if ($body instanceof RuleNode || $body instanceof IncludeInvocationNode) {

@@ -134,6 +134,12 @@ enum DiagnosticCode: string
     /** A rule template the schema does not declare, named by an `@include`. */
     case UnknownTemplate = 'unknown-template';
 
+    /** A constant no schema the name is looked up in declares. */
+    case UnknownConstant = 'unknown-constant';
+
+    /** A constant whose value cannot stand where it is written, as a number for an `@sql` body. */
+    case InvalidConstantValue = 'invalid-constant-value';
+
     /** A row relation the schema the rule is for does not declare, named after `its`. */
     case UnknownRelation = 'unknown-relation';
 

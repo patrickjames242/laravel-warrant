@@ -25,9 +25,7 @@ trait ExpandsCheckPredicates
      */
     private function expandCheckPredicate(CrossSchemaConditionNode $node, string $schemaKey, ExpansionTrail $trail): CrossSchemaConditionNode
     {
-        $targetKey = $node->handle instanceof RelationHandleNode
-            ? $this->catalog->constructs()->rowRelation($node->handle->relation->name, $schemaKey)?->targetKey
-            : $node->handle->schemaKey->name;
+        $targetKey = $this->checkTargetKey($node, $schemaKey);
 
         /* A schema nobody registered, or a relation nothing declares, has no
            conditions to expand. Leaving the reference as it is lets the validator
@@ -55,5 +53,20 @@ trait ExpandsCheckPredicates
             $node->alias,
             $node->location,
         );
+    }
+
+    /**
+     * The key of the schema a `check(...)` names: the one written after `for`, or
+     * the target of the row relation `its` follows. Null for a relation nothing
+     * declares.
+     *
+     * @param string $schemaKey The schema the rule is for, whose row relation an
+     *   `its` handle follows.
+     */
+    private function checkTargetKey(CrossSchemaConditionNode $node, string $schemaKey): ?string
+    {
+        return $node->handle instanceof RelationHandleNode
+            ? $this->catalog->constructs()->rowRelation($node->handle->relation->name, $schemaKey)?->targetKey
+            : $node->handle->schemaKey->name;
     }
 }

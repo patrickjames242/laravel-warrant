@@ -24,8 +24,8 @@ use Warrant\DSL\Validation\ValidationInput;
  *
  * Only {@see expand()} makes one, and only from {@see ValidSyntax}es, so
  * holding an ExpandedSyntax is proof that its text was validated, then
- * expanded. Expansion puts the value of every binding in its
- * place, so no {@see BindingNode} is left in its rules.
+ * expanded. Expansion puts the value of every binding and constant in its
+ * place, so no {@see BindingNode} or {@see ConstantRef} is left in its rules.
  *
  * @internal
  */

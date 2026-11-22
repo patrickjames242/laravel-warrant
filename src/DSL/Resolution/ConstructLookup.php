@@ -119,6 +119,23 @@ final class ConstructLookup
     }
 
     /**
+     * Every constant a bare name written in $writtenIn could name, in the order
+     * they are looked up in.
+     *
+     * @return list<string>
+     */
+    public function constantNamesFrom(ISchemaId $writtenIn): array
+    {
+        $names = [];
+
+        foreach ($this->searchForConstruct($writtenIn) as [, $vocabulary]) {
+            array_push($names, ...$vocabulary->constantNames());
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
      * Every rule template an `@include` written in $writtenIn could name, in the
      * order they are looked up in.
      *

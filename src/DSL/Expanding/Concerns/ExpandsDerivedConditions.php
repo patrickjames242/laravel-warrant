@@ -141,7 +141,7 @@ trait ExpandsDerivedConditions
             ),
         );
 
-        return self::withBindingsReplaced($valid->conditionExpression());
+        return $this->withBindingsAndConstantsReplaced($valid->conditionExpression(), $schemaKey);
     }
 
     /**
@@ -218,6 +218,6 @@ trait ExpandsDerivedConditions
 
         $valid = self::validateAnswer($producer, fn () => ValidSyntax::of($syntax, new ValidationInput($this->catalog)));
 
-        return self::withBindingsReplaced($valid->conditionExpression());
+        return $this->withBindingsAndConstantsReplaced($valid->conditionExpression(), (string) $producer->schemaKey);
     }
 }

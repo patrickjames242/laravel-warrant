@@ -116,9 +116,9 @@ trait ValidatesExpressions
             $node instanceof ConditionNode => $this->assertConditionValid($node, $writtenIn, $scope, $predicateOf),
             $node instanceof CrossSchemaCanNode => $predicateOf !== null && $node->handle !== null
                 ? $this->failSchemaCanInCheck($node, $predicateOf)
-                : $this->assertCrossSchemaCanValid($node, $vocabulary, $scope),
+                : $this->assertCrossSchemaCanValid($node, $vocabulary, $scope, $writtenIn),
             $node instanceof CrossSchemaConditionNode => $predicateOf === null
-                ? $this->assertCrossSchemaConditionValid($node, $vocabulary, $scope)
+                ? $this->assertCrossSchemaConditionValid($node, $vocabulary, $scope, $writtenIn)
                 : $this->failNestedCheck($node, $predicateOf),
             $node instanceof NotNode => $this->validateExpression($node->operand, $vocabulary, $scope, $writtenIn, $predicateOf),
             $node instanceof AndNode, $node instanceof OrNode => (function () use ($node, $vocabulary, $scope, $writtenIn, $predicateOf): void {
@@ -198,7 +198,10 @@ trait ValidatesExpressions
         CrossSchemaCanNode $node,
         ?Vocabulary $vocabulary,
         ?AliasScope $scope,
+        ?ISchemaId $writtenIn,
     ): void {
+        $this->assertConstantsResolve([...$node->handle?->rowSelector() ?? [], ...self::withValues($node->contextMap)], $writtenIn);
+
         if ($node->handle === null) {
             $this->assertOwnAbilityValid($node, $vocabulary);
 
@@ -248,8 +251,17 @@ trait ValidatesExpressions
      *
      * As with `can(...)` the target may be this schema itself.
      */
-    private function assertCrossSchemaConditionValid(CrossSchemaConditionNode $node, ?Vocabulary $vocabulary, ?AliasScope $scope): void
-    {
+    private function assertCrossSchemaConditionValid(
+        CrossSchemaConditionNode $node,
+        ?Vocabulary $vocabulary,
+        ?AliasScope $scope,
+        ?ISchemaId $writtenIn,
+    ): void {
+        /* The handle's arguments are written in the enclosing rule, so their
+           constants are looked up from where the rule is written, not from the
+           schema the check names. */
+        $this->assertConstantsResolve([...$node->handle->rowSelector(), ...self::withValues($node->contextMap)], $writtenIn);
+
         $reached = $this->handleTarget('check', $node->handle, $vocabulary);
 
         if ($reached === null) {
@@ -667,6 +679,7 @@ trait ValidatesExpressions
             $this->assertConditionDeclared($node, $writtenIn);
         }
 
+        $this->assertConstantsResolve($node->parameters, $writtenIn);
         $this->assertColumnRefsInScope($node->parameters, $scope);
 
         /* Context keys need no declaration: a rule may reference any `@context`

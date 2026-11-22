@@ -22,10 +22,11 @@ use Warrant\DSL\Parsing\Positions\SyntaxLocation;
 readonly class SqlRef implements INode
 {
     /**
-     * @param LiteralNode|BindingNode $sql The SQL as a string literal, or the
-     *   binding that supplies it until expansion puts the string in its place.
+     * @param LiteralNode|BindingNode|ConstantRef $sql The SQL as a string
+     *   literal, or the binding or constant that supplies it until expansion puts
+     *   the string in its place.
      */
-    public function __construct(public LiteralNode|BindingNode $sql, public SyntaxLocation $location) {}
+    public function __construct(public LiteralNode|BindingNode|ConstantRef $sql, public SyntaxLocation $location) {}
 
     public function children(): array
     {

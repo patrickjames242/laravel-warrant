@@ -13,7 +13,8 @@ use Warrant\DSL\Resolution\KeyedSchemaId;
  * standing for abilities whose value names none; an ability written twice, or
  * `*` beside another; a condition or an `@include`'s template that no schema
  * the name is looked up in declares, or a condition or template given too few
- * arguments or too many. The validator reports these against rule text, and the
+ * arguments or too many; a constant no schema the name is looked up in
+ * declares, or one that cannot stand where it is written. The validator reports these against rule text, and the
  * expander rejects the same in any rule set that reaches it, so both say them
  * here, in one way.
  */
@@ -35,6 +36,58 @@ final class LanguageRuleMessages
     public static function unknownCondition(ISchemaId $writtenIn, string $conditionKey): string
     {
         return sprintf('Condition [%s] %s', $conditionKey, self::declaredByNone($writtenIn));
+    }
+
+    /**
+     * @param ISchemaId $writtenIn The schema the constant's name was written in.
+     * @param string $name The constant it names.
+     */
+    public static function unknownConstant(ISchemaId $writtenIn, string $name): string
+    {
+        return sprintf('Constant [%s] %s', $name, self::declaredByNone($writtenIn));
+    }
+
+    /**
+     * @param string $schemaKey The schema the prefix names.
+     * @param string $name The constant written after it.
+     */
+    public static function constantNotDeclaredBy(string $schemaKey, string $name): string
+    {
+        return sprintf(
+            'Constant [%s.%s]: schema [%s] declares no constant [%s]. A schema prefix reaches that schema\'s own '
+                .'constants alone, never a global schema\'s.',
+            $schemaKey,
+            $name,
+            $schemaKey,
+            $name,
+        );
+    }
+
+    /**
+     * @param string $schemaKey The key written before the dot.
+     * @param string $written The constant reference as written.
+     */
+    public static function unknownConstantSchema(string $schemaKey, string $written): string
+    {
+        return sprintf('Constant [%s] names unknown schema [%s].', $written, $schemaKey);
+    }
+
+    /**
+     * @param string $written The constant reference as written.
+     * @param mixed $value Its value.
+     */
+    public static function sqlConstantNotText(string $written, mixed $value): string
+    {
+        return sprintf('An @sql constant must be a string, but [%s] is %s.', $written, get_debug_type($value));
+    }
+
+    /**
+     * @param string $written The constant reference as written.
+     * @param mixed $value Its value.
+     */
+    public static function messageConstantNotText(string $written, mixed $value): string
+    {
+        return sprintf('A denial message must be a string, but constant [%s] is %s.', $written, get_debug_type($value));
     }
 
     /**
@@ -233,7 +286,7 @@ final class LanguageRuleMessages
 
     public static function messageIsNotText(): string
     {
-        return "A denial message after 'because' is a quoted string or a binding (:name). "
+        return "A denial message after 'because' is a quoted string, a binding (:name) or a string constant. "
             .'@context is not allowed here.';
     }
 

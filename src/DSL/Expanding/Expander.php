@@ -12,7 +12,7 @@ use Warrant\DSL\Expanding\Concerns\ExpandsExpressions;
 use Warrant\DSL\Expanding\Concerns\ExpandsRuleTemplates;
 use Warrant\DSL\Expanding\Concerns\ExpandsRules;
 use Warrant\DSL\Expanding\Concerns\ExpandsWhenBlocks;
-use Warrant\DSL\Expanding\Concerns\ReplacesBindings;
+use Warrant\DSL\Expanding\Concerns\ReplacesBindingsAndConstants;
 use Warrant\DSL\ISchemaCatalog;
 use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\INode;
@@ -35,10 +35,10 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  * wrote into the rules alone that
  * {@see \Warrant\DSL\Parsing\ASTNodes\ExpandedSyntax} holds for everything
  * downstream to read. It reads only {@see ValidSyntax}es, so what it expands
- * has been validated as written, and it replaces every binding with its value,
- * so what it answers with holds none. It reads any number of them for one
- * schema, takes the rules each holds about that schema, and joins them in the
- * order given.
+ * has been validated as written, and it replaces every binding and constant
+ * with its value, so what it answers with holds neither. It reads any number
+ * of them for one schema, takes the rules each holds about that schema, and
+ * joins them in the order given.
  *
  * Parsing keeps the author's shorthand. Expansion spells it out:
  *
@@ -53,7 +53,7 @@ use Warrant\Schema\Types\Interfaces\ISchema;
  *
  * Expansion is a pure function of the rule set and the schemas it names. A
  * template or derived condition method is called with the arguments as written,
- * a literal or a binding as its value — a `@context`, `@column` or `@sql`
+ * a literal, a binding or a constant as its value — a `@context`, `@column` or `@sql`
  * reference arrives as the reference, not its value, and can only be passed on —
  * and answers with text or an expression about no row. What it answers with is
  * placed in a source of its own, whose producer is that template or condition,
@@ -82,7 +82,7 @@ final class Expander
     use ExpandsRules;
     use ExpandsRuleTemplates;
     use ExpandsWhenBlocks;
-    use ReplacesBindings;
+    use ReplacesBindingsAndConstants;
 
     private readonly ISchemaCatalog $catalog;
 
@@ -117,7 +117,7 @@ final class Expander
         $entries = [];
 
         foreach ($syntaxes as $syntax) {
-            array_push($entries, ...self::eachWithBindingsReplaced($syntax->entriesFor($schemaKey)));
+            array_push($entries, ...$this->eachWithBindingsAndConstantsReplaced($syntax->entriesFor($schemaKey), $schemaKey));
         }
 
         return $this->expandTopLevelEntries($entries, $schema, $schemaKey);
@@ -222,7 +222,8 @@ final class Expander
     /**
      * The values a template or derived condition method is called with: a
      * literal as its value, and a `@context`, `@column` or `@sql` reference as
-     * the reference itself. Bindings are replaced by their values by now.
+     * the reference itself. Bindings and constants are replaced by their values
+     * by now.
      *
      * @param list<INode> $arguments
      * @return list<mixed>

@@ -11,6 +11,7 @@ use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\ColumnRef;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\ConditionNode;
 use Warrant\DSL\Parsing\ASTNodes\ContextRef;
 use Warrant\DSL\Parsing\ASTNodes\CrossSchemaCanNode;
@@ -986,6 +987,7 @@ final class RuleTextLayout
             $argument instanceof ContextRef => '@context '.$argument->key->name,
             $argument instanceof ColumnRef => '@column '.($argument->alias === null ? '' : $argument->alias->name.'.').$argument->column->name,
             $argument instanceof SqlRef => '@sql '.$this->argumentText($argument->sql),
+            $argument instanceof ConstantRef => $argument->written(),
             default => $this->writtenText($argument),
         };
     }

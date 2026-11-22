@@ -81,6 +81,7 @@ final class SyntaxValidator
 {
     use ValidatesAbilityBlocks;
     use ValidatesBindings;
+    use ValidatesConstants;
     use ValidatesExpressions;
     use ValidatesRuleEntries;
     use ValidatesWhenBlocks;

@@ -7,6 +7,7 @@ use Warrant\DSL\Parsing\ASTNodes\AbilityBlockNode;
 use Warrant\DSL\Parsing\ASTNodes\BindingNode;
 use Warrant\DSL\Parsing\ASTNodes\CanClauseNode;
 use Warrant\DSL\Parsing\ASTNodes\CannotClauseNode;
+use Warrant\DSL\Parsing\ASTNodes\ConstantRef;
 use Warrant\DSL\Parsing\ASTNodes\INode;
 use Warrant\DSL\Parsing\ASTNodes\IRuleEntryNode;
 use Warrant\DSL\Parsing\ASTNodes\IncludeInvocationNode;
@@ -15,6 +16,7 @@ use Warrant\DSL\Parsing\ASTNodes\NameNode;
 use Warrant\DSL\Parsing\ASTNodes\RuleNode;
 use Warrant\DSL\Parsing\ASTNodes\WhenBlockNode;
 use Warrant\DSL\Parsing\DiagnosticCode;
+use Warrant\DSL\Resolution\ISchemaId;
 use Warrant\Schema\Vocabulary;
 
 /**
@@ -176,6 +178,8 @@ trait ValidatesRuleEntries
 
         $writtenIn = $this->writtenIn($include, $schema, $schemaKey);
 
+        $this->assertConstantsResolve($include->arguments, $writtenIn);
+
         if ($writtenIn === null || $templateKey === INode::MISSING_NAME) {
             return;
         }
@@ -225,7 +229,7 @@ trait ValidatesRuleEntries
         }
 
         $this->assertAbilityListsWellWritten($rule);
-        $this->assertMessagesAreMessages($rule);
+        $this->assertMessagesAreMessages($rule, $this->writtenIn($rule, $schema, $schemaKey));
 
         if ($rule->conditions !== null) {
             $this->validateCondition($rule->conditions, $schema, $schemaKey);
@@ -281,12 +285,16 @@ trait ValidatesRuleEntries
 
     /**
      * A denial message follows only a `they cannot` clause, since one after
-     * `they can` could never surface, and it is text: a quoted string or a
-     * binding, or a closure in a rule built in code. A `@context` is not one,
-     * because a message is fixed before any check rather than read from it.
-     * Whether a binding's value is a message is the binding checks' to say.
+     * `they can` could never surface, and it is text: a quoted string, a
+     * binding, a constant whose value is a string, or a closure in a rule built
+     * in code. A `@context` is not one, because a message is fixed before any
+     * check rather than read from it. Whether a binding's value is a message is
+     * the binding checks' to say.
+     *
+     * @param ISchemaId|null $writtenIn Where a constant naming a message is
+     *   looked up from; null when that is not known.
      */
-    private function assertMessagesAreMessages(RuleNode $rule): void
+    private function assertMessagesAreMessages(RuleNode $rule, ?ISchemaId $writtenIn): void
     {
         foreach ($rule->canClauses as $clause) {
             if ($clause->message !== null) {
@@ -297,10 +305,21 @@ trait ValidatesRuleEntries
         foreach ($rule->cannotClauses as $clause) {
             $message = $clause->message;
             $isText = $message instanceof BindingNode
+                || $message instanceof ConstantRef
                 || ($message instanceof LiteralNode && (is_string($message->value) || $message->value instanceof Closure));
 
             if ($message !== null && ! $isText) {
                 $this->fail(DiagnosticCode::MessageNotText, LanguageRuleMessages::messageIsNotText(), $message->location);
+            }
+
+            $constant = $message instanceof ConstantRef ? $this->resolvedConstant($message, $writtenIn) : null;
+
+            if ($message instanceof ConstantRef && $constant !== null && $constant->valueIsKnown && ! is_string($constant->value)) {
+                $this->fail(
+                    DiagnosticCode::InvalidConstantValue,
+                    LanguageRuleMessages::messageConstantNotText($message->written(), $constant->value),
+                    $message->location,
+                );
             }
         }
     }
