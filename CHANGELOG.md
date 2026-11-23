@@ -31,10 +31,46 @@ The VS Code extension keeps its own changelog in `editors/vscode/CHANGELOG.md`.
   schema's rows go by in the query. It covers a query whose `from` does not name
   them: a `fromSub()` or `fromRaw()`, or the rows joined onto another table.
 
+- Filtering users by the abilities they hold on a row.
+  `User::query()->hasAbilityOn('edit', $document)` keeps the users who can edit
+  the document, through one correlated `exists`, and `Warrant::filterUsers()`
+  does the same for any users query. The target is named as a check's is: a
+  model, a `[ModelClass|SchemaClass, $id]` tuple, or a class for abilities with
+  no target. It is the mirror of `userHasAbility`, which takes a user and keeps
+  rows.
+- `$c->userColumn('team_id')` in a condition names a column of the user's own
+  row, so a condition compares the target row with the user in SQL. It answers
+  both when one user is checked and when users are filtered.
+- The `warrant.user_model` config names the model whose table holds your users,
+  for `userColumn()` when the auth provider returns users that are not models,
+  as Laravel's `database` provider does.
+- `Warrant::ruleSet($schemaKey, $user)` returns the resolved rule set for a
+  schema and a user, or for no user.
+
+### Changed
+
+- A row condition's `column()` takes a column name always. With no argument it
+  fell back to the key column of the rows.
+- A condition's `$c->user` and a rule provider's `$context->user` are null when
+  users are filtered, since the rules then answer for every user at once. A
+  provider is asked once per schema for no user, as well as once per user and
+  schema, and the docs show providers branching on role in rule text with
+  `when` blocks, so the same rules answer both.
+- Rule sets are memoized per schema and user, in one place every check reads
+  through, so a hop to another schema or a reachability analysis reuses the
+  rules resolved for the same user. Guards are not memoized:
+  `Warrant::guard($user)` builds a new guard each time, and every guard reads
+  the same memoized rules.
+- A compile through `RuleSetCompiler` merges the schema's default context under
+  the context it is given and throws when a required key is missing, as a check
+  through a guard does.
+
 ### Removed
 
 - `Warrant\DSL\RuleSyntaxExamples`, a class of rule text examples that never
   ran. The documentation is the reference for rule syntax.
+- Zed support: the Zed extension, the tree-sitter grammar it used, and their
+  docs. VS Code and PhpStorm are the supported editors.
 
 ### Fixed
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Highlight schema constants written as `<schema>.<name>` in rule text. The
+  language server colours a bare constant with semantic tokens.
+- Find the usages of a schema constant across the project's rule text from its
+  `#[Constant]` declaration in PHP. A constant is not renamed with its uses.
+
 ## 0.15.0
 
 - Highlight `its <relation>` and the `any of` and `all of` quantifiers in rule
